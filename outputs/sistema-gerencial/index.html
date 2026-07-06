@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260706-production-db">
+    <link rel="stylesheet" href="styles.css?v=20260706-login-clean">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -20,11 +20,11 @@
         <form class="login-form auth-form" id="loginForm" data-auth-panel="login">
           <label>
             Usuario
-            <select id="loginUserSelect" required></select>
+            <input id="loginUserSelect" type="text" placeholder="Usuario o correo" autocomplete="username" required>
           </label>
           <label>
             Contrasena
-            <input id="loginPassword" type="password" value="admin123" autocomplete="current-password" required>
+            <input id="loginPassword" type="password" placeholder="Contrasena" autocomplete="current-password" required>
           </label>
           <p class="auth-switch-copy">No tienes usuario? <button type="button" data-auth-mode="register">Registrarse</button></p>
           <button class="primary-btn" type="submit">Ingresar</button>
@@ -52,7 +52,7 @@
           </label>
           <label>
             Contrasena
-            <input id="registerPassword" type="password" value="admin123" autocomplete="new-password" required>
+            <input id="registerPassword" type="password" placeholder="Crea una contrasena" autocomplete="new-password" required>
           </label>
           <p class="auth-switch-copy">Ya tienes usuario? <button type="button" data-auth-mode="login">Ingresar</button></p>
           <button class="primary-btn" type="submit">Crear usuario</button>
@@ -389,7 +389,7 @@
       </form>
     </dialog>
 
-    <script src="historical-sales.js?v=20260706-production-db"></script>
-    <script src="app.js?v=20260706-production-db"></script>
+    <script src="historical-sales.js?v=20260706-login-clean"></script>
+    <script src="app.js?v=20260706-login-clean"></script>
   </body>
 </html>

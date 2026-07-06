@@ -194,6 +194,7 @@ const areas = {
 
 const state = {
   role: "general",
+  currentUser: null,
   activeArea: "general",
   activeSubmenu: "resultados",
   commercialMenuOpen: true,
@@ -331,6 +332,7 @@ const historicalClosedSales = (window.historicalClosedSalesCsv || "")
   });
 const opportunitiesStorageKey = "sistemaGerencial.oportunidades.v6";
 const usersStorageKey = "sistemaGerencial.usuarios.v2";
+const sessionStorageKey = "sistemaGerencial.sesion.v1";
 const strategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
 const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
 const defaultUsers = [
@@ -350,6 +352,7 @@ const accessRoles = [
   ["rrhh", "Recursos humanos"]
 ];
 let systemUsers = [];
+let sessionRestored = false;
 const apiEnabled = window.location.protocol !== "file:";
 
 async function apiJson(path, options = {}) {
@@ -1312,9 +1315,7 @@ function sanitizeTestOpportunities(items) {
   });
 
   const notifiedItem = normalized.find((item) => item.managements.some((management) => management.notified))
-    || normalized.find((item) => closureResult(item)?.result === "ganado")
-    || normalized.find((item) => item.id === "opp-002")
-    || normalized[0];
+    || normalized.find((item) => item.id === "opp-002");
   const notifiedId = notifiedItem?.id;
 
   return normalized.map((item) => {
@@ -1357,13 +1358,23 @@ function sanitizeTestOpportunities(items) {
   });
 }
 
-function saveOpportunities() {
+function syncOpportunityViews() {
+  getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(getOpportunitySubmenu().items));
   localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+  if (!appShell.classList.contains("hidden")) {
+    renderDashboard();
+  }
+}
+
+function saveOpportunities() {
+  syncOpportunityViews();
   if (apiEnabled) {
     apiJson("/api/opportunities", {
       method: "PUT",
       body: JSON.stringify(getOpportunitySubmenu().items)
-    }).catch(() => {});
+    })
+      .then(() => syncOpportunityViews())
+      .catch(() => {});
   }
 }
 
@@ -2294,7 +2305,9 @@ function renderKpiComplianceTable(items) {
 function renderDashboard() {
   const area = areas[state.activeArea];
   const hasSubmenus = Array.isArray(area.submenus);
-  activeRoleLabel.textContent = roleDisplayName();
+  activeRoleLabel.textContent = state.currentUser?.name
+    ? `${state.currentUser.name} - ${roleDisplayName()}`
+    : roleDisplayName();
   const activeSubmenu = hasSubmenus
     ? area.submenus.find((item) => item.key === state.activeSubmenu)
     : null;
@@ -2336,12 +2349,14 @@ function loadUsers() {
   }
   saveUsers();
   fillUserAccessOptions();
+  restoreSession();
   if (apiEnabled) {
     apiJson("/api/users")
       .then((users) => {
         systemUsers = normalizeUsers(users);
         localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
         fillUserAccessOptions();
+        restoreSession();
       })
       .catch(() => {});
   }
@@ -2349,6 +2364,46 @@ function loadUsers() {
 
 function saveUsers() {
   localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
+}
+
+function persistSession(user) {
+  localStorage.setItem(sessionStorageKey, JSON.stringify({
+    id: user.id,
+    username: user.username,
+    role: user.role
+  }));
+}
+
+function clearSession() {
+  localStorage.removeItem(sessionStorageKey);
+  sessionRestored = false;
+  state.currentUser = null;
+}
+
+function findUserByCredential(value) {
+  const credential = String(value || "").trim().toLowerCase();
+  return systemUsers.find((user) => [user.id, user.username, user.email]
+    .some((option) => String(option || "").trim().toLowerCase() === credential));
+}
+
+function defaultAreaForRole(role) {
+  return ["general", "accionistas"].includes(role) ? "comercializacion" : role;
+}
+
+function restoreSession() {
+  if (sessionRestored || !loginView || !appShell) return false;
+  try {
+    const saved = JSON.parse(localStorage.getItem(sessionStorageKey) || "null");
+    if (!saved) return false;
+    const user = systemUsers.find((item) => item.id === saved.id || item.username === saved.username);
+    if (!user) return false;
+    sessionRestored = true;
+    openApp(user, { restoreSession: true });
+    return true;
+  } catch {
+    clearSession();
+    return false;
+  }
 }
 
 function createUserInDatabase(user) {
@@ -2360,9 +2415,11 @@ function createUserInDatabase(user) {
 }
 
 function fillUserAccessOptions() {
-  loginUserSelect.innerHTML = systemUsers.map((user) => `
-    <option value="${user.id}">${user.username} - ${roleDisplayName(user.role)}</option>
-  `).join("");
+  if (loginUserSelect.tagName === "SELECT") {
+    loginUserSelect.innerHTML = systemUsers.map((user) => `
+      <option value="${user.id}">${user.username} - ${roleDisplayName(user.role)}</option>
+    `).join("");
+  }
   registerRole.innerHTML = accessRoles.map(([key, label]) => `<option value="${key}">${label}</option>`).join("");
 }
 
@@ -2381,11 +2438,18 @@ function setAuthMode(mode) {
   }
 }
 
-function openApp(role) {
-  state.role = role;
-  state.activeArea = ["general", "accionistas"].includes(role) ? "comercializacion" : role;
-  state.activeSubmenu = "resultados";
-  state.commercialMenuOpen = state.activeArea === "comercializacion";
+function openApp(userOrRole, options = {}) {
+  const user = typeof userOrRole === "string"
+    ? systemUsers.find((item) => item.role === userOrRole) || { id: userOrRole, name: roleDisplayName(userOrRole), role: userOrRole }
+    : userOrRole;
+  state.currentUser = user;
+  state.role = user.role;
+  if (!options.restoreSession || !areas[state.activeArea] || state.activeArea === "general") {
+    state.activeArea = defaultAreaForRole(user.role);
+    state.activeSubmenu = "resultados";
+    state.commercialMenuOpen = state.activeArea === "comercializacion";
+  }
+  persistSession(user);
   loginView.classList.add("hidden");
   appShell.classList.remove("hidden");
   renderDashboard();
@@ -2429,12 +2493,13 @@ document.querySelectorAll("[data-auth-mode]").forEach((button) => {
 
 loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const user = systemUsers.find((item) => item.id === loginUserSelect.value);
+  const user = findUserByCredential(loginUserSelect.value);
   if (!user || user.password !== loginPassword.value) {
     alert("Usuario o contrasena incorrecta.");
     return;
   }
-  openApp(user.role);
+  loginPassword.value = "";
+  openApp(user);
 });
 
 registerForm.addEventListener("submit", (event) => {
@@ -2459,15 +2524,16 @@ registerForm.addEventListener("submit", (event) => {
   createUserInDatabase(user);
   fillUserAccessOptions();
   registerForm.reset();
-  registerPassword.value = "admin123";
-  loginUserSelect.value = user.id;
+  loginUserSelect.value = user.username;
   setAuthMode("login");
-  openApp(user.role);
+  openApp(user);
 });
 
 logoutBtn.addEventListener("click", () => {
+  clearSession();
   appShell.classList.add("hidden");
   loginView.classList.remove("hidden");
+  loginPassword.value = "";
   setAuthMode("login");
 });
 
