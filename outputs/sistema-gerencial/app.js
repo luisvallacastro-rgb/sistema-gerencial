@@ -1,0 +1,2933 @@
+const areas = {
+  general: {
+    label: "Vista ejecutiva",
+    nav: "Gerencia general",
+    status: "Estable",
+    summary: [
+      ["Cumplimiento global", "86%", "Meta consolidada de julio"],
+      ["KPIs en verde", "14/20", "Indicadores dentro de rango"],
+      ["Riesgos altos", "4", "Requieren seguimiento semanal"],
+      ["Solicitudes abiertas", "18", "6 pendientes de aprobacion"]
+    ],
+    results: [
+      ["Financiera", 91],
+      ["Comercializacion", 83],
+      ["Operaciones", 88],
+      ["Recursos humanos", 79]
+    ],
+    kpis: [
+      ["Margen operativo", "22.4%", "+2.1% contra junio", "ok"],
+      ["Ventas ejecutadas", "$184K", "83% de la meta mensual", "warn"],
+      ["Eficiencia operativa", "88%", "Entregas dentro de SLA", "ok"],
+      ["Rotacion mensual", "3.8%", "Rango controlado", "ok"]
+    ],
+    risks: [
+      ["Presion de flujo de caja", "Financiera", "Alto", "danger"],
+      ["Conversion comercial bajo meta", "Comercializacion", "Medio", "warn"],
+      ["Retrasos por proveedor critico", "Operaciones", "Alto", "danger"],
+      ["Cobertura de vacantes tecnicas", "RRHH", "Medio", "warn"]
+    ],
+    requests: [
+      ["Aprobacion de ampliacion presupuestaria", "Financiera", "Alta", "Pendiente"],
+      ["Campana para clientes corporativos", "Comercializacion", "Media", "En revision"],
+      ["Compra de repuestos para mantenimiento", "Operaciones", "Alta", "Aprobado"],
+      ["Plan de capacitacion trimestral", "RRHH", "Media", "Pendiente"]
+    ]
+  },
+  financiera: {
+    label: "Gerencia financiera",
+    nav: "Financiera",
+    status: "Controlado",
+    submenus: [
+      { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
+      { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
+      { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
+      { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
+    ],
+    summary: [
+      ["Ingresos", "$248K", "91% del presupuesto"],
+      ["Gastos", "$174K", "4% debajo del limite"],
+      ["Flujo de caja", "$62K", "Proyeccion a 30 dias"],
+      ["CxC vencida", "$21K", "12 cuentas prioritarias"]
+    ],
+    results: [["Ingresos", 91], ["Gastos controlados", 96], ["Cobranza", 82], ["Rentabilidad", 89]],
+    kpis: [
+      ["Margen neto", "18.7%", "+1.4% mensual", "ok"],
+      ["Liquidez", "1.42", "Rango saludable", "ok"],
+      ["Cuentas por cobrar", "34 dias", "Meta: 30 dias", "warn"],
+      ["Ejecucion presupuestaria", "88%", "Alineada al plan", "ok"]
+    ],
+    risks: [
+      ["Aumento de morosidad en clientes B2B", "Tesoreria", "Alto", "danger"],
+      ["Variacion en costos financieros", "Contabilidad", "Medio", "warn"],
+      ["Dependencia de cobros de cierre", "Tesoreria", "Medio", "warn"]
+    ],
+    requests: [
+      ["Validar presupuesto de campana Q3", "Comercializacion", "Alta", "Pendiente"],
+      ["Conciliacion de pagos operativos", "Operaciones", "Media", "En revision"],
+      ["Aprobar plazas presupuestadas", "RRHH", "Media", "Aprobado"]
+    ]
+  },
+  comercializacion: {
+    label: "Gerencia de comercializacion",
+    nav: "Comercializacion",
+    status: "Atencion",
+    submenus: [
+      {
+        key: "resultados",
+        label: "Resultados",
+        status: "Pipeline activo",
+        items: []
+      },
+      {
+        key: "kpi",
+        label: "KPI",
+        status: "Dashboard visual",
+        items: []
+      },
+      {
+        key: "riesgos",
+        label: "Riesgos",
+        status: "Riesgos futuros",
+        items: []
+      },
+      {
+        key: "solicitudes",
+        label: "Solicitudes",
+        status: "Mensajeria gerencial",
+        items: []
+      }
+    ],
+    summary: [
+      ["Ventas", "$184K", "83% de la meta"],
+      ["Clientes nuevos", "42", "+8 contra junio"],
+      ["Conversion", "18%", "Meta mensual: 22%"],
+      ["Ticket promedio", "$1,240", "+6% mensual"]
+    ],
+    results: [["Ventas", 83], ["Prospectos", 92], ["Conversion", 74], ["Retencion", 86]],
+    kpis: [
+      ["Pipeline ponderado", "$390K", "2.1x de cobertura", "ok"],
+      ["Conversion comercial", "18%", "4 puntos bajo meta", "warn"],
+      ["Retencion", "91%", "Clientes activos", "ok"],
+      ["Tiempo de respuesta", "5h", "Meta: 4h", "warn"]
+    ],
+    risks: [
+      ["Baja conversion en segmento empresarial", "Ventas", "Alto", "danger"],
+      ["Competencia con descuento agresivo", "Mercadeo", "Medio", "warn"],
+      ["Falta de material comercial actualizado", "Mercadeo", "Medio", "warn"]
+    ],
+    requests: [
+      ["Aprobacion de promocion corporativa", "Financiera", "Alta", "Pendiente"],
+      ["Disponibilidad para entregas especiales", "Operaciones", "Media", "En revision"],
+      ["Contratacion de ejecutivo de cuenta", "RRHH", "Alta", "Pendiente"]
+    ]
+  },
+  operaciones: {
+    label: "Gerencia de operaciones",
+    nav: "Operaciones",
+    status: "Estable",
+    submenus: [
+      { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
+      { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
+      { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
+      { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
+    ],
+    summary: [
+      ["Productividad", "88%", "5 puntos sobre junio"],
+      ["Entregas a tiempo", "93%", "SLA operativo"],
+      ["Incidencias", "17", "-9 mensual"],
+      ["Costo por servicio", "$42", "Meta: $39"]
+    ],
+    results: [["Productividad", 88], ["Entregas", 93], ["Calidad", 90], ["Costo", 78]],
+    kpis: [
+      ["SLA cumplido", "93%", "Entregas a tiempo", "ok"],
+      ["Incidencias abiertas", "17", "5 criticas", "warn"],
+      ["Utilizacion de capacidad", "81%", "Rango optimo", "ok"],
+      ["Costo unitario", "$42", "8% sobre meta", "warn"]
+    ],
+    risks: [
+      ["Proveedor critico con retrasos", "Abastecimiento", "Alto", "danger"],
+      ["Capacidad limitada en horas pico", "Logistica", "Medio", "warn"],
+      ["Mantenimiento preventivo acumulado", "Planta", "Medio", "warn"]
+    ],
+    requests: [
+      ["Compra de repuestos prioritarios", "Financiera", "Alta", "Aprobado"],
+      ["Forecast de demanda semanal", "Comercializacion", "Media", "Pendiente"],
+      ["Turnos temporales para cierre", "RRHH", "Media", "En revision"]
+    ]
+  },
+  rrhh: {
+    label: "Gerencia de recursos humanos",
+    nav: "Recursos humanos",
+    status: "Controlado",
+    submenus: [
+      { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
+      { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
+      { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
+      { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
+    ],
+    summary: [
+      ["Rotacion", "3.8%", "Dentro de rango"],
+      ["Ausentismo", "2.1%", "-0.4 mensual"],
+      ["Vacantes", "9", "4 posiciones criticas"],
+      ["Capacitaciones", "76%", "Avance trimestral"]
+    ],
+    results: [["Retencion", 90], ["Clima laboral", 84], ["Capacitacion", 76], ["Cobertura", 81]],
+    kpis: [
+      ["Rotacion mensual", "3.8%", "Meta menor a 5%", "ok"],
+      ["Ausentismo", "2.1%", "Tendencia favorable", "ok"],
+      ["Vacantes criticas", "4", "Prioridad de cierre", "warn"],
+      ["Horas de capacitacion", "312", "76% del plan", "warn"]
+    ],
+    risks: [
+      ["Demora en contrataciones tecnicas", "Talento", "Alto", "danger"],
+      ["Brecha de liderazgo en mandos medios", "Desarrollo", "Medio", "warn"],
+      ["Sobrecarga en equipos operativos", "Bienestar", "Medio", "warn"]
+    ],
+    requests: [
+      ["Aprobacion de plazas criticas", "Financiera", "Alta", "Pendiente"],
+      ["Plan de incentivos comerciales", "Comercializacion", "Media", "En revision"],
+      ["Refuerzo de turnos temporales", "Operaciones", "Media", "Pendiente"]
+    ]
+  }
+};
+
+const state = {
+  role: "general",
+  activeArea: "general",
+  activeSubmenu: "resultados",
+  commercialMenuOpen: true,
+  opportunityFilter: null,
+  opportunityCycleView: "active",
+  kpiView: "dashboard",
+  kpiSeller: "all",
+  period: "Julio 2026"
+};
+
+const areaKeys = ["comercializacion", "financiera", "operaciones", "rrhh"];
+const areaOptions = areaKeys;
+const closureStage = "Cierre de ventas";
+const legacyClosureStages = ["Cierre", closureStage];
+const opportunityStages = [
+  "Prospeccion",
+  "Contacto inicial",
+  "Deteccion de necesidades",
+  "Presentacion de solucion",
+  "Manejo de objeciones",
+  closureStage,
+  "Compilado de informacion",
+  "Postventa"
+];
+const opportunityProbabilities = [
+  ["caliente", "Caliente", "80% o mas"],
+  ["tibio", "Tibio", "50% a 79%"],
+  ["frio", "Frio", "20% a 49%"],
+  ["congelado", "Congelado", "Menos de 20%"]
+];
+const commercialSellers = [
+  "Gabriela Amador",
+  "Jose Amadeo",
+  "Vacante",
+  "Marco Velado",
+  "Marjorie Morales",
+  "Odaliz Valencia"
+];
+const sellerNameMap = {
+  "Mariana Lopez": "Gabriela Amador",
+  "Carlos Mejia": "Jose Amadeo",
+  "Ana Perez": "Marco Velado",
+  "Roberto Diaz": "Marjorie Morales",
+  "Kevin Hernandez": "Vacante",
+  "KEVIN HERNANDEZ": "Vacante"
+};
+const operationalPlan = [
+  { seller: "Gabriela Amador", plan: 184265.02, type: "seller" },
+  { seller: "Jose Amadeo", plan: 359706.77, type: "seller" },
+  { seller: "Vacante", plan: 178403.85, type: "vacancy", note: "Plaza en busqueda al 03/07/2026" },
+  { seller: "Marco Velado", plan: 435818.63, type: "seller" },
+  { seller: "Marjorie Morales", plan: 286722.79, type: "seller" },
+  { seller: "Odaliz Valencia", plan: 286722.78, type: "seller" },
+  { seller: "Online", plan: 0, type: "channel" }
+];
+const goalsMatrixColumns = ["Fecha", "Gabriela Amador", "Jose Amadeo", "Vacante", "Marco Velado", "Marjorie Morales", "Odaliz Valencia", "Online", "Total"];
+const goalsMatrixRows = [
+  ["1/1/2026", 17221.71, 54581.59, 15339.37, 37982.95, 17808.52, 25523.54, 0, 168457.68],
+  ["1/2/2026", 11987.72, 47648.11, 10677.46, 41465.33, 3449.96, 21488.57, 0, 136717.15],
+  ["1/3/2026", 12830.63, 28098.83, 11428.23, 24814.55, 12399.65, 31185.01, 0, 120756.90],
+  ["1/4/2026", 11600.63, 7581.99, 10438.88, 58663.48, 14215.98, 12641.87, 0, 115142.83],
+  ["1/5/2026", 18372.04, 14478.98, 16532.16, 50469.99, 39957.16, 16844.96, 0, 156655.29],
+  ["1/6/2026", 19955.99, 24857.30, 17957.49, 52473.92, 13265.10, 35683.95, 0, 164193.75],
+  ["1/7/2026", 20626.83, 30035.52, 21300.95, 37200.56, 26480.87, 38942.17, 0, 174586.90],
+  ["1/8/2026", 10828.51, 27118.76, 11182.40, 14328.63, 18119.01, 12987.24, 0, 94564.55],
+  ["1/9/2026", 15052.70, 21042.85, 15544.65, 19369.53, 54357.02, 13228.35, 0, 138595.10],
+  ["1/10/2026", 11899.22, 18892.43, 12474.59, 45840.20, 23461.44, 9759.00, 0, 122326.88],
+  ["1/11/2026", 20673.40, 34146.08, 21673.02, 35340.93, 57193.22, 36111.43, 0, 205138.08],
+  ["1/12/2026", 13215.64, 51224.33, 13854.65, 17868.56, 6014.86, 32326.69, 0, 134504.73]
+];
+const closedSalesActuals = [
+  { seller: "Gabriela Amador", month: 1, amount: 2938.01, count: 3 },
+  { seller: "Gabriela Amador", month: 2, amount: 3942.22, count: 5 },
+  { seller: "Gabriela Amador", month: 3, amount: 2469.57, count: 4 },
+  { seller: "Gabriela Amador", month: 4, amount: 3150.00, count: 2 },
+  { seller: "Gabriela Amador", month: 5, amount: 11545.32, count: 5 },
+  { seller: "Gabriela Amador", month: 6, amount: 3773.50, count: 3 },
+  { seller: "Jose Amadeo", month: 1, amount: 74018.69, count: 21 },
+  { seller: "Jose Amadeo", month: 2, amount: 46990.36, count: 25 },
+  { seller: "Jose Amadeo", month: 3, amount: 39338.92, count: 24 },
+  { seller: "Jose Amadeo", month: 4, amount: 13260.99, count: 15 },
+  { seller: "Jose Amadeo", month: 5, amount: 9487.48, count: 10 },
+  { seller: "Jose Amadeo", month: 6, amount: 55103.10, count: 8 },
+  { seller: "Vacante", month: 1, amount: 3591.72, count: 3 },
+  { seller: "Vacante", month: 2, amount: 583.08, count: 1 },
+  { seller: "Vacante", month: 6, amount: 1592.04, count: 1 },
+  { seller: "Marco Velado", month: 1, amount: 18393.58, count: 11 },
+  { seller: "Marco Velado", month: 2, amount: 4978.32, count: 6 },
+  { seller: "Marco Velado", month: 3, amount: 64917.45, count: 6 },
+  { seller: "Marco Velado", month: 4, amount: 41516.85, count: 8 },
+  { seller: "Marco Velado", month: 5, amount: 29905.56, count: 5 },
+  { seller: "Marco Velado", month: 6, amount: 6783.53, count: 4 },
+  { seller: "Marjorie Morales", month: 1, amount: 1556.50, count: 2 },
+  { seller: "Marjorie Morales", month: 2, amount: 13136.78, count: 1 },
+  { seller: "Marjorie Morales", month: 3, amount: 4042.82, count: 3 },
+  { seller: "Marjorie Morales", month: 4, amount: 18284.54, count: 3 },
+  { seller: "Marjorie Morales", month: 5, amount: 14981.68, count: 4 },
+  { seller: "Marjorie Morales", month: 6, amount: 10344.38, count: 3 },
+  { seller: "Odaliz Valencia", month: 1, amount: 26156.84, count: 6 },
+  { seller: "Odaliz Valencia", month: 2, amount: 12667.30, count: 11 },
+  { seller: "Odaliz Valencia", month: 3, amount: 3406.25, count: 3 },
+  { seller: "Odaliz Valencia", month: 4, amount: 13671.89, count: 8 },
+  { seller: "Odaliz Valencia", month: 5, amount: 640.00, count: 1 },
+  { seller: "Odaliz Valencia", month: 6, amount: 2191.76, count: 1 }
+];
+const historicalClosedSales = (window.historicalClosedSalesCsv || "")
+  .trim()
+  .split("\n")
+  .filter(Boolean)
+  .map((line, index) => {
+    const [date, invoice, amount, seller, company] = line.split("|");
+    const id = `hist-sale-${index + 1}`;
+    return {
+      id,
+      date,
+      time: "17:00",
+      company,
+      seller,
+      stage: closureStage,
+      probability: "caliente",
+      amount: Number(amount || 0),
+      invoice,
+      source: "historical",
+      managements: [
+        {
+          id: `${id}-close`,
+          date,
+          time: "17:00",
+          stage: closureStage,
+          result: "ganado",
+          comment: `Venta historica importada${invoice ? `, documento #${invoice}` : ""}.`
+        }
+      ]
+    };
+  });
+const opportunitiesStorageKey = "sistemaGerencial.oportunidades.v6";
+const usersStorageKey = "sistemaGerencial.usuarios.v2";
+const strategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
+const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
+const defaultUsers = [
+  { id: "user-general", name: "Gerencia general", username: "general", email: "general@empresa.local", role: "general", password: "admin123" },
+  { id: "user-accionistas", name: "Accionistas", username: "accionistas", email: "accionistas@empresa.local", role: "accionistas", password: "admin123" },
+  { id: "user-financiera", name: "Gerencia financiera", username: "financiera", email: "financiera@empresa.local", role: "financiera", password: "admin123" },
+  { id: "user-comercial", name: "Gerencia comercializacion", username: "comercializacion", email: "comercializacion@empresa.local", role: "comercializacion", password: "admin123" },
+  { id: "user-operaciones", name: "Gerencia operaciones", username: "operaciones", email: "operaciones@empresa.local", role: "operaciones", password: "admin123" },
+  { id: "user-rrhh", name: "Gerencia recursos humanos", username: "rrhh", email: "rrhh@empresa.local", role: "rrhh", password: "admin123" }
+];
+const accessRoles = [
+  ["general", "Gerencia general"],
+  ["accionistas", "Accionistas"],
+  ["comercializacion", "Comercializacion"],
+  ["financiera", "Financiera"],
+  ["operaciones", "Operaciones"],
+  ["rrhh", "Recursos humanos"]
+];
+let systemUsers = [];
+const apiEnabled = window.location.protocol !== "file:";
+
+async function apiJson(path, options = {}) {
+  const response = await fetch(path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    ...options
+  });
+  if (!response.ok) throw new Error(`API ${response.status}`);
+  return response.json();
+}
+const defaultStrategicRisks = [
+  {
+    id: "risk-001",
+    date: "2026-07-08",
+    owner: "Comercializacion",
+    risk: "Retraso en aprobacion de precios especiales para cuentas corporativas",
+    affectsOthers: true,
+    involved: ["Financiera", "Operaciones"],
+    status: "Notificado"
+  },
+  {
+    id: "risk-002",
+    date: "2026-07-11",
+    owner: "Comercializacion",
+    risk: "Capacidad limitada para atender propuestas con fecha critica de entrega",
+    affectsOthers: true,
+    involved: ["Operaciones"],
+    status: "Notificado"
+  },
+  {
+    id: "risk-003",
+    date: "2026-07-15",
+    owner: "Comercializacion",
+    risk: "Vacante comercial puede afectar seguimiento de cuentas nuevas",
+    affectsOthers: true,
+    involved: ["Recursos humanos"],
+    status: "Notificado"
+  }
+];
+const defaultManagementRequests = [
+  {
+    id: "req-001",
+    date: "2026-07-06",
+    owner: "Comercializacion",
+    target: "Gerencia general",
+    subject: "Apoyo para cierre de cuenta corporativa",
+    message: "Se solicita acompanamiento gerencial para destrabar condiciones finales con el cliente.",
+    status: "Enviada"
+  },
+  {
+    id: "req-002",
+    date: "2026-07-08",
+    owner: "Comercializacion",
+    target: "Gerencia general",
+    subject: "Validacion de prioridad comercial",
+    message: "Se requiere definir prioridad de atencion para propuesta de alto impacto mensual.",
+    status: "En revision"
+  }
+];
+const defaultOpportunities = [];
+
+const loginView = document.querySelector("#loginView");
+const appShell = document.querySelector("#appShell");
+const loginForm = document.querySelector("#loginForm");
+const registerForm = document.querySelector("#registerForm");
+const loginUserSelect = document.querySelector("#loginUserSelect");
+const loginPassword = document.querySelector("#loginPassword");
+const registerName = document.querySelector("#registerName");
+const registerUser = document.querySelector("#registerUser");
+const registerEmail = document.querySelector("#registerEmail");
+const registerRole = document.querySelector("#registerRole");
+const registerPassword = document.querySelector("#registerPassword");
+const activeRoleLabel = document.querySelector("#activeRoleLabel");
+const sidebarToggleBtn = document.querySelector("#sidebarToggleBtn");
+const sidebarRestoreBtn = document.querySelector("#sidebarRestoreBtn");
+const navList = document.querySelector("#navList");
+const dashboard = document.querySelector(".dashboard");
+const pageTitle = document.querySelector("#pageTitle");
+const periodLabel = document.querySelector("#periodLabel");
+const periodSelect = document.querySelector("#periodSelect");
+const summaryGrid = document.querySelector("#summaryGrid");
+const resultsChart = document.querySelector("#resultsChart");
+const kpiList = document.querySelector("#kpiList");
+const riskList = document.querySelector("#riskList");
+const requestTable = document.querySelector("#requestTable");
+const commercialPanel = document.querySelector("#commercialPanel");
+const commercialSubmenuTitle = document.querySelector("#commercialSubmenuTitle");
+const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus");
+const opportunityDashboard = document.querySelector("#opportunityDashboard");
+const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
+const newRiskBtn = document.querySelector("#newRiskBtn");
+const newManagementRequestBtn = document.querySelector("#newManagementRequestBtn");
+const goalsMatrixBtn = document.querySelector("#goalsMatrixBtn");
+const opportunityDialog = document.querySelector("#opportunityDialog");
+const opportunityForm = document.querySelector("#opportunityForm");
+const opportunityDialogTitle = document.querySelector("#opportunityDialogTitle");
+const opportunityId = document.querySelector("#opportunityId");
+const opportunityDate = document.querySelector("#opportunityDate");
+const opportunityCompany = document.querySelector("#opportunityCompany");
+const opportunitySeller = document.querySelector("#opportunitySeller");
+const opportunityStage = document.querySelector("#opportunityStage");
+const opportunityProbability = document.querySelector("#opportunityProbability");
+const opportunityAmount = document.querySelector("#opportunityAmount");
+const closeOpportunityDialog = document.querySelector("#closeOpportunityDialog");
+const cancelOpportunityEdit = document.querySelector("#cancelOpportunityEdit");
+const saveOpportunityBtn = document.querySelector("#saveOpportunityBtn");
+const opportunityTable = document.querySelector("#opportunityTable");
+const managementDialog = document.querySelector("#managementDialog");
+const managementForm = document.querySelector("#managementForm");
+const managementDialogTitle = document.querySelector("#managementDialogTitle");
+const managementOpportunityId = document.querySelector("#managementOpportunityId");
+const managementTable = document.querySelector("#managementTable");
+const managementDate = document.querySelector("#managementDate");
+const managementStage = document.querySelector("#managementStage");
+const managementResultField = document.querySelector("#managementResultField");
+const managementResult = document.querySelector("#managementResult");
+const managementComment = document.querySelector("#managementComment");
+const notifyOperationsBtn = document.querySelector("#notifyOperationsBtn");
+const goalsMatrixDialog = document.querySelector("#goalsMatrixDialog");
+const goalsMatrixTable = document.querySelector("#goalsMatrixTable");
+const closeGoalsMatrixDialog = document.querySelector("#closeGoalsMatrixDialog");
+const kpiDetailDialog = document.querySelector("#kpiDetailDialog");
+const kpiDetailEyebrow = document.querySelector("#kpiDetailEyebrow");
+const kpiDetailTitle = document.querySelector("#kpiDetailTitle");
+const kpiDetailSummary = document.querySelector("#kpiDetailSummary");
+const kpiDetailReport = document.querySelector("#kpiDetailReport");
+const closeKpiDetailDialog = document.querySelector("#closeKpiDetailDialog");
+const closeManagementDialog = document.querySelector("#closeManagementDialog");
+const cancelManagement = document.querySelector("#cancelManagement");
+const overallStatus = document.querySelector("#overallStatus");
+const logoutBtn = document.querySelector("#logoutBtn");
+const exportBtn = document.querySelector("#exportBtn");
+const requestDialog = document.querySelector("#requestDialog");
+const requestForm = document.querySelector("#requestForm");
+const requestArea = document.querySelector("#requestArea");
+const requestSubject = document.querySelector("#requestSubject");
+const requestPriority = document.querySelector("#requestPriority");
+const newRequestBtn = document.querySelector("#newRequestBtn");
+const strategicRiskDialog = document.querySelector("#strategicRiskDialog");
+const strategicRiskForm = document.querySelector("#strategicRiskForm");
+const strategicRiskDate = document.querySelector("#strategicRiskDate");
+const strategicRiskText = document.querySelector("#strategicRiskText");
+const strategicRiskAffects = document.querySelector("#strategicRiskAffects");
+const strategicRiskImpactField = document.querySelector("#strategicRiskImpactField");
+const strategicRiskImpactList = document.querySelector("#strategicRiskImpactList");
+const closeStrategicRiskDialog = document.querySelector("#closeStrategicRiskDialog");
+const cancelStrategicRisk = document.querySelector("#cancelStrategicRisk");
+const managementRequestDialog = document.querySelector("#managementRequestDialog");
+const managementRequestForm = document.querySelector("#managementRequestForm");
+const managementRequestId = document.querySelector("#managementRequestId");
+const managementRequestTitle = document.querySelector("#managementRequestTitle");
+const managementRequestDate = document.querySelector("#managementRequestDate");
+const managementRequestSubject = document.querySelector("#managementRequestSubject");
+const managementRequestMessage = document.querySelector("#managementRequestMessage");
+const closeManagementRequestDialog = document.querySelector("#closeManagementRequestDialog");
+const cancelManagementRequest = document.querySelector("#cancelManagementRequest");
+const saveManagementRequestBtn = document.querySelector("#saveManagementRequestBtn");
+
+function allowedAreas() {
+  return ["general", "accionistas"].includes(state.role) ? areaKeys : [state.role];
+}
+
+function canDeleteOpportunities() {
+  return state.role === "general" || state.role === "financiera";
+}
+
+function roleDisplayName(role = state.role) {
+  return accessRoles.find(([key]) => key === role)?.[1] || areas[role]?.nav || "Usuario";
+}
+
+function levelClass(value) {
+  if (value < 80) return "danger";
+  if (value < 86) return "warn";
+  return "";
+}
+
+function priorityClass(priority) {
+  if (priority === "Alta" || priority === "Alto") return "danger";
+  if (priority === "Media" || priority === "Medio") return "warn";
+  return "info";
+}
+
+function probabilityClass(value) {
+  if (value === "caliente") return "danger";
+  if (value === "tibio") return "warn";
+  if (value === "frio") return "info";
+  return "";
+}
+
+function probabilityLabel(value) {
+  const item = opportunityProbabilities.find(([key]) => key === value);
+  return item ? item[1] : value;
+}
+
+function formatMoney(value) {
+  return new Intl.NumberFormat("es-SV", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2
+  }).format(Number(value || 0));
+}
+
+function varianceLabel(value) {
+  if (value > 0) return `Arriba ${formatMoney(value)}`;
+  if (value < 0) return `Faltan ${formatMoney(Math.abs(value))}`;
+  return "En meta";
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function todayISO() {
+  const now = new Date();
+  return `${now.getFullYear()}-${padded(now.getMonth() + 1)}-${padded(now.getDate())}`;
+}
+
+function padded(value) {
+  return String(value).padStart(2, "0");
+}
+
+function seededTime(index = 0) {
+  const hours = [8, 9, 10, 11, 13, 14, 15, 16, 17, 8];
+  const minutes = [15, 30, 45, 10, 20, 35, 50, 5, 25, 40];
+  return `${padded(hours[index % hours.length])}:${padded(minutes[index % minutes.length])}`;
+}
+
+function currentTimeValue() {
+  const now = new Date();
+  return `${padded(now.getHours())}:${padded(now.getMinutes())}`;
+}
+
+function formatTime(value) {
+  if (!value) return "";
+  const [rawHour, rawMinute = "00"] = String(value).split(":");
+  const hour = Number(rawHour);
+  const minute = padded(Number(rawMinute));
+  const suffix = hour >= 12 ? "pm" : "am";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minute} ${suffix}`;
+}
+
+function formatDateTime(date, time) {
+  return `${formatDate(date)} ${formatTime(time)}`.trim();
+}
+
+function isClosureStage(stage) {
+  return legacyClosureStages.includes(stage);
+}
+
+function normalizeStage(stage) {
+  return stage === "Cierre" ? closureStage : stage;
+}
+
+function closureResult(item) {
+  const managements = Array.isArray(item.managements) ? item.managements : [];
+  return [...managements].reverse().find((management) => isClosureStage(management.stage) && management.result);
+}
+
+function sumAmounts(items) {
+  return items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+}
+
+function groupBy(items, key) {
+  return items.reduce((groups, item) => {
+    const value = typeof key === "function" ? key(item) : item[key];
+    groups[value] = groups[value] || [];
+    groups[value].push(item);
+    return groups;
+  }, {});
+}
+
+function planTotal() {
+  return operationalPlan.reduce((sum, row) => sum + row.plan, 0);
+}
+
+function sellerPlanRows(items) {
+  const bySeller = groupBy(items, "seller");
+  return operationalPlan.map((planRow) => {
+    const sellerItems = bySeller[planRow.seller] || [];
+    const actual = sumAmounts(sellerItems);
+    const percent = planRow.plan ? Math.round((actual / planRow.plan) * 100) : 0;
+    return {
+      ...planRow,
+      actual,
+      count: sellerItems.length,
+      percent,
+      gap: Math.max(planRow.plan - actual, 0)
+    };
+  });
+}
+
+function sellerPlanAverage(rows) {
+  const sellerRows = rows.filter((row) => row.type !== "channel");
+  if (!sellerRows.length) return 0;
+  return Math.round(sellerRows.reduce((sum, row) => sum + row.percent, 0) / sellerRows.length);
+}
+
+function goalsMatrixTotals() {
+  return goalsMatrixColumns.map((column, index) => {
+    if (index === 0) return "Total";
+    return goalsMatrixRows.reduce((sum, row) => sum + Number(row[index] || 0), 0);
+  });
+}
+
+function activeMonthNumber() {
+  const monthMap = {
+    Enero: 1,
+    Febrero: 2,
+    Marzo: 3,
+    Abril: 4,
+    Mayo: 5,
+    Junio: 6,
+    Julio: 7,
+    Agosto: 8,
+    Septiembre: 9,
+    Octubre: 10,
+    Noviembre: 11,
+    Diciembre: 12
+  };
+  const monthName = state.period.split(" ")[0];
+  return monthMap[monthName] || 7;
+}
+
+function monthLabel(monthNumber) {
+  return [
+    "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ][monthNumber] || "";
+}
+
+function activePeriodYear() {
+  const year = Number(state.period.split(" ")[1]);
+  return Number.isFinite(year) ? year : 2026;
+}
+
+function activePeriodStart() {
+  return `${activePeriodYear()}-${padded(activeMonthNumber())}-01`;
+}
+
+function nextPeriodStart() {
+  const year = activePeriodYear();
+  const month = activeMonthNumber();
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  return `${nextYear}-${padded(nextMonth)}-01`;
+}
+
+function opportunityCycleRows(items) {
+  const periodStart = activePeriodStart();
+  const nextStart = nextPeriodStart();
+  const rows = items.map((item) => {
+    const result = closureResult(item);
+    const closureDate = result?.date || "";
+    const isClosedBeforePeriod = Boolean(result && closureDate < periodStart);
+    const isClosedInPeriod = Boolean(result && closureDate >= periodStart && closureDate < nextStart);
+    const isFuture = item.date >= nextStart;
+    return {
+      item,
+      result,
+      isHistory: isClosedBeforePeriod,
+      isInherited: item.date < periodStart && !isClosedBeforePeriod,
+      isClosedInPeriod,
+      isFuture
+    };
+  });
+  const importedHistoryRows = historicalClosedSales
+    .filter((item) => item.date < periodStart)
+    .map((item) => ({
+      item,
+      result: closureResult(item),
+      isHistory: true,
+      isInherited: false,
+      isClosedInPeriod: false,
+      isFuture: false,
+      isImportedHistory: true
+    }));
+
+  const sortRows = (a, b) => {
+    if (a.isInherited !== b.isInherited) return a.isInherited ? -1 : 1;
+    return `${a.item.date} ${a.item.time || ""}`.localeCompare(`${b.item.date} ${b.item.time || ""}`);
+  };
+
+  return {
+    active: rows.filter((row) => !row.isHistory && !row.isFuture).sort(sortRows),
+    history: [
+      ...rows.filter((row) => row.isHistory && !row.isFuture),
+      ...importedHistoryRows
+    ].sort((a, b) => `${b.result.date} ${b.result.time || ""}`.localeCompare(`${a.result.date} ${a.result.time || ""}`))
+  };
+}
+
+function matrixRowForMonth(monthNumber) {
+  return goalsMatrixRows.find((row) => Number(row[0].split("/")[1]) === monthNumber) || goalsMatrixRows[0];
+}
+
+function monthlyGoalForSeller(seller, monthNumber) {
+  const columnIndex = goalsMatrixColumns.indexOf(seller);
+  const monthRow = matrixRowForMonth(monthNumber);
+  return columnIndex >= 0 ? Number(monthRow[columnIndex] || 0) : 0;
+}
+
+function cumulativeGoalForSeller(seller, monthNumber) {
+  const columnIndex = goalsMatrixColumns.indexOf(seller);
+  if (columnIndex < 0) return 0;
+  return goalsMatrixRows
+    .filter((row) => Number(row[0].split("/")[1]) <= monthNumber)
+    .reduce((sum, row) => sum + Number(row[columnIndex] || 0), 0);
+}
+
+function cumulativeGlobalGoal(monthNumber) {
+  const totalIndex = goalsMatrixColumns.indexOf("Total");
+  return goalsMatrixRows
+    .filter((row) => Number(row[0].split("/")[1]) <= monthNumber)
+    .reduce((sum, row) => sum + Number(row[totalIndex] || 0), 0);
+}
+
+function periodStartForMonth(monthNumber) {
+  return `${activePeriodYear()}-${padded(monthNumber)}-01`;
+}
+
+function nextStartForMonth(monthNumber) {
+  const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1;
+  const nextYear = monthNumber === 12 ? activePeriodYear() + 1 : activePeriodYear();
+  return `${nextYear}-${padded(nextMonth)}-01`;
+}
+
+function cumulativeGlobalActual(items, monthNumber = activeMonthNumber()) {
+  const nextStart = nextStartForMonth(monthNumber);
+  const appOpportunityStart = "2026-07-01";
+  const historicalAmount = historicalClosedSales
+    .filter((item) => item.date < nextStart)
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const appWonAmount = items
+    .map((item) => ({ item, result: closureResult(item) }))
+    .filter(({ result }) => result?.result === "ganado" && result.date >= appOpportunityStart && result.date < nextStart)
+    .reduce((sum, { item }) => sum + Number(item.amount || 0), 0);
+  return {
+    historicalAmount,
+    appWonAmount,
+    amount: historicalAmount + appWonAmount
+  };
+}
+
+function dateMonthNumber(value) {
+  if (!value) return activeMonthNumber();
+  if (value.includes("-")) return Number(value.split("-")[1]);
+  return Number(value.split("/")[1]);
+}
+
+function dateYearNumber(value) {
+  if (!value) return activePeriodYear();
+  if (value.includes("-")) return Number(value.split("-")[0]);
+  return Number(value.split("/")[2]);
+}
+
+function isThroughActivePeriod(value) {
+  return dateYearNumber(value) === activePeriodYear() && dateMonthNumber(value) <= activeMonthNumber();
+}
+
+function actualClosedSalesForSeller(seller, monthNumber) {
+  return closedSalesActuals
+    .filter((row) => row.seller === seller && row.month <= monthNumber)
+    .reduce((summary, row) => ({
+      amount: summary.amount + Number(row.amount || 0),
+      count: summary.count + Number(row.count || 0)
+    }), { amount: 0, count: 0 });
+}
+
+function actualClosedRowsForSeller(seller, monthNumber) {
+  return closedSalesActuals.filter((row) => row.seller === seller && row.month <= monthNumber);
+}
+
+function historicalClosedRowsForSeller(seller, monthNumber) {
+  return historicalClosedSales
+    .filter((item) => item.seller === seller && dateMonthNumber(item.date) <= monthNumber)
+    .sort((a, b) => `${b.date} ${b.invoice || ""}`.localeCompare(`${a.date} ${a.invoice || ""}`));
+}
+
+function wonClosure(item) {
+  const result = closureResult(item);
+  if (result?.result !== "ganado") return null;
+  return result;
+}
+
+function wonSalesFulfillmentRows(items) {
+  const monthNumber = activeMonthNumber();
+  const accumulatedItems = items.filter((item) => {
+    const result = closureResult(item);
+    return isThroughActivePeriod(result?.date || item.date);
+  });
+  const closedItems = items
+    .map((item) => ({ item, result: closureResult(item) }))
+    .filter(({ item, result }) => result && isThroughActivePeriod(result.date || item.date));
+  const wonItems = closedItems.filter(({ result }) => result.result === "ganado").map(({ item }) => item);
+  const lostItems = closedItems.filter(({ result }) => result.result === "perdida").map(({ item }) => item);
+  const allBySeller = groupBy(accumulatedItems, "seller");
+  const wonBySeller = groupBy(wonItems, "seller");
+  const lostBySeller = groupBy(lostItems, "seller");
+
+  return commercialSellers.map((seller) => {
+    const sellerItems = allBySeller[seller] || [];
+    const sellerWonItems = wonBySeller[seller] || [];
+    const sellerLostItems = lostBySeller[seller] || [];
+    const actualSales = actualClosedSalesForSeller(seller, monthNumber);
+    const sales = actualSales.amount + sumAmounts(sellerWonItems);
+    const wonCount = actualSales.count + sellerWonItems.length;
+    const opportunityCount = actualSales.count + sellerItems.length;
+    const goal = cumulativeGoalForSeller(seller, monthNumber);
+    const percent = goal ? Math.round((sales / goal) * 100) : 0;
+    const variance = sales - goal;
+    return {
+      seller,
+      goal,
+      sales,
+      variance,
+      percent,
+      opportunityCount,
+      wonCount,
+      lostCount: sellerLostItems.length,
+      pendingCount: Math.max(sellerItems.length - sellerWonItems.length - sellerLostItems.length, 0),
+      count: wonCount,
+      gap: Math.max(goal - sales, 0)
+    };
+  });
+}
+
+function kpiMonthItems(items) {
+  return items.filter((item) => {
+    const result = closureResult(item);
+    return isThroughActivePeriod(result?.date || item.date);
+  });
+}
+
+function kpiDetailItems(items, seller, category) {
+  return kpiMonthItems(items)
+    .filter((item) => item.seller === seller)
+    .filter((item) => {
+      const result = closureResult(item);
+      if (category === "won") return result?.result === "ganado";
+      if (category === "lost") return result?.result === "perdida";
+      if (category === "pending") return !result;
+      return true;
+    });
+}
+
+function kpiDetailLabel(category) {
+  return {
+    all: "Oportunidades",
+    won: "Ganadas",
+    lost: "Perdidas",
+    pending: "Pendientes"
+  }[category] || "Oportunidades";
+}
+
+function managementResultTag(management) {
+  if (management.notified) return `<span class="tag notice">Notificado</span>`;
+  if (!management.result) return "<span></span>";
+  return `<span class="tag ${management.result === "ganado" ? "" : "danger"}">${management.result === "ganado" ? "Ganado" : "Perdida"}</span>`;
+}
+
+function renderKpiDetailReport(seller, category) {
+  const submenu = getOpportunitySubmenu();
+  const items = kpiDetailItems(submenu.items, seller, category);
+  const actualRows = category === "won" || category === "all"
+    ? actualClosedRowsForSeller(seller, activeMonthNumber())
+    : [];
+  const historicalRows = category === "won" || category === "all"
+    ? historicalClosedRowsForSeller(seller, activeMonthNumber())
+    : [];
+  const actualTotal = actualRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const actualCount = actualRows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+  const total = sumAmounts(items) + actualTotal;
+  const won = items.filter((item) => closureResult(item)?.result === "ganado").length + actualCount;
+  const lost = items.filter((item) => closureResult(item)?.result === "perdida").length;
+  const pending = items.filter((item) => !closureResult(item)).length;
+  const label = kpiDetailLabel(category);
+  const activeItems = kpiMonthItems(submenu.items)
+    .filter((item) => item.seller === seller && !closureResult(item));
+
+  kpiDetailEyebrow.textContent = `KPI / ${label}`;
+  kpiDetailTitle.textContent = `${seller} - ${label}`;
+  kpiDetailSummary.classList.add("tabbed");
+  kpiDetailSummary.innerHTML = `
+    <div class="kpi-report-tabs" role="tablist" aria-label="Vistas del reporte KPI">
+      <button class="active" type="button" data-kpi-report-tab="general">Conteo general</button>
+      <button type="button" data-kpi-report-tab="detalle">Detalle historico</button>
+      <button type="button" data-kpi-report-tab="vigentes">Vigentes</button>
+    </div>
+  `;
+
+  const generalSection = `
+    <section class="kpi-report-view active" data-kpi-report-view="general">
+      <div class="kpi-report-counts">
+        <article>
+          <span>Registros</span>
+          <strong>${items.length + actualCount}</strong>
+        </article>
+        <article>
+          <span>Monto consolidado</span>
+          <strong>${formatMoney(total)}</strong>
+        </article>
+        <article>
+          <span>Ganadas</span>
+          <strong>${won}</strong>
+        </article>
+        <article>
+          <span>Perdidas</span>
+          <strong>${lost}</strong>
+        </article>
+        <article>
+          <span>Pendientes</span>
+          <strong>${pending}</strong>
+        </article>
+      </div>
+      <div class="kpi-report-section">
+        ${actualRows.length ? `
+      <div class="kpi-report-section-head">
+        <div>
+          <span>Historico real</span>
+          <strong>Cierres acumulados a ${monthLabel(activeMonthNumber())} ${activePeriodYear()}</strong>
+        </div>
+        <strong>${actualCount} registros / ${formatMoney(actualTotal)}</strong>
+      </div>
+      <div class="kpi-period-table">
+        <div class="kpi-period-row kpi-period-header">
+          <strong>Periodo</strong>
+          <strong>Registros</strong>
+          <strong>Monto</strong>
+        </div>
+        ${actualRows.map((row) => `
+          <div class="kpi-period-row">
+            <span>${monthLabel(row.month)} ${activePeriodYear()}</span>
+            <strong>${row.count}</strong>
+            <strong>${formatMoney(row.amount)}</strong>
+          </div>
+        `).join("")}
+      </div>
+        ` : `<div class="empty-state">No hay cierres historicos para este filtro.</div>`}
+      </div>
+    </section>
+  `;
+
+  const historicalSection = `
+    <section class="kpi-report-view" data-kpi-report-view="detalle">
+      <div class="kpi-report-section">
+      <div class="kpi-report-section-head">
+        <div>
+          <span>Detalle historico</span>
+          <strong>Ventas importadas por empresa</strong>
+        </div>
+        <strong>${historicalRows.length} registros</strong>
+      </div>
+      ${historicalRows.length ? `
+      <div class="kpi-sales-table">
+        <div class="kpi-sale-row kpi-sale-header">
+          <strong>Fecha</strong>
+          <strong>Empresa</strong>
+          <strong>Documento</strong>
+          <strong>Monto</strong>
+        </div>
+        ${historicalRows.map((item) => `
+          <div class="kpi-sale-row">
+            <span>${formatDate(item.date)}</span>
+            <strong>${item.company}</strong>
+            <span>${item.invoice || "—"}</span>
+            <strong>${formatMoney(item.amount)}</strong>
+          </div>
+        `).join("")}
+      </div>
+      ` : `<div class="empty-state">No hay ventas historicas importadas para este filtro.</div>`}
+      </div>
+    </section>
+  `;
+
+  const activeSection = `
+    <section class="kpi-report-view" data-kpi-report-view="vigentes">
+      <div class="kpi-report-section">
+      <div class="kpi-report-section-head">
+        <div>
+          <span>Vigentes</span>
+          <strong>Resumen de oportunidades abiertas</strong>
+        </div>
+        <strong>${activeItems.length} oportunidades</strong>
+      </div>
+      ${activeItems.length ? `
+      <div class="kpi-active-table">
+        <div class="kpi-active-row kpi-active-header">
+          <strong>Empresa</strong>
+          <strong>Ingreso</strong>
+          <strong>Etapa</strong>
+          <strong>Probabilidad</strong>
+          <strong>Monto</strong>
+        </div>
+        ${activeItems.map((item) => `
+          <div class="kpi-active-row">
+            <strong>${item.company}</strong>
+            <span>${formatDateTime(item.date, item.time)}</span>
+            <span>${item.stage}</span>
+            <span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span>
+            <strong>${formatMoney(item.amount)}</strong>
+          </div>
+        `).join("")}
+      </div>
+      ` : `<div class="empty-state">No hay oportunidades vigentes para ${seller}.</div>`}
+      </div>
+    </section>
+  `;
+
+  const opportunitySection = items.length ? `
+    <section class="kpi-report-view hidden-trace" data-kpi-report-view="trazabilidad">
+      <div class="kpi-report-section">
+      <div class="kpi-report-section-head">
+        <div>
+          <span>Trazabilidad</span>
+          <strong>Seguimiento detallado</strong>
+        </div>
+      </div>
+      ${items.map((item) => {
+    const managements = normalizeManagements(item)
+      .slice()
+      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+    const result = closureResult(item);
+    const latest = managements[managements.length - 1];
+    return `
+      <article class="kpi-report-card">
+        <div class="kpi-report-head">
+          <div>
+            <strong>${item.company}</strong>
+            <span>${item.seller} / ${formatMoney(item.amount)}</span>
+          </div>
+          <div class="kpi-report-tags">
+            <span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span>
+            ${result ? `<span class="tag ${result.result === "ganado" ? "" : "danger"}">${result.result === "ganado" ? "Ganada" : "Perdida"}</span>` : `<span class="tag warn">Pendiente</span>`}
+          </div>
+        </div>
+        <div class="kpi-report-meta">
+          <span><small>Ingreso</small><strong>${formatDateTime(item.date, item.time)}</strong></span>
+          <span><small>Etapa actual</small><strong>${item.stage}</strong></span>
+          <span><small>Ultima gestion</small><strong>${latest ? formatDateTime(latest.date, latest.time) : formatDateTime(item.date, item.time)}</strong></span>
+        </div>
+        <div class="kpi-history">
+          ${managements.map((management) => `
+            <div class="kpi-history-item">
+              <span class="kpi-history-date">
+                <strong>${formatDate(management.date)}</strong>
+                <small>${formatTime(management.time)}</small>
+              </span>
+              <span class="tag info">${management.stage}</span>
+              ${managementResultTag(management)}
+              <p>${management.comment}</p>
+            </div>
+          `).join("")}
+        </div>
+      </article>
+    `;
+  }).join("")}
+      </div>
+    </section>
+  ` : "";
+
+  kpiDetailReport.innerHTML = [generalSection, historicalSection, activeSection, opportunitySection].join("");
+
+  kpiDetailDialog.showModal();
+}
+
+function getOpportunitySubmenu() {
+  return areas.comercializacion.submenus.find((item) => item.key === "resultados");
+}
+
+function getStrategicRiskSubmenu() {
+  return areas.comercializacion.submenus.find((item) => item.key === "riesgos");
+}
+
+function getManagementRequestSubmenu() {
+  return areas.comercializacion.submenus.find((item) => item.key === "solicitudes");
+}
+
+function normalizeStrategicRisks(items) {
+  return items.map((item, index) => ({
+    id: item.id || `risk-${index + 1}`,
+    date: item.date || todayISO(),
+    owner: item.owner || areas[state.role]?.nav || "Gerencia general",
+    risk: item.risk || "",
+    affectsOthers: Boolean(item.affectsOthers),
+    involved: Array.isArray(item.involved) ? item.involved : [],
+    status: item.status || "Notificado"
+  }));
+}
+
+function loadStrategicRisks() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(strategicRisksStorageKey) || "null");
+    getStrategicRiskSubmenu().items = normalizeStrategicRisks(Array.isArray(saved) ? saved : defaultStrategicRisks);
+  } catch {
+    getStrategicRiskSubmenu().items = normalizeStrategicRisks(defaultStrategicRisks);
+  }
+  saveStrategicRisks();
+}
+
+function saveStrategicRisks() {
+  localStorage.setItem(strategicRisksStorageKey, JSON.stringify(getStrategicRiskSubmenu().items));
+}
+
+function normalizeManagementRequests(items) {
+  return items.map((item, index) => ({
+    id: item.id || `req-${index + 1}`,
+    date: item.date || todayISO(),
+    owner: item.owner || currentRequestOwner(),
+    target: item.target || "Gerencia general",
+    subject: item.subject || "",
+    message: item.message || "",
+    status: item.status || "Enviada"
+  }));
+}
+
+function loadManagementRequests() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(managementRequestsStorageKey) || "null");
+    getManagementRequestSubmenu().items = normalizeManagementRequests(Array.isArray(saved) ? saved : defaultManagementRequests);
+  } catch {
+    getManagementRequestSubmenu().items = normalizeManagementRequests(defaultManagementRequests);
+  }
+  saveManagementRequests();
+}
+
+function saveManagementRequests() {
+  localStorage.setItem(managementRequestsStorageKey, JSON.stringify(getManagementRequestSubmenu().items));
+}
+
+function resetManagementRequestForm() {
+  managementRequestForm.reset();
+  managementRequestId.value = "";
+  managementRequestDate.value = todayISO();
+  managementRequestTitle.textContent = "Nueva solicitud";
+  saveManagementRequestBtn.textContent = "Enviar solicitud";
+}
+
+function loadOpportunities() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(opportunitiesStorageKey) || "null");
+    getOpportunitySubmenu().items = sanitizeTestOpportunities(
+      Array.isArray(saved) ? normalizeOpportunities(saved) : normalizeOpportunities(defaultOpportunities)
+    );
+  } catch {
+    getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(defaultOpportunities));
+  }
+  localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+  if (apiEnabled) {
+    apiJson("/api/opportunities")
+      .then((items) => {
+        getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(Array.isArray(items) ? items : []));
+        localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+        if (!appShell.classList.contains("hidden")) renderDashboard();
+      })
+      .catch(() => {});
+  }
+}
+
+function normalizeOpportunities(items) {
+  return items.map((item, index) => ({
+    ...item,
+    time: item.time || seededTime(index),
+    seller: normalizeSeller(item.seller || commercialSellers[index % commercialSellers.length]),
+    stage: normalizeStage(item.stage || "Prospeccion"),
+    managements: normalizeManagements({ ...item, time: item.time || seededTime(index) })
+  }));
+}
+
+function normalizeSeller(name) {
+  return sellerNameMap[name] || name || commercialSellers[0];
+}
+
+function normalizeManagements(item) {
+  if (Array.isArray(item.managements) && item.managements.length) {
+    return item.managements.map((management, index) => ({
+      ...management,
+      stage: normalizeStage(management.stage),
+      time: management.time || seededTime(index + 1)
+    }));
+  }
+  return [{
+    id: `${item.id}-mgmt-001`,
+    date: item.date,
+    time: item.time || seededTime(0),
+    stage: "Prospeccion",
+    comment: "Ingreso inicial de la oportunidad."
+  }];
+}
+
+function addMinutesToTime(time, minutesToAdd) {
+  const [rawHour = "0", rawMinute = "0"] = String(time || "08:00").split(":");
+  const total = Number(rawHour) * 60 + Number(rawMinute) + minutesToAdd;
+  const hour = Math.floor((total % 1440) / 60);
+  const minute = total % 60;
+  return `${padded(hour)}:${padded(minute)}`;
+}
+
+function orderedManagements(managements) {
+  return [...managements].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+}
+
+function notifiedDemoManagements(item) {
+  return [
+    {
+      id: `${item.id}-mgmt-001`,
+      date: item.date,
+      time: item.time || "09:30",
+      stage: "Prospeccion",
+      comment: "Ingreso inicial de la oportunidad."
+    },
+    {
+      id: `${item.id}-mgmt-002`,
+      date: "2026-07-03",
+      time: "10:45",
+      stage: "Calificacion",
+      comment: "Se valido necesidad, presupuesto y decisor con el cliente."
+    },
+    {
+      id: `${item.id}-mgmt-003`,
+      date: "2026-07-04",
+      time: "10:30",
+      stage: "Propuesta",
+      comment: "Propuesta final enviada y aceptada para cierre comercial."
+    },
+    {
+      id: `${item.id}-mgmt-004`,
+      date: "2026-07-04",
+      time: "11:10",
+      stage: closureStage,
+      result: "ganado",
+      comment: "Cierre ganado confirmado por el cliente."
+    },
+    {
+      id: `${item.id}-mgmt-005`,
+      date: "2026-07-04",
+      time: "11:25",
+      stage: closureStage,
+      result: "",
+      comment: "Notificacion enviada a gerencia de operaciones.",
+      notified: true
+    }
+  ];
+}
+
+function sanitizeTestOpportunities(items) {
+  const normalized = items.map((item, index) => {
+    const cleanItem = {
+      ...item,
+      time: item.time || seededTime(index),
+      seller: normalizeSeller(item.seller)
+    };
+    cleanItem.managements = orderedManagements(normalizeManagements(cleanItem));
+    return cleanItem;
+  });
+
+  const notifiedItem = normalized.find((item) => item.managements.some((management) => management.notified))
+    || normalized.find((item) => closureResult(item)?.result === "ganado")
+    || normalized.find((item) => item.id === "opp-002")
+    || normalized[0];
+  const notifiedId = notifiedItem?.id;
+
+  return normalized.map((item) => {
+    if (item.id === notifiedId) {
+      return {
+        ...item,
+        stage: closureStage,
+        managements: notifiedDemoManagements(item)
+      };
+    }
+
+    let keptClosure = false;
+    let keptNotification = false;
+    const cleaned = item.managements
+      .filter((management) => {
+        if (management.notified && item.id !== notifiedId) return false;
+        if (isClosureStage(management.stage) && management.result) {
+          if (keptClosure) return false;
+          keptClosure = true;
+        }
+        if (management.notified) {
+          if (keptNotification) return false;
+          keptNotification = true;
+        }
+        return true;
+      })
+      .map((management) => ({
+        ...management,
+        result: management.notified ? "" : management.result
+      }));
+
+    const ordered = orderedManagements(cleaned);
+    const latestClosure = [...ordered].reverse().find((management) => isClosureStage(management.stage) && management.result);
+    const latestManagement = [...ordered].reverse().find((management) => !management.notified);
+    return {
+      ...item,
+      stage: latestClosure ? closureStage : latestManagement?.stage || item.stage,
+      managements: ordered
+    };
+  });
+}
+
+function saveOpportunities() {
+  localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+  if (apiEnabled) {
+    apiJson("/api/opportunities", {
+      method: "PUT",
+      body: JSON.stringify(getOpportunitySubmenu().items)
+    }).catch(() => {});
+  }
+}
+
+function resetOpportunityForm() {
+  opportunityForm.reset();
+  opportunityId.value = "";
+  opportunityDate.valueAsDate = new Date();
+  opportunityDialogTitle.textContent = "Nuevo registro";
+  saveOpportunityBtn.textContent = "Guardar oportunidad";
+}
+
+function closeOpportunityForm() {
+  opportunityDialog.close();
+  resetOpportunityForm();
+}
+
+function fillOpportunityOptions() {
+  opportunityStage.innerHTML = opportunityStages.map((stage) => `<option value="${stage}">${stage}</option>`).join("");
+  managementStage.innerHTML = opportunityStages.map((stage) => `<option value="${stage}">${stage}</option>`).join("");
+  opportunitySeller.innerHTML = commercialSellers.map((seller) => `<option value="${seller}">${seller}</option>`).join("");
+  opportunityProbability.innerHTML = opportunityProbabilities.map(([key, label, range]) => (
+    `<option value="${key}">${label} - ${range}</option>`
+  )).join("");
+}
+
+function renderNav() {
+  navList.innerHTML = "";
+  allowedAreas().forEach((key) => {
+    const area = areas[key];
+    const hasSubmenus = Array.isArray(area.submenus);
+    const avg = Math.round(area.results.reduce((sum, item) => sum + item[1], 0) / area.results.length);
+    const button = document.createElement("button");
+    button.className = `nav-item ${state.activeArea === key ? "active" : ""}`;
+    button.type = "button";
+    button.setAttribute("aria-expanded", hasSubmenus ? String(state.activeArea === key && state.commercialMenuOpen) : "false");
+    button.innerHTML = `<span>${area.nav}</span><span class="nav-dot ${levelClass(avg)}"></span>`;
+    button.addEventListener("click", () => {
+      if (hasSubmenus && state.activeArea === key) {
+        state.commercialMenuOpen = !state.commercialMenuOpen;
+        renderDashboard();
+        return;
+      }
+      state.activeArea = key;
+      if (hasSubmenus) {
+        state.activeSubmenu = "resultados";
+        state.commercialMenuOpen = true;
+      }
+      renderDashboard();
+    });
+    navList.appendChild(button);
+    if (hasSubmenus) renderSubmenu(area, key);
+  });
+}
+
+function renderSubmenu(area, areaKey) {
+  const submenu = document.createElement("div");
+  submenu.className = `submenu-list ${state.activeArea === areaKey && state.commercialMenuOpen ? "open" : ""}`;
+  submenu.innerHTML = area.submenus.map((item) => `
+    <button class="submenu-item ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
+      ${item.label}
+    </button>
+  `).join("");
+  submenu.querySelectorAll("button").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeArea = areaKey;
+      state.activeSubmenu = button.dataset.submenu;
+      renderDashboard();
+    });
+  });
+  navList.appendChild(submenu);
+}
+
+function renderSummary(area) {
+  summaryGrid.innerHTML = area.summary.map(([label, value, meta]) => `
+    <article class="summary-card">
+      <span>${label}</span>
+      <strong>${value}</strong>
+      <span>${meta}</span>
+    </article>
+  `).join("");
+}
+
+function renderResults(area) {
+  resultsChart.innerHTML = area.results.map(([label, value]) => `
+    <div class="bar-row">
+      <span class="bar-label">${label}</span>
+      <div class="bar-track"><div class="bar-fill ${levelClass(value)}" style="width:${value}%"></div></div>
+      <span class="bar-value">${value}%</span>
+    </div>
+  `).join("");
+}
+
+function renderKpis(area) {
+  kpiList.innerHTML = area.kpis.map(([name, value, meta, status]) => `
+    <div class="kpi-item">
+      <div class="kpi-top">
+        <span class="kpi-name">${name}</span>
+        <span class="tag ${status === "warn" ? "warn" : ""}">${status === "warn" ? "Revisar" : "En rango"}</span>
+      </div>
+      <div class="kpi-value">${value}</div>
+      <div class="kpi-meta">${meta}</div>
+    </div>
+  `).join("");
+}
+
+function renderRisks(area) {
+  riskList.innerHTML = area.risks.map(([name, owner, level, riskClass]) => `
+    <div class="risk-item">
+      <div class="risk-top">
+        <strong>${name}</strong>
+        <span class="tag ${riskClass}">${level}</span>
+      </div>
+      <div class="risk-meta">Responsable: ${owner}. Seguimiento activo con plan de mitigacion.</div>
+    </div>
+  `).join("");
+}
+
+function renderRequests(area) {
+  requestTable.innerHTML = area.requests.map(([subject, target, priority, status]) => `
+    <div class="request-row">
+      <div><strong>${subject}</strong><small>Actualizado en ${state.period}</small></div>
+      <span>${target}</span>
+      <span class="tag ${priorityClass(priority)}">${priority}</span>
+      <span>${status}</span>
+    </div>
+  `).join("");
+}
+
+function renderCycleDashboard(items) {
+  const monthNumber = activeMonthNumber();
+  const annualGoal = cumulativeGlobalGoal(12);
+  const monthRows = Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    const plan = cumulativeGlobalGoal(month);
+    const hasActual = month <= monthNumber;
+    const actual = hasActual ? cumulativeGlobalActual(items, month).amount : null;
+    return {
+      month,
+      label: monthLabel(month),
+      plan,
+      actual,
+      hasActual,
+      percent: hasActual && plan ? Math.round((actual / plan) * 100) : null,
+      annualPercent: hasActual && annualGoal ? Math.round((actual / annualGoal) * 100) : null
+    };
+  });
+  const maxValue = Math.max(...monthRows.flatMap((row) => [row.plan, row.actual || 0]), 1);
+  return `
+    <section class="results-dashboard accumulated-month-dashboard" aria-label="Acumulado global por mes">
+      <article class="accumulated-month-card">
+        <div class="accumulated-chart-top">
+          <h3>Acumulado global</h3>
+          <div class="chart-legend">
+            <span><i class="plan"></i>Meta</span>
+            <span><i class="actual"></i>Real</span>
+          </div>
+        </div>
+        <div class="accumulated-month-rows">
+          ${monthRows.map((row) => `
+            <div class="accumulated-month-row ${row.hasActual ? "" : "future"}">
+              <strong>${row.label}</strong>
+              <div class="accumulated-bars">
+                <span class="accumulated-track"><i class="plan" style="width:${(row.plan / maxValue) * 100}%"></i></span>
+                <span class="accumulated-track"><i class="actual" style="width:${row.hasActual ? (row.actual / maxValue) * 100 : 0}%"></i></span>
+              </div>
+              <div class="accumulated-values">
+                <span>${formatMoney(row.plan)}</span>
+                <strong>${row.hasActual ? formatMoney(row.actual) : "—"}</strong>
+              </div>
+              <div class="accumulated-percent-group">
+                <span class="accumulated-percent">${row.hasActual ? `${row.percent}%` : "—"}</span>
+                <span class="accumulated-percent annual">${row.hasActual ? `${row.annualPercent}%` : "—"}</span>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderHistoryList(rows) {
+  const totalAmount = sumAmounts(rows.map(({ item }) => item));
+  return `
+    <section class="history-inbox" aria-label="Historial de cierres reales">
+      <div class="history-summary">
+        <div>
+          <span>Historial de cierres</span>
+          <strong>${rows.length} registros</strong>
+        </div>
+        <div>
+          <span>Monto cerrado</span>
+          <strong>${formatMoney(totalAmount)}</strong>
+        </div>
+      </div>
+      <div class="history-list">
+        ${rows.length ? rows.map(({ item, result }) => `
+          <article class="history-mail-row">
+            <time datetime="${item.date}">
+              <strong>${formatDate(item.date)}</strong>
+              <span>${item.invoice ? `Doc. ${item.invoice}` : "Cierre"}</span>
+            </time>
+            <div class="history-mail-main">
+              <strong>${item.company}</strong>
+              <span>${item.seller}</span>
+            </div>
+            <div class="history-mail-meta">
+              <strong>${formatMoney(item.amount)}</strong>
+              <span class="closure-badge ${result?.result === "perdida" ? "lost" : "won"}">${result?.result === "perdida" ? "Perdida" : "Ganado"}</span>
+            </div>
+          </article>
+        `).join("") : `
+          <div class="empty-state">
+            No hay oportunidades cerradas en historial para este corte.
+          </div>
+        `}
+      </div>
+    </section>
+  `;
+}
+
+function renderStrategicRisks(items) {
+  return `
+    <section class="strategic-risks" aria-label="Listado de riesgos futuros">
+      <div class="strategic-risk-row strategic-risk-header">
+        <strong>Fecha</strong>
+        <strong>Riesgo</strong>
+        <strong>Gestiona</strong>
+        <strong>Gerencias involucradas</strong>
+        <strong>Estado</strong>
+      </div>
+      <div class="strategic-risk-body">
+        ${items.length ? items.map((item) => `
+          <article class="strategic-risk-row">
+            <span>${formatDate(item.date)}</span>
+            <strong>${item.risk}</strong>
+            <span>${item.owner}</span>
+            <span class="risk-impact-tags">
+              ${item.affectsOthers && item.involved.length
+                ? item.involved.map((name) => `<em>${name}</em>`).join("")
+                : "<em>Sin repercusion</em>"}
+            </span>
+            <span class="tag notice">${item.status}</span>
+          </article>
+        `).join("") : `
+          <div class="empty-state">
+            No hay riesgos futuros registrados. Usa Nuevo riesgo para notificar una gestion gerencial.
+          </div>
+        `}
+      </div>
+    </section>
+  `;
+}
+
+function renderManagementRequests(items) {
+  return `
+    <section class="management-requests" aria-label="Solicitudes a Gerencia General">
+      <div class="management-request-row management-request-header">
+        <strong>Fecha</strong>
+        <strong>Solicitud</strong>
+        <strong>Origen</strong>
+        <strong>Destino</strong>
+        <strong>Estado</strong>
+        <strong>Acciones</strong>
+      </div>
+      <div class="management-request-body">
+        ${items.length ? items.map((item) => `
+          <article class="management-request-row">
+            <span>${formatDate(item.date)}</span>
+            <div class="request-message-main">
+              <strong>${item.subject}</strong>
+              <p>${item.message}</p>
+            </div>
+            <span>${item.owner}</span>
+            <span>${item.target}</span>
+            <span class="tag notice">${item.status}</span>
+            <span class="row-actions">
+              <button class="action-icon-btn" type="button" data-request-action="edit" data-id="${item.id}" aria-label="Editar solicitud">
+                <span aria-hidden="true">✎</span>
+              </button>
+              <button class="action-icon-btn danger" type="button" data-request-action="delete" data-id="${item.id}" aria-label="Borrar solicitud">
+                <span aria-hidden="true">⌫</span>
+              </button>
+            </span>
+          </article>
+        `).join("") : `
+          <div class="empty-state">
+            No hay solicitudes enviadas. Usa Nueva solicitud para enviar un requerimiento a Gerencia General.
+          </div>
+        `}
+      </div>
+    </section>
+  `;
+}
+
+function renderCleanManagementSection(area, submenu) {
+  const labels = {
+    resultados: "Resultados",
+    kpi: "KPI",
+    riesgos: "Riesgos",
+    solicitudes: "Solicitudes"
+  };
+  return `
+    <section class="clean-section" aria-label="${area.nav} ${submenu.label}">
+      <div>
+        <p class="eyebrow">${area.nav}</p>
+        <h3>${labels[submenu.key] || submenu.label}</h3>
+      </div>
+      <div class="clean-section-state">
+        <strong>Sin datos registrados</strong>
+        <span>Vista lista para configuracion.</span>
+      </div>
+    </section>
+  `;
+}
+
+function renderCommercialSubmenu(area) {
+  if (!Array.isArray(area.submenus)) {
+    commercialPanel.classList.add("hidden");
+    return;
+  }
+
+  const submenu = area.submenus.find((item) => item.key === state.activeSubmenu) || area.submenus[0];
+  commercialPanel.classList.remove("hidden");
+  commercialSubmenuTitle.textContent = submenu.label;
+  commercialSubmenuStatus.textContent = submenu.status;
+
+  if (state.activeArea !== "comercializacion") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = "Seccion limpia";
+    opportunityTable.innerHTML = renderCleanManagementSection(area, submenu);
+    return;
+  }
+
+  const opportunitySubmenu = getOpportunitySubmenu();
+
+  if (submenu.key === "kpi") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.remove("hidden");
+    opportunityTable.classList.add("hidden");
+    opportunityDashboard.classList.remove("hidden");
+    commercialSubmenuStatus.textContent = "Ventas ganadas / meta";
+    renderOpportunityDashboard(opportunitySubmenu.items);
+    return;
+  }
+
+  if (submenu.key === "riesgos") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.remove("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = `${submenu.items.length} riesgos notificados`;
+    opportunityTable.innerHTML = renderStrategicRisks(submenu.items);
+    return;
+  }
+
+  if (submenu.key === "solicitudes") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.remove("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = `${submenu.items.length} solicitudes enviadas`;
+    opportunityTable.innerHTML = renderManagementRequests(submenu.items);
+    return;
+  }
+
+  newOpportunityBtn.classList.remove("hidden");
+  newRiskBtn.classList.add("hidden");
+  newManagementRequestBtn.classList.add("hidden");
+  goalsMatrixBtn.classList.add("hidden");
+  opportunityTable.classList.remove("hidden");
+  opportunityDashboard.classList.add("hidden");
+  const cycleRows = opportunityCycleRows(submenu.items);
+  const activeRows = cycleRows.active;
+  const historyRows = cycleRows.history;
+  const displayRows = state.opportunityCycleView === "history" ? historyRows : activeRows;
+  commercialSubmenuStatus.textContent = `${activeRows.length} vigentes / ${historyRows.length} historial`;
+
+  if (!submenu.items.length) {
+    opportunityTable.innerHTML = `
+      <div class="empty-state">
+        No hay oportunidades ingresadas. Usa el formulario para crear el primer registro.
+      </div>
+    `;
+    return;
+  }
+
+  opportunityTable.innerHTML = `
+    <div class="cycle-tabs">
+      <button class="cycle-tab ${state.opportunityCycleView === "active" ? "active" : ""}" type="button" data-cycle-view="active">
+        Vigentes <span>${activeRows.length}</span>
+      </button>
+      <button class="cycle-tab ${state.opportunityCycleView === "dashboard" ? "active" : ""}" type="button" data-cycle-view="dashboard">
+        Dashboard <span>${activeRows.length}</span>
+      </button>
+      <button class="cycle-tab ${state.opportunityCycleView === "history" ? "active" : ""}" type="button" data-cycle-view="history">
+        Historial <span>${historyRows.length}</span>
+      </button>
+      <small>Corte mensual: las cerradas antes de ${formatDate(activePeriodStart())} quedan archivadas.</small>
+    </div>
+    ${state.opportunityCycleView === "dashboard" ? renderCycleDashboard(submenu.items) : state.opportunityCycleView === "history" ? renderHistoryList(historyRows) : `
+    <div class="opportunity-row opportunity-header">
+      <strong>Fecha</strong>
+      <strong>Empresa</strong>
+      <strong>Vendedor</strong>
+      <strong>Etapa</strong>
+      <strong>Estado / probabilidad</strong>
+      <strong>Monto</strong>
+      <strong>Acciones</strong>
+    </div>
+    <div class="opportunity-table-body">
+      ${displayRows.length ? displayRows.map(({ item, result, isInherited, isHistory, isImportedHistory }) => `
+        <div class="opportunity-row ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
+          <span>${formatDate(item.date)}</span>
+          <strong class="company-cell">
+            ${item.company}
+            ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
+            ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
+            ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}">${result.result === "ganado" ? "Ganado" : "Perdida"}</span>` : ""}
+          </strong>
+          <span>${item.seller}</span>
+          <span>${item.stage}</span>
+          <span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span>
+          <strong>${formatMoney(item.amount)}</strong>
+          <span class="row-actions">
+          ${!isHistory ? `
+            <button class="action-icon-btn" type="button" data-action="edit" data-id="${item.id}" aria-label="Editar">
+              <span aria-hidden="true">✎</span>
+            </button>
+          ` : ""}
+          ${isImportedHistory ? `<span class="history-lock">Cierre real</span>` : `
+            <button class="action-icon-btn" type="button" data-action="manage" data-id="${item.id}" aria-label="Gestiones">
+              <span aria-hidden="true">☷</span>
+            </button>
+          `}
+          ${canDeleteOpportunities() && !isHistory ? `
+            <button class="action-icon-btn danger" type="button" data-action="delete" data-id="${item.id}" aria-label="Borrar">
+              <span aria-hidden="true">⌫</span>
+            </button>
+          ` : ""}
+          </span>
+        </div>
+      `).join("") : `
+        <div class="empty-state">
+          No hay oportunidades vigentes para este periodo.
+        </div>
+      `}
+    </div>
+    `}
+  `;
+}
+
+function renderOpportunityDashboard(items) {
+  state.opportunityFilter = null;
+  state.kpiView = "dashboard";
+  const fulfillmentRows = wonSalesFulfillmentRows(items);
+  const selectedSeller = commercialSellers.includes(state.kpiSeller) ? state.kpiSeller : "all";
+  const summaryRows = selectedSeller === "all"
+    ? fulfillmentRows
+    : fulfillmentRows.filter((row) => row.seller === selectedSeller);
+  const totalSales = summaryRows.reduce((sum, row) => sum + row.sales, 0);
+  const totalGoal = summaryRows.reduce((sum, row) => sum + row.goal, 0);
+  const totalVariance = totalSales - totalGoal;
+  const totalPercent = totalGoal ? Math.round((totalSales / totalGoal) * 100) : 0;
+  const totalWon = summaryRows.reduce((sum, row) => sum + row.wonCount, 0);
+  const totalLost = summaryRows.reduce((sum, row) => sum + row.lostCount, 0);
+  const totalPending = summaryRows.reduce((sum, row) => sum + row.pendingCount, 0);
+  const totalOpportunities = summaryRows.reduce((sum, row) => sum + row.opportunityCount, 0);
+  const fulfilledSellers = summaryRows.filter((row) => row.percent >= 100).length;
+  const [, summaryStatusLabel] = kpiSemaphore(totalPercent);
+  const maxFulfillment = Math.max(...fulfillmentRows.map((row) => row.percent), 100);
+  const targetMarker = Math.min((100 / maxFulfillment) * 100, 100);
+  opportunityDashboard.innerHTML = `
+    <section class="won-sales-kpi" aria-label="Cumplimiento de ventas ganadas">
+      <div class="won-kpi-sticky">
+        <div class="kpi-selection-bar">
+          <span>${selectedSeller === "all" ? "Resumen general" : `Vendedor seleccionado: ${selectedSeller}`}</span>
+          ${selectedSeller !== "all" ? `<button class="ghost-btn compact-btn" type="button" data-kpi-seller-clear>Ver resumen general</button>` : ""}
+        </div>
+        <div class="won-kpi-summary">
+          <article class="metric-tile total">
+            <span>Venta ganada</span>
+            <strong>${formatMoney(totalSales)}</strong>
+            <small>Acumulado ${state.period}</small>
+          </article>
+          <article class="metric-tile">
+            <span>Plan acumulado</span>
+            <strong>${formatMoney(totalGoal)}</strong>
+            <small>${selectedSeller === "all" ? "Total" : selectedSeller}</small>
+          </article>
+          <article class="metric-tile">
+            <span>Cumplimiento</span>
+            <strong>${totalPercent}%</strong>
+            <small>${varianceLabel(totalVariance)}</small>
+          </article>
+          <article class="metric-tile">
+            <span>${selectedSeller === "all" ? "Vendedores cumplidos" : "Estado del vendedor"}</span>
+            <strong>${selectedSeller === "all" ? `${fulfilledSellers}/${summaryRows.length}` : summaryStatusLabel}</strong>
+            <small>${totalWon} ganadas / ${totalPending} pendientes</small>
+          </article>
+        </div>
+      </div>
+
+      <div class="won-kpi-table">
+        <div class="won-kpi-row won-kpi-header">
+          <strong>Vendedor</strong>
+          <strong>Oportunidades</strong>
+          <strong>Ganadas</strong>
+          <strong>Perdidas</strong>
+          <strong>Pendientes</strong>
+          <strong>Venta ganada</strong>
+          <strong>Plan acumulado</strong>
+          <strong>Cumplimiento</strong>
+          <strong>Diferencia</strong>
+          <strong>Estado</strong>
+        </div>
+        ${fulfillmentRows.map((row) => {
+          const [statusClass, statusLabel] = kpiSemaphore(row.percent);
+          const scaledPercent = maxFulfillment ? Math.min((row.percent / maxFulfillment) * 100, 100) : 0;
+          return `
+            <div class="won-kpi-row ${row.seller === "Vacante" ? "vacancy" : ""} ${selectedSeller === row.seller ? "selected" : ""}" data-kpi-seller-row="${row.seller}">
+              <strong>${row.seller}</strong>
+              <button class="count-chip total" type="button" data-kpi-detail="all" data-kpi-seller-detail="${row.seller}" aria-label="Ver oportunidades de ${row.seller}">${row.opportunityCount}</button>
+              <button class="count-chip won" type="button" data-kpi-detail="won" data-kpi-seller-detail="${row.seller}" aria-label="Ver oportunidades ganadas de ${row.seller}">${row.wonCount}</button>
+              <button class="count-chip lost" type="button" data-kpi-detail="lost" data-kpi-seller-detail="${row.seller}" aria-label="Ver oportunidades perdidas de ${row.seller}">${row.lostCount}</button>
+              <button class="count-chip pending" type="button" data-kpi-detail="pending" data-kpi-seller-detail="${row.seller}" aria-label="Ver oportunidades pendientes de ${row.seller}">${row.pendingCount}</button>
+              <span class="money-cell">${formatMoney(row.sales)}</span>
+              <span>${formatMoney(row.goal)}</span>
+              <span>
+                <span class="achievement-progress" style="--target:${targetMarker}%">
+                  <i style="width:${scaledPercent}%"></i>
+                </span>
+                <small>${row.percent}%</small>
+              </span>
+              <span>${varianceLabel(row.variance)}</span>
+              <span class="semaphore ${statusClass}"><i></i>${statusLabel}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+  return;
+
+  if (state.kpiView === "table") {
+    opportunityDashboard.innerHTML = `
+      ${renderKpiTabs()}
+      ${renderKpiComplianceTable(items)}
+    `;
+    return;
+  }
+
+  const filter = state.opportunityFilter;
+  const filteredItems = filter
+    ? items.filter((item) => item[filter.type] === filter.value)
+    : items;
+  const total = sumAmounts(filteredItems);
+  const won = filteredItems.filter((item) => closureResult(item)?.result === "ganado");
+  const lost = filteredItems.filter((item) => closureResult(item)?.result === "perdida");
+  const open = filteredItems.filter((item) => !closureResult(item));
+  const weightedTotal = filteredItems.reduce((sum, item) => {
+    const probabilityWeight = { caliente: .8, tibio: .55, frio: .3, congelado: .1 }[item.probability] || .2;
+    return sum + Number(item.amount || 0) * probabilityWeight;
+  }, 0);
+
+  const byStage = opportunityStages.map((stage) => {
+    const stageItems = items.filter((item) => item.stage === stage);
+    return { label: stage, count: stageItems.length, amount: sumAmounts(stageItems) };
+  });
+  const maxStageAmount = Math.max(...byStage.map((stage) => stage.amount), 1);
+
+  const probabilityGroups = opportunityProbabilities.map(([key, label]) => {
+    const probabilityItems = items.filter((item) => item.probability === key);
+    return { key, label, count: probabilityItems.length, amount: sumAmounts(probabilityItems) };
+  });
+
+  const sellerGroups = Object.entries(groupBy(filteredItems, "seller"))
+    .map(([seller, sellerItems]) => ({ seller, count: sellerItems.length, amount: sumAmounts(sellerItems) }))
+    .sort((a, b) => b.amount - a.amount);
+  const maxSellerAmount = Math.max(...sellerGroups.map((seller) => seller.amount), 1);
+
+  const closedAmount = sumAmounts(won) + sumAmounts(lost);
+  const wonRate = filteredItems.length ? Math.round((won.length / filteredItems.length) * 100) : 0;
+  const planRows = sellerPlanRows(items);
+  const totalPlan = planTotal();
+  const planFulfillment = totalPlan ? Math.round((sumAmounts(items) / totalPlan) * 100) : 0;
+  const filterLabel = filter
+    ? `${filter.type === "stage" ? "Etapa" : "Temperatura"}: ${filter.label}`
+    : "Vista general";
+
+  opportunityDashboard.innerHTML = `
+    ${renderKpiTabs()}
+    <div class="dashboard-filter-bar">
+      <span>${filterLabel}</span>
+      ${filter ? `<button class="ghost-btn compact-btn" type="button" data-dashboard-filter-clear>Limpiar filtro</button>` : ""}
+    </div>
+    <section class="opportunity-hero-metrics" aria-label="Metricas visuales de oportunidades">
+      <article class="metric-tile total">
+        <span>Pipeline total</span>
+        <strong>${formatMoney(total)}</strong>
+        <small>${filteredItems.length} de ${items.length} oportunidades</small>
+      </article>
+      <article class="metric-tile">
+        <span>Pipeline ponderado</span>
+        <strong>${formatMoney(weightedTotal)}</strong>
+        <small>Segun temperatura comercial</small>
+      </article>
+      <article class="metric-tile">
+        <span>Abiertas</span>
+        <strong>${open.length}</strong>
+        <small>${formatMoney(sumAmounts(open))} en seguimiento</small>
+      </article>
+      <article class="metric-tile">
+        <span>Cierre ganado</span>
+        <strong>${wonRate}%</strong>
+        <small>${won.length} ganadas / ${lost.length} perdidas</small>
+      </article>
+    </section>
+
+    <section class="plan-dashboard" aria-label="Cumplimiento del plan operativo">
+      <div class="plan-overview">
+        <div>
+          <p class="eyebrow">Plan operativo 2026</p>
+          <h3>Cumplimiento por vendedor</h3>
+          <small>Kevin Hernandez se controla como Vacante mientras se cubre la plaza.</small>
+        </div>
+        <div class="plan-total-card">
+          <span>Plan total</span>
+          <strong>${formatMoney(totalPlan)}</strong>
+          <small>Pipeline actual: ${formatMoney(sumAmounts(items))} · ${planFulfillment}%</small>
+        </div>
+      </div>
+      <div class="seller-plan-grid">
+        ${planRows.map((row) => `
+          <article class="seller-plan-card ${row.type === "vacancy" ? "vacancy" : ""}">
+            <div class="seller-plan-top">
+              <strong>${row.seller}</strong>
+              <span class="semaphore ${kpiSemaphore(row.percent)[0]}"><i></i>${kpiSemaphore(row.percent)[1]}</span>
+            </div>
+            <div class="seller-plan-meta">
+              <span>Plan ${formatMoney(row.plan)}</span>
+              <span>Actual ${formatMoney(row.actual)}</span>
+            </div>
+            <div class="seller-plan-bar">
+              <span style="width:${Math.min(row.plan ? (row.actual / row.plan) * 100 : 0, 100)}%"></span>
+            </div>
+            <small>${row.count} oportunidades · brecha ${formatMoney(row.gap)}</small>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+
+    <section class="visual-grid">
+      <article class="visual-panel funnel-panel">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="eyebrow">Embudo</p>
+            <h3>Pipeline por etapa</h3>
+          </div>
+        </div>
+        <div class="funnel-list">
+          ${byStage.map((stage) => `
+            <button class="funnel-step ${filter?.type === "stage" && filter.value === stage.label ? "selected" : ""}" type="button" data-dashboard-filter-type="stage" data-dashboard-filter-value="${stage.label}" data-dashboard-filter-label="${stage.label}">
+              <div class="funnel-meta">
+                <strong>${stage.label}</strong>
+                <span>${stage.count} ops · ${formatMoney(stage.amount)}</span>
+              </div>
+              <div class="funnel-bar"><span style="width:${Math.max((stage.amount / maxStageAmount) * 100, stage.count ? 12 : 0)}%"></span></div>
+            </button>
+          `).join("")}
+        </div>
+      </article>
+
+      <article class="visual-panel">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="eyebrow">Temperatura</p>
+            <h3>Probabilidad de cierre</h3>
+          </div>
+        </div>
+        <div class="temperature-grid">
+          ${probabilityGroups.map((group) => `
+            <button class="temperature-card ${group.key} ${filter?.type === "probability" && filter.value === group.key ? "selected" : ""}" type="button" data-dashboard-filter-type="probability" data-dashboard-filter-value="${group.key}" data-dashboard-filter-label="${group.label}">
+              <span>${group.label}</span>
+              <strong>${group.count}</strong>
+              <small>${formatMoney(group.amount)}</small>
+            </button>
+          `).join("")}
+        </div>
+      </article>
+
+      <article class="visual-panel">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="eyebrow">Cierres</p>
+            <h3>Resultado comercial</h3>
+          </div>
+        </div>
+        <div class="closure-visual">
+          <div class="donut" style="--won:${closedAmount ? (sumAmounts(won) / closedAmount) * 100 : 0}">
+            <span>${won.length}/${won.length + lost.length}</span>
+          </div>
+          <div class="closure-legend">
+            <span><i class="legend-dot won"></i>Ganadas ${formatMoney(sumAmounts(won))}</span>
+            <span><i class="legend-dot lost"></i>Perdidas ${formatMoney(sumAmounts(lost))}</span>
+            <span><i class="legend-dot open"></i>Abiertas ${formatMoney(sumAmounts(open))}</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="visual-panel">
+        <div class="panel-head compact-head">
+          <div>
+            <p class="eyebrow">Vendedores</p>
+            <h3>Ranking por monto</h3>
+          </div>
+        </div>
+        <div class="seller-ranking">
+          ${sellerGroups.map((seller) => `
+            <div class="seller-row">
+              <div>
+                <strong>${seller.seller}</strong>
+                <span>${seller.count} oportunidades</span>
+              </div>
+              <div class="seller-meter"><span style="width:${(seller.amount / maxSellerAmount) * 100}%"></span></div>
+              <strong>${formatMoney(seller.amount)}</strong>
+            </div>
+          `).join("")}
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderGoalsMatrix() {
+  const totalRow = goalsMatrixTotals();
+  goalsMatrixTable.innerHTML = `
+    <table class="goals-matrix">
+      <thead>
+        <tr>
+          ${goalsMatrixColumns.map((column, index) => `
+            <th class="${index === 0 ? "sticky-col" : ""} ${column === "Total" ? "total-col" : ""}">${column}</th>
+          `).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${goalsMatrixRows.map((row) => `
+          <tr>
+            ${row.map((value, index) => `
+              <td class="${index === 0 ? "sticky-col" : ""} ${goalsMatrixColumns[index] === "Total" ? "total-col" : ""}">
+                ${index === 0 ? value : formatMoney(value)}
+              </td>
+            `).join("")}
+          </tr>
+        `).join("")}
+      </tbody>
+      <tfoot>
+        <tr>
+          ${totalRow.map((value, index) => `
+            <td class="${index === 0 ? "sticky-col" : ""} ${goalsMatrixColumns[index] === "Total" ? "total-col" : ""}">
+              ${index === 0 ? value : formatMoney(value)}
+            </td>
+          `).join("")}
+        </tr>
+      </tfoot>
+    </table>
+  `;
+}
+
+function renderKpiTabs() {
+  return `
+    <div class="kpi-tabs" role="tablist" aria-label="Vistas de KPI">
+      <button class="kpi-tab ${state.kpiView === "dashboard" ? "active" : ""}" type="button" data-kpi-view="dashboard">
+        Dashboard
+      </button>
+      <button class="kpi-tab ${state.kpiView === "table" ? "active" : ""}" type="button" data-kpi-view="table">
+        Semaforo KPI
+      </button>
+    </div>
+  `;
+}
+
+function commercialKpiRows(items) {
+  const total = sumAmounts(items);
+  const weightedTotal = items.reduce((sum, item) => {
+    const probabilityWeight = { caliente: .8, tibio: .55, frio: .3, congelado: .1 }[item.probability] || .2;
+    return sum + Number(item.amount || 0) * probabilityWeight;
+  }, 0);
+  const won = items.filter((item) => closureResult(item)?.result === "ganado");
+  const lost = items.filter((item) => closureResult(item)?.result === "perdida");
+  const closedCount = won.length + lost.length;
+  const hotCount = items.filter((item) => item.probability === "caliente").length;
+  const openCount = items.filter((item) => !closureResult(item)).length;
+  const wonRate = closedCount ? (won.length / closedCount) * 100 : 0;
+  const hotRate = items.length ? (hotCount / items.length) * 100 : 0;
+  const closingDiscipline = items.length ? (closedCount / items.length) * 100 : 0;
+  const planRows = sellerPlanRows(items);
+  const totalPlan = planTotal();
+  const planFulfillment = totalPlan ? Math.round((total / totalPlan) * 100) : 0;
+  const averagePlanFulfillment = sellerPlanAverage(planRows);
+
+  const globalRows = [
+    {
+      name: "Pipeline total",
+      target: "$350,000.00",
+      actual: formatMoney(total),
+      percent: Math.round((total / 350000) * 100),
+      note: "Meta mensual de oportunidades registradas"
+    },
+    {
+      name: "Pipeline ponderado",
+      target: "$250,000.00",
+      actual: formatMoney(weightedTotal),
+      percent: Math.round((weightedTotal / 250000) * 100),
+      note: "Monto ajustado por probabilidad de cierre"
+    },
+    {
+      name: "Oportunidades calientes",
+      target: "40% o mas",
+      actual: `${Math.round(hotRate)}%`,
+      percent: Math.round((hotRate / 40) * 100),
+      note: `${hotCount} oportunidades con probabilidad alta`
+    },
+    {
+      name: "Disciplina de cierre",
+      target: "35% cerradas",
+      actual: `${Math.round(closingDiscipline)}%`,
+      percent: Math.round((closingDiscipline / 35) * 100),
+      note: `${closedCount} cerradas y ${openCount} abiertas`
+    },
+    {
+      name: "Efectividad de cierre",
+      target: "60% ganadas",
+      actual: `${Math.round(wonRate)}%`,
+      percent: Math.round((wonRate / 60) * 100),
+      note: `${won.length} ganadas / ${lost.length} perdidas`
+    },
+    {
+      name: "Plan operativo total",
+      target: formatMoney(totalPlan),
+      actual: formatMoney(total),
+      percent: planFulfillment,
+      note: "Cumplimiento acumulado contra plan operativo 2026"
+    },
+    {
+      name: "Promedio plan vendedores",
+      target: "100%",
+      actual: `${averagePlanFulfillment}%`,
+      percent: averagePlanFulfillment,
+      note: "Promedio simple de cumplimiento por vendedor"
+    }
+  ];
+
+  const sellerRows = planRows
+    .filter((row) => row.type !== "channel")
+    .map((row) => ({
+      name: `Plan ${row.seller}`,
+      target: formatMoney(row.plan),
+      actual: formatMoney(row.actual),
+      percent: row.percent,
+      note: `${row.count} oportunidades${row.type === "vacancy" ? " · plaza vacante" : ""}`
+    }));
+
+  return [...globalRows, ...sellerRows];
+}
+
+function kpiSemaphore(percent) {
+  if (percent >= 100) return ["green", "Cumplido"];
+  if (percent >= 80) return ["yellow", "En riesgo"];
+  return ["red", "Atencion"];
+}
+
+function renderKpiComplianceTable(items) {
+  const rows = commercialKpiRows(items);
+  const fulfilled = rows.filter((row) => row.percent >= 100).length;
+  return `
+    <section class="kpi-compliance" aria-label="Tabla de cumplimiento KPI">
+      <div class="kpi-compliance-head">
+        <div>
+          <p class="eyebrow">Control KPI</p>
+          <h3>Cumplimiento con semaforo</h3>
+        </div>
+        <span class="status-pill">${fulfilled} de ${rows.length} cumplidos</span>
+      </div>
+      <div class="kpi-compliance-table">
+        <div class="kpi-compliance-row kpi-compliance-header">
+          <strong>KPI</strong>
+          <strong>Meta</strong>
+          <strong>Actual</strong>
+          <strong>Cumplimiento</strong>
+          <strong>Semaforo</strong>
+          <strong>Lectura</strong>
+        </div>
+        ${rows.map((row) => {
+          const [statusClass, statusLabel] = kpiSemaphore(row.percent);
+          return `
+            <div class="kpi-compliance-row">
+              <strong>${row.name}</strong>
+              <span>${row.target}</span>
+              <span>${row.actual}</span>
+              <span>
+                <span class="kpi-progress"><i style="width:${Math.min(row.percent, 120)}%"></i></span>
+                <small>${row.percent}%</small>
+              </span>
+              <span class="semaphore ${statusClass}">
+                <i></i>${statusLabel}
+              </span>
+              <span>${row.note}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboard() {
+  const area = areas[state.activeArea];
+  const hasSubmenus = Array.isArray(area.submenus);
+  activeRoleLabel.textContent = roleDisplayName();
+  const activeSubmenu = hasSubmenus
+    ? area.submenus.find((item) => item.key === state.activeSubmenu)
+    : null;
+  dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "riesgos", "solicitudes"].includes(state.activeSubmenu));
+  pageTitle.textContent = activeSubmenu ? activeSubmenu.label : area.label;
+  periodLabel.textContent = state.period;
+  overallStatus.textContent = area.status;
+  renderNav();
+  renderSummary(area);
+  renderCommercialSubmenu(area);
+  renderResults(area);
+  renderKpis(area);
+  renderRisks(area);
+  renderRequests(area);
+}
+
+function setSidebarCollapsed(collapsed) {
+  appShell.classList.toggle("sidebar-collapsed", collapsed);
+  sidebarRestoreBtn.classList.toggle("hidden", !collapsed);
+}
+
+function normalizeUsers(items) {
+  return items.map((item, index) => ({
+    id: item.id || `user-${index + 1}`,
+    name: item.name || item.username || "Usuario",
+    username: String(item.username || item.email || `usuario${index + 1}`).trim(),
+    email: String(item.email || "").trim(),
+    role: accessRoles.some(([key]) => key === item.role) ? item.role : "comercializacion",
+    password: item.password || "admin123"
+  }));
+}
+
+function loadUsers() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(usersStorageKey) || "null");
+    systemUsers = normalizeUsers(Array.isArray(saved) && saved.length ? saved : defaultUsers);
+  } catch {
+    systemUsers = normalizeUsers(defaultUsers);
+  }
+  saveUsers();
+  fillUserAccessOptions();
+  if (apiEnabled) {
+    apiJson("/api/users")
+      .then((users) => {
+        systemUsers = normalizeUsers(users);
+        localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
+        fillUserAccessOptions();
+      })
+      .catch(() => {});
+  }
+}
+
+function saveUsers() {
+  localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
+}
+
+function createUserInDatabase(user) {
+  if (!apiEnabled) return;
+  apiJson("/api/users", {
+    method: "POST",
+    body: JSON.stringify(user)
+  }).catch(() => {});
+}
+
+function fillUserAccessOptions() {
+  loginUserSelect.innerHTML = systemUsers.map((user) => `
+    <option value="${user.id}">${user.username} - ${roleDisplayName(user.role)}</option>
+  `).join("");
+  registerRole.innerHTML = accessRoles.map(([key, label]) => `<option value="${key}">${label}</option>`).join("");
+}
+
+function setAuthMode(mode) {
+  const isRegister = mode === "register";
+  document.querySelectorAll("[data-auth-mode]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.authMode === mode);
+  });
+  document.querySelectorAll("[data-auth-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.authPanel !== mode);
+  });
+  if (isRegister) {
+    registerName.focus();
+  } else {
+    loginUserSelect.focus();
+  }
+}
+
+function openApp(role) {
+  state.role = role;
+  state.activeArea = ["general", "accionistas"].includes(role) ? "comercializacion" : role;
+  state.activeSubmenu = "resultados";
+  state.commercialMenuOpen = state.activeArea === "comercializacion";
+  loginView.classList.add("hidden");
+  appShell.classList.remove("hidden");
+  renderDashboard();
+}
+
+function fillRequestAreas() {
+  requestArea.innerHTML = areaOptions.map((key) => `<option value="${key}">${areas[key].nav}</option>`).join("");
+}
+
+function currentRiskOwner() {
+  return areaKeys.includes(state.role) ? areas[state.role].nav : roleDisplayName();
+}
+
+function currentRequestOwner() {
+  return areas[state.activeArea]?.nav || currentRiskOwner();
+}
+
+function riskImpactOptions() {
+  return areaKeys
+    .filter((key) => key !== state.role)
+    .map((key) => areas[key].nav);
+}
+
+function fillRiskImpactOptions() {
+  strategicRiskImpactList.innerHTML = riskImpactOptions().map((name) => `
+    <label class="risk-impact-option">
+      <input type="checkbox" value="${name}">
+      <span>${name}</span>
+    </label>
+  `).join("");
+}
+
+function updateRiskImpactVisibility() {
+  const visible = strategicRiskAffects.value === "si";
+  strategicRiskImpactField.classList.toggle("hidden", !visible);
+}
+
+document.querySelectorAll("[data-auth-mode]").forEach((button) => {
+  button.addEventListener("click", () => setAuthMode(button.dataset.authMode));
+});
+
+loginForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const user = systemUsers.find((item) => item.id === loginUserSelect.value);
+  if (!user || user.password !== loginPassword.value) {
+    alert("Usuario o contrasena incorrecta.");
+    return;
+  }
+  openApp(user.role);
+});
+
+registerForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const username = registerUser.value.trim();
+  const exists = systemUsers.some((user) => user.username.toLowerCase() === username.toLowerCase());
+  if (exists) {
+    alert("Este usuario ya existe.");
+    return;
+  }
+
+  const user = {
+    id: crypto.randomUUID(),
+    name: registerName.value.trim(),
+    username,
+    email: registerEmail.value.trim(),
+    role: registerRole.value,
+    password: registerPassword.value
+  };
+  systemUsers.push(user);
+  saveUsers();
+  createUserInDatabase(user);
+  fillUserAccessOptions();
+  registerForm.reset();
+  registerPassword.value = "admin123";
+  loginUserSelect.value = user.id;
+  setAuthMode("login");
+  openApp(user.role);
+});
+
+logoutBtn.addEventListener("click", () => {
+  appShell.classList.add("hidden");
+  loginView.classList.remove("hidden");
+  setAuthMode("login");
+});
+
+sidebarToggleBtn.addEventListener("click", () => {
+  setSidebarCollapsed(true);
+});
+
+sidebarRestoreBtn.addEventListener("click", () => {
+  setSidebarCollapsed(false);
+});
+
+periodSelect.addEventListener("change", () => {
+  state.period = periodSelect.options[periodSelect.selectedIndex].text;
+  renderDashboard();
+});
+
+exportBtn.addEventListener("click", () => {
+  const area = areas[state.activeArea];
+  const lines = [
+    `Resumen ${area.label} - ${state.period}`,
+    "",
+    "Resultados:",
+    ...area.results.map(([label, value]) => `- ${label}: ${value}%`),
+    "",
+    "Riesgos:",
+    ...area.risks.map(([name, owner, level]) => `- ${level}: ${name} (${owner})`),
+    "",
+    "Solicitudes:",
+    ...area.requests.map(([subject, target, priority, status]) => `- ${subject} / ${target} / ${priority} / ${status}`)
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `resumen-${state.activeArea}.txt`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+});
+
+newRequestBtn.addEventListener("click", () => {
+  fillRequestAreas();
+  requestSubject.value = "";
+  requestPriority.value = "Alta";
+  requestDialog.showModal();
+});
+
+newRiskBtn.addEventListener("click", () => {
+  strategicRiskDate.value = todayISO();
+  strategicRiskText.value = "";
+  strategicRiskAffects.value = "no";
+  fillRiskImpactOptions();
+  updateRiskImpactVisibility();
+  strategicRiskDialog.showModal();
+});
+
+newManagementRequestBtn.addEventListener("click", () => {
+  resetManagementRequestForm();
+  managementRequestDialog.showModal();
+});
+
+closeStrategicRiskDialog.addEventListener("click", () => {
+  strategicRiskDialog.close();
+});
+
+cancelStrategicRisk.addEventListener("click", () => {
+  strategicRiskDialog.close();
+});
+
+strategicRiskAffects.addEventListener("change", updateRiskImpactVisibility);
+
+strategicRiskImpactList.addEventListener("change", updateRiskImpactVisibility);
+
+strategicRiskForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const affectsOthers = strategicRiskAffects.value === "si";
+  const involved = affectsOthers
+    ? [...strategicRiskImpactList.querySelectorAll("input:checked")].map((input) => input.value)
+    : [];
+  if (affectsOthers && !involved.length) return;
+
+  const submenu = getStrategicRiskSubmenu();
+  submenu.items.unshift({
+    id: crypto.randomUUID(),
+    date: strategicRiskDate.value,
+    owner: currentRiskOwner(),
+    risk: strategicRiskText.value.trim(),
+    affectsOthers,
+    involved,
+    status: affectsOthers ? "Notificado" : "Registrado"
+  });
+  saveStrategicRisks();
+  strategicRiskDialog.close();
+  renderCommercialSubmenu(areas.comercializacion);
+});
+
+closeManagementRequestDialog.addEventListener("click", () => {
+  managementRequestDialog.close();
+});
+
+cancelManagementRequest.addEventListener("click", () => {
+  managementRequestDialog.close();
+});
+
+managementRequestForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const submenu = getManagementRequestSubmenu();
+  const id = managementRequestId.value || crypto.randomUUID();
+  const payload = {
+    id,
+    date: managementRequestDate.value,
+    owner: currentRequestOwner(),
+    target: "Gerencia general",
+    subject: managementRequestSubject.value.trim(),
+    message: managementRequestMessage.value.trim(),
+    status: "Enviada"
+  };
+
+  const index = submenu.items.findIndex((item) => item.id === id);
+  if (index >= 0) {
+    submenu.items[index] = { ...submenu.items[index], ...payload };
+  } else {
+    submenu.items.unshift(payload);
+  }
+
+  saveManagementRequests();
+  managementRequestDialog.close();
+  resetManagementRequestForm();
+  renderCommercialSubmenu(areas.comercializacion);
+});
+
+requestForm.addEventListener("submit", (event) => {
+  if (event.submitter && event.submitter.value === "cancel") return;
+  event.preventDefault();
+  const targetKey = requestArea.value;
+  const active = areas[state.activeArea];
+  active.requests.unshift([
+    requestSubject.value.trim(),
+    areas[targetKey].nav,
+    requestPriority.value,
+    "Pendiente"
+  ]);
+  requestDialog.close();
+  renderRequests(active);
+});
+
+goalsMatrixBtn.addEventListener("click", () => {
+  renderGoalsMatrix();
+  goalsMatrixDialog.showModal();
+});
+
+opportunityTable.addEventListener("click", (event) => {
+  const cycleButton = event.target.closest("[data-cycle-view]");
+  if (cycleButton) {
+    state.opportunityCycleView = cycleButton.dataset.cycleView;
+    renderCommercialSubmenu(areas.comercializacion);
+    return;
+  }
+
+  const requestButton = event.target.closest("button[data-request-action]");
+  if (requestButton) {
+    const submenu = getManagementRequestSubmenu();
+    const item = submenu.items.find((record) => record.id === requestButton.dataset.id);
+    if (!item) return;
+
+    if (requestButton.dataset.requestAction === "delete") {
+      submenu.items = submenu.items.filter((record) => record.id !== item.id);
+      saveManagementRequests();
+      renderCommercialSubmenu(areas.comercializacion);
+      return;
+    }
+
+    managementRequestId.value = item.id;
+    managementRequestDate.value = item.date;
+    managementRequestSubject.value = item.subject;
+    managementRequestMessage.value = item.message;
+    managementRequestTitle.textContent = "Editar solicitud";
+    saveManagementRequestBtn.textContent = "Actualizar solicitud";
+    managementRequestDialog.showModal();
+    return;
+  }
+
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+
+  const submenu = getOpportunitySubmenu();
+  const item = submenu.items.find((record) => record.id === button.dataset.id);
+  if (!item) return;
+
+  if (button.dataset.action === "delete") {
+    if (!canDeleteOpportunities()) return;
+    submenu.items = submenu.items.filter((record) => record.id !== item.id);
+    saveOpportunities();
+    renderCommercialSubmenu(areas.comercializacion);
+    resetOpportunityForm();
+    return;
+  }
+
+  if (button.dataset.action === "manage") {
+    openManagementDialog(item);
+    return;
+  }
+
+  opportunityId.value = item.id;
+  opportunityDate.value = item.date;
+  opportunityCompany.value = item.company;
+  opportunitySeller.value = item.seller;
+  opportunityStage.value = item.stage;
+  opportunityProbability.value = item.probability;
+  opportunityAmount.value = item.amount;
+  opportunityDialogTitle.textContent = "Editar registro";
+  saveOpportunityBtn.textContent = "Actualizar oportunidad";
+  opportunityDialog.showModal();
+});
+
+opportunityDashboard.addEventListener("click", (event) => {
+  const matrixButton = event.target.closest("[data-action='open-goals-matrix']");
+  if (matrixButton) {
+    renderGoalsMatrix();
+    goalsMatrixDialog.showModal();
+    return;
+  }
+
+  const viewButton = event.target.closest("[data-kpi-view]");
+  if (viewButton) {
+    state.kpiView = viewButton.dataset.kpiView;
+    renderCommercialSubmenu(areas.comercializacion);
+    return;
+  }
+
+  const detailButton = event.target.closest("[data-kpi-detail]");
+  if (detailButton) {
+    event.stopPropagation();
+    renderKpiDetailReport(detailButton.dataset.kpiSellerDetail, detailButton.dataset.kpiDetail);
+    return;
+  }
+
+  const clearSellerButton = event.target.closest("[data-kpi-seller-clear]");
+  if (clearSellerButton) {
+    state.kpiSeller = "all";
+    renderCommercialSubmenu(areas.comercializacion);
+    return;
+  }
+
+  const sellerRow = event.target.closest("[data-kpi-seller-row]");
+  if (sellerRow) {
+    state.kpiSeller = state.kpiSeller === sellerRow.dataset.kpiSellerRow ? "all" : sellerRow.dataset.kpiSellerRow;
+    renderCommercialSubmenu(areas.comercializacion);
+    return;
+  }
+
+  const clearButton = event.target.closest("[data-dashboard-filter-clear]");
+  if (clearButton) {
+    state.opportunityFilter = null;
+    renderCommercialSubmenu(areas.comercializacion);
+    return;
+  }
+
+  const filterButton = event.target.closest("[data-dashboard-filter-type]");
+  if (!filterButton) return;
+
+  const nextFilter = {
+    type: filterButton.dataset.dashboardFilterType,
+    value: filterButton.dataset.dashboardFilterValue,
+    label: filterButton.dataset.dashboardFilterLabel
+  };
+  const current = state.opportunityFilter;
+  state.opportunityFilter = current?.type === nextFilter.type && current.value === nextFilter.value
+    ? null
+    : nextFilter;
+  renderCommercialSubmenu(areas.comercializacion);
+});
+
+function openManagementDialog(item) {
+  managementOpportunityId.value = item.id;
+  managementDialogTitle.textContent = item.company;
+  managementDate.valueAsDate = new Date();
+  managementStage.value = item.stage;
+  managementResult.value = "ganado";
+  managementComment.value = "";
+  updateClosureControls();
+  renderManagements(item);
+  managementDialog.showModal();
+}
+
+function renderManagements(item) {
+  const managements = normalizeManagements(item);
+  item.managements = managements;
+  managementTable.innerHTML = `
+    <div class="management-row management-header">
+      <strong>Fecha y hora</strong>
+      <strong>Etapa</strong>
+      <strong>Comentario</strong>
+    </div>
+    ${managements.map((management) => `
+      <div class="management-row">
+        <span>${formatDateTime(management.date, management.time)}</span>
+        <span>
+          <span class="tag info">${management.stage}</span>
+          ${managementResultTag(management)}
+        </span>
+        <span>${management.comment}</span>
+      </div>
+    `).join("")}
+  `;
+}
+
+function currentManagementItem() {
+  const submenu = getOpportunitySubmenu();
+  return submenu.items.find((record) => record.id === managementOpportunityId.value);
+}
+
+function updateClosureControls() {
+  const isClosing = isClosureStage(managementStage.value);
+  const isWon = managementResult.value === "ganado";
+  const item = currentManagementItem();
+  const hasWonClosure = closureResult(item || {})?.result === "ganado";
+  const hasNotification = Boolean(item?.managements?.some((management) => management.notified));
+  managementResultField.classList.toggle("hidden", !isClosing);
+  managementResult.classList.toggle("result-won", isWon);
+  managementResult.classList.toggle("result-lost", !isWon);
+  notifyOperationsBtn.classList.toggle("hidden", !hasWonClosure);
+  notifyOperationsBtn.textContent = hasNotification ? "Notificado" : "Notificar";
+  notifyOperationsBtn.disabled = hasNotification;
+}
+
+opportunityForm.addEventListener("submit", (event) => {
+  if (event.submitter && event.submitter.value === "cancel") return;
+  event.preventDefault();
+  const submenu = getOpportunitySubmenu();
+  const id = opportunityId.value || crypto.randomUUID();
+  const currentIndex = submenu.items.findIndex((item) => item.id === id);
+  const createdTime = currentTimeValue();
+  const payload = {
+    id,
+    date: opportunityDate.value,
+    time: currentIndex >= 0 ? submenu.items[currentIndex].time || createdTime : createdTime,
+    company: opportunityCompany.value.trim(),
+    seller: opportunitySeller.value.trim(),
+    stage: opportunityStage.value,
+    probability: opportunityProbability.value,
+    amount: Number(opportunityAmount.value),
+    managements: currentIndex >= 0 ? normalizeManagements(submenu.items[currentIndex]) : [{
+      id: `${id}-mgmt-001`,
+      date: opportunityDate.value,
+      time: createdTime,
+      stage: "Prospeccion",
+      comment: "Ingreso inicial de la oportunidad."
+    }]
+  };
+
+  if (currentIndex >= 0) {
+    submenu.items[currentIndex] = payload;
+  } else {
+    submenu.items.unshift(payload);
+  }
+
+  saveOpportunities();
+  resetOpportunityForm();
+  opportunityDialog.close();
+  renderCommercialSubmenu(areas.comercializacion);
+});
+
+newOpportunityBtn.addEventListener("click", () => {
+  resetOpportunityForm();
+  opportunityDialog.showModal();
+});
+
+closeOpportunityDialog.addEventListener("click", closeOpportunityForm);
+cancelOpportunityEdit.addEventListener("click", closeOpportunityForm);
+
+managementForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const submenu = getOpportunitySubmenu();
+  const item = submenu.items.find((record) => record.id === managementOpportunityId.value);
+  if (!item) return;
+
+  item.managements = normalizeManagements(item);
+  item.managements.push({
+    id: crypto.randomUUID(),
+    date: managementDate.value,
+    time: currentTimeValue(),
+    stage: managementStage.value,
+    result: isClosureStage(managementStage.value) ? managementResult.value : "",
+    comment: managementComment.value.trim()
+  });
+  item.stage = managementStage.value;
+  saveOpportunities();
+  renderManagements(item);
+  renderCommercialSubmenu(areas.comercializacion);
+  managementDate.valueAsDate = new Date();
+  managementComment.value = "";
+  updateClosureControls();
+});
+
+managementStage.addEventListener("change", updateClosureControls);
+managementResult.addEventListener("change", updateClosureControls);
+
+notifyOperationsBtn.addEventListener("click", () => {
+  const submenu = getOpportunitySubmenu();
+  const item = submenu.items.find((record) => record.id === managementOpportunityId.value);
+  if (!item || closureResult(item)?.result !== "ganado") return;
+  if (item.managements?.some((management) => management.notified)) return;
+
+  areas.operaciones.requests.unshift([
+    `Oportunidad ganada: ${item.company}`,
+    "Comercializacion",
+    "Alta",
+    "Pendiente"
+  ]);
+  item.managements = normalizeManagements(item);
+  item.managements.push({
+    id: crypto.randomUUID(),
+    date: managementDate.value || new Date().toISOString().slice(0, 10),
+    time: currentTimeValue(),
+    stage: closureStage,
+    result: "",
+    comment: "Notificacion enviada a gerencia de operaciones.",
+    notified: true
+  });
+  item.stage = closureStage;
+  saveOpportunities();
+  renderManagements(item);
+  renderCommercialSubmenu(areas.comercializacion);
+  notifyOperationsBtn.textContent = "Notificado";
+  notifyOperationsBtn.disabled = true;
+});
+
+function closeManagementForm() {
+  managementDialog.close();
+  managementForm.reset();
+  notifyOperationsBtn.textContent = "Notificar";
+  notifyOperationsBtn.disabled = false;
+  updateClosureControls();
+}
+
+closeManagementDialog.addEventListener("click", closeManagementForm);
+cancelManagement.addEventListener("click", closeManagementForm);
+closeGoalsMatrixDialog.addEventListener("click", () => {
+  goalsMatrixDialog.close();
+});
+closeKpiDetailDialog.addEventListener("click", () => {
+  kpiDetailDialog.close();
+});
+
+kpiDetailDialog.addEventListener("click", (event) => {
+  const tabButton = event.target.closest("[data-kpi-report-tab]");
+  if (!tabButton) return;
+
+  const target = tabButton.dataset.kpiReportTab;
+  kpiDetailDialog.querySelectorAll("[data-kpi-report-tab]").forEach((button) => {
+    button.classList.toggle("active", button === tabButton);
+  });
+  kpiDetailDialog.querySelectorAll("[data-kpi-report-view]").forEach((view) => {
+    view.classList.toggle("active", view.dataset.kpiReportView === target);
+  });
+});
+
+fillOpportunityOptions();
+loadUsers();
+loadOpportunities();
+loadStrategicRisks();
+loadManagementRequests();
+resetOpportunityForm();

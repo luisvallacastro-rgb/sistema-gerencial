@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sistema-gerencial
+    runtime: python
+    buildCommand: python3 -m py_compile outputs/sistema-gerencial/server.py
+    startCommand: cd outputs/sistema-gerencial && python3 server.py
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /opt/render/project/src/data
+    disk:
+      name: sistema-gerencial-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

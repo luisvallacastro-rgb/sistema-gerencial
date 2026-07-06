@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sistema Gerencial</title>
+    <link rel="stylesheet" href="styles.css?v=20260706-production-db">
+  </head>
+  <body>
+    <main class="login-view" id="loginView">
+      <section class="login-panel" aria-label="Ingreso al sistema">
+        <div class="brand-row">
+          <div class="brand-mark">SG</div>
+          <div>
+            <p class="eyebrow">Sistema gerencial</p>
+            <h1>Control ejecutivo</h1>
+          </div>
+        </div>
+        <p class="login-copy">Resultados, KPIs, riesgos y solicitudes de las cuatro gerencias en una sola vista.</p>
+        <form class="login-form auth-form" id="loginForm" data-auth-panel="login">
+          <label>
+            Usuario
+            <select id="loginUserSelect" required></select>
+          </label>
+          <label>
+            Contrasena
+            <input id="loginPassword" type="password" value="admin123" autocomplete="current-password" required>
+          </label>
+          <p class="auth-switch-copy">No tienes usuario? <button type="button" data-auth-mode="register">Registrarse</button></p>
+          <button class="primary-btn" type="submit">Ingresar</button>
+        </form>
+        <form class="login-form auth-form hidden" id="registerForm" data-auth-panel="register">
+          <div class="auth-form-title">
+            <p class="eyebrow">Nuevo usuario</p>
+            <h3>Registro de acceso</h3>
+          </div>
+          <label>
+            Nombre completo
+            <input id="registerName" type="text" placeholder="Nombre del usuario" autocomplete="name" required>
+          </label>
+          <label>
+            Usuario
+            <input id="registerUser" type="text" placeholder="usuario.empresa" autocomplete="username" required>
+          </label>
+          <label>
+            Correo
+            <input id="registerEmail" type="email" placeholder="correo@empresa.com" autocomplete="email" required>
+          </label>
+          <label>
+            Gerencia
+            <select id="registerRole" required></select>
+          </label>
+          <label>
+            Contrasena
+            <input id="registerPassword" type="password" value="admin123" autocomplete="new-password" required>
+          </label>
+          <p class="auth-switch-copy">Ya tienes usuario? <button type="button" data-auth-mode="login">Ingresar</button></p>
+          <button class="primary-btn" type="submit">Crear usuario</button>
+        </form>
+        <p class="hint">Los permisos se asignan segun la gerencia vinculada al usuario.</p>
+      </section>
+      <aside class="login-visual" aria-hidden="true">
+        <div class="signal-grid">
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </aside>
+    </main>
+
+    <div class="app-shell hidden" id="appShell">
+      <aside class="sidebar">
+        <div class="sidebar-head">
+          <div class="brand-row compact">
+            <div class="brand-mark">SG</div>
+            <div>
+              <strong>Sistema Gerencial</strong>
+              <small id="activeRoleLabel">Gerencia general</small>
+            </div>
+          </div>
+          <button class="sidebar-toggle" id="sidebarToggleBtn" type="button" aria-label="Ocultar menu">
+            ‹
+          </button>
+        </div>
+        <nav class="nav-list" id="navList" aria-label="Gerencias"></nav>
+        <button class="ghost-btn logout" id="logoutBtn" type="button">Cerrar sesion</button>
+      </aside>
+
+      <main class="dashboard">
+        <button class="sidebar-restore hidden" id="sidebarRestoreBtn" type="button" aria-label="Mostrar menu">
+          ☰
+        </button>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="periodLabel">Julio 2026</p>
+            <h2 id="pageTitle">Vista ejecutiva</h2>
+          </div>
+          <div class="topbar-actions">
+            <select id="periodSelect" aria-label="Periodo">
+              <option value="julio">Julio 2026</option>
+              <option value="junio">Junio 2026</option>
+              <option value="agosto">Agosto 2026</option>
+              <option value="q2">Segundo trimestre 2026</option>
+            </select>
+            <button class="secondary-btn" id="exportBtn" type="button">Exportar resumen</button>
+          </div>
+        </header>
+
+        <section class="summary-grid" id="summaryGrid" aria-label="Resumen ejecutivo"></section>
+
+        <section class="panel commercial-panel hidden" id="commercialPanel" aria-label="Submodulo de comercializacion">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Comercializacion</p>
+              <h3 id="commercialSubmenuTitle">Resultados</h3>
+            </div>
+            <div class="panel-actions">
+              <span class="status-pill" id="commercialSubmenuStatus">Pipeline activo</span>
+              <button class="secondary-btn icon-text-btn" id="newOpportunityBtn" type="button">
+                <span aria-hidden="true">+</span>
+                Nuevo registro
+              </button>
+              <button class="secondary-btn icon-text-btn hidden" id="newRiskBtn" type="button">
+                <span aria-hidden="true">+</span>
+                Nuevo riesgo
+              </button>
+              <button class="secondary-btn icon-text-btn hidden" id="newManagementRequestBtn" type="button">
+                <span aria-hidden="true">+</span>
+                Nueva solicitud
+              </button>
+              <button class="action-icon-btn matrix-header-btn hidden" id="goalsMatrixBtn" type="button" aria-label="Matriz de metas" title="Matriz de metas">
+                <span aria-hidden="true">▦</span>
+              </button>
+            </div>
+          </div>
+          <div class="opportunity-dashboard hidden" id="opportunityDashboard"></div>
+          <div class="opportunity-table" id="opportunityTable"></div>
+        </section>
+
+        <section class="content-grid">
+          <article class="panel wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Resultados</p>
+                <h3>Cumplimiento mensual</h3>
+              </div>
+              <span class="status-pill" id="overallStatus">Estable</span>
+            </div>
+            <div class="chart-list" id="resultsChart"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">KPIs</p>
+                <h3>Indicadores clave</h3>
+              </div>
+            </div>
+            <div class="kpi-list" id="kpiList"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Riesgos</p>
+                <h3>Mapa actual</h3>
+              </div>
+            </div>
+            <div class="risk-list" id="riskList"></div>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Solicitudes</p>
+                <h3>Flujo de aprobaciones</h3>
+              </div>
+              <button class="secondary-btn" id="newRequestBtn" type="button">Nueva solicitud</button>
+            </div>
+            <div class="request-table" id="requestTable"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="requestDialog">
+      <form method="dialog" class="dialog-card" id="requestForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Solicitud</p>
+            <h3>Nueva solicitud interna</h3>
+          </div>
+          <button class="icon-btn" value="cancel" aria-label="Cerrar" formnovalidate type="submit">x</button>
+        </div>
+        <label>
+          Gerencia destino
+          <select id="requestArea"></select>
+        </label>
+        <label>
+          Asunto
+          <input id="requestSubject" maxlength="70" placeholder="Ej. Aprobacion de presupuesto" required>
+        </label>
+        <label>
+          Prioridad
+          <select id="requestPriority">
+            <option>Alta</option>
+            <option>Media</option>
+            <option>Baja</option>
+          </select>
+        </label>
+        <menu>
+          <button class="ghost-btn" value="cancel" type="submit">Cancelar</button>
+          <button class="primary-btn" value="default" type="submit">Guardar</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="strategicRiskDialog">
+      <form method="dialog" class="dialog-card risk-form" id="strategicRiskForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Riesgo gerencial</p>
+            <h3>Nuevo riesgo</h3>
+          </div>
+          <button class="icon-btn" id="closeStrategicRiskDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <label>
+          Fecha
+          <input id="strategicRiskDate" type="date" required>
+        </label>
+        <label>
+          Riesgo
+          <textarea id="strategicRiskText" rows="4" maxlength="220" placeholder="Describe el riesgo identificado en reunion gerencial" required></textarea>
+        </label>
+        <label>
+          Afecta a otras gerencias?
+          <select id="strategicRiskAffects">
+            <option value="no">No</option>
+            <option value="si">Si</option>
+          </select>
+        </label>
+        <fieldset class="risk-impact-field hidden" id="strategicRiskImpactField">
+          <legend>Gerencias involucradas</legend>
+          <div class="risk-impact-list" id="strategicRiskImpactList"></div>
+        </fieldset>
+        <menu>
+          <button class="ghost-btn" id="cancelStrategicRisk" type="button">Cancelar</button>
+          <button class="primary-btn" value="default" type="submit">Guardar y notificar</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="managementRequestDialog">
+      <form method="dialog" class="dialog-card management-request-form" id="managementRequestForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Solicitud</p>
+            <h3 id="managementRequestTitle">Nueva solicitud</h3>
+          </div>
+          <button class="icon-btn" id="closeManagementRequestDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <input type="hidden" id="managementRequestId">
+        <label>
+          Fecha
+          <input id="managementRequestDate" type="date" required>
+        </label>
+        <label>
+          Asunto
+          <input id="managementRequestSubject" maxlength="90" placeholder="Asunto de la solicitud" required>
+        </label>
+        <label>
+          Mensaje para Gerencia General
+          <textarea id="managementRequestMessage" rows="5" maxlength="360" placeholder="Detalle del requerimiento para el cumplimiento de funciones" required></textarea>
+        </label>
+        <menu>
+          <button class="ghost-btn" id="cancelManagementRequest" type="button">Cancelar</button>
+          <button class="primary-btn" id="saveManagementRequestBtn" value="default" type="submit">Enviar solicitud</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="opportunityDialog">
+      <form method="dialog" class="dialog-card opportunity-form" id="opportunityForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Oportunidad</p>
+            <h3 id="opportunityDialogTitle">Nuevo registro</h3>
+          </div>
+          <button class="icon-btn" id="closeOpportunityDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <input type="hidden" id="opportunityId">
+        <label>
+          Fecha de ingreso
+          <input id="opportunityDate" type="date" required>
+        </label>
+        <label>
+          Empresa
+          <input id="opportunityCompany" maxlength="80" placeholder="Nombre de la empresa" required>
+        </label>
+        <label>
+          Vendedor
+          <select id="opportunitySeller" required></select>
+        </label>
+        <label>
+          Etapa
+          <select id="opportunityStage" required></select>
+        </label>
+        <label>
+          Estado / probabilidad
+          <select id="opportunityProbability" required></select>
+        </label>
+        <label>
+          Monto
+          <input id="opportunityAmount" type="number" min="0" step="0.01" placeholder="0.00" required>
+        </label>
+        <menu>
+          <button class="ghost-btn" id="cancelOpportunityEdit" type="button">Cancelar</button>
+          <button class="primary-btn" id="saveOpportunityBtn" value="default" type="submit">Guardar oportunidad</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="goalsMatrixDialog" class="wide-dialog">
+      <section class="dialog-card matrix-card">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Metas comerciales</p>
+            <h3>Carga de metas por vendedor</h3>
+          </div>
+          <button class="icon-btn" id="closeGoalsMatrixDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <div class="goals-matrix-wrap" id="goalsMatrixTable"></div>
+      </section>
+    </dialog>
+
+    <dialog id="kpiDetailDialog" class="wide-dialog">
+      <section class="dialog-card kpi-detail-card">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow" id="kpiDetailEyebrow">Reporte KPI</p>
+            <h3 id="kpiDetailTitle">Detalle de oportunidades</h3>
+          </div>
+          <button class="icon-btn" id="closeKpiDetailDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <div class="kpi-detail-summary" id="kpiDetailSummary"></div>
+        <div class="kpi-detail-report" id="kpiDetailReport"></div>
+      </section>
+    </dialog>
+
+    <dialog id="managementDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-card management-card" id="managementForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Gestiones</p>
+            <h3 id="managementDialogTitle">Historial de gestion</h3>
+          </div>
+          <button class="icon-btn" id="closeManagementDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <input type="hidden" id="managementOpportunityId">
+        <div class="management-scroll">
+          <div class="management-table" id="managementTable"></div>
+          <div class="management-form-grid">
+            <label>
+              Fecha
+              <input id="managementDate" type="date" required>
+            </label>
+            <label>
+              Etapa a la que pasa
+              <select id="managementStage" required></select>
+            </label>
+            <label class="closure-field hidden" id="managementResultField">
+              Resultado de cierre
+              <select id="managementResult">
+                <option value="ganado">Ganado</option>
+                <option value="perdida">Perdida</option>
+              </select>
+            </label>
+            <label class="management-comment">
+              Comentario de la gestion
+              <textarea id="managementComment" rows="3" maxlength="240" placeholder="Detalle de la gestion realizada" required></textarea>
+            </label>
+          </div>
+        </div>
+        <menu>
+          <button class="secondary-btn hidden" id="notifyOperationsBtn" type="button">Notificar</button>
+          <button class="ghost-btn" id="cancelManagement" type="button">Cancelar</button>
+          <button class="primary-btn" value="default" type="submit">Agregar gestion</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="historical-sales.js?v=20260706-production-db"></script>
+    <script src="app.js?v=20260706-production-db"></script>
+  </body>
+</html>
