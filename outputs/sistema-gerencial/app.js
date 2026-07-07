@@ -207,6 +207,24 @@ const state = {
 
 const areaKeys = ["comercializacion", "financiera", "operaciones", "rrhh"];
 const areaOptions = areaKeys;
+const adminEmail = "luisvallacastro@gmail.com";
+const adminAreaKey = "administracion";
+const sectionOptions = [
+  { key: "resultados", label: "Resultados" },
+  { key: "kpi", label: "KPI" },
+  { key: "riesgos", label: "Riesgos" },
+  { key: "solicitudes", label: "Solicitudes" }
+];
+areas[adminAreaKey] = {
+  label: "Administracion",
+  nav: "Administracion",
+  status: "Usuarios",
+  summary: [],
+  results: [],
+  kpis: [],
+  risks: [],
+  requests: []
+};
 const closureStage = "Cierre de ventas";
 const legacyClosureStages = ["Cierre", closureStage];
 const opportunityStages = [
@@ -336,6 +354,7 @@ const sessionStorageKey = "sistemaGerencial.sesion.v1";
 const strategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
 const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
 const defaultUsers = [
+  { id: "user-admin-luis", name: "Luis Valladares", username: "luisvallacastro", email: adminEmail, role: "financiera", password: "admin123", admin: true },
   { id: "user-general", name: "Gerencia general", username: "general", email: "general@empresa.local", role: "general", password: "admin123" },
   { id: "user-accionistas", name: "Accionistas", username: "accionistas", email: "accionistas@empresa.local", role: "accionistas", password: "admin123" },
   { id: "user-financiera", name: "Gerencia financiera", username: "financiera", email: "financiera@empresa.local", role: "financiera", password: "admin123" },
@@ -513,17 +532,92 @@ const managementRequestMessage = document.querySelector("#managementRequestMessa
 const closeManagementRequestDialog = document.querySelector("#closeManagementRequestDialog");
 const cancelManagementRequest = document.querySelector("#cancelManagementRequest");
 const saveManagementRequestBtn = document.querySelector("#saveManagementRequestBtn");
+const adminPanel = document.querySelector("#adminPanel");
+const adminUserDialog = document.querySelector("#adminUserDialog");
+const adminUserForm = document.querySelector("#adminUserForm");
+const adminUserDialogTitle = document.querySelector("#adminUserDialogTitle");
+const adminUserId = document.querySelector("#adminUserId");
+const adminUserName = document.querySelector("#adminUserName");
+const adminUsername = document.querySelector("#adminUsername");
+const adminUserEmail = document.querySelector("#adminUserEmail");
+const adminUserRole = document.querySelector("#adminUserRole");
+const adminUserPassword = document.querySelector("#adminUserPassword");
+const adminPermissionGrid = document.querySelector("#adminPermissionGrid");
+const closeAdminUserDialog = document.querySelector("#closeAdminUserDialog");
+const cancelAdminUser = document.querySelector("#cancelAdminUser");
+const adminPasswordDialog = document.querySelector("#adminPasswordDialog");
+const adminPasswordForm = document.querySelector("#adminPasswordForm");
+const adminPasswordUserId = document.querySelector("#adminPasswordUserId");
+const adminPasswordUserLabel = document.querySelector("#adminPasswordUserLabel");
+const adminPasswordValue = document.querySelector("#adminPasswordValue");
+const closeAdminPasswordDialog = document.querySelector("#closeAdminPasswordDialog");
+const cancelAdminPassword = document.querySelector("#cancelAdminPassword");
 
-function allowedAreas() {
-  return ["general", "accionistas"].includes(state.role) ? areaKeys : [state.role];
+function normalizeKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function permissionKey(areaKey, sectionKey) {
+  return `${areaKey}:${sectionKey}`;
+}
+
+function allPermissionKeys() {
+  return areaKeys.flatMap((areaKey) => sectionOptions.map((section) => permissionKey(areaKey, section.key)));
+}
+
+function defaultPermissionsForRole(role) {
+  if (["general", "accionistas"].includes(role)) return allPermissionKeys();
+  if (areaKeys.includes(role)) return sectionOptions.map((section) => permissionKey(role, section.key));
+  return [];
+}
+
+function normalizePermissionList(value, role) {
+  const valid = new Set(allPermissionKeys());
+  const source = Array.isArray(value) && value.length ? value : defaultPermissionsForRole(role);
+  return [...new Set(source.filter((item) => valid.has(item)))];
+}
+
+function isAdminUser(user = state.currentUser) {
+  return Boolean(user?.admin) || normalizeKey(user?.email) === adminEmail;
+}
+
+function userPermissions(user = state.currentUser) {
+  if (isAdminUser(user)) return new Set(allPermissionKeys());
+  return new Set(normalizePermissionList(user?.permissions, user?.role || state.role));
+}
+
+function visibleSubmenus(areaKey, user = state.currentUser) {
+  const area = areas[areaKey];
+  if (!Array.isArray(area?.submenus)) return [];
+  const permissions = userPermissions(user);
+  return area.submenus.filter((item) => permissions.has(permissionKey(areaKey, item.key)));
+}
+
+function fallbackAreaForRole(role) {
+  return areaKeys.includes(role) ? role : "comercializacion";
+}
+
+function allowedAreas(user = state.currentUser) {
+  const visible = areaKeys.filter((areaKey) => visibleSubmenus(areaKey, user).length);
+  if (isAdminUser(user)) visible.push(adminAreaKey);
+  return visible.length ? visible : [fallbackAreaForRole(user?.role || state.role)];
 }
 
 function canDeleteOpportunities() {
-  return state.role === "general" || state.role === "financiera";
+  return isAdminUser() || state.role === "general" || state.role === "financiera";
 }
 
 function roleDisplayName(role = state.role) {
   return accessRoles.find(([key]) => key === role)?.[1] || areas[role]?.nav || "Usuario";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function levelClass(value) {
@@ -1404,14 +1498,23 @@ function renderNav() {
   navList.innerHTML = "";
   allowedAreas().forEach((key) => {
     const area = areas[key];
-    const hasSubmenus = Array.isArray(area.submenus);
-    const avg = Math.round(area.results.reduce((sum, item) => sum + item[1], 0) / area.results.length);
+    const submenus = visibleSubmenus(key);
+    const hasSubmenus = submenus.length > 0;
+    const avg = area.results.length
+      ? Math.round(area.results.reduce((sum, item) => sum + item[1], 0) / area.results.length)
+      : 100;
     const button = document.createElement("button");
     button.className = `nav-item ${state.activeArea === key ? "active" : ""}`;
     button.type = "button";
     button.setAttribute("aria-expanded", hasSubmenus ? String(state.activeArea === key && state.commercialMenuOpen) : "false");
     button.innerHTML = `<span>${area.nav}</span><span class="nav-dot ${levelClass(avg)}"></span>`;
     button.addEventListener("click", () => {
+      if (key === adminAreaKey) {
+        state.activeArea = adminAreaKey;
+        state.commercialMenuOpen = false;
+        renderDashboard();
+        return;
+      }
       if (hasSubmenus && state.activeArea === key) {
         state.commercialMenuOpen = !state.commercialMenuOpen;
         renderDashboard();
@@ -1419,20 +1522,20 @@ function renderNav() {
       }
       state.activeArea = key;
       if (hasSubmenus) {
-        state.activeSubmenu = "resultados";
+        state.activeSubmenu = submenus[0].key;
         state.commercialMenuOpen = true;
       }
       renderDashboard();
     });
     navList.appendChild(button);
-    if (hasSubmenus) renderSubmenu(area, key);
+    if (hasSubmenus) renderSubmenu(area, key, submenus);
   });
 }
 
-function renderSubmenu(area, areaKey) {
+function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
   const submenu = document.createElement("div");
   submenu.className = `submenu-list ${state.activeArea === areaKey && state.commercialMenuOpen ? "open" : ""}`;
-  submenu.innerHTML = area.submenus.map((item) => `
+  submenu.innerHTML = items.map((item) => `
     <button class="submenu-item ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
       ${item.label}
     </button>
@@ -2302,15 +2405,219 @@ function renderKpiComplianceTable(items) {
   `;
 }
 
+function adminPermissionSummary(user) {
+  if (isAdminUser(user)) return "Todos los permisos";
+  const permissions = userPermissions(user);
+  const areaLabels = areaKeys
+    .map((areaKey) => {
+      const count = sectionOptions
+        .filter((section) => permissions.has(permissionKey(areaKey, section.key)))
+        .length;
+      return count ? `${areas[areaKey].nav}: ${count}` : "";
+    })
+    .filter(Boolean);
+  return areaLabels.length ? areaLabels.join(" · ") : "Sin permisos";
+}
+
+function renderAdminPermissionControls(existingUser = null) {
+  if (!adminPermissionGrid) return;
+  const role = adminUserRole?.value || existingUser?.role || "comercializacion";
+  const selected = userPermissions(existingUser || {
+    role,
+    permissions: defaultPermissionsForRole(role)
+  });
+  adminPermissionGrid.innerHTML = areaKeys.map((areaKey) => `
+    <fieldset class="permission-group">
+      <legend>${areas[areaKey].nav}</legend>
+      ${sectionOptions.map((section) => {
+        const key = permissionKey(areaKey, section.key);
+        return `
+          <label class="permission-check">
+            <input type="checkbox" value="${key}" ${selected.has(key) ? "checked" : ""}>
+            <span>${section.label}</span>
+          </label>
+        `;
+      }).join("")}
+    </fieldset>
+  `).join("");
+}
+
+function collectAdminPermissions() {
+  if (!adminPermissionGrid) return [];
+  return [...adminPermissionGrid.querySelectorAll("input[type='checkbox']:checked")]
+    .map((input) => input.value);
+}
+
+function openAdminUserDialog(userId = "") {
+  if (!adminUserDialog) return;
+  const user = systemUsers.find((item) => item.id === userId);
+  adminUserDialogTitle.textContent = user ? "Editar usuario" : "Nuevo usuario";
+  adminUserId.value = user?.id || "";
+  adminUserName.value = user?.name || "";
+  adminUsername.value = user?.username || "";
+  adminUserEmail.value = user?.email || "";
+  adminUserRole.innerHTML = accessRoles
+    .filter(([key]) => !["general", "accionistas"].includes(key))
+    .map(([key, label]) => `<option value="${key}">${label}</option>`)
+    .join("");
+  adminUserRole.value = user?.role || "comercializacion";
+  adminUserPassword.value = "";
+  adminUserPassword.required = !user;
+  renderAdminPermissionControls(user || null);
+  adminUserDialog.showModal();
+}
+
+function syncCurrentUserFromSystem() {
+  if (!state.currentUser) return;
+  const current = systemUsers.find((user) =>
+    user.id === state.currentUser.id ||
+    normalizeKey(user.email) === normalizeKey(state.currentUser.email) ||
+    normalizeKey(user.username) === normalizeKey(state.currentUser.username)
+  );
+  if (current) {
+    state.currentUser = current;
+    state.role = current.role;
+  }
+}
+
+function saveAdminUserFromForm(event) {
+  event.preventDefault();
+  const userId = adminUserId.value;
+  const username = adminUsername.value.trim();
+  const email = adminUserEmail.value.trim();
+  const conflict = systemUsers.some((user) => user.id !== userId && (
+    normalizeKey(user.username) === normalizeKey(username) ||
+    normalizeKey(user.email) === normalizeKey(email)
+  ));
+  if (conflict) {
+    alert("Ya existe un usuario con ese correo o usuario.");
+    return;
+  }
+  const existing = systemUsers.find((user) => user.id === userId);
+  const admin = normalizeKey(email) === adminEmail;
+  const role = admin ? "financiera" : adminUserRole.value;
+  const payload = {
+    id: userId || crypto.randomUUID(),
+    name: adminUserName.value.trim(),
+    username,
+    email,
+    role,
+    password: adminUserPassword.value || existing?.password || "admin123",
+    admin,
+    permissions: admin ? allPermissionKeys() : collectAdminPermissions()
+  };
+  systemUsers = userId
+    ? systemUsers.map((user) => user.id === userId ? payload : user)
+    : [...systemUsers, payload];
+  saveUsers();
+  fillUserAccessOptions();
+  adminUserDialog.close();
+  renderDashboard();
+}
+
+function openAdminPasswordDialog(userId) {
+  if (!adminPasswordDialog) return;
+  const user = systemUsers.find((item) => item.id === userId);
+  if (!user) return;
+  adminPasswordUserId.value = user.id;
+  adminPasswordUserLabel.textContent = `${user.name} · ${user.email || user.username}`;
+  adminPasswordValue.value = "";
+  adminPasswordDialog.showModal();
+}
+
+function resetAdminPasswordFromForm(event) {
+  event.preventDefault();
+  const userId = adminPasswordUserId.value;
+  systemUsers = systemUsers.map((user) =>
+    user.id === userId ? { ...user, password: adminPasswordValue.value } : user
+  );
+  saveUsers();
+  adminPasswordDialog.close();
+  renderDashboard();
+}
+
+function deleteAdminUser(userId) {
+  const user = systemUsers.find((item) => item.id === userId);
+  if (!user || isAdminUser(user)) return;
+  if (!confirm(`Eliminar usuario ${user.name}?`)) return;
+  systemUsers = systemUsers.filter((item) => item.id !== userId);
+  saveUsers();
+  renderDashboard();
+}
+
+function renderAdminPanel() {
+  if (!adminPanel) return;
+  adminPanel.classList.remove("hidden");
+  const users = [...systemUsers].sort((a, b) => a.name.localeCompare(b.name));
+  adminPanel.innerHTML = `
+    <div class="admin-panel-head">
+      <div>
+        <p class="eyebrow">Administracion</p>
+        <h3>Usuarios y permisos</h3>
+      </div>
+      <button class="secondary-btn icon-text-btn" type="button" data-admin-action="new">
+        <span aria-hidden="true">+</span> Nuevo usuario
+      </button>
+    </div>
+    <div class="admin-user-list">
+      ${users.map((user) => `
+        <article class="admin-user-row ${isAdminUser(user) ? "admin-owner" : ""}">
+          <div>
+            <strong>${escapeHtml(user.name)}</strong>
+            <span>${escapeHtml(user.email || user.username)}</span>
+          </div>
+          <span class="status-pill">${escapeHtml(roleDisplayName(user.role))}</span>
+          <small>${escapeHtml(adminPermissionSummary(user))}</small>
+          <div class="admin-row-actions">
+            <button class="action-icon-btn" type="button" title="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button>
+            <button class="action-icon-btn" type="button" title="Resetear clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>
+            <button class="action-icon-btn danger" type="button" title="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}" ${isAdminUser(user) ? "disabled" : ""}>⌫</button>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+  adminPanel.querySelector("[data-admin-action='new']")?.addEventListener("click", () => openAdminUserDialog());
+  adminPanel.querySelectorAll("[data-admin-action='edit']").forEach((button) => {
+    button.addEventListener("click", () => openAdminUserDialog(button.dataset.userId));
+  });
+  adminPanel.querySelectorAll("[data-admin-action='password']").forEach((button) => {
+    button.addEventListener("click", () => openAdminPasswordDialog(button.dataset.userId));
+  });
+  adminPanel.querySelectorAll("[data-admin-action='delete']").forEach((button) => {
+    button.addEventListener("click", () => deleteAdminUser(button.dataset.userId));
+  });
+}
+
 function renderDashboard() {
+  const availableAreas = allowedAreas();
+  if (!availableAreas.includes(state.activeArea)) state.activeArea = availableAreas[0] || "comercializacion";
   const area = areas[state.activeArea];
-  const hasSubmenus = Array.isArray(area.submenus);
+  const visibleItems = visibleSubmenus(state.activeArea);
+  const hasSubmenus = visibleItems.length > 0;
   activeRoleLabel.textContent = state.currentUser?.name
     ? `${state.currentUser.name} - ${roleDisplayName()}`
     : roleDisplayName();
-  const activeSubmenu = hasSubmenus
-    ? area.submenus.find((item) => item.key === state.activeSubmenu)
-    : null;
+
+  if (state.activeArea === adminAreaKey) {
+    dashboard.classList.add("admin-focus");
+    dashboard.classList.remove("opportunity-focus");
+    pageTitle.textContent = area.label;
+    periodLabel.textContent = state.period;
+    overallStatus.textContent = area.status;
+    renderNav();
+    summaryGrid.innerHTML = "";
+    commercialPanel.classList.add("hidden");
+    renderAdminPanel();
+    return;
+  }
+
+  dashboard.classList.remove("admin-focus");
+  adminPanel?.classList.add("hidden");
+  if (hasSubmenus && !visibleItems.some((item) => item.key === state.activeSubmenu)) {
+    state.activeSubmenu = visibleItems[0].key;
+  }
+  const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
   dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "riesgos", "solicitudes"].includes(state.activeSubmenu));
   pageTitle.textContent = activeSubmenu ? activeSubmenu.label : area.label;
   periodLabel.textContent = state.period;
@@ -2330,31 +2637,54 @@ function setSidebarCollapsed(collapsed) {
 }
 
 function normalizeUsers(items) {
-  return items.map((item, index) => ({
-    id: item.id || `user-${index + 1}`,
-    name: item.name || item.username || "Usuario",
-    username: String(item.username || item.email || `usuario${index + 1}`).trim(),
-    email: String(item.email || "").trim(),
-    role: accessRoles.some(([key]) => key === item.role) ? item.role : "comercializacion",
-    password: item.password || "admin123"
-  }));
+  const source = Array.isArray(items) && items.length ? items : [defaultUsers[0]];
+  const byCredential = new Map();
+
+  const addUser = (item, index) => {
+    const email = String(item.email || "").trim();
+    const normalizedEmail = normalizeKey(email);
+    const username = String(item.username || email || `usuario${index + 1}`).trim();
+    const normalizedUsername = normalizeKey(username);
+    const requestedRole = accessRoles.some(([key]) => key === item.role) ? item.role : "comercializacion";
+    const admin = Boolean(item.admin) || normalizedEmail === adminEmail;
+    const role = admin ? "financiera" : requestedRole;
+    const user = {
+      id: item.id || `user-${index + 1}`,
+      name: item.name || item.username || item.email || "Usuario",
+      username,
+      email,
+      role,
+      password: item.password || "admin123",
+      admin,
+      permissions: admin ? allPermissionKeys() : normalizePermissionList(item.permissions, role)
+    };
+    byCredential.set(normalizedEmail || normalizedUsername || user.id, user);
+  };
+
+  source.forEach(addUser);
+
+  if (![...byCredential.values()].some((user) => normalizeKey(user.email) === adminEmail)) {
+    addUser(defaultUsers[0], source.length);
+  }
+
+  return [...byCredential.values()];
 }
 
 function loadUsers() {
   try {
     const saved = JSON.parse(localStorage.getItem(usersStorageKey) || "null");
-    systemUsers = normalizeUsers(Array.isArray(saved) && saved.length ? saved : defaultUsers);
+    systemUsers = normalizeUsers(Array.isArray(saved) && saved.length ? saved : [defaultUsers[0]]);
   } catch {
-    systemUsers = normalizeUsers(defaultUsers);
+    systemUsers = normalizeUsers([defaultUsers[0]]);
   }
-  saveUsers();
+  saveUsers({ sync: false });
   fillUserAccessOptions();
   restoreSession();
   if (apiEnabled) {
     apiJson("/api/users")
       .then((users) => {
         systemUsers = normalizeUsers(users);
-        localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
+        saveUsers({ sync: false });
         fillUserAccessOptions();
         restoreSession();
       })
@@ -2362,14 +2692,23 @@ function loadUsers() {
   }
 }
 
-function saveUsers() {
+function saveUsers(options = {}) {
+  systemUsers = normalizeUsers(systemUsers);
+  syncCurrentUserFromSystem();
   localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
+  if (apiEnabled && options.sync !== false) {
+    apiJson("/api/users", {
+      method: "POST",
+      body: JSON.stringify({ users: systemUsers })
+    }).catch(() => {});
+  }
 }
 
 function persistSession(user) {
   localStorage.setItem(sessionStorageKey, JSON.stringify({
     id: user.id,
     username: user.username,
+    email: user.email,
     role: user.role
   }));
 }
@@ -2381,13 +2720,15 @@ function clearSession() {
 }
 
 function findUserByCredential(value) {
-  const credential = String(value || "").trim().toLowerCase();
+  const credential = normalizeKey(value);
   return systemUsers.find((user) => [user.id, user.username, user.email]
-    .some((option) => String(option || "").trim().toLowerCase() === credential));
+    .some((option) => normalizeKey(option) === credential));
 }
 
-function defaultAreaForRole(role) {
-  return ["general", "accionistas"].includes(role) ? "comercializacion" : role;
+function defaultAreaForRole(role, user = state.currentUser) {
+  const candidate = user || { role, permissions: defaultPermissionsForRole(role) };
+  const available = allowedAreas(candidate);
+  return available[0] || fallbackAreaForRole(role);
 }
 
 function restoreSession() {
@@ -2395,7 +2736,11 @@ function restoreSession() {
   try {
     const saved = JSON.parse(localStorage.getItem(sessionStorageKey) || "null");
     if (!saved) return false;
-    const user = systemUsers.find((item) => item.id === saved.id || item.username === saved.username);
+    const user = systemUsers.find((item) =>
+      item.id === saved.id ||
+      normalizeKey(item.username) === normalizeKey(saved.username) ||
+      normalizeKey(item.email) === normalizeKey(saved.email)
+    );
     if (!user) return false;
     sessionRestored = true;
     openApp(user, { restoreSession: true });
@@ -2406,21 +2751,16 @@ function restoreSession() {
   }
 }
 
-function createUserInDatabase(user) {
-  if (!apiEnabled) return;
-  apiJson("/api/users", {
-    method: "POST",
-    body: JSON.stringify(user)
-  }).catch(() => {});
-}
-
 function fillUserAccessOptions() {
   if (loginUserSelect.tagName === "SELECT") {
     loginUserSelect.innerHTML = systemUsers.map((user) => `
-      <option value="${user.id}">${user.username} - ${roleDisplayName(user.role)}</option>
+      <option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}</option>
     `).join("");
   }
-  registerRole.innerHTML = accessRoles.map(([key, label]) => `<option value="${key}">${label}</option>`).join("");
+  registerRole.innerHTML = accessRoles
+    .filter(([key]) => !["general", "accionistas"].includes(key))
+    .map(([key, label]) => `<option value="${key}">${label}</option>`)
+    .join("");
 }
 
 function setAuthMode(mode) {
@@ -2439,15 +2779,28 @@ function setAuthMode(mode) {
 }
 
 function openApp(userOrRole, options = {}) {
-  const user = typeof userOrRole === "string"
-    ? systemUsers.find((item) => item.role === userOrRole) || { id: userOrRole, name: roleDisplayName(userOrRole), role: userOrRole }
+  const rawUser = typeof userOrRole === "string"
+    ? systemUsers.find((item) => item.role === userOrRole || item.username === userOrRole) || {
+        id: userOrRole,
+        name: roleDisplayName(userOrRole),
+        role: userOrRole,
+        permissions: defaultPermissionsForRole(userOrRole)
+      }
     : userOrRole;
+  const user = systemUsers.find((item) =>
+    item.id === rawUser.id ||
+    normalizeKey(item.email) === normalizeKey(rawUser.email) ||
+    normalizeKey(item.username) === normalizeKey(rawUser.username)
+  ) || normalizeUsers([rawUser])[0];
+
   state.currentUser = user;
   state.role = user.role;
-  if (!options.restoreSession || !areas[state.activeArea] || state.activeArea === "general") {
-    state.activeArea = defaultAreaForRole(user.role);
-    state.activeSubmenu = "resultados";
-    state.commercialMenuOpen = state.activeArea === "comercializacion";
+  const available = allowedAreas(user);
+  if (!options.restoreSession || !available.includes(state.activeArea)) {
+    state.activeArea = defaultAreaForRole(user.role, user);
+    const firstSubmenu = visibleSubmenus(state.activeArea, user)[0];
+    state.activeSubmenu = firstSubmenu?.key || "resultados";
+    state.commercialMenuOpen = Boolean(firstSubmenu);
   }
   persistSession(user);
   loginView.classList.add("hidden");
@@ -2491,6 +2844,16 @@ document.querySelectorAll("[data-auth-mode]").forEach((button) => {
   button.addEventListener("click", () => setAuthMode(button.dataset.authMode));
 });
 
+closeAdminUserDialog?.addEventListener("click", () => adminUserDialog.close());
+cancelAdminUser?.addEventListener("click", () => adminUserDialog.close());
+adminUserForm?.addEventListener("submit", saveAdminUserFromForm);
+adminUserRole?.addEventListener("change", () => {
+  renderAdminPermissionControls(systemUsers.find((user) => user.id === adminUserId.value));
+});
+closeAdminPasswordDialog?.addEventListener("click", () => adminPasswordDialog.close());
+cancelAdminPassword?.addEventListener("click", () => adminPasswordDialog.close());
+adminPasswordForm?.addEventListener("submit", resetAdminPasswordFromForm);
+
 loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const user = findUserByCredential(loginUserSelect.value);
@@ -2505,23 +2868,30 @@ loginForm.addEventListener("submit", (event) => {
 registerForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const username = registerUser.value.trim();
-  const exists = systemUsers.some((user) => user.username.toLowerCase() === username.toLowerCase());
+  const email = registerEmail.value.trim();
+  const exists = systemUsers.some((user) =>
+    normalizeKey(user.username) === normalizeKey(username) ||
+    normalizeKey(user.email) === normalizeKey(email)
+  );
   if (exists) {
     alert("Este usuario ya existe.");
     return;
   }
 
+  const admin = normalizeKey(email) === adminEmail;
+  const role = admin ? "financiera" : registerRole.value;
   const user = {
     id: crypto.randomUUID(),
     name: registerName.value.trim(),
     username,
-    email: registerEmail.value.trim(),
-    role: registerRole.value,
-    password: registerPassword.value
+    email,
+    role,
+    password: registerPassword.value,
+    admin,
+    permissions: admin ? allPermissionKeys() : defaultPermissionsForRole(role)
   };
   systemUsers.push(user);
   saveUsers();
-  createUserInDatabase(user);
   fillUserAccessOptions();
   registerForm.reset();
   loginUserSelect.value = user.username;

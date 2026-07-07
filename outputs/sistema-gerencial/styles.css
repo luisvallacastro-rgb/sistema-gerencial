@@ -470,6 +470,130 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.admin-focus .summary-grid,
+.admin-focus .content-grid {
+  display: none;
+}
+
+.admin-panel {
+  margin-top: 24px;
+}
+
+.admin-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.admin-panel-head h3 {
+  font-size: 28px;
+}
+
+.admin-user-list {
+  display: grid;
+  gap: 12px;
+  max-height: calc(100vh - 280px);
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.admin-user-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 170px minmax(260px, 1.3fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.admin-user-row.admin-owner {
+  background: #f3fbf7;
+  border-color: #b7dfcc;
+}
+
+.admin-user-row strong {
+  display: block;
+  color: var(--ink);
+  font-size: 20px;
+}
+
+.admin-user-row span,
+.admin-user-row small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.admin-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-row-actions .danger {
+  color: var(--red);
+}
+
+.admin-user-form {
+  max-height: min(92vh, 900px);
+  overflow: auto;
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-section-label {
+  margin: 18px 0 10px;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-height: 42vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.permission-group {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.permission-group legend {
+  padding: 0 6px;
+  color: var(--green);
+  font-weight: 900;
+}
+
+.permission-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-weight: 800;
+}
+
+.permission-check input {
+  width: 18px;
+  height: 18px;
+}
+
+.muted-copy {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .icon-text-btn {
   display: inline-flex;
   align-items: center;
@@ -2975,6 +3099,21 @@ menu {
 
   .panel-head {
     flex-wrap: wrap;
+  }
+
+  .admin-panel-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-user-row,
+  .admin-form-grid,
+  .permission-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-row-actions {
+    justify-content: flex-start;
   }
 }
 

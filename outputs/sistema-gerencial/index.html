@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260706-login-clean">
+    <link rel="stylesheet" href="styles.css?v=20260706-admin-users-2">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -136,6 +136,8 @@
           <div class="opportunity-dashboard hidden" id="opportunityDashboard"></div>
           <div class="opportunity-table" id="opportunityTable"></div>
         </section>
+
+        <section class="panel admin-panel hidden" id="adminPanel" aria-label="Administracion de usuarios"></section>
 
         <section class="content-grid">
           <article class="panel wide">
@@ -389,7 +391,72 @@
       </form>
     </dialog>
 
-    <script src="historical-sales.js?v=20260706-login-clean"></script>
-    <script src="app.js?v=20260706-login-clean"></script>
+    <dialog id="adminUserDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-card admin-user-form" id="adminUserForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Administracion</p>
+            <h3 id="adminUserDialogTitle">Nuevo usuario</h3>
+          </div>
+          <button class="icon-btn" id="closeAdminUserDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <input type="hidden" id="adminUserId">
+        <div class="admin-form-grid">
+          <label>
+            Nombre
+            <input id="adminUserName" type="text" placeholder="Nombre completo" required>
+          </label>
+          <label>
+            Usuario
+            <input id="adminUsername" type="text" placeholder="usuario" required>
+          </label>
+          <label>
+            Correo
+            <input id="adminUserEmail" type="email" placeholder="correo@empresa.com" required>
+          </label>
+          <label>
+            Gerencia
+            <select id="adminUserRole" required></select>
+          </label>
+          <label>
+            Contrasena
+            <input id="adminUserPassword" type="password" placeholder="Nueva contrasena">
+          </label>
+        </div>
+        <div>
+          <p class="admin-section-label">Permisos por modulo</p>
+          <div class="permission-grid" id="adminPermissionGrid"></div>
+        </div>
+        <menu>
+          <button class="ghost-btn" id="cancelAdminUser" type="button">Cancelar</button>
+          <button class="primary-btn" type="submit">Guardar usuario</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="adminPasswordDialog">
+      <form method="dialog" class="dialog-card admin-password-form" id="adminPasswordForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Seguridad</p>
+            <h3>Resetear clave</h3>
+          </div>
+          <button class="icon-btn" id="closeAdminPasswordDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <input type="hidden" id="adminPasswordUserId">
+        <p class="muted-copy" id="adminPasswordUserLabel"></p>
+        <label>
+          Nueva contrasena
+          <input id="adminPasswordValue" type="password" required>
+        </label>
+        <menu>
+          <button class="ghost-btn" id="cancelAdminPassword" type="button">Cancelar</button>
+          <button class="primary-btn" type="submit">Actualizar clave</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="historical-sales.js?v=20260706-admin-users-2"></script>
+    <script src="app.js?v=20260706-admin-users-2"></script>
   </body>
 </html>

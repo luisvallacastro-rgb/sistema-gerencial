@@ -14,15 +14,104 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "sistema-gerencial.db"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
+ADMIN_EMAIL = "luisvallacastro@gmail.com"
+AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
+SECTION_KEYS = ["resultados", "kpi", "riesgos", "solicitudes"]
+VALID_ROLES = {"general", "accionistas", *AREA_KEYS}
+ALL_PERMISSIONS = [f"{area}:{section}" for area in AREA_KEYS for section in SECTION_KEYS]
 
 DEFAULT_USERS = [
-    ("user-general", "Gerencia general", "general", "general@empresa.local", "general", "admin123"),
-    ("user-accionistas", "Accionistas", "accionistas", "accionistas@empresa.local", "accionistas", "admin123"),
-    ("user-financiera", "Gerencia financiera", "financiera", "financiera@empresa.local", "financiera", "admin123"),
-    ("user-comercial", "Gerencia comercializacion", "comercializacion", "comercializacion@empresa.local", "comercializacion", "admin123"),
-    ("user-operaciones", "Gerencia operaciones", "operaciones", "operaciones@empresa.local", "operaciones", "admin123"),
-    ("user-rrhh", "Gerencia recursos humanos", "rrhh", "rrhh@empresa.local", "rrhh", "admin123"),
+    {
+        "id": "user-admin-luis",
+        "name": "Luis Valladares",
+        "username": "luisvallacastro",
+        "email": ADMIN_EMAIL,
+        "role": "financiera",
+        "password": "admin123",
+        "admin": True,
+    },
+    {"id": "user-general", "name": "Gerencia general", "username": "general", "email": "general@empresa.local", "role": "general", "password": "admin123"},
+    {"id": "user-accionistas", "name": "Accionistas", "username": "accionistas", "email": "accionistas@empresa.local", "role": "accionistas", "password": "admin123"},
+    {"id": "user-financiera", "name": "Gerencia financiera", "username": "financiera", "email": "financiera@empresa.local", "role": "financiera", "password": "admin123"},
+    {"id": "user-comercial", "name": "Gerencia comercializacion", "username": "comercializacion", "email": "comercializacion@empresa.local", "role": "comercializacion", "password": "admin123"},
+    {"id": "user-operaciones", "name": "Gerencia operaciones", "username": "operaciones", "email": "operaciones@empresa.local", "role": "operaciones", "password": "admin123"},
+    {"id": "user-rrhh", "name": "Gerencia recursos humanos", "username": "rrhh", "email": "rrhh@empresa.local", "role": "rrhh", "password": "admin123"},
 ]
+
+
+def default_permissions_for_role(role):
+    if role in {"general", "accionistas"}:
+        return list(ALL_PERMISSIONS)
+    if role in AREA_KEYS:
+        return [f"{role}:{section}" for section in SECTION_KEYS]
+    return []
+
+
+def normalize_permissions(value, role):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            value = []
+    if not isinstance(value, list) or not value:
+        value = default_permissions_for_role(role)
+    valid = set(ALL_PERMISSIONS)
+    return list(dict.fromkeys(item for item in value if item in valid))
+
+
+def normalize_user(data, index=0):
+    item = dict(data or {})
+    email = str(item.get("email") or "").strip().lower()
+    username = str(item.get("username") or (email.split("@")[0] if email else f"usuario{index + 1}")).strip().lower()
+    role = item.get("role") if item.get("role") in VALID_ROLES else "comercializacion"
+    admin = bool(item.get("admin")) or email == ADMIN_EMAIL
+    permissions = list(ALL_PERMISSIONS) if admin else normalize_permissions(item.get("permissions"), role)
+    return {
+        "id": item.get("id") or f"user-{index + 1}",
+        "name": item.get("name") or username or "Usuario",
+        "username": username,
+        "email": email,
+        "role": "financiera" if admin else role,
+        "password": item.get("password") or "admin123",
+        "permissions": permissions,
+        "admin": admin,
+    }
+
+
+def user_payload(row):
+    data = dict(row)
+    data["permissions"] = normalize_permissions(data.get("permissions"), data.get("role"))
+    data["admin"] = bool(data.get("admin")) or data.get("email") == ADMIN_EMAIL
+    if data["admin"]:
+        data["role"] = "financiera"
+        data["permissions"] = list(ALL_PERMISSIONS)
+    return data
+
+
+def upsert_user(conn, user):
+    normalized = normalize_user(user)
+    conn.execute("""
+        INSERT INTO users (id, name, username, email, role, password, permissions, admin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            username = excluded.username,
+            email = excluded.email,
+            role = excluded.role,
+            password = excluded.password,
+            permissions = excluded.permissions,
+            admin = excluded.admin
+    """, (
+        normalized["id"],
+        normalized["name"],
+        normalized["username"],
+        normalized["email"],
+        normalized["role"],
+        normalized["password"],
+        json.dumps(normalized["permissions"], ensure_ascii=True),
+        1 if normalized["admin"] else 0,
+    ))
+    return normalized
 
 
 def connect():
@@ -44,6 +133,11 @@ def init_db():
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "permissions" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT '[]'")
+        if "admin" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN admin INTEGER DEFAULT 0")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS app_state (
                 key TEXT PRIMARY KEY,
@@ -55,11 +149,12 @@ def init_db():
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
-        for user in DEFAULT_USERS:
-            conn.execute("""
-                INSERT OR IGNORE INTO users (id, name, username, email, role, password)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, user)
+        rows = conn.execute("SELECT * FROM users ORDER BY created_at, username").fetchall()
+        if not rows or not any((row["email"] or "").lower() == ADMIN_EMAIL for row in rows):
+            upsert_user(conn, DEFAULT_USERS[0])
+            rows = conn.execute("SELECT * FROM users ORDER BY created_at, username").fetchall()
+        for row in rows:
+            upsert_user(conn, user_payload(row))
 
 
 class AppHandler(BaseHTTPRequestHandler):
@@ -97,11 +192,11 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path == "/api/users":
             with connect() as conn:
                 rows = conn.execute("""
-                    SELECT id, name, username, email, role, password
+                    SELECT id, name, username, email, role, password, permissions, admin
                     FROM users
                     ORDER BY created_at, username
                 """).fetchall()
-            self.send_json([dict(row) for row in rows])
+            self.send_json([user_payload(row) for row in rows])
             return
 
         if self.path == "/api/opportunities":
@@ -117,27 +212,24 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_api_post(self):
         if self.path == "/api/users":
             data = self.read_json()
+            if isinstance(data.get("users"), list):
+                with connect() as conn:
+                    conn.execute("DELETE FROM users")
+                    users = [upsert_user(conn, item) for item in data["users"]]
+                self.send_json(users)
+                return
+
             required = ["id", "name", "username", "email", "role", "password"]
             if not all(data.get(key) for key in required):
                 self.send_json({"error": "Datos incompletos"}, status=400)
                 return
             try:
                 with connect() as conn:
-                    conn.execute("""
-                        INSERT INTO users (id, name, username, email, role, password)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (
-                        data["id"],
-                        data["name"],
-                        data["username"],
-                        data["email"],
-                        data["role"],
-                        data["password"],
-                    ))
+                    user = upsert_user(conn, data)
             except sqlite3.IntegrityError:
                 self.send_json({"error": "Usuario existente"}, status=409)
                 return
-            self.send_json({"ok": True, "user": data}, status=201)
+            self.send_json({"ok": True, "user": user}, status=201)
             return
 
         self.send_error(404)
