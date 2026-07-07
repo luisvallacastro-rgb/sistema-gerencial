@@ -202,6 +202,7 @@ const state = {
   opportunityCycleView: "active",
   kpiView: "dashboard",
   kpiSeller: "all",
+  adminQuery: "",
   period: "Julio 2026"
 };
 
@@ -455,6 +456,7 @@ const dashboard = document.querySelector(".dashboard");
 const pageTitle = document.querySelector("#pageTitle");
 const periodLabel = document.querySelector("#periodLabel");
 const periodSelect = document.querySelector("#periodSelect");
+const topbarActions = document.querySelector(".topbar-actions");
 const summaryGrid = document.querySelector("#summaryGrid");
 const resultsChart = document.querySelector("#resultsChart");
 const kpiList = document.querySelector("#kpiList");
@@ -2419,6 +2421,32 @@ function adminPermissionSummary(user) {
   return areaLabels.length ? areaLabels.join(" · ") : "Sin permisos";
 }
 
+function adminPermissionModules(user) {
+  if (isAdminUser(user)) {
+    return [{ label: "Acceso total", count: sectionOptions.length * areaKeys.length, total: true }];
+  }
+  const permissions = userPermissions(user);
+  return areaKeys
+    .map((areaKey) => {
+      const count = sectionOptions
+        .filter((section) => permissions.has(permissionKey(areaKey, section.key)))
+        .length;
+      return count ? { label: areas[areaKey].nav, count } : null;
+    })
+    .filter(Boolean);
+}
+
+function adminUserInitials(user) {
+  const source = user.name || user.email || user.username || "Usuario";
+  return source
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
 function renderAdminPermissionControls(existingUser = null) {
   if (!adminPermissionGrid) return;
   const role = adminUserRole?.value || existingUser?.role || "comercializacion";
@@ -2548,35 +2576,123 @@ function deleteAdminUser(userId) {
 function renderAdminPanel() {
   if (!adminPanel) return;
   adminPanel.classList.remove("hidden");
+  const keepSearchFocus = document.activeElement?.id === "adminSearchInput";
   const users = [...systemUsers].sort((a, b) => a.name.localeCompare(b.name));
+  const query = normalizeKey(state.adminQuery);
+  const filteredUsers = users.filter((user) => {
+    const haystack = normalizeKey([
+      user.name,
+      user.email,
+      user.username,
+      roleDisplayName(user.role),
+      adminPermissionSummary(user)
+    ].join(" "));
+    return !query || haystack.includes(query);
+  });
+  const totalUsers = users.length;
+  const adminUsers = users.filter((user) => isAdminUser(user)).length;
+  const assignedModules = new Set(users.flatMap((user) =>
+    adminPermissionModules(user)
+      .filter((module) => !module.total)
+      .map((module) => module.label)
+  )).size;
+  const totalPermissions = users.reduce((sum, user) => sum + userPermissions(user).size, 0);
   adminPanel.innerHTML = `
-    <div class="admin-panel-head">
-      <div>
-        <p class="eyebrow">Administracion</p>
-        <h3>Usuarios y permisos</h3>
+    <div class="admin-shell">
+      <div class="admin-hero">
+        <div>
+          <p class="eyebrow">Administracion</p>
+          <h3>Usuarios y permisos</h3>
+          <p class="muted-copy">Gestion de accesos, perfiles y recuperacion de claves.</p>
+        </div>
+        <button class="secondary-btn icon-text-btn" type="button" data-admin-action="new">
+          <span aria-hidden="true">+</span> Nuevo usuario
+        </button>
       </div>
-      <button class="secondary-btn icon-text-btn" type="button" data-admin-action="new">
-        <span aria-hidden="true">+</span> Nuevo usuario
-      </button>
-    </div>
-    <div class="admin-user-list">
-      ${users.map((user) => `
-        <article class="admin-user-row ${isAdminUser(user) ? "admin-owner" : ""}">
-          <div>
-            <strong>${escapeHtml(user.name)}</strong>
-            <span>${escapeHtml(user.email || user.username)}</span>
-          </div>
-          <span class="status-pill">${escapeHtml(roleDisplayName(user.role))}</span>
-          <small>${escapeHtml(adminPermissionSummary(user))}</small>
-          <div class="admin-row-actions">
-            <button class="action-icon-btn" type="button" title="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button>
-            <button class="action-icon-btn" type="button" title="Resetear clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>
-            <button class="action-icon-btn danger" type="button" title="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}" ${isAdminUser(user) ? "disabled" : ""}>⌫</button>
-          </div>
+
+      <div class="admin-summary-grid" aria-label="Resumen de usuarios">
+        <article class="admin-metric">
+          <span>Usuarios</span>
+          <strong>${totalUsers}</strong>
         </article>
-      `).join("")}
+        <article class="admin-metric">
+          <span>Administradores</span>
+          <strong>${adminUsers}</strong>
+        </article>
+        <article class="admin-metric">
+          <span>Modulos activos</span>
+          <strong>${assignedModules || areaKeys.length}</strong>
+        </article>
+        <article class="admin-metric">
+          <span>Permisos asignados</span>
+          <strong>${totalPermissions}</strong>
+        </article>
+      </div>
+
+      <div class="admin-toolbar">
+        <label class="admin-search" for="adminSearchInput">
+          <span>Buscar usuario</span>
+          <input id="adminSearchInput" type="search" value="${escapeHtml(state.adminQuery)}" placeholder="Nombre, correo o gerencia">
+        </label>
+        <span class="admin-toolbar-pill">${filteredUsers.length} visibles</span>
+      </div>
+
+      <div class="admin-user-list">
+        ${filteredUsers.length ? filteredUsers.map((user) => {
+          const modules = adminPermissionModules(user);
+          return `
+          <article class="admin-user-card ${isAdminUser(user) ? "admin-owner" : ""}">
+            <div class="admin-person">
+              <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
+              <div>
+                <strong>${escapeHtml(user.name)}</strong>
+                <span>${escapeHtml(user.email || user.username)}</span>
+                ${user.username ? `<small>${escapeHtml(user.username)}</small>` : ""}
+              </div>
+            </div>
+            <div class="admin-role-block">
+              <span class="admin-label">Perfil</span>
+              <span class="admin-role-pill">${escapeHtml(roleDisplayName(user.role))}</span>
+            </div>
+            <div class="admin-access-block">
+              <span class="admin-label">Accesos</span>
+              <div class="admin-access-chips">
+                ${modules.length ? modules.map((module) => `
+                  <span class="admin-access-chip ${module.total ? "total" : ""}">
+                    ${escapeHtml(module.label)}
+                    ${module.total ? "" : `<small>${module.count}</small>`}
+                  </span>
+                `).join("") : `<span class="admin-access-chip empty">Sin permisos</span>`}
+              </div>
+            </div>
+            <div class="admin-row-actions">
+              <button class="action-icon-btn" type="button" title="Editar usuario" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button>
+              <button class="action-icon-btn" type="button" title="Resetear clave" aria-label="Resetear clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>
+              ${isAdminUser(user) ? "" : `<button class="action-icon-btn danger" type="button" title="Eliminar usuario" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}
+            </div>
+          </article>
+        `;
+        }).join("") : `
+          <div class="admin-empty">
+            <strong>No hay usuarios con ese criterio.</strong>
+            <span>Prueba con otro nombre, correo o gerencia.</span>
+          </div>
+        `}
+      </div>
     </div>
   `;
+  const searchInput = adminPanel.querySelector("#adminSearchInput");
+  searchInput?.addEventListener("input", (event) => {
+    state.adminQuery = event.target.value;
+    renderAdminPanel();
+  });
+  if (keepSearchFocus && searchInput) {
+    requestAnimationFrame(() => {
+      const nextSearchInput = adminPanel.querySelector("#adminSearchInput");
+      nextSearchInput?.focus();
+      nextSearchInput?.setSelectionRange(nextSearchInput.value.length, nextSearchInput.value.length);
+    });
+  }
   adminPanel.querySelector("[data-admin-action='new']")?.addEventListener("click", () => openAdminUserDialog());
   adminPanel.querySelectorAll("[data-admin-action='edit']").forEach((button) => {
     button.addEventListener("click", () => openAdminUserDialog(button.dataset.userId));
@@ -2603,7 +2719,8 @@ function renderDashboard() {
     dashboard.classList.add("admin-focus");
     dashboard.classList.remove("opportunity-focus");
     pageTitle.textContent = area.label;
-    periodLabel.textContent = state.period;
+    periodLabel.textContent = "Control de accesos";
+    topbarActions?.classList.add("hidden");
     overallStatus.textContent = area.status;
     renderNav();
     summaryGrid.innerHTML = "";
@@ -2613,6 +2730,7 @@ function renderDashboard() {
   }
 
   dashboard.classList.remove("admin-focus");
+  topbarActions?.classList.remove("hidden");
   adminPanel?.classList.add("hidden");
   if (hasSubmenus && !visibleItems.some((item) => item.key === state.activeSubmenu)) {
     state.activeSubmenu = visibleItems[0].key;
