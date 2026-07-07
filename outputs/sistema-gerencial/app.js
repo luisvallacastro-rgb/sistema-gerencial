@@ -567,16 +567,28 @@ function allPermissionKeys() {
   return areaKeys.flatMap((areaKey) => sectionOptions.map((section) => permissionKey(areaKey, section.key)));
 }
 
+const sharedDefaultSections = ["riesgos", "solicitudes"];
+
+function sharedDefaultPermissionKeys() {
+  return areaKeys.flatMap((areaKey) => sharedDefaultSections.map((sectionKey) => permissionKey(areaKey, sectionKey)));
+}
+
+function withSharedDefaultPermissions(permissions) {
+  return [...new Set([...permissions, ...sharedDefaultPermissionKeys()])];
+}
+
 function defaultPermissionsForRole(role) {
   if (["general", "accionistas"].includes(role)) return allPermissionKeys();
-  if (areaKeys.includes(role)) return sectionOptions.map((section) => permissionKey(role, section.key));
-  return [];
+  if (areaKeys.includes(role)) {
+    return withSharedDefaultPermissions(sectionOptions.map((section) => permissionKey(role, section.key)));
+  }
+  return sharedDefaultPermissionKeys();
 }
 
 function normalizePermissionList(value, role) {
   const valid = new Set(allPermissionKeys());
   const source = Array.isArray(value) && value.length ? value : defaultPermissionsForRole(role);
-  return [...new Set(source.filter((item) => valid.has(item)))];
+  return withSharedDefaultPermissions(source.filter((item) => valid.has(item)));
 }
 
 function isAdminUser(user = state.currentUser) {

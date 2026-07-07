@@ -17,8 +17,12 @@ PORT = int(os.environ.get("PORT", "8097"))
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 SECTION_KEYS = ["resultados", "kpi", "riesgos", "solicitudes"]
+SHARED_DEFAULT_SECTION_KEYS = ["riesgos", "solicitudes"]
 VALID_ROLES = {"general", "accionistas", *AREA_KEYS}
 ALL_PERMISSIONS = [f"{area}:{section}" for area in AREA_KEYS for section in SECTION_KEYS]
+SHARED_DEFAULT_PERMISSIONS = [
+    f"{area}:{section}" for area in AREA_KEYS for section in SHARED_DEFAULT_SECTION_KEYS
+]
 
 DEFAULT_USERS = [
     {
@@ -43,8 +47,8 @@ def default_permissions_for_role(role):
     if role in {"general", "accionistas"}:
         return list(ALL_PERMISSIONS)
     if role in AREA_KEYS:
-        return [f"{role}:{section}" for section in SECTION_KEYS]
-    return []
+        return list(dict.fromkeys([f"{role}:{section}" for section in SECTION_KEYS] + SHARED_DEFAULT_PERMISSIONS))
+    return list(SHARED_DEFAULT_PERMISSIONS)
 
 
 def normalize_permissions(value, role):
@@ -56,7 +60,7 @@ def normalize_permissions(value, role):
     if not isinstance(value, list) or not value:
         value = default_permissions_for_role(role)
     valid = set(ALL_PERMISSIONS)
-    return list(dict.fromkeys(item for item in value if item in valid))
+    return list(dict.fromkeys([item for item in value if item in valid] + SHARED_DEFAULT_PERMISSIONS))
 
 
 def normalize_user(data, index=0):
