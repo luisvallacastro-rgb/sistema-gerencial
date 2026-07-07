@@ -941,13 +941,17 @@ function wonClosure(item) {
 
 function wonSalesFulfillmentRows(items) {
   const monthNumber = activeMonthNumber();
+  const historicalMonthNumber = Math.max(Math.min(monthNumber - 1, 6), 0);
   const accumulatedItems = items.filter((item) => {
     const result = closureResult(item);
-    return isThroughActivePeriod(result?.date || item.date);
+    return dateYearNumber(result?.date || item.date) === activePeriodYear()
+      && dateMonthNumber(result?.date || item.date) === monthNumber;
   });
   const closedItems = items
     .map((item) => ({ item, result: closureResult(item) }))
-    .filter(({ item, result }) => result && isThroughActivePeriod(result.date || item.date));
+    .filter(({ item, result }) => result
+      && dateYearNumber(result.date || item.date) === activePeriodYear()
+      && dateMonthNumber(result.date || item.date) === monthNumber);
   const wonItems = closedItems.filter(({ result }) => result.result === "ganado").map(({ item }) => item);
   const lostItems = closedItems.filter(({ result }) => result.result === "perdida").map(({ item }) => item);
   const allBySeller = groupBy(accumulatedItems, "seller");
@@ -958,10 +962,10 @@ function wonSalesFulfillmentRows(items) {
     const sellerItems = allBySeller[seller] || [];
     const sellerWonItems = wonBySeller[seller] || [];
     const sellerLostItems = lostBySeller[seller] || [];
-    const actualSales = actualClosedSalesForSeller(seller, monthNumber);
-    const sales = actualSales.amount + sumAmounts(sellerWonItems);
-    const wonCount = actualSales.count + sellerWonItems.length;
-    const opportunityCount = actualSales.count + sellerItems.length;
+    const historicalSales = actualClosedSalesForSeller(seller, historicalMonthNumber);
+    const sales = historicalSales.amount + sumAmounts(sellerWonItems);
+    const wonCount = sellerWonItems.length;
+    const opportunityCount = sellerItems.length;
     const goal = cumulativeGoalForSeller(seller, monthNumber);
     const percent = goal ? Math.round((sales / goal) * 100) : 0;
     const variance = sales - goal;
@@ -973,6 +977,9 @@ function wonSalesFulfillmentRows(items) {
       percent,
       opportunityCount,
       wonCount,
+      historicalOpportunityCount: historicalSales.count,
+      historicalWonCount: historicalSales.count,
+      historicalAmount: historicalSales.amount,
       lostCount: sellerLostItems.length,
       pendingCount: Math.max(sellerItems.length - sellerWonItems.length - sellerLostItems.length, 0),
       count: wonCount,
@@ -1959,6 +1966,8 @@ function renderOpportunityDashboard(items) {
   const totalLost = summaryRows.reduce((sum, row) => sum + row.lostCount, 0);
   const totalPending = summaryRows.reduce((sum, row) => sum + row.pendingCount, 0);
   const totalOpportunities = summaryRows.reduce((sum, row) => sum + row.opportunityCount, 0);
+  const historicalOpportunities = summaryRows.reduce((sum, row) => sum + row.historicalOpportunityCount, 0);
+  const historicalAmount = summaryRows.reduce((sum, row) => sum + row.historicalAmount, 0);
   const fulfilledSellers = summaryRows.filter((row) => row.percent >= 100).length;
   const [, summaryStatusLabel] = kpiSemaphore(totalPercent);
   const maxFulfillment = Math.max(...fulfillmentRows.map((row) => row.percent), 100);
@@ -1994,7 +2003,28 @@ function renderOpportunityDashboard(items) {
         </div>
       </div>
 
+      <div class="kpi-count-split" aria-label="Separacion de conteos historicos y mes corriente">
+        <section>
+          <div>
+            <span>Historico enero-junio</span>
+            <strong>${historicalOpportunities}</strong>
+          </div>
+          <small>${formatMoney(historicalAmount)}</small>
+        </section>
+        <section>
+          <div>
+            <span>${state.period}</span>
+            <strong>${totalOpportunities}</strong>
+          </div>
+          <small>${totalWon} ganadas / ${totalPending} pendientes</small>
+        </section>
+      </div>
+
       <div class="won-kpi-table">
+        <div class="won-kpi-caption">
+          <strong>Gestion del mes corriente</strong>
+          <span>Solo oportunidades ingresadas o cerradas en ${state.period}</span>
+        </div>
         <div class="won-kpi-row won-kpi-header">
           <strong>Vendedor</strong>
           <strong>Oportunidades</strong>
@@ -2789,16 +2819,18 @@ function normalizeUsers(items) {
 }
 
 function loadUsers() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(usersStorageKey) || "null");
-    systemUsers = normalizeUsers(Array.isArray(saved) && saved.length ? saved : [defaultUsers[0]]);
-  } catch {
-    systemUsers = normalizeUsers([defaultUsers[0]]);
-  }
-  saveUsers({ sync: false });
-  fillUserAccessOptions();
-  restoreSession();
+  const loadSavedUsers = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(usersStorageKey) || "null");
+      return normalizeUsers(Array.isArray(saved) && saved.length ? saved : [defaultUsers[0]]);
+    } catch {
+      return normalizeUsers([defaultUsers[0]]);
+    }
+  };
+
   if (apiEnabled) {
+    systemUsers = normalizeUsers([defaultUsers[0]]);
+    fillUserAccessOptions();
     apiJson("/api/users")
       .then((users) => {
         systemUsers = normalizeUsers(users);
@@ -2806,8 +2838,19 @@ function loadUsers() {
         fillUserAccessOptions();
         restoreSession();
       })
-      .catch(() => {});
+      .catch(() => {
+        systemUsers = loadSavedUsers();
+        saveUsers({ sync: false });
+        fillUserAccessOptions();
+        restoreSession();
+      });
+    return;
   }
+
+  systemUsers = loadSavedUsers();
+  saveUsers({ sync: false });
+  fillUserAccessOptions();
+  restoreSession();
 }
 
 function saveUsers(options = {}) {
