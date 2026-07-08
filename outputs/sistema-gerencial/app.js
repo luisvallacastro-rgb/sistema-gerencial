@@ -491,12 +491,24 @@ const opportunityDialog = document.querySelector("#opportunityDialog");
 const opportunityForm = document.querySelector("#opportunityForm");
 const opportunityDialogTitle = document.querySelector("#opportunityDialogTitle");
 const opportunityId = document.querySelector("#opportunityId");
+const opportunityCrmSourceId = document.querySelector("#opportunityCrmSourceId");
 const opportunityDate = document.querySelector("#opportunityDate");
 const opportunityCompany = document.querySelector("#opportunityCompany");
 const opportunitySeller = document.querySelector("#opportunitySeller");
+const opportunityContact = document.querySelector("#opportunityContact");
+const opportunityPhone = document.querySelector("#opportunityPhone");
+const opportunitySegment = document.querySelector("#opportunitySegment");
+const opportunityLocation = document.querySelector("#opportunityLocation");
 const opportunityStage = document.querySelector("#opportunityStage");
+const opportunityPriority = document.querySelector("#opportunityPriority");
 const opportunityProbability = document.querySelector("#opportunityProbability");
 const opportunityAmount = document.querySelector("#opportunityAmount");
+const opportunityNextAction = document.querySelector("#opportunityNextAction");
+const opportunityAgendaDate = document.querySelector("#opportunityAgendaDate");
+const opportunityAgendaTime = document.querySelector("#opportunityAgendaTime");
+const opportunityAgendaType = document.querySelector("#opportunityAgendaType");
+const opportunityAgendaPlace = document.querySelector("#opportunityAgendaPlace");
+const opportunityNote = document.querySelector("#opportunityNote");
 const closeOpportunityDialog = document.querySelector("#closeOpportunityDialog");
 const cancelOpportunityEdit = document.querySelector("#cancelOpportunityEdit");
 const saveOpportunityBtn = document.querySelector("#saveOpportunityBtn");
@@ -1401,6 +1413,18 @@ function normalizeOpportunities(items) {
     time: item.time || seededTime(index),
     seller: normalizeSeller(item.seller || commercialSellers[index % commercialSellers.length]),
     stage: normalizeStage(item.stage || "Prospeccion"),
+    contact: item.contact || "",
+    phone: item.phone || "",
+    segment: item.segment || "",
+    location: item.location || "",
+    priority: item.priority || "Media",
+    nextAction: item.nextAction || "Primer seguimiento",
+    agendaDate: item.agendaDate || item.date || todayISO(),
+    agendaTime: item.agendaTime || "",
+    agendaType: item.agendaType || "Seguimiento",
+    agendaPlace: item.agendaPlace || "Por definir",
+    note: item.note || item.comment || "",
+    crmOpportunityId: item.crmOpportunityId || "",
     managements: normalizeManagements({ ...item, time: item.time || seededTime(index) })
   }));
 }
@@ -1559,8 +1583,14 @@ function saveOpportunities() {
 function resetOpportunityForm() {
   opportunityForm.reset();
   opportunityId.value = "";
+  opportunityCrmSourceId.value = "";
   opportunityDate.valueAsDate = new Date();
-  opportunityDialogTitle.textContent = "Nuevo registro";
+  opportunityAgendaDate.valueAsDate = new Date();
+  opportunityNextAction.value = "Primer seguimiento";
+  opportunityAgendaType.value = "Seguimiento";
+  opportunityAgendaPlace.value = "Por definir";
+  opportunityPriority.value = "Media";
+  opportunityDialogTitle.textContent = "Nueva oportunidad";
   saveOpportunityBtn.textContent = "Guardar oportunidad";
 }
 
@@ -1576,6 +1606,14 @@ function fillOpportunityOptions() {
   opportunityProbability.innerHTML = opportunityProbabilities.map(([key, label, range]) => (
     `<option value="${key}">${label} - ${range}</option>`
   )).join("");
+}
+
+function ensureSelectOption(select, value, label = value) {
+  if (!select || !value) return;
+  if (![...select.options].some((option) => option.value === value)) {
+    select.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`);
+  }
+  select.value = value;
 }
 
 function renderNav() {
@@ -1896,6 +1934,75 @@ function crmOwnerName(ownerId) {
   return crmData().users.find((user) => user.id === ownerId)?.name || "Sin vendedor";
 }
 
+function crmTemperatureToProbability(temperature = "Tibio") {
+  const normalized = String(temperature).toLowerCase();
+  if (normalized.includes("caliente")) return "caliente";
+  if (normalized.includes("frio") || normalized.includes("frío")) return "frio";
+  if (normalized.includes("congel")) return "congelado";
+  return "tibio";
+}
+
+function crmTemperatureToPercent(temperature = "Tibio") {
+  return { Caliente: 80, Tibio: 50, Frio: 25, Congelado: 10 }[temperature] || 50;
+}
+
+function crmStageToOpportunityStage(opportunity = {}) {
+  const stageId = Number(opportunity.stageId || opportunity.stage?.id || 1);
+  return opportunityStages[Math.max(0, Math.min(opportunityStages.length - 1, stageId - 1))] || "Prospeccion";
+}
+
+function opportunityMigratedFromCrm(crmOpportunityId) {
+  if (!crmOpportunityId) return false;
+  return getOpportunitySubmenu().items.some((item) => item.crmOpportunityId === crmOpportunityId);
+}
+
+function resultOpportunityFromCrm(opportunity) {
+  const id = crypto.randomUUID();
+  const date = opportunity.nextDate || opportunity.deadline || opportunity.startDate || todayISO();
+  const stage = crmStageToOpportunityStage(opportunity);
+  return {
+    id,
+    date,
+    time: currentTimeValue(),
+    company: opportunity.company || "Cliente CRM",
+    seller: normalizeSeller(opportunity.owner?.name || crmOwnerName(opportunity.ownerId)),
+    contact: opportunity.contact || opportunity.responsible || "",
+    phone: opportunity.phone || "",
+    segment: opportunity.segment || opportunity.product || "",
+    location: opportunity.location || "",
+    stage,
+    priority: opportunity.priority || "Media",
+    probability: crmTemperatureToProbability(opportunity.temperature),
+    amount: Number(opportunity.estimatedAmount || 0),
+    nextAction: opportunity.nextAction || "Primer seguimiento",
+    agendaDate: opportunity.agendaDate || date,
+    agendaTime: opportunity.agendaTime || "",
+    agendaType: opportunity.agendaType || "Seguimiento",
+    agendaPlace: opportunity.agendaPlace || "Por definir",
+    note: opportunity.lastNote || opportunity.comment || "",
+    crmOpportunityId: opportunity.id,
+    managements: [{
+      id: `${id}-mgmt-001`,
+      date,
+      time: currentTimeValue(),
+      stage,
+      comment: `Migrada desde CRM${opportunity.lastNote || opportunity.comment ? `: ${opportunity.lastNote || opportunity.comment}` : "."}`
+    }]
+  };
+}
+
+function migrateCrmOpportunityToResults(opportunityId) {
+  const opportunity = crmData().opportunities.find((item) => item.id === opportunityId);
+  if (!opportunity || opportunityMigratedFromCrm(opportunity.id)) return;
+  const submenu = getOpportunitySubmenu();
+  submenu.items = [
+    resultOpportunityFromCrm(opportunity),
+    ...submenu.items
+  ];
+  saveOpportunities();
+  renderCommercialSubmenu(areas.comercializacion);
+}
+
 function crmSearchText() {
   return String(state.crmSearch || "").trim().toLowerCase();
 }
@@ -1963,16 +2070,28 @@ function ensureCrmOpportunityDialog() {
       </div>
       <input type="hidden" id="crmOpportunityId">
       <div class="crm-form-grid">
-        <label>Cliente<input id="crmCompany" required></label>
-        <label>Producto<input id="crmProduct"></label>
+        <label>Empresa<input id="crmCompany" maxlength="80" placeholder="Nombre de la empresa" required></label>
         <label>Vendedor<select id="crmOwnerId" required></select></label>
+        <label>Contacto<input id="crmContact" maxlength="90" placeholder="Nombre del contacto"></label>
+        <label>Telefono<input id="crmPhone" maxlength="28" placeholder="+503 ..."></label>
+        <label>Segmento<input id="crmSegment" maxlength="80" placeholder="Industria, comercio, salud..."></label>
+        <label>Ubicacion<input id="crmLocation" maxlength="90" placeholder="San Salvador"></label>
         <label>Etapa<select id="crmStageId" required></select></label>
-        <label>Monto<input id="crmEstimatedAmount" type="number" min="0" step="1"></label>
-        <label>% cierre<input id="crmClosePercent" type="number" min="0" max="100" step="1"></label>
+        <label>Prioridad<select id="crmPriority"><option>Alta</option><option selected>Media</option><option>Baja</option></select></label>
+        <label>Temperatura<select id="crmTemperature"><option>Caliente</option><option selected>Tibio</option><option>Frio</option><option>Congelado</option></select></label>
+        <label>Monto estimado<input id="crmEstimatedAmount" type="number" min="0" step="1" placeholder="0"></label>
         <label>Proxima fecha<input id="crmNextDate" type="date"></label>
-        <label>Estado<select id="crmStatus"><option>Vigente</option><option>Ganada</option><option>Perdida</option><option>Cancelada</option></select></label>
-        <label class="span-2">Accion siguiente<input id="crmNextAction"></label>
-        <label class="span-2">Nota<textarea id="crmLastNote" rows="3"></textarea></label>
+        <label>Proxima accion<input id="crmNextAction" maxlength="100" placeholder="Primer seguimiento"></label>
+        <section class="crm-form-section span-2">
+          <span class="eyebrow">Agenda inicial opcional</span>
+          <div class="crm-form-grid compact">
+            <label>Fecha<input id="crmAgendaDate" type="date"></label>
+            <label>Hora<input id="crmAgendaTime" type="time"></label>
+            <label>Tipo<input id="crmAgendaType" maxlength="70" placeholder="Diagnostico, cierre..."></label>
+            <label>Lugar<input id="crmAgendaPlace" maxlength="100" placeholder="Cliente, llamada, showroom..."></label>
+          </div>
+        </section>
+        <label class="span-2">Nota<textarea id="crmLastNote" rows="3" placeholder="Contexto comercial, necesidad o siguiente paso"></textarea></label>
       </div>
       <menu>
         <button class="ghost-btn" type="button" data-crm-close>Cancelar</button>
@@ -1998,16 +2117,23 @@ function openCrmOpportunityDialog(opportunity = null) {
   dialog.querySelector("#crmOpportunityTitle").textContent = opportunity ? "Editar oportunidad" : "Nueva oportunidad";
   dialog.querySelector("#crmOpportunityId").value = opportunity?.id || "";
   dialog.querySelector("#crmCompany").value = opportunity?.company || "";
-  dialog.querySelector("#crmProduct").value = opportunity?.product || "";
+  dialog.querySelector("#crmContact").value = opportunity?.contact || opportunity?.responsible || "";
+  dialog.querySelector("#crmPhone").value = opportunity?.phone || "";
+  dialog.querySelector("#crmSegment").value = opportunity?.segment || "";
+  dialog.querySelector("#crmLocation").value = opportunity?.location || "";
   dialog.querySelector("#crmOwnerId").innerHTML = sellers.map((seller) => `<option value="${seller.id}">${escapeHtml(seller.name)}</option>`).join("");
   dialog.querySelector("#crmStageId").innerHTML = stages.map((stage) => `<option value="${stage.id}">${stage.id}. ${escapeHtml(stage.name)}</option>`).join("");
   dialog.querySelector("#crmOwnerId").value = opportunity?.ownerId || state.crmSellerId || sellers[0]?.id || "";
   dialog.querySelector("#crmStageId").value = opportunity?.stageId || "1";
+  dialog.querySelector("#crmPriority").value = opportunity?.priority || "Media";
+  dialog.querySelector("#crmTemperature").value = opportunity?.temperature || "Tibio";
   dialog.querySelector("#crmEstimatedAmount").value = opportunity?.estimatedAmount || "";
-  dialog.querySelector("#crmClosePercent").value = opportunity?.closePercent || "0";
   dialog.querySelector("#crmNextDate").value = opportunity?.nextDate || new Date().toISOString().slice(0, 10);
-  dialog.querySelector("#crmStatus").value = opportunity?.status || "Vigente";
   dialog.querySelector("#crmNextAction").value = opportunity?.nextAction || "";
+  dialog.querySelector("#crmAgendaDate").value = opportunity?.agendaDate || opportunity?.nextDate || new Date().toISOString().slice(0, 10);
+  dialog.querySelector("#crmAgendaTime").value = opportunity?.agendaTime || "";
+  dialog.querySelector("#crmAgendaType").value = opportunity?.agendaType || "Seguimiento";
+  dialog.querySelector("#crmAgendaPlace").value = opportunity?.agendaPlace || "Por definir";
   dialog.querySelector("#crmLastNote").value = opportunity?.lastNote || opportunity?.comment || "";
   dialog.showModal();
 }
@@ -2017,21 +2143,28 @@ function saveCrmOpportunity() {
   const id = dialog.querySelector("#crmOpportunityId").value;
   const payload = {
     company: dialog.querySelector("#crmCompany").value,
-    product: dialog.querySelector("#crmProduct").value,
+    product: dialog.querySelector("#crmSegment").value,
+    contact: dialog.querySelector("#crmContact").value,
+    responsible: dialog.querySelector("#crmContact").value,
+    phone: dialog.querySelector("#crmPhone").value,
+    segment: dialog.querySelector("#crmSegment").value,
+    location: dialog.querySelector("#crmLocation").value,
     ownerId: dialog.querySelector("#crmOwnerId").value,
     stageId: Number(dialog.querySelector("#crmStageId").value || 1),
+    priority: dialog.querySelector("#crmPriority").value,
+    temperature: dialog.querySelector("#crmTemperature").value,
     estimatedAmount: Number(dialog.querySelector("#crmEstimatedAmount").value || 0),
-    closePercent: Number(dialog.querySelector("#crmClosePercent").value || 0),
+    closePercent: crmTemperatureToPercent(dialog.querySelector("#crmTemperature").value),
     nextDate: dialog.querySelector("#crmNextDate").value,
     deadline: dialog.querySelector("#crmNextDate").value,
-    status: dialog.querySelector("#crmStatus").value,
+    status: "Vigente",
     nextAction: dialog.querySelector("#crmNextAction").value || "Seguimiento comercial",
     lastNote: dialog.querySelector("#crmLastNote").value,
     comment: dialog.querySelector("#crmLastNote").value,
-    agendaDate: dialog.querySelector("#crmNextDate").value,
-    agendaTime: "09:00",
-    agendaType: "Seguimiento",
-    agendaPlace: "Por definir"
+    agendaDate: dialog.querySelector("#crmAgendaDate").value,
+    agendaTime: dialog.querySelector("#crmAgendaTime").value,
+    agendaType: dialog.querySelector("#crmAgendaType").value,
+    agendaPlace: dialog.querySelector("#crmAgendaPlace").value
   };
   const method = id ? "PATCH" : "POST";
   const path = id ? `/opportunities/${id}` : "/opportunities";
@@ -2083,7 +2216,10 @@ function renderCrmDashboard() {
           <h3>CRM operativo</h3>
           <span>${data.generatedAt ? `Actualizado ${new Date(data.generatedAt).toLocaleString("es-SV")}` : "Conectando datos CRM"}</span>
         </div>
-        <button class="secondary-btn" type="button" data-crm-refresh>Actualizar</button>
+        <div class="crm-hero-actions">
+          <button class="primary-btn" type="button" data-crm-new>+ Oportunidad</button>
+          <button class="secondary-btn" type="button" data-crm-refresh>Actualizar</button>
+        </div>
       </div>
       <div class="crm-metrics">${crmMetricCards()}</div>
       <div class="crm-two-column">
@@ -2109,6 +2245,9 @@ function renderCrmDashboard() {
                   <span>${escapeHtml(opp.product || "Producto pendiente")} · ${escapeHtml(opp.owner?.name || crmOwnerName(opp.ownerId))}</span>
                 </div>
                 <span class="tag ${opp.temperature === "Caliente" ? "" : opp.temperature === "Frio" ? "info" : "warn"}">${escapeHtml(opp.temperature || "Tibio")}</span>
+                <button class="crm-link-pill" type="button" data-crm-migrate="${opp.id}" ${opportunityMigratedFromCrm(opp.id) ? "disabled" : ""}>
+                  ${opportunityMigratedFromCrm(opp.id) ? "Migrada" : "Migrar a resultados"}
+                </button>
               </article>
             `).join("") || `<div class="empty-state">No hay oportunidades CRM.</div>`}
           </div>
@@ -2205,6 +2344,9 @@ function renderCrmTracking() {
       <footer>
         <strong>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</strong>
         <span>${opp.closePercent || 0}% cierre</span>
+        <button class="crm-link-pill" type="button" data-crm-migrate="${opp.id}" ${opportunityMigratedFromCrm(opp.id) ? "disabled" : ""}>
+          ${opportunityMigratedFromCrm(opp.id) ? "Migrada" : "Migrar a resultados"}
+        </button>
       </footer>
     </article>
   `).join("");
@@ -2506,6 +2648,12 @@ function renderCommercialSubmenu(area) {
       button.addEventListener("click", () => {
         state.crmAgendaDate = new Date().toISOString().slice(0, 10);
         renderCommercialSubmenu(areas.comercializacion);
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-migrate]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        migrateCrmOpportunityToResults(button.dataset.crmMigrate);
       });
     });
     opportunityTable.querySelectorAll("[data-crm-opportunity]").forEach((item) => {
@@ -3955,13 +4103,25 @@ opportunityTable.addEventListener("click", (event) => {
   }
 
   opportunityId.value = item.id;
+  opportunityCrmSourceId.value = item.crmOpportunityId || "";
   opportunityDate.value = item.date;
   opportunityCompany.value = item.company;
-  opportunitySeller.value = item.seller;
+  ensureSelectOption(opportunitySeller, item.seller);
+  opportunityContact.value = item.contact || "";
+  opportunityPhone.value = item.phone || "";
+  opportunitySegment.value = item.segment || "";
+  opportunityLocation.value = item.location || "";
   opportunityStage.value = item.stage;
+  opportunityPriority.value = item.priority || "Media";
   opportunityProbability.value = item.probability;
   opportunityAmount.value = item.amount;
-  opportunityDialogTitle.textContent = "Editar registro";
+  opportunityNextAction.value = item.nextAction || "Primer seguimiento";
+  opportunityAgendaDate.value = item.agendaDate || item.date || todayISO();
+  opportunityAgendaTime.value = item.agendaTime || "";
+  opportunityAgendaType.value = item.agendaType || "Seguimiento";
+  opportunityAgendaPlace.value = item.agendaPlace || "Por definir";
+  opportunityNote.value = item.note || item.comment || "";
+  opportunityDialogTitle.textContent = "Editar oportunidad";
   saveOpportunityBtn.textContent = "Actualizar oportunidad";
   opportunityDialog.showModal();
 });
@@ -4090,15 +4250,27 @@ opportunityForm.addEventListener("submit", (event) => {
     time: currentIndex >= 0 ? submenu.items[currentIndex].time || createdTime : createdTime,
     company: opportunityCompany.value.trim(),
     seller: opportunitySeller.value.trim(),
+    contact: opportunityContact.value.trim(),
+    phone: opportunityPhone.value.trim(),
+    segment: opportunitySegment.value.trim(),
+    location: opportunityLocation.value.trim(),
     stage: opportunityStage.value,
+    priority: opportunityPriority.value,
     probability: opportunityProbability.value,
     amount: Number(opportunityAmount.value),
+    nextAction: opportunityNextAction.value.trim(),
+    agendaDate: opportunityAgendaDate.value,
+    agendaTime: opportunityAgendaTime.value,
+    agendaType: opportunityAgendaType.value.trim(),
+    agendaPlace: opportunityAgendaPlace.value.trim(),
+    note: opportunityNote.value.trim(),
+    crmOpportunityId: opportunityCrmSourceId.value,
     managements: currentIndex >= 0 ? normalizeManagements(submenu.items[currentIndex]) : [{
       id: `${id}-mgmt-001`,
       date: opportunityDate.value,
       time: createdTime,
       stage: "Prospeccion",
-      comment: "Ingreso inicial de la oportunidad."
+      comment: opportunityNote.value.trim() || "Ingreso inicial de la oportunidad."
     }]
   };
 

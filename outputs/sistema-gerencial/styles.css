@@ -2872,6 +2872,13 @@ button:disabled {
   color: var(--green);
 }
 
+.crm-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .crm-hero span,
 .crm-section-head span,
 .crm-opportunity-row span,
@@ -2982,7 +2989,7 @@ button:disabled {
 }
 
 .crm-opportunity-row {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .crm-opportunity-row div {
@@ -3236,6 +3243,11 @@ button:disabled {
 .crm-link-pill:hover {
   background: var(--green);
   color: #fff;
+}
+
+.crm-link-pill:disabled {
+  cursor: default;
+  opacity: .68;
 }
 
 .crm-data-table-wrap,
@@ -3514,13 +3526,28 @@ button:disabled {
   color: #fff;
 }
 
-.crm-opportunity-form .crm-form-grid {
+.crm-opportunity-form .crm-form-grid,
+.opportunity-form .crm-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.crm-opportunity-form label {
+.crm-form-grid.compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.crm-form-section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(190, 210, 238, .18);
+  border-radius: 20px;
+  background: rgba(13, 25, 46, .28);
+}
+
+.crm-opportunity-form label,
+.opportunity-form label {
   display: grid;
   gap: 6px;
   color: var(--muted);
@@ -3530,7 +3557,10 @@ button:disabled {
 
 .crm-opportunity-form input,
 .crm-opportunity-form select,
-.crm-opportunity-form textarea {
+.crm-opportunity-form textarea,
+.opportunity-form input,
+.opportunity-form select,
+.opportunity-form textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -3539,7 +3569,8 @@ button:disabled {
   font: inherit;
 }
 
-.crm-opportunity-form .span-2 {
+.crm-opportunity-form .span-2,
+.opportunity-form .span-2 {
   grid-column: span 2;
 }
 
@@ -3928,6 +3959,15 @@ button:disabled {
 .app-shell .tag.notice { background: rgba(232, 240, 248, .12); color: rgba(232, 240, 248, .78); }
 
 @media (max-width: 1100px) {
+  .crm-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .crm-hero-actions {
+    justify-content: flex-start;
+  }
+
   .crm-topbar,
   .crm-tracking-layout,
   .crm-agenda-layout {
