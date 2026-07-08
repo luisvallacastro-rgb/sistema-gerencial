@@ -86,6 +86,42 @@ const areas = {
         items: []
       },
       {
+        key: "crm",
+        label: "CRM",
+        status: "Operacion comercial",
+        items: []
+      },
+      {
+        key: "crm-vendedores",
+        label: "Vendedores",
+        status: "Equipo comercial",
+        items: []
+      },
+      {
+        key: "crm-seguimiento",
+        label: "Seguimiento",
+        status: "Pipeline por etapa",
+        items: []
+      },
+      {
+        key: "crm-agenda",
+        label: "Agenda",
+        status: "Visitas y acciones",
+        items: []
+      },
+      {
+        key: "crm-respuestas",
+        label: "Respuestas",
+        status: "Gestiones de campo",
+        items: []
+      },
+      {
+        key: "crm-clientes",
+        label: "Clientes",
+        status: "Ficha comercial",
+        items: []
+      },
+      {
         key: "riesgos",
         label: "Riesgos",
         status: "Riesgos futuros",
@@ -203,6 +239,7 @@ const state = {
   kpiView: "dashboard",
   kpiSeller: "all",
   adminQuery: "",
+  crmData: null,
   period: "Julio 2026"
 };
 
@@ -213,6 +250,12 @@ const adminAreaKey = "administracion";
 const sectionOptions = [
   { key: "resultados", label: "Resultados" },
   { key: "kpi", label: "KPI" },
+  { key: "crm", label: "CRM" },
+  { key: "crm-vendedores", label: "CRM Vendedores" },
+  { key: "crm-seguimiento", label: "CRM Seguimiento" },
+  { key: "crm-agenda", label: "CRM Agenda" },
+  { key: "crm-respuestas", label: "CRM Respuestas" },
+  { key: "crm-clientes", label: "CRM Clientes" },
   { key: "riesgos", label: "Riesgos" },
   { key: "solicitudes", label: "Solicitudes" }
 ];
@@ -388,6 +431,20 @@ async function apiJson(path, options = {}) {
   if (!response.ok) throw new Error(`API ${response.status}`);
   return response.json();
 }
+
+function loadCrmData() {
+  if (!apiEnabled) return;
+  apiJson("/api/crm/bootstrap")
+    .then((data) => {
+      state.crmData = data;
+      if (state.activeArea === "comercializacion" && state.activeSubmenu?.startsWith("crm")) {
+        renderDashboard();
+      }
+    })
+    .catch(() => {
+      state.crmData = null;
+    });
+}
 const defaultStrategicRisks = [];
 const defaultManagementRequests = [];
 const demoStrategicRiskIds = new Set(["risk-001", "risk-002", "risk-003"]);
@@ -545,7 +602,14 @@ function defaultPermissionsForRole(role) {
 function normalizePermissionList(value, role) {
   const valid = new Set(allPermissionKeys());
   const source = Array.isArray(value) && value.length ? value : defaultPermissionsForRole(role);
-  return withSharedDefaultPermissions(source.filter((item) => valid.has(item)));
+  const next = withSharedDefaultPermissions(source.filter((item) => valid.has(item)));
+  if (["general", "accionistas"].includes(role)) {
+    return allPermissionKeys();
+  }
+  if (role === "comercializacion") {
+    return [...new Set([...next, ...sectionOptions.map((section) => permissionKey("comercializacion", section.key))])];
+  }
+  return next;
 }
 
 function isAdminUser(user = state.currentUser) {
@@ -1553,7 +1617,7 @@ function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
   const submenu = document.createElement("div");
   submenu.className = `submenu-list ${state.activeArea === areaKey && state.commercialMenuOpen ? "open" : ""}`;
   submenu.innerHTML = items.map((item) => `
-    <button class="submenu-item ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
+    <button class="submenu-item ${item.key === "crm" ? "crm-parent" : item.key.startsWith("crm-") ? "crm-child" : ""} ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
       ${item.label}
     </button>
   `).join("");
@@ -1794,6 +1858,12 @@ function renderCleanManagementSection(area, submenu) {
   const labels = {
     resultados: "Resultados",
     kpi: "KPI",
+    crm: "CRM",
+    "crm-vendedores": "Vendedores",
+    "crm-seguimiento": "Seguimiento",
+    "crm-agenda": "Agenda",
+    "crm-respuestas": "Respuestas",
+    "crm-clientes": "Clientes",
     riesgos: "Riesgos",
     solicitudes: "Solicitudes"
   };
@@ -1809,6 +1879,245 @@ function renderCleanManagementSection(area, submenu) {
       </div>
     </section>
   `;
+}
+
+function crmData() {
+  return state.crmData || { users: [], opportunities: [], agenda: [], gestiones: [], pipeline: [], customers: [], kpis: {} };
+}
+
+function crmSalesUsers() {
+  return crmData().users.filter((user) => user.roleId === "sales_exec");
+}
+
+function crmOwnerName(ownerId) {
+  return crmData().users.find((user) => user.id === ownerId)?.name || "Sin vendedor";
+}
+
+function crmMetricCards() {
+  const data = crmData();
+  const kpis = data.kpis || {};
+  return [
+    ["Pipeline", kpis.totalPipelineLabel || "$0", "Monto estimado activo"],
+    ["Oportunidades", kpis.totalProspects || 0, "Registros comerciales"],
+    ["Agenda", kpis.scheduledMeetings || 0, "Visitas programadas"],
+    ["En visita", kpis.inProgressVisits || 0, "Ejecucion de campo"],
+    ["Realizadas", kpis.completedVisits || 0, "Gestiones completadas"],
+    ["Cierre", `${kpis.closeRate || 0}%`, "Etapa 6 o superior"]
+  ].map(([label, value, meta]) => `
+    <article class="crm-metric">
+      <span>${label}</span>
+      <strong>${value}</strong>
+      <small>${meta}</small>
+    </article>
+  `).join("");
+}
+
+function renderCrmDashboard() {
+  const data = crmData();
+  const recent = data.opportunities.slice(0, 6);
+  const pipeline = data.pipeline.slice(0, 8);
+  return `
+    <section class="crm-shell">
+      <div class="crm-hero">
+        <div>
+          <p class="eyebrow">Comercializacion</p>
+          <h3>CRM operativo</h3>
+          <span>${data.generatedAt ? `Actualizado ${new Date(data.generatedAt).toLocaleString("es-SV")}` : "Conectando datos CRM"}</span>
+        </div>
+        <button class="secondary-btn" type="button" data-crm-refresh>Actualizar</button>
+      </div>
+      <div class="crm-metrics">${crmMetricCards()}</div>
+      <div class="crm-two-column">
+        <section class="crm-section">
+          <div class="crm-section-head"><strong>Pipeline por etapa</strong><span>${pipeline.length} etapas</span></div>
+          <div class="crm-stage-list">
+            ${pipeline.map((stage) => `
+              <article class="crm-stage-row">
+                <span>${stage.id}. ${escapeHtml(stage.name)}</span>
+                <strong>${stage.amountLabel || formatMoney(stage.amount || 0)}</strong>
+                <em>${stage.count || 0}</em>
+              </article>
+            `).join("") || `<div class="empty-state">No hay etapas CRM cargadas.</div>`}
+          </div>
+        </section>
+        <section class="crm-section">
+          <div class="crm-section-head"><strong>Oportunidades recientes</strong><span>${recent.length}</span></div>
+          <div class="crm-opportunity-list">
+            ${recent.map((opp) => `
+              <article class="crm-opportunity-row">
+                <div>
+                  <strong>${escapeHtml(opp.company)}</strong>
+                  <span>${escapeHtml(opp.product || "Producto pendiente")} · ${escapeHtml(opp.owner?.name || crmOwnerName(opp.ownerId))}</span>
+                </div>
+                <span class="tag ${opp.temperature === "Caliente" ? "" : opp.temperature === "Frio" ? "info" : "warn"}">${escapeHtml(opp.temperature || "Tibio")}</span>
+              </article>
+            `).join("") || `<div class="empty-state">No hay oportunidades CRM.</div>`}
+          </div>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmSellers() {
+  const sellers = crmSalesUsers();
+  const data = crmData();
+  return `
+    <section class="crm-shell">
+      <div class="crm-section-head hero-line"><strong>Vendedores</strong><span>${sellers.length} activos</span></div>
+      <div class="crm-seller-grid">
+        ${sellers.map((seller) => {
+          const opportunities = data.opportunities.filter((opp) => opp.ownerId === seller.id);
+          const agenda = data.agenda.filter((item) => item.ownerId === seller.id);
+          const pipeline = opportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+          return `
+            <article class="crm-seller-card">
+              <div class="crm-avatar">${escapeHtml(seller.initials || seller.name?.slice(0, 2) || "KV")}</div>
+              <div>
+                <strong>${escapeHtml(seller.name)}</strong>
+                <span>${escapeHtml(seller.email || seller.phone || "Sin contacto")}</span>
+              </div>
+              <div class="crm-seller-stats">
+                <span><small>Pipeline</small><strong>${formatMoney(pipeline)}</strong></span>
+                <span><small>Oportunidades</small><strong>${opportunities.length}</strong></span>
+                <span><small>Agenda</small><strong>${agenda.length}</strong></span>
+              </div>
+            </article>
+          `;
+        }).join("") || `<div class="empty-state">No hay vendedores CRM.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmTracking() {
+  const stages = crmData().pipeline || [];
+  return `
+    <section class="crm-shell">
+      <div class="crm-section-head hero-line"><strong>Seguimiento</strong><span>${crmData().opportunities.length} oportunidades</span></div>
+      <div class="crm-kanban">
+        ${stages.map((stage) => `
+          <section class="crm-kanban-column">
+            <div class="crm-kanban-head">
+              <strong>${stage.id}. ${escapeHtml(stage.name)}</strong>
+              <span>${stage.count || 0}</span>
+            </div>
+            <div class="crm-kanban-list">
+              ${(stage.opportunities || []).slice(0, 8).map((opp) => `
+                <article class="crm-mini-card">
+                  <strong>${escapeHtml(opp.company)}</strong>
+                  <span>${escapeHtml(opp.owner?.name || crmOwnerName(opp.ownerId))}</span>
+                  <em>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</em>
+                </article>
+              `).join("") || `<div class="crm-mini-empty">Sin oportunidades</div>`}
+            </div>
+          </section>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmAgenda() {
+  const agenda = crmData().agenda.slice(0, 60);
+  return `
+    <section class="crm-shell">
+      <div class="crm-section-head hero-line"><strong>Agenda</strong><span>${agenda.length} proximas acciones</span></div>
+      <div class="crm-table">
+        <div class="crm-table-row crm-table-head"><strong>Fecha</strong><strong>Cliente</strong><strong>Vendedor</strong><strong>Estado</strong></div>
+        ${agenda.map((item) => `
+          <article class="crm-table-row">
+            <span>${escapeHtml(item.date || "")} ${escapeHtml(item.time || "")}</span>
+            <strong>${escapeHtml(item.opportunity?.company || "Sin cliente")}</strong>
+            <span>${escapeHtml(item.owner?.name || crmOwnerName(item.ownerId))}</span>
+            <span class="tag ${item.status === "Realizada" ? "" : item.status === "En visita" ? "warn" : "notice"}">${escapeHtml(item.status || "Programada")}</span>
+          </article>
+        `).join("") || `<div class="empty-state">No hay agenda CRM.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmResponses() {
+  const data = crmData();
+  const responses = [
+    ...data.gestiones,
+    ...data.agenda
+      .filter((item) => item.status === "Programada")
+      .map((item) => ({
+        id: `pending-${item.id}`,
+        date: item.date,
+        time: item.time,
+        type: item.type || "Seguimiento",
+        status: "Pendiente",
+        company: item.opportunity?.company,
+        owner: item.owner,
+        note: item.place
+      }))
+  ].slice(0, 80);
+  return `
+    <section class="crm-shell">
+      <div class="crm-section-head hero-line"><strong>Respuestas</strong><span>${responses.length} registros</span></div>
+      <div class="crm-response-list">
+        ${responses.map((item) => `
+          <article class="crm-response-row">
+            <time>${escapeHtml(item.date || "")}<span>${escapeHtml(item.time || "")}</span></time>
+            <div>
+              <strong>${escapeHtml(item.company || item.opportunity?.company || "Gestion comercial")}</strong>
+              <span>${escapeHtml(item.note || item.result || "Sin nota registrada")}</span>
+            </div>
+            <span>${escapeHtml(item.owner?.name || crmOwnerName(item.ownerId))}</span>
+            <em class="tag ${item.status === "Realizada" ? "" : "warn"}">${escapeHtml(item.status || "Pendiente")}</em>
+          </article>
+        `).join("") || `<div class="empty-state">No hay respuestas CRM.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmClients() {
+  const opportunities = crmData().opportunities;
+  const clients = Object.values(opportunities.reduce((acc, opp) => {
+    const key = opp.customerId || opp.company;
+    if (!acc[key]) acc[key] = { name: opp.customer?.commercialName || opp.company, owner: opp.owner?.name || crmOwnerName(opp.ownerId), count: 0, amount: 0, segment: opp.segment };
+    acc[key].count += 1;
+    acc[key].amount += Number(opp.estimatedAmount || 0);
+    return acc;
+  }, {})).slice(0, 80);
+  return `
+    <section class="crm-shell">
+      <div class="crm-section-head hero-line"><strong>Clientes</strong><span>${clients.length} cuentas</span></div>
+      <div class="crm-client-grid">
+        ${clients.map((client) => `
+          <article class="crm-client-card">
+            <strong>${escapeHtml(client.name)}</strong>
+            <span>${escapeHtml(client.segment || "Segmento pendiente")}</span>
+            <div>
+              <em>${escapeHtml(client.owner)}</em>
+              <b>${formatMoney(client.amount)}</b>
+            </div>
+            <small>${client.count} oportunidades</small>
+          </article>
+        `).join("") || `<div class="empty-state">No hay clientes CRM.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmModule(submenuKey) {
+  if (!state.crmData) {
+    loadCrmData();
+    return `<div class="empty-state">Cargando CRM comercial...</div>`;
+  }
+  const views = {
+    crm: renderCrmDashboard,
+    "crm-vendedores": renderCrmSellers,
+    "crm-seguimiento": renderCrmTracking,
+    "crm-agenda": renderCrmAgenda,
+    "crm-respuestas": renderCrmResponses,
+    "crm-clientes": renderCrmClients
+  };
+  return (views[submenuKey] || renderCrmDashboard)();
 }
 
 function renderCommercialSubmenu(area) {
@@ -1845,6 +2154,19 @@ function renderCommercialSubmenu(area) {
     opportunityDashboard.classList.remove("hidden");
     commercialSubmenuStatus.textContent = "Ventas ganadas / meta";
     renderOpportunityDashboard(opportunitySubmenu.items);
+    return;
+  }
+
+  if (submenu.key.startsWith("crm")) {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = submenu.status;
+    opportunityTable.innerHTML = renderCrmModule(submenu.key);
+    opportunityTable.querySelector("[data-crm-refresh]")?.addEventListener("click", loadCrmData);
     return;
   }
 
@@ -2774,7 +3096,7 @@ function renderDashboard() {
     state.activeSubmenu = visibleItems[0].key;
   }
   const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
-  dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "riesgos", "solicitudes"].includes(state.activeSubmenu));
+  dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu));
   pageTitle.textContent = activeSubmenu ? activeSubmenu.label : area.label;
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;
@@ -3535,4 +3857,5 @@ loadUsers();
 loadOpportunities();
 loadStrategicRisks();
 loadManagementRequests();
+loadCrmData();
 resetOpportunityForm();

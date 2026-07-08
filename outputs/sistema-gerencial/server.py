@@ -3,6 +3,7 @@ import json
 import mimetypes
 import os
 import sqlite3
+import time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote
@@ -12,11 +13,12 @@ ROOT = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", ROOT))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "sistema-gerencial.db"
+CRM_SEED_PATH = ROOT / "crm-seed.json"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
-SECTION_KEYS = ["resultados", "kpi", "riesgos", "solicitudes"]
+SECTION_KEYS = ["resultados", "kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"]
 SHARED_DEFAULT_SECTION_KEYS = ["riesgos", "solicitudes"]
 VALID_ROLES = {"general", "accionistas", *AREA_KEYS}
 ALL_PERMISSIONS = [f"{area}:{section}" for area in AREA_KEYS for section in SECTION_KEYS]
@@ -41,6 +43,282 @@ DEFAULT_USERS = [
     {"id": "user-operaciones", "name": "Gerencia operaciones", "username": "operaciones", "email": "operaciones@empresa.local", "role": "operaciones", "password": "admin123"},
     {"id": "user-rrhh", "name": "Gerencia recursos humanos", "username": "rrhh", "email": "rrhh@empresa.local", "role": "rrhh", "password": "admin123"},
 ]
+
+
+def text(value, fallback=""):
+    raw = str(value if value is not None else fallback).strip()
+    return raw or str(fallback or "").strip()
+
+
+def crm_money(value):
+    try:
+        amount = float(value or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    return "${:,.0f}".format(amount)
+
+
+def crm_key(value):
+    source = text(value, "cliente").lower()
+    cleaned = []
+    previous_dash = False
+    for char in source:
+        if char.isalnum():
+            cleaned.append(char)
+            previous_dash = False
+        elif not previous_dash:
+            cleaned.append("-")
+            previous_dash = True
+    return "".join(cleaned).strip("-")[:80] or "cliente"
+
+
+def crm_percent(value, fallback=0):
+    try:
+        return int(float(value if value is not None else fallback) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def load_crm_seed():
+    with CRM_SEED_PATH.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    data.setdefault("gestiones", [])
+    data.setdefault("customers", [])
+    return data
+
+
+def read_crm_data(conn):
+    row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
+    if not row:
+        data = load_crm_seed()
+        write_crm_data(conn, data)
+        return data
+    data = json.loads(row["value"])
+    data.setdefault("gestiones", [])
+    data.setdefault("customers", [])
+    return data
+
+
+def write_crm_data(conn, data):
+    conn.execute("""
+        INSERT INTO app_state (key, value, updated_at)
+        VALUES ('crm_data', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET
+            value = excluded.value,
+            updated_at = CURRENT_TIMESTAMP
+    """, (json.dumps(data, ensure_ascii=True),))
+
+
+def public_crm_user(user):
+    safe = dict(user or {})
+    safe.pop("password", None)
+    return safe
+
+
+def crm_customer_from_opportunity(opportunity):
+    company = text(opportunity.get("company"), "Cliente")
+    return {
+        "id": opportunity.get("customerId") or crm_key(company),
+        "legalName": company,
+        "commercialName": company,
+        "phone": text(opportunity.get("phone")),
+        "email": "",
+        "manager": text(opportunity.get("responsible") or opportunity.get("contact")),
+        "businessLine": text(opportunity.get("segment"), "Por definir"),
+        "address": text(opportunity.get("location")),
+    }
+
+
+def normalize_crm_user(payload, existing=None):
+    existing = dict(existing or {})
+    first_name = text(payload.get("firstName"), existing.get("firstName"))
+    last_name = text(payload.get("lastName"), existing.get("lastName"))
+    full_name = text(payload.get("name"), f"{first_name} {last_name}".strip() or existing.get("name"))
+    email = text(payload.get("email"), existing.get("email")).lower()
+    return {
+        **existing,
+        "name": full_name,
+        "firstName": first_name,
+        "lastName": last_name,
+        "dui": text(payload.get("dui"), existing.get("dui")),
+        "address": text(payload.get("address"), existing.get("address")),
+        "roleId": text(payload.get("roleId"), existing.get("roleId") or "sales_exec"),
+        "initials": text(payload.get("initials"), "".join(part[:1].upper() for part in full_name.split()[:2]) or "KV"),
+        "phone": text(payload.get("phone"), existing.get("phone")),
+        "email": email,
+        "username": text(payload.get("username"), existing.get("username") or email).lower(),
+        "password": text(payload.get("password"), existing.get("password") or "konfi123"),
+        "territory": text(payload.get("territory"), existing.get("territory") or payload.get("address") or "Por definir"),
+        "status": text(payload.get("status"), existing.get("status") or "Activo"),
+    }
+
+
+def duplicate_crm_user(data, payload, current_id=""):
+    email = text(payload.get("email")).lower()
+    username = text(payload.get("username") or payload.get("email")).lower()
+    dui = text(payload.get("dui"))
+    for user in data.get("users", []):
+        if user.get("id") == current_id:
+            continue
+        if email and text(user.get("email")).lower() == email:
+            return True
+        if username and text(user.get("username") or user.get("email")).lower() == username:
+            return True
+        if dui and text(user.get("dui")) == dui:
+            return True
+    return False
+
+
+def normalize_crm_opportunity(payload, existing=None):
+    existing = dict(existing or {})
+    try:
+        stage_id = int(payload.get("stageId", existing.get("stageId", 1)) or 1)
+    except (TypeError, ValueError):
+        stage_id = 1
+    try:
+        estimated = float(payload.get("estimatedAmount", existing.get("estimatedAmount", 0)) or 0)
+    except (TypeError, ValueError):
+        estimated = 0
+    return {
+        **existing,
+        "startDate": text(payload.get("startDate"), existing.get("startDate")),
+        "deadline": text(payload.get("deadline"), existing.get("deadline")),
+        "company": text(payload.get("company"), existing.get("company")),
+        "product": text(payload.get("product"), existing.get("product")),
+        "contact": text(payload.get("contact"), existing.get("contact") or payload.get("responsible")),
+        "phone": text(payload.get("phone"), existing.get("phone")),
+        "segment": text(payload.get("segment"), existing.get("segment")),
+        "location": text(payload.get("location"), existing.get("location")),
+        "stageId": max(1, min(8, stage_id)),
+        "priority": text(payload.get("priority"), existing.get("priority") or "Media"),
+        "temperature": text(payload.get("temperature"), existing.get("temperature") or "Tibio"),
+        "estimatedAmount": max(0, estimated),
+        "closePercent": max(0, min(100, crm_percent(payload.get("closePercent"), existing.get("closePercent", 0)))),
+        "strategy": text(payload.get("strategy"), existing.get("strategy")),
+        "status": text(payload.get("status"), existing.get("status") or "Vigente"),
+        "responsible": text(payload.get("responsible"), existing.get("responsible") or payload.get("contact")),
+        "ownerId": text(payload.get("ownerId"), existing.get("ownerId") or "u2"),
+        "nextAction": text(payload.get("nextAction"), existing.get("nextAction") or "Primer seguimiento"),
+        "nextDate": text(payload.get("nextDate"), existing.get("nextDate") or payload.get("deadline")),
+        "lastNote": text(payload.get("lastNote"), existing.get("lastNote") or payload.get("comment")),
+        "comment": text(payload.get("comment"), existing.get("comment") or payload.get("lastNote")),
+    }
+
+
+def upsert_crm_agenda(data, opportunity, payload):
+    has_agenda = any(payload.get(key) for key in ["agendaDate", "agendaTime", "agendaType", "agendaPlace"])
+    existing = next((item for item in data.get("agenda", []) if item.get("opportunityId") == opportunity.get("id")), None)
+    if not has_agenda and not existing:
+        return
+    agenda_item = {
+        "id": existing.get("id") if existing else f"ag-{int(time.time() * 1000)}",
+        "date": text(payload.get("agendaDate"), (existing or {}).get("date") or opportunity.get("nextDate")),
+        "time": text(payload.get("agendaTime"), (existing or {}).get("time") or "09:00"),
+        "type": text(payload.get("agendaType"), (existing or {}).get("type") or "Seguimiento"),
+        "opportunityId": opportunity.get("id"),
+        "ownerId": opportunity.get("ownerId"),
+        "status": text(payload.get("agendaStatus"), (existing or {}).get("status") or "Programada"),
+        "place": text(payload.get("agendaPlace"), (existing or {}).get("place") or "Por definir"),
+    }
+    if existing:
+        existing.update(agenda_item)
+    else:
+        data.setdefault("agenda", []).append(agenda_item)
+
+
+def normalize_crm_gestion(payload, existing=None):
+    existing = dict(existing or {})
+    today = time.strftime("%Y-%m-%d")
+    return {
+        **existing,
+        "agendaId": text(payload.get("agendaId"), existing.get("agendaId")),
+        "opportunityId": text(payload.get("opportunityId"), existing.get("opportunityId")),
+        "company": text(payload.get("company"), existing.get("company")),
+        "ownerId": text(payload.get("ownerId"), existing.get("ownerId")),
+        "type": text(payload.get("type"), existing.get("type") or "Llamada"),
+        "date": text(payload.get("date"), existing.get("date") or today),
+        "time": text(payload.get("time"), existing.get("time") or "09:00"),
+        "status": text(payload.get("status"), existing.get("status") or "Programada"),
+        "place": text(payload.get("place"), existing.get("place")),
+        "locationLabel": text(payload.get("locationLabel"), existing.get("locationLabel") or payload.get("place")),
+        "source": text(payload.get("source"), existing.get("source") or "CRM"),
+        "note": text(payload.get("note"), existing.get("note")),
+        "result": text(payload.get("result"), existing.get("result")),
+        "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+
+def build_crm_view_model(data, include_private=False):
+    users = data.get("users", [])
+    roles = data.get("roles", [])
+    stages = data.get("stages", [])
+    customers = data.get("customers", [])
+    opportunities_raw = data.get("opportunities", [])
+    users_by_id = {item.get("id"): item for item in users}
+    stages_by_id = {item.get("id"): item for item in stages}
+    customers_by_id = {item.get("id"): item for item in customers}
+    opportunities = []
+    for opportunity in opportunities_raw:
+        customer_id = opportunity.get("customerId") or crm_key(opportunity.get("company"))
+        amount = opportunity.get("estimatedAmount") or 0
+        item = dict(opportunity)
+        item["customerId"] = customer_id
+        item["customer"] = customers_by_id.get(customer_id) or crm_customer_from_opportunity(opportunity)
+        item["owner"] = public_crm_user(users_by_id.get(opportunity.get("ownerId"), {}))
+        item["stage"] = stages_by_id.get(opportunity.get("stageId"), {})
+        item["estimatedAmountLabel"] = crm_money(amount)
+        opportunities.append(item)
+    derived_customers = list({item["customer"]["id"]: item["customer"] for item in opportunities}.values())
+    agenda = []
+    for item in data.get("agenda", []):
+        opportunity = next((opp for opp in opportunities if opp.get("id") == item.get("opportunityId")), None)
+        if not opportunity:
+            continue
+        row = dict(item)
+        row["opportunity"] = opportunity
+        row["owner"] = public_crm_user(users_by_id.get(item.get("ownerId"), {}))
+        agenda.append(row)
+    agenda.sort(key=lambda row: f"{row.get('date', '')} {row.get('time', '')}")
+    gestiones = []
+    for item in data.get("gestiones", []):
+        row = dict(item)
+        row["opportunity"] = next((opp for opp in opportunities if opp.get("id") == item.get("opportunityId")), None)
+        row["owner"] = public_crm_user(users_by_id.get(item.get("ownerId"), {}))
+        gestiones.append(row)
+    gestiones.sort(key=lambda row: f"{row.get('date', '')} {row.get('time', '')}", reverse=True)
+    total_pipeline = sum(float(item.get("estimatedAmount") or 0) for item in opportunities)
+    closed = len([item for item in opportunities if int(item.get("stageId") or 0) >= 6])
+    hot = len([item for item in opportunities if item.get("temperature") == "Caliente"])
+    pipeline = []
+    for stage in stages:
+        stage_opportunities = [item for item in opportunities if item.get("stageId") == stage.get("id")]
+        amount = sum(float(item.get("estimatedAmount") or 0) for item in stage_opportunities)
+        pipeline.append({**stage, "count": len(stage_opportunities), "amount": amount, "amountLabel": crm_money(amount), "opportunities": stage_opportunities})
+    return {
+        "company": data.get("company", "KONFI"),
+        "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "roles": roles,
+        "users": users if include_private else [public_crm_user(user) for user in users],
+        "customers": customers or derived_customers,
+        "stages": stages,
+        "forms": data.get("forms", []),
+        "opportunities": opportunities,
+        "agenda": agenda,
+        "gestiones": gestiones,
+        "pipeline": pipeline,
+        "kpis": {
+            "totalProspects": len(opportunities),
+            "totalPipeline": total_pipeline,
+            "totalPipelineLabel": crm_money(total_pipeline),
+            "hotOpportunities": hot,
+            "scheduledMeetings": len([item for item in agenda if item.get("status") == "Programada"]),
+            "inProgressVisits": len([item for item in agenda if item.get("status") == "En visita"]),
+            "completedVisits": len([item for item in agenda if item.get("status") == "Realizada"]),
+            "closeRate": round((closed / len(opportunities)) * 100) if opportunities else 0,
+            "nps": data.get("postSales", {}).get("nps", 0),
+            "openClaims": data.get("postSales", {}).get("openClaims", 0),
+        },
+    }
 
 
 def default_permissions_for_role(role):
@@ -191,6 +469,10 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
             return
 
+        if self.path.startswith("/api/crm/"):
+            self.handle_crm_api()
+            return
+
         if self.path == "/api/users":
             with connect() as conn:
                 rows = conn.execute("""
@@ -212,6 +494,10 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def handle_api_post(self):
+        if self.path.startswith("/api/crm/"):
+            self.handle_crm_api()
+            return
+
         if self.path == "/api/users":
             data = self.read_json()
             if isinstance(data.get("users"), list):
@@ -237,6 +523,10 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def handle_api_put(self):
+        if self.path.startswith("/api/crm/"):
+            self.handle_crm_api()
+            return
+
         if self.path == "/api/opportunities":
             data = self.read_json()
             if not isinstance(data, list):
@@ -254,6 +544,205 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         self.send_error(404)
+
+    def do_PATCH(self):
+        if self.path.startswith("/api/"):
+            self.handle_api_patch()
+            return
+        self.send_error(404)
+
+    def do_DELETE(self):
+        if self.path.startswith("/api/"):
+            self.handle_api_delete()
+            return
+        self.send_error(404)
+
+    def handle_api_patch(self):
+        if self.path.startswith("/api/crm/"):
+            self.handle_crm_api()
+            return
+        self.send_error(404)
+
+    def handle_api_delete(self):
+        if self.path.startswith("/api/crm/"):
+            self.handle_crm_api()
+            return
+        self.send_error(404)
+
+    def handle_crm_api(self):
+        path = self.path.split("?", 1)[0]
+        parts = path.strip("/").split("/")
+        resource = parts[2] if len(parts) > 2 else ""
+        item_id = parts[3] if len(parts) > 3 else ""
+
+        with connect() as conn:
+            data = read_crm_data(conn)
+
+            if resource == "bootstrap" and self.command == "GET":
+                self.send_json(build_crm_view_model(data))
+                return
+
+            if resource == "kpis" and self.command == "GET":
+                self.send_json(build_crm_view_model(data)["kpis"])
+                return
+
+            if resource == "pipeline" and self.command == "GET":
+                self.send_json(build_crm_view_model(data)["pipeline"])
+                return
+
+            if resource == "agenda" and self.command == "GET":
+                self.send_json(build_crm_view_model(data)["agenda"])
+                return
+
+            if resource == "auth" and item_id == "login" and self.command == "POST":
+                payload = self.read_json()
+                username = text(payload.get("username")).lower()
+                password = text(payload.get("password"))
+                user = next((
+                    item for item in data.get("users", [])
+                    if username in {text(item.get("username") or item.get("email")).lower(), text(item.get("email")).lower()}
+                    and text(item.get("password"), "konfi123") == password
+                ), None)
+                if not user:
+                    self.send_json({"error": "Credenciales invalidas"}, status=401)
+                    return
+                model = build_crm_view_model(data)
+                model["activeUserId"] = user.get("id")
+                self.send_json(model)
+                return
+
+            if resource == "users":
+                if self.command == "GET" and not item_id:
+                    self.send_json([public_crm_user(user) for user in data.get("users", [])])
+                    return
+                if self.command == "POST":
+                    payload = self.read_json()
+                    if not text(payload.get("name")) and not text(payload.get("email")):
+                        self.send_json({"error": "Nombre o correo requerido"}, status=400)
+                        return
+                    if duplicate_crm_user(data, payload):
+                        self.send_json({"error": "Usuario CRM existente"}, status=409)
+                        return
+                    user = {"id": f"u-{int(time.time() * 1000)}", **normalize_crm_user(payload)}
+                    data.setdefault("users", []).append(user)
+                    write_crm_data(conn, data)
+                    model = build_crm_view_model(data)
+                    model["activeUserId"] = user["id"]
+                    self.send_json(model, status=201)
+                    return
+                if item_id:
+                    index = next((i for i, item in enumerate(data.get("users", [])) if item.get("id") == item_id), -1)
+                    if index == -1:
+                        self.send_json({"error": "Usuario CRM no encontrado"}, status=404)
+                        return
+                    if self.command in {"PUT", "PATCH"}:
+                        payload = self.read_json()
+                        if duplicate_crm_user(data, payload, item_id):
+                            self.send_json({"error": "Usuario CRM existente"}, status=409)
+                            return
+                        data["users"][index] = normalize_crm_user(payload, data["users"][index])
+                        write_crm_data(conn, data)
+                        model = build_crm_view_model(data)
+                        model["activeUserId"] = item_id
+                        self.send_json(model)
+                        return
+                    if self.command == "DELETE":
+                        has_work = any(item.get("ownerId") == item_id for item in data.get("opportunities", [])) or any(item.get("ownerId") == item_id for item in data.get("agenda", []))
+                        if has_work:
+                            self.send_json({"error": "El vendedor tiene oportunidades o agenda asignada"}, status=409)
+                            return
+                        data["users"].pop(index)
+                        write_crm_data(conn, data)
+                        self.send_json(build_crm_view_model(data))
+                        return
+
+            if resource == "opportunities":
+                if self.command == "GET" and not item_id:
+                    self.send_json(build_crm_view_model(data)["opportunities"])
+                    return
+                if self.command == "POST":
+                    payload = self.read_json()
+                    if not text(payload.get("company")) or not text(payload.get("ownerId")):
+                        self.send_json({"error": "Empresa y vendedor requeridos"}, status=400)
+                        return
+                    opportunity = {"id": f"opp-{int(time.time() * 1000)}", **normalize_crm_opportunity(payload)}
+                    data.setdefault("opportunities", []).append(opportunity)
+                    upsert_crm_agenda(data, opportunity, payload)
+                    write_crm_data(conn, data)
+                    self.send_json(build_crm_view_model(data), status=201)
+                    return
+                if item_id:
+                    index = next((i for i, item in enumerate(data.get("opportunities", [])) if item.get("id") == item_id), -1)
+                    if index == -1:
+                        self.send_json({"error": "Oportunidad no encontrada"}, status=404)
+                        return
+                    if self.command in {"PUT", "PATCH"}:
+                        payload = self.read_json()
+                        opportunity = normalize_crm_opportunity(payload, data["opportunities"][index])
+                        data["opportunities"][index] = opportunity
+                        upsert_crm_agenda(data, opportunity, payload)
+                        write_crm_data(conn, data)
+                        self.send_json(build_crm_view_model(data))
+                        return
+                    if self.command == "DELETE":
+                        data["opportunities"].pop(index)
+                        data["agenda"] = [item for item in data.get("agenda", []) if item.get("opportunityId") != item_id]
+                        write_crm_data(conn, data)
+                        self.send_json(build_crm_view_model(data))
+                        return
+
+            if resource == "agenda" and item_id and self.command in {"PUT", "PATCH"}:
+                index = next((i for i, item in enumerate(data.get("agenda", [])) if item.get("id") == item_id), -1)
+                if index == -1:
+                    self.send_json({"error": "Agenda no encontrada"}, status=404)
+                    return
+                payload = self.read_json()
+                current = data["agenda"][index]
+                next_status = text(payload.get("status"), current.get("status"))
+                allowed = {"Programada", "En visita", "Realizada", "Pendiente", "Cancelada", "Reprogramada"}
+                current["status"] = next_status if next_status in allowed else current.get("status")
+                current["result"] = text(payload.get("result"), current.get("result"))
+                if next_status == "En visita":
+                    current["checkInAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                if next_status == "Realizada":
+                    current["completedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                write_crm_data(conn, data)
+                self.send_json(build_crm_view_model(data))
+                return
+
+            if resource == "gestiones":
+                if self.command == "GET" and not item_id:
+                    self.send_json(build_crm_view_model(data)["gestiones"])
+                    return
+                if self.command == "POST":
+                    payload = self.read_json()
+                    opportunity = next((item for item in data.get("opportunities", []) if item.get("id") == payload.get("opportunityId")), None)
+                    if not opportunity:
+                        self.send_json({"error": "Oportunidad no encontrada"}, status=404)
+                        return
+                    gestion = {
+                        "id": f"ges-{int(time.time() * 1000)}",
+                        "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        **normalize_crm_gestion({**payload, "company": payload.get("company") or opportunity.get("company"), "ownerId": payload.get("ownerId") or opportunity.get("ownerId")}),
+                    }
+                    data.setdefault("gestiones", []).append(gestion)
+                    if gestion.get("status") == "Programada":
+                        data.setdefault("agenda", []).append({
+                            "id": f"ag-{gestion['id']}",
+                            "gestionId": gestion["id"],
+                            "date": gestion.get("date"),
+                            "time": gestion.get("time") or "09:00",
+                            "type": gestion.get("type") or "Gestion",
+                            "opportunityId": opportunity.get("id"),
+                            "ownerId": gestion.get("ownerId") or opportunity.get("ownerId"),
+                            "status": "Programada",
+                            "place": text(payload.get("place"), payload.get("note") or "Por definir"),
+                        })
+                    write_crm_data(conn, data)
+                    self.send_json(build_crm_view_model(data), status=201)
+                    return
+
+            self.send_json({"error": "Endpoint CRM no encontrado"}, status=404)
 
     def serve_static(self, send_body=True):
         path = unquote(self.path.split("?", 1)[0])
