@@ -240,6 +240,8 @@ const state = {
   kpiSeller: "all",
   adminQuery: "",
   crmData: null,
+  crmSellerId: "",
+  crmStatusFilter: "Vigente",
   period: "Julio 2026"
 };
 
@@ -1893,6 +1895,30 @@ function crmOwnerName(ownerId) {
   return crmData().users.find((user) => user.id === ownerId)?.name || "Sin vendedor";
 }
 
+function crmActiveOpportunitiesForSeller(sellerId) {
+  return crmData().opportunities.filter((opp) => {
+    const status = String(opp.status || "Vigente").toLowerCase();
+    return opp.ownerId === sellerId && !["ganada", "perdida", "cancelada"].includes(status);
+  });
+}
+
+function crmSortedSellers() {
+  return [...crmSalesUsers()].sort((a, b) => {
+    const aCount = crmActiveOpportunitiesForSeller(a.id).length;
+    const bCount = crmActiveOpportunitiesForSeller(b.id).length;
+    return bCount - aCount || String(a.name).localeCompare(String(b.name));
+  });
+}
+
+function crmEnsureSellerId() {
+  const sellers = crmSortedSellers();
+  if (!sellers.length) return "";
+  if (!state.crmSellerId || !sellers.some((seller) => seller.id === state.crmSellerId)) {
+    state.crmSellerId = sellers[0].id;
+  }
+  return state.crmSellerId;
+}
+
 function crmMetricCards() {
   const data = crmData();
   const kpis = data.kpis || {};
@@ -1960,79 +1986,190 @@ function renderCrmDashboard() {
 }
 
 function renderCrmSellers() {
-  const sellers = crmSalesUsers();
-  const data = crmData();
+  const sellers = crmSortedSellers();
+  const rows = sellers.map((seller) => {
+    const activeOpportunities = crmActiveOpportunitiesForSeller(seller.id);
+    const activePipeline = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+    return `
+      <tr class="crm-seller-row" data-crm-seller="${seller.id}">
+        <td>
+          <strong>${escapeHtml(seller.name)}</strong>
+          <span>${escapeHtml(seller.initials || "SV")} - ${escapeHtml(seller.status || "Activo")}</span>
+        </td>
+        <td>${activeOpportunities.length}</td>
+        <td>${formatMoney(activePipeline)}</td>
+        <td><button class="crm-link-pill" type="button" data-crm-seller="${seller.id}">Abrir seguimiento</button></td>
+      </tr>
+    `;
+  }).join("");
   return `
-    <section class="crm-shell">
-      <div class="crm-section-head hero-line"><strong>Vendedores</strong><span>${sellers.length} activos</span></div>
-      <div class="crm-seller-grid">
-        ${sellers.map((seller) => {
-          const opportunities = data.opportunities.filter((opp) => opp.ownerId === seller.id);
-          const agenda = data.agenda.filter((item) => item.ownerId === seller.id);
-          const pipeline = opportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
-          return `
-            <article class="crm-seller-card">
-              <div class="crm-avatar">${escapeHtml(seller.initials || seller.name?.slice(0, 2) || "KV")}</div>
-              <div>
-                <strong>${escapeHtml(seller.name)}</strong>
-                <span>${escapeHtml(seller.email || seller.phone || "Sin contacto")}</span>
-              </div>
-              <div class="crm-seller-stats">
-                <span><small>Pipeline</small><strong>${formatMoney(pipeline)}</strong></span>
-                <span><small>Oportunidades</small><strong>${opportunities.length}</strong></span>
-                <span><small>Agenda</small><strong>${agenda.length}</strong></span>
-              </div>
-            </article>
-          `;
-        }).join("") || `<div class="empty-state">No hay vendedores CRM.</div>`}
+    <section class="crm-shell crm-original-module">
+      <div class="crm-topbar">
+        <button class="primary-btn" type="button">+ Oportunidad</button>
+        <div class="crm-search-box">⌕ Buscar cliente, etapa o vendedor</div>
+        <button class="secondary-btn" type="button" data-crm-refresh>↻</button>
       </div>
+      <section class="crm-panel">
+        <div class="crm-module-head">
+          <span class="eyebrow">Modulo vendedores</span>
+          <span class="crm-total-pill">${sellers.length} activos</span>
+        </div>
+        <div class="crm-data-table-wrap">
+          <table class="crm-data-table">
+            <thead>
+              <tr>
+                <th>Vendedor</th>
+                <th>Oportunidades vigentes</th>
+                <th>Venta probable vigente</th>
+                <th>Acceso</th>
+              </tr>
+            </thead>
+            <tbody>${rows || `<tr><td colspan="4"><div class="empty-state">No hay vendedores registrados.</div></td></tr>`}</tbody>
+          </table>
+        </div>
+      </section>
     </section>
   `;
 }
 
 function renderCrmTracking() {
-  const stages = crmData().pipeline || [];
+  const data = crmData();
+  const sellers = crmSortedSellers();
+  const selectedSellerId = crmEnsureSellerId();
+  const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
+  const sellerOpportunities = selectedSeller ? data.opportunities.filter((opp) => opp.ownerId === selectedSeller.id) : [];
+  const activeOpportunities = crmActiveOpportunitiesForSeller(selectedSellerId);
+  const wonOpportunities = sellerOpportunities.filter((opp) => opp.status === "Ganada");
+  const lostOpportunities = sellerOpportunities.filter((opp) => opp.status === "Perdida");
+  const activeValue = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+  const wonValue = wonOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+  const conversionBase = wonOpportunities.length + lostOpportunities.length;
+  const conversion = conversionBase ? Math.round((wonOpportunities.length / conversionBase) * 100) : 0;
+  const statusOptions = [["Vigente", "Vigentes"], ["Ganada", "Ganadas"], ["Perdida", "Perdidas"], ["all", "Todas"]];
+  const visibleOpportunities = state.crmStatusFilter === "all"
+    ? sellerOpportunities
+    : sellerOpportunities.filter((opp) => String(opp.status || "Vigente") === state.crmStatusFilter);
+  const sellerButtons = sellers.map((seller) => {
+    const active = crmActiveOpportunitiesForSeller(seller.id);
+    const activeTotal = active.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+    return `
+      <button class="crm-seller-chip ${seller.id === selectedSellerId ? "is-active" : ""}" type="button" data-crm-seller-only="${seller.id}">
+        <strong>${escapeHtml(seller.name)}</strong>
+        <span>${active.length} vigentes - ${formatMoney(activeTotal)}</span>
+      </button>
+    `;
+  }).join("");
+  const opportunityCards = visibleOpportunities.sort((a, b) => String(a.deadline || a.nextDate || "").localeCompare(String(b.deadline || b.nextDate || ""))).map((opp) => `
+    <article class="crm-tracking-card">
+      <div>
+        <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)} - ${escapeHtml(opp.status || "Vigente")}</span>
+        <strong>${escapeHtml(opp.company)}</strong>
+        <p>${escapeHtml(opp.product || "Producto pendiente")}</p>
+      </div>
+      <footer>
+        <strong>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</strong>
+        <span>${opp.closePercent || 0}% cierre</span>
+      </footer>
+    </article>
+  `).join("");
   return `
-    <section class="crm-shell">
-      <div class="crm-section-head hero-line"><strong>Seguimiento</strong><span>${crmData().opportunities.length} oportunidades</span></div>
-      <div class="crm-kanban">
-        ${stages.map((stage) => `
-          <section class="crm-kanban-column">
-            <div class="crm-kanban-head">
-              <strong>${stage.id}. ${escapeHtml(stage.name)}</strong>
-              <span>${stage.count || 0}</span>
+    <section class="crm-shell crm-original-module">
+      <section class="crm-panel">
+        <div class="crm-module-head">
+          <div>
+            <span class="eyebrow">Seguimiento individual</span>
+            <h3>${escapeHtml(selectedSeller?.name || "Selecciona vendedor")}</h3>
+            <p>Vista enfocada por vendedor, estatus y etapa.</p>
+          </div>
+          <button class="primary-btn" type="button">Abrir oportunidad</button>
+        </div>
+        <div class="crm-tracking-metrics">
+          <div><span>Vigentes</span><strong>${activeOpportunities.length}</strong></div>
+          <div><span>Valor vigente</span><strong>${formatMoney(activeValue)}</strong></div>
+          <div><span>Ganadas</span><strong>${formatMoney(wonValue)}</strong></div>
+          <div><span>Conversion</span><strong>${conversion}%</strong></div>
+        </div>
+      </section>
+      <div class="crm-tracking-layout">
+        <aside class="crm-panel crm-tracking-sidebar">
+          <span class="eyebrow">Vendedores</span>
+          <div class="crm-seller-chip-list">${sellerButtons}</div>
+        </aside>
+        <section class="crm-tracking-main">
+          <div class="crm-panel crm-tracking-controls">
+            <span class="eyebrow">Estatus</span>
+            <div class="crm-filter-chips">
+              ${statusOptions.map(([value, label]) => `<button class="${state.crmStatusFilter === value ? "is-active" : ""}" type="button" data-crm-status="${value}">${label}</button>`).join("")}
             </div>
-            <div class="crm-kanban-list">
-              ${(stage.opportunities || []).slice(0, 8).map((opp) => `
-                <article class="crm-mini-card">
-                  <strong>${escapeHtml(opp.company)}</strong>
-                  <span>${escapeHtml(opp.owner?.name || crmOwnerName(opp.ownerId))}</span>
-                  <em>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</em>
-                </article>
-              `).join("") || `<div class="crm-mini-empty">Sin oportunidades</div>`}
-            </div>
-          </section>
-        `).join("")}
+          </div>
+          <div class="crm-tracking-grid">${opportunityCards || `<div class="empty-state">No hay oportunidades para este filtro.</div>`}</div>
+        </section>
       </div>
     </section>
   `;
 }
 
 function renderCrmAgenda() {
-  const agenda = crmData().agenda.slice(0, 60);
+  const data = crmData();
+  const sellers = crmSortedSellers();
+  const agenda = data.agenda.slice(0, 80);
+  const slots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+  const date = agenda[0]?.date || new Date().toISOString().slice(0, 10);
+  const dayItems = agenda.filter((item) => item.date === date);
+  const availableCount = Math.max(0, sellers.length * slots.length - dayItems.length);
+  const sellerRail = sellers.map((seller) => {
+    const items = agenda.filter((item) => item.ownerId === seller.id);
+    return `
+      <button class="crm-seller-chip" type="button" data-crm-seller-only="${seller.id}">
+        <strong>${escapeHtml(seller.name)}</strong>
+        <span>${items.length} programadas</span>
+      </button>
+    `;
+  }).join("");
+  const timeline = slots.map((slot) => {
+    const slotItems = agenda.filter((item) => String(item.time || "").slice(0, 2) === slot.slice(0, 2));
+    return `
+      <article class="crm-agenda-hour">
+        <div><strong>${slot}</strong><span>${slotItems.length ? `${slotItems.length} actividades` : "Sin actividades"}</span></div>
+        <section>
+          ${slotItems.map((item) => `
+            <button class="crm-agenda-visit" type="button">
+              <strong>${escapeHtml(item.opportunity?.company || "Sin cliente")}</strong>
+              <span>${escapeHtml(item.owner?.name || crmOwnerName(item.ownerId))} · ${escapeHtml(item.type || "Gestion")}</span>
+              <em>${escapeHtml(item.place || item.status || "Por definir")}</em>
+            </button>
+          `).join("") || `<div class="crm-open-slot">Horario libre para asignar visitas o llamadas.</div>`}
+        </section>
+      </article>
+    `;
+  }).join("");
   return `
-    <section class="crm-shell">
-      <div class="crm-section-head hero-line"><strong>Agenda</strong><span>${agenda.length} proximas acciones</span></div>
-      <div class="crm-table">
-        <div class="crm-table-row crm-table-head"><strong>Fecha</strong><strong>Cliente</strong><strong>Vendedor</strong><strong>Estado</strong></div>
-        ${agenda.map((item) => `
-          <article class="crm-table-row">
-            <span>${escapeHtml(item.date || "")} ${escapeHtml(item.time || "")}</span>
-            <strong>${escapeHtml(item.opportunity?.company || "Sin cliente")}</strong>
-            <span>${escapeHtml(item.owner?.name || crmOwnerName(item.ownerId))}</span>
-            <span class="tag ${item.status === "Realizada" ? "" : item.status === "En visita" ? "warn" : "notice"}">${escapeHtml(item.status || "Programada")}</span>
-          </article>
-        `).join("") || `<div class="empty-state">No hay agenda CRM.</div>`}
+    <section class="crm-shell crm-original-module">
+      <section class="crm-panel">
+        <div class="crm-module-head">
+          <div>
+            <span class="eyebrow">Agenda integral</span>
+            <h3>Disponibilidad por hora de todos los vendedores</h3>
+            <p>Vista unificada para detectar espacios libres, visitas programadas y carga diaria.</p>
+          </div>
+          <span class="crm-total-pill">${agenda.length} proximas acciones</span>
+        </div>
+        <div class="crm-tracking-metrics">
+          <div><span>Fecha</span><strong>${escapeHtml(date)}</strong></div>
+          <div><span>Programadas</span><strong>${dayItems.length}</strong></div>
+          <div><span>Disponibles</span><strong>${availableCount}</strong></div>
+          <div><span>Vendedores</span><strong>${sellers.length}</strong></div>
+        </div>
+      </section>
+      <div class="crm-agenda-layout">
+        <aside class="crm-panel crm-tracking-sidebar">
+          <span class="eyebrow">Equipo</span>
+          <div class="crm-seller-chip-list">${sellerRail}</div>
+        </aside>
+        <section class="crm-panel crm-agenda-main">
+          <div class="crm-module-head compact"><div><span class="eyebrow">Bitacora por hora</span><h3>Agenda integral del equipo</h3></div></div>
+          <div class="crm-agenda-timeline">${timeline}</div>
+        </section>
       </div>
     </section>
   `;
@@ -2056,21 +2193,31 @@ function renderCrmResponses() {
       }))
   ].slice(0, 80);
   return `
-    <section class="crm-shell">
-      <div class="crm-section-head hero-line"><strong>Respuestas</strong><span>${responses.length} registros</span></div>
-      <div class="crm-response-list">
-        ${responses.map((item) => `
-          <article class="crm-response-row">
-            <time>${escapeHtml(item.date || "")}<span>${escapeHtml(item.time || "")}</span></time>
-            <div>
-              <strong>${escapeHtml(item.company || item.opportunity?.company || "Gestion comercial")}</strong>
-              <span>${escapeHtml(item.note || item.result || "Sin nota registrada")}</span>
-            </div>
-            <span>${escapeHtml(item.owner?.name || crmOwnerName(item.ownerId))}</span>
-            <em class="tag ${item.status === "Realizada" ? "" : "warn"}">${escapeHtml(item.status || "Pendiente")}</em>
-          </article>
-        `).join("") || `<div class="empty-state">No hay respuestas CRM.</div>`}
-      </div>
+    <section class="crm-shell crm-original-module">
+      <section class="crm-panel">
+        <div class="crm-module-head">
+          <div>
+            <span class="eyebrow">Respuestas</span>
+            <h3>Bandeja de compromisos y respuestas</h3>
+            <p>Filas tipo correo: vendedor, cliente, compromiso, respuesta, nota, ubicacion, fecha y estado.</p>
+          </div>
+          <span class="crm-total-pill">${responses.length} registros</span>
+        </div>
+        <div class="crm-mail-table">
+          <div class="crm-mail-row crm-mail-head"><span>De</span><span>Cliente</span><span>Compromiso</span><span>Respuesta</span><span>Nota</span><span>Fecha</span><span>Estado</span></div>
+          ${responses.map((item) => `
+            <article class="crm-mail-row">
+              <strong>${escapeHtml(item.owner?.name || crmOwnerName(item.ownerId))}</strong>
+              <span>${escapeHtml(item.company || item.opportunity?.company || "Sin cliente")}</span>
+              <span>${escapeHtml(item.type || "Gestion")}</span>
+              <span>${escapeHtml(item.result || "Sin respuesta")}</span>
+              <span>${escapeHtml(item.note || "Sin nota registrada")}</span>
+              <time>${escapeHtml(item.date || "")} ${escapeHtml(item.time || "")}</time>
+              <em class="${item.status === "Realizada" ? "is-done" : "is-pending"}">${escapeHtml(item.status || "Pendiente")}</em>
+            </article>
+          `).join("") || `<div class="empty-state">No hay respuestas CRM.</div>`}
+        </div>
+      </section>
     </section>
   `;
 }
@@ -2167,6 +2314,25 @@ function renderCommercialSubmenu(area) {
     commercialSubmenuStatus.textContent = submenu.status;
     opportunityTable.innerHTML = renderCrmModule(submenu.key);
     opportunityTable.querySelector("[data-crm-refresh]")?.addEventListener("click", loadCrmData);
+    opportunityTable.querySelectorAll("[data-crm-seller]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmSellerId = button.dataset.crmSeller;
+        state.activeSubmenu = "crm-seguimiento";
+        renderDashboard();
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-seller-only]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmSellerId = button.dataset.crmSellerOnly;
+        renderCommercialSubmenu(areas.comercializacion);
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-status]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmStatusFilter = button.dataset.crmStatus;
+        renderCommercialSubmenu(areas.comercializacion);
+      });
+    });
     return;
   }
 
