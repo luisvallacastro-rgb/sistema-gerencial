@@ -242,6 +242,7 @@ const state = {
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
+  crmSearch: "",
   period: "Julio 2026"
 };
 
@@ -1895,10 +1896,33 @@ function crmOwnerName(ownerId) {
   return crmData().users.find((user) => user.id === ownerId)?.name || "Sin vendedor";
 }
 
+function crmSearchText() {
+  return String(state.crmSearch || "").trim().toLowerCase();
+}
+
+function crmMatchesSearch(opportunity, seller = null) {
+  const query = crmSearchText();
+  if (!query) return true;
+  const haystack = [
+    opportunity.company,
+    opportunity.product,
+    opportunity.segment,
+    opportunity.location,
+    opportunity.status,
+    opportunity.temperature,
+    opportunity.stage?.name,
+    opportunity.owner?.name,
+    crmOwnerName(opportunity.ownerId),
+    seller?.name,
+    seller?.email
+  ].join(" ").toLowerCase();
+  return haystack.includes(query);
+}
+
 function crmActiveOpportunitiesForSeller(sellerId) {
   return crmData().opportunities.filter((opp) => {
     const status = String(opp.status || "Vigente").toLowerCase();
-    return opp.ownerId === sellerId && !["ganada", "perdida", "cancelada"].includes(status);
+    return opp.ownerId === sellerId && !["ganada", "perdida", "cancelada"].includes(status) && crmMatchesSearch(opp);
   });
 }
 
@@ -1908,6 +1932,115 @@ function crmSortedSellers() {
     const bCount = crmActiveOpportunitiesForSeller(b.id).length;
     return bCount - aCount || String(a.name).localeCompare(String(b.name));
   });
+}
+
+function updateCrmModel(payload) {
+  state.crmData = payload;
+  renderCommercialSubmenu(areas.comercializacion);
+}
+
+function crmApi(path, options = {}) {
+  return apiJson(`/api/crm${path}`, options).then((payload) => {
+    updateCrmModel(payload);
+    return payload;
+  });
+}
+
+function ensureCrmOpportunityDialog() {
+  let dialog = document.querySelector("#crmOpportunityDialog");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "crmOpportunityDialog";
+  dialog.className = "wide-dialog";
+  dialog.innerHTML = `
+    <form method="dialog" class="dialog-card crm-opportunity-form" id="crmOpportunityForm">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">CRM</p>
+          <h3 id="crmOpportunityTitle">Nueva oportunidad</h3>
+        </div>
+        <button class="icon-btn" type="button" data-crm-close>×</button>
+      </div>
+      <input type="hidden" id="crmOpportunityId">
+      <div class="crm-form-grid">
+        <label>Cliente<input id="crmCompany" required></label>
+        <label>Producto<input id="crmProduct"></label>
+        <label>Vendedor<select id="crmOwnerId" required></select></label>
+        <label>Etapa<select id="crmStageId" required></select></label>
+        <label>Monto<input id="crmEstimatedAmount" type="number" min="0" step="1"></label>
+        <label>% cierre<input id="crmClosePercent" type="number" min="0" max="100" step="1"></label>
+        <label>Proxima fecha<input id="crmNextDate" type="date"></label>
+        <label>Estado<select id="crmStatus"><option>Vigente</option><option>Ganada</option><option>Perdida</option><option>Cancelada</option></select></label>
+        <label class="span-2">Accion siguiente<input id="crmNextAction"></label>
+        <label class="span-2">Nota<textarea id="crmLastNote" rows="3"></textarea></label>
+      </div>
+      <menu>
+        <button class="ghost-btn" type="button" data-crm-close>Cancelar</button>
+        <button class="primary-btn" type="submit">Guardar oportunidad</button>
+      </menu>
+    </form>
+  `;
+  document.body.appendChild(dialog);
+  dialog.querySelectorAll("[data-crm-close]").forEach((button) => {
+    button.addEventListener("click", () => dialog.close());
+  });
+  dialog.querySelector("#crmOpportunityForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveCrmOpportunity();
+  });
+  return dialog;
+}
+
+function openCrmOpportunityDialog(opportunity = null) {
+  const dialog = ensureCrmOpportunityDialog();
+  const sellers = crmSortedSellers();
+  const stages = crmData().stages || [];
+  dialog.querySelector("#crmOpportunityTitle").textContent = opportunity ? "Editar oportunidad" : "Nueva oportunidad";
+  dialog.querySelector("#crmOpportunityId").value = opportunity?.id || "";
+  dialog.querySelector("#crmCompany").value = opportunity?.company || "";
+  dialog.querySelector("#crmProduct").value = opportunity?.product || "";
+  dialog.querySelector("#crmOwnerId").innerHTML = sellers.map((seller) => `<option value="${seller.id}">${escapeHtml(seller.name)}</option>`).join("");
+  dialog.querySelector("#crmStageId").innerHTML = stages.map((stage) => `<option value="${stage.id}">${stage.id}. ${escapeHtml(stage.name)}</option>`).join("");
+  dialog.querySelector("#crmOwnerId").value = opportunity?.ownerId || state.crmSellerId || sellers[0]?.id || "";
+  dialog.querySelector("#crmStageId").value = opportunity?.stageId || "1";
+  dialog.querySelector("#crmEstimatedAmount").value = opportunity?.estimatedAmount || "";
+  dialog.querySelector("#crmClosePercent").value = opportunity?.closePercent || "0";
+  dialog.querySelector("#crmNextDate").value = opportunity?.nextDate || new Date().toISOString().slice(0, 10);
+  dialog.querySelector("#crmStatus").value = opportunity?.status || "Vigente";
+  dialog.querySelector("#crmNextAction").value = opportunity?.nextAction || "";
+  dialog.querySelector("#crmLastNote").value = opportunity?.lastNote || opportunity?.comment || "";
+  dialog.showModal();
+}
+
+function saveCrmOpportunity() {
+  const dialog = ensureCrmOpportunityDialog();
+  const id = dialog.querySelector("#crmOpportunityId").value;
+  const payload = {
+    company: dialog.querySelector("#crmCompany").value,
+    product: dialog.querySelector("#crmProduct").value,
+    ownerId: dialog.querySelector("#crmOwnerId").value,
+    stageId: Number(dialog.querySelector("#crmStageId").value || 1),
+    estimatedAmount: Number(dialog.querySelector("#crmEstimatedAmount").value || 0),
+    closePercent: Number(dialog.querySelector("#crmClosePercent").value || 0),
+    nextDate: dialog.querySelector("#crmNextDate").value,
+    deadline: dialog.querySelector("#crmNextDate").value,
+    status: dialog.querySelector("#crmStatus").value,
+    nextAction: dialog.querySelector("#crmNextAction").value || "Seguimiento comercial",
+    lastNote: dialog.querySelector("#crmLastNote").value,
+    comment: dialog.querySelector("#crmLastNote").value,
+    agendaDate: dialog.querySelector("#crmNextDate").value,
+    agendaTime: "09:00",
+    agendaType: "Seguimiento",
+    agendaPlace: "Por definir"
+  };
+  const method = id ? "PATCH" : "POST";
+  const path = id ? `/opportunities/${id}` : "/opportunities";
+  crmApi(path, { method, body: JSON.stringify(payload) }).then(() => dialog.close());
+}
+
+function openCrmOpportunityById(opportunityId) {
+  const opportunity = crmData().opportunities.find((item) => item.id === opportunityId);
+  if (opportunity) openCrmOpportunityDialog(opportunity);
 }
 
 function crmEnsureSellerId() {
@@ -1986,7 +2119,10 @@ function renderCrmDashboard() {
 }
 
 function renderCrmSellers() {
-  const sellers = crmSortedSellers();
+  const sellers = crmSortedSellers().filter((seller) => {
+    const active = crmActiveOpportunitiesForSeller(seller.id);
+    return !crmSearchText() || active.length || crmMatchesSearch({}, seller);
+  });
   const rows = sellers.map((seller) => {
     const activeOpportunities = crmActiveOpportunitiesForSeller(seller.id);
     const activePipeline = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
@@ -2005,8 +2141,8 @@ function renderCrmSellers() {
   return `
     <section class="crm-shell crm-original-module">
       <div class="crm-topbar">
-        <button class="primary-btn" type="button">+ Oportunidad</button>
-        <div class="crm-search-box">⌕ Buscar cliente, etapa o vendedor</div>
+        <button class="primary-btn" type="button" data-crm-new>+ Oportunidad</button>
+        <label class="crm-search-box">⌕<input data-crm-search value="${escapeHtml(state.crmSearch)}" placeholder="Buscar cliente, etapa o vendedor"></label>
         <button class="secondary-btn" type="button" data-crm-refresh>↻</button>
       </div>
       <section class="crm-panel">
@@ -2059,8 +2195,8 @@ function renderCrmTracking() {
       </button>
     `;
   }).join("");
-  const opportunityCards = visibleOpportunities.sort((a, b) => String(a.deadline || a.nextDate || "").localeCompare(String(b.deadline || b.nextDate || ""))).map((opp) => `
-    <article class="crm-tracking-card">
+  const opportunityCards = visibleOpportunities.filter((opp) => crmMatchesSearch(opp, selectedSeller)).sort((a, b) => String(a.deadline || a.nextDate || "").localeCompare(String(b.deadline || b.nextDate || ""))).map((opp) => `
+    <article class="crm-tracking-card" data-crm-opportunity="${opp.id}">
       <div>
         <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)} - ${escapeHtml(opp.status || "Vigente")}</span>
         <strong>${escapeHtml(opp.company)}</strong>
@@ -2081,7 +2217,7 @@ function renderCrmTracking() {
             <h3>${escapeHtml(selectedSeller?.name || "Selecciona vendedor")}</h3>
             <p>Vista enfocada por vendedor, estatus y etapa.</p>
           </div>
-          <button class="primary-btn" type="button">Abrir oportunidad</button>
+          <button class="primary-btn" type="button" data-crm-new>Abrir oportunidad</button>
         </div>
         <div class="crm-tracking-metrics">
           <div><span>Vigentes</span><strong>${activeOpportunities.length}</strong></div>
@@ -2114,50 +2250,75 @@ function renderCrmAgenda() {
   const sellers = crmSortedSellers();
   const agenda = data.agenda.slice(0, 80);
   const slots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
-  const date = agenda[0]?.date || new Date().toISOString().slice(0, 10);
+  const date = state.crmAgendaDate || new Date().toISOString().slice(0, 10);
+  const selectedSellerId = state.crmSellerId || "all";
+  const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
   const dayItems = agenda.filter((item) => item.date === date);
+  const visibleDayItems = dayItems.filter((item) => selectedSellerId === "all" || item.ownerId === selectedSellerId);
   const availableCount = Math.max(0, sellers.length * slots.length - dayItems.length);
-  const sellerRail = sellers.map((seller) => {
-    const items = agenda.filter((item) => item.ownerId === seller.id);
+  const sellerRail = [
+    `
+      <button class="crm-seller-chip ${selectedSellerId === "all" ? "is-active" : ""}" type="button" data-crm-seller-only="all">
+        <strong>Todos los vendedores</strong>
+        <span>${dayItems.length} programadas · ${availableCount} libres</span>
+      </button>
+    `,
+    ...sellers.map((seller) => {
+    const items = dayItems.filter((item) => item.ownerId === seller.id);
     return `
-      <button class="crm-seller-chip" type="button" data-crm-seller-only="${seller.id}">
+      <button class="crm-seller-chip ${seller.id === selectedSellerId ? "is-active" : ""}" type="button" data-crm-seller-only="${seller.id}">
         <strong>${escapeHtml(seller.name)}</strong>
-        <span>${items.length} programadas</span>
+        <span>${items.length} programadas · ${Math.max(0, slots.length - items.length)} libres</span>
       </button>
     `;
-  }).join("");
+  })
+  ].join("");
   const timeline = slots.map((slot) => {
-    const slotItems = agenda.filter((item) => String(item.time || "").slice(0, 2) === slot.slice(0, 2));
+    const slotItems = visibleDayItems.filter((item) => String(item.time || "").slice(0, 2) === slot.slice(0, 2));
+    const availableSellers = selectedSeller ? [selectedSeller] : sellers.filter((seller) => !slotItems.some((item) => item.ownerId === seller.id));
     return `
       <article class="crm-agenda-hour">
         <div><strong>${slot}</strong><span>${slotItems.length ? `${slotItems.length} actividades` : "Sin actividades"}</span></div>
         <section>
-          ${slotItems.map((item) => `
-            <button class="crm-agenda-visit" type="button">
+          ${slotItems.filter((item) => crmMatchesSearch(item.opportunity || {}, item.owner)).map((item) => `
+            <article class="crm-agenda-visit" data-crm-opportunity="${item.opportunityId}">
               <strong>${escapeHtml(item.opportunity?.company || "Sin cliente")}</strong>
               <span>${escapeHtml(item.owner?.name || crmOwnerName(item.ownerId))} · ${escapeHtml(item.type || "Gestion")}</span>
               <em>${escapeHtml(item.place || item.status || "Por definir")}</em>
-            </button>
-          `).join("") || `<div class="crm-open-slot">Horario libre para asignar visitas o llamadas.</div>`}
+              <div class="crm-agenda-actions">
+                <button type="button" data-crm-agenda-status="${item.id}:En visita">Iniciar</button>
+                <button type="button" data-crm-agenda-status="${item.id}:Realizada">OK</button>
+              </div>
+            </article>
+          `).join("") || `
+            <div class="crm-open-slot">
+              <strong>Sin actividades programadas</strong>
+              <span>Horario libre para asignar visitas o llamadas.</span>
+              <em>${availableSellers.length} vendedores disponibles</em>
+            </div>
+          `}
         </section>
       </article>
     `;
   }).join("");
   return `
     <section class="crm-shell crm-original-module">
-      <section class="crm-panel">
+      <section class="crm-panel crm-agenda-hero">
         <div class="crm-module-head">
           <div>
             <span class="eyebrow">Agenda integral</span>
             <h3>Disponibilidad por hora de todos los vendedores</h3>
             <p>Vista unificada para detectar espacios libres, visitas programadas y carga diaria.</p>
           </div>
-          <span class="crm-total-pill">${agenda.length} proximas acciones</span>
+          <div class="crm-agenda-datebar">
+            <button class="primary-btn" type="button" data-crm-agenda-today>Hoy</button>
+            <span class="crm-total-pill">Calendario&nbsp; ${escapeHtml(date)}</span>
+          </div>
         </div>
         <div class="crm-tracking-metrics">
           <div><span>Fecha</span><strong>${escapeHtml(date)}</strong></div>
-          <div><span>Programadas</span><strong>${dayItems.length}</strong></div>
-          <div><span>Disponibles</span><strong>${availableCount}</strong></div>
+          <div><span>Programadas</span><strong>${visibleDayItems.length}</strong></div>
+          <div><span>Disponibles</span><strong>${selectedSeller ? Math.max(0, slots.length - visibleDayItems.length) : availableCount}</strong></div>
           <div><span>Vendedores</span><strong>${sellers.length}</strong></div>
         </div>
       </section>
@@ -2167,7 +2328,13 @@ function renderCrmAgenda() {
           <div class="crm-seller-chip-list">${sellerRail}</div>
         </aside>
         <section class="crm-panel crm-agenda-main">
-          <div class="crm-module-head compact"><div><span class="eyebrow">Bitacora por hora</span><h3>Agenda integral del equipo</h3></div></div>
+          <div class="crm-module-head compact">
+            <div>
+              <span class="eyebrow">Bitacora por hora</span>
+              <h3>${selectedSeller ? escapeHtml(selectedSeller.name) : "Agenda integral del equipo"}</h3>
+            </div>
+            <span class="crm-total-pill">${escapeHtml(date)}</span>
+          </div>
           <div class="crm-agenda-timeline">${timeline}</div>
         </section>
       </div>
@@ -2191,7 +2358,7 @@ function renderCrmResponses() {
         owner: item.owner,
         note: item.place
       }))
-  ].slice(0, 80);
+  ].filter((item) => crmMatchesSearch(item.opportunity || { company: item.company, status: item.status }, item.owner)).slice(0, 80);
   return `
     <section class="crm-shell crm-original-module">
       <section class="crm-panel">
@@ -2314,6 +2481,14 @@ function renderCommercialSubmenu(area) {
     commercialSubmenuStatus.textContent = submenu.status;
     opportunityTable.innerHTML = renderCrmModule(submenu.key);
     opportunityTable.querySelector("[data-crm-refresh]")?.addEventListener("click", loadCrmData);
+    opportunityTable.querySelector("[data-crm-new]")?.addEventListener("click", () => openCrmOpportunityDialog());
+    opportunityTable.querySelector("[data-crm-search]")?.addEventListener("input", (event) => {
+      state.crmSearch = event.target.value;
+      renderCommercialSubmenu(areas.comercializacion);
+      const input = opportunityTable.querySelector("[data-crm-search]");
+      input?.focus();
+      input?.setSelectionRange(input.value.length, input.value.length);
+    });
     opportunityTable.querySelectorAll("[data-crm-seller]").forEach((button) => {
       button.addEventListener("click", () => {
         state.crmSellerId = button.dataset.crmSeller;
@@ -2323,8 +2498,24 @@ function renderCommercialSubmenu(area) {
     });
     opportunityTable.querySelectorAll("[data-crm-seller-only]").forEach((button) => {
       button.addEventListener("click", () => {
-        state.crmSellerId = button.dataset.crmSellerOnly;
+        state.crmSellerId = button.dataset.crmSellerOnly === "all" ? "" : button.dataset.crmSellerOnly;
         renderCommercialSubmenu(areas.comercializacion);
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-agenda-today]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmAgendaDate = new Date().toISOString().slice(0, 10);
+        renderCommercialSubmenu(areas.comercializacion);
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-opportunity]").forEach((item) => {
+      item.addEventListener("click", () => openCrmOpportunityById(item.dataset.crmOpportunity));
+    });
+    opportunityTable.querySelectorAll("[data-crm-agenda-status]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const [agendaId, status] = button.dataset.crmAgendaStatus.split(":");
+        crmApi(`/agenda/${agendaId}`, { method: "PATCH", body: JSON.stringify({ status }) });
       });
     });
     opportunityTable.querySelectorAll("[data-crm-status]").forEach((button) => {
