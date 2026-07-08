@@ -3344,11 +3344,15 @@ button:disabled {
   grid-template-columns: 230px minmax(0, 1fr);
   gap: 10px;
   max-width: 100%;
-  overflow: hidden;
+  min-height: 0;
+  overflow: visible;
 }
 
 .crm-tracking-sidebar {
   align-self: start;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .crm-seller-chip-list {
@@ -3378,9 +3382,11 @@ button:disabled {
 
 .crm-tracking-main {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
-  overflow: hidden;
+  min-height: 0;
+  overflow: visible;
 }
 
 .crm-filter-chips {
@@ -3413,7 +3419,11 @@ button:disabled {
   grid-template-columns: 1fr;
   gap: 8px;
   max-width: 100%;
-  overflow: hidden;
+  max-height: calc(100vh - 300px);
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 8px;
+  overscroll-behavior: contain;
 }
 
 .crm-tracking-card {
@@ -3449,12 +3459,18 @@ button:disabled {
 
 .crm-agenda-main {
   min-width: 0;
-  overflow: hidden;
+  min-height: 0;
+  overflow: visible;
 }
 
 .crm-agenda-timeline {
   display: grid;
   gap: 6px;
+  max-height: calc(100vh - 360px);
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 8px;
+  overscroll-behavior: contain;
 }
 
 .crm-agenda-hour {
@@ -5298,4 +5314,138 @@ menu {
 .status-pill {
   background: rgba(168, 188, 214, .22) !important;
   border-color: rgba(205, 224, 244, .18) !important;
+}
+
+/* Final KPI and goals polish: no pure-white blocks on the glass theme. */
+.app-shell .results-dashboard .summary-card,
+.app-shell .commercial-panel .results-dashboard .summary-card,
+.app-shell .won-kpi-summary > .summary-card,
+.app-shell .won-kpi-summary > .metric-tile,
+.app-shell .metric-tile,
+.app-shell .kpi-count-split section {
+  border: 1px solid rgba(183, 206, 236, .2) !important;
+  background:
+    linear-gradient(145deg, rgba(92, 110, 146, .34), rgba(19, 34, 62, .42)),
+    rgba(12, 25, 47, .66) !important;
+  color: rgba(240, 247, 255, .94) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 18px 42px rgba(2, 8, 20, .2) !important;
+}
+
+.app-shell .results-dashboard .summary-card:first-child,
+.app-shell .commercial-panel .summary-card:first-child,
+.app-shell .won-kpi-summary > .summary-card:first-child,
+.app-shell .won-kpi-summary > .metric-tile.total,
+.app-shell .metric-tile.total {
+  background:
+    linear-gradient(145deg, rgba(34, 129, 104, .34), rgba(22, 45, 74, .42)),
+    rgba(11, 31, 52, .7) !important;
+  border-color: rgba(128, 229, 202, .38) !important;
+}
+
+.app-shell .results-dashboard .summary-card strong,
+.app-shell .results-dashboard .summary-card span,
+.app-shell .results-dashboard .summary-card small,
+.app-shell .won-kpi-summary > .summary-card strong,
+.app-shell .won-kpi-summary > .summary-card span,
+.app-shell .won-kpi-summary > .summary-card small,
+.app-shell .metric-tile strong,
+.app-shell .metric-tile span,
+.app-shell .metric-tile small {
+  color: rgba(246, 251, 255, .92) !important;
+}
+
+.app-shell .results-dashboard .summary-card strong,
+.app-shell .won-kpi-summary > .summary-card strong,
+.app-shell .metric-tile strong {
+  color: #ffffff !important;
+}
+
+.app-shell .matrix-card,
+.app-shell .goals-matrix-wrap {
+  border-color: rgba(183, 206, 236, .22) !important;
+  background:
+    linear-gradient(145deg, rgba(92, 110, 146, .24), rgba(16, 30, 56, .5)),
+    rgba(10, 21, 40, .72) !important;
+}
+
+.app-shell .goals-matrix th,
+.app-shell .goals-matrix td,
+.app-shell .goals-matrix .sticky-col,
+.app-shell .goals-matrix th.sticky-col,
+.app-shell .goals-matrix tbody tr:nth-child(even) td,
+.app-shell .goals-matrix tbody tr:nth-child(even) .sticky-col,
+.app-shell .goals-matrix tfoot td {
+  border-color: rgba(190, 210, 238, .14) !important;
+  background:
+    linear-gradient(135deg, rgba(88, 105, 139, .2), rgba(15, 29, 55, .34)),
+    rgba(12, 25, 47, .74) !important;
+  color: rgba(242, 248, 255, .9) !important;
+}
+
+.app-shell .goals-matrix th,
+.app-shell .goals-matrix th.sticky-col {
+  background:
+    linear-gradient(135deg, rgba(112, 130, 163, .32), rgba(16, 31, 58, .48)),
+    rgba(14, 27, 50, .88) !important;
+  color: rgba(236, 244, 252, .82) !important;
+}
+
+.app-shell .goals-matrix tbody tr:nth-child(even) td,
+.app-shell .goals-matrix tbody tr:nth-child(even) .sticky-col {
+  background:
+    linear-gradient(135deg, rgba(125, 144, 176, .17), rgba(20, 35, 62, .28)),
+    rgba(18, 32, 58, .66) !important;
+}
+
+.app-shell .goals-matrix .total-col,
+.app-shell .goals-matrix tfoot td {
+  color: #ffffff !important;
+  background:
+    linear-gradient(135deg, rgba(45, 125, 105, .22), rgba(18, 34, 60, .44)),
+    rgba(10, 25, 45, .86) !important;
+}
+
+#goalsMatrixDialog .matrix-card,
+#goalsMatrixDialog .goals-matrix-wrap {
+  border-color: rgba(183, 206, 236, .22) !important;
+  background:
+    linear-gradient(145deg, rgba(92, 110, 146, .24), rgba(16, 30, 56, .5)),
+    rgba(10, 21, 40, .72) !important;
+}
+
+#goalsMatrixDialog .goals-matrix th,
+#goalsMatrixDialog .goals-matrix td,
+#goalsMatrixDialog .goals-matrix .sticky-col,
+#goalsMatrixDialog .goals-matrix th.sticky-col,
+#goalsMatrixDialog .goals-matrix tbody tr:nth-child(even) td,
+#goalsMatrixDialog .goals-matrix tbody tr:nth-child(even) .sticky-col,
+#goalsMatrixDialog .goals-matrix tfoot td {
+  border-color: rgba(190, 210, 238, .14) !important;
+  background:
+    linear-gradient(135deg, rgba(88, 105, 139, .2), rgba(15, 29, 55, .34)),
+    rgba(12, 25, 47, .74) !important;
+  color: rgba(242, 248, 255, .9) !important;
+}
+
+#goalsMatrixDialog .goals-matrix th,
+#goalsMatrixDialog .goals-matrix th.sticky-col {
+  background:
+    linear-gradient(135deg, rgba(112, 130, 163, .32), rgba(16, 31, 58, .48)),
+    rgba(14, 27, 50, .88) !important;
+  color: rgba(236, 244, 252, .82) !important;
+}
+
+#goalsMatrixDialog .goals-matrix tbody tr:nth-child(even) td,
+#goalsMatrixDialog .goals-matrix tbody tr:nth-child(even) .sticky-col {
+  background:
+    linear-gradient(135deg, rgba(125, 144, 176, .17), rgba(20, 35, 62, .28)),
+    rgba(18, 32, 58, .66) !important;
+}
+
+#goalsMatrixDialog .goals-matrix .total-col,
+#goalsMatrixDialog .goals-matrix tfoot td {
+  color: #ffffff !important;
+  background:
+    linear-gradient(135deg, rgba(45, 125, 105, .22), rgba(18, 34, 60, .44)),
+    rgba(10, 25, 45, .86) !important;
 }
