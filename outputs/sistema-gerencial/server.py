@@ -154,11 +154,9 @@ def init_db():
             VALUES ('opportunities', '[]')
         """)
         rows = conn.execute("SELECT * FROM users ORDER BY created_at, username").fetchall()
-        if not rows or not any((row["email"] or "").lower() == ADMIN_EMAIL for row in rows):
-            upsert_user(conn, DEFAULT_USERS[0])
-            rows = conn.execute("SELECT * FROM users ORDER BY created_at, username").fetchall()
-        for row in rows:
-            upsert_user(conn, user_payload(row))
+        if not rows:
+            for user in DEFAULT_USERS:
+                upsert_user(conn, user)
 
 
 class AppHandler(BaseHTTPRequestHandler):

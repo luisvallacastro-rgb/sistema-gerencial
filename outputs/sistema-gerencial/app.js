@@ -352,8 +352,10 @@ const historicalClosedSales = (window.historicalClosedSalesCsv || "")
 const opportunitiesStorageKey = "sistemaGerencial.oportunidades.v6";
 const usersStorageKey = "sistemaGerencial.usuarios.v2";
 const sessionStorageKey = "sistemaGerencial.sesion.v1";
-const strategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
-const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
+const strategicRisksStorageKey = "sistemaGerencial.riesgos.v2";
+const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v2";
+const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
+const legacyManagementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
 const defaultUsers = [
   { id: "user-admin-luis", name: "Luis Valladares", username: "luisvallacastro", email: adminEmail, role: "financiera", password: "admin123", admin: true },
   { id: "user-general", name: "Gerencia general", username: "general", email: "general@empresa.local", role: "general", password: "admin123" },
@@ -386,55 +388,10 @@ async function apiJson(path, options = {}) {
   if (!response.ok) throw new Error(`API ${response.status}`);
   return response.json();
 }
-const defaultStrategicRisks = [
-  {
-    id: "risk-001",
-    date: "2026-07-08",
-    owner: "Comercializacion",
-    risk: "Retraso en aprobacion de precios especiales para cuentas corporativas",
-    affectsOthers: true,
-    involved: ["Financiera", "Operaciones"],
-    status: "Notificado"
-  },
-  {
-    id: "risk-002",
-    date: "2026-07-11",
-    owner: "Comercializacion",
-    risk: "Capacidad limitada para atender propuestas con fecha critica de entrega",
-    affectsOthers: true,
-    involved: ["Operaciones"],
-    status: "Notificado"
-  },
-  {
-    id: "risk-003",
-    date: "2026-07-15",
-    owner: "Comercializacion",
-    risk: "Vacante comercial puede afectar seguimiento de cuentas nuevas",
-    affectsOthers: true,
-    involved: ["Recursos humanos"],
-    status: "Notificado"
-  }
-];
-const defaultManagementRequests = [
-  {
-    id: "req-001",
-    date: "2026-07-06",
-    owner: "Comercializacion",
-    target: "Gerencia general",
-    subject: "Apoyo para cierre de cuenta corporativa",
-    message: "Se solicita acompanamiento gerencial para destrabar condiciones finales con el cliente.",
-    status: "Enviada"
-  },
-  {
-    id: "req-002",
-    date: "2026-07-08",
-    owner: "Comercializacion",
-    target: "Gerencia general",
-    subject: "Validacion de prioridad comercial",
-    message: "Se requiere definir prioridad de atencion para propuesta de alto impacto mensual.",
-    status: "En revision"
-  }
-];
+const defaultStrategicRisks = [];
+const defaultManagementRequests = [];
+const demoStrategicRiskIds = new Set(["risk-001", "risk-002", "risk-003"]);
+const demoManagementRequestIds = new Set(["req-001", "req-002"]);
 const defaultOpportunities = [];
 
 const loginView = document.querySelector("#loginView");
@@ -1243,19 +1200,44 @@ function getOpportunitySubmenu() {
   return areas.comercializacion.submenus.find((item) => item.key === "resultados");
 }
 
-function getStrategicRiskSubmenu() {
-  return areas.comercializacion.submenus.find((item) => item.key === "riesgos");
+function getAreaSubmenu(areaKey, submenuKey) {
+  const area = areas[areaKey];
+  return Array.isArray(area?.submenus)
+    ? area.submenus.find((item) => item.key === submenuKey)
+    : null;
 }
 
-function getManagementRequestSubmenu() {
-  return areas.comercializacion.submenus.find((item) => item.key === "solicitudes");
+function getStrategicRiskSubmenu(areaKey = state.activeArea) {
+  return getAreaSubmenu(areaKey, "riesgos") || getAreaSubmenu("comercializacion", "riesgos");
 }
 
-function normalizeStrategicRisks(items) {
+function getManagementRequestSubmenu(areaKey = state.activeArea) {
+  return getAreaSubmenu(areaKey, "solicitudes") || getAreaSubmenu("comercializacion", "solicitudes");
+}
+
+function submenuItemsByArea(submenuKey) {
+  return Object.fromEntries(areaKeys.map((areaKey) => [
+    areaKey,
+    getAreaSubmenu(areaKey, submenuKey)?.items || []
+  ]));
+}
+
+function legacyRecordsByArea(storageKey, demoIds) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+    if (!Array.isArray(saved)) return {};
+    const records = saved.filter((item) => !demoIds.has(item?.id));
+    return records.length ? { comercializacion: records } : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeStrategicRisks(items, areaKey = state.activeArea) {
   return items.map((item, index) => ({
     id: item.id || `risk-${index + 1}`,
     date: item.date || todayISO(),
-    owner: item.owner || areas[state.role]?.nav || "Gerencia general",
+    owner: item.owner || areas[areaKey]?.nav || areas[state.role]?.nav || "Gerencia general",
     risk: item.risk || "",
     affectsOthers: Boolean(item.affectsOthers),
     involved: Array.isArray(item.involved) ? item.involved : [],
@@ -1264,24 +1246,31 @@ function normalizeStrategicRisks(items) {
 }
 
 function loadStrategicRisks() {
+  let saved = null;
   try {
-    const saved = JSON.parse(localStorage.getItem(strategicRisksStorageKey) || "null");
-    getStrategicRiskSubmenu().items = normalizeStrategicRisks(Array.isArray(saved) ? saved : defaultStrategicRisks);
+    saved = JSON.parse(localStorage.getItem(strategicRisksStorageKey) || "null");
   } catch {
-    getStrategicRiskSubmenu().items = normalizeStrategicRisks(defaultStrategicRisks);
+    saved = null;
   }
+  if (!saved) {
+    saved = legacyRecordsByArea(legacyStrategicRisksStorageKey, demoStrategicRiskIds);
+  }
+  areaKeys.forEach((areaKey) => {
+    const source = Array.isArray(saved?.[areaKey]) ? saved[areaKey] : defaultStrategicRisks;
+    getStrategicRiskSubmenu(areaKey).items = normalizeStrategicRisks(source, areaKey);
+  });
   saveStrategicRisks();
 }
 
 function saveStrategicRisks() {
-  localStorage.setItem(strategicRisksStorageKey, JSON.stringify(getStrategicRiskSubmenu().items));
+  localStorage.setItem(strategicRisksStorageKey, JSON.stringify(submenuItemsByArea("riesgos")));
 }
 
-function normalizeManagementRequests(items) {
+function normalizeManagementRequests(items, areaKey = state.activeArea) {
   return items.map((item, index) => ({
     id: item.id || `req-${index + 1}`,
     date: item.date || todayISO(),
-    owner: item.owner || currentRequestOwner(),
+    owner: item.owner || areas[areaKey]?.nav || currentRequestOwner(),
     target: item.target || "Gerencia general",
     subject: item.subject || "",
     message: item.message || "",
@@ -1290,17 +1279,24 @@ function normalizeManagementRequests(items) {
 }
 
 function loadManagementRequests() {
+  let saved = null;
   try {
-    const saved = JSON.parse(localStorage.getItem(managementRequestsStorageKey) || "null");
-    getManagementRequestSubmenu().items = normalizeManagementRequests(Array.isArray(saved) ? saved : defaultManagementRequests);
+    saved = JSON.parse(localStorage.getItem(managementRequestsStorageKey) || "null");
   } catch {
-    getManagementRequestSubmenu().items = normalizeManagementRequests(defaultManagementRequests);
+    saved = null;
   }
+  if (!saved) {
+    saved = legacyRecordsByArea(legacyManagementRequestsStorageKey, demoManagementRequestIds);
+  }
+  areaKeys.forEach((areaKey) => {
+    const source = Array.isArray(saved?.[areaKey]) ? saved[areaKey] : defaultManagementRequests;
+    getManagementRequestSubmenu(areaKey).items = normalizeManagementRequests(source, areaKey);
+  });
   saveManagementRequests();
 }
 
 function saveManagementRequests() {
-  localStorage.setItem(managementRequestsStorageKey, JSON.stringify(getManagementRequestSubmenu().items));
+  localStorage.setItem(managementRequestsStorageKey, JSON.stringify(submenuItemsByArea("solicitudes")));
 }
 
 function resetManagementRequestForm() {
@@ -1826,7 +1822,7 @@ function renderCommercialSubmenu(area) {
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
 
-  if (state.activeArea !== "comercializacion") {
+  if (state.activeArea !== "comercializacion" && !["riesgos", "solicitudes"].includes(submenu.key)) {
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");
@@ -2797,7 +2793,7 @@ function setSidebarCollapsed(collapsed) {
 }
 
 function normalizeUsers(items) {
-  const source = Array.isArray(items) && items.length ? items : [defaultUsers[0]];
+  const source = Array.isArray(items) && items.length ? items : defaultUsers;
   const byCredential = new Map();
 
   const addUser = (item, index) => {
@@ -2834,14 +2830,14 @@ function loadUsers() {
   const loadSavedUsers = () => {
     try {
       const saved = JSON.parse(localStorage.getItem(usersStorageKey) || "null");
-      return normalizeUsers(Array.isArray(saved) && saved.length ? saved : [defaultUsers[0]]);
+      return normalizeUsers(Array.isArray(saved) && saved.length ? saved : defaultUsers);
     } catch {
-      return normalizeUsers([defaultUsers[0]]);
+      return normalizeUsers(defaultUsers);
     }
   };
 
   if (apiEnabled) {
-    systemUsers = normalizeUsers([defaultUsers[0]]);
+    systemUsers = normalizeUsers(defaultUsers);
     fillUserAccessOptions();
     apiJson("/api/users")
       .then((users) => {
@@ -2986,7 +2982,7 @@ function fillRequestAreas() {
 }
 
 function currentRiskOwner() {
-  return areaKeys.includes(state.role) ? areas[state.role].nav : roleDisplayName();
+  return areas[state.activeArea]?.nav || (areaKeys.includes(state.role) ? areas[state.role].nav : roleDisplayName());
 }
 
 function currentRequestOwner() {
@@ -2995,7 +2991,7 @@ function currentRequestOwner() {
 
 function riskImpactOptions() {
   return areaKeys
-    .filter((key) => key !== state.role)
+    .filter((key) => key !== state.activeArea)
     .map((key) => areas[key].nav);
 }
 
@@ -3169,7 +3165,7 @@ strategicRiskForm.addEventListener("submit", (event) => {
   });
   saveStrategicRisks();
   strategicRiskDialog.close();
-  renderCommercialSubmenu(areas.comercializacion);
+  renderCommercialSubmenu(areas[state.activeArea]);
 });
 
 closeManagementRequestDialog.addEventListener("click", () => {
@@ -3204,7 +3200,7 @@ managementRequestForm.addEventListener("submit", (event) => {
   saveManagementRequests();
   managementRequestDialog.close();
   resetManagementRequestForm();
-  renderCommercialSubmenu(areas.comercializacion);
+  renderCommercialSubmenu(areas[state.activeArea]);
 });
 
 requestForm.addEventListener("submit", (event) => {
@@ -3231,7 +3227,7 @@ opportunityTable.addEventListener("click", (event) => {
   const cycleButton = event.target.closest("[data-cycle-view]");
   if (cycleButton) {
     state.opportunityCycleView = cycleButton.dataset.cycleView;
-    renderCommercialSubmenu(areas.comercializacion);
+    renderCommercialSubmenu(areas[state.activeArea]);
     return;
   }
 
@@ -3244,7 +3240,7 @@ opportunityTable.addEventListener("click", (event) => {
     if (requestButton.dataset.requestAction === "delete") {
       submenu.items = submenu.items.filter((record) => record.id !== item.id);
       saveManagementRequests();
-      renderCommercialSubmenu(areas.comercializacion);
+      renderCommercialSubmenu(areas[state.activeArea]);
       return;
     }
 
