@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260708-crm-migration">
+    <link rel="stylesheet" href="styles.css?v=20260709-presence-menu">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -65,10 +65,10 @@
       <aside class="sidebar">
         <div class="sidebar-head">
           <div class="brand-row compact">
-            <div class="brand-mark">SG</div>
             <div>
               <strong>Sistema Gerencial</strong>
               <small id="activeRoleLabel">Gerencia general</small>
+              <span class="online-pill" id="activeUserStatus"><i></i>Conectado</span>
             </div>
           </div>
           <button class="sidebar-toggle" id="sidebarToggleBtn" type="button" aria-label="Ocultar menu">
@@ -76,6 +76,15 @@
           </button>
         </div>
         <nav class="nav-list" id="navList" aria-label="Gerencias"></nav>
+        <section class="presence-panel" aria-label="Usuarios conectados">
+          <div class="presence-head">
+            <strong>Conectados</strong>
+            <span id="onlineCount">0</span>
+          </div>
+          <div class="presence-list" id="presenceList">
+            <span class="presence-empty">Sin usuarios activos</span>
+          </div>
+        </section>
         <button class="ghost-btn logout" id="logoutBtn" type="button">Cerrar sesion</button>
       </aside>
 
@@ -522,6 +531,6 @@
     </dialog>
 
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
-    <script src="app.js?v=20260708-crm-migration"></script>
+    <script src="app.js?v=20260709-presence-menu"></script>
   </body>
 </html>

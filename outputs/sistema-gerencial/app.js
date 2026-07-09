@@ -233,7 +233,8 @@ const state = {
   currentUser: null,
   activeArea: "general",
   activeSubmenu: "resultados",
-  commercialMenuOpen: true,
+  openMenus: new Set(["comercializacion"]),
+  onlineUsers: [],
   opportunityFilter: null,
   opportunityCycleView: "active",
   opportunityPage: 1,
@@ -422,6 +423,7 @@ const accessRoles = [
 ];
 let systemUsers = [];
 let sessionRestored = false;
+let presenceTimer = null;
 const apiEnabled = window.location.protocol !== "file:";
 
 async function apiJson(path, options = {}) {
@@ -468,6 +470,9 @@ const registerEmail = document.querySelector("#registerEmail");
 const registerRole = document.querySelector("#registerRole");
 const registerPassword = document.querySelector("#registerPassword");
 const activeRoleLabel = document.querySelector("#activeRoleLabel");
+const activeUserStatus = document.querySelector("#activeUserStatus");
+const onlineCount = document.querySelector("#onlineCount");
+const presenceList = document.querySelector("#presenceList");
 const sidebarToggleBtn = document.querySelector("#sidebarToggleBtn");
 const sidebarRestoreBtn = document.querySelector("#sidebarRestoreBtn");
 const navList = document.querySelector("#navList");
@@ -1672,30 +1677,28 @@ function renderNav() {
     const area = areas[key];
     const submenus = visibleSubmenus(key);
     const hasSubmenus = submenus.length > 0;
-    const avg = area.results.length
-      ? Math.round(area.results.reduce((sum, item) => sum + item[1], 0) / area.results.length)
-      : 100;
+    const isOpen = hasSubmenus && state.openMenus.has(key);
     const button = document.createElement("button");
     button.className = `nav-item ${state.activeArea === key ? "active" : ""}`;
     button.type = "button";
-    button.setAttribute("aria-expanded", hasSubmenus ? String(state.activeArea === key && state.commercialMenuOpen) : "false");
-    button.innerHTML = `<span>${area.nav}</span><span class="nav-dot ${levelClass(avg)}"></span>`;
+    button.setAttribute("aria-expanded", hasSubmenus ? String(isOpen) : "false");
+    button.innerHTML = `<span>${area.nav}</span>${hasSubmenus ? `<span class="nav-caret">${isOpen ? "Ocultar" : "Ver"}</span>` : ""}`;
     button.addEventListener("click", () => {
       if (key === adminAreaKey) {
         state.activeArea = adminAreaKey;
-        state.commercialMenuOpen = false;
-        renderDashboard();
-        return;
-      }
-      if (hasSubmenus && state.activeArea === key) {
-        state.commercialMenuOpen = !state.commercialMenuOpen;
         renderDashboard();
         return;
       }
       state.activeArea = key;
       if (hasSubmenus) {
-        state.activeSubmenu = submenus[0].key;
-        state.commercialMenuOpen = true;
+        if (state.openMenus.has(key)) {
+          state.openMenus.delete(key);
+        } else {
+          state.openMenus.add(key);
+          if (!submenus.some((item) => item.key === state.activeSubmenu)) {
+            state.activeSubmenu = submenus[0].key;
+          }
+        }
       }
       renderDashboard();
     });
@@ -1706,7 +1709,7 @@ function renderNav() {
 
 function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
   const submenu = document.createElement("div");
-  submenu.className = `submenu-list ${state.activeArea === areaKey && state.commercialMenuOpen ? "open" : ""}`;
+  submenu.className = `submenu-list ${state.openMenus.has(areaKey) ? "open" : ""}`;
   submenu.innerHTML = items.map((item) => `
     <button class="submenu-item ${item.key === "crm" ? "crm-parent" : item.key.startsWith("crm-") ? "crm-child" : ""} ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
       ${item.label}
@@ -3643,8 +3646,9 @@ function renderDashboard() {
   const visibleItems = visibleSubmenus(state.activeArea);
   const hasSubmenus = visibleItems.length > 0;
   activeRoleLabel.textContent = state.currentUser?.name
-    ? `${state.currentUser.name} - ${roleDisplayName()}`
+    ? state.currentUser.name
     : roleDisplayName();
+  renderPresenceList();
 
   if (state.activeArea === adminAreaKey) {
     dashboard.classList.add("admin-focus");
@@ -3766,6 +3770,63 @@ function saveUsers(options = {}) {
   }
 }
 
+function renderPresenceList() {
+  if (!presenceList || !onlineCount) return;
+  const users = state.onlineUsers.length && state.currentUser
+    ? state.onlineUsers
+    : state.currentUser
+      ? [{
+          user_id: state.currentUser.id,
+          name: state.currentUser.name,
+          role: state.currentUser.role,
+          last_seen: Date.now() / 1000
+        }]
+      : [];
+  onlineCount.textContent = String(users.length);
+  activeUserStatus?.classList.toggle("hidden", !state.currentUser);
+  if (!users.length) {
+    presenceList.innerHTML = `<span class="presence-empty">Sin usuarios activos</span>`;
+    return;
+  }
+  presenceList.innerHTML = users.map((user) => `
+    <div class="presence-user">
+      <i aria-hidden="true"></i>
+      <span>${escapeHtml(user.name || "Usuario")}</span>
+    </div>
+  `).join("");
+}
+
+function updatePresence(users = []) {
+  state.onlineUsers = Array.isArray(users) ? users : [];
+  renderPresenceList();
+}
+
+function sendPresence() {
+  if (!apiEnabled || !state.currentUser) {
+    renderPresenceList();
+    return Promise.resolve();
+  }
+  return apiJson("/api/presence", {
+    method: "POST",
+    body: JSON.stringify({
+      userId: state.currentUser.id,
+      name: state.currentUser.name,
+      role: state.currentUser.role
+    })
+  }).then(updatePresence).catch(() => renderPresenceList());
+}
+
+function startPresence() {
+  if (presenceTimer) clearInterval(presenceTimer);
+  sendPresence();
+  presenceTimer = setInterval(sendPresence, 30000);
+}
+
+function stopPresence() {
+  if (presenceTimer) clearInterval(presenceTimer);
+  presenceTimer = null;
+}
+
 function persistSession(user) {
   localStorage.setItem(sessionStorageKey, JSON.stringify({
     id: user.id,
@@ -3776,9 +3837,16 @@ function persistSession(user) {
 }
 
 function clearSession() {
+  const userId = state.currentUser?.id;
+  if (apiEnabled && userId) {
+    apiJson(`/api/presence/${encodeURIComponent(userId)}`, { method: "DELETE" }).catch(() => {});
+  }
+  stopPresence();
   localStorage.removeItem(sessionStorageKey);
   sessionRestored = false;
   state.currentUser = null;
+  state.onlineUsers = [];
+  renderPresenceList();
 }
 
 function findUserByCredential(value) {
@@ -3862,11 +3930,12 @@ function openApp(userOrRole, options = {}) {
     state.activeArea = defaultAreaForRole(user.role, user);
     const firstSubmenu = visibleSubmenus(state.activeArea, user)[0];
     state.activeSubmenu = firstSubmenu?.key || "resultados";
-    state.commercialMenuOpen = Boolean(firstSubmenu);
+    if (firstSubmenu) state.openMenus.add(state.activeArea);
   }
   persistSession(user);
   loginView.classList.add("hidden");
   appShell.classList.remove("hidden");
+  startPresence();
   renderDashboard();
 }
 

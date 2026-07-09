@@ -428,6 +428,14 @@ def init_db():
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS presence (
+                user_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                role TEXT NOT NULL,
+                last_seen REAL NOT NULL
+            )
+        """)
+        conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
@@ -483,6 +491,18 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([user_payload(row) for row in rows])
             return
 
+        if self.path == "/api/presence":
+            cutoff = time.time() - 90
+            with connect() as conn:
+                conn.execute("DELETE FROM presence WHERE last_seen < ?", (cutoff,))
+                rows = conn.execute("""
+                    SELECT user_id, name, role, last_seen
+                    FROM presence
+                    ORDER BY last_seen DESC, name
+                """).fetchall()
+            self.send_json([dict(row) for row in rows])
+            return
+
         if self.path == "/api/opportunities":
             with connect() as conn:
                 value = conn.execute(
@@ -496,6 +516,34 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_api_post(self):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+
+        if self.path == "/api/presence":
+            data = self.read_json()
+            user_id = text(data.get("userId"))
+            name = text(data.get("name"), "Usuario")
+            role = text(data.get("role"), "general")
+            if not user_id:
+                self.send_json({"error": "Usuario requerido"}, status=400)
+                return
+            now = time.time()
+            cutoff = now - 90
+            with connect() as conn:
+                conn.execute("""
+                    INSERT INTO presence (user_id, name, role, last_seen)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        name = excluded.name,
+                        role = excluded.role,
+                        last_seen = excluded.last_seen
+                """, (user_id, name, role, now))
+                conn.execute("DELETE FROM presence WHERE last_seen < ?", (cutoff,))
+                rows = conn.execute("""
+                    SELECT user_id, name, role, last_seen
+                    FROM presence
+                    ORDER BY last_seen DESC, name
+                """).fetchall()
+            self.send_json([dict(row) for row in rows])
             return
 
         if self.path == "/api/users":
@@ -566,6 +614,12 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_api_delete(self):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+        if self.path.startswith("/api/presence/"):
+            user_id = unquote(self.path.rsplit("/", 1)[-1])
+            with connect() as conn:
+                conn.execute("DELETE FROM presence WHERE user_id = ?", (user_id,))
+            self.send_json({"ok": True})
             return
         self.send_error(404)
 
