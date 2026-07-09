@@ -3774,6 +3774,7 @@ function minuteFormMarkup({ item = null, prefix = "minute", panoramic = false } 
         <div>
           <p class="eyebrow">${minute ? "Editar acta" : "Nueva acta"}</p>
           <h4>${minute ? escapeHtml(minute.title) : "Acuerdos del comite"}</h4>
+          <p class="minute-editor-subtitle">${minute ? "Actualiza acuerdos, responsables y compromisos del acta." : "Redacta el acta con formato ejecutivo y guarda el historial automaticamente."}</p>
         </div>
         <div class="minutes-head-actions">
           ${panoramic ? "" : `<button class="action-icon-btn minute-action-icon" type="button" title="Vista panoramica" aria-label="Abrir nueva acta en vista panoramica" data-minutes-action="fullscreen-new">⛶</button>`}

@@ -6434,13 +6434,14 @@ menu {
 .app-shell .minutes-history-card {
   border: 1px solid rgba(172, 194, 225, .24);
   border-radius: 30px;
-  padding: 18px;
+  padding: 22px;
   background:
-    linear-gradient(145deg, rgba(78, 95, 130, .38), rgba(17, 31, 57, .62)),
-    rgba(13, 27, 50, .6);
+    radial-gradient(circle at top left, rgba(111, 135, 174, .28), transparent 42%),
+    linear-gradient(145deg, rgba(55, 72, 105, .42), rgba(12, 27, 51, .78)),
+    rgba(13, 27, 50, .72);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, .11),
-    0 18px 36px rgba(2, 9, 22, .2);
+    inset 0 1px 0 rgba(255, 255, 255, .14),
+    0 22px 48px rgba(2, 9, 22, .24);
 }
 
 .app-shell .minutes-editor-head,
@@ -6459,6 +6460,15 @@ menu {
   font-size: 24px;
 }
 
+.app-shell .minute-editor-subtitle,
+.minute-fullscreen-overlay .minute-editor-subtitle {
+  max-width: 760px;
+  margin: 6px 0 0;
+  color: rgba(211, 225, 245, .72);
+  font-size: 15px;
+  font-weight: 700;
+}
+
 .app-shell .minutes-toolbar {
   display: flex;
   gap: 8px;
@@ -6466,6 +6476,15 @@ menu {
   border: 1px solid rgba(190, 207, 232, .18);
   border-radius: 18px;
   background: rgba(10, 22, 42, .42);
+}
+
+.minute-fullscreen-overlay .minutes-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(190, 207, 232, .2);
+  border-radius: 18px;
+  background: rgba(10, 22, 42, .5);
 }
 
 .app-shell .minutes-head-actions,
@@ -6480,9 +6499,23 @@ menu {
   height: 34px;
   border: 1px solid rgba(190, 207, 232, .24);
   border-radius: 12px;
-  background: rgba(205, 222, 246, .12);
+  background:
+    linear-gradient(145deg, rgba(104, 126, 164, .34), rgba(28, 43, 70, .52));
   color: rgba(246, 250, 255, .92);
   font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+.minute-fullscreen-overlay .minutes-toolbar button {
+  width: 42px;
+  height: 38px;
+  border: 1px solid rgba(190, 207, 232, .24);
+  border-radius: 13px;
+  background:
+    linear-gradient(145deg, rgba(104, 126, 164, .36), rgba(28, 43, 70, .58));
+  color: rgba(246, 250, 255, .94);
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
 }
 
 .app-shell .minute-action-icon,
@@ -6508,28 +6541,95 @@ menu {
 
 .app-shell .minutes-fields span,
 .app-shell .compact-search span {
-  color: rgba(211, 223, 240, .78);
+  color: rgba(222, 233, 248, .86);
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
+.minute-fullscreen-overlay .minutes-fields span {
+  color: rgba(222, 233, 248, .88);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.app-shell .minutes-fields input,
+.app-shell .minutes-fields select,
+.minute-fullscreen-overlay .minutes-fields input,
+.minute-fullscreen-overlay .minutes-fields select {
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid rgba(180, 203, 235, .24);
+  border-radius: 18px;
+  padding: 0 18px;
+  background:
+    linear-gradient(145deg, rgba(93, 112, 146, .5), rgba(24, 38, 64, .78));
+  color: rgba(250, 253, 255, .96);
+  font: inherit;
+  font-weight: 800;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .12),
+    0 14px 30px rgba(2, 8, 20, .12);
+}
+
+.app-shell .minutes-fields input::placeholder,
+.minute-fullscreen-overlay .minutes-fields input::placeholder {
+  color: rgba(222, 232, 246, .48);
+}
+
 .app-shell .minutes-editor {
-  min-height: 220px;
-  max-height: 340px;
+  min-height: 300px;
+  max-height: 460px;
   overflow-y: auto;
-  border: 1px solid rgba(190, 207, 232, .26);
-  border-radius: 24px;
-  padding: 18px;
-  background: rgba(234, 241, 250, .08);
-  color: rgba(248, 252, 255, .94);
-  line-height: 1.55;
+  border: 1px solid rgba(247, 242, 229, .66);
+  border-radius: 26px;
+  padding: 34px 40px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 244, .98), rgba(241, 237, 226, .96));
+  color: #17211f;
+  line-height: 1.65;
   outline: none;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .78),
+    0 22px 50px rgba(1, 7, 18, .24);
+}
+
+.minute-fullscreen-overlay .minutes-editor {
+  overflow-y: auto;
+  border: 1px solid rgba(247, 242, 229, .66);
+  border-radius: 28px;
+  padding: 44px 54px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 244, .99), rgba(241, 237, 226, .97));
+  color: #17211f;
+  line-height: 1.72;
+  outline: none;
+  font-family: Georgia, "Times New Roman", serif;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .78),
+    0 24px 60px rgba(1, 7, 18, .28);
 }
 
 .app-shell .minutes-editor:empty::before {
   content: attr(data-placeholder);
-  color: rgba(209, 220, 236, .45);
+  color: rgba(33, 45, 48, .42);
+}
+
+.minute-fullscreen-overlay .minutes-editor:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(33, 45, 48, .42);
+}
+
+.app-shell .minutes-editor p,
+.app-shell .minutes-editor div,
+.app-shell .minutes-editor li,
+.minute-fullscreen-overlay .minutes-editor p,
+.minute-fullscreen-overlay .minutes-editor div,
+.minute-fullscreen-overlay .minutes-editor li {
+  color: #17211f;
 }
 
 .app-shell .minutes-actions {
@@ -6574,9 +6674,20 @@ menu {
 }
 
 .app-shell .minute-preview {
-  max-height: 96px;
+  max-height: 128px;
   overflow: hidden;
-  line-height: 1.45;
+  border: 1px solid rgba(247, 242, 229, .3);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(247, 242, 229, .09);
+  color: rgba(239, 245, 255, .86);
+  line-height: 1.5;
+}
+
+.app-shell .minute-preview p,
+.app-shell .minute-preview div,
+.app-shell .minute-preview li {
+  color: rgba(239, 245, 255, .86);
 }
 
 .app-shell .minute-history-actions {
@@ -6594,9 +6705,10 @@ menu {
   place-items: center;
   padding: 26px;
   background:
-    radial-gradient(circle at 20% 12%, rgba(46, 213, 172, .18), transparent 34%),
-    linear-gradient(135deg, rgba(6, 14, 28, .82), rgba(4, 23, 29, .88));
-  backdrop-filter: blur(18px);
+    radial-gradient(circle at 16% 8%, rgba(81, 143, 197, .2), transparent 32%),
+    radial-gradient(circle at 80% 18%, rgba(55, 209, 170, .14), transparent 30%),
+    linear-gradient(135deg, rgba(5, 12, 24, .9), rgba(7, 26, 35, .92));
+  backdrop-filter: blur(22px);
 }
 
 .minute-fullscreen-panel {
@@ -6604,12 +6716,13 @@ menu {
   width: min(1480px, 96vw);
   max-height: 92vh;
   overflow: auto;
-  border: 1px solid rgba(177, 201, 236, .32);
-  border-radius: 38px;
+  border: 1px solid rgba(189, 211, 243, .28);
+  border-radius: 42px;
   padding: 22px;
   background:
-    linear-gradient(145deg, rgba(78, 95, 130, .38), rgba(17, 31, 57, .7)),
-    rgba(11, 25, 47, .76);
+    radial-gradient(circle at 18% 0%, rgba(116, 140, 179, .36), transparent 38%),
+    linear-gradient(145deg, rgba(52, 70, 105, .68), rgba(10, 24, 46, .86)),
+    rgba(11, 25, 47, .84);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, .14),
     0 32px 90px rgba(0, 0, 0, .42);
@@ -6624,6 +6737,9 @@ menu {
   height: 48px;
   border-radius: 16px;
   font-size: 24px;
+  border-color: rgba(190, 207, 232, .28);
+  background: rgba(16, 30, 52, .72);
+  color: rgba(245, 250, 255, .92);
 }
 
 .minute-fullscreen-overlay .minutes-editor-card {
@@ -6638,13 +6754,15 @@ menu {
 }
 
 .minute-fullscreen-overlay .minutes-editor-head h4 {
-  font-size: 38px;
+  color: rgba(250, 253, 255, .98);
+  font-size: 36px;
+  line-height: 1.05;
 }
 
 .minute-fullscreen-overlay .minutes-editor {
-  min-height: min(52vh, 560px);
+  min-height: min(56vh, 640px);
   max-height: none;
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .minute-fullscreen-overlay .minutes-fields {
