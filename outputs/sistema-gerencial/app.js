@@ -165,6 +165,7 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
+      { key: "presentaciones", label: "Presentaciones", status: "Informe gerencial mensual", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -243,6 +244,9 @@ const state = {
   adminQuery: "",
   adminMinuteQuery: "",
   minutes: [],
+  operationsPresentationMonth: String(new Date().getMonth() + 1).padStart(2, "0"),
+  operationsPresentationYear: String(new Date().getFullYear()),
+  operationsPresentationSection: 0,
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -263,6 +267,7 @@ const sectionOptions = [
   { key: "crm-agenda", label: "CRM Agenda" },
   { key: "crm-respuestas", label: "CRM Respuestas" },
   { key: "crm-clientes", label: "CRM Clientes" },
+  { key: "presentaciones", label: "Presentaciones" },
   { key: "riesgos", label: "Riesgos" },
   { key: "solicitudes", label: "Solicitudes" }
 ];
@@ -337,6 +342,124 @@ const goalsMatrixRows = [
   ["1/10/2026", 11899.22, 18892.43, 12474.59, 45840.20, 23461.44, 9759.00, 0, 122326.88],
   ["1/11/2026", 20673.40, 34146.08, 21673.02, 35340.93, 57193.22, 36111.43, 0, 205138.08],
   ["1/12/2026", 13215.64, 51224.33, 13854.65, 17868.56, 6014.86, 32326.69, 0, 134504.73]
+];
+
+const operationsPresentationSections = [
+  {
+    eyebrow: "Informe Gerencial Mensual de Operaciones",
+    title: "Objetivo General",
+    body: [
+      {
+        type: "paragraph",
+        text: "Presentar los resultados de la gestion operativa de Konfi Inversiones, S.A. de C.V., mediante indicadores de desempeno, analisis de riesgos y necesidades de la Gerencia de Operaciones, con el proposito de evaluar el cumplimiento de las metas de produccion, calidad, eficiencia y entrega oportuna de los pedidos, contribuyendo a la toma de decisiones estrategicas de la Gerencia General."
+      }
+    ]
+  },
+  {
+    eyebrow: "Informe Gerencial Mensual de Operaciones",
+    title: "Objetivos Especificos",
+    body: [
+      {
+        type: "list",
+        items: [
+          "Informar los resultados alcanzados en produccion durante el periodo.",
+          "Medir el desempeno mediante indicadores de productividad, calidad y cumplimiento.",
+          "Identificar riesgos que afecten la operacion.",
+          "Presentar acciones de mejora continua.",
+          "Solicitar recursos necesarios para garantizar el cumplimiento de las metas."
+        ]
+      }
+    ]
+  },
+  {
+    eyebrow: "A. Resultados",
+    title: "Resultados",
+    body: [
+      {
+        type: "paragraph",
+        text: "En esta seccion se presentan los principales logros alcanzados durante el mes que sean relevantes."
+      },
+      {
+        type: "list",
+        items: [
+          "Se confeccionaron 8,450 uniformes durante el mes.",
+          "Se entregaron 35 pedidos, de los cuales 34 fueron entregados puntualmente 97 %.",
+          "Se redujo el tiempo promedio de produccion de 12 a 10 dias.",
+          "Se implemento un nuevo control de calidad en el area de costura.",
+          "Se hizo una mejora en los procesos productivos.",
+          "Se compraron nuevas herramientas o maquinaria de trabajo.",
+          "Se optimizo el flujo entre corte y confeccion, reduciendo tiempos muertos."
+        ]
+      }
+    ]
+  },
+  {
+    eyebrow: "B. KPIs para la Gerencia de Operaciones",
+    title: "Indicadores clave de desempeno",
+    body: [
+      {
+        type: "paragraph",
+        text: "Estos indicadores utilizados son los que como Gerencia de Operaciones se han considerados que se pueden medir, y que se apegan mas a nuestra forma de trabajar, ya que al ser una planta de confeccion multi estilos, que su produccion cambia segun ordenes de produccion y teniendo en cuenta que cada orden de produccion va personalizada segun las especificaciones del cliente, hay indicadores que se usan en plantas de produccion textil que no pueden ser medidos en nuestra planta."
+      },
+      {
+        type: "cards",
+        items: [
+          ["Produccion Total del Mes Ano Actual", "Medir el volumen de produccion mensual.", "Total de prendas confeccionadas en el mes.", "Prendas", "Mensual"],
+          ["Crecimiento de la Produccion Mensual", "Medir el % de aumento o disminucion versus el ano anterior.", "Produccion actual - produccion anterior / produccion anterior x 100.", "%", "Mensual"],
+          ["Horas Extras del Mes", "Controlar el uso de horas extraordinarias.", "Total de horas extras registradas y monto total pagado.", "Horas / USD", "Mensual"],
+          ["Comparativo de Horas Extras", "Evaluar la eficiencia en el uso del tiempo extraordinario.", "Horas extras ano actual - ano anterior / ano anterior x 100.", "% y USD", "Mensual"],
+          ["Reclamos de Clientes", "Monitorear y reducir reclamos de confeccion, calidad, entrega o servicio.", "Reclamos recibidos / pedidos entregados x 100.", "% y numero", "Mensual"],
+          ["Avance del Plan de Operaciones 2026", "Dar seguimiento al cumplimiento del Plan Operativo Anual.", "Actividades ejecutadas / actividades programadas x 100.", "%", "Mensual"]
+        ]
+      }
+    ]
+  },
+  {
+    eyebrow: "C. Riesgos",
+    title: "Matriz de riesgos operativos",
+    body: [
+      {
+        type: "paragraph",
+        text: "Esta matriz identifica los principales riesgos que pueden afectar afectarnos como empresa de confeccion, el nivel de impacto que tendrian sobre la operacion y las acciones preventivas o de mitigacion para reducir la probabilidad de que ocurran o minimizar sus consecuencias."
+      },
+      {
+        type: "table",
+        columns: ["Riesgo", "Impacto", "Accion de mitigacion"],
+        rows: [
+          ["Retraso en la entrega de tela", "Alto", "Mantener inventario de seguridad y proveedores alternos."],
+          ["Ausencia de personal clave", "Medio", "Capacitacion cruzada y plan de reemplazos."],
+          ["Averias en maquinaria", "Alto", "Programa de mantenimiento preventivo."],
+          ["Incremento inesperado de pedidos", "Alto", "Planificacion de capacidad y contratacion temporal."],
+          ["Errores en especificaciones del cliente", "Medio", "Validacion previa mediante ficha tecnica aprobada."],
+          ["Retrasos de proveedores", "Alto", "Evaluacion continua de proveedores y diversificacion."],
+          ["Reclamos de Clientes Claves", "Alto", "Evaluar una solucion ganar ganar que no afecte la relacion comercial con el cliente."]
+        ]
+      }
+    ]
+  },
+  {
+    eyebrow: "D. Solicitudes",
+    title: "Solicitudes operativas",
+    body: [
+      {
+        type: "paragraph",
+        text: "Las solicitudes son requerimientos formales que una empresa presenta para obtener los recursos, el personal, los equipos o las herramientas necesarias para mejorar sus procesos y alcanzar sus objetivos."
+      },
+      {
+        type: "paragraph",
+        text: "Estas solicitudes deben estar sustentadas con datos objetivos, como indicadores de produccion, niveles de utilizacion de los recursos, incremento en la demanda o resultados de evaluaciones, que demuestren la necesidad de realizar la inversion o el cambio."
+      },
+      {
+        type: "table",
+        columns: ["Solicitud", "Justificacion", "Beneficio esperado"],
+        rows: [
+          ["Adquisicion de una maquina de costura industrial", "La utilizacion de las maquinas actuales supera el 95 %, generando cuellos de botella.", "Incrementar la capacidad de produccion y reducir tiempos de entrega."],
+          ["Contratacion de dos operarios", "El volumen de pedidos aumento un 20 % respecto al mes anterior.", "Mejorar el cumplimiento del plan de produccion y disminuir horas extra."],
+          ["Implementacion de un sistema de control de produccion", "Actualmente el seguimiento es manual.", "Obtener informacion en tiempo real para una mejor toma de decisiones."]
+        ]
+      }
+    ]
+  }
 ];
 const closedSalesActuals = [
   { seller: "Gabriela Amador", month: 1, amount: 2938.01, count: 3 },
@@ -1982,6 +2105,157 @@ function renderCleanManagementSection(area, submenu) {
   `;
 }
 
+function operationsPeriodLabel() {
+  const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const monthIndex = Math.max(0, Math.min(11, Number(state.operationsPresentationMonth || 1) - 1));
+  return `${monthNames[monthIndex]} ${state.operationsPresentationYear || new Date().getFullYear()}`;
+}
+
+function renderOperationsBlock(block) {
+  if (block.type === "paragraph") return `<p>${escapeHtml(block.text)}</p>`;
+  if (block.type === "list") {
+    return `<ul>${block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+  }
+  if (block.type === "cards") {
+    return `
+      <div class="operations-kpi-grid">
+        ${block.items.map(([title, objective, formula, unit, frequency]) => `
+          <article class="operations-kpi-card">
+            <span>${escapeHtml(frequency)}</span>
+            <strong>${escapeHtml(title)}</strong>
+            <p>${escapeHtml(objective)}</p>
+            <small>${escapeHtml(formula)}</small>
+            <em>${escapeHtml(unit)}</em>
+          </article>
+        `).join("")}
+      </div>
+    `;
+  }
+  if (block.type === "table") {
+    return `
+      <div class="operations-table">
+        <div class="operations-table-head" style="--cols:${block.columns.length}">
+          ${block.columns.map((column) => `<strong>${escapeHtml(column)}</strong>`).join("")}
+        </div>
+        ${block.rows.map((row) => `
+          <div class="operations-table-row" style="--cols:${block.columns.length}">
+            ${row.map((cell) => `<span>${escapeHtml(cell)}</span>`).join("")}
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+  return "";
+}
+
+function renderOperationsSlide(section) {
+  return `
+    <article class="operations-slide">
+      <p class="eyebrow">${escapeHtml(section.eyebrow)}</p>
+      <h3>${escapeHtml(section.title)}</h3>
+      <div class="operations-slide-body">
+        ${section.body.map(renderOperationsBlock).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function operationsPresentationMarkup({ fullscreen = false } = {}) {
+  const activeIndex = Math.max(0, Math.min(operationsPresentationSections.length - 1, Number(state.operationsPresentationSection) || 0));
+  const section = operationsPresentationSections[activeIndex];
+  return `
+    <section class="operations-presentation ${fullscreen ? "fullscreen" : ""}" aria-label="Presentaciones de Operaciones">
+      <div class="operations-presentation-head">
+        <div>
+          <p class="eyebrow">Operaciones</p>
+          <h3>Presentaciones</h3>
+          <span>Informe Gerencial Mensual de Operaciones</span>
+        </div>
+        <div class="operations-period-controls">
+          <label>
+            <span>Mes</span>
+            <select data-operations-period="month">
+              ${Array.from({ length: 12 }, (_, index) => {
+                const value = String(index + 1).padStart(2, "0");
+                return `<option value="${value}" ${value === state.operationsPresentationMonth ? "selected" : ""}>${value}</option>`;
+              }).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Año</span>
+            <input type="number" min="2020" max="2035" value="${escapeHtml(state.operationsPresentationYear)}" data-operations-period="year">
+          </label>
+          ${fullscreen ? "" : `<button class="action-icon-btn operations-fullscreen-btn" type="button" data-operations-fullscreen title="Vista panoramica" aria-label="Abrir presentacion en vista panoramica">⛶</button>`}
+        </div>
+      </div>
+      <div class="operations-presentation-meta">
+        <strong>${operationsPeriodLabel()}</strong>
+        <span>${operationsPresentationSections.length} secciones</span>
+        <span>Contenido base del informe operativo mensual</span>
+      </div>
+      <div class="operations-presentation-layout">
+        <nav class="operations-presentation-index" aria-label="Indice de presentacion">
+          ${operationsPresentationSections.map((item, index) => `
+            <button class="${index === activeIndex ? "active" : ""}" type="button" data-operations-section="${index}">
+              <span>${index + 1}</span>
+              <strong>${escapeHtml(item.title)}</strong>
+            </button>
+          `).join("")}
+        </nav>
+        ${renderOperationsSlide(section)}
+      </div>
+    </section>
+  `;
+}
+
+function renderOperationsPresentations() {
+  return operationsPresentationMarkup();
+}
+
+function openOperationsPresentationFullscreen() {
+  document.querySelector(".operations-fullscreen-overlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "operations-fullscreen-overlay";
+  overlay.innerHTML = `
+    <div class="operations-fullscreen-panel" role="dialog" aria-modal="true" aria-label="Presentaciones de Operaciones en vista panoramica">
+      <button class="action-icon-btn operations-fullscreen-close" type="button" data-operations-close-fullscreen aria-label="Cerrar vista panoramica">×</button>
+      ${operationsPresentationMarkup({ fullscreen: true })}
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  wireOperationsPresentations(overlay);
+}
+
+function closeOperationsPresentationFullscreen() {
+  document.querySelector(".operations-fullscreen-overlay")?.remove();
+}
+
+function wireOperationsPresentations(root = opportunityTable) {
+  root.querySelectorAll("[data-operations-section]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.operationsPresentationSection = Number(button.dataset.operationsSection) || 0;
+      if (button.closest(".operations-fullscreen-overlay")) {
+        openOperationsPresentationFullscreen();
+      } else {
+        renderCommercialSubmenu(areas.operaciones);
+      }
+    });
+  });
+  root.querySelectorAll("[data-operations-period]").forEach((input) => {
+    input.addEventListener("change", () => {
+      if (input.dataset.operationsPeriod === "month") state.operationsPresentationMonth = input.value;
+      if (input.dataset.operationsPeriod === "year") state.operationsPresentationYear = input.value || String(new Date().getFullYear());
+      if (input.closest(".operations-fullscreen-overlay")) {
+        openOperationsPresentationFullscreen();
+      } else {
+        renderCommercialSubmenu(areas.operaciones);
+      }
+    });
+  });
+  root.querySelector("[data-operations-fullscreen]")?.addEventListener("click", openOperationsPresentationFullscreen);
+  root.querySelector("[data-operations-close-fullscreen]")?.addEventListener("click", closeOperationsPresentationFullscreen);
+}
+
 function crmData() {
   return state.crmData || { users: [], opportunities: [], agenda: [], gestiones: [], pipeline: [], customers: [], kpis: {} };
 }
@@ -2646,6 +2920,19 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
+
+  if (state.activeArea === "operaciones" && submenu.key === "presentaciones") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = submenu.status;
+    opportunityTable.innerHTML = renderOperationsPresentations();
+    wireOperationsPresentations(opportunityTable);
+    return;
+  }
 
   if (state.activeArea !== "comercializacion" && !["riesgos", "solicitudes"].includes(submenu.key)) {
     newOpportunityBtn.classList.add("hidden");
@@ -4054,7 +4341,7 @@ function renderDashboard() {
     state.activeSubmenu = visibleItems[0].key;
   }
   const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
-  dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu));
+  dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "presentaciones", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu));
   pageTitle.textContent = activeSubmenu ? activeSubmenu.label : area.label;
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;

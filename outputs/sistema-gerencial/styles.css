@@ -6769,10 +6769,386 @@ menu {
   grid-template-columns: minmax(280px, 1.1fr) minmax(220px, .7fr) 180px;
 }
 
+/* Operations presentations: executive deck for monthly operational reports. */
+.app-shell .operations-presentation,
+.operations-fullscreen-overlay .operations-presentation {
+  display: grid;
+  gap: 18px;
+  min-height: 0;
+}
+
+.app-shell .operations-presentation-head,
+.operations-fullscreen-overlay .operations-presentation-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid rgba(174, 198, 232, .2);
+  border-radius: 28px;
+  padding: 18px 20px;
+  background:
+    radial-gradient(circle at top left, rgba(123, 247, 219, .16), transparent 34%),
+    linear-gradient(145deg, rgba(42, 62, 98, .54), rgba(12, 27, 51, .76));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1);
+}
+
+.app-shell .operations-presentation-head h3,
+.operations-fullscreen-overlay .operations-presentation-head h3 {
+  margin: 2px 0 4px;
+  color: rgba(250, 253, 255, .98);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.app-shell .operations-presentation-head span,
+.operations-fullscreen-overlay .operations-presentation-head span {
+  color: rgba(213, 226, 242, .72);
+  font-weight: 800;
+}
+
+.app-shell .operations-period-controls,
+.operations-fullscreen-overlay .operations-period-controls {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.app-shell .operations-period-controls label,
+.operations-fullscreen-overlay .operations-period-controls label {
+  display: grid;
+  gap: 6px;
+}
+
+.app-shell .operations-period-controls label span,
+.operations-fullscreen-overlay .operations-period-controls label span {
+  color: rgba(217, 229, 246, .72);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.app-shell .operations-period-controls select,
+.app-shell .operations-period-controls input,
+.operations-fullscreen-overlay .operations-period-controls select,
+.operations-fullscreen-overlay .operations-period-controls input {
+  width: 110px;
+  min-height: 46px;
+  border: 1px solid rgba(184, 204, 234, .24);
+  border-radius: 16px;
+  padding: 0 14px;
+  background:
+    linear-gradient(145deg, rgba(94, 116, 151, .42), rgba(20, 35, 61, .72));
+  color: rgba(250, 253, 255, .95);
+  font: inherit;
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+.app-shell .operations-fullscreen-btn,
+.operations-fullscreen-overlay .operations-fullscreen-close {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  color: rgba(245, 250, 255, .94);
+}
+
+.app-shell .operations-presentation-meta,
+.operations-fullscreen-overlay .operations-presentation-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.app-shell .operations-presentation-meta strong,
+.app-shell .operations-presentation-meta span,
+.operations-fullscreen-overlay .operations-presentation-meta strong,
+.operations-fullscreen-overlay .operations-presentation-meta span {
+  border: 1px solid rgba(184, 204, 234, .2);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(13, 28, 52, .42);
+  color: rgba(224, 235, 249, .82);
+  font-weight: 900;
+}
+
+.app-shell .operations-presentation-meta strong,
+.operations-fullscreen-overlay .operations-presentation-meta strong {
+  border-color: rgba(123, 247, 219, .28);
+  color: #7bf7db;
+}
+
+.app-shell .operations-presentation-layout,
+.operations-fullscreen-overlay .operations-presentation-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+}
+
+.app-shell .operations-presentation-index,
+.operations-fullscreen-overlay .operations-presentation-index {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border: 1px solid rgba(174, 198, 232, .2);
+  border-radius: 28px;
+  padding: 14px;
+  background:
+    linear-gradient(145deg, rgba(46, 64, 99, .44), rgba(11, 25, 47, .62));
+  max-height: min(62vh, 700px);
+  overflow-y: auto;
+}
+
+.app-shell .operations-presentation-index button,
+.operations-fullscreen-overlay .operations-presentation-index button {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  border: 1px solid rgba(184, 204, 234, .18);
+  border-radius: 20px;
+  padding: 10px 12px;
+  background: rgba(14, 30, 55, .48);
+  color: rgba(226, 236, 250, .82);
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-shell .operations-presentation-index button span,
+.operations-fullscreen-overlay .operations-presentation-index button span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(117, 142, 182, .22);
+  color: rgba(223, 236, 252, .9);
+  font-weight: 1000;
+}
+
+.app-shell .operations-presentation-index button strong,
+.operations-fullscreen-overlay .operations-presentation-index button strong {
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.app-shell .operations-presentation-index button.active,
+.operations-fullscreen-overlay .operations-presentation-index button.active {
+  border-color: rgba(123, 247, 219, .46);
+  background:
+    linear-gradient(135deg, rgba(28, 125, 104, .72), rgba(28, 67, 101, .68));
+  color: rgba(255, 255, 255, .96);
+}
+
+.app-shell .operations-presentation-index button.active span,
+.operations-fullscreen-overlay .operations-presentation-index button.active span {
+  background: rgba(123, 247, 219, .18);
+  color: #7bf7db;
+}
+
+.app-shell .operations-slide,
+.operations-fullscreen-overlay .operations-slide {
+  min-height: min(58vh, 720px);
+  border: 1px solid rgba(230, 224, 208, .72);
+  border-radius: 30px;
+  padding: clamp(30px, 4vw, 62px);
+  background:
+    linear-gradient(90deg, rgba(11, 128, 119, .92) 0 8px, transparent 8px),
+    linear-gradient(180deg, rgba(255, 253, 247, .98), rgba(242, 246, 244, .96));
+  color: #12201f;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .72),
+    0 26px 70px rgba(2, 9, 22, .24);
+  overflow-y: auto;
+}
+
+.app-shell .operations-slide h3,
+.operations-fullscreen-overlay .operations-slide h3 {
+  max-width: 1060px;
+  margin: 0 0 24px;
+  color: #12201f;
+  font-size: clamp(38px, 5vw, 70px);
+  line-height: .98;
+  letter-spacing: 0;
+}
+
+.app-shell .operations-slide .eyebrow,
+.operations-fullscreen-overlay .operations-slide .eyebrow {
+  color: #0c8778;
+}
+
+.app-shell .operations-slide-body,
+.operations-fullscreen-overlay .operations-slide-body {
+  display: grid;
+  gap: 20px;
+  color: #536463;
+  font-size: clamp(20px, 2vw, 30px);
+  line-height: 1.45;
+}
+
+.app-shell .operations-slide-body p,
+.app-shell .operations-slide-body li,
+.operations-fullscreen-overlay .operations-slide-body p,
+.operations-fullscreen-overlay .operations-slide-body li {
+  color: #536463;
+}
+
+.app-shell .operations-slide-body ul,
+.operations-fullscreen-overlay .operations-slide-body ul {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding-left: 28px;
+}
+
+.app-shell .operations-kpi-grid,
+.operations-fullscreen-overlay .operations-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.app-shell .operations-kpi-card,
+.operations-fullscreen-overlay .operations-kpi-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(12, 135, 120, .16);
+  border-radius: 22px;
+  padding: 18px;
+  background: rgba(238, 247, 244, .88);
+}
+
+.app-shell .operations-kpi-card span,
+.operations-fullscreen-overlay .operations-kpi-card span {
+  color: #0c8778;
+  font-size: 12px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.app-shell .operations-kpi-card strong,
+.operations-fullscreen-overlay .operations-kpi-card strong {
+  color: #12201f;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.app-shell .operations-kpi-card p,
+.app-shell .operations-kpi-card small,
+.operations-fullscreen-overlay .operations-kpi-card p,
+.operations-fullscreen-overlay .operations-kpi-card small {
+  color: #536463;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.app-shell .operations-kpi-card em,
+.operations-fullscreen-overlay .operations-kpi-card em {
+  justify-self: start;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: rgba(12, 135, 120, .1);
+  color: #0c665d;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.app-shell .operations-table,
+.operations-fullscreen-overlay .operations-table {
+  display: grid;
+  gap: 10px;
+  font-size: 16px;
+}
+
+.app-shell .operations-table-head,
+.app-shell .operations-table-row,
+.operations-fullscreen-overlay .operations-table-head,
+.operations-fullscreen-overlay .operations-table-row {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+  border: 1px solid rgba(12, 135, 120, .14);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(238, 247, 244, .78);
+}
+
+.app-shell .operations-table-head,
+.operations-fullscreen-overlay .operations-table-head {
+  background: rgba(18, 32, 31, .92);
+}
+
+.app-shell .operations-table-head strong,
+.operations-fullscreen-overlay .operations-table-head strong {
+  color: rgba(250, 253, 255, .96);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.app-shell .operations-table-row span,
+.operations-fullscreen-overlay .operations-table-row span {
+  color: #536463;
+}
+
+.operations-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 82;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(47, 130, 189, .18), transparent 34%),
+    radial-gradient(circle at 84% 16%, rgba(37, 204, 166, .14), transparent 30%),
+    linear-gradient(135deg, rgba(3, 12, 24, .92), rgba(7, 30, 38, .94));
+  backdrop-filter: blur(22px);
+}
+
+.operations-fullscreen-panel {
+  position: relative;
+  width: min(1620px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  border: 1px solid rgba(189, 211, 243, .28);
+  border-radius: 42px;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(116, 140, 179, .32), transparent 38%),
+    linear-gradient(145deg, rgba(48, 68, 104, .68), rgba(9, 24, 45, .88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .14),
+    0 32px 90px rgba(0, 0, 0, .42);
+}
+
+.operations-fullscreen-close {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  z-index: 3;
+}
+
+.operations-fullscreen-overlay .operations-presentation-head {
+  padding-right: 70px;
+}
+
+.operations-fullscreen-overlay .operations-slide {
+  min-height: 68vh;
+}
+
 @media (max-width: 1180px) {
   .app-shell .permission-user-card,
   .app-shell .minute-history-item,
-  .app-shell .minutes-fields {
+  .app-shell .minutes-fields,
+  .app-shell .operations-presentation-layout,
+  .operations-fullscreen-overlay .operations-presentation-layout,
+  .app-shell .operations-kpi-grid,
+  .operations-fullscreen-overlay .operations-kpi-grid {
     grid-template-columns: 1fr;
   }
 
@@ -6788,6 +7164,12 @@ menu {
   .minute-fullscreen-overlay .minutes-fields {
     width: 100%;
     grid-template-columns: 1fr;
+  }
+
+  .app-shell .operations-presentation-head,
+  .operations-fullscreen-overlay .operations-presentation-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
