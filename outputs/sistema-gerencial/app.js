@@ -2228,11 +2228,13 @@ function openOperationsPresentationFullscreen() {
     </div>
   `;
   document.body.appendChild(overlay);
+  document.body.classList.add("operations-fullscreen-open");
   wireOperationsPresentations(overlay);
 }
 
 function closeOperationsPresentationFullscreen() {
   document.querySelector(".operations-fullscreen-overlay")?.remove();
+  document.body.classList.remove("operations-fullscreen-open");
 }
 
 function wireOperationsPresentations(root = opportunityTable) {
@@ -2257,7 +2259,9 @@ function wireOperationsPresentations(root = opportunityTable) {
       }
     });
   });
-  root.querySelector("[data-operations-fullscreen]")?.addEventListener("click", openOperationsPresentationFullscreen);
+  root.querySelectorAll("[data-operations-fullscreen]").forEach((button) => {
+    button.addEventListener("click", openOperationsPresentationFullscreen);
+  });
   root.querySelector("[data-operations-close-fullscreen]")?.addEventListener("click", closeOperationsPresentationFullscreen);
 }
 
