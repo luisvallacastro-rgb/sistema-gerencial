@@ -241,6 +241,8 @@ const state = {
   kpiView: "dashboard",
   kpiSeller: "all",
   adminQuery: "",
+  adminMinuteQuery: "",
+  minutes: [],
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -268,6 +270,10 @@ areas[adminAreaKey] = {
   label: "Administracion",
   nav: "Administracion",
   status: "Usuarios",
+  submenus: [
+    { key: "permisos", label: "Permisos" },
+    { key: "actas", label: "Actas" }
+  ],
   summary: [],
   results: [],
   kpis: [],
@@ -400,6 +406,7 @@ const historicalClosedSales = (window.historicalClosedSalesCsv || "")
 const opportunitiesStorageKey = "sistemaGerencial.oportunidades.v6";
 const usersStorageKey = "sistemaGerencial.usuarios.v2";
 const sessionStorageKey = "sistemaGerencial.sesion.v1";
+const minutesStorageKey = "sistemaGerencial.actas.v1";
 const strategicRisksStorageKey = "sistemaGerencial.riesgos.v2";
 const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v2";
 const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
@@ -618,7 +625,10 @@ function defaultPermissionsForRole(role) {
 }
 
 function normalizePermissionList(value, role) {
-  return allPermissionKeys();
+  const valid = new Set(allPermissionKeys());
+  if (!Array.isArray(value) || !value.length) return defaultPermissionsForRole(role);
+  const next = value.filter((item) => valid.has(item));
+  return next.length ? [...new Set(next)] : defaultPermissionsForRole(role);
 }
 
 function isAdminUser(user = state.currentUser) {
@@ -633,6 +643,7 @@ function userPermissions(user = state.currentUser) {
 function visibleSubmenus(areaKey, user = state.currentUser) {
   const area = areas[areaKey];
   if (!Array.isArray(area?.submenus)) return [];
+  if (areaKey === adminAreaKey) return isAdminUser(user) ? area.submenus : [];
   const permissions = userPermissions(user);
   return area.submenus.filter((item) => permissions.has(permissionKey(areaKey, item.key)));
 }
@@ -1671,11 +1682,6 @@ function renderNav() {
     button.setAttribute("aria-expanded", hasSubmenus ? String(isOpen) : "false");
     button.innerHTML = `<span>${area.nav}</span>${hasSubmenus ? `<span class="nav-caret" title="${isOpen ? "Ocultar" : "Ver"}">${isOpen ? "−" : "+"}</span>` : ""}`;
     button.addEventListener("click", () => {
-      if (key === adminAreaKey) {
-        state.activeArea = adminAreaKey;
-        renderDashboard();
-        return;
-      }
       state.activeArea = key;
       if (hasSubmenus) {
         if (state.openMenus.has(key)) {
@@ -3494,10 +3500,29 @@ function deleteAdminUser(userId) {
   renderDashboard();
 }
 
-function renderAdminPanel() {
+function modulePermissionCount(user, areaKey) {
+  const permissions = userPermissions(user);
+  return sectionOptions.filter((section) => permissions.has(permissionKey(areaKey, section.key))).length;
+}
+
+function updateUserModulePermission(userId, areaKey, enabled) {
+  systemUsers = systemUsers.map((user) => {
+    if (user.id !== userId || isAdminUser(user)) return user;
+    const existing = new Set(normalizePermissionList(user.permissions, user.role));
+    sectionOptions.forEach((section) => {
+      const key = permissionKey(areaKey, section.key);
+      if (enabled) existing.add(key);
+      else existing.delete(key);
+    });
+    return { ...user, permissions: [...existing] };
+  });
+  saveUsers();
+  renderAdminPanel();
+}
+
+function renderAdminPermissionsPanel() {
   if (!adminPanel) return;
   adminPanel.classList.remove("hidden");
-  const keepSearchFocus = document.activeElement?.id === "adminSearchInput";
   const users = [...systemUsers].sort((a, b) => a.name.localeCompare(b.name));
   const query = normalizeKey(state.adminQuery);
   const filteredUsers = users.filter((user) => {
@@ -3518,13 +3543,13 @@ function renderAdminPanel() {
       .map((module) => module.label)
   )).size;
   const totalPermissions = users.reduce((sum, user) => sum + userPermissions(user).size, 0);
-  adminPanel.innerHTML = `
+  return `
     <div class="admin-shell">
       <div class="admin-hero">
         <div>
           <p class="eyebrow">Administracion</p>
-          <h3>Usuarios y permisos</h3>
-          <p class="muted-copy">Gestion de accesos, perfiles y recuperacion de claves.</p>
+          <h3>Permisos</h3>
+          <p class="muted-copy">Gestion de accesos por usuario, perfil y modulo operativo.</p>
         </div>
         <button class="secondary-btn icon-text-btn" type="button" data-admin-action="new">
           <span aria-hidden="true">+</span> Nuevo usuario
@@ -3558,11 +3583,12 @@ function renderAdminPanel() {
         <span class="admin-toolbar-pill">${filteredUsers.length} visibles</span>
       </div>
 
-      <div class="admin-user-list">
+      <div class="permission-user-list">
         ${filteredUsers.length ? filteredUsers.map((user) => {
           const modules = adminPermissionModules(user);
+          const permissions = userPermissions(user);
           return `
-          <article class="admin-user-card ${isAdminUser(user) ? "admin-owner" : ""}">
+          <article class="permission-user-card ${isAdminUser(user) ? "admin-owner" : ""}">
             <div class="admin-person">
               <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
               <div>
@@ -3575,17 +3601,24 @@ function renderAdminPanel() {
               <span class="admin-label">Perfil</span>
               <span class="admin-role-pill">${escapeHtml(roleDisplayName(user.role))}</span>
             </div>
-            <div class="admin-access-block">
-              <span class="admin-label">Accesos</span>
-              <div class="admin-access-chips">
-                ${modules.length ? modules.map((module) => `
-                  <span class="admin-access-chip ${module.total ? "total" : ""}">
-                    ${escapeHtml(module.label)}
-                    ${module.total ? "" : `<small>${module.count}</small>`}
-                  </span>
-                `).join("") : `<span class="admin-access-chip empty">Sin permisos</span>`}
+            <div class="permission-checklist" aria-label="Permisos de ${escapeHtml(user.name)}">
+              ${areaKeys.map((areaKey) => {
+                const count = modulePermissionCount(user, areaKey);
+                const checked = count === sectionOptions.length;
+                const partial = count > 0 && !checked;
+                return `
+                  <label class="permission-check ${checked ? "checked" : partial ? "partial" : ""} ${isAdminUser(user) ? "locked" : ""}">
+                    <input type="checkbox" data-admin-action="module-permission" data-user-id="${user.id}" data-area="${areaKey}" ${checked ? "checked" : ""} ${isAdminUser(user) ? "disabled" : ""}>
+                    <span class="permission-box" aria-hidden="true">${checked ? "✓" : partial ? "–" : ""}</span>
+                    <span>
+                      <strong>${escapeHtml(areas[areaKey].nav)}</strong>
+                      <small>${count}/${sectionOptions.length} vistas</small>
+                    </span>
+                  </label>
+                `;
+              }).join("")}
+              <span class="permission-total">${permissions.size} permisos activos</span>
               </div>
-            </div>
             <div class="admin-row-actions">
               <button class="action-icon-btn" type="button" title="Editar usuario" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button>
               <button class="action-icon-btn" type="button" title="Resetear clave" aria-label="Resetear clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>
@@ -3602,18 +3635,14 @@ function renderAdminPanel() {
       </div>
     </div>
   `;
+}
+
+function wireAdminPermissionsPanel() {
   const searchInput = adminPanel.querySelector("#adminSearchInput");
   searchInput?.addEventListener("input", (event) => {
     state.adminQuery = event.target.value;
     renderAdminPanel();
   });
-  if (keepSearchFocus && searchInput) {
-    requestAnimationFrame(() => {
-      const nextSearchInput = adminPanel.querySelector("#adminSearchInput");
-      nextSearchInput?.focus();
-      nextSearchInput?.setSelectionRange(nextSearchInput.value.length, nextSearchInput.value.length);
-    });
-  }
   adminPanel.querySelector("[data-admin-action='new']")?.addEventListener("click", () => openAdminUserDialog());
   adminPanel.querySelectorAll("[data-admin-action='edit']").forEach((button) => {
     button.addEventListener("click", () => openAdminUserDialog(button.dataset.userId));
@@ -3624,6 +3653,221 @@ function renderAdminPanel() {
   adminPanel.querySelectorAll("[data-admin-action='delete']").forEach((button) => {
     button.addEventListener("click", () => deleteAdminUser(button.dataset.userId));
   });
+  adminPanel.querySelectorAll("[data-admin-action='module-permission']").forEach((input) => {
+    input.addEventListener("change", () => {
+      updateUserModulePermission(input.dataset.userId, input.dataset.area, input.checked);
+    });
+  });
+}
+
+function sanitizeMinuteBody(html = "") {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const allowedTags = new Set(["B", "STRONG", "I", "EM", "U", "P", "BR", "UL", "OL", "LI", "DIV"]);
+  template.content.querySelectorAll("*").forEach((node) => {
+    if (!allowedTags.has(node.tagName)) {
+      node.replaceWith(document.createTextNode(node.textContent || ""));
+      return;
+    }
+    [...node.attributes].forEach((attribute) => node.removeAttribute(attribute.name));
+  });
+  return template.innerHTML;
+}
+
+function normalizeMinute(item = {}) {
+  return {
+    id: item.id || `acta-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    title: item.title || "Acta sin titulo",
+    area: item.area || "Comite de apoyo",
+    date: item.date || new Date().toISOString().slice(0, 10),
+    body: sanitizeMinuteBody(item.body || ""),
+    createdBy: item.createdBy || state.currentUser?.name || "Sistema Gerencial",
+    createdAt: item.createdAt || new Date().toISOString()
+  };
+}
+
+function loadMinutes() {
+  const loadLocalMinutes = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(minutesStorageKey) || "[]");
+      return Array.isArray(saved) ? saved.map(normalizeMinute) : [];
+    } catch {
+      return [];
+    }
+  };
+  state.minutes = loadLocalMinutes();
+  if (!apiEnabled) return;
+  apiJson("/api/minutes")
+    .then((items) => {
+      state.minutes = Array.isArray(items) ? items.map(normalizeMinute) : [];
+      localStorage.setItem(minutesStorageKey, JSON.stringify(state.minutes));
+      if (state.activeArea === adminAreaKey && state.activeSubmenu === "actas") renderAdminPanel();
+    })
+    .catch(() => {});
+}
+
+function saveMinute(item) {
+  const minute = normalizeMinute(item);
+  state.minutes = [minute, ...state.minutes.filter((entry) => entry.id !== minute.id)];
+  localStorage.setItem(minutesStorageKey, JSON.stringify(state.minutes));
+  if (apiEnabled) {
+    apiJson("/api/minutes", {
+      method: "POST",
+      body: JSON.stringify(minute)
+    }).catch(() => {});
+  }
+  renderAdminPanel();
+}
+
+function renderAdminMinutesPanel() {
+  const query = normalizeKey(state.adminMinuteQuery);
+  const minutes = [...state.minutes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const filtered = minutes.filter((item) => !query || normalizeKey([item.title, item.area, item.createdBy, item.body].join(" ")).includes(query));
+  const currentDate = new Date().toISOString().slice(0, 10);
+  return `
+    <div class="admin-shell minutes-shell">
+      <div class="admin-hero minutes-hero">
+        <div>
+          <p class="eyebrow">Administracion / Actas</p>
+          <h3>Editor de actas</h3>
+          <p class="muted-copy">Acuerdos, compromisos y seguimiento de todas las gerencias en un solo historial.</p>
+        </div>
+        <div class="minutes-counter">
+          <span>Actas guardadas</span>
+          <strong>${minutes.length}</strong>
+        </div>
+      </div>
+
+      <section class="minutes-editor-card" aria-label="Nueva acta">
+        <div class="minutes-editor-head">
+          <div>
+            <p class="eyebrow">Nueva acta</p>
+            <h4>Acuerdos del comite</h4>
+          </div>
+          <div class="minutes-toolbar" aria-label="Herramientas de texto">
+            <button type="button" data-editor-command="bold" title="Negrita">B</button>
+            <button type="button" data-editor-command="italic" title="Cursiva">I</button>
+            <button type="button" data-editor-command="underline" title="Subrayado">U</button>
+            <button type="button" data-editor-command="insertUnorderedList" title="Lista">☷</button>
+            <button type="button" data-editor-command="insertOrderedList" title="Numeracion">1.</button>
+          </div>
+        </div>
+        <div class="minutes-fields">
+          <label>
+            <span>Titulo</span>
+            <input id="minuteTitle" type="text" placeholder="Ej. Comite de Apoyo - acuerdos semanales">
+          </label>
+          <label>
+            <span>Gerencia / reunion</span>
+            <select id="minuteArea">
+              <option>Comite de apoyo</option>
+              ${areaKeys.map((key) => `<option>${escapeHtml(areas[key].nav)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Fecha</span>
+            <input id="minuteDate" type="date" value="${currentDate}">
+          </label>
+        </div>
+        <div id="minuteEditor" class="minutes-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Redacta acuerdos, responsables, fechas compromiso y observaciones..."></div>
+        <div class="minutes-actions">
+          <button class="ghost-btn compact-btn" type="button" data-minutes-action="clear">Limpiar</button>
+          <button class="primary-btn compact-btn" type="button" data-minutes-action="save">Guardar acta</button>
+        </div>
+      </section>
+
+      <section class="minutes-history-card" aria-label="Historial de actas">
+        <div class="minutes-history-head">
+          <div>
+            <p class="eyebrow">Historial</p>
+            <h4>${filtered.length} actas registradas</h4>
+          </div>
+          <label class="admin-search compact-search">
+            <span>Buscar acta</span>
+            <input id="minuteSearchInput" type="search" value="${escapeHtml(state.adminMinuteQuery)}" placeholder="Titulo, gerencia o acuerdo">
+          </label>
+        </div>
+        <div class="minutes-history-list">
+          ${filtered.length ? filtered.map((item) => `
+            <article class="minute-history-item">
+              <div>
+                <time>${formatDate(item.date)}</time>
+                <strong>${escapeHtml(item.title)}</strong>
+                <span>${escapeHtml(item.area)} · ${escapeHtml(item.createdBy)}</span>
+              </div>
+              <div class="minute-preview">${item.body || "<em>Sin contenido.</em>"}</div>
+            </article>
+          `).join("") : `
+            <div class="admin-empty">
+              <strong>No hay actas con ese criterio.</strong>
+              <span>Guarda la primera acta para iniciar el historial.</span>
+            </div>
+          `}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function wireAdminMinutesPanel() {
+  const editor = adminPanel.querySelector("#minuteEditor");
+  adminPanel.querySelectorAll("[data-editor-command]").forEach((button) => {
+    button.addEventListener("click", () => {
+      editor?.focus();
+      document.execCommand(button.dataset.editorCommand, false, null);
+    });
+  });
+  adminPanel.querySelector("[data-minutes-action='clear']")?.addEventListener("click", () => {
+    const title = adminPanel.querySelector("#minuteTitle");
+    const area = adminPanel.querySelector("#minuteArea");
+    const date = adminPanel.querySelector("#minuteDate");
+    if (title) title.value = "";
+    if (area) area.value = "Comite de apoyo";
+    if (date) date.value = new Date().toISOString().slice(0, 10);
+    if (editor) editor.innerHTML = "";
+  });
+  adminPanel.querySelector("[data-minutes-action='save']")?.addEventListener("click", () => {
+    const title = adminPanel.querySelector("#minuteTitle")?.value.trim();
+    const area = adminPanel.querySelector("#minuteArea")?.value || "Comite de apoyo";
+    const date = adminPanel.querySelector("#minuteDate")?.value || new Date().toISOString().slice(0, 10);
+    const body = editor?.innerHTML.trim() || "";
+    if (!title || !body) {
+      alert("Agrega titulo y contenido para guardar el acta.");
+      return;
+    }
+    saveMinute({ title, area, date, body });
+  });
+  const searchInput = adminPanel.querySelector("#minuteSearchInput");
+  searchInput?.addEventListener("input", (event) => {
+    state.adminMinuteQuery = event.target.value;
+    renderAdminPanel();
+    requestAnimationFrame(() => {
+      const nextSearchInput = adminPanel.querySelector("#minuteSearchInput");
+      nextSearchInput?.focus();
+      nextSearchInput?.setSelectionRange(nextSearchInput.value.length, nextSearchInput.value.length);
+    });
+  });
+}
+
+function renderAdminPanel() {
+  if (!adminPanel) return;
+  adminPanel.classList.remove("hidden");
+  const keepAdminSearchFocus = document.activeElement?.id === "adminSearchInput";
+  const activeAdminSubmenu = state.activeSubmenu === "actas" ? "actas" : "permisos";
+  adminPanel.innerHTML = activeAdminSubmenu === "actas"
+    ? renderAdminMinutesPanel()
+    : renderAdminPermissionsPanel();
+  if (activeAdminSubmenu === "actas") wireAdminMinutesPanel();
+  else {
+    wireAdminPermissionsPanel();
+    if (keepAdminSearchFocus) {
+      requestAnimationFrame(() => {
+        const nextSearchInput = adminPanel.querySelector("#adminSearchInput");
+        nextSearchInput?.focus();
+        nextSearchInput?.setSelectionRange(nextSearchInput.value.length, nextSearchInput.value.length);
+      });
+    }
+  }
 }
 
 function renderDashboard() {
@@ -3638,12 +3882,16 @@ function renderDashboard() {
   renderPresenceList();
 
   if (state.activeArea === adminAreaKey) {
+    if (!visibleItems.some((item) => item.key === state.activeSubmenu)) {
+      state.activeSubmenu = visibleItems[0]?.key || "permisos";
+    }
+    const activeAdminSubmenu = visibleItems.find((item) => item.key === state.activeSubmenu);
     dashboard.classList.add("admin-focus");
     dashboard.classList.remove("opportunity-focus");
-    pageTitle.textContent = area.label;
-    periodLabel.textContent = "Control de accesos";
+    pageTitle.textContent = activeAdminSubmenu?.label || area.label;
+    periodLabel.textContent = state.activeSubmenu === "actas" ? "Editor e historial" : "Control de accesos";
     topbarActions?.classList.add("hidden");
-    overallStatus.textContent = area.status;
+    overallStatus.textContent = state.activeSubmenu === "actas" ? `${state.minutes.length} actas` : area.status;
     renderNav();
     summaryGrid.innerHTML = "";
     commercialPanel.classList.add("hidden");
@@ -4514,5 +4762,6 @@ loadUsers();
 loadOpportunities();
 loadStrategicRisks();
 loadManagementRequests();
+loadMinutes();
 loadCrmData();
 resetOpportunityForm();

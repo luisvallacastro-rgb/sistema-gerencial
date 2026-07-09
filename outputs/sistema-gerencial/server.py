@@ -322,15 +322,20 @@ def build_crm_view_model(data, include_private=False):
 
 
 def default_permissions_for_role(role):
-    if role in {"general", "accionistas"}:
-        return list(ALL_PERMISSIONS)
-    if role in AREA_KEYS:
-        return list(dict.fromkeys([f"{role}:{section}" for section in SECTION_KEYS] + SHARED_DEFAULT_PERMISSIONS))
-    return list(SHARED_DEFAULT_PERMISSIONS)
+    return list(ALL_PERMISSIONS)
 
 
 def normalize_permissions(value, role):
-    return list(ALL_PERMISSIONS)
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            value = []
+    if not isinstance(value, list) or not value:
+        return default_permissions_for_role(role)
+    valid = set(ALL_PERMISSIONS)
+    permissions = [item for item in value if item in valid]
+    return list(dict.fromkeys(permissions)) or default_permissions_for_role(role)
 
 
 def normalize_user(data, index=0):
@@ -428,6 +433,17 @@ def init_db():
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS minutes (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                area TEXT NOT NULL,
+                date TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
@@ -495,6 +511,27 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([dict(row) for row in rows])
             return
 
+        if self.path == "/api/minutes":
+            with connect() as conn:
+                rows = conn.execute("""
+                    SELECT id, title, area, date, body, created_by, created_at
+                    FROM minutes
+                    ORDER BY created_at DESC
+                """).fetchall()
+            self.send_json([
+                {
+                    "id": row["id"],
+                    "title": row["title"],
+                    "area": row["area"],
+                    "date": row["date"],
+                    "body": row["body"],
+                    "createdBy": row["created_by"],
+                    "createdAt": row["created_at"],
+                }
+                for row in rows
+            ])
+            return
+
         if self.path == "/api/opportunities":
             with connect() as conn:
                 value = conn.execute(
@@ -536,6 +573,38 @@ class AppHandler(BaseHTTPRequestHandler):
                     ORDER BY last_seen DESC, name
                 """).fetchall()
             self.send_json([dict(row) for row in rows])
+            return
+
+        if self.path == "/api/minutes":
+            data = self.read_json()
+            minute_id = text(data.get("id"), f"acta-{int(time.time())}")
+            title = text(data.get("title"))
+            body = text(data.get("body"))
+            if not title or not body:
+                self.send_json({"error": "Titulo y contenido requeridos"}, status=400)
+                return
+            payload = {
+                "id": minute_id,
+                "title": title,
+                "area": text(data.get("area"), "Comite de apoyo"),
+                "date": text(data.get("date"), time.strftime("%Y-%m-%d")),
+                "body": body,
+                "created_by": text(data.get("createdBy"), "Sistema Gerencial"),
+                "created_at": text(data.get("createdAt"), time.strftime("%Y-%m-%dT%H:%M:%S")),
+            }
+            with connect() as conn:
+                conn.execute("""
+                    INSERT INTO minutes (id, title, area, date, body, created_by, created_at)
+                    VALUES (:id, :title, :area, :date, :body, :created_by, :created_at)
+                    ON CONFLICT(id) DO UPDATE SET
+                        title = excluded.title,
+                        area = excluded.area,
+                        date = excluded.date,
+                        body = excluded.body,
+                        created_by = excluded.created_by,
+                        created_at = excluded.created_at
+                """, payload)
+            self.send_json({"ok": True, "minute": data}, status=201)
             return
 
         if self.path == "/api/users":
