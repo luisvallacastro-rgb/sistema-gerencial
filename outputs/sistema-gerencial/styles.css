@@ -7146,12 +7146,12 @@ body.operations-fullscreen-open {
 
 .operations-fullscreen-panel {
   position: relative;
-  width: min(1620px, 96vw);
-  max-height: 92vh;
-  overflow: auto;
-  border: 1px solid rgba(189, 211, 243, .28);
+  width: min(1760px, 96vw);
+  height: min(960px, 92vh);
+  overflow: hidden;
+  border: 1px solid rgba(189, 211, 243, .24);
   border-radius: 42px;
-  padding: 24px;
+  padding: clamp(18px, 2vw, 32px);
   background:
     radial-gradient(circle at 18% 0%, rgba(116, 140, 179, .32), transparent 38%),
     linear-gradient(145deg, rgba(48, 68, 104, .68), rgba(9, 24, 45, .88));
@@ -7162,27 +7162,44 @@ body.operations-fullscreen-open {
 
 .operations-fullscreen-close {
   position: absolute;
-  top: 22px;
-  right: 22px;
-  z-index: 3;
+  top: clamp(26px, 3vw, 44px);
+  right: clamp(26px, 3vw, 44px);
+  z-index: 6;
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .92);
+  color: #14201f;
+  box-shadow: 0 16px 36px rgba(4, 12, 24, .22);
 }
 
-.operations-fullscreen-overlay .operations-presentation-head {
-  padding-right: 70px;
-}
-
-.operations-fullscreen-overlay .operations-presentation {
-  min-height: calc(92vh - 48px);
-}
-
-.operations-fullscreen-overlay .operations-presentation-layout {
-  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
-  align-items: stretch;
+.operations-fullscreen-stage {
+  height: 100%;
+  display: grid;
+  place-items: stretch;
+  padding: 0;
+  overflow: hidden;
 }
 
 .operations-fullscreen-overlay .operations-slide {
-  min-height: calc(92vh - 230px);
-  max-height: calc(92vh - 230px);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  padding: clamp(54px, 5vw, 92px);
+  border-radius: 36px;
+  overflow-y: auto;
+}
+
+.operations-fullscreen-overlay .operations-slide h3 {
+  max-width: 1180px;
+  font-size: clamp(54px, 6vw, 104px);
+}
+
+.operations-fullscreen-overlay .operations-slide-body {
+  max-width: 1280px;
+  font-size: clamp(28px, 3.1vw, 48px);
 }
 
 @media (max-width: 1180px) {

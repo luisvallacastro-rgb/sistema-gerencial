@@ -2213,6 +2213,16 @@ function operationsPresentationMarkup({ fullscreen = false } = {}) {
   `;
 }
 
+function operationsPresentationFullscreenMarkup() {
+  const activeIndex = Math.max(0, Math.min(operationsPresentationSections.length - 1, Number(state.operationsPresentationSection) || 0));
+  const section = operationsPresentationSections[activeIndex];
+  return `
+    <section class="operations-fullscreen-stage" aria-label="Lamina de presentacion en pantalla completa">
+      ${renderOperationsSlide(section, { fullscreen: true })}
+    </section>
+  `;
+}
+
 function renderOperationsPresentations() {
   return operationsPresentationMarkup();
 }
@@ -2224,7 +2234,7 @@ function openOperationsPresentationFullscreen() {
   overlay.innerHTML = `
     <div class="operations-fullscreen-panel" role="dialog" aria-modal="true" aria-label="Presentaciones de Operaciones en vista panoramica">
       <button class="action-icon-btn operations-fullscreen-close" type="button" data-operations-close-fullscreen aria-label="Cerrar vista panoramica">×</button>
-      ${operationsPresentationMarkup({ fullscreen: true })}
+      ${operationsPresentationFullscreenMarkup()}
     </div>
   `;
   document.body.appendChild(overlay);
