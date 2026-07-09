@@ -236,6 +236,7 @@ const state = {
   commercialMenuOpen: true,
   opportunityFilter: null,
   opportunityCycleView: "active",
+  opportunityPage: 1,
   kpiView: "dashboard",
   kpiSeller: "all",
   adminQuery: "",
@@ -453,6 +454,7 @@ const defaultManagementRequests = [];
 const demoStrategicRiskIds = new Set(["risk-001", "risk-002", "risk-003"]);
 const demoManagementRequestIds = new Set(["req-001", "req-002"]);
 const defaultOpportunities = [];
+const opportunityPageSize = 10;
 
 const loginView = document.querySelector("#loginView");
 const appShell = document.querySelector("#appShell");
@@ -892,6 +894,39 @@ function opportunityCycleRows(items) {
       ...importedHistoryRows
     ].sort((a, b) => `${b.result.date} ${b.result.time || ""}`.localeCompare(`${a.result.date} ${a.result.time || ""}`))
   };
+}
+
+function renderOpportunitySummary(activeRows, historyRows) {
+  const allRows = [...activeRows, ...historyRows];
+  const wonRows = allRows.filter((row) => row.result?.result === "ganado" || row.isImportedHistory);
+  const lostRows = allRows.filter((row) => row.result?.result === "perdida");
+  const activeAmount = activeRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
+  const closedAmount = wonRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
+
+  return `
+    <section class="opportunity-summary-strip" aria-label="Sumaria de oportunidades">
+      <article>
+        <span>Total oportunidades</span>
+        <strong>${allRows.length}</strong>
+        <small>${activeRows.length} vigentes / ${historyRows.length} historial</small>
+      </article>
+      <article>
+        <span>Pipeline vigente</span>
+        <strong>${formatMoney(activeAmount)}</strong>
+        <small>Oportunidades abiertas</small>
+      </article>
+      <article>
+        <span>Ganadas</span>
+        <strong>${wonRows.length}</strong>
+        <small>${formatMoney(closedAmount)}</small>
+      </article>
+      <article>
+        <span>Perdidas</span>
+        <strong>${lostRows.length}</strong>
+        <small>Cierres no concretados</small>
+      </article>
+    </section>
+  `;
 }
 
 function matrixRowForMonth(monthNumber) {
@@ -2709,6 +2744,11 @@ function renderCommercialSubmenu(area) {
   const activeRows = cycleRows.active;
   const historyRows = cycleRows.history;
   const displayRows = state.opportunityCycleView === "history" ? historyRows : activeRows;
+  const pageCount = Math.max(1, Math.ceil(displayRows.length / opportunityPageSize));
+  state.opportunityPage = Math.min(Math.max(Number(state.opportunityPage) || 1, 1), pageCount);
+  const pageStart = (state.opportunityPage - 1) * opportunityPageSize;
+  const pageEnd = pageStart + opportunityPageSize;
+  const pagedRows = displayRows.slice(pageStart, pageEnd);
   commercialSubmenuStatus.textContent = `${activeRows.length} vigentes / ${historyRows.length} historial`;
 
   if (!submenu.items.length) {
@@ -2733,6 +2773,7 @@ function renderCommercialSubmenu(area) {
       </button>
       <small>Corte mensual: las cerradas antes de ${formatDate(activePeriodStart())} quedan archivadas.</small>
     </div>
+    ${renderOpportunitySummary(activeRows, historyRows)}
     ${state.opportunityCycleView === "dashboard" ? renderCycleDashboard(submenu.items) : state.opportunityCycleView === "history" ? renderHistoryList(historyRows) : `
     <div class="opportunity-row opportunity-header">
       <strong>Fecha</strong>
@@ -2744,7 +2785,7 @@ function renderCommercialSubmenu(area) {
       <strong>Acciones</strong>
     </div>
     <div class="opportunity-table-body">
-      ${displayRows.length ? displayRows.map(({ item, result, isInherited, isHistory, isImportedHistory }) => `
+      ${displayRows.length ? pagedRows.map(({ item, result, isInherited, isHistory, isImportedHistory }) => `
         <div class="opportunity-row ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
           <span>${formatDate(item.date)}</span>
           <strong class="company-cell">
@@ -2781,6 +2822,16 @@ function renderCommercialSubmenu(area) {
         </div>
       `}
     </div>
+    ${displayRows.length > opportunityPageSize ? `
+      <div class="opportunity-pagination" aria-label="Paginacion de oportunidades">
+        <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, displayRows.length)} de ${displayRows.length}</span>
+        <div>
+          <button class="ghost-btn compact-btn" type="button" data-opportunity-page="prev" ${state.opportunityPage <= 1 ? "disabled" : ""}>Anterior</button>
+          <strong>Pagina ${state.opportunityPage} de ${pageCount}</strong>
+          <button class="ghost-btn compact-btn" type="button" data-opportunity-page="next" ${state.opportunityPage >= pageCount ? "disabled" : ""}>Siguiente</button>
+        </div>
+      </div>
+    ` : ""}
     `}
   `;
 }
@@ -4054,6 +4105,14 @@ opportunityTable.addEventListener("click", (event) => {
   const cycleButton = event.target.closest("[data-cycle-view]");
   if (cycleButton) {
     state.opportunityCycleView = cycleButton.dataset.cycleView;
+    state.opportunityPage = 1;
+    renderCommercialSubmenu(areas[state.activeArea]);
+    return;
+  }
+
+  const pageButton = event.target.closest("[data-opportunity-page]");
+  if (pageButton) {
+    state.opportunityPage += pageButton.dataset.opportunityPage === "next" ? 1 : -1;
     renderCommercialSubmenu(areas[state.activeArea]);
     return;
   }

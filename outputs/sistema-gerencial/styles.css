@@ -1317,6 +1317,40 @@ button:disabled {
   margin-left: auto;
 }
 
+.opportunity-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.opportunity-summary-strip article {
+  min-height: 78px;
+  border: 1px solid rgba(183, 206, 236, .2);
+  border-radius: 18px;
+  padding: 12px 14px;
+  background:
+    linear-gradient(145deg, rgba(92, 110, 146, .22), rgba(19, 34, 62, .34)),
+    rgba(12, 25, 47, .58);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 12px 28px rgba(2, 8, 20, .12);
+}
+
+.opportunity-summary-strip span,
+.opportunity-summary-strip small {
+  display: block;
+  color: rgba(218, 229, 241, .78);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.opportunity-summary-strip strong {
+  display: block;
+  margin: 6px 0 2px;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+}
+
 .cycle-dashboard {
   display: grid;
   gap: 14px;
@@ -2647,23 +2681,27 @@ button:disabled {
 }
 
 .closure-badge.won {
-  background: #edf8f2;
-  color: var(--green);
+  border: 1px solid rgba(128, 229, 202, .32);
+  background: rgba(20, 128, 96, .34);
+  color: #dffcf3;
 }
 
 .closure-badge.lost {
-  background: #fff0ef;
-  color: var(--red);
+  border: 1px solid rgba(255, 151, 151, .28);
+  background: rgba(151, 47, 54, .34);
+  color: #ffe1df;
 }
 
 .closure-badge.inherited {
-  background: #fff3df;
-  color: var(--amber);
+  border: 1px solid rgba(255, 214, 148, .32);
+  background: rgba(157, 106, 31, .42);
+  color: #ffe1aa;
 }
 
 .closure-badge.historical {
-  background: #eef1ef;
-  color: var(--muted);
+  border: 1px solid rgba(205, 224, 244, .18);
+  background: rgba(168, 188, 214, .2);
+  color: rgba(242, 248, 255, .88);
 }
 
 .history-lock {
@@ -2677,6 +2715,35 @@ button:disabled {
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
+}
+
+.opportunity-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(183, 206, 236, .18);
+  border-radius: 16px;
+  padding: 10px 12px;
+  background: rgba(12, 25, 47, .46);
+  color: rgba(218, 229, 241, .82);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.opportunity-pagination div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.opportunity-pagination strong {
+  color: #fff;
+}
+
+.opportunity-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
 }
 
 .history-inbox {
