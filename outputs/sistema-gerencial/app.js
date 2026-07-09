@@ -635,6 +635,14 @@ function isAdminUser(user = state.currentUser) {
   return Boolean(user?.admin) || normalizeKey(user?.email) === adminEmail;
 }
 
+function canOpenAdminPermissions(user = state.currentUser) {
+  return isAdminUser(user);
+}
+
+function canOpenAdminMinutes(user = state.currentUser) {
+  return Boolean(user);
+}
+
 function userPermissions(user = state.currentUser) {
   if (isAdminUser(user)) return new Set(allPermissionKeys());
   return new Set(normalizePermissionList(user?.permissions, user?.role || state.role));
@@ -643,7 +651,13 @@ function userPermissions(user = state.currentUser) {
 function visibleSubmenus(areaKey, user = state.currentUser) {
   const area = areas[areaKey];
   if (!Array.isArray(area?.submenus)) return [];
-  if (areaKey === adminAreaKey) return isAdminUser(user) ? area.submenus : [];
+  if (areaKey === adminAreaKey) {
+    return area.submenus.filter((item) => {
+      if (item.key === "permisos") return canOpenAdminPermissions(user);
+      if (item.key === "actas") return canOpenAdminMinutes(user);
+      return false;
+    });
+  }
   const permissions = userPermissions(user);
   return area.submenus.filter((item) => permissions.has(permissionKey(areaKey, item.key)));
 }
@@ -654,7 +668,7 @@ function fallbackAreaForRole(role) {
 
 function allowedAreas(user = state.currentUser) {
   const visible = areaKeys.filter((areaKey) => visibleSubmenus(areaKey, user).length);
-  if (isAdminUser(user)) visible.push(adminAreaKey);
+  if (visibleSubmenus(adminAreaKey, user).length) visible.push(adminAreaKey);
   return visible.length ? visible : [fallbackAreaForRole(user?.role || state.role)];
 }
 
