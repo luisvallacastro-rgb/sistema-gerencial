@@ -6029,3 +6029,169 @@ menu {
 .app-shell .opportunity-table-body .opportunity-row:first-child {
   margin-top: 0 !important;
 }
+
+/* Sidebar and opportunity table polish after presence navigation. */
+.app-shell .sidebar {
+  padding: 22px 18px;
+}
+
+.app-shell .brand-row.compact {
+  min-width: 0;
+  padding: 6px 2px 18px;
+}
+
+.app-shell .brand-row.compact strong,
+.app-shell .brand-row.compact small {
+  display: block;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell .brand-row.compact strong {
+  font-size: 17px;
+  line-height: 1.15;
+}
+
+.app-shell .nav-list {
+  gap: 6px;
+  padding-right: 8px;
+}
+
+.app-shell .nav-item {
+  min-height: 42px;
+  border-radius: 18px;
+  padding: 0 10px;
+  min-width: 0;
+}
+
+.app-shell .nav-item > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell .submenu-list {
+  gap: 5px;
+  margin: 0 0 6px 16px;
+}
+
+.app-shell .submenu-item {
+  min-height: 32px;
+  border-radius: 16px;
+  padding: 0 10px;
+}
+
+.app-shell .submenu-item.crm-child {
+  width: calc(100% - 14px);
+  margin-left: 14px;
+}
+
+.app-shell .nav-caret {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  text-transform: none;
+}
+
+.app-shell .presence-panel {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 18px;
+}
+
+.app-shell .presence-list {
+  max-height: 82px;
+}
+
+.app-shell .logout {
+  min-height: 42px;
+  margin-top: 8px;
+}
+
+.app-shell .opportunity-row {
+  grid-template-columns: 108px minmax(180px, 1.32fr) minmax(150px, .9fr) minmax(120px, .82fr) minmax(150px, 1fr) minmax(112px, .75fr) minmax(144px, .8fr) !important;
+  gap: 14px !important;
+  min-height: 60px !important;
+  border-radius: 14px !important;
+  padding: 10px 14px !important;
+  align-items: center !important;
+}
+
+.app-shell .opportunity-header {
+  min-height: 48px !important;
+  border-radius: 14px !important;
+  padding-block: 10px !important;
+}
+
+.app-shell .opportunity-row > span,
+.app-shell .opportunity-row > strong {
+  min-width: 0;
+}
+
+.app-shell .opportunity-row > span:not(.row-actions),
+.app-shell .opportunity-row > strong:not(.company-cell) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-shell .company-cell {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.app-shell .company-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.12;
+}
+
+.app-shell .closure-badge {
+  min-height: 22px;
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 8px;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.app-shell .opportunity-row .tag {
+  min-height: 28px;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell .row-actions {
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.app-shell .action-icon-btn {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+}
+
+.app-shell .opportunity-pagination {
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(38, 54, 86, .82), rgba(13, 27, 50, .82)),
+    rgba(8, 18, 34, .84);
+}

@@ -1682,7 +1682,7 @@ function renderNav() {
     button.className = `nav-item ${state.activeArea === key ? "active" : ""}`;
     button.type = "button";
     button.setAttribute("aria-expanded", hasSubmenus ? String(isOpen) : "false");
-    button.innerHTML = `<span>${area.nav}</span>${hasSubmenus ? `<span class="nav-caret">${isOpen ? "Ocultar" : "Ver"}</span>` : ""}`;
+    button.innerHTML = `<span>${area.nav}</span>${hasSubmenus ? `<span class="nav-caret" title="${isOpen ? "Ocultar" : "Ver"}">${isOpen ? "−" : "+"}</span>` : ""}`;
     button.addEventListener("click", () => {
       if (key === adminAreaKey) {
         state.activeArea = adminAreaKey;
@@ -2807,7 +2807,7 @@ function renderCommercialSubmenu(area) {
         <div class="opportunity-row ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
           <span>${formatDate(item.date)}</span>
           <strong class="company-cell">
-            ${item.company}
+            <span class="company-name">${item.company}</span>
             ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
             ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
             ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}">${result.result === "ganado" ? "Ganado" : "Perdida"}</span>` : ""}
