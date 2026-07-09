@@ -330,15 +330,7 @@ def default_permissions_for_role(role):
 
 
 def normalize_permissions(value, role):
-    if isinstance(value, str):
-        try:
-            value = json.loads(value)
-        except json.JSONDecodeError:
-            value = []
-    if not isinstance(value, list) or not value:
-        value = default_permissions_for_role(role)
-    valid = set(ALL_PERMISSIONS)
-    return list(dict.fromkeys([item for item in value if item in valid] + SHARED_DEFAULT_PERMISSIONS))
+    return list(ALL_PERMISSIONS)
 
 
 def normalize_user(data, index=0):

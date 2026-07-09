@@ -614,24 +614,11 @@ function withSharedDefaultPermissions(permissions) {
 }
 
 function defaultPermissionsForRole(role) {
-  if (["general", "accionistas"].includes(role)) return allPermissionKeys();
-  if (areaKeys.includes(role)) {
-    return withSharedDefaultPermissions(sectionOptions.map((section) => permissionKey(role, section.key)));
-  }
-  return sharedDefaultPermissionKeys();
+  return allPermissionKeys();
 }
 
 function normalizePermissionList(value, role) {
-  const valid = new Set(allPermissionKeys());
-  const source = Array.isArray(value) && value.length ? value : defaultPermissionsForRole(role);
-  const next = withSharedDefaultPermissions(source.filter((item) => valid.has(item)));
-  if (["general", "accionistas"].includes(role)) {
-    return allPermissionKeys();
-  }
-  if (role === "comercializacion") {
-    return [...new Set([...next, ...sectionOptions.map((section) => permissionKey("comercializacion", section.key))])];
-  }
-  return next;
+  return allPermissionKeys();
 }
 
 function isAdminUser(user = state.currentUser) {
