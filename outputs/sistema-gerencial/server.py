@@ -676,6 +676,12 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
             return
+        if self.path.startswith("/api/minutes/"):
+            minute_id = unquote(self.path.rsplit("/", 1)[-1])
+            with connect() as conn:
+                conn.execute("DELETE FROM minutes WHERE id = ?", (minute_id,))
+            self.send_json({"ok": True})
+            return
         if self.path.startswith("/api/presence/"):
             user_id = unquote(self.path.rsplit("/", 1)[-1])
             with connect() as conn:

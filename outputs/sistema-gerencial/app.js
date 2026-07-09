@@ -3733,11 +3733,122 @@ function saveMinute(item) {
   renderAdminPanel();
 }
 
+function deleteMinute(id) {
+  const minute = state.minutes.find((item) => item.id === id);
+  if (!minute) return;
+  if (!confirm(`Eliminar el acta "${minute.title}"?`)) return;
+  state.minutes = state.minutes.filter((item) => item.id !== id);
+  localStorage.setItem(minutesStorageKey, JSON.stringify(state.minutes));
+  if (apiEnabled) {
+    apiJson(`/api/minutes/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+  }
+  renderAdminPanel();
+}
+
+function minuteAreaOptions(selectedArea = "Comite de apoyo") {
+  const options = ["Comite de apoyo", ...areaKeys.map((key) => areas[key].nav)];
+  return options.map((option) => `
+    <option ${option === selectedArea ? "selected" : ""}>${escapeHtml(option)}</option>
+  `).join("");
+}
+
+function minuteFormMarkup({ item = null, prefix = "minute", panoramic = false } = {}) {
+  const minute = item ? {
+    ...normalizeMinute(item),
+    id: item.id || "",
+    title: item.title || "",
+    body: sanitizeMinuteBody(item.body || ""),
+    createdAt: item.createdAt || "",
+    createdBy: item.createdBy || ""
+  } : null;
+  const title = minute?.title || "";
+  const area = minute?.area || "Comite de apoyo";
+  const date = minute?.date || new Date().toISOString().slice(0, 10);
+  const body = minute?.body || "";
+  return `
+    <section class="minutes-editor-card ${panoramic ? "panoramic-editor-card" : ""}" data-minute-form aria-label="${minute ? "Editar acta" : "Nueva acta"}">
+      <input type="hidden" data-minute-field="id" value="${escapeHtml(minute?.id || "")}">
+      <input type="hidden" data-minute-field="createdAt" value="${escapeHtml(minute?.createdAt || "")}">
+      <input type="hidden" data-minute-field="createdBy" value="${escapeHtml(minute?.createdBy || "")}">
+      <div class="minutes-editor-head">
+        <div>
+          <p class="eyebrow">${minute ? "Editar acta" : "Nueva acta"}</p>
+          <h4>${minute ? escapeHtml(minute.title) : "Acuerdos del comite"}</h4>
+        </div>
+        <div class="minutes-head-actions">
+          ${panoramic ? "" : `<button class="action-icon-btn minute-action-icon" type="button" title="Vista panoramica" aria-label="Abrir nueva acta en vista panoramica" data-minutes-action="fullscreen-new">⛶</button>`}
+          <div class="minutes-toolbar" aria-label="Herramientas de texto">
+            <button type="button" data-editor-command="bold" title="Negrita">B</button>
+            <button type="button" data-editor-command="italic" title="Cursiva">I</button>
+            <button type="button" data-editor-command="underline" title="Subrayado">U</button>
+            <button type="button" data-editor-command="insertUnorderedList" title="Lista">☷</button>
+            <button type="button" data-editor-command="insertOrderedList" title="Numeracion">1.</button>
+          </div>
+        </div>
+      </div>
+      <div class="minutes-fields">
+        <label>
+          <span>Titulo</span>
+          <input data-minute-field="title" type="text" value="${escapeHtml(title)}" placeholder="Ej. Comite de Apoyo - acuerdos semanales">
+        </label>
+        <label>
+          <span>Gerencia / reunion</span>
+          <select data-minute-field="area">
+            ${minuteAreaOptions(area)}
+          </select>
+        </label>
+        <label>
+          <span>Fecha</span>
+          <input data-minute-field="date" type="date" value="${escapeHtml(date)}">
+        </label>
+      </div>
+      <div class="minutes-editor" contenteditable="true" role="textbox" aria-multiline="true" data-minute-field="body" data-placeholder="Redacta acuerdos, responsables, fechas compromiso y observaciones...">${body}</div>
+      <div class="minutes-actions">
+        <button class="ghost-btn compact-btn" type="button" data-minutes-action="${minute ? "cancel-edit" : "clear"}">${minute ? "Cancelar edicion" : "Limpiar"}</button>
+        <button class="primary-btn compact-btn" type="button" data-minutes-action="save">${minute ? "Guardar cambios" : "Guardar acta"}</button>
+      </div>
+    </section>
+  `;
+}
+
+function collectMinuteFromForm(form) {
+  const id = form.querySelector("[data-minute-field='id']")?.value || "";
+  const createdAt = form.querySelector("[data-minute-field='createdAt']")?.value || "";
+  const createdBy = form.querySelector("[data-minute-field='createdBy']")?.value || "";
+  return {
+    id: id || undefined,
+    title: form.querySelector("[data-minute-field='title']")?.value.trim(),
+    area: form.querySelector("[data-minute-field='area']")?.value || "Comite de apoyo",
+    date: form.querySelector("[data-minute-field='date']")?.value || new Date().toISOString().slice(0, 10),
+    body: form.querySelector("[data-minute-field='body']")?.innerHTML.trim() || "",
+    createdAt: createdAt || undefined,
+    createdBy: createdBy || undefined
+  };
+}
+
+function openMinuteFullscreen(item = null) {
+  document.querySelector(".minute-fullscreen-overlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "minute-fullscreen-overlay";
+  overlay.innerHTML = `
+    <div class="minute-fullscreen-panel" role="dialog" aria-modal="true" aria-label="${item ? "Editar acta en vista panoramica" : "Nueva acta en vista panoramica"}">
+      <button class="action-icon-btn minute-fullscreen-close" type="button" title="Cerrar" aria-label="Cerrar vista panoramica" data-minutes-action="close-fullscreen">×</button>
+      ${minuteFormMarkup({ item, prefix: "fullscreen", panoramic: true })}
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  wireMinuteForms(overlay);
+  overlay.querySelector("[data-minute-field='title']")?.focus();
+}
+
+function closeMinuteFullscreen() {
+  document.querySelector(".minute-fullscreen-overlay")?.remove();
+}
+
 function renderAdminMinutesPanel() {
   const query = normalizeKey(state.adminMinuteQuery);
   const minutes = [...state.minutes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const filtered = minutes.filter((item) => !query || normalizeKey([item.title, item.area, item.createdBy, item.body].join(" ")).includes(query));
-  const currentDate = new Date().toISOString().slice(0, 10);
   return `
     <div class="admin-shell minutes-shell">
       <div class="admin-hero minutes-hero">
@@ -3752,43 +3863,9 @@ function renderAdminMinutesPanel() {
         </div>
       </div>
 
-      <section class="minutes-editor-card" aria-label="Nueva acta">
-        <div class="minutes-editor-head">
-          <div>
-            <p class="eyebrow">Nueva acta</p>
-            <h4>Acuerdos del comite</h4>
-          </div>
-          <div class="minutes-toolbar" aria-label="Herramientas de texto">
-            <button type="button" data-editor-command="bold" title="Negrita">B</button>
-            <button type="button" data-editor-command="italic" title="Cursiva">I</button>
-            <button type="button" data-editor-command="underline" title="Subrayado">U</button>
-            <button type="button" data-editor-command="insertUnorderedList" title="Lista">☷</button>
-            <button type="button" data-editor-command="insertOrderedList" title="Numeracion">1.</button>
-          </div>
-        </div>
-        <div class="minutes-fields">
-          <label>
-            <span>Titulo</span>
-            <input id="minuteTitle" type="text" placeholder="Ej. Comite de Apoyo - acuerdos semanales">
-          </label>
-          <label>
-            <span>Gerencia / reunion</span>
-            <select id="minuteArea">
-              <option>Comite de apoyo</option>
-              ${areaKeys.map((key) => `<option>${escapeHtml(areas[key].nav)}</option>`).join("")}
-            </select>
-          </label>
-          <label>
-            <span>Fecha</span>
-            <input id="minuteDate" type="date" value="${currentDate}">
-          </label>
-        </div>
-        <div id="minuteEditor" class="minutes-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Redacta acuerdos, responsables, fechas compromiso y observaciones..."></div>
-        <div class="minutes-actions">
-          <button class="ghost-btn compact-btn" type="button" data-minutes-action="clear">Limpiar</button>
-          <button class="primary-btn compact-btn" type="button" data-minutes-action="save">Guardar acta</button>
-        </div>
-      </section>
+      <div id="minuteInlineEditor">
+        ${minuteFormMarkup()}
+      </div>
 
       <section class="minutes-history-card" aria-label="Historial de actas">
         <div class="minutes-history-head">
@@ -3810,6 +3887,11 @@ function renderAdminMinutesPanel() {
                 <span>${escapeHtml(item.area)} · ${escapeHtml(item.createdBy)}</span>
               </div>
               <div class="minute-preview">${item.body || "<em>Sin contenido.</em>"}</div>
+              <div class="minute-history-actions">
+                <button class="action-icon-btn minute-action-icon" type="button" title="Vista panoramica" aria-label="Abrir acta en vista panoramica" data-minutes-action="fullscreen-existing" data-minute-id="${escapeHtml(item.id)}">⛶</button>
+                <button class="action-icon-btn minute-action-icon" type="button" title="Editar acta" aria-label="Editar acta" data-minutes-action="edit" data-minute-id="${escapeHtml(item.id)}">✎</button>
+                <button class="action-icon-btn minute-action-icon danger" type="button" title="Eliminar acta" aria-label="Eliminar acta" data-minutes-action="delete" data-minute-id="${escapeHtml(item.id)}">⌫</button>
+              </div>
             </article>
           `).join("") : `
             <div class="admin-empty">
@@ -3823,34 +3905,85 @@ function renderAdminMinutesPanel() {
   `;
 }
 
-function wireAdminMinutesPanel() {
-  const editor = adminPanel.querySelector("#minuteEditor");
-  adminPanel.querySelectorAll("[data-editor-command]").forEach((button) => {
+function resetInlineMinuteEditor() {
+  const wrapper = adminPanel.querySelector("#minuteInlineEditor");
+  if (!wrapper) return;
+  wrapper.innerHTML = minuteFormMarkup();
+  wireMinuteForms(wrapper);
+}
+
+function loadMinuteIntoInlineEditor(minuteId) {
+  const minute = state.minutes.find((item) => item.id === minuteId);
+  const wrapper = adminPanel.querySelector("#minuteInlineEditor");
+  if (!minute || !wrapper) return;
+  wrapper.innerHTML = minuteFormMarkup({ item: minute });
+  wireMinuteForms(wrapper);
+  wrapper.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function wireMinuteForms(root = document) {
+  root.querySelectorAll("[data-editor-command]").forEach((button) => {
     button.addEventListener("click", () => {
+      const form = button.closest("[data-minute-form]");
+      const editor = form?.querySelector("[data-minute-field='body']");
       editor?.focus();
       document.execCommand(button.dataset.editorCommand, false, null);
     });
   });
-  adminPanel.querySelector("[data-minutes-action='clear']")?.addEventListener("click", () => {
-    const title = adminPanel.querySelector("#minuteTitle");
-    const area = adminPanel.querySelector("#minuteArea");
-    const date = adminPanel.querySelector("#minuteDate");
-    if (title) title.value = "";
-    if (area) area.value = "Comite de apoyo";
-    if (date) date.value = new Date().toISOString().slice(0, 10);
-    if (editor) editor.innerHTML = "";
+  root.querySelectorAll("[data-minutes-action='clear']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const form = button.closest("[data-minute-form]");
+      if (!form) return;
+      form.querySelector("[data-minute-field='title']").value = "";
+      form.querySelector("[data-minute-field='area']").value = "Comite de apoyo";
+      form.querySelector("[data-minute-field='date']").value = new Date().toISOString().slice(0, 10);
+      form.querySelector("[data-minute-field='body']").innerHTML = "";
+    });
   });
-  adminPanel.querySelector("[data-minutes-action='save']")?.addEventListener("click", () => {
-    const title = adminPanel.querySelector("#minuteTitle")?.value.trim();
-    const area = adminPanel.querySelector("#minuteArea")?.value || "Comite de apoyo";
-    const date = adminPanel.querySelector("#minuteDate")?.value || new Date().toISOString().slice(0, 10);
-    const body = editor?.innerHTML.trim() || "";
-    if (!title || !body) {
-      alert("Agrega titulo y contenido para guardar el acta.");
-      return;
-    }
-    saveMinute({ title, area, date, body });
+  root.querySelectorAll("[data-minutes-action='cancel-edit']").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.closest(".minute-fullscreen-overlay")) closeMinuteFullscreen();
+      else resetInlineMinuteEditor();
+    });
   });
+  root.querySelectorAll("[data-minutes-action='save']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const form = button.closest("[data-minute-form]");
+      if (!form) return;
+      const payload = collectMinuteFromForm(form);
+      if (!payload.title || !payload.body) {
+        alert("Agrega titulo y contenido para guardar el acta.");
+        return;
+      }
+      saveMinute(payload);
+      closeMinuteFullscreen();
+    });
+  });
+  root.querySelectorAll("[data-minutes-action='fullscreen-new']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const form = button.closest("[data-minute-form]");
+      openMinuteFullscreen(form ? collectMinuteFromForm(form) : null);
+    });
+  });
+  root.querySelectorAll("[data-minutes-action='fullscreen-existing']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const minute = state.minutes.find((item) => item.id === button.dataset.minuteId);
+      openMinuteFullscreen(minute || null);
+    });
+  });
+  root.querySelectorAll("[data-minutes-action='edit']").forEach((button) => {
+    button.addEventListener("click", () => loadMinuteIntoInlineEditor(button.dataset.minuteId));
+  });
+  root.querySelectorAll("[data-minutes-action='delete']").forEach((button) => {
+    button.addEventListener("click", () => deleteMinute(button.dataset.minuteId));
+  });
+  root.querySelectorAll("[data-minutes-action='close-fullscreen']").forEach((button) => {
+    button.addEventListener("click", closeMinuteFullscreen);
+  });
+}
+
+function wireAdminMinutesPanel() {
+  wireMinuteForms(adminPanel);
   const searchInput = adminPanel.querySelector("#minuteSearchInput");
   searchInput?.addEventListener("input", (event) => {
     state.adminMinuteQuery = event.target.value;

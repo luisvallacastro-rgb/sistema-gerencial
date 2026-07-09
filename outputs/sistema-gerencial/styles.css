@@ -6468,6 +6468,13 @@ menu {
   background: rgba(10, 22, 42, .42);
 }
 
+.app-shell .minutes-head-actions,
+.minute-fullscreen-overlay .minutes-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .app-shell .minutes-toolbar button {
   width: 38px;
   height: 34px;
@@ -6476,6 +6483,14 @@ menu {
   background: rgba(205, 222, 246, .12);
   color: rgba(246, 250, 255, .92);
   font-weight: 900;
+}
+
+.app-shell .minute-action-icon,
+.minute-fullscreen-overlay .minute-action-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 16px;
+  color: rgba(238, 247, 255, .94);
 }
 
 .app-shell .minutes-fields {
@@ -6526,7 +6541,8 @@ menu {
 
 .app-shell .minute-history-item {
   display: grid;
-  grid-template-columns: minmax(220px, .55fr) minmax(0, 1fr);
+  grid-template-columns: minmax(220px, .46fr) minmax(0, 1fr) auto;
+  align-items: start;
   gap: 16px;
   border: 1px solid rgba(180, 201, 231, .2);
   border-radius: 24px;
@@ -6563,10 +6579,96 @@ menu {
   line-height: 1.45;
 }
 
+.app-shell .minute-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.minute-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 26px;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(46, 213, 172, .18), transparent 34%),
+    linear-gradient(135deg, rgba(6, 14, 28, .82), rgba(4, 23, 29, .88));
+  backdrop-filter: blur(18px);
+}
+
+.minute-fullscreen-panel {
+  position: relative;
+  width: min(1480px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  border: 1px solid rgba(177, 201, 236, .32);
+  border-radius: 38px;
+  padding: 22px;
+  background:
+    linear-gradient(145deg, rgba(78, 95, 130, .38), rgba(17, 31, 57, .7)),
+    rgba(11, 25, 47, .76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .14),
+    0 32px 90px rgba(0, 0, 0, .42);
+}
+
+.minute-fullscreen-close {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  z-index: 2;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  font-size: 24px;
+}
+
+.minute-fullscreen-overlay .minutes-editor-card {
+  border: 0;
+  padding: 20px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.minute-fullscreen-overlay .minutes-editor-head {
+  padding-right: 64px;
+}
+
+.minute-fullscreen-overlay .minutes-editor-head h4 {
+  font-size: 38px;
+}
+
+.minute-fullscreen-overlay .minutes-editor {
+  min-height: min(52vh, 560px);
+  max-height: none;
+  font-size: 20px;
+}
+
+.minute-fullscreen-overlay .minutes-fields {
+  grid-template-columns: minmax(280px, 1.1fr) minmax(220px, .7fr) 180px;
+}
+
 @media (max-width: 1180px) {
   .app-shell .permission-user-card,
   .app-shell .minute-history-item,
   .app-shell .minutes-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell .minute-history-actions {
+    justify-content: flex-start;
+  }
+
+  .minute-fullscreen-overlay {
+    padding: 12px;
+  }
+
+  .minute-fullscreen-panel,
+  .minute-fullscreen-overlay .minutes-fields {
+    width: 100%;
     grid-template-columns: 1fr;
   }
 }
