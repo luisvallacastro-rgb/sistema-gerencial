@@ -2148,9 +2148,14 @@ function renderOperationsBlock(block) {
   return "";
 }
 
-function renderOperationsSlide(section) {
+function renderOperationsSlide(section, { fullscreen = false } = {}) {
   return `
     <article class="operations-slide">
+      ${fullscreen ? "" : `
+        <button class="operations-slide-expand" type="button" data-operations-fullscreen title="Vista panoramica" aria-label="Ampliar esta presentacion a pantalla completa">
+          <span aria-hidden="true">⛶</span>
+        </button>
+      `}
       <p class="eyebrow">${escapeHtml(section.eyebrow)}</p>
       <h3>${escapeHtml(section.title)}</h3>
       <div class="operations-slide-body">
@@ -2202,7 +2207,7 @@ function operationsPresentationMarkup({ fullscreen = false } = {}) {
             </button>
           `).join("")}
         </nav>
-        ${renderOperationsSlide(section)}
+        ${renderOperationsSlide(section, { fullscreen })}
       </div>
     </section>
   `;
