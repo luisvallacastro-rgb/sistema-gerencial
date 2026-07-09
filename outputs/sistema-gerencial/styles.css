@@ -5449,3 +5449,145 @@ menu {
     linear-gradient(135deg, rgba(45, 125, 105, .22), rgba(18, 34, 60, .44)),
     rgba(10, 25, 45, .86) !important;
 }
+
+/* Resultados dashboard glass cleanup. */
+.app-shell .cycle-tab,
+.app-shell .global-accumulated-card,
+.app-shell .global-chart-footer > div,
+.app-shell .accumulated-month-card,
+.app-shell .accumulated-month-row,
+.app-shell .accumulated-month-row.future {
+  border-color: rgba(183, 206, 236, .2) !important;
+  background:
+    linear-gradient(145deg, rgba(92, 110, 146, .28), rgba(19, 34, 62, .4)),
+    rgba(12, 25, 47, .64) !important;
+  color: rgba(240, 247, 255, .92) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 14px 34px rgba(2, 8, 20, .16) !important;
+}
+
+.app-shell .cycle-tab.active,
+.app-shell .cycle-tab:hover {
+  border-color: rgba(128, 229, 202, .42) !important;
+  background:
+    linear-gradient(145deg, rgba(34, 129, 104, .32), rgba(22, 45, 74, .42)),
+    rgba(11, 31, 52, .7) !important;
+  color: #eafff8 !important;
+}
+
+.app-shell .cycle-tab span,
+.app-shell .cycle-tab.active span,
+.app-shell .accumulated-percent,
+.app-shell .accumulated-percent.annual,
+.app-shell .accumulated-month-row.future .accumulated-percent {
+  background: rgba(168, 188, 214, .2) !important;
+  border: 1px solid rgba(205, 224, 244, .16) !important;
+  color: rgba(242, 248, 255, .9) !important;
+}
+
+.app-shell .global-accumulated-card h3,
+.app-shell .global-accumulated-card strong,
+.app-shell .global-bar-row > strong,
+.app-shell .global-chart-footer strong,
+.app-shell .accumulated-chart-top h3,
+.app-shell .accumulated-month-row > strong,
+.app-shell .accumulated-values strong {
+  color: #ffffff !important;
+}
+
+.app-shell .global-bar-row > span,
+.app-shell .global-chart-footer span,
+.app-shell .chart-legend,
+.app-shell .accumulated-values span,
+.app-shell .accumulated-month-row.future .accumulated-values strong {
+  color: rgba(218, 229, 241, .78) !important;
+}
+
+.app-shell .global-bar-track,
+.app-shell .accumulated-track {
+  background: rgba(229, 238, 244, .12) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08) !important;
+}
+
+/* KPI detail dialog glass cleanup. */
+#kpiDetailDialog .kpi-detail-card,
+#kpiDetailDialog .kpi-detail-summary article,
+#kpiDetailDialog .kpi-report-counts article,
+#kpiDetailDialog .kpi-report-section,
+#kpiDetailDialog .kpi-report-card,
+#kpiDetailDialog .kpi-history-item,
+#kpiDetailDialog .kpi-period-row,
+#kpiDetailDialog .kpi-sale-row,
+#kpiDetailDialog .kpi-active-row,
+#kpiDetailDialog .kpi-period-header,
+#kpiDetailDialog .kpi-sale-header,
+#kpiDetailDialog .kpi-active-header {
+  border-color: rgba(183, 206, 236, .2) !important;
+  background:
+    linear-gradient(145deg, rgba(92, 110, 146, .28), rgba(19, 34, 62, .4)),
+    rgba(12, 25, 47, .66) !important;
+  color: rgba(240, 247, 255, .94) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 14px 34px rgba(2, 8, 20, .16) !important;
+}
+
+#kpiDetailDialog .kpi-report-tabs button {
+  border-color: rgba(183, 206, 236, .22) !important;
+  background:
+    linear-gradient(145deg, rgba(92, 110, 146, .28), rgba(19, 34, 62, .42)),
+    rgba(12, 25, 47, .64) !important;
+  color: rgba(240, 247, 255, .88) !important;
+}
+
+#kpiDetailDialog .kpi-report-tabs button.active,
+#kpiDetailDialog .kpi-report-tabs button:hover,
+#kpiDetailDialog .kpi-report-tabs button:focus-visible {
+  border-color: rgba(128, 229, 202, .42) !important;
+  background:
+    linear-gradient(145deg, rgba(34, 129, 104, .32), rgba(22, 45, 74, .42)),
+    rgba(11, 31, 52, .7) !important;
+  color: #eafff8 !important;
+}
+
+#kpiDetailDialog .kpi-detail-summary article:first-child {
+  border-color: rgba(128, 229, 202, .32) !important;
+  background:
+    linear-gradient(145deg, rgba(31, 127, 102, .24), rgba(18, 43, 68, .38)),
+    rgba(10, 31, 52, .72) !important;
+}
+
+#kpiDetailDialog .kpi-report-section-head {
+  border-color: rgba(190, 210, 238, .16) !important;
+}
+
+#kpiDetailDialog .kpi-report-section-head strong,
+#kpiDetailDialog .kpi-report-counts strong,
+#kpiDetailDialog .kpi-detail-summary strong,
+#kpiDetailDialog .kpi-report-card strong,
+#kpiDetailDialog .kpi-history-date strong,
+#kpiDetailDialog .kpi-period-row strong,
+#kpiDetailDialog .kpi-sale-row strong,
+#kpiDetailDialog .kpi-active-row strong {
+  color: #ffffff !important;
+}
+
+#kpiDetailDialog .kpi-report-section-head span,
+#kpiDetailDialog .kpi-report-counts span,
+#kpiDetailDialog .kpi-detail-summary span,
+#kpiDetailDialog .kpi-report-head span,
+#kpiDetailDialog .kpi-report-meta,
+#kpiDetailDialog .kpi-history-date small,
+#kpiDetailDialog .kpi-history-item p,
+#kpiDetailDialog .kpi-period-row span,
+#kpiDetailDialog .kpi-sale-row span,
+#kpiDetailDialog .kpi-active-row span {
+  color: rgba(218, 229, 241, .78) !important;
+}
+
+#kpiDetailDialog .kpi-report-meta span,
+#kpiDetailDialog .count-chip,
+#kpiDetailDialog .status-pill,
+#kpiDetailDialog .stage-chip,
+#kpiDetailDialog .temperature-chip {
+  border-color: rgba(205, 224, 244, .18) !important;
+  background: rgba(168, 188, 214, .2) !important;
+  color: rgba(242, 248, 255, .9) !important;
+}
