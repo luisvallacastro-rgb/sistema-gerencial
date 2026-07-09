@@ -902,6 +902,9 @@ function renderOpportunitySummary(activeRows, historyRows) {
   const lostRows = allRows.filter((row) => row.result?.result === "perdida");
   const activeAmount = activeRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   const closedAmount = wonRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
+  const visualPeak = Math.max(activeAmount, closedAmount, 1);
+  const activeVisualPercent = Math.max(6, Math.min(100, Math.round((activeAmount / visualPeak) * 100)));
+  const wonVisualPercent = Math.max(6, Math.min(100, Math.round((closedAmount / visualPeak) * 100)));
 
   return `
     <section class="opportunity-summary-strip" aria-label="Sumaria de oportunidades">
@@ -909,21 +912,33 @@ function renderOpportunitySummary(activeRows, historyRows) {
         <span>Total oportunidades</span>
         <strong>${allRows.length}</strong>
         <small>${activeRows.length} vigentes / ${historyRows.length} historial</small>
+        <div class="summary-dots" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i>
+        </div>
       </article>
       <article>
         <span>Pipeline vigente</span>
         <strong>${formatMoney(activeAmount)}</strong>
         <small>Oportunidades abiertas</small>
+        <div class="summary-meter active" aria-hidden="true">
+          <i style="width:${activeVisualPercent}%"></i>
+        </div>
       </article>
       <article>
         <span>Ganadas</span>
         <strong>${wonRows.length}</strong>
         <small>${formatMoney(closedAmount)}</small>
+        <div class="summary-meter won" aria-hidden="true">
+          <i style="width:${wonVisualPercent}%"></i>
+        </div>
       </article>
       <article>
         <span>Perdidas</span>
         <strong>${lostRows.length}</strong>
         <small>Cierres no concretados</small>
+        <div class="summary-dots lost" aria-hidden="true">
+          <i></i><i></i><i></i>
+        </div>
       </article>
     </section>
   `;
@@ -4259,21 +4274,19 @@ function renderManagements(item) {
   const managements = normalizeManagements(item);
   item.managements = managements;
   managementTable.innerHTML = `
-    <div class="management-row management-header">
-      <strong>Fecha y hora</strong>
-      <strong>Etapa</strong>
-      <strong>Comentario</strong>
-    </div>
     ${managements.map((management) => `
-      <div class="management-row">
-        <span>${formatDateTime(management.date, management.time)}</span>
-        <span>
+      <article class="management-row">
+        <div class="management-date-chip">
+          <strong>${formatDate(management.date)}</strong>
+          <small>${formatTime(management.time)}</small>
+        </div>
+        <div class="management-stage-chip">
           <span class="tag info">${management.stage}</span>
           ${managementResultTag(management)}
-        </span>
-        <span>${management.comment}</span>
-      </div>
-    `).join("")}
+        </div>
+        <p>${management.comment}</p>
+      </article>
+    `).join("") || `<div class="empty-state compact">Aun no hay gestiones registradas.</div>`}
   `;
 }
 

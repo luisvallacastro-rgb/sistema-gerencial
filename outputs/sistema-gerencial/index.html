@@ -409,28 +409,44 @@
         </div>
         <input type="hidden" id="managementOpportunityId">
         <div class="management-scroll">
-          <div class="management-table" id="managementTable"></div>
-          <div class="management-form-grid">
-            <label>
-              Fecha
-              <input id="managementDate" type="date" required>
-            </label>
-            <label>
-              Etapa a la que pasa
-              <select id="managementStage" required></select>
-            </label>
-            <label class="closure-field hidden" id="managementResultField">
-              Resultado de cierre
-              <select id="managementResult">
-                <option value="ganado">Ganado</option>
-                <option value="perdida">Perdida</option>
-              </select>
-            </label>
-            <label class="management-comment">
-              Comentario de la gestion
-              <textarea id="managementComment" rows="3" maxlength="240" placeholder="Detalle de la gestion realizada" required></textarea>
-            </label>
-          </div>
+          <section class="management-section history">
+            <div class="management-section-head">
+              <div>
+                <span>Historial</span>
+                <strong>Gestiones registradas</strong>
+              </div>
+            </div>
+            <div class="management-table" id="managementTable"></div>
+          </section>
+          <section class="management-section entry">
+            <div class="management-section-head">
+              <div>
+                <span>Nuevo registro</span>
+                <strong>Nueva gestion</strong>
+              </div>
+            </div>
+            <div class="management-form-grid">
+              <label>
+                Fecha
+                <input id="managementDate" type="date" required>
+              </label>
+              <label>
+                Etapa a la que pasa
+                <select id="managementStage" required></select>
+              </label>
+              <label class="closure-field hidden" id="managementResultField">
+                Resultado de cierre
+                <select id="managementResult">
+                  <option value="ganado">Ganado</option>
+                  <option value="perdida">Perdida</option>
+                </select>
+              </label>
+              <label class="management-comment">
+                Comentario de la gestion
+                <textarea id="managementComment" rows="3" maxlength="240" placeholder="Detalle de la gestion realizada" required></textarea>
+              </label>
+            </div>
+          </section>
         </div>
         <menu>
           <button class="secondary-btn hidden" id="notifyOperationsBtn" type="button">Notificar</button>
