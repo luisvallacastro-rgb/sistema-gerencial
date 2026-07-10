@@ -1878,16 +1878,23 @@ function renderRequests(area) {
 function renderCycleDashboard(items) {
   const monthNumber = activeMonthNumber();
   const annualGoal = cumulativeGlobalGoal(12);
+  const formatDifference = (value) => {
+    if (value > 0) return `+${formatMoney(value)}`;
+    if (value < 0) return `(${formatMoney(Math.abs(value))})`;
+    return formatMoney(0);
+  };
   const monthRows = Array.from({ length: 12 }, (_, index) => {
     const month = index + 1;
     const plan = cumulativeGlobalGoal(month);
     const hasActual = month <= monthNumber;
     const actual = hasActual ? cumulativeGlobalActual(items, month).amount : null;
+    const difference = hasActual ? actual - plan : null;
     return {
       month,
       label: monthLabel(month),
       plan,
       actual,
+      difference,
       hasActual,
       percent: hasActual && plan ? Math.round((actual / plan) * 100) : null,
       annualPercent: hasActual && annualGoal ? Math.round((actual / annualGoal) * 100) : null
@@ -1901,7 +1908,7 @@ function renderCycleDashboard(items) {
           <h3>Acumulado global</h3>
           <div class="chart-legend">
             <span><i class="plan"></i>Meta</span>
-            <span><i class="actual"></i>Real</span>
+            <span><i class="actual"></i>Alcanzado</span>
           </div>
         </div>
         <div class="accumulated-month-rows">
@@ -1913,8 +1920,11 @@ function renderCycleDashboard(items) {
                 <span class="accumulated-track"><i class="actual" style="width:${row.hasActual ? (row.actual / maxValue) * 100 : 0}%"></i></span>
               </div>
               <div class="accumulated-values">
-                <span>${formatMoney(row.plan)}</span>
-                <strong>${row.hasActual ? formatMoney(row.actual) : "—"}</strong>
+                <span><em>Meta</em>${formatMoney(row.plan)}</span>
+                <strong><em>Alcanzado</em>${row.hasActual ? formatMoney(row.actual) : "—"}</strong>
+                <small class="accumulated-difference ${row.difference >= 0 ? "positive" : "negative"}">
+                  <em>Diferencia</em>${row.hasActual ? formatDifference(row.difference) : "—"}
+                </small>
               </div>
               <div class="accumulated-percent-group">
                 <span class="accumulated-percent">${row.hasActual ? `${row.percent}%` : "—"}</span>

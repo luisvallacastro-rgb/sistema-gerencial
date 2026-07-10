@@ -1716,7 +1716,7 @@ button:disabled {
 
 .accumulated-month-row {
   display: grid;
-  grid-template-columns: minmax(92px, 112px) minmax(280px, 1fr) minmax(150px, 190px) minmax(128px, 150px);
+  grid-template-columns: minmax(92px, 112px) minmax(280px, 1fr) minmax(190px, 250px) minmax(128px, 150px);
   align-items: center;
   gap: 12px;
   min-width: 0;
@@ -1775,9 +1775,19 @@ button:disabled {
 }
 
 .accumulated-values span,
-.accumulated-values strong {
+.accumulated-values strong,
+.accumulated-values small {
   line-height: 1;
   white-space: nowrap;
+}
+
+.accumulated-values em {
+  margin-right: 7px;
+  color: rgba(218, 229, 241, .72);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .accumulated-values span {
@@ -1787,6 +1797,19 @@ button:disabled {
 
 .accumulated-values strong {
   font-size: 17px;
+}
+
+.accumulated-difference {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.accumulated-difference.negative {
+  color: #ff6b7d;
+}
+
+.accumulated-difference.positive {
+  color: #ffffff;
 }
 
 .accumulated-percent-group {
@@ -5920,8 +5943,17 @@ menu {
 .app-shell .global-chart-footer span,
 .app-shell .chart-legend,
 .app-shell .accumulated-values span,
+.app-shell .accumulated-values em,
 .app-shell .accumulated-month-row.future .accumulated-values strong {
   color: rgba(218, 229, 241, .78) !important;
+}
+
+.app-shell .accumulated-difference.negative {
+  color: #ff6b7d !important;
+}
+
+.app-shell .accumulated-difference.positive {
+  color: #ffffff !important;
 }
 
 .app-shell .global-bar-track,
