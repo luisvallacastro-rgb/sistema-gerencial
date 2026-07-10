@@ -86,6 +86,42 @@ const areas = {
         items: []
       },
       {
+        key: "crm",
+        label: "CRM",
+        status: "Operacion comercial",
+        items: []
+      },
+      {
+        key: "crm-vendedores",
+        label: "Vendedores",
+        status: "Equipo comercial",
+        items: []
+      },
+      {
+        key: "crm-seguimiento",
+        label: "Seguimiento",
+        status: "Pipeline por etapa",
+        items: []
+      },
+      {
+        key: "crm-agenda",
+        label: "Agenda",
+        status: "Visitas y acciones",
+        items: []
+      },
+      {
+        key: "crm-respuestas",
+        label: "Respuestas",
+        status: "Gestiones de campo",
+        items: []
+      },
+      {
+        key: "crm-clientes",
+        label: "Clientes",
+        status: "Ficha comercial",
+        items: []
+      },
+      {
         key: "riesgos",
         label: "Riesgos",
         status: "Riesgos futuros",
@@ -202,11 +238,40 @@ const state = {
   opportunityCycleView: "active",
   kpiView: "dashboard",
   kpiSeller: "all",
+  adminQuery: "",
+  crmData: null,
+  crmSellerId: "",
+  crmStatusFilter: "Vigente",
+  crmSearch: "",
   period: "Julio 2026"
 };
 
 const areaKeys = ["comercializacion", "financiera", "operaciones", "rrhh"];
 const areaOptions = areaKeys;
+const adminEmail = "luisvallacastro@gmail.com";
+const adminAreaKey = "administracion";
+const sectionOptions = [
+  { key: "resultados", label: "Resultados" },
+  { key: "kpi", label: "KPI" },
+  { key: "crm", label: "CRM" },
+  { key: "crm-vendedores", label: "CRM Vendedores" },
+  { key: "crm-seguimiento", label: "CRM Seguimiento" },
+  { key: "crm-agenda", label: "CRM Agenda" },
+  { key: "crm-respuestas", label: "CRM Respuestas" },
+  { key: "crm-clientes", label: "CRM Clientes" },
+  { key: "riesgos", label: "Riesgos" },
+  { key: "solicitudes", label: "Solicitudes" }
+];
+areas[adminAreaKey] = {
+  label: "Administracion",
+  nav: "Administracion",
+  status: "Usuarios",
+  summary: [],
+  results: [],
+  kpis: [],
+  risks: [],
+  requests: []
+};
 const closureStage = "Cierre de ventas";
 const legacyClosureStages = ["Cierre", closureStage];
 const opportunityStages = [
@@ -333,9 +398,12 @@ const historicalClosedSales = (window.historicalClosedSalesCsv || "")
 const opportunitiesStorageKey = "sistemaGerencial.oportunidades.v6";
 const usersStorageKey = "sistemaGerencial.usuarios.v2";
 const sessionStorageKey = "sistemaGerencial.sesion.v1";
-const strategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
-const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
+const strategicRisksStorageKey = "sistemaGerencial.riesgos.v2";
+const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v2";
+const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
+const legacyManagementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
 const defaultUsers = [
+  { id: "user-admin-luis", name: "Luis Valladares", username: "luisvallacastro", email: adminEmail, role: "financiera", password: "admin123", admin: true },
   { id: "user-general", name: "Gerencia general", username: "general", email: "general@empresa.local", role: "general", password: "admin123" },
   { id: "user-accionistas", name: "Accionistas", username: "accionistas", email: "accionistas@empresa.local", role: "accionistas", password: "admin123" },
   { id: "user-financiera", name: "Gerencia financiera", username: "financiera", email: "financiera@empresa.local", role: "financiera", password: "admin123" },
@@ -366,55 +434,24 @@ async function apiJson(path, options = {}) {
   if (!response.ok) throw new Error(`API ${response.status}`);
   return response.json();
 }
-const defaultStrategicRisks = [
-  {
-    id: "risk-001",
-    date: "2026-07-08",
-    owner: "Comercializacion",
-    risk: "Retraso en aprobacion de precios especiales para cuentas corporativas",
-    affectsOthers: true,
-    involved: ["Financiera", "Operaciones"],
-    status: "Notificado"
-  },
-  {
-    id: "risk-002",
-    date: "2026-07-11",
-    owner: "Comercializacion",
-    risk: "Capacidad limitada para atender propuestas con fecha critica de entrega",
-    affectsOthers: true,
-    involved: ["Operaciones"],
-    status: "Notificado"
-  },
-  {
-    id: "risk-003",
-    date: "2026-07-15",
-    owner: "Comercializacion",
-    risk: "Vacante comercial puede afectar seguimiento de cuentas nuevas",
-    affectsOthers: true,
-    involved: ["Recursos humanos"],
-    status: "Notificado"
-  }
-];
-const defaultManagementRequests = [
-  {
-    id: "req-001",
-    date: "2026-07-06",
-    owner: "Comercializacion",
-    target: "Gerencia general",
-    subject: "Apoyo para cierre de cuenta corporativa",
-    message: "Se solicita acompanamiento gerencial para destrabar condiciones finales con el cliente.",
-    status: "Enviada"
-  },
-  {
-    id: "req-002",
-    date: "2026-07-08",
-    owner: "Comercializacion",
-    target: "Gerencia general",
-    subject: "Validacion de prioridad comercial",
-    message: "Se requiere definir prioridad de atencion para propuesta de alto impacto mensual.",
-    status: "En revision"
-  }
-];
+
+function loadCrmData() {
+  if (!apiEnabled) return;
+  apiJson("/api/crm/bootstrap")
+    .then((data) => {
+      state.crmData = data;
+      if (state.activeArea === "comercializacion" && state.activeSubmenu?.startsWith("crm")) {
+        renderDashboard();
+      }
+    })
+    .catch(() => {
+      state.crmData = null;
+    });
+}
+const defaultStrategicRisks = [];
+const defaultManagementRequests = [];
+const demoStrategicRiskIds = new Set(["risk-001", "risk-002", "risk-003"]);
+const demoManagementRequestIds = new Set(["req-001", "req-002"]);
 const defaultOpportunities = [];
 
 const loginView = document.querySelector("#loginView");
@@ -436,6 +473,7 @@ const dashboard = document.querySelector(".dashboard");
 const pageTitle = document.querySelector("#pageTitle");
 const periodLabel = document.querySelector("#periodLabel");
 const periodSelect = document.querySelector("#periodSelect");
+const topbarActions = document.querySelector(".topbar-actions");
 const summaryGrid = document.querySelector("#summaryGrid");
 const resultsChart = document.querySelector("#resultsChart");
 const kpiList = document.querySelector("#kpiList");
@@ -453,12 +491,24 @@ const opportunityDialog = document.querySelector("#opportunityDialog");
 const opportunityForm = document.querySelector("#opportunityForm");
 const opportunityDialogTitle = document.querySelector("#opportunityDialogTitle");
 const opportunityId = document.querySelector("#opportunityId");
+const opportunityCrmSourceId = document.querySelector("#opportunityCrmSourceId");
 const opportunityDate = document.querySelector("#opportunityDate");
 const opportunityCompany = document.querySelector("#opportunityCompany");
 const opportunitySeller = document.querySelector("#opportunitySeller");
+const opportunityContact = document.querySelector("#opportunityContact");
+const opportunityPhone = document.querySelector("#opportunityPhone");
+const opportunitySegment = document.querySelector("#opportunitySegment");
+const opportunityLocation = document.querySelector("#opportunityLocation");
 const opportunityStage = document.querySelector("#opportunityStage");
+const opportunityPriority = document.querySelector("#opportunityPriority");
 const opportunityProbability = document.querySelector("#opportunityProbability");
 const opportunityAmount = document.querySelector("#opportunityAmount");
+const opportunityNextAction = document.querySelector("#opportunityNextAction");
+const opportunityAgendaDate = document.querySelector("#opportunityAgendaDate");
+const opportunityAgendaTime = document.querySelector("#opportunityAgendaTime");
+const opportunityAgendaType = document.querySelector("#opportunityAgendaType");
+const opportunityAgendaPlace = document.querySelector("#opportunityAgendaPlace");
+const opportunityNote = document.querySelector("#opportunityNote");
 const closeOpportunityDialog = document.querySelector("#closeOpportunityDialog");
 const cancelOpportunityEdit = document.querySelector("#cancelOpportunityEdit");
 const saveOpportunityBtn = document.querySelector("#saveOpportunityBtn");
@@ -513,17 +563,111 @@ const managementRequestMessage = document.querySelector("#managementRequestMessa
 const closeManagementRequestDialog = document.querySelector("#closeManagementRequestDialog");
 const cancelManagementRequest = document.querySelector("#cancelManagementRequest");
 const saveManagementRequestBtn = document.querySelector("#saveManagementRequestBtn");
+const adminPanel = document.querySelector("#adminPanel");
+const adminUserDialog = document.querySelector("#adminUserDialog");
+const adminUserForm = document.querySelector("#adminUserForm");
+const adminUserDialogTitle = document.querySelector("#adminUserDialogTitle");
+const adminUserId = document.querySelector("#adminUserId");
+const adminUserName = document.querySelector("#adminUserName");
+const adminUsername = document.querySelector("#adminUsername");
+const adminUserEmail = document.querySelector("#adminUserEmail");
+const adminUserRole = document.querySelector("#adminUserRole");
+const adminUserPassword = document.querySelector("#adminUserPassword");
+const adminPermissionGrid = document.querySelector("#adminPermissionGrid");
+const closeAdminUserDialog = document.querySelector("#closeAdminUserDialog");
+const cancelAdminUser = document.querySelector("#cancelAdminUser");
+const adminPasswordDialog = document.querySelector("#adminPasswordDialog");
+const adminPasswordForm = document.querySelector("#adminPasswordForm");
+const adminPasswordUserId = document.querySelector("#adminPasswordUserId");
+const adminPasswordUserLabel = document.querySelector("#adminPasswordUserLabel");
+const adminPasswordValue = document.querySelector("#adminPasswordValue");
+const closeAdminPasswordDialog = document.querySelector("#closeAdminPasswordDialog");
+const cancelAdminPassword = document.querySelector("#cancelAdminPassword");
 
-function allowedAreas() {
-  return ["general", "accionistas"].includes(state.role) ? areaKeys : [state.role];
+function normalizeKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function permissionKey(areaKey, sectionKey) {
+  return `${areaKey}:${sectionKey}`;
+}
+
+function allPermissionKeys() {
+  return areaKeys.flatMap((areaKey) => sectionOptions.map((section) => permissionKey(areaKey, section.key)));
+}
+
+const sharedDefaultSections = ["riesgos", "solicitudes"];
+
+function sharedDefaultPermissionKeys() {
+  return areaKeys.flatMap((areaKey) => sharedDefaultSections.map((sectionKey) => permissionKey(areaKey, sectionKey)));
+}
+
+function withSharedDefaultPermissions(permissions) {
+  return [...new Set([...permissions, ...sharedDefaultPermissionKeys()])];
+}
+
+function defaultPermissionsForRole(role) {
+  if (["general", "accionistas"].includes(role)) return allPermissionKeys();
+  if (areaKeys.includes(role)) {
+    return withSharedDefaultPermissions(sectionOptions.map((section) => permissionKey(role, section.key)));
+  }
+  return sharedDefaultPermissionKeys();
+}
+
+function normalizePermissionList(value, role) {
+  const valid = new Set(allPermissionKeys());
+  const source = Array.isArray(value) && value.length ? value : defaultPermissionsForRole(role);
+  const next = withSharedDefaultPermissions(source.filter((item) => valid.has(item)));
+  if (["general", "accionistas"].includes(role)) {
+    return allPermissionKeys();
+  }
+  if (role === "comercializacion") {
+    return [...new Set([...next, ...sectionOptions.map((section) => permissionKey("comercializacion", section.key))])];
+  }
+  return next;
+}
+
+function isAdminUser(user = state.currentUser) {
+  return Boolean(user?.admin) || normalizeKey(user?.email) === adminEmail;
+}
+
+function userPermissions(user = state.currentUser) {
+  if (isAdminUser(user)) return new Set(allPermissionKeys());
+  return new Set(normalizePermissionList(user?.permissions, user?.role || state.role));
+}
+
+function visibleSubmenus(areaKey, user = state.currentUser) {
+  const area = areas[areaKey];
+  if (!Array.isArray(area?.submenus)) return [];
+  const permissions = userPermissions(user);
+  return area.submenus.filter((item) => permissions.has(permissionKey(areaKey, item.key)));
+}
+
+function fallbackAreaForRole(role) {
+  return areaKeys.includes(role) ? role : "comercializacion";
+}
+
+function allowedAreas(user = state.currentUser) {
+  const visible = areaKeys.filter((areaKey) => visibleSubmenus(areaKey, user).length);
+  if (isAdminUser(user)) visible.push(adminAreaKey);
+  return visible.length ? visible : [fallbackAreaForRole(user?.role || state.role)];
 }
 
 function canDeleteOpportunities() {
-  return state.role === "general" || state.role === "financiera";
+  return isAdminUser() || state.role === "general" || state.role === "financiera";
 }
 
 function roleDisplayName(role = state.role) {
   return accessRoles.find(([key]) => key === role)?.[1] || areas[role]?.nav || "Usuario";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function levelClass(value) {
@@ -845,13 +989,17 @@ function wonClosure(item) {
 
 function wonSalesFulfillmentRows(items) {
   const monthNumber = activeMonthNumber();
+  const historicalMonthNumber = Math.max(Math.min(monthNumber - 1, 6), 0);
   const accumulatedItems = items.filter((item) => {
     const result = closureResult(item);
-    return isThroughActivePeriod(result?.date || item.date);
+    return dateYearNumber(result?.date || item.date) === activePeriodYear()
+      && dateMonthNumber(result?.date || item.date) === monthNumber;
   });
   const closedItems = items
     .map((item) => ({ item, result: closureResult(item) }))
-    .filter(({ item, result }) => result && isThroughActivePeriod(result.date || item.date));
+    .filter(({ item, result }) => result
+      && dateYearNumber(result.date || item.date) === activePeriodYear()
+      && dateMonthNumber(result.date || item.date) === monthNumber);
   const wonItems = closedItems.filter(({ result }) => result.result === "ganado").map(({ item }) => item);
   const lostItems = closedItems.filter(({ result }) => result.result === "perdida").map(({ item }) => item);
   const allBySeller = groupBy(accumulatedItems, "seller");
@@ -862,10 +1010,10 @@ function wonSalesFulfillmentRows(items) {
     const sellerItems = allBySeller[seller] || [];
     const sellerWonItems = wonBySeller[seller] || [];
     const sellerLostItems = lostBySeller[seller] || [];
-    const actualSales = actualClosedSalesForSeller(seller, monthNumber);
-    const sales = actualSales.amount + sumAmounts(sellerWonItems);
-    const wonCount = actualSales.count + sellerWonItems.length;
-    const opportunityCount = actualSales.count + sellerItems.length;
+    const historicalSales = actualClosedSalesForSeller(seller, historicalMonthNumber);
+    const sales = historicalSales.amount + sumAmounts(sellerWonItems);
+    const wonCount = sellerWonItems.length;
+    const opportunityCount = sellerItems.length;
     const goal = cumulativeGoalForSeller(seller, monthNumber);
     const percent = goal ? Math.round((sales / goal) * 100) : 0;
     const variance = sales - goal;
@@ -877,6 +1025,9 @@ function wonSalesFulfillmentRows(items) {
       percent,
       opportunityCount,
       wonCount,
+      historicalOpportunityCount: historicalSales.count,
+      historicalWonCount: historicalSales.count,
+      historicalAmount: historicalSales.amount,
       lostCount: sellerLostItems.length,
       pendingCount: Math.max(sellerItems.length - sellerWonItems.length - sellerLostItems.length, 0),
       count: wonCount,
@@ -1128,19 +1279,44 @@ function getOpportunitySubmenu() {
   return areas.comercializacion.submenus.find((item) => item.key === "resultados");
 }
 
-function getStrategicRiskSubmenu() {
-  return areas.comercializacion.submenus.find((item) => item.key === "riesgos");
+function getAreaSubmenu(areaKey, submenuKey) {
+  const area = areas[areaKey];
+  return Array.isArray(area?.submenus)
+    ? area.submenus.find((item) => item.key === submenuKey)
+    : null;
 }
 
-function getManagementRequestSubmenu() {
-  return areas.comercializacion.submenus.find((item) => item.key === "solicitudes");
+function getStrategicRiskSubmenu(areaKey = state.activeArea) {
+  return getAreaSubmenu(areaKey, "riesgos") || getAreaSubmenu("comercializacion", "riesgos");
 }
 
-function normalizeStrategicRisks(items) {
+function getManagementRequestSubmenu(areaKey = state.activeArea) {
+  return getAreaSubmenu(areaKey, "solicitudes") || getAreaSubmenu("comercializacion", "solicitudes");
+}
+
+function submenuItemsByArea(submenuKey) {
+  return Object.fromEntries(areaKeys.map((areaKey) => [
+    areaKey,
+    getAreaSubmenu(areaKey, submenuKey)?.items || []
+  ]));
+}
+
+function legacyRecordsByArea(storageKey, demoIds) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+    if (!Array.isArray(saved)) return {};
+    const records = saved.filter((item) => !demoIds.has(item?.id));
+    return records.length ? { comercializacion: records } : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeStrategicRisks(items, areaKey = state.activeArea) {
   return items.map((item, index) => ({
     id: item.id || `risk-${index + 1}`,
     date: item.date || todayISO(),
-    owner: item.owner || areas[state.role]?.nav || "Gerencia general",
+    owner: item.owner || areas[areaKey]?.nav || areas[state.role]?.nav || "Gerencia general",
     risk: item.risk || "",
     affectsOthers: Boolean(item.affectsOthers),
     involved: Array.isArray(item.involved) ? item.involved : [],
@@ -1149,24 +1325,31 @@ function normalizeStrategicRisks(items) {
 }
 
 function loadStrategicRisks() {
+  let saved = null;
   try {
-    const saved = JSON.parse(localStorage.getItem(strategicRisksStorageKey) || "null");
-    getStrategicRiskSubmenu().items = normalizeStrategicRisks(Array.isArray(saved) ? saved : defaultStrategicRisks);
+    saved = JSON.parse(localStorage.getItem(strategicRisksStorageKey) || "null");
   } catch {
-    getStrategicRiskSubmenu().items = normalizeStrategicRisks(defaultStrategicRisks);
+    saved = null;
   }
+  if (!saved) {
+    saved = legacyRecordsByArea(legacyStrategicRisksStorageKey, demoStrategicRiskIds);
+  }
+  areaKeys.forEach((areaKey) => {
+    const source = Array.isArray(saved?.[areaKey]) ? saved[areaKey] : defaultStrategicRisks;
+    getStrategicRiskSubmenu(areaKey).items = normalizeStrategicRisks(source, areaKey);
+  });
   saveStrategicRisks();
 }
 
 function saveStrategicRisks() {
-  localStorage.setItem(strategicRisksStorageKey, JSON.stringify(getStrategicRiskSubmenu().items));
+  localStorage.setItem(strategicRisksStorageKey, JSON.stringify(submenuItemsByArea("riesgos")));
 }
 
-function normalizeManagementRequests(items) {
+function normalizeManagementRequests(items, areaKey = state.activeArea) {
   return items.map((item, index) => ({
     id: item.id || `req-${index + 1}`,
     date: item.date || todayISO(),
-    owner: item.owner || currentRequestOwner(),
+    owner: item.owner || areas[areaKey]?.nav || currentRequestOwner(),
     target: item.target || "Gerencia general",
     subject: item.subject || "",
     message: item.message || "",
@@ -1175,17 +1358,24 @@ function normalizeManagementRequests(items) {
 }
 
 function loadManagementRequests() {
+  let saved = null;
   try {
-    const saved = JSON.parse(localStorage.getItem(managementRequestsStorageKey) || "null");
-    getManagementRequestSubmenu().items = normalizeManagementRequests(Array.isArray(saved) ? saved : defaultManagementRequests);
+    saved = JSON.parse(localStorage.getItem(managementRequestsStorageKey) || "null");
   } catch {
-    getManagementRequestSubmenu().items = normalizeManagementRequests(defaultManagementRequests);
+    saved = null;
   }
+  if (!saved) {
+    saved = legacyRecordsByArea(legacyManagementRequestsStorageKey, demoManagementRequestIds);
+  }
+  areaKeys.forEach((areaKey) => {
+    const source = Array.isArray(saved?.[areaKey]) ? saved[areaKey] : defaultManagementRequests;
+    getManagementRequestSubmenu(areaKey).items = normalizeManagementRequests(source, areaKey);
+  });
   saveManagementRequests();
 }
 
 function saveManagementRequests() {
-  localStorage.setItem(managementRequestsStorageKey, JSON.stringify(getManagementRequestSubmenu().items));
+  localStorage.setItem(managementRequestsStorageKey, JSON.stringify(submenuItemsByArea("solicitudes")));
 }
 
 function resetManagementRequestForm() {
@@ -1223,6 +1413,18 @@ function normalizeOpportunities(items) {
     time: item.time || seededTime(index),
     seller: normalizeSeller(item.seller || commercialSellers[index % commercialSellers.length]),
     stage: normalizeStage(item.stage || "Prospeccion"),
+    contact: item.contact || "",
+    phone: item.phone || "",
+    segment: item.segment || "",
+    location: item.location || "",
+    priority: item.priority || "Media",
+    nextAction: item.nextAction || "Primer seguimiento",
+    agendaDate: item.agendaDate || item.date || todayISO(),
+    agendaTime: item.agendaTime || "",
+    agendaType: item.agendaType || "Seguimiento",
+    agendaPlace: item.agendaPlace || "Por definir",
+    note: item.note || item.comment || "",
+    crmOpportunityId: item.crmOpportunityId || "",
     managements: normalizeManagements({ ...item, time: item.time || seededTime(index) })
   }));
 }
@@ -1381,8 +1583,14 @@ function saveOpportunities() {
 function resetOpportunityForm() {
   opportunityForm.reset();
   opportunityId.value = "";
+  opportunityCrmSourceId.value = "";
   opportunityDate.valueAsDate = new Date();
-  opportunityDialogTitle.textContent = "Nuevo registro";
+  opportunityAgendaDate.valueAsDate = new Date();
+  opportunityNextAction.value = "Primer seguimiento";
+  opportunityAgendaType.value = "Seguimiento";
+  opportunityAgendaPlace.value = "Por definir";
+  opportunityPriority.value = "Media";
+  opportunityDialogTitle.textContent = "Nueva oportunidad";
   saveOpportunityBtn.textContent = "Guardar oportunidad";
 }
 
@@ -1400,18 +1608,35 @@ function fillOpportunityOptions() {
   )).join("");
 }
 
+function ensureSelectOption(select, value, label = value) {
+  if (!select || !value) return;
+  if (![...select.options].some((option) => option.value === value)) {
+    select.insertAdjacentHTML("beforeend", `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`);
+  }
+  select.value = value;
+}
+
 function renderNav() {
   navList.innerHTML = "";
   allowedAreas().forEach((key) => {
     const area = areas[key];
-    const hasSubmenus = Array.isArray(area.submenus);
-    const avg = Math.round(area.results.reduce((sum, item) => sum + item[1], 0) / area.results.length);
+    const submenus = visibleSubmenus(key);
+    const hasSubmenus = submenus.length > 0;
+    const avg = area.results.length
+      ? Math.round(area.results.reduce((sum, item) => sum + item[1], 0) / area.results.length)
+      : 100;
     const button = document.createElement("button");
     button.className = `nav-item ${state.activeArea === key ? "active" : ""}`;
     button.type = "button";
     button.setAttribute("aria-expanded", hasSubmenus ? String(state.activeArea === key && state.commercialMenuOpen) : "false");
     button.innerHTML = `<span>${area.nav}</span><span class="nav-dot ${levelClass(avg)}"></span>`;
     button.addEventListener("click", () => {
+      if (key === adminAreaKey) {
+        state.activeArea = adminAreaKey;
+        state.commercialMenuOpen = false;
+        renderDashboard();
+        return;
+      }
       if (hasSubmenus && state.activeArea === key) {
         state.commercialMenuOpen = !state.commercialMenuOpen;
         renderDashboard();
@@ -1419,21 +1644,21 @@ function renderNav() {
       }
       state.activeArea = key;
       if (hasSubmenus) {
-        state.activeSubmenu = "resultados";
+        state.activeSubmenu = submenus[0].key;
         state.commercialMenuOpen = true;
       }
       renderDashboard();
     });
     navList.appendChild(button);
-    if (hasSubmenus) renderSubmenu(area, key);
+    if (hasSubmenus) renderSubmenu(area, key, submenus);
   });
 }
 
-function renderSubmenu(area, areaKey) {
+function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
   const submenu = document.createElement("div");
   submenu.className = `submenu-list ${state.activeArea === areaKey && state.commercialMenuOpen ? "open" : ""}`;
-  submenu.innerHTML = area.submenus.map((item) => `
-    <button class="submenu-item ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
+  submenu.innerHTML = items.map((item) => `
+    <button class="submenu-item ${item.key === "crm" ? "crm-parent" : item.key.startsWith("crm-") ? "crm-child" : ""} ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
       ${item.label}
     </button>
   `).join("");
@@ -1674,6 +1899,12 @@ function renderCleanManagementSection(area, submenu) {
   const labels = {
     resultados: "Resultados",
     kpi: "KPI",
+    crm: "CRM",
+    "crm-vendedores": "Vendedores",
+    "crm-seguimiento": "Seguimiento",
+    "crm-agenda": "Agenda",
+    "crm-respuestas": "Respuestas",
+    "crm-clientes": "Clientes",
     riesgos: "Riesgos",
     solicitudes: "Solicitudes"
   };
@@ -1691,6 +1922,698 @@ function renderCleanManagementSection(area, submenu) {
   `;
 }
 
+function crmData() {
+  return state.crmData || { users: [], opportunities: [], agenda: [], gestiones: [], pipeline: [], customers: [], kpis: {} };
+}
+
+function crmSalesUsers() {
+  return crmData().users.filter((user) => user.roleId === "sales_exec");
+}
+
+function crmOwnerName(ownerId) {
+  return crmData().users.find((user) => user.id === ownerId)?.name || "Sin vendedor";
+}
+
+function crmTemperatureToProbability(temperature = "Tibio") {
+  const normalized = String(temperature).toLowerCase();
+  if (normalized.includes("caliente")) return "caliente";
+  if (normalized.includes("frio") || normalized.includes("frío")) return "frio";
+  if (normalized.includes("congel")) return "congelado";
+  return "tibio";
+}
+
+function crmTemperatureToPercent(temperature = "Tibio") {
+  return { Caliente: 80, Tibio: 50, Frio: 25, Congelado: 10 }[temperature] || 50;
+}
+
+function crmStageToOpportunityStage(opportunity = {}) {
+  const stageId = Number(opportunity.stageId || opportunity.stage?.id || 1);
+  return opportunityStages[Math.max(0, Math.min(opportunityStages.length - 1, stageId - 1))] || "Prospeccion";
+}
+
+function opportunityMigratedFromCrm(crmOpportunityId) {
+  if (!crmOpportunityId) return false;
+  return getOpportunitySubmenu().items.some((item) => item.crmOpportunityId === crmOpportunityId);
+}
+
+function resultOpportunityFromCrm(opportunity) {
+  const id = crypto.randomUUID();
+  const date = opportunity.nextDate || opportunity.deadline || opportunity.startDate || todayISO();
+  const stage = crmStageToOpportunityStage(opportunity);
+  return {
+    id,
+    date,
+    time: currentTimeValue(),
+    company: opportunity.company || "Cliente CRM",
+    seller: normalizeSeller(opportunity.owner?.name || crmOwnerName(opportunity.ownerId)),
+    contact: opportunity.contact || opportunity.responsible || "",
+    phone: opportunity.phone || "",
+    segment: opportunity.segment || opportunity.product || "",
+    location: opportunity.location || "",
+    stage,
+    priority: opportunity.priority || "Media",
+    probability: crmTemperatureToProbability(opportunity.temperature),
+    amount: Number(opportunity.estimatedAmount || 0),
+    nextAction: opportunity.nextAction || "Primer seguimiento",
+    agendaDate: opportunity.agendaDate || date,
+    agendaTime: opportunity.agendaTime || "",
+    agendaType: opportunity.agendaType || "Seguimiento",
+    agendaPlace: opportunity.agendaPlace || "Por definir",
+    note: opportunity.lastNote || opportunity.comment || "",
+    crmOpportunityId: opportunity.id,
+    managements: [{
+      id: `${id}-mgmt-001`,
+      date,
+      time: currentTimeValue(),
+      stage,
+      comment: `Migrada desde CRM${opportunity.lastNote || opportunity.comment ? `: ${opportunity.lastNote || opportunity.comment}` : "."}`
+    }]
+  };
+}
+
+function migrateCrmOpportunityToResults(opportunityId) {
+  const opportunity = crmData().opportunities.find((item) => item.id === opportunityId);
+  if (!opportunity || opportunityMigratedFromCrm(opportunity.id)) return;
+  const submenu = getOpportunitySubmenu();
+  submenu.items = [
+    resultOpportunityFromCrm(opportunity),
+    ...submenu.items
+  ];
+  saveOpportunities();
+  renderCommercialSubmenu(areas.comercializacion);
+}
+
+function crmSearchText() {
+  return String(state.crmSearch || "").trim().toLowerCase();
+}
+
+function crmMatchesSearch(opportunity, seller = null) {
+  const query = crmSearchText();
+  if (!query) return true;
+  const haystack = [
+    opportunity.company,
+    opportunity.product,
+    opportunity.segment,
+    opportunity.location,
+    opportunity.status,
+    opportunity.temperature,
+    opportunity.stage?.name,
+    opportunity.owner?.name,
+    crmOwnerName(opportunity.ownerId),
+    seller?.name,
+    seller?.email
+  ].join(" ").toLowerCase();
+  return haystack.includes(query);
+}
+
+function crmActiveOpportunitiesForSeller(sellerId) {
+  return crmData().opportunities.filter((opp) => {
+    const status = String(opp.status || "Vigente").toLowerCase();
+    return opp.ownerId === sellerId && !["ganada", "perdida", "cancelada"].includes(status) && crmMatchesSearch(opp);
+  });
+}
+
+function crmSortedSellers() {
+  return [...crmSalesUsers()].sort((a, b) => {
+    const aCount = crmActiveOpportunitiesForSeller(a.id).length;
+    const bCount = crmActiveOpportunitiesForSeller(b.id).length;
+    return bCount - aCount || String(a.name).localeCompare(String(b.name));
+  });
+}
+
+function updateCrmModel(payload) {
+  state.crmData = payload;
+  renderCommercialSubmenu(areas.comercializacion);
+}
+
+function crmApi(path, options = {}) {
+  return apiJson(`/api/crm${path}`, options).then((payload) => {
+    updateCrmModel(payload);
+    return payload;
+  });
+}
+
+function ensureCrmOpportunityDialog() {
+  let dialog = document.querySelector("#crmOpportunityDialog");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "crmOpportunityDialog";
+  dialog.className = "wide-dialog";
+  dialog.innerHTML = `
+    <form method="dialog" class="dialog-card crm-opportunity-form" id="crmOpportunityForm">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">CRM</p>
+          <h3 id="crmOpportunityTitle">Nueva oportunidad</h3>
+        </div>
+        <button class="icon-btn" type="button" data-crm-close>×</button>
+      </div>
+      <input type="hidden" id="crmOpportunityId">
+      <div class="crm-form-grid">
+        <label>Empresa<input id="crmCompany" maxlength="80" placeholder="Nombre de la empresa" required></label>
+        <label>Vendedor<select id="crmOwnerId" required></select></label>
+        <label>Contacto<input id="crmContact" maxlength="90" placeholder="Nombre del contacto"></label>
+        <label>Telefono<input id="crmPhone" maxlength="28" placeholder="+503 ..."></label>
+        <label>Segmento<input id="crmSegment" maxlength="80" placeholder="Industria, comercio, salud..."></label>
+        <label>Ubicacion<input id="crmLocation" maxlength="90" placeholder="San Salvador"></label>
+        <label>Etapa<select id="crmStageId" required></select></label>
+        <label>Prioridad<select id="crmPriority"><option>Alta</option><option selected>Media</option><option>Baja</option></select></label>
+        <label>Temperatura<select id="crmTemperature"><option>Caliente</option><option selected>Tibio</option><option>Frio</option><option>Congelado</option></select></label>
+        <label>Monto estimado<input id="crmEstimatedAmount" type="number" min="0" step="1" placeholder="0"></label>
+        <label>Proxima fecha<input id="crmNextDate" type="date"></label>
+        <label>Proxima accion<input id="crmNextAction" maxlength="100" placeholder="Primer seguimiento"></label>
+        <section class="crm-form-section span-2">
+          <span class="eyebrow">Agenda inicial opcional</span>
+          <div class="crm-form-grid compact">
+            <label>Fecha<input id="crmAgendaDate" type="date"></label>
+            <label>Hora<input id="crmAgendaTime" type="time"></label>
+            <label>Tipo<input id="crmAgendaType" maxlength="70" placeholder="Diagnostico, cierre..."></label>
+            <label>Lugar<input id="crmAgendaPlace" maxlength="100" placeholder="Cliente, llamada, showroom..."></label>
+          </div>
+        </section>
+        <label class="span-2">Nota<textarea id="crmLastNote" rows="3" placeholder="Contexto comercial, necesidad o siguiente paso"></textarea></label>
+      </div>
+      <menu>
+        <button class="ghost-btn" type="button" data-crm-close>Cancelar</button>
+        <button class="primary-btn" type="submit">Guardar oportunidad</button>
+      </menu>
+    </form>
+  `;
+  document.body.appendChild(dialog);
+  dialog.querySelectorAll("[data-crm-close]").forEach((button) => {
+    button.addEventListener("click", () => dialog.close());
+  });
+  dialog.querySelector("#crmOpportunityForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveCrmOpportunity();
+  });
+  return dialog;
+}
+
+function openCrmOpportunityDialog(opportunity = null) {
+  const dialog = ensureCrmOpportunityDialog();
+  const sellers = crmSortedSellers();
+  const stages = crmData().stages || [];
+  dialog.querySelector("#crmOpportunityTitle").textContent = opportunity ? "Editar oportunidad" : "Nueva oportunidad";
+  dialog.querySelector("#crmOpportunityId").value = opportunity?.id || "";
+  dialog.querySelector("#crmCompany").value = opportunity?.company || "";
+  dialog.querySelector("#crmContact").value = opportunity?.contact || opportunity?.responsible || "";
+  dialog.querySelector("#crmPhone").value = opportunity?.phone || "";
+  dialog.querySelector("#crmSegment").value = opportunity?.segment || "";
+  dialog.querySelector("#crmLocation").value = opportunity?.location || "";
+  dialog.querySelector("#crmOwnerId").innerHTML = sellers.map((seller) => `<option value="${seller.id}">${escapeHtml(seller.name)}</option>`).join("");
+  dialog.querySelector("#crmStageId").innerHTML = stages.map((stage) => `<option value="${stage.id}">${stage.id}. ${escapeHtml(stage.name)}</option>`).join("");
+  dialog.querySelector("#crmOwnerId").value = opportunity?.ownerId || state.crmSellerId || sellers[0]?.id || "";
+  dialog.querySelector("#crmStageId").value = opportunity?.stageId || "1";
+  dialog.querySelector("#crmPriority").value = opportunity?.priority || "Media";
+  dialog.querySelector("#crmTemperature").value = opportunity?.temperature || "Tibio";
+  dialog.querySelector("#crmEstimatedAmount").value = opportunity?.estimatedAmount || "";
+  dialog.querySelector("#crmNextDate").value = opportunity?.nextDate || new Date().toISOString().slice(0, 10);
+  dialog.querySelector("#crmNextAction").value = opportunity?.nextAction || "";
+  dialog.querySelector("#crmAgendaDate").value = opportunity?.agendaDate || opportunity?.nextDate || new Date().toISOString().slice(0, 10);
+  dialog.querySelector("#crmAgendaTime").value = opportunity?.agendaTime || "";
+  dialog.querySelector("#crmAgendaType").value = opportunity?.agendaType || "Seguimiento";
+  dialog.querySelector("#crmAgendaPlace").value = opportunity?.agendaPlace || "Por definir";
+  dialog.querySelector("#crmLastNote").value = opportunity?.lastNote || opportunity?.comment || "";
+  dialog.showModal();
+}
+
+function saveCrmOpportunity() {
+  const dialog = ensureCrmOpportunityDialog();
+  const id = dialog.querySelector("#crmOpportunityId").value;
+  const payload = {
+    company: dialog.querySelector("#crmCompany").value,
+    product: dialog.querySelector("#crmSegment").value,
+    contact: dialog.querySelector("#crmContact").value,
+    responsible: dialog.querySelector("#crmContact").value,
+    phone: dialog.querySelector("#crmPhone").value,
+    segment: dialog.querySelector("#crmSegment").value,
+    location: dialog.querySelector("#crmLocation").value,
+    ownerId: dialog.querySelector("#crmOwnerId").value,
+    stageId: Number(dialog.querySelector("#crmStageId").value || 1),
+    priority: dialog.querySelector("#crmPriority").value,
+    temperature: dialog.querySelector("#crmTemperature").value,
+    estimatedAmount: Number(dialog.querySelector("#crmEstimatedAmount").value || 0),
+    closePercent: crmTemperatureToPercent(dialog.querySelector("#crmTemperature").value),
+    nextDate: dialog.querySelector("#crmNextDate").value,
+    deadline: dialog.querySelector("#crmNextDate").value,
+    status: "Vigente",
+    nextAction: dialog.querySelector("#crmNextAction").value || "Seguimiento comercial",
+    lastNote: dialog.querySelector("#crmLastNote").value,
+    comment: dialog.querySelector("#crmLastNote").value,
+    agendaDate: dialog.querySelector("#crmAgendaDate").value,
+    agendaTime: dialog.querySelector("#crmAgendaTime").value,
+    agendaType: dialog.querySelector("#crmAgendaType").value,
+    agendaPlace: dialog.querySelector("#crmAgendaPlace").value
+  };
+  const method = id ? "PATCH" : "POST";
+  const path = id ? `/opportunities/${id}` : "/opportunities";
+  crmApi(path, { method, body: JSON.stringify(payload) }).then(() => dialog.close());
+}
+
+function openCrmOpportunityById(opportunityId) {
+  const opportunity = crmData().opportunities.find((item) => item.id === opportunityId);
+  if (opportunity) openCrmOpportunityDialog(opportunity);
+}
+
+function crmEnsureSellerId() {
+  const sellers = crmSortedSellers();
+  if (!sellers.length) return "";
+  if (!state.crmSellerId || !sellers.some((seller) => seller.id === state.crmSellerId)) {
+    state.crmSellerId = sellers[0].id;
+  }
+  return state.crmSellerId;
+}
+
+function crmMetricCards() {
+  const data = crmData();
+  const kpis = data.kpis || {};
+  return [
+    ["Pipeline", kpis.totalPipelineLabel || "$0", "Monto estimado activo"],
+    ["Oportunidades", kpis.totalProspects || 0, "Registros comerciales"],
+    ["Agenda", kpis.scheduledMeetings || 0, "Visitas programadas"],
+    ["En visita", kpis.inProgressVisits || 0, "Ejecucion de campo"],
+    ["Realizadas", kpis.completedVisits || 0, "Gestiones completadas"],
+    ["Cierre", `${kpis.closeRate || 0}%`, "Etapa 6 o superior"]
+  ].map(([label, value, meta]) => `
+    <article class="crm-metric">
+      <span>${label}</span>
+      <strong>${value}</strong>
+      <small>${meta}</small>
+    </article>
+  `).join("");
+}
+
+function crmSellerOpportunityShare() {
+  const activeStatuses = new Set(["vigente", "pendiente", "abierta", "activo"]);
+  const activeOpportunities = crmData().opportunities.filter((opp) => {
+    const status = String(opp.status || "Vigente").toLowerCase();
+    return activeStatuses.has(status) || !["ganada", "perdida", "cancelada"].includes(status);
+  });
+  const opportunityAmount = (opp) => Number(opp.estimatedAmount ?? opp.amount ?? 0);
+  const total = activeOpportunities.reduce((sum, opp) => sum + opportunityAmount(opp), 0);
+  const sellers = new Map(crmSalesUsers().map((seller) => [seller.id, {
+    id: seller.id,
+    name: seller.name,
+    amount: 0,
+    count: 0
+  }]));
+  activeOpportunities.forEach((opp) => {
+    const sellerId = opp.ownerId || opp.owner?.id || "sin-asignar";
+    if (!sellers.has(sellerId)) {
+      sellers.set(sellerId, {
+        id: sellerId,
+        name: opp.owner?.name || crmOwnerName(sellerId) || "Sin asignar",
+        amount: 0,
+        count: 0
+      });
+    }
+    const seller = sellers.get(sellerId);
+    seller.amount += opportunityAmount(opp);
+    seller.count += 1;
+  });
+  return [...sellers.values()]
+    .filter((seller) => seller.count > 0 || seller.amount > 0)
+    .map((seller) => ({
+      ...seller,
+      percent: total ? (seller.amount / total) * 100 : 0
+    }))
+    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
+}
+
+function renderCrmDashboard() {
+  const data = crmData();
+  const sellerShare = crmSellerOpportunityShare();
+  const pipeline = data.pipeline.slice(0, 8);
+  return `
+    <section class="crm-shell">
+      <div class="crm-hero">
+        <div>
+          <p class="eyebrow">Comercializacion</p>
+          <h3>CRM operativo</h3>
+          <span>${data.generatedAt ? `Actualizado ${new Date(data.generatedAt).toLocaleString("es-SV")}` : "Conectando datos CRM"}</span>
+        </div>
+        <div class="crm-hero-actions">
+          <button class="primary-btn" type="button" data-crm-new>+ Oportunidad</button>
+          <button class="secondary-btn" type="button" data-crm-refresh>Actualizar</button>
+        </div>
+      </div>
+      <div class="crm-metrics">${crmMetricCards()}</div>
+      <div class="crm-two-column">
+        <section class="crm-section">
+          <div class="crm-section-head"><strong>Pipeline por etapa</strong><span>${pipeline.length} etapas</span></div>
+          <div class="crm-stage-list">
+            ${pipeline.map((stage) => `
+              <article class="crm-stage-row">
+                <span>${stage.id}. ${escapeHtml(stage.name)}</span>
+                <strong>${stage.amountLabel || formatMoney(stage.amount || 0)}</strong>
+                <em>${stage.count || 0}</em>
+              </article>
+            `).join("") || `<div class="empty-state">No hay etapas CRM cargadas.</div>`}
+          </div>
+        </section>
+        <section class="crm-section">
+          <div class="crm-section-head"><strong>Peso por vendedor</strong><span>${formatMoney(sellerShare.reduce((sum, seller) => sum + seller.amount, 0))}</span></div>
+          <div class="crm-seller-share-list">
+            ${sellerShare.map((seller) => `
+              <article class="crm-seller-share-row">
+                <div>
+                  <strong>${escapeHtml(seller.name)}</strong>
+                  <span>${seller.count} oportunidades activas</span>
+                </div>
+                <div class="crm-share-meter" aria-label="${seller.percent.toFixed(1)}% del pipeline">
+                  <i style="width: ${Math.max(2, Math.min(100, seller.percent)).toFixed(2)}%"></i>
+                </div>
+                <strong>${formatMoney(seller.amount)}</strong>
+                <em>${seller.percent.toFixed(1)}%</em>
+              </article>
+            `).join("") || `<div class="empty-state">No hay oportunidades vigentes para sumar.</div>`}
+          </div>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmSellers() {
+  const sellers = crmSortedSellers().filter((seller) => {
+    const active = crmActiveOpportunitiesForSeller(seller.id);
+    return !crmSearchText() || active.length || crmMatchesSearch({}, seller);
+  });
+  const rows = sellers.map((seller) => {
+    const activeOpportunities = crmActiveOpportunitiesForSeller(seller.id);
+    const activePipeline = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+    return `
+      <tr class="crm-seller-row" data-crm-seller="${seller.id}">
+        <td>
+          <strong>${escapeHtml(seller.name)}</strong>
+          <span>${escapeHtml(seller.initials || "SV")} - ${escapeHtml(seller.status || "Activo")}</span>
+        </td>
+        <td>${activeOpportunities.length}</td>
+        <td>${formatMoney(activePipeline)}</td>
+        <td><button class="crm-link-pill" type="button" data-crm-seller="${seller.id}">Abrir seguimiento</button></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <section class="crm-shell crm-original-module">
+      <div class="crm-topbar">
+        <button class="primary-btn" type="button" data-crm-new>+ Oportunidad</button>
+        <label class="crm-search-box">⌕<input data-crm-search value="${escapeHtml(state.crmSearch)}" placeholder="Buscar cliente, etapa o vendedor"></label>
+        <button class="secondary-btn" type="button" data-crm-refresh>↻</button>
+      </div>
+      <section class="crm-panel">
+        <div class="crm-module-head">
+          <span class="eyebrow">Modulo vendedores</span>
+          <span class="crm-total-pill">${sellers.length} activos</span>
+        </div>
+        <div class="crm-data-table-wrap">
+          <table class="crm-data-table">
+            <thead>
+              <tr>
+                <th>Vendedor</th>
+                <th>Oportunidades vigentes</th>
+                <th>Venta probable vigente</th>
+                <th>Acceso</th>
+              </tr>
+            </thead>
+            <tbody>${rows || `<tr><td colspan="4"><div class="empty-state">No hay vendedores registrados.</div></td></tr>`}</tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  `;
+}
+
+function renderCrmTracking() {
+  const data = crmData();
+  const sellers = crmSortedSellers();
+  const selectedSellerId = crmEnsureSellerId();
+  const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
+  const sellerOpportunities = selectedSeller ? data.opportunities.filter((opp) => opp.ownerId === selectedSeller.id) : [];
+  const activeOpportunities = crmActiveOpportunitiesForSeller(selectedSellerId);
+  const wonOpportunities = sellerOpportunities.filter((opp) => opp.status === "Ganada");
+  const lostOpportunities = sellerOpportunities.filter((opp) => opp.status === "Perdida");
+  const activeValue = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+  const wonValue = wonOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+  const conversionBase = wonOpportunities.length + lostOpportunities.length;
+  const conversion = conversionBase ? Math.round((wonOpportunities.length / conversionBase) * 100) : 0;
+  const statusOptions = [["Vigente", "Vigentes"], ["Ganada", "Ganadas"], ["Perdida", "Perdidas"], ["all", "Todas"]];
+  const visibleOpportunities = state.crmStatusFilter === "all"
+    ? sellerOpportunities
+    : sellerOpportunities.filter((opp) => String(opp.status || "Vigente") === state.crmStatusFilter);
+  const sellerButtons = sellers.map((seller) => {
+    const active = crmActiveOpportunitiesForSeller(seller.id);
+    const activeTotal = active.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+    return `
+      <button class="crm-seller-chip ${seller.id === selectedSellerId ? "is-active" : ""}" type="button" data-crm-seller-only="${seller.id}">
+        <strong>${escapeHtml(seller.name)}</strong>
+        <span>${active.length} vigentes - ${formatMoney(activeTotal)}</span>
+      </button>
+    `;
+  }).join("");
+  const opportunityCards = visibleOpportunities.filter((opp) => crmMatchesSearch(opp, selectedSeller)).sort((a, b) => String(a.deadline || a.nextDate || "").localeCompare(String(b.deadline || b.nextDate || ""))).map((opp) => `
+    <article class="crm-tracking-card" data-crm-opportunity="${opp.id}">
+      <div>
+        <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)} - ${escapeHtml(opp.status || "Vigente")}</span>
+        <strong>${escapeHtml(opp.company)}</strong>
+        <p>${escapeHtml(opp.product || "Producto pendiente")}</p>
+      </div>
+      <footer>
+        <strong>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</strong>
+        <span>${opp.closePercent || 0}% cierre</span>
+        <button class="crm-link-pill" type="button" data-crm-migrate="${opp.id}" ${opportunityMigratedFromCrm(opp.id) ? "disabled" : ""}>
+          ${opportunityMigratedFromCrm(opp.id) ? "Migrada" : "Migrar a resultados"}
+        </button>
+      </footer>
+    </article>
+  `).join("");
+  return `
+    <section class="crm-shell crm-original-module">
+      <section class="crm-panel">
+        <div class="crm-module-head">
+          <div>
+            <span class="eyebrow">Seguimiento individual</span>
+            <h3>${escapeHtml(selectedSeller?.name || "Selecciona vendedor")}</h3>
+            <p>Vista enfocada por vendedor, estatus y etapa.</p>
+          </div>
+          <button class="primary-btn" type="button" data-crm-new>Abrir oportunidad</button>
+        </div>
+        <div class="crm-tracking-metrics">
+          <div><span>Vigentes</span><strong>${activeOpportunities.length}</strong></div>
+          <div><span>Valor vigente</span><strong>${formatMoney(activeValue)}</strong></div>
+          <div><span>Ganadas</span><strong>${formatMoney(wonValue)}</strong></div>
+          <div><span>Conversion</span><strong>${conversion}%</strong></div>
+        </div>
+      </section>
+      <div class="crm-tracking-layout">
+        <aside class="crm-panel crm-tracking-sidebar">
+          <span class="eyebrow">Vendedores</span>
+          <div class="crm-seller-chip-list">${sellerButtons}</div>
+        </aside>
+        <section class="crm-tracking-main">
+          <div class="crm-panel crm-tracking-controls">
+            <span class="eyebrow">Estatus</span>
+            <div class="crm-filter-chips">
+              ${statusOptions.map(([value, label]) => `<button class="${state.crmStatusFilter === value ? "is-active" : ""}" type="button" data-crm-status="${value}">${label}</button>`).join("")}
+            </div>
+          </div>
+          <div class="crm-tracking-grid">${opportunityCards || `<div class="empty-state">No hay oportunidades para este filtro.</div>`}</div>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmAgenda() {
+  const data = crmData();
+  const sellers = crmSortedSellers();
+  const agenda = data.agenda.slice(0, 80);
+  const slots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+  const date = state.crmAgendaDate || new Date().toISOString().slice(0, 10);
+  const selectedSellerId = state.crmSellerId || "all";
+  const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
+  const dayItems = agenda.filter((item) => item.date === date);
+  const visibleDayItems = dayItems.filter((item) => selectedSellerId === "all" || item.ownerId === selectedSellerId);
+  const availableCount = Math.max(0, sellers.length * slots.length - dayItems.length);
+  const sellerRail = [
+    `
+      <button class="crm-seller-chip ${selectedSellerId === "all" ? "is-active" : ""}" type="button" data-crm-seller-only="all">
+        <strong>Todos los vendedores</strong>
+        <span>${dayItems.length} programadas · ${availableCount} libres</span>
+      </button>
+    `,
+    ...sellers.map((seller) => {
+    const items = dayItems.filter((item) => item.ownerId === seller.id);
+    return `
+      <button class="crm-seller-chip ${seller.id === selectedSellerId ? "is-active" : ""}" type="button" data-crm-seller-only="${seller.id}">
+        <strong>${escapeHtml(seller.name)}</strong>
+        <span>${items.length} programadas · ${Math.max(0, slots.length - items.length)} libres</span>
+      </button>
+    `;
+  })
+  ].join("");
+  const timeline = slots.map((slot) => {
+    const slotItems = visibleDayItems.filter((item) => String(item.time || "").slice(0, 2) === slot.slice(0, 2));
+    const availableSellers = selectedSeller ? [selectedSeller] : sellers.filter((seller) => !slotItems.some((item) => item.ownerId === seller.id));
+    return `
+      <article class="crm-agenda-hour">
+        <div><strong>${slot}</strong><span>${slotItems.length ? `${slotItems.length} actividades` : "Sin actividades"}</span></div>
+        <section>
+          ${slotItems.filter((item) => crmMatchesSearch(item.opportunity || {}, item.owner)).map((item) => `
+            <article class="crm-agenda-visit" data-crm-opportunity="${item.opportunityId}">
+              <strong>${escapeHtml(item.opportunity?.company || "Sin cliente")}</strong>
+              <span>${escapeHtml(item.owner?.name || crmOwnerName(item.ownerId))} · ${escapeHtml(item.type || "Gestion")}</span>
+              <em>${escapeHtml(item.place || item.status || "Por definir")}</em>
+              <div class="crm-agenda-actions">
+                <button type="button" data-crm-agenda-status="${item.id}:En visita">Iniciar</button>
+                <button type="button" data-crm-agenda-status="${item.id}:Realizada">OK</button>
+              </div>
+            </article>
+          `).join("") || `
+            <div class="crm-open-slot">
+              <strong>Sin actividades programadas</strong>
+              <span>Horario libre para asignar visitas o llamadas.</span>
+              <em>${availableSellers.length} vendedores disponibles</em>
+            </div>
+          `}
+        </section>
+      </article>
+    `;
+  }).join("");
+  return `
+    <section class="crm-shell crm-original-module">
+      <section class="crm-panel crm-agenda-hero">
+        <div class="crm-module-head">
+          <div>
+            <span class="eyebrow">Agenda integral</span>
+            <h3>Disponibilidad por hora de todos los vendedores</h3>
+            <p>Vista unificada para detectar espacios libres, visitas programadas y carga diaria.</p>
+          </div>
+          <div class="crm-agenda-datebar">
+            <button class="primary-btn" type="button" data-crm-agenda-today>Hoy</button>
+            <span class="crm-total-pill">Calendario&nbsp; ${escapeHtml(date)}</span>
+          </div>
+        </div>
+        <div class="crm-tracking-metrics">
+          <div><span>Fecha</span><strong>${escapeHtml(date)}</strong></div>
+          <div><span>Programadas</span><strong>${visibleDayItems.length}</strong></div>
+          <div><span>Disponibles</span><strong>${selectedSeller ? Math.max(0, slots.length - visibleDayItems.length) : availableCount}</strong></div>
+          <div><span>Vendedores</span><strong>${sellers.length}</strong></div>
+        </div>
+      </section>
+      <div class="crm-agenda-layout">
+        <aside class="crm-panel crm-tracking-sidebar">
+          <span class="eyebrow">Equipo</span>
+          <div class="crm-seller-chip-list">${sellerRail}</div>
+        </aside>
+        <section class="crm-panel crm-agenda-main">
+          <div class="crm-module-head compact">
+            <div>
+              <span class="eyebrow">Bitacora por hora</span>
+              <h3>${selectedSeller ? escapeHtml(selectedSeller.name) : "Agenda integral del equipo"}</h3>
+            </div>
+            <span class="crm-total-pill">${escapeHtml(date)}</span>
+          </div>
+          <div class="crm-agenda-timeline">${timeline}</div>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmResponses() {
+  const data = crmData();
+  const responses = [
+    ...data.gestiones,
+    ...data.agenda
+      .filter((item) => item.status === "Programada")
+      .map((item) => ({
+        id: `pending-${item.id}`,
+        date: item.date,
+        time: item.time,
+        type: item.type || "Seguimiento",
+        status: "Pendiente",
+        company: item.opportunity?.company,
+        owner: item.owner,
+        note: item.place
+      }))
+  ].filter((item) => crmMatchesSearch(item.opportunity || { company: item.company, status: item.status }, item.owner)).slice(0, 80);
+  return `
+    <section class="crm-shell crm-original-module">
+      <section class="crm-panel">
+        <div class="crm-module-head">
+          <div>
+            <span class="eyebrow">Respuestas</span>
+            <h3>Bandeja de compromisos y respuestas</h3>
+            <p>Filas tipo correo: vendedor, cliente, compromiso, respuesta, nota, ubicacion, fecha y estado.</p>
+          </div>
+          <span class="crm-total-pill">${responses.length} registros</span>
+        </div>
+        <div class="crm-mail-table">
+          <div class="crm-mail-row crm-mail-head"><span>De</span><span>Cliente</span><span>Compromiso</span><span>Respuesta</span><span>Nota</span><span>Fecha</span><span>Estado</span></div>
+          ${responses.map((item) => `
+            <article class="crm-mail-row">
+              <strong>${escapeHtml(item.owner?.name || crmOwnerName(item.ownerId))}</strong>
+              <span>${escapeHtml(item.company || item.opportunity?.company || "Sin cliente")}</span>
+              <span>${escapeHtml(item.type || "Gestion")}</span>
+              <span>${escapeHtml(item.result || "Sin respuesta")}</span>
+              <span>${escapeHtml(item.note || "Sin nota registrada")}</span>
+              <time>${escapeHtml(item.date || "")} ${escapeHtml(item.time || "")}</time>
+              <em class="${item.status === "Realizada" ? "is-done" : "is-pending"}">${escapeHtml(item.status || "Pendiente")}</em>
+            </article>
+          `).join("") || `<div class="empty-state">No hay respuestas CRM.</div>`}
+        </div>
+      </section>
+    </section>
+  `;
+}
+
+function renderCrmClients() {
+  const opportunities = crmData().opportunities;
+  const clients = Object.values(opportunities.reduce((acc, opp) => {
+    const key = opp.customerId || opp.company;
+    if (!acc[key]) acc[key] = { name: opp.customer?.commercialName || opp.company, owner: opp.owner?.name || crmOwnerName(opp.ownerId), count: 0, amount: 0, segment: opp.segment };
+    acc[key].count += 1;
+    acc[key].amount += Number(opp.estimatedAmount || 0);
+    return acc;
+  }, {})).slice(0, 80);
+  return `
+    <section class="crm-shell">
+      <div class="crm-section-head hero-line"><strong>Clientes</strong><span>${clients.length} cuentas</span></div>
+      <div class="crm-client-grid">
+        ${clients.map((client) => `
+          <article class="crm-client-card">
+            <strong>${escapeHtml(client.name)}</strong>
+            <span>${escapeHtml(client.segment || "Segmento pendiente")}</span>
+            <div>
+              <em>${escapeHtml(client.owner)}</em>
+              <b>${formatMoney(client.amount)}</b>
+            </div>
+            <small>${client.count} oportunidades</small>
+          </article>
+        `).join("") || `<div class="empty-state">No hay clientes CRM.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCrmModule(submenuKey) {
+  if (!state.crmData) {
+    loadCrmData();
+    return `<div class="empty-state">Cargando CRM comercial...</div>`;
+  }
+  const views = {
+    crm: renderCrmDashboard,
+    "crm-vendedores": renderCrmSellers,
+    "crm-seguimiento": renderCrmTracking,
+    "crm-agenda": renderCrmAgenda,
+    "crm-respuestas": renderCrmResponses,
+    "crm-clientes": renderCrmClients
+  };
+  return (views[submenuKey] || renderCrmDashboard)();
+}
+
 function renderCommercialSubmenu(area) {
   if (!Array.isArray(area.submenus)) {
     commercialPanel.classList.add("hidden");
@@ -1702,7 +2625,7 @@ function renderCommercialSubmenu(area) {
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
 
-  if (state.activeArea !== "comercializacion") {
+  if (state.activeArea !== "comercializacion" && !["riesgos", "solicitudes"].includes(submenu.key)) {
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");
@@ -1725,6 +2648,68 @@ function renderCommercialSubmenu(area) {
     opportunityDashboard.classList.remove("hidden");
     commercialSubmenuStatus.textContent = "Ventas ganadas / meta";
     renderOpportunityDashboard(opportunitySubmenu.items);
+    return;
+  }
+
+  if (submenu.key.startsWith("crm")) {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = submenu.status;
+    opportunityTable.innerHTML = renderCrmModule(submenu.key);
+    opportunityTable.querySelector("[data-crm-refresh]")?.addEventListener("click", loadCrmData);
+    opportunityTable.querySelector("[data-crm-new]")?.addEventListener("click", () => openCrmOpportunityDialog());
+    opportunityTable.querySelector("[data-crm-search]")?.addEventListener("input", (event) => {
+      state.crmSearch = event.target.value;
+      renderCommercialSubmenu(areas.comercializacion);
+      const input = opportunityTable.querySelector("[data-crm-search]");
+      input?.focus();
+      input?.setSelectionRange(input.value.length, input.value.length);
+    });
+    opportunityTable.querySelectorAll("[data-crm-seller]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmSellerId = button.dataset.crmSeller;
+        state.activeSubmenu = "crm-seguimiento";
+        renderDashboard();
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-seller-only]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmSellerId = button.dataset.crmSellerOnly === "all" ? "" : button.dataset.crmSellerOnly;
+        renderCommercialSubmenu(areas.comercializacion);
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-agenda-today]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmAgendaDate = new Date().toISOString().slice(0, 10);
+        renderCommercialSubmenu(areas.comercializacion);
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-migrate]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        migrateCrmOpportunityToResults(button.dataset.crmMigrate);
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-opportunity]").forEach((item) => {
+      item.addEventListener("click", () => openCrmOpportunityById(item.dataset.crmOpportunity));
+    });
+    opportunityTable.querySelectorAll("[data-crm-agenda-status]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const [agendaId, status] = button.dataset.crmAgendaStatus.split(":");
+        crmApi(`/agenda/${agendaId}`, { method: "PATCH", body: JSON.stringify({ status }) });
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-status]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmStatusFilter = button.dataset.crmStatus;
+        renderCommercialSubmenu(areas.comercializacion);
+      });
+    });
     return;
   }
 
@@ -1854,6 +2839,8 @@ function renderOpportunityDashboard(items) {
   const totalLost = summaryRows.reduce((sum, row) => sum + row.lostCount, 0);
   const totalPending = summaryRows.reduce((sum, row) => sum + row.pendingCount, 0);
   const totalOpportunities = summaryRows.reduce((sum, row) => sum + row.opportunityCount, 0);
+  const historicalOpportunities = summaryRows.reduce((sum, row) => sum + row.historicalOpportunityCount, 0);
+  const historicalAmount = summaryRows.reduce((sum, row) => sum + row.historicalAmount, 0);
   const fulfilledSellers = summaryRows.filter((row) => row.percent >= 100).length;
   const [, summaryStatusLabel] = kpiSemaphore(totalPercent);
   const maxFulfillment = Math.max(...fulfillmentRows.map((row) => row.percent), 100);
@@ -1889,7 +2876,28 @@ function renderOpportunityDashboard(items) {
         </div>
       </div>
 
+      <div class="kpi-count-split" aria-label="Separacion de conteos historicos y mes corriente">
+        <section>
+          <div>
+            <span>Historico enero-junio</span>
+            <strong>${historicalOpportunities}</strong>
+          </div>
+          <small>${formatMoney(historicalAmount)}</small>
+        </section>
+        <section>
+          <div>
+            <span>${state.period}</span>
+            <strong>${totalOpportunities}</strong>
+          </div>
+          <small>${totalWon} ganadas / ${totalPending} pendientes</small>
+        </section>
+      </div>
+
       <div class="won-kpi-table">
+        <div class="won-kpi-caption">
+          <strong>Gestion del mes corriente</strong>
+          <span>Solo oportunidades ingresadas o cerradas en ${state.period}</span>
+        </div>
         <div class="won-kpi-row won-kpi-header">
           <strong>Vendedor</strong>
           <strong>Oportunidades</strong>
@@ -2302,16 +3310,336 @@ function renderKpiComplianceTable(items) {
   `;
 }
 
+function adminPermissionSummary(user) {
+  if (isAdminUser(user)) return "Todos los permisos";
+  const permissions = userPermissions(user);
+  const areaLabels = areaKeys
+    .map((areaKey) => {
+      const count = sectionOptions
+        .filter((section) => permissions.has(permissionKey(areaKey, section.key)))
+        .length;
+      return count ? `${areas[areaKey].nav}: ${count}` : "";
+    })
+    .filter(Boolean);
+  return areaLabels.length ? areaLabels.join(" · ") : "Sin permisos";
+}
+
+function adminPermissionModules(user) {
+  if (isAdminUser(user)) {
+    return [{ label: "Acceso total", count: sectionOptions.length * areaKeys.length, total: true }];
+  }
+  const permissions = userPermissions(user);
+  return areaKeys
+    .map((areaKey) => {
+      const count = sectionOptions
+        .filter((section) => permissions.has(permissionKey(areaKey, section.key)))
+        .length;
+      return count ? { label: areas[areaKey].nav, count } : null;
+    })
+    .filter(Boolean);
+}
+
+function adminUserInitials(user) {
+  const source = user.name || user.email || user.username || "Usuario";
+  return source
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function renderAdminPermissionControls(existingUser = null) {
+  if (!adminPermissionGrid) return;
+  const role = adminUserRole?.value || existingUser?.role || "comercializacion";
+  const selected = userPermissions(existingUser || {
+    role,
+    permissions: defaultPermissionsForRole(role)
+  });
+  adminPermissionGrid.innerHTML = areaKeys.map((areaKey) => `
+    <fieldset class="permission-group">
+      <legend>${areas[areaKey].nav}</legend>
+      ${sectionOptions.map((section) => {
+        const key = permissionKey(areaKey, section.key);
+        return `
+          <label class="permission-check">
+            <input type="checkbox" value="${key}" ${selected.has(key) ? "checked" : ""}>
+            <span>${section.label}</span>
+          </label>
+        `;
+      }).join("")}
+    </fieldset>
+  `).join("");
+}
+
+function collectAdminPermissions() {
+  if (!adminPermissionGrid) return [];
+  return [...adminPermissionGrid.querySelectorAll("input[type='checkbox']:checked")]
+    .map((input) => input.value);
+}
+
+function openAdminUserDialog(userId = "") {
+  if (!adminUserDialog) return;
+  const user = systemUsers.find((item) => item.id === userId);
+  adminUserDialogTitle.textContent = user ? "Editar usuario" : "Nuevo usuario";
+  adminUserId.value = user?.id || "";
+  adminUserName.value = user?.name || "";
+  adminUsername.value = user?.username || "";
+  adminUserEmail.value = user?.email || "";
+  adminUserRole.innerHTML = accessRoles
+    .filter(([key]) => !["general", "accionistas"].includes(key))
+    .map(([key, label]) => `<option value="${key}">${label}</option>`)
+    .join("");
+  adminUserRole.value = user?.role || "comercializacion";
+  adminUserPassword.value = "";
+  adminUserPassword.required = !user;
+  renderAdminPermissionControls(user || null);
+  adminUserDialog.showModal();
+}
+
+function syncCurrentUserFromSystem() {
+  if (!state.currentUser) return;
+  const current = systemUsers.find((user) =>
+    user.id === state.currentUser.id ||
+    normalizeKey(user.email) === normalizeKey(state.currentUser.email) ||
+    normalizeKey(user.username) === normalizeKey(state.currentUser.username)
+  );
+  if (current) {
+    state.currentUser = current;
+    state.role = current.role;
+  }
+}
+
+function saveAdminUserFromForm(event) {
+  event.preventDefault();
+  const userId = adminUserId.value;
+  const username = adminUsername.value.trim();
+  const email = adminUserEmail.value.trim();
+  const conflict = systemUsers.some((user) => user.id !== userId && (
+    normalizeKey(user.username) === normalizeKey(username) ||
+    normalizeKey(user.email) === normalizeKey(email)
+  ));
+  if (conflict) {
+    alert("Ya existe un usuario con ese correo o usuario.");
+    return;
+  }
+  const existing = systemUsers.find((user) => user.id === userId);
+  const admin = normalizeKey(email) === adminEmail;
+  const role = admin ? "financiera" : adminUserRole.value;
+  const payload = {
+    id: userId || crypto.randomUUID(),
+    name: adminUserName.value.trim(),
+    username,
+    email,
+    role,
+    password: adminUserPassword.value || existing?.password || "admin123",
+    admin,
+    permissions: admin ? allPermissionKeys() : collectAdminPermissions()
+  };
+  systemUsers = userId
+    ? systemUsers.map((user) => user.id === userId ? payload : user)
+    : [...systemUsers, payload];
+  saveUsers();
+  fillUserAccessOptions();
+  adminUserDialog.close();
+  renderDashboard();
+}
+
+function openAdminPasswordDialog(userId) {
+  if (!adminPasswordDialog) return;
+  const user = systemUsers.find((item) => item.id === userId);
+  if (!user) return;
+  adminPasswordUserId.value = user.id;
+  adminPasswordUserLabel.textContent = `${user.name} · ${user.email || user.username}`;
+  adminPasswordValue.value = "";
+  adminPasswordDialog.showModal();
+}
+
+function resetAdminPasswordFromForm(event) {
+  event.preventDefault();
+  const userId = adminPasswordUserId.value;
+  systemUsers = systemUsers.map((user) =>
+    user.id === userId ? { ...user, password: adminPasswordValue.value } : user
+  );
+  saveUsers();
+  adminPasswordDialog.close();
+  renderDashboard();
+}
+
+function deleteAdminUser(userId) {
+  const user = systemUsers.find((item) => item.id === userId);
+  if (!user || isAdminUser(user)) return;
+  if (!confirm(`Eliminar usuario ${user.name}?`)) return;
+  systemUsers = systemUsers.filter((item) => item.id !== userId);
+  saveUsers();
+  renderDashboard();
+}
+
+function renderAdminPanel() {
+  if (!adminPanel) return;
+  adminPanel.classList.remove("hidden");
+  const keepSearchFocus = document.activeElement?.id === "adminSearchInput";
+  const users = [...systemUsers].sort((a, b) => a.name.localeCompare(b.name));
+  const query = normalizeKey(state.adminQuery);
+  const filteredUsers = users.filter((user) => {
+    const haystack = normalizeKey([
+      user.name,
+      user.email,
+      user.username,
+      roleDisplayName(user.role),
+      adminPermissionSummary(user)
+    ].join(" "));
+    return !query || haystack.includes(query);
+  });
+  const totalUsers = users.length;
+  const adminUsers = users.filter((user) => isAdminUser(user)).length;
+  const assignedModules = new Set(users.flatMap((user) =>
+    adminPermissionModules(user)
+      .filter((module) => !module.total)
+      .map((module) => module.label)
+  )).size;
+  const totalPermissions = users.reduce((sum, user) => sum + userPermissions(user).size, 0);
+  adminPanel.innerHTML = `
+    <div class="admin-shell">
+      <div class="admin-hero">
+        <div>
+          <p class="eyebrow">Administracion</p>
+          <h3>Usuarios y permisos</h3>
+          <p class="muted-copy">Gestion de accesos, perfiles y recuperacion de claves.</p>
+        </div>
+        <button class="secondary-btn icon-text-btn" type="button" data-admin-action="new">
+          <span aria-hidden="true">+</span> Nuevo usuario
+        </button>
+      </div>
+
+      <div class="admin-summary-grid" aria-label="Resumen de usuarios">
+        <article class="admin-metric">
+          <span>Usuarios</span>
+          <strong>${totalUsers}</strong>
+        </article>
+        <article class="admin-metric">
+          <span>Administradores</span>
+          <strong>${adminUsers}</strong>
+        </article>
+        <article class="admin-metric">
+          <span>Modulos activos</span>
+          <strong>${assignedModules || areaKeys.length}</strong>
+        </article>
+        <article class="admin-metric">
+          <span>Permisos asignados</span>
+          <strong>${totalPermissions}</strong>
+        </article>
+      </div>
+
+      <div class="admin-toolbar">
+        <label class="admin-search" for="adminSearchInput">
+          <span>Buscar usuario</span>
+          <input id="adminSearchInput" type="search" value="${escapeHtml(state.adminQuery)}" placeholder="Nombre, correo o gerencia">
+        </label>
+        <span class="admin-toolbar-pill">${filteredUsers.length} visibles</span>
+      </div>
+
+      <div class="admin-user-list">
+        ${filteredUsers.length ? filteredUsers.map((user) => {
+          const modules = adminPermissionModules(user);
+          return `
+          <article class="admin-user-card ${isAdminUser(user) ? "admin-owner" : ""}">
+            <div class="admin-person">
+              <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
+              <div>
+                <strong>${escapeHtml(user.name)}</strong>
+                <span>${escapeHtml(user.email || user.username)}</span>
+                ${user.username ? `<small>${escapeHtml(user.username)}</small>` : ""}
+              </div>
+            </div>
+            <div class="admin-role-block">
+              <span class="admin-label">Perfil</span>
+              <span class="admin-role-pill">${escapeHtml(roleDisplayName(user.role))}</span>
+            </div>
+            <div class="admin-access-block">
+              <span class="admin-label">Accesos</span>
+              <div class="admin-access-chips">
+                ${modules.length ? modules.map((module) => `
+                  <span class="admin-access-chip ${module.total ? "total" : ""}">
+                    ${escapeHtml(module.label)}
+                    ${module.total ? "" : `<small>${module.count}</small>`}
+                  </span>
+                `).join("") : `<span class="admin-access-chip empty">Sin permisos</span>`}
+              </div>
+            </div>
+            <div class="admin-row-actions">
+              <button class="action-icon-btn" type="button" title="Editar usuario" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button>
+              <button class="action-icon-btn" type="button" title="Resetear clave" aria-label="Resetear clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>
+              ${isAdminUser(user) ? "" : `<button class="action-icon-btn danger" type="button" title="Eliminar usuario" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}
+            </div>
+          </article>
+        `;
+        }).join("") : `
+          <div class="admin-empty">
+            <strong>No hay usuarios con ese criterio.</strong>
+            <span>Prueba con otro nombre, correo o gerencia.</span>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+  const searchInput = adminPanel.querySelector("#adminSearchInput");
+  searchInput?.addEventListener("input", (event) => {
+    state.adminQuery = event.target.value;
+    renderAdminPanel();
+  });
+  if (keepSearchFocus && searchInput) {
+    requestAnimationFrame(() => {
+      const nextSearchInput = adminPanel.querySelector("#adminSearchInput");
+      nextSearchInput?.focus();
+      nextSearchInput?.setSelectionRange(nextSearchInput.value.length, nextSearchInput.value.length);
+    });
+  }
+  adminPanel.querySelector("[data-admin-action='new']")?.addEventListener("click", () => openAdminUserDialog());
+  adminPanel.querySelectorAll("[data-admin-action='edit']").forEach((button) => {
+    button.addEventListener("click", () => openAdminUserDialog(button.dataset.userId));
+  });
+  adminPanel.querySelectorAll("[data-admin-action='password']").forEach((button) => {
+    button.addEventListener("click", () => openAdminPasswordDialog(button.dataset.userId));
+  });
+  adminPanel.querySelectorAll("[data-admin-action='delete']").forEach((button) => {
+    button.addEventListener("click", () => deleteAdminUser(button.dataset.userId));
+  });
+}
+
 function renderDashboard() {
+  const availableAreas = allowedAreas();
+  if (!availableAreas.includes(state.activeArea)) state.activeArea = availableAreas[0] || "comercializacion";
   const area = areas[state.activeArea];
-  const hasSubmenus = Array.isArray(area.submenus);
+  const visibleItems = visibleSubmenus(state.activeArea);
+  const hasSubmenus = visibleItems.length > 0;
   activeRoleLabel.textContent = state.currentUser?.name
     ? `${state.currentUser.name} - ${roleDisplayName()}`
     : roleDisplayName();
-  const activeSubmenu = hasSubmenus
-    ? area.submenus.find((item) => item.key === state.activeSubmenu)
-    : null;
-  dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "riesgos", "solicitudes"].includes(state.activeSubmenu));
+
+  if (state.activeArea === adminAreaKey) {
+    dashboard.classList.add("admin-focus");
+    dashboard.classList.remove("opportunity-focus");
+    pageTitle.textContent = area.label;
+    periodLabel.textContent = "Control de accesos";
+    topbarActions?.classList.add("hidden");
+    overallStatus.textContent = area.status;
+    renderNav();
+    summaryGrid.innerHTML = "";
+    commercialPanel.classList.add("hidden");
+    renderAdminPanel();
+    return;
+  }
+
+  dashboard.classList.remove("admin-focus");
+  topbarActions?.classList.remove("hidden");
+  adminPanel?.classList.add("hidden");
+  if (hasSubmenus && !visibleItems.some((item) => item.key === state.activeSubmenu)) {
+    state.activeSubmenu = visibleItems[0].key;
+  }
+  const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
+  dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu));
   pageTitle.textContent = activeSubmenu ? activeSubmenu.label : area.label;
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;
@@ -2330,46 +3658,91 @@ function setSidebarCollapsed(collapsed) {
 }
 
 function normalizeUsers(items) {
-  return items.map((item, index) => ({
-    id: item.id || `user-${index + 1}`,
-    name: item.name || item.username || "Usuario",
-    username: String(item.username || item.email || `usuario${index + 1}`).trim(),
-    email: String(item.email || "").trim(),
-    role: accessRoles.some(([key]) => key === item.role) ? item.role : "comercializacion",
-    password: item.password || "admin123"
-  }));
+  const source = Array.isArray(items) && items.length ? items : defaultUsers;
+  const byCredential = new Map();
+
+  const addUser = (item, index) => {
+    const email = String(item.email || "").trim();
+    const normalizedEmail = normalizeKey(email);
+    const username = String(item.username || email || `usuario${index + 1}`).trim();
+    const normalizedUsername = normalizeKey(username);
+    const requestedRole = accessRoles.some(([key]) => key === item.role) ? item.role : "comercializacion";
+    const admin = Boolean(item.admin) || normalizedEmail === adminEmail;
+    const role = admin ? "financiera" : requestedRole;
+    const user = {
+      id: item.id || `user-${index + 1}`,
+      name: item.name || item.username || item.email || "Usuario",
+      username,
+      email,
+      role,
+      password: item.password || "admin123",
+      admin,
+      permissions: admin ? allPermissionKeys() : normalizePermissionList(item.permissions, role)
+    };
+    byCredential.set(normalizedEmail || normalizedUsername || user.id, user);
+  };
+
+  source.forEach(addUser);
+
+  if (![...byCredential.values()].some((user) => normalizeKey(user.email) === adminEmail)) {
+    addUser(defaultUsers[0], source.length);
+  }
+
+  return [...byCredential.values()];
 }
 
 function loadUsers() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(usersStorageKey) || "null");
-    systemUsers = normalizeUsers(Array.isArray(saved) && saved.length ? saved : defaultUsers);
-  } catch {
-    systemUsers = normalizeUsers(defaultUsers);
-  }
-  saveUsers();
-  fillUserAccessOptions();
-  restoreSession();
+  const loadSavedUsers = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(usersStorageKey) || "null");
+      return normalizeUsers(Array.isArray(saved) && saved.length ? saved : defaultUsers);
+    } catch {
+      return normalizeUsers(defaultUsers);
+    }
+  };
+
   if (apiEnabled) {
+    systemUsers = normalizeUsers(defaultUsers);
+    fillUserAccessOptions();
     apiJson("/api/users")
       .then((users) => {
         systemUsers = normalizeUsers(users);
-        localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
+        saveUsers({ sync: false });
         fillUserAccessOptions();
         restoreSession();
       })
-      .catch(() => {});
+      .catch(() => {
+        systemUsers = loadSavedUsers();
+        saveUsers({ sync: false });
+        fillUserAccessOptions();
+        restoreSession();
+      });
+    return;
   }
+
+  systemUsers = loadSavedUsers();
+  saveUsers({ sync: false });
+  fillUserAccessOptions();
+  restoreSession();
 }
 
-function saveUsers() {
+function saveUsers(options = {}) {
+  systemUsers = normalizeUsers(systemUsers);
+  syncCurrentUserFromSystem();
   localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
+  if (apiEnabled && options.sync !== false) {
+    apiJson("/api/users", {
+      method: "POST",
+      body: JSON.stringify({ users: systemUsers })
+    }).catch(() => {});
+  }
 }
 
 function persistSession(user) {
   localStorage.setItem(sessionStorageKey, JSON.stringify({
     id: user.id,
     username: user.username,
+    email: user.email,
     role: user.role
   }));
 }
@@ -2381,13 +3754,15 @@ function clearSession() {
 }
 
 function findUserByCredential(value) {
-  const credential = String(value || "").trim().toLowerCase();
+  const credential = normalizeKey(value);
   return systemUsers.find((user) => [user.id, user.username, user.email]
-    .some((option) => String(option || "").trim().toLowerCase() === credential));
+    .some((option) => normalizeKey(option) === credential));
 }
 
-function defaultAreaForRole(role) {
-  return ["general", "accionistas"].includes(role) ? "comercializacion" : role;
+function defaultAreaForRole(role, user = state.currentUser) {
+  const candidate = user || { role, permissions: defaultPermissionsForRole(role) };
+  const available = allowedAreas(candidate);
+  return available[0] || fallbackAreaForRole(role);
 }
 
 function restoreSession() {
@@ -2395,7 +3770,11 @@ function restoreSession() {
   try {
     const saved = JSON.parse(localStorage.getItem(sessionStorageKey) || "null");
     if (!saved) return false;
-    const user = systemUsers.find((item) => item.id === saved.id || item.username === saved.username);
+    const user = systemUsers.find((item) =>
+      item.id === saved.id ||
+      normalizeKey(item.username) === normalizeKey(saved.username) ||
+      normalizeKey(item.email) === normalizeKey(saved.email)
+    );
     if (!user) return false;
     sessionRestored = true;
     openApp(user, { restoreSession: true });
@@ -2406,21 +3785,16 @@ function restoreSession() {
   }
 }
 
-function createUserInDatabase(user) {
-  if (!apiEnabled) return;
-  apiJson("/api/users", {
-    method: "POST",
-    body: JSON.stringify(user)
-  }).catch(() => {});
-}
-
 function fillUserAccessOptions() {
   if (loginUserSelect.tagName === "SELECT") {
     loginUserSelect.innerHTML = systemUsers.map((user) => `
-      <option value="${user.id}">${user.username} - ${roleDisplayName(user.role)}</option>
+      <option value="${escapeHtml(user.username)}">${escapeHtml(user.username)}</option>
     `).join("");
   }
-  registerRole.innerHTML = accessRoles.map(([key, label]) => `<option value="${key}">${label}</option>`).join("");
+  registerRole.innerHTML = accessRoles
+    .filter(([key]) => !["general", "accionistas"].includes(key))
+    .map(([key, label]) => `<option value="${key}">${label}</option>`)
+    .join("");
 }
 
 function setAuthMode(mode) {
@@ -2439,15 +3813,28 @@ function setAuthMode(mode) {
 }
 
 function openApp(userOrRole, options = {}) {
-  const user = typeof userOrRole === "string"
-    ? systemUsers.find((item) => item.role === userOrRole) || { id: userOrRole, name: roleDisplayName(userOrRole), role: userOrRole }
+  const rawUser = typeof userOrRole === "string"
+    ? systemUsers.find((item) => item.role === userOrRole || item.username === userOrRole) || {
+        id: userOrRole,
+        name: roleDisplayName(userOrRole),
+        role: userOrRole,
+        permissions: defaultPermissionsForRole(userOrRole)
+      }
     : userOrRole;
+  const user = systemUsers.find((item) =>
+    item.id === rawUser.id ||
+    normalizeKey(item.email) === normalizeKey(rawUser.email) ||
+    normalizeKey(item.username) === normalizeKey(rawUser.username)
+  ) || normalizeUsers([rawUser])[0];
+
   state.currentUser = user;
   state.role = user.role;
-  if (!options.restoreSession || !areas[state.activeArea] || state.activeArea === "general") {
-    state.activeArea = defaultAreaForRole(user.role);
-    state.activeSubmenu = "resultados";
-    state.commercialMenuOpen = state.activeArea === "comercializacion";
+  const available = allowedAreas(user);
+  if (!options.restoreSession || !available.includes(state.activeArea)) {
+    state.activeArea = defaultAreaForRole(user.role, user);
+    const firstSubmenu = visibleSubmenus(state.activeArea, user)[0];
+    state.activeSubmenu = firstSubmenu?.key || "resultados";
+    state.commercialMenuOpen = Boolean(firstSubmenu);
   }
   persistSession(user);
   loginView.classList.add("hidden");
@@ -2460,7 +3847,7 @@ function fillRequestAreas() {
 }
 
 function currentRiskOwner() {
-  return areaKeys.includes(state.role) ? areas[state.role].nav : roleDisplayName();
+  return areas[state.activeArea]?.nav || (areaKeys.includes(state.role) ? areas[state.role].nav : roleDisplayName());
 }
 
 function currentRequestOwner() {
@@ -2469,7 +3856,7 @@ function currentRequestOwner() {
 
 function riskImpactOptions() {
   return areaKeys
-    .filter((key) => key !== state.role)
+    .filter((key) => key !== state.activeArea)
     .map((key) => areas[key].nav);
 }
 
@@ -2491,6 +3878,16 @@ document.querySelectorAll("[data-auth-mode]").forEach((button) => {
   button.addEventListener("click", () => setAuthMode(button.dataset.authMode));
 });
 
+closeAdminUserDialog?.addEventListener("click", () => adminUserDialog.close());
+cancelAdminUser?.addEventListener("click", () => adminUserDialog.close());
+adminUserForm?.addEventListener("submit", saveAdminUserFromForm);
+adminUserRole?.addEventListener("change", () => {
+  renderAdminPermissionControls(systemUsers.find((user) => user.id === adminUserId.value));
+});
+closeAdminPasswordDialog?.addEventListener("click", () => adminPasswordDialog.close());
+cancelAdminPassword?.addEventListener("click", () => adminPasswordDialog.close());
+adminPasswordForm?.addEventListener("submit", resetAdminPasswordFromForm);
+
 loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const user = findUserByCredential(loginUserSelect.value);
@@ -2505,23 +3902,30 @@ loginForm.addEventListener("submit", (event) => {
 registerForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const username = registerUser.value.trim();
-  const exists = systemUsers.some((user) => user.username.toLowerCase() === username.toLowerCase());
+  const email = registerEmail.value.trim();
+  const exists = systemUsers.some((user) =>
+    normalizeKey(user.username) === normalizeKey(username) ||
+    normalizeKey(user.email) === normalizeKey(email)
+  );
   if (exists) {
     alert("Este usuario ya existe.");
     return;
   }
 
+  const admin = normalizeKey(email) === adminEmail;
+  const role = admin ? "financiera" : registerRole.value;
   const user = {
     id: crypto.randomUUID(),
     name: registerName.value.trim(),
     username,
-    email: registerEmail.value.trim(),
-    role: registerRole.value,
-    password: registerPassword.value
+    email,
+    role,
+    password: registerPassword.value,
+    admin,
+    permissions: admin ? allPermissionKeys() : defaultPermissionsForRole(role)
   };
   systemUsers.push(user);
   saveUsers();
-  createUserInDatabase(user);
   fillUserAccessOptions();
   registerForm.reset();
   loginUserSelect.value = user.username;
@@ -2626,7 +4030,7 @@ strategicRiskForm.addEventListener("submit", (event) => {
   });
   saveStrategicRisks();
   strategicRiskDialog.close();
-  renderCommercialSubmenu(areas.comercializacion);
+  renderCommercialSubmenu(areas[state.activeArea]);
 });
 
 closeManagementRequestDialog.addEventListener("click", () => {
@@ -2661,7 +4065,7 @@ managementRequestForm.addEventListener("submit", (event) => {
   saveManagementRequests();
   managementRequestDialog.close();
   resetManagementRequestForm();
-  renderCommercialSubmenu(areas.comercializacion);
+  renderCommercialSubmenu(areas[state.activeArea]);
 });
 
 requestForm.addEventListener("submit", (event) => {
@@ -2688,7 +4092,7 @@ opportunityTable.addEventListener("click", (event) => {
   const cycleButton = event.target.closest("[data-cycle-view]");
   if (cycleButton) {
     state.opportunityCycleView = cycleButton.dataset.cycleView;
-    renderCommercialSubmenu(areas.comercializacion);
+    renderCommercialSubmenu(areas[state.activeArea]);
     return;
   }
 
@@ -2701,7 +4105,7 @@ opportunityTable.addEventListener("click", (event) => {
     if (requestButton.dataset.requestAction === "delete") {
       submenu.items = submenu.items.filter((record) => record.id !== item.id);
       saveManagementRequests();
-      renderCommercialSubmenu(areas.comercializacion);
+      renderCommercialSubmenu(areas[state.activeArea]);
       return;
     }
 
@@ -2737,13 +4141,25 @@ opportunityTable.addEventListener("click", (event) => {
   }
 
   opportunityId.value = item.id;
+  opportunityCrmSourceId.value = item.crmOpportunityId || "";
   opportunityDate.value = item.date;
   opportunityCompany.value = item.company;
-  opportunitySeller.value = item.seller;
+  ensureSelectOption(opportunitySeller, item.seller);
+  opportunityContact.value = item.contact || "";
+  opportunityPhone.value = item.phone || "";
+  opportunitySegment.value = item.segment || "";
+  opportunityLocation.value = item.location || "";
   opportunityStage.value = item.stage;
+  opportunityPriority.value = item.priority || "Media";
   opportunityProbability.value = item.probability;
   opportunityAmount.value = item.amount;
-  opportunityDialogTitle.textContent = "Editar registro";
+  opportunityNextAction.value = item.nextAction || "Primer seguimiento";
+  opportunityAgendaDate.value = item.agendaDate || item.date || todayISO();
+  opportunityAgendaTime.value = item.agendaTime || "";
+  opportunityAgendaType.value = item.agendaType || "Seguimiento";
+  opportunityAgendaPlace.value = item.agendaPlace || "Por definir";
+  opportunityNote.value = item.note || item.comment || "";
+  opportunityDialogTitle.textContent = "Editar oportunidad";
   saveOpportunityBtn.textContent = "Actualizar oportunidad";
   opportunityDialog.showModal();
 });
@@ -2872,15 +4288,27 @@ opportunityForm.addEventListener("submit", (event) => {
     time: currentIndex >= 0 ? submenu.items[currentIndex].time || createdTime : createdTime,
     company: opportunityCompany.value.trim(),
     seller: opportunitySeller.value.trim(),
+    contact: opportunityContact.value.trim(),
+    phone: opportunityPhone.value.trim(),
+    segment: opportunitySegment.value.trim(),
+    location: opportunityLocation.value.trim(),
     stage: opportunityStage.value,
+    priority: opportunityPriority.value,
     probability: opportunityProbability.value,
     amount: Number(opportunityAmount.value),
+    nextAction: opportunityNextAction.value.trim(),
+    agendaDate: opportunityAgendaDate.value,
+    agendaTime: opportunityAgendaTime.value,
+    agendaType: opportunityAgendaType.value.trim(),
+    agendaPlace: opportunityAgendaPlace.value.trim(),
+    note: opportunityNote.value.trim(),
+    crmOpportunityId: opportunityCrmSourceId.value,
     managements: currentIndex >= 0 ? normalizeManagements(submenu.items[currentIndex]) : [{
       id: `${id}-mgmt-001`,
       date: opportunityDate.value,
       time: createdTime,
       stage: "Prospeccion",
-      comment: "Ingreso inicial de la oportunidad."
+      comment: opportunityNote.value.trim() || "Ingreso inicial de la oportunidad."
     }]
   };
 
@@ -2996,4 +4424,5 @@ loadUsers();
 loadOpportunities();
 loadStrategicRisks();
 loadManagementRequests();
+loadCrmData();
 resetOpportunityForm();

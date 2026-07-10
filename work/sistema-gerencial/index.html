@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260706-login-clean">
+    <link rel="stylesheet" href="styles.css?v=20260709-crm-seller-share">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -13,7 +13,7 @@
           <div class="brand-mark">SG</div>
           <div>
             <p class="eyebrow">Sistema gerencial</p>
-            <h1>Control ejecutivo</h1>
+            <h1>Comite de Apoyo</h1>
           </div>
         </div>
         <p class="login-copy">Resultados, KPIs, riesgos y solicitudes de las cuatro gerencias en una sola vista.</p>
@@ -59,13 +59,6 @@
         </form>
         <p class="hint">Los permisos se asignan segun la gerencia vinculada al usuario.</p>
       </section>
-      <aside class="login-visual" aria-hidden="true">
-        <div class="signal-grid">
-          <span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span>
-        </div>
-      </aside>
     </main>
 
     <div class="app-shell hidden" id="appShell">
@@ -136,6 +129,8 @@
           <div class="opportunity-dashboard hidden" id="opportunityDashboard"></div>
           <div class="opportunity-table" id="opportunityTable"></div>
         </section>
+
+        <section class="panel admin-panel hidden" id="adminPanel" aria-label="Administracion de usuarios"></section>
 
         <section class="content-grid">
           <article class="panel wide">
@@ -279,40 +274,96 @@
       </form>
     </dialog>
 
-    <dialog id="opportunityDialog">
+    <dialog id="opportunityDialog" class="wide-dialog">
       <form method="dialog" class="dialog-card opportunity-form" id="opportunityForm">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">Oportunidad</p>
-            <h3 id="opportunityDialogTitle">Nuevo registro</h3>
+            <p class="eyebrow">Apertura comercial</p>
+            <h3 id="opportunityDialogTitle">Nueva oportunidad</h3>
           </div>
           <button class="icon-btn" id="closeOpportunityDialog" aria-label="Cerrar" type="button">x</button>
         </div>
         <input type="hidden" id="opportunityId">
-        <label>
-          Fecha de ingreso
-          <input id="opportunityDate" type="date" required>
-        </label>
-        <label>
-          Empresa
-          <input id="opportunityCompany" maxlength="80" placeholder="Nombre de la empresa" required>
-        </label>
-        <label>
-          Vendedor
-          <select id="opportunitySeller" required></select>
-        </label>
-        <label>
-          Etapa
-          <select id="opportunityStage" required></select>
-        </label>
-        <label>
-          Estado / probabilidad
-          <select id="opportunityProbability" required></select>
-        </label>
-        <label>
-          Monto
-          <input id="opportunityAmount" type="number" min="0" step="0.01" placeholder="0.00" required>
-        </label>
+        <input type="hidden" id="opportunityCrmSourceId">
+        <div class="crm-form-grid">
+          <label>
+            Empresa
+            <input id="opportunityCompany" maxlength="80" placeholder="Nombre de la empresa" required>
+          </label>
+          <label>
+            Vendedor
+            <select id="opportunitySeller" required></select>
+          </label>
+          <label>
+            Contacto
+            <input id="opportunityContact" maxlength="90" placeholder="Nombre del contacto">
+          </label>
+          <label>
+            Telefono
+            <input id="opportunityPhone" maxlength="28" placeholder="+503 ...">
+          </label>
+          <label>
+            Segmento
+            <input id="opportunitySegment" maxlength="80" placeholder="Industria, comercio, salud...">
+          </label>
+          <label>
+            Ubicacion
+            <input id="opportunityLocation" maxlength="90" placeholder="San Salvador">
+          </label>
+          <label>
+            Etapa
+            <select id="opportunityStage" required></select>
+          </label>
+          <label>
+            Prioridad
+            <select id="opportunityPriority">
+              <option>Alta</option>
+              <option selected>Media</option>
+              <option>Baja</option>
+            </select>
+          </label>
+          <label>
+            Temperatura
+            <select id="opportunityProbability" required></select>
+          </label>
+          <label>
+            Monto estimado
+            <input id="opportunityAmount" type="number" min="0" step="0.01" placeholder="0.00" required>
+          </label>
+          <label>
+            Proxima fecha
+            <input id="opportunityDate" type="date" required>
+          </label>
+          <label>
+            Proxima accion
+            <input id="opportunityNextAction" maxlength="100" placeholder="Primer seguimiento">
+          </label>
+          <section class="crm-form-section span-2">
+            <span class="eyebrow">Agenda inicial opcional</span>
+            <div class="crm-form-grid compact">
+              <label>
+                Fecha
+                <input id="opportunityAgendaDate" type="date">
+              </label>
+              <label>
+                Hora
+                <input id="opportunityAgendaTime" type="time">
+              </label>
+              <label>
+                Tipo
+                <input id="opportunityAgendaType" maxlength="70" placeholder="Diagnostico, cierre...">
+              </label>
+              <label>
+                Lugar
+                <input id="opportunityAgendaPlace" maxlength="100" placeholder="Cliente, llamada, showroom...">
+              </label>
+            </div>
+          </section>
+          <label class="span-2">
+            Nota
+            <textarea id="opportunityNote" rows="3" placeholder="Contexto comercial, necesidad o siguiente paso"></textarea>
+          </label>
+        </div>
         <menu>
           <button class="ghost-btn" id="cancelOpportunityEdit" type="button">Cancelar</button>
           <button class="primary-btn" id="saveOpportunityBtn" value="default" type="submit">Guardar oportunidad</button>
@@ -389,7 +440,72 @@
       </form>
     </dialog>
 
-    <script src="historical-sales.js?v=20260706-login-clean"></script>
-    <script src="app.js?v=20260706-login-clean"></script>
+    <dialog id="adminUserDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-card admin-user-form" id="adminUserForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Administracion</p>
+            <h3 id="adminUserDialogTitle">Nuevo usuario</h3>
+          </div>
+          <button class="icon-btn" id="closeAdminUserDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <input type="hidden" id="adminUserId">
+        <div class="admin-form-grid">
+          <label>
+            Nombre
+            <input id="adminUserName" type="text" placeholder="Nombre completo" required>
+          </label>
+          <label>
+            Usuario
+            <input id="adminUsername" type="text" placeholder="usuario" required>
+          </label>
+          <label>
+            Correo
+            <input id="adminUserEmail" type="email" placeholder="correo@empresa.com" required>
+          </label>
+          <label>
+            Gerencia
+            <select id="adminUserRole" required></select>
+          </label>
+          <label>
+            Contrasena
+            <input id="adminUserPassword" type="password" placeholder="Nueva contrasena">
+          </label>
+        </div>
+        <div>
+          <p class="admin-section-label">Permisos por modulo</p>
+          <div class="permission-grid" id="adminPermissionGrid"></div>
+        </div>
+        <menu>
+          <button class="ghost-btn" id="cancelAdminUser" type="button">Cancelar</button>
+          <button class="primary-btn" type="submit">Guardar usuario</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="adminPasswordDialog">
+      <form method="dialog" class="dialog-card admin-password-form" id="adminPasswordForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Seguridad</p>
+            <h3>Resetear clave</h3>
+          </div>
+          <button class="icon-btn" id="closeAdminPasswordDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <input type="hidden" id="adminPasswordUserId">
+        <p class="muted-copy" id="adminPasswordUserLabel"></p>
+        <label>
+          Nueva contrasena
+          <input id="adminPasswordValue" type="password" required>
+        </label>
+        <menu>
+          <button class="ghost-btn" id="cancelAdminPassword" type="button">Cancelar</button>
+          <button class="primary-btn" type="submit">Actualizar clave</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="historical-sales.js?v=20260706-admin-users-2"></script>
+    <script src="app.js?v=20260709-crm-seller-share"></script>
   </body>
 </html>

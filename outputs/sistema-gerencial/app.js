@@ -2557,9 +2557,46 @@ function crmMetricCards() {
   `).join("");
 }
 
+function crmSellerOpportunityShare() {
+  const activeStatuses = new Set(["vigente", "pendiente", "abierta", "activo"]);
+  const activeOpportunities = crmData().opportunities.filter((opp) => {
+    const status = String(opp.status || "Vigente").toLowerCase();
+    return activeStatuses.has(status) || !["ganada", "perdida", "cancelada"].includes(status);
+  });
+  const opportunityAmount = (opp) => Number(opp.estimatedAmount ?? opp.amount ?? 0);
+  const total = activeOpportunities.reduce((sum, opp) => sum + opportunityAmount(opp), 0);
+  const sellers = new Map(crmSalesUsers().map((seller) => [seller.id, {
+    id: seller.id,
+    name: seller.name,
+    amount: 0,
+    count: 0
+  }]));
+  activeOpportunities.forEach((opp) => {
+    const sellerId = opp.ownerId || opp.owner?.id || "sin-asignar";
+    if (!sellers.has(sellerId)) {
+      sellers.set(sellerId, {
+        id: sellerId,
+        name: opp.owner?.name || crmOwnerName(sellerId) || "Sin asignar",
+        amount: 0,
+        count: 0
+      });
+    }
+    const seller = sellers.get(sellerId);
+    seller.amount += opportunityAmount(opp);
+    seller.count += 1;
+  });
+  return [...sellers.values()]
+    .filter((seller) => seller.count > 0 || seller.amount > 0)
+    .map((seller) => ({
+      ...seller,
+      percent: total ? (seller.amount / total) * 100 : 0
+    }))
+    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
+}
+
 function renderCrmDashboard() {
   const data = crmData();
-  const recent = data.opportunities.slice(0, 6);
+  const sellerShare = crmSellerOpportunityShare();
   const pipeline = data.pipeline.slice(0, 8);
   return `
     <section class="crm-shell">
@@ -2589,20 +2626,21 @@ function renderCrmDashboard() {
           </div>
         </section>
         <section class="crm-section">
-          <div class="crm-section-head"><strong>Oportunidades recientes</strong><span>${recent.length}</span></div>
-          <div class="crm-opportunity-list">
-            ${recent.map((opp) => `
-              <article class="crm-opportunity-row">
+          <div class="crm-section-head"><strong>Peso por vendedor</strong><span>${formatMoney(sellerShare.reduce((sum, seller) => sum + seller.amount, 0))}</span></div>
+          <div class="crm-seller-share-list">
+            ${sellerShare.map((seller) => `
+              <article class="crm-seller-share-row">
                 <div>
-                  <strong>${escapeHtml(opp.company)}</strong>
-                  <span>${escapeHtml(opp.product || "Producto pendiente")} · ${escapeHtml(opp.owner?.name || crmOwnerName(opp.ownerId))}</span>
+                  <strong>${escapeHtml(seller.name)}</strong>
+                  <span>${seller.count} oportunidades activas</span>
                 </div>
-                <span class="tag ${opp.temperature === "Caliente" ? "" : opp.temperature === "Frio" ? "info" : "warn"}">${escapeHtml(opp.temperature || "Tibio")}</span>
-                <button class="crm-link-pill" type="button" data-crm-migrate="${opp.id}" ${opportunityMigratedFromCrm(opp.id) ? "disabled" : ""}>
-                  ${opportunityMigratedFromCrm(opp.id) ? "Migrada" : "Migrar a resultados"}
-                </button>
+                <div class="crm-share-meter" aria-label="${seller.percent.toFixed(1)}% del pipeline">
+                  <i style="width: ${Math.max(2, Math.min(100, seller.percent)).toFixed(2)}%"></i>
+                </div>
+                <strong>${formatMoney(seller.amount)}</strong>
+                <em>${seller.percent.toFixed(1)}%</em>
               </article>
-            `).join("") || `<div class="empty-state">No hay oportunidades CRM.</div>`}
+            `).join("") || `<div class="empty-state">No hay oportunidades vigentes para sumar.</div>`}
           </div>
         </section>
       </div>
