@@ -473,6 +473,14 @@ def init_db():
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
+        conn.execute("""
+            INSERT OR IGNORE INTO app_state (key, value)
+            VALUES ('strategic_risks', '{}')
+        """)
+        conn.execute("""
+            INSERT OR IGNORE INTO app_state (key, value)
+            VALUES ('management_requests', '{}')
+        """)
         rows = conn.execute("SELECT * FROM users ORDER BY created_at, username").fetchall()
         if not rows:
             for user in DEFAULT_USERS:
@@ -564,6 +572,18 @@ class AppHandler(BaseHTTPRequestHandler):
                     "SELECT value FROM app_state WHERE key = 'opportunities'"
                 ).fetchone()["value"]
             self.send_json(json.loads(value))
+            return
+
+        if self.path == "/api/strategic-risks":
+            with connect() as conn:
+                row = conn.execute("SELECT value FROM app_state WHERE key = 'strategic_risks'").fetchone()
+            self.send_json(json.loads(row["value"] if row else "{}"))
+            return
+
+        if self.path == "/api/management-requests":
+            with connect() as conn:
+                row = conn.execute("SELECT value FROM app_state WHERE key = 'management_requests'").fetchone()
+            self.send_json(json.loads(row["value"] if row else "{}"))
             return
 
         self.send_error(404)
@@ -671,6 +691,38 @@ class AppHandler(BaseHTTPRequestHandler):
                 conn.execute("""
                     INSERT INTO app_state (key, value, updated_at)
                     VALUES ('opportunities', ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key) DO UPDATE SET
+                        value = excluded.value,
+                        updated_at = CURRENT_TIMESTAMP
+                """, (json.dumps(data, ensure_ascii=True),))
+            self.send_json({"ok": True})
+            return
+
+        if self.path == "/api/strategic-risks":
+            data = self.read_json()
+            if not isinstance(data, dict):
+                self.send_json({"error": "Se esperaba un objeto por gerencia"}, status=400)
+                return
+            with connect() as conn:
+                conn.execute("""
+                    INSERT INTO app_state (key, value, updated_at)
+                    VALUES ('strategic_risks', ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key) DO UPDATE SET
+                        value = excluded.value,
+                        updated_at = CURRENT_TIMESTAMP
+                """, (json.dumps(data, ensure_ascii=True),))
+            self.send_json({"ok": True})
+            return
+
+        if self.path == "/api/management-requests":
+            data = self.read_json()
+            if not isinstance(data, dict):
+                self.send_json({"error": "Se esperaba un objeto por gerencia"}, status=400)
+                return
+            with connect() as conn:
+                conn.execute("""
+                    INSERT INTO app_state (key, value, updated_at)
+                    VALUES ('management_requests', ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(key) DO UPDATE SET
                         value = excluded.value,
                         updated_at = CURRENT_TIMESTAMP

@@ -8007,3 +8007,41 @@ body.operations-fullscreen-open {
   font-size: clamp(24px, 2.2vw, 36px);
   line-height: 1.05;
 }
+
+
+/* Riesgos y solicitudes: sin bloques blancos, visibles en tema oscuro. */
+.app-shell .strategic-risk-row,
+.app-shell .management-request-row {
+  border-color: rgba(186, 205, 232, .18) !important;
+  background:
+    linear-gradient(145deg, rgba(96, 112, 146, .24), rgba(30, 43, 72, .18)),
+    rgba(16, 28, 50, .48) !important;
+  color: #f3f7fb !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 12px 28px rgba(3, 9, 23, .14);
+}
+
+.app-shell .strategic-risk-header,
+.app-shell .management-request-header {
+  background: rgba(8, 18, 34, .46) !important;
+  color: rgba(234, 241, 248, .82) !important;
+}
+
+.app-shell .strategic-risk-row span,
+.app-shell .strategic-risk-row strong,
+.app-shell .management-request-row span,
+.app-shell .management-request-row strong,
+.app-shell .request-message-main p {
+  color: rgba(243, 247, 251, .9) !important;
+}
+
+.app-shell .risk-impact-tags em {
+  background: rgba(123, 247, 219, .14) !important;
+  color: #7bf7db !important;
+}
+
+.app-shell .strategic-risk-body .empty-state,
+.app-shell .management-request-body .empty-state {
+  border-color: rgba(186, 205, 232, .22) !important;
+  background: rgba(16, 28, 50, .36) !important;
+  color: rgba(234, 241, 248, .72) !important;
+}
