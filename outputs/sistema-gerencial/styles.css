@@ -7131,12 +7131,12 @@ menu {
   inset: 0;
   z-index: 82;
   display: grid;
-  place-items: center;
-  padding: 22px;
+  place-items: stretch;
+  padding: 0;
   background:
-    radial-gradient(circle at 12% 8%, rgba(47, 130, 189, .18), transparent 34%),
-    radial-gradient(circle at 84% 16%, rgba(37, 204, 166, .14), transparent 30%),
-    linear-gradient(135deg, rgba(3, 12, 24, .92), rgba(7, 30, 38, .94));
+    radial-gradient(circle at 12% 8%, rgba(47, 130, 189, .12), transparent 34%),
+    radial-gradient(circle at 84% 16%, rgba(37, 204, 166, .1), transparent 30%),
+    linear-gradient(135deg, rgba(3, 12, 24, .98), rgba(7, 30, 38, .98));
   backdrop-filter: blur(22px);
 }
 
@@ -7146,32 +7146,30 @@ body.operations-fullscreen-open {
 
 .operations-fullscreen-panel {
   position: relative;
-  width: min(1760px, 96vw);
-  height: min(960px, 92vh);
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
-  border: 1px solid rgba(189, 211, 243, .24);
-  border-radius: 42px;
-  padding: clamp(18px, 2vw, 32px);
-  background:
-    radial-gradient(circle at 18% 0%, rgba(116, 140, 179, .32), transparent 38%),
-    linear-gradient(145deg, rgba(48, 68, 104, .68), rgba(9, 24, 45, .88));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, .14),
-    0 32px 90px rgba(0, 0, 0, .42);
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .operations-fullscreen-close {
   position: absolute;
-  top: clamp(26px, 3vw, 44px);
-  right: clamp(26px, 3vw, 44px);
+  top: clamp(18px, 2vw, 32px);
+  right: clamp(18px, 2vw, 32px);
   z-index: 6;
-  width: 56px;
-  height: 56px;
-  min-height: 56px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, .92);
+  width: 60px;
+  height: 60px;
+  min-height: 60px;
+  border: 1px solid rgba(18, 32, 31, .12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, .86);
   color: #14201f;
   box-shadow: 0 16px 36px rgba(4, 12, 24, .22);
+  backdrop-filter: blur(16px);
 }
 
 .operations-fullscreen-stage {
@@ -7187,19 +7185,29 @@ body.operations-fullscreen-open {
   height: 100%;
   min-height: 0;
   max-height: none;
-  padding: clamp(54px, 5vw, 92px);
-  border-radius: 36px;
+  padding: clamp(56px, 6.2vw, 118px);
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(11, 128, 119, .92) 0 10px, transparent 10px),
+    linear-gradient(180deg, rgba(255, 253, 247, .99), rgba(241, 246, 244, .98));
+  box-shadow: none;
   overflow-y: auto;
 }
 
 .operations-fullscreen-overlay .operations-slide h3 {
-  max-width: 1180px;
-  font-size: clamp(54px, 6vw, 104px);
+  max-width: 1280px;
+  font-size: clamp(56px, 7vw, 112px);
 }
 
 .operations-fullscreen-overlay .operations-slide-body {
-  max-width: 1280px;
-  font-size: clamp(28px, 3.1vw, 48px);
+  max-width: 1440px;
+  font-size: clamp(28px, 3.4vw, 54px);
+  line-height: 1.38;
+}
+
+.operations-fullscreen-overlay .operations-slide-body ul {
+  gap: clamp(18px, 2.4vw, 34px);
 }
 
 @media (max-width: 1180px) {
