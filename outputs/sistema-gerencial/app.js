@@ -1220,207 +1220,133 @@ function managementResultTag(management) {
 
 function renderKpiDetailReport(seller, category) {
   const submenu = getOpportunitySubmenu();
-  const items = kpiDetailItems(submenu.items, seller, category);
-  const historicalMonthNumber = Math.max(Math.min(activeMonthNumber() - 1, 6), 0);
-  const includeHistorical = ["won", "all", "historical"].includes(category);
-  const actualRows = includeHistorical
-    ? actualClosedRowsForSeller(seller, category === "historical" ? historicalMonthNumber : activeMonthNumber())
-    : [];
-  const historicalRows = includeHistorical
-    ? historicalClosedRowsForSeller(seller, category === "historical" ? historicalMonthNumber : activeMonthNumber())
-    : [];
-  const actualTotal = actualRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const actualCount = actualRows.reduce((sum, row) => sum + Number(row.count || 0), 0);
-  const total = sumAmounts(items) + actualTotal;
-  const won = items.filter((item) => closureResult(item)?.result === "ganado").length + actualCount;
-  const lost = items.filter((item) => closureResult(item)?.result === "perdida").length;
-  const pending = items.filter((item) => !closureResult(item)).length;
   const label = kpiDetailLabel(category);
-  const activeItems = kpiMonthItems(submenu.items)
-    .filter((item) => item.seller === seller && !closureResult(item));
+  const historicalMonthNumber = Math.max(Math.min(activeMonthNumber() - 1, 6), 0);
+  const isHistorical = category === "historical";
+  const items = isHistorical ? [] : kpiDetailItems(submenu.items, seller, category);
+  const historicalRows = isHistorical
+    ? historicalClosedRowsForSeller(seller, historicalMonthNumber)
+    : [];
+  const detailCount = isHistorical ? historicalRows.length : items.length;
+  const detailAmount = isHistorical
+    ? historicalRows.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+    : sumAmounts(items);
+  const periodLabel = isHistorical
+    ? `Enero a ${monthLabel(historicalMonthNumber)} ${activePeriodYear()}`
+    : state.period;
 
   kpiDetailEyebrow.textContent = `KPI / ${label}`;
   kpiDetailTitle.textContent = `${seller} - ${label}`;
-  kpiDetailSummary.classList.add("tabbed");
+  kpiDetailSummary.classList.remove("tabbed");
   kpiDetailSummary.innerHTML = `
-    <div class="kpi-report-tabs" role="tablist" aria-label="Vistas del reporte KPI">
-      <button class="active" type="button" data-kpi-report-tab="general">Conteo general</button>
-      <button type="button" data-kpi-report-tab="detalle">Detalle historico</button>
-      <button type="button" data-kpi-report-tab="vigentes">Vigentes</button>
-    </div>
+    <article>
+      <span>Registros</span>
+      <strong>${detailCount}</strong>
+    </article>
+    <article>
+      <span>Monto</span>
+      <strong>${formatMoney(detailAmount)}</strong>
+    </article>
+    <article>
+      <span>Periodo</span>
+      <strong>${periodLabel}</strong>
+    </article>
   `;
 
-  const generalSection = `
-    <section class="kpi-report-view active" data-kpi-report-view="general">
-      <div class="kpi-report-counts">
-        <article>
-          <span>Registros</span>
-          <strong>${items.length + actualCount}</strong>
-        </article>
-        <article>
-          <span>Monto consolidado</span>
-          <strong>${formatMoney(total)}</strong>
-        </article>
-        <article>
-          <span>Ganadas</span>
-          <strong>${won}</strong>
-        </article>
-        <article>
-          <span>Perdidas</span>
-          <strong>${lost}</strong>
-        </article>
-        <article>
-          <span>${category === "historical" ? "Historico" : "Pendientes"}</span>
-          <strong>${pending}</strong>
-        </article>
-      </div>
-      <div class="kpi-report-section">
-        ${actualRows.length ? `
-      <div class="kpi-report-section-head">
-        <div>
-          <span>Historico real</span>
-          <strong>Cierres acumulados a ${monthLabel(category === "historical" ? historicalMonthNumber : activeMonthNumber())} ${activePeriodYear()}</strong>
-        </div>
-        <strong>${actualCount} registros / ${formatMoney(actualTotal)}</strong>
-      </div>
-      <div class="kpi-period-table">
-        <div class="kpi-period-row kpi-period-header">
-          <strong>Periodo</strong>
-          <strong>Registros</strong>
-          <strong>Monto</strong>
-        </div>
-        ${actualRows.map((row) => `
-          <div class="kpi-period-row">
-            <span>${monthLabel(row.month)} ${activePeriodYear()}</span>
-            <strong>${row.count}</strong>
-            <strong>${formatMoney(row.amount)}</strong>
-          </div>
-        `).join("")}
-      </div>
-        ` : `<div class="empty-state">No hay cierres historicos para este filtro.</div>`}
-      </div>
-    </section>
-  `;
-
-  const historicalSection = `
-    <section class="kpi-report-view" data-kpi-report-view="detalle">
-      <div class="kpi-report-section">
-      <div class="kpi-report-section-head">
-        <div>
-          <span>Detalle historico</span>
-          <strong>Ventas importadas por empresa</strong>
-        </div>
-        <strong>${historicalRows.length} registros</strong>
-      </div>
-      ${historicalRows.length ? `
-      <div class="kpi-sales-table">
-        <div class="kpi-sale-row kpi-sale-header">
-          <strong>Fecha</strong>
-          <strong>Empresa</strong>
-          <strong>Documento</strong>
-          <strong>Monto</strong>
-        </div>
-        ${historicalRows.map((item) => `
-          <div class="kpi-sale-row">
-            <span>${formatDate(item.date)}</span>
-            <strong>${item.company}</strong>
-            <span>${item.invoice || "—"}</span>
-            <strong>${formatMoney(item.amount)}</strong>
-          </div>
-        `).join("")}
-      </div>
-      ` : `<div class="empty-state">No hay ventas historicas importadas para este filtro.</div>`}
-      </div>
-    </section>
-  `;
-
-  const activeSection = `
-    <section class="kpi-report-view" data-kpi-report-view="vigentes">
-      <div class="kpi-report-section">
-      <div class="kpi-report-section-head">
-        <div>
-          <span>Vigentes</span>
-          <strong>Resumen de oportunidades abiertas</strong>
-        </div>
-        <strong>${activeItems.length} oportunidades</strong>
-      </div>
-      ${activeItems.length ? `
-      <div class="kpi-active-table">
-        <div class="kpi-active-row kpi-active-header">
-          <strong>Empresa</strong>
-          <strong>Ingreso</strong>
-          <strong>Etapa</strong>
-          <strong>Probabilidad</strong>
-          <strong>Monto</strong>
-        </div>
-        ${activeItems.map((item) => `
-          <div class="kpi-active-row">
-            <strong>${item.company}</strong>
-            <span>${formatDateTime(item.date, item.time)}</span>
-            <span>${item.stage}</span>
-            <span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span>
-            <strong>${formatMoney(item.amount)}</strong>
-          </div>
-        `).join("")}
-      </div>
-      ` : `<div class="empty-state">No hay oportunidades vigentes para ${seller}.</div>`}
-      </div>
-    </section>
-  `;
-
-  const opportunitySection = items.length ? `
-    <section class="kpi-report-view hidden-trace" data-kpi-report-view="trazabilidad">
-      <div class="kpi-report-section">
-      <div class="kpi-report-section-head">
-        <div>
-          <span>Trazabilidad</span>
-          <strong>Seguimiento detallado</strong>
-        </div>
-      </div>
-      ${items.map((item) => {
-    const managements = normalizeManagements(item)
-      .slice()
-      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
-    const result = closureResult(item);
-    const latest = managements[managements.length - 1];
-    return `
-      <article class="kpi-report-card">
-        <div class="kpi-report-head">
+  if (isHistorical) {
+    kpiDetailReport.innerHTML = `
+      <section class="kpi-report-section kpi-clean-detail">
+        <div class="kpi-report-section-head">
           <div>
-            <strong>${item.company}</strong>
-            <span>${item.seller} / ${formatMoney(item.amount)}</span>
+            <span>Detalle de registros</span>
+            <strong>Ventas enero-junio que justifican el conteo</strong>
           </div>
-          <div class="kpi-report-tags">
-            <span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span>
-            ${result ? `<span class="tag ${result.result === "ganado" ? "" : "danger"}">${result.result === "ganado" ? "Ganada" : "Perdida"}</span>` : `<span class="tag warn">Pendiente</span>`}
-          </div>
+          <strong>${detailCount} registros / ${formatMoney(detailAmount)}</strong>
         </div>
-        <div class="kpi-report-meta">
-          <span><small>Ingreso</small><strong>${formatDateTime(item.date, item.time)}</strong></span>
-          <span><small>Etapa actual</small><strong>${item.stage}</strong></span>
-          <span><small>Ultima gestion</small><strong>${latest ? formatDateTime(latest.date, latest.time) : formatDateTime(item.date, item.time)}</strong></span>
-        </div>
-        <div class="kpi-history">
-          ${managements.map((management) => `
-            <div class="kpi-history-item">
-              <span class="kpi-history-date">
-                <strong>${formatDate(management.date)}</strong>
-                <small>${formatTime(management.time)}</small>
-              </span>
-              <span class="tag info">${management.stage}</span>
-              ${managementResultTag(management)}
-              <p>${management.comment}</p>
+        ${historicalRows.length ? `
+          <div class="kpi-sales-table modern-detail-table">
+            <div class="kpi-sale-row kpi-sale-header">
+              <strong>Fecha</strong>
+              <strong>Empresa</strong>
+              <strong>Documento</strong>
+              <strong>Monto</strong>
             </div>
-          `).join("")}
-        </div>
-      </article>
+            ${historicalRows.map((item) => `
+              <div class="kpi-sale-row">
+                <span>${formatDate(item.date)}</span>
+                <strong>${item.company}</strong>
+                <span>${item.invoice || "—"}</span>
+                <strong>${formatMoney(item.amount)}</strong>
+              </div>
+            `).join("")}
+          </div>
+        ` : `<div class="empty-state">No hay registros para ${seller} en enero-junio.</div>`}
+      </section>
     `;
-  }).join("")}
-      </div>
-    </section>
-  ` : "";
+    kpiDetailDialog.showModal();
+    return;
+  }
 
-  kpiDetailReport.innerHTML = [generalSection, historicalSection, activeSection, opportunitySection].join("");
+  kpiDetailReport.innerHTML = `
+    <section class="kpi-report-section kpi-clean-detail">
+      <div class="kpi-report-section-head">
+        <div>
+          <span>Detalle de gestiones</span>
+          <strong>Registros que cuadran con el conteo seleccionado</strong>
+        </div>
+        <strong>${detailCount} registros / ${formatMoney(detailAmount)}</strong>
+      </div>
+      ${items.length ? items.map((item) => {
+        const managements = normalizeManagements(item)
+          .slice()
+          .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+        const result = closureResult(item);
+        const latest = managements[managements.length - 1];
+        return `
+          <article class="kpi-report-card kpi-clean-card">
+            <div class="kpi-report-head">
+              <div>
+                <strong>${item.company}</strong>
+                <span>${item.seller} / ${formatMoney(item.amount)}</span>
+              </div>
+              <div class="kpi-report-tags">
+                <span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span>
+                ${result ? `<span class="tag ${result.result === "ganado" ? "" : "danger"}">${result.result === "ganado" ? "Ganada" : "Perdida"}</span>` : `<span class="tag warn">Vigente</span>`}
+              </div>
+            </div>
+            <div class="kpi-report-meta">
+              <span><small>Ingreso</small><strong>${formatDateTime(item.date, item.time)}</strong></span>
+              <span><small>Etapa actual</small><strong>${item.stage}</strong></span>
+              <span><small>Ultima gestion</small><strong>${latest ? formatDateTime(latest.date, latest.time) : formatDateTime(item.date, item.time)}</strong></span>
+            </div>
+            <div class="kpi-history clean-history">
+              ${managements.length ? managements.map((management) => `
+                <div class="kpi-history-item">
+                  <span class="kpi-history-date">
+                    <strong>${formatDate(management.date)}</strong>
+                    <small>${formatTime(management.time)}</small>
+                  </span>
+                  <span class="tag info">${management.stage}</span>
+                  ${managementResultTag(management)}
+                  <p>${management.comment || "Sin comentario registrado."}</p>
+                </div>
+              `).join("") : `
+                <div class="kpi-history-item">
+                  <span class="kpi-history-date">
+                    <strong>${formatDate(item.date)}</strong>
+                    <small>${formatTime(item.time)}</small>
+                  </span>
+                  <span class="tag info">${item.stage}</span>
+                  <span></span>
+                  <p>${item.note || "Oportunidad registrada sin gestiones adicionales."}</p>
+                </div>
+              `}
+            </div>
+          </article>
+        `;
+      }).join("") : `<div class="empty-state">No hay registros para ${seller} en ${label}.</div>`}
+    </section>
+  `;
 
   kpiDetailDialog.showModal();
 }
@@ -5175,19 +5101,6 @@ closeGoalsMatrixDialog.addEventListener("click", () => {
 });
 closeKpiDetailDialog.addEventListener("click", () => {
   kpiDetailDialog.close();
-});
-
-kpiDetailDialog.addEventListener("click", (event) => {
-  const tabButton = event.target.closest("[data-kpi-report-tab]");
-  if (!tabButton) return;
-
-  const target = tabButton.dataset.kpiReportTab;
-  kpiDetailDialog.querySelectorAll("[data-kpi-report-tab]").forEach((button) => {
-    button.classList.toggle("active", button === tabButton);
-  });
-  kpiDetailDialog.querySelectorAll("[data-kpi-report-view]").forEach((view) => {
-    view.classList.toggle("active", view.dataset.kpiReportView === target);
-  });
 });
 
 fillOpportunityOptions();

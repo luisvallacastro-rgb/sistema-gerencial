@@ -6056,3 +6056,25 @@ menu {
   border-radius: 10px;
   background: rgba(18, 32, 58, .34);
 }
+
+/* KPI detail modal: direct clean record view. */
+#kpiDetailDialog .kpi-clean-detail {
+  display: grid;
+  gap: 14px;
+}
+
+#kpiDetailDialog .kpi-clean-card {
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(63, 82, 119, .26), rgba(14, 29, 52, .44)),
+    rgba(10, 23, 43, .7) !important;
+}
+
+#kpiDetailDialog .clean-history {
+  margin-top: 10px;
+}
+
+#kpiDetailDialog .modern-detail-table {
+  border-radius: 14px;
+  overflow: hidden;
+}
