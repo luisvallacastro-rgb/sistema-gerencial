@@ -912,6 +912,12 @@ function cumulativeGoalForSeller(seller, monthNumber) {
     .reduce((sum, row) => sum + Number(row[columnIndex] || 0), 0);
 }
 
+function finalGoalForSeller(seller) {
+  const columnIndex = goalsMatrixColumns.indexOf(seller);
+  if (columnIndex < 0) return 0;
+  return goalsMatrixRows.reduce((sum, row) => sum + Number(row[columnIndex] || 0), 0);
+}
+
 function cumulativeGlobalGoal(monthNumber) {
   const totalIndex = goalsMatrixColumns.indexOf("Total");
   return goalsMatrixRows
@@ -1001,6 +1007,12 @@ function wonSalesFulfillmentRows(items) {
       && dateYearNumber(result.date || item.date) === activePeriodYear()
       && dateMonthNumber(result.date || item.date) === monthNumber);
   const wonItems = closedItems.filter(({ result }) => result.result === "ganado").map(({ item }) => item);
+  const wonItemsToDate = items
+    .map((item) => ({ item, result: closureResult(item) }))
+    .filter(({ result }) => result?.result === "ganado"
+      && dateYearNumber(result.date) === activePeriodYear()
+      && dateMonthNumber(result.date) <= monthNumber)
+    .map(({ item }) => item);
   const lostItems = closedItems.filter(({ result }) => result.result === "perdida").map(({ item }) => item);
   const allBySeller = groupBy(accumulatedItems, "seller");
   const wonBySeller = groupBy(wonItems, "seller");
@@ -1011,10 +1023,10 @@ function wonSalesFulfillmentRows(items) {
     const sellerWonItems = wonBySeller[seller] || [];
     const sellerLostItems = lostBySeller[seller] || [];
     const historicalSales = actualClosedSalesForSeller(seller, historicalMonthNumber);
-    const sales = historicalSales.amount + sumAmounts(sellerWonItems);
+    const sales = historicalSales.amount + sumAmounts(wonItemsToDate.filter((item) => item.seller === seller));
     const wonCount = sellerWonItems.length;
     const opportunityCount = sellerItems.length;
-    const goal = cumulativeGoalForSeller(seller, monthNumber);
+    const goal = finalGoalForSeller(seller);
     const percent = goal ? Math.round((sales / goal) * 100) : 0;
     const variance = sales - goal;
     return {
@@ -2843,6 +2855,7 @@ function renderOpportunityDashboard(items) {
   const totalOpportunities = summaryRows.reduce((sum, row) => sum + row.opportunityCount, 0);
   const historicalOpportunities = summaryRows.reduce((sum, row) => sum + row.historicalOpportunityCount, 0);
   const historicalAmount = summaryRows.reduce((sum, row) => sum + row.historicalAmount, 0);
+  const totalPositiveClosures = historicalOpportunities + totalWon;
   const fulfilledSellers = summaryRows.filter((row) => row.percent >= 100).length;
   const [, summaryStatusLabel] = kpiSemaphore(totalPercent);
   const maxFulfillment = Math.max(...fulfillmentRows.map((row) => row.percent), 100);
@@ -2861,9 +2874,9 @@ function renderOpportunityDashboard(items) {
             <small>Acumulado ${state.period}</small>
           </article>
           <article class="metric-tile">
-            <span>Plan acumulado</span>
+            <span>Plan operativo final</span>
             <strong>${formatMoney(totalGoal)}</strong>
-            <small>${selectedSeller === "all" ? "Total" : selectedSeller}</small>
+            <small>Meta final 2026</small>
           </article>
           <article class="metric-tile">
             <span>Cumplimiento</span>
@@ -2873,7 +2886,7 @@ function renderOpportunityDashboard(items) {
           <article class="metric-tile">
             <span>${selectedSeller === "all" ? "Vendedores cumplidos" : "Estado del vendedor"}</span>
             <strong>${selectedSeller === "all" ? `${fulfilledSellers}/${summaryRows.length}` : summaryStatusLabel}</strong>
-            <small>${totalWon} ganadas / ${totalPending} pendientes</small>
+            <small>${totalPositiveClosures} positivas / ${totalPending} pendientes</small>
           </article>
         </div>
       </div>
@@ -2891,14 +2904,14 @@ function renderOpportunityDashboard(items) {
             <span>${state.period}</span>
             <strong>${totalOpportunities}</strong>
           </div>
-          <small>${totalWon} ganadas / ${totalPending} pendientes</small>
+          <small>${totalPositiveClosures} positivas / ${totalPending} pendientes</small>
         </section>
       </div>
 
       <div class="won-kpi-table">
         <div class="won-kpi-caption">
-          <strong>Gestion del mes corriente</strong>
-          <span>Solo oportunidades ingresadas o cerradas en ${state.period}</span>
+          <strong>Avance contra plan operativo final</strong>
+          <span>Vendido acumulado mas oportunidades cerradas positivas en ${state.period}</span>
         </div>
         <div class="won-kpi-row won-kpi-header">
           <strong>Vendedor</strong>
@@ -2907,7 +2920,7 @@ function renderOpportunityDashboard(items) {
           <strong>Perdidas</strong>
           <strong>Pendientes</strong>
           <strong>Venta ganada</strong>
-          <strong>Plan acumulado</strong>
+          <strong>Plan operativo final</strong>
           <strong>Cumplimiento</strong>
           <strong>Diferencia</strong>
           <strong>Estado</strong>
