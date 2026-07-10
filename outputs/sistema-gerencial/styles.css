@@ -7369,3 +7369,109 @@ body.operations-fullscreen-open {
     margin: 12px;
   }
 }
+
+/* CRM KPI palette tuned for dark glass readability. */
+.app-shell .crm-metrics {
+  gap: 14px;
+}
+
+.app-shell .crm-metrics .crm-metric {
+  position: relative;
+  overflow: hidden;
+  min-height: 118px;
+  padding: 18px 18px 16px;
+  border: 1px solid color-mix(in srgb, var(--metric-accent, #7dd3fc) 30%, rgba(190, 210, 238, .22)) !important;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 88% 16%, color-mix(in srgb, var(--metric-accent, #7dd3fc) 26%, transparent) 0, transparent 34%),
+    linear-gradient(150deg, rgba(58, 78, 116, .68), rgba(19, 35, 62, .76) 52%, rgba(12, 28, 44, .72)),
+    rgba(20, 34, 58, .72) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .14),
+    0 18px 42px rgba(2, 8, 22, .24),
+    0 0 0 1px rgba(255, 255, 255, .02);
+}
+
+.app-shell .crm-metrics .crm-metric::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, var(--metric-accent, #7dd3fc), var(--metric-accent-soft, #a7f3d0));
+  opacity: .92;
+}
+
+.app-shell .crm-metrics .crm-metric::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--metric-accent, #7dd3fc) 20%, transparent);
+  filter: blur(2px);
+  opacity: .48;
+}
+
+.app-shell .crm-metrics .crm-metric:nth-child(1) {
+  --metric-accent: #5eead4;
+  --metric-accent-soft: #34d399;
+  --metric-value: #ecfffb;
+}
+
+.app-shell .crm-metrics .crm-metric:nth-child(2) {
+  --metric-accent: #7dd3fc;
+  --metric-accent-soft: #60a5fa;
+  --metric-value: #f0f9ff;
+}
+
+.app-shell .crm-metrics .crm-metric:nth-child(3) {
+  --metric-accent: #fbbf24;
+  --metric-accent-soft: #f59e0b;
+  --metric-value: #fff7d6;
+}
+
+.app-shell .crm-metrics .crm-metric:nth-child(4) {
+  --metric-accent: #93c5fd;
+  --metric-accent-soft: #818cf8;
+  --metric-value: #eef6ff;
+}
+
+.app-shell .crm-metrics .crm-metric:nth-child(5) {
+  --metric-accent: #86efac;
+  --metric-accent-soft: #22c55e;
+  --metric-value: #effff4;
+}
+
+.app-shell .crm-metrics .crm-metric:nth-child(6) {
+  --metric-accent: #f0abfc;
+  --metric-accent-soft: #c084fc;
+  --metric-value: #fff4ff;
+}
+
+.app-shell .crm-metrics .crm-metric span {
+  position: relative;
+  z-index: 1;
+  color: rgba(224, 234, 246, .82) !important;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.app-shell .crm-metrics .crm-metric strong {
+  position: relative;
+  z-index: 1;
+  color: var(--metric-value, #f8fbff) !important;
+  font-size: clamp(28px, 2.1vw, 40px);
+  line-height: 1;
+  text-shadow: 0 10px 28px rgba(0, 0, 0, .34);
+}
+
+.app-shell .crm-metrics .crm-metric small {
+  position: relative;
+  z-index: 1;
+  max-width: 180px;
+  color: rgba(207, 220, 236, .8) !important;
+  font-size: 13px;
+  line-height: 1.15;
+}
