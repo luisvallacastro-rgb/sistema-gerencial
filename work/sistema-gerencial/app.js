@@ -259,6 +259,7 @@ const sectionOptions = [
   { key: "crm-agenda", label: "CRM Agenda" },
   { key: "crm-respuestas", label: "CRM Respuestas" },
   { key: "crm-clientes", label: "CRM Clientes" },
+  { key: "presentaciones", label: "Presentaciones" },
   { key: "riesgos", label: "Riesgos" },
   { key: "solicitudes", label: "Solicitudes" }
 ];
@@ -607,24 +608,11 @@ function withSharedDefaultPermissions(permissions) {
 }
 
 function defaultPermissionsForRole(role) {
-  if (["general", "accionistas"].includes(role)) return allPermissionKeys();
-  if (areaKeys.includes(role)) {
-    return withSharedDefaultPermissions(sectionOptions.map((section) => permissionKey(role, section.key)));
-  }
-  return sharedDefaultPermissionKeys();
+  return allPermissionKeys();
 }
 
 function normalizePermissionList(value, role) {
-  const valid = new Set(allPermissionKeys());
-  const source = Array.isArray(value) && value.length ? value : defaultPermissionsForRole(role);
-  const next = withSharedDefaultPermissions(source.filter((item) => valid.has(item)));
-  if (["general", "accionistas"].includes(role)) {
-    return allPermissionKeys();
-  }
-  if (role === "comercializacion") {
-    return [...new Set([...next, ...sectionOptions.map((section) => permissionKey("comercializacion", section.key))])];
-  }
-  return next;
+  return allPermissionKeys();
 }
 
 function isAdminUser(user = state.currentUser) {
@@ -632,8 +620,7 @@ function isAdminUser(user = state.currentUser) {
 }
 
 function userPermissions(user = state.currentUser) {
-  if (isAdminUser(user)) return new Set(allPermissionKeys());
-  return new Set(normalizePermissionList(user?.permissions, user?.role || state.role));
+  return new Set(allPermissionKeys());
 }
 
 function visibleSubmenus(areaKey, user = state.currentUser) {
@@ -996,11 +983,7 @@ function wonClosure(item) {
 function wonSalesFulfillmentRows(items) {
   const monthNumber = activeMonthNumber();
   const historicalMonthNumber = Math.max(Math.min(monthNumber - 1, 6), 0);
-  const accumulatedItems = items.filter((item) => {
-    const result = closureResult(item);
-    return dateYearNumber(result?.date || item.date) === activePeriodYear()
-      && dateMonthNumber(result?.date || item.date) === monthNumber;
-  });
+  const accumulatedItems = opportunityCycleRows(items).active.map(({ item }) => item);
   const closedItems = items
     .map((item) => ({ item, result: closureResult(item) }))
     .filter(({ item, result }) => result
@@ -1041,7 +1024,7 @@ function wonSalesFulfillmentRows(items) {
       historicalWonCount: historicalSales.count,
       historicalAmount: historicalSales.amount,
       lostCount: sellerLostItems.length,
-      pendingCount: Math.max(sellerItems.length - sellerWonItems.length - sellerLostItems.length, 0),
+      historicalCount: historicalSales.count,
       count: wonCount,
       gap: Math.max(goal - sales, 0)
     };
@@ -1049,10 +1032,7 @@ function wonSalesFulfillmentRows(items) {
 }
 
 function kpiMonthItems(items) {
-  return items.filter((item) => {
-    const result = closureResult(item);
-    return isThroughActivePeriod(result?.date || item.date);
-  });
+  return opportunityCycleRows(items).active.map(({ item }) => item);
 }
 
 function kpiDetailItems(items, seller, category) {
@@ -1063,6 +1043,7 @@ function kpiDetailItems(items, seller, category) {
       if (category === "won") return result?.result === "ganado";
       if (category === "lost") return result?.result === "perdida";
       if (category === "pending") return !result;
+      if (category === "historical") return false;
       return true;
     });
 }
@@ -1072,7 +1053,8 @@ function kpiDetailLabel(category) {
     all: "Oportunidades",
     won: "Ganadas",
     lost: "Perdidas",
-    pending: "Pendientes"
+    pending: "Pendientes",
+    historical: "Historico"
   }[category] || "Oportunidades";
 }
 
@@ -1085,11 +1067,13 @@ function managementResultTag(management) {
 function renderKpiDetailReport(seller, category) {
   const submenu = getOpportunitySubmenu();
   const items = kpiDetailItems(submenu.items, seller, category);
-  const actualRows = category === "won" || category === "all"
-    ? actualClosedRowsForSeller(seller, activeMonthNumber())
+  const historicalMonthNumber = Math.max(Math.min(activeMonthNumber() - 1, 6), 0);
+  const includeHistorical = ["won", "all", "historical"].includes(category);
+  const actualRows = includeHistorical
+    ? actualClosedRowsForSeller(seller, category === "historical" ? historicalMonthNumber : activeMonthNumber())
     : [];
-  const historicalRows = category === "won" || category === "all"
-    ? historicalClosedRowsForSeller(seller, activeMonthNumber())
+  const historicalRows = includeHistorical
+    ? historicalClosedRowsForSeller(seller, category === "historical" ? historicalMonthNumber : activeMonthNumber())
     : [];
   const actualTotal = actualRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const actualCount = actualRows.reduce((sum, row) => sum + Number(row.count || 0), 0);
@@ -1132,7 +1116,7 @@ function renderKpiDetailReport(seller, category) {
           <strong>${lost}</strong>
         </article>
         <article>
-          <span>Pendientes</span>
+          <span>${category === "historical" ? "Historico" : "Pendientes"}</span>
           <strong>${pending}</strong>
         </article>
       </div>
@@ -1141,7 +1125,7 @@ function renderKpiDetailReport(seller, category) {
       <div class="kpi-report-section-head">
         <div>
           <span>Historico real</span>
-          <strong>Cierres acumulados a ${monthLabel(activeMonthNumber())} ${activePeriodYear()}</strong>
+          <strong>Cierres acumulados a ${monthLabel(category === "historical" ? historicalMonthNumber : activeMonthNumber())} ${activePeriodYear()}</strong>
         </div>
         <strong>${actualCount} registros / ${formatMoney(actualTotal)}</strong>
       </div>
@@ -2876,7 +2860,7 @@ function renderOpportunityDashboard(items) {
           <strong>Oportunidades</strong>
           <strong>Ganadas</strong>
           <strong>Perdidas</strong>
-          <strong>Pendientes</strong>
+          <strong>Historico</strong>
           <strong>Venta ganada</strong>
           <strong>Plan operativo final</strong>
           <strong>Cumplimiento</strong>
@@ -2892,7 +2876,7 @@ function renderOpportunityDashboard(items) {
               <button class="count-chip total" type="button" data-kpi-detail="all" data-kpi-seller-detail="${row.seller}" aria-label="Ver oportunidades de ${row.seller}">${row.opportunityCount}</button>
               <button class="count-chip won" type="button" data-kpi-detail="won" data-kpi-seller-detail="${row.seller}" aria-label="Ver oportunidades ganadas de ${row.seller}">${row.wonCount}</button>
               <button class="count-chip lost" type="button" data-kpi-detail="lost" data-kpi-seller-detail="${row.seller}" aria-label="Ver oportunidades perdidas de ${row.seller}">${row.lostCount}</button>
-              <button class="count-chip pending" type="button" data-kpi-detail="pending" data-kpi-seller-detail="${row.seller}" aria-label="Ver oportunidades pendientes de ${row.seller}">${row.pendingCount}</button>
+              <button class="count-chip pending" type="button" data-kpi-detail="historical" data-kpi-seller-detail="${row.seller}" aria-label="Ver historico enero a junio de ${row.seller}">${row.historicalCount}</button>
               <span class="money-cell">${formatMoney(row.sales)}</span>
               <span>${formatMoney(row.goal)}</span>
               <span>
