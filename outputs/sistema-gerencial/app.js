@@ -1036,33 +1036,6 @@ function opportunityCycleRows(items) {
   };
 }
 
-function renderOpportunitySummary(activeRows, historyRows) {
-  const allRows = [...activeRows, ...historyRows];
-  const wonRows = allRows.filter((row) => row.result?.result === "ganado" || row.isImportedHistory);
-  const lostRows = allRows.filter((row) => row.result?.result === "perdida");
-  const activeAmount = activeRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
-  const closedAmount = wonRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
-  const totalAmount = activeAmount + closedAmount;
-
-  return `
-    <section class="opportunity-summary-strip compact" aria-label="Sumaria de oportunidades">
-      <div class="summary-compact-head">
-        <span>Sumaria total</span>
-        <strong>${allRows.length}</strong>
-        <small>oportunidades</small>
-      </div>
-      <dl class="summary-compact-grid">
-        <div><dt>Vigentes</dt><dd>${activeRows.length}</dd></div>
-        <div><dt>Historial</dt><dd>${historyRows.length}</dd></div>
-        <div><dt>Pipeline</dt><dd>${formatMoney(activeAmount)}</dd></div>
-        <div><dt>Ganadas</dt><dd>${wonRows.length} / ${formatMoney(closedAmount)}</dd></div>
-        <div><dt>Perdidas</dt><dd>${lostRows.length}</dd></div>
-        <div><dt>Total gestionado</dt><dd>${formatMoney(totalAmount)}</dd></div>
-      </dl>
-    </section>
-  `;
-}
-
 function matrixRowForMonth(monthNumber) {
   return goalsMatrixRows.find((row) => Number(row[0].split("/")[1]) === monthNumber) || goalsMatrixRows[0];
 }
@@ -3135,7 +3108,6 @@ function renderCommercialSubmenu(area) {
       </button>
       <small>Corte mensual: las cerradas antes de ${formatDate(activePeriodStart())} quedan archivadas.</small>
     </div>
-    ${renderOpportunitySummary(activeRows, historyRows)}
     ${state.opportunityCycleView === "dashboard" ? renderCycleDashboard(submenu.items) : state.opportunityCycleView === "history" ? renderHistoryList(historyRows) : `
     <div class="opportunity-row opportunity-header">
       <strong>Fecha</strong>
@@ -3206,19 +3178,6 @@ function renderOpportunityDashboard(items) {
   const summaryRows = selectedSeller === "all"
     ? fulfillmentRows
     : fulfillmentRows.filter((row) => row.seller === selectedSeller);
-  const totalSales = summaryRows.reduce((sum, row) => sum + row.sales, 0);
-  const totalGoal = summaryRows.reduce((sum, row) => sum + row.goal, 0);
-  const totalVariance = totalSales - totalGoal;
-  const totalPercent = totalGoal ? Math.round((totalSales / totalGoal) * 100) : 0;
-  const totalWon = summaryRows.reduce((sum, row) => sum + row.wonCount, 0);
-  const totalLost = summaryRows.reduce((sum, row) => sum + row.lostCount, 0);
-  const totalPending = summaryRows.reduce((sum, row) => sum + row.pendingCount, 0);
-  const totalOpportunities = summaryRows.reduce((sum, row) => sum + row.opportunityCount, 0);
-  const historicalOpportunities = summaryRows.reduce((sum, row) => sum + row.historicalOpportunityCount, 0);
-  const historicalAmount = summaryRows.reduce((sum, row) => sum + row.historicalAmount, 0);
-  const totalPositiveClosures = historicalOpportunities + totalWon;
-  const fulfilledSellers = summaryRows.filter((row) => row.percent >= 100).length;
-  const [, summaryStatusLabel] = kpiSemaphore(totalPercent);
   const maxFulfillment = Math.max(...fulfillmentRows.map((row) => row.percent), 100);
   const targetMarker = Math.min((100 / maxFulfillment) * 100, 100);
   opportunityDashboard.innerHTML = `
@@ -3228,45 +3187,6 @@ function renderOpportunityDashboard(items) {
           <span>${selectedSeller === "all" ? "Resumen general" : `Vendedor seleccionado: ${selectedSeller}`}</span>
           ${selectedSeller !== "all" ? `<button class="ghost-btn compact-btn" type="button" data-kpi-seller-clear>Ver resumen general</button>` : ""}
         </div>
-        <div class="won-kpi-summary">
-          <article class="metric-tile total">
-            <span>Venta ganada</span>
-            <strong>${formatMoney(totalSales)}</strong>
-            <small>Acumulado ${state.period}</small>
-          </article>
-          <article class="metric-tile">
-            <span>Plan operativo final</span>
-            <strong>${formatMoney(totalGoal)}</strong>
-            <small>Meta final 2026</small>
-          </article>
-          <article class="metric-tile">
-            <span>Cumplimiento</span>
-            <strong>${totalPercent}%</strong>
-            <small>${varianceLabel(totalVariance)}</small>
-          </article>
-          <article class="metric-tile">
-            <span>${selectedSeller === "all" ? "Vendedores cumplidos" : "Estado del vendedor"}</span>
-            <strong>${selectedSeller === "all" ? `${fulfilledSellers}/${summaryRows.length}` : summaryStatusLabel}</strong>
-            <small>${totalPositiveClosures} positivas / ${totalPending} pendientes</small>
-          </article>
-        </div>
-      </div>
-
-      <div class="kpi-count-split" aria-label="Separacion de conteos historicos y mes corriente">
-        <section>
-          <div>
-            <span>Historico enero-junio</span>
-            <strong>${historicalOpportunities}</strong>
-          </div>
-          <small>${formatMoney(historicalAmount)}</small>
-        </section>
-        <section>
-          <div>
-            <span>${state.period}</span>
-            <strong>${totalOpportunities}</strong>
-          </div>
-          <small>${totalPositiveClosures} positivas / ${totalPending} pendientes</small>
-        </section>
       </div>
 
       <div class="won-kpi-table">

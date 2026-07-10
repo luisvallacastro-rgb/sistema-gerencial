@@ -7819,3 +7819,23 @@ body.operations-fullscreen-open {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* KPI cards removed: keep only a compact selector above the table. */
+.app-shell .won-sales-kpi {
+  gap: 8px;
+}
+
+.app-shell .won-kpi-sticky {
+  position: static;
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.app-shell .kpi-selection-bar {
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(18, 32, 58, .34);
+}

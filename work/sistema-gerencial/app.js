@@ -2845,19 +2845,6 @@ function renderOpportunityDashboard(items) {
   const summaryRows = selectedSeller === "all"
     ? fulfillmentRows
     : fulfillmentRows.filter((row) => row.seller === selectedSeller);
-  const totalSales = summaryRows.reduce((sum, row) => sum + row.sales, 0);
-  const totalGoal = summaryRows.reduce((sum, row) => sum + row.goal, 0);
-  const totalVariance = totalSales - totalGoal;
-  const totalPercent = totalGoal ? Math.round((totalSales / totalGoal) * 100) : 0;
-  const totalWon = summaryRows.reduce((sum, row) => sum + row.wonCount, 0);
-  const totalLost = summaryRows.reduce((sum, row) => sum + row.lostCount, 0);
-  const totalPending = summaryRows.reduce((sum, row) => sum + row.pendingCount, 0);
-  const totalOpportunities = summaryRows.reduce((sum, row) => sum + row.opportunityCount, 0);
-  const historicalOpportunities = summaryRows.reduce((sum, row) => sum + row.historicalOpportunityCount, 0);
-  const historicalAmount = summaryRows.reduce((sum, row) => sum + row.historicalAmount, 0);
-  const totalPositiveClosures = historicalOpportunities + totalWon;
-  const fulfilledSellers = summaryRows.filter((row) => row.percent >= 100).length;
-  const [, summaryStatusLabel] = kpiSemaphore(totalPercent);
   const maxFulfillment = Math.max(...fulfillmentRows.map((row) => row.percent), 100);
   const targetMarker = Math.min((100 / maxFulfillment) * 100, 100);
   opportunityDashboard.innerHTML = `
@@ -2867,45 +2854,6 @@ function renderOpportunityDashboard(items) {
           <span>${selectedSeller === "all" ? "Resumen general" : `Vendedor seleccionado: ${selectedSeller}`}</span>
           ${selectedSeller !== "all" ? `<button class="ghost-btn compact-btn" type="button" data-kpi-seller-clear>Ver resumen general</button>` : ""}
         </div>
-        <div class="won-kpi-summary">
-          <article class="metric-tile total">
-            <span>Venta ganada</span>
-            <strong>${formatMoney(totalSales)}</strong>
-            <small>Acumulado ${state.period}</small>
-          </article>
-          <article class="metric-tile">
-            <span>Plan operativo final</span>
-            <strong>${formatMoney(totalGoal)}</strong>
-            <small>Meta final 2026</small>
-          </article>
-          <article class="metric-tile">
-            <span>Cumplimiento</span>
-            <strong>${totalPercent}%</strong>
-            <small>${varianceLabel(totalVariance)}</small>
-          </article>
-          <article class="metric-tile">
-            <span>${selectedSeller === "all" ? "Vendedores cumplidos" : "Estado del vendedor"}</span>
-            <strong>${selectedSeller === "all" ? `${fulfilledSellers}/${summaryRows.length}` : summaryStatusLabel}</strong>
-            <small>${totalPositiveClosures} positivas / ${totalPending} pendientes</small>
-          </article>
-        </div>
-      </div>
-
-      <div class="kpi-count-split" aria-label="Separacion de conteos historicos y mes corriente">
-        <section>
-          <div>
-            <span>Historico enero-junio</span>
-            <strong>${historicalOpportunities}</strong>
-          </div>
-          <small>${formatMoney(historicalAmount)}</small>
-        </section>
-        <section>
-          <div>
-            <span>${state.period}</span>
-            <strong>${totalOpportunities}</strong>
-          </div>
-          <small>${totalPositiveClosures} positivas / ${totalPending} pendientes</small>
-        </section>
       </div>
 
       <div class="won-kpi-table">
