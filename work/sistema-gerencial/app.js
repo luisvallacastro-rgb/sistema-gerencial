@@ -2765,6 +2765,17 @@ function renderOpportunityDashboard(items) {
   const summaryRows = selectedSeller === "all"
     ? fulfillmentRows
     : fulfillmentRows.filter((row) => row.seller === selectedSeller);
+  const titleSales = fulfillmentRows.reduce((sum, row) => sum + row.sales, 0);
+  const titleGoal = fulfillmentRows.reduce((sum, row) => sum + row.goal, 0);
+  const titlePercent = titleGoal ? Math.round((titleSales / titleGoal) * 100) : 0;
+  pageTitle.classList.add("with-results-summary");
+  pageTitle.innerHTML = `
+    <span>KPI</span>
+    <span class="results-title-metrics">
+      <span>${formatMoney(titleSales)}</span>
+      <span><strong>${titlePercent}%</strong> general</span>
+    </span>
+  `;
   const maxFulfillment = Math.max(...fulfillmentRows.map((row) => row.percent), 100);
   const targetMarker = Math.min((100 / maxFulfillment) * 100, 100);
   opportunityDashboard.innerHTML = `
