@@ -7699,3 +7699,40 @@ body.operations-fullscreen-open {
 .app-shell .crm-metrics .crm-metric small {
   max-width: 100%;
 }
+
+/* KPI status chips: remove pale backgrounds on dark glass rows. */
+.app-shell .won-kpi-row .semaphore,
+.app-shell .kpi-compliance-row .semaphore {
+  min-width: 118px;
+  justify-content: center;
+  border: 1px solid rgba(190, 210, 238, .2) !important;
+  background:
+    linear-gradient(135deg, rgba(151, 166, 194, .16), rgba(34, 50, 80, .2)),
+    rgba(16, 28, 50, .52) !important;
+  color: rgba(244, 249, 255, .9) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+.app-shell .won-kpi-row .semaphore i,
+.app-shell .kpi-compliance-row .semaphore i {
+  background: var(--state-accent, #7dd3fc) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--state-accent, #7dd3fc) 42%, transparent);
+}
+
+.app-shell .won-kpi-row .semaphore.green,
+.app-shell .kpi-compliance-row .semaphore.green {
+  --state-accent: #5eead4;
+  border-color: rgba(94, 234, 212, .3) !important;
+}
+
+.app-shell .won-kpi-row .semaphore.yellow,
+.app-shell .kpi-compliance-row .semaphore.yellow {
+  --state-accent: #fbbf24;
+  border-color: rgba(251, 191, 36, .3) !important;
+}
+
+.app-shell .won-kpi-row .semaphore.red,
+.app-shell .kpi-compliance-row .semaphore.red {
+  --state-accent: #fb7185;
+  border-color: rgba(251, 113, 133, .3) !important;
+}
