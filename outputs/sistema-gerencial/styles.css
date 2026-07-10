@@ -7668,3 +7668,29 @@ body.operations-fullscreen-open {
     max-height: min(52vh, 430px);
   }
 }
+
+/* Final KPI fit guard: keep large values inside their cards. */
+.app-shell .crm-metrics .crm-metric {
+  min-width: 0;
+}
+
+.app-shell .crm-metrics .crm-metric strong {
+  display: block;
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  color: var(--metric-value, #f8fbff) !important;
+  font-size: clamp(24px, 1.65vw, 34px);
+  line-height: 1.02;
+  letter-spacing: 0;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.app-shell .crm-metrics .crm-metric:first-child strong {
+  font-size: clamp(23px, 1.45vw, 31px);
+}
+
+.app-shell .crm-metrics .crm-metric span,
+.app-shell .crm-metrics .crm-metric small {
+  max-width: 100%;
+}
