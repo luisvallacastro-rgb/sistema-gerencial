@@ -2198,13 +2198,9 @@ function financialPresentationMarkup({ fullscreen = false } = {}) {
           <span>Informe Gerencial Mensual Financiero</span>
         </div>
         <div class="operations-period-controls">
-          <label><span>Mes</span><input type="text" value="06" readonly></label>
-          <label><span>Ano</span><input type="text" value="2026" readonly></label>
+          <label class="financial-period-filter"><span>Periodo</span><input type="text" value="Junio 2026" readonly></label>
           ${fullscreen ? "" : `<button class="action-icon-btn operations-fullscreen-btn" type="button" data-financial-fullscreen title="Vista panoramica" aria-label="Abrir presentacion financiera en vista panoramica">⛶</button>`}
         </div>
-      </div>
-      <div class="operations-presentation-meta">
-        <strong>Junio 2026</strong>
       </div>
       <div class="operations-presentation-layout">
         <nav class="operations-presentation-index" aria-label="Indice de presentacion financiera">

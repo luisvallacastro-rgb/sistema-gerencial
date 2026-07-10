@@ -3957,6 +3957,11 @@ button:disabled {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
 }
 
+.app-shell .financial-period-filter input,
+.operations-fullscreen-overlay .financial-period-filter input {
+  width: 168px;
+}
+
 .app-shell .nav-item:hover,
 .app-shell .submenu-item:hover,
 .app-shell .secondary-btn:hover,
@@ -3994,6 +3999,11 @@ button:disabled {
   color: rgba(238, 247, 255, .82);
   font-size: 17px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+.app-shell .financial-period-filter input,
+.operations-fullscreen-overlay .financial-period-filter input {
+  width: 168px;
 }
 
 .app-shell .nav-caret {
@@ -4129,6 +4139,11 @@ button:disabled {
   background: rgba(124, 143, 178, .3);
   color: #dffcf7;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+.app-shell .financial-period-filter input,
+.operations-fullscreen-overlay .financial-period-filter input {
+  width: 168px;
 }
 
 .app-shell .primary-btn,
@@ -6567,6 +6582,11 @@ menu {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
 }
 
+.app-shell .financial-period-filter input,
+.operations-fullscreen-overlay .financial-period-filter input {
+  width: 168px;
+}
+
 .minute-fullscreen-overlay .minutes-toolbar button {
   width: 42px;
   height: 38px;
@@ -6577,6 +6597,11 @@ menu {
   color: rgba(246, 250, 255, .94);
   font-weight: 900;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+.app-shell .financial-period-filter input,
+.operations-fullscreen-overlay .financial-period-filter input {
+  width: 168px;
 }
 
 .app-shell .minute-action-icon,
@@ -6905,6 +6930,11 @@ menu {
   font: inherit;
   font-weight: 900;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+.app-shell .financial-period-filter input,
+.operations-fullscreen-overlay .financial-period-filter input {
+  width: 168px;
 }
 
 .app-shell .operations-fullscreen-btn,
