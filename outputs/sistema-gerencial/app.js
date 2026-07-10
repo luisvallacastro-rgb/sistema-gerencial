@@ -41,6 +41,7 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
+      { key: "presentaciones", label: "Presentaciones", status: "Analisis financiero mensual", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -200,6 +201,7 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
+      { key: "presentaciones", label: "Presentaciones", status: "Analisis financiero mensual", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -247,6 +249,7 @@ const state = {
   operationsPresentationMonth: String(new Date().getMonth() + 1).padStart(2, "0"),
   operationsPresentationYear: String(new Date().getFullYear()),
   operationsPresentationSection: 0,
+  financialPresentationSection: 0,
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -461,6 +464,65 @@ const operationsPresentationSections = [
     ]
   }
 ];
+
+const financialPresentationSections = [
+  {
+    eyebrow: "Informe Gerencial Mensual Financiero",
+    title: "Resumen ejecutivo",
+    body: [
+      { type: "paragraph", text: "Durante el primer semestre de 2026, los ingresos promedio mensuales se mantuvieron practicamente en el mismo nivel que en 2025, registrando un crecimiento marginal del 0.82 %. Esto indica que la capacidad comercial de la empresa se ha mantenido estable." },
+      { type: "paragraph", text: "Sin embargo, el incremento en los costos promedio del 8.62 % y en los gastos promedio del 16.64 % absorbio practicamente todo ese crecimiento, reduciendo la utilidad promedio mensual de $13,005 a $6,451, una disminucion del 50.39 %." }
+    ]
+  },
+  {
+    eyebrow: "Comparativo primer semestre",
+    title: "Rentabilidad afectada",
+    body: [
+      { type: "table", columns: ["Indicador", "2025", "2026", "Variacion"], rows: [
+        ["Ingresos promedio mensuales", "Base 2025", "+0.82 %", "Estable"],
+        ["Costos promedio", "Base 2025", "+8.62 %", "Presion al margen"],
+        ["Gastos promedio", "Base 2025", "+16.64 %", "Mayor carga operativa"],
+        ["Utilidad promedio mensual", "$13,005", "$6,451", "-50.39 %"]
+      ] }
+    ]
+  },
+  {
+    eyebrow: "Lectura operativa de costos",
+    title: "Costo registrado al comprar",
+    body: [
+      { type: "paragraph", text: "El comportamiento mensual de los costos no refleja necesariamente una perdida de eficiencia operativa, ya que la politica de compras registra el costo en el momento de la adquisicion y no mantiene inventarios en proceso." },
+      { type: "list", items: [
+        "Algunos meses muestran costos elevados por abastecimiento para periodos posteriores.",
+        "Otros meses reflejan costos menores por un menor volumen de compras.",
+        "El analisis debe enfocarse en el promedio y el acumulado del semestre."
+      ] }
+    ]
+  },
+  {
+    eyebrow: "Margenes promedio",
+    title: "Indicadores de margen",
+    body: [
+      { type: "table", columns: ["Indicador", "2025", "2026"], rows: [
+        ["Margen bruto", "43.2 %", "38.8 %"],
+        ["Gastos sobre ventas", "26.3 %", "30.4 %"],
+        ["Margen neto", "16.7 %", "8.2 %"]
+      ] },
+      { type: "paragraph", text: "Aunque las ventas permanecieron estables, cada dolar facturado dejo una utilidad significativamente menor que en el ano anterior." }
+    ]
+  },
+  {
+    eyebrow: "Interpretacion",
+    title: "Menor utilidad por cada venta",
+    body: [
+      { type: "list", items: [
+        "En 2025, por cada $100 vendidos, la empresa generaba aproximadamente $16.70 de utilidad.",
+        "En 2026, por cada $100 vendidos, genera unicamente $8.20.",
+        "Esto evidencia una disminucion importante en la rentabilidad del negocio."
+      ] }
+    ]
+  }
+];
+
 const closedSalesActuals = [
   { seller: "Gabriela Amador", month: 1, amount: 2938.01, count: 3 },
   { seller: "Gabriela Amador", month: 2, amount: 3942.22, count: 5 },
@@ -2123,6 +2185,48 @@ function renderOperationsPresentations() {
   return operationsPresentationMarkup();
 }
 
+
+function financialPresentationMarkup({ fullscreen = false } = {}) {
+  const activeIndex = Math.max(0, Math.min(financialPresentationSections.length - 1, Number(state.financialPresentationSection) || 0));
+  const section = financialPresentationSections[activeIndex];
+  return `
+    <section class="operations-presentation financial-presentation ${fullscreen ? "fullscreen" : ""}" aria-label="Presentaciones Financieras">
+      <div class="operations-presentation-head">
+        <div>
+          <p class="eyebrow">Financiera</p>
+          <h3>Presentaciones</h3>
+          <span>Informe Gerencial Mensual Financiero</span>
+        </div>
+        <div class="operations-period-controls">
+          <label><span>Mes</span><input type="text" value="06" readonly></label>
+          <label><span>Ano</span><input type="text" value="2026" readonly></label>
+          ${fullscreen ? "" : `<button class="action-icon-btn operations-fullscreen-btn" type="button" data-financial-fullscreen title="Vista panoramica" aria-label="Abrir presentacion financiera en vista panoramica">⛶</button>`}
+        </div>
+      </div>
+      <div class="operations-presentation-meta">
+        <strong>Junio 2026</strong>
+        <span>${financialPresentationSections.length} secciones</span>
+        <span>Analisis financiero del primer semestre</span>
+      </div>
+      <div class="operations-presentation-layout">
+        <nav class="operations-presentation-index" aria-label="Indice de presentacion financiera">
+          ${financialPresentationSections.map((item, index) => `
+            <button class="${index === activeIndex ? "active" : ""}" type="button" data-financial-section="${index}">
+              <span>${index + 1}</span>
+              <strong>${escapeHtml(item.title)}</strong>
+            </button>
+          `).join("")}
+        </nav>
+        ${renderOperationsSlide(section, { fullscreen })}
+      </div>
+    </section>
+  `;
+}
+
+function renderFinancialPresentations() {
+  return financialPresentationMarkup();
+}
+
 function openOperationsPresentationFullscreen() {
   document.querySelector(".operations-fullscreen-overlay")?.remove();
   const overlay = document.createElement("div");
@@ -2884,6 +2988,19 @@ function renderCommercialSubmenu(area) {
     commercialSubmenuStatus.textContent = submenu.status;
     opportunityTable.innerHTML = renderOperationsPresentations();
     wireOperationsPresentations(opportunityTable);
+    return;
+  }
+
+
+  if (state.activeArea === "financiera" && submenu.key === "presentaciones") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = submenu.status;
+    opportunityTable.innerHTML = renderFinancialPresentations();
     return;
   }
 
