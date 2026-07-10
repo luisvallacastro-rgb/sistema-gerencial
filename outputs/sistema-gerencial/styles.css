@@ -7562,3 +7562,109 @@ body.operations-fullscreen-open {
     grid-column: 1 / -1;
   }
 }
+
+/* CRM dashboard density and scroll guard. */
+.app-shell .crm-two-column {
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, .88fr);
+}
+
+.app-shell .crm-section {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: min(48vh, 460px);
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.app-shell .crm-section-head {
+  margin-bottom: 9px;
+}
+
+.app-shell .crm-stage-list,
+.app-shell .crm-seller-share-list {
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 211, 252, .48) rgba(6, 15, 32, .28);
+}
+
+.app-shell .crm-stage-list::-webkit-scrollbar,
+.app-shell .crm-seller-share-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.app-shell .crm-stage-list::-webkit-scrollbar-track,
+.app-shell .crm-seller-share-list::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(6, 15, 32, .28);
+}
+
+.app-shell .crm-stage-list::-webkit-scrollbar-thumb,
+.app-shell .crm-seller-share-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(125, 211, 252, .48);
+}
+
+.app-shell .crm-stage-row,
+.app-shell .crm-seller-share-row {
+  min-height: 48px;
+  padding: 8px 10px;
+  border-radius: 14px !important;
+}
+
+.app-shell .crm-stage-row {
+  grid-template-columns: minmax(0, 1fr) minmax(82px, auto) 42px;
+}
+
+.app-shell .crm-stage-row span,
+.app-shell .crm-seller-share-row span {
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.app-shell .crm-stage-row strong,
+.app-shell .crm-seller-share-row > strong {
+  font-size: 15px;
+}
+
+.app-shell .crm-stage-row em {
+  min-width: 34px;
+  min-height: 24px;
+}
+
+.app-shell .crm-seller-share-row {
+  grid-template-columns: minmax(150px, 1.05fr) minmax(110px, .9fr) minmax(86px, auto) minmax(54px, auto);
+}
+
+.app-shell .crm-seller-share-row > div:first-child {
+  gap: 1px;
+}
+
+.app-shell .crm-seller-share-row > div:first-child strong {
+  font-size: 15px;
+}
+
+.app-shell .crm-seller-share-row em {
+  min-width: 48px;
+  padding: 4px 7px;
+  font-size: 14px;
+}
+
+.app-shell .crm-share-meter {
+  height: 7px;
+}
+
+@media (max-width: 1180px) {
+  .app-shell .crm-two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell .crm-section {
+    max-height: min(52vh, 430px);
+  }
+}
