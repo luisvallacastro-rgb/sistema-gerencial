@@ -1489,7 +1489,8 @@ function normalizeStrategicRisks(items, areaKey = state.activeArea) {
     risk: item.risk || "",
     affectsOthers: Boolean(item.affectsOthers),
     involved: Array.isArray(item.involved) ? item.involved : [],
-    status: item.status || "Notificado"
+    status: item.status || "Notificado",
+    responses: Array.isArray(item.responses) ? item.responses : []
   }));
 }
 
@@ -2051,6 +2052,10 @@ function renderStrategicRisks(items) {
             <div class="risk-status-block">
               <span>Estado</span>
               <strong class="tag notice">${item.status}</strong>
+              ${item.responses?.length ? `<small>${item.responses.length} respuesta${item.responses.length === 1 ? "" : "s"}</small>` : ""}
+            </div>
+            <div class="risk-actions">
+              <button class="ghost-btn compact-btn" type="button" data-risk-action="open" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">Abrir</button>
             </div>
           </article>
         `).join("") : `
@@ -2061,6 +2066,94 @@ function renderStrategicRisks(items) {
       </div>
     </section>
   `;
+}
+
+
+function findStrategicRiskSubmenu(areaKey = state.activeArea) {
+  return getStrategicRiskSubmenu(areaKey);
+}
+
+function openRiskDetailDialog(item, submenu) {
+  const ownerLabel = areas[state.activeArea]?.nav || roleDisplayName();
+  const responses = Array.isArray(item.responses) ? item.responses : [];
+  document.querySelector(".risk-detail-overlay")?.remove();
+
+  const overlay = document.createElement("div");
+  overlay.className = "risk-detail-overlay";
+  overlay.innerHTML = `
+    <div class="risk-detail-panel" role="dialog" aria-modal="true" aria-label="Detalle del riesgo">
+      <button class="risk-detail-close" type="button" data-risk-close aria-label="Cerrar">×</button>
+      <div class="risk-detail-head">
+        <div>
+          <p class="eyebrow">Riesgo notificado</p>
+          <h3>${escapeHtml(item.risk)}</h3>
+        </div>
+        <span class="tag notice">${escapeHtml(item.status || "Notificado")}</span>
+      </div>
+
+      <div class="risk-detail-grid">
+        <section>
+          <span>Fecha</span>
+          <strong>${formatDate(item.date)}</strong>
+        </section>
+        <section>
+          <span>Gestiona</span>
+          <strong>${escapeHtml(item.owner || "Sin origen")}</strong>
+        </section>
+        <section>
+          <span>Gerencias involucradas</span>
+          <strong>${item.involved?.length ? item.involved.map(escapeHtml).join(", ") : "Sin repercusion"}</strong>
+        </section>
+      </div>
+
+      <section class="risk-detail-section">
+        <span>Comentarios registrados</span>
+        <div class="risk-response-list">
+          ${responses.length ? responses.map((response) => `
+            <article>
+              <strong>${escapeHtml(response.owner || "Gerencia")}</strong>
+              <small>${formatDate(response.date || todayISO())} ${escapeHtml(response.time || "")}</small>
+              <p>${escapeHtml(response.comment || "")}</p>
+            </article>
+          `).join("") : `<p class="risk-empty-note">Sin comentarios registrados.</p>`}
+        </div>
+      </section>
+
+      <form class="risk-response-form" data-risk-response-form>
+        <label>
+          <span>Comentario de ${escapeHtml(ownerLabel)}</span>
+          <textarea required placeholder="Escribe tu respuesta, acuerdo o seguimiento..."></textarea>
+        </label>
+        <div class="risk-detail-actions">
+          <button class="ghost-btn" type="button" data-risk-close>Cancelar</button>
+          <button class="primary-btn" type="submit">Guardar comentario</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll("[data-risk-close]").forEach((button) => {
+    button.addEventListener("click", () => overlay.remove());
+  });
+  overlay.querySelector("[data-risk-response-form]").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const textarea = overlay.querySelector("textarea");
+    const comment = textarea.value.trim();
+    if (!comment) return;
+    item.responses = Array.isArray(item.responses) ? item.responses : [];
+    item.responses.push({
+      id: crypto.randomUUID(),
+      owner: ownerLabel,
+      date: todayISO(),
+      time: currentTimeValue(),
+      comment
+    });
+    item.status = "Respondido";
+    saveStrategicRisks();
+    overlay.remove();
+    renderCommercialSubmenu(areas[state.activeArea]);
+  });
 }
 
 function renderManagementRequests(items) {
@@ -5079,6 +5172,15 @@ opportunityTable.addEventListener("click", (event) => {
   if (pageButton) {
     state.opportunityPage += pageButton.dataset.opportunityPage === "next" ? 1 : -1;
     renderCommercialSubmenu(areas[state.activeArea]);
+    return;
+  }
+
+  const riskButton = event.target.closest("button[data-risk-action]");
+  if (riskButton) {
+    const submenu = findStrategicRiskSubmenu(riskButton.dataset.area || state.activeArea);
+    const item = submenu.items.find((record) => record.id === riskButton.dataset.id);
+    if (!item) return;
+    openRiskDetailDialog(item, submenu);
     return;
   }
 
