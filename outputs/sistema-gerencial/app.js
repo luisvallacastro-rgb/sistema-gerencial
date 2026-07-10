@@ -2205,8 +2205,6 @@ function financialPresentationMarkup({ fullscreen = false } = {}) {
       </div>
       <div class="operations-presentation-meta">
         <strong>Junio 2026</strong>
-        <span>${financialPresentationSections.length} secciones</span>
-        <span>Analisis financiero del primer semestre</span>
       </div>
       <div class="operations-presentation-layout">
         <nav class="operations-presentation-index" aria-label="Indice de presentacion financiera">
