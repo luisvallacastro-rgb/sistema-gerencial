@@ -4210,7 +4210,23 @@ function renderAdminPanel() {
 
 function renderPageTitle(area, activeSubmenu) {
   const isResultsView = state.activeArea === "comercializacion" && activeSubmenu?.key === "resultados";
-  pageTitle.classList.toggle("with-results-summary", isResultsView);
+  const isKpiView = state.activeArea === "comercializacion" && activeSubmenu?.key === "kpi";
+  pageTitle.classList.toggle("with-results-summary", isResultsView || isKpiView);
+
+  if (isKpiView) {
+    const rows = wonSalesFulfillmentRows(getOpportunitySubmenu().items);
+    const totalSales = rows.reduce((sum, row) => sum + row.sales, 0);
+    const totalGoal = rows.reduce((sum, row) => sum + row.goal, 0);
+    const totalPercent = totalGoal ? Math.round((totalSales / totalGoal) * 100) : 0;
+    pageTitle.innerHTML = `
+      <span>KPI</span>
+      <span class="results-title-metrics">
+        <span>${formatMoney(totalSales)}</span>
+        <span><strong>${totalPercent}%</strong> general</span>
+      </span>
+    `;
+    return;
+  }
 
   if (!isResultsView) {
     pageTitle.textContent = activeSubmenu ? activeSubmenu.label : area.label;
