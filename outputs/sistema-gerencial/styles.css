@@ -7947,3 +7947,63 @@ body.operations-fullscreen-open {
   border-radius: 14px;
   overflow: hidden;
 }
+
+/* Financial presentations: one continuous scrollable report for June 2026. */
+.app-shell .financial-presentation .operations-presentation-head {
+  align-items: center;
+}
+
+.app-shell .financial-presentation .operations-period-controls {
+  align-items: center;
+}
+
+.app-shell .financial-unified-stage,
+.operations-fullscreen-overlay .financial-unified-stage {
+  min-height: 0;
+}
+
+.app-shell .financial-unified-slide {
+  min-height: 0;
+  max-height: min(62vh, 760px);
+  overflow-y: auto;
+}
+
+.operations-fullscreen-overlay .financial-unified-slide {
+  max-height: none;
+  overflow-y: auto;
+}
+
+.app-shell .financial-unified-content,
+.operations-fullscreen-overlay .financial-unified-content {
+  display: grid;
+  gap: 22px;
+}
+
+.app-shell .financial-unified-section,
+.operations-fullscreen-overlay .financial-unified-section {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 18px;
+  border-top: 1px solid rgba(12, 135, 120, .16);
+  padding-top: 22px;
+}
+
+.app-shell .financial-unified-section > span,
+.operations-fullscreen-overlay .financial-unified-section > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(12, 135, 120, .1);
+  color: #0c8778;
+  font-weight: 1000;
+}
+
+.app-shell .financial-unified-section h4,
+.operations-fullscreen-overlay .financial-unified-section h4 {
+  margin: 0 0 14px;
+  color: #12201f;
+  font-size: clamp(24px, 2.2vw, 36px);
+  line-height: 1.05;
+}

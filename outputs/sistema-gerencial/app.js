@@ -41,7 +41,7 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
-      { key: "presentaciones", label: "Presentaciones", status: "Analisis financiero mensual", items: [] },
+      { key: "presentaciones", label: "Presentaciones", status: "Junio 2026", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -201,7 +201,7 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
-      { key: "presentaciones", label: "Presentaciones", status: "Analisis financiero mensual", items: [] },
+      { key: "presentaciones", label: "Presentaciones", status: "Sin datos cargados", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -2187,8 +2187,6 @@ function renderOperationsPresentations() {
 
 
 function financialPresentationMarkup({ fullscreen = false } = {}) {
-  const activeIndex = Math.max(0, Math.min(financialPresentationSections.length - 1, Number(state.financialPresentationSection) || 0));
-  const section = financialPresentationSections[activeIndex];
   return `
     <section class="operations-presentation financial-presentation ${fullscreen ? "fullscreen" : ""}" aria-label="Presentaciones Financieras">
       <div class="operations-presentation-head">
@@ -2198,27 +2196,54 @@ function financialPresentationMarkup({ fullscreen = false } = {}) {
           <span>Informe Gerencial Mensual Financiero</span>
         </div>
         <div class="operations-period-controls">
-          <label class="financial-period-filter"><span>Periodo</span><input type="text" value="Junio 2026" readonly></label>
           ${fullscreen ? "" : `<button class="action-icon-btn operations-fullscreen-btn" type="button" data-financial-fullscreen title="Vista panoramica" aria-label="Abrir presentacion financiera en vista panoramica">⛶</button>`}
         </div>
       </div>
-      <div class="operations-presentation-layout">
-        <nav class="operations-presentation-index" aria-label="Indice de presentacion financiera">
-          ${financialPresentationSections.map((item, index) => `
-            <button class="${index === activeIndex ? "active" : ""}" type="button" data-financial-section="${index}">
-              <span>${index + 1}</span>
-              <strong>${escapeHtml(item.title)}</strong>
-            </button>
-          `).join("")}
-        </nav>
-        ${renderOperationsSlide(section, { fullscreen })}
+      <div class="financial-unified-stage">
+        ${renderFinancialUnifiedSlide({ fullscreen })}
       </div>
     </section>
   `;
 }
 
+function renderFinancialUnifiedSlide({ fullscreen = false } = {}) {
+  return `
+    <article class="operations-slide financial-unified-slide">
+      ${fullscreen ? "" : `
+        <button class="operations-slide-expand" type="button" data-financial-fullscreen title="Vista panoramica" aria-label="Ampliar esta presentacion a pantalla completa">
+          <span aria-hidden="true">⛶</span>
+        </button>
+      `}
+      <p class="eyebrow">Informe Gerencial Mensual Financiero</p>
+      <h3>Analisis financiero Junio 2026</h3>
+      <div class="financial-unified-content">
+        ${financialPresentationSections.map((section, index) => `
+          <section class="financial-unified-section">
+            <span>${index + 1}</span>
+            <div>
+              <p class="eyebrow">${escapeHtml(section.eyebrow)}</p>
+              <h4>${escapeHtml(section.title)}</h4>
+              <div class="operations-slide-body">
+                ${section.body.map(renderOperationsBlock).join("")}
+              </div>
+            </div>
+          </section>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
 function renderFinancialPresentations() {
   return financialPresentationMarkup();
+}
+
+function financialPresentationFullscreenMarkup() {
+  return `
+    <section class="operations-fullscreen-stage" aria-label="Presentacion financiera en pantalla completa">
+      ${renderFinancialUnifiedSlide({ fullscreen: true })}
+    </section>
+  `;
 }
 
 function openOperationsPresentationFullscreen() {
@@ -2234,6 +2259,21 @@ function openOperationsPresentationFullscreen() {
   document.body.appendChild(overlay);
   document.body.classList.add("operations-fullscreen-open");
   wireOperationsPresentations(overlay);
+}
+
+function openFinancialPresentationFullscreen() {
+  document.querySelector(".operations-fullscreen-overlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "operations-fullscreen-overlay";
+  overlay.innerHTML = `
+    <div class="operations-fullscreen-panel" role="dialog" aria-modal="true" aria-label="Presentacion financiera en vista panoramica">
+      <button class="action-icon-btn operations-fullscreen-close" type="button" data-financial-close-fullscreen aria-label="Cerrar vista panoramica">×</button>
+      ${financialPresentationFullscreenMarkup()}
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.classList.add("operations-fullscreen-open");
+  wireFinancialPresentations(overlay);
 }
 
 function closeOperationsPresentationFullscreen() {
@@ -2267,6 +2307,13 @@ function wireOperationsPresentations(root = opportunityTable) {
     button.addEventListener("click", openOperationsPresentationFullscreen);
   });
   root.querySelector("[data-operations-close-fullscreen]")?.addEventListener("click", closeOperationsPresentationFullscreen);
+}
+
+function wireFinancialPresentations(root = opportunityTable) {
+  root.querySelectorAll("[data-financial-fullscreen]").forEach((button) => {
+    button.addEventListener("click", openFinancialPresentationFullscreen);
+  });
+  root.querySelector("[data-financial-close-fullscreen]")?.addEventListener("click", closeOperationsPresentationFullscreen);
 }
 
 function crmData() {
@@ -2995,6 +3042,7 @@ function renderCommercialSubmenu(area) {
     opportunityDashboard.classList.add("hidden");
     commercialSubmenuStatus.textContent = submenu.status;
     opportunityTable.innerHTML = renderFinancialPresentations();
+    wireFinancialPresentations(opportunityTable);
     return;
   }
 
