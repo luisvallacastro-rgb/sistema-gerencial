@@ -641,7 +641,7 @@ function allowedAreas(user = state.currentUser) {
 }
 
 function canDeleteOpportunities() {
-  return isAdminUser() || state.role === "general" || state.role === "financiera";
+  return isAdminUser() || ["general", "financiera", "comercializacion"].includes(state.role);
 }
 
 function roleDisplayName(role = state.role) {
