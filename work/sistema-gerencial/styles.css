@@ -3743,6 +3743,30 @@ button:disabled {
   backdrop-filter: blur(22px) saturate(1.18);
 }
 
+.app-shell #pageTitle.with-results-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  width: min(100%, 720px);
+}
+
+.app-shell .results-title-metrics {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 16px;
+  color: #7fffe8;
+  font-size: clamp(18px, 1.6vw, 28px);
+  font-weight: 900;
+  text-shadow: 0 0 16px rgba(82, 247, 222, .42);
+  white-space: nowrap;
+}
+
+.app-shell .results-title-metrics strong {
+  color: #8dffd5;
+  font-size: 1.16em;
+}
+
 .app-shell .summary-card,
 .app-shell .panel,
 .app-shell .admin-hero,

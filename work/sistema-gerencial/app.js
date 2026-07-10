@@ -3571,6 +3571,26 @@ function renderAdminPanel() {
   });
 }
 
+function renderPageTitle(area, activeSubmenu) {
+  const isResultsView = state.activeArea === "comercializacion" && activeSubmenu?.key === "resultados";
+  pageTitle.classList.toggle("with-results-summary", isResultsView);
+
+  if (!isResultsView) {
+    pageTitle.textContent = activeSubmenu ? activeSubmenu.label : area.label;
+    return;
+  }
+
+  const activeRows = opportunityCycleRows(activeSubmenu.items).active;
+  const activeAmount = activeRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
+  pageTitle.innerHTML = `
+    <span>Resultados</span>
+    <span class="results-title-metrics">
+      <span><strong>${activeRows.length}</strong> vigentes</span>
+      <span>${formatMoney(activeAmount)}</span>
+    </span>
+  `;
+}
+
 function renderDashboard() {
   const availableAreas = allowedAreas();
   if (!availableAreas.includes(state.activeArea)) state.activeArea = availableAreas[0] || "comercializacion";
@@ -3584,6 +3604,7 @@ function renderDashboard() {
   if (state.activeArea === adminAreaKey) {
     dashboard.classList.add("admin-focus");
     dashboard.classList.remove("opportunity-focus");
+    pageTitle.classList.remove("with-results-summary");
     pageTitle.textContent = area.label;
     periodLabel.textContent = "Control de accesos";
     topbarActions?.classList.add("hidden");
@@ -3603,7 +3624,7 @@ function renderDashboard() {
   }
   const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
   dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu));
-  pageTitle.textContent = activeSubmenu ? activeSubmenu.label : area.label;
+  renderPageTitle(area, activeSubmenu);
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;
   renderNav();
