@@ -1537,7 +1537,9 @@ function normalizeManagementRequests(items, areaKey = state.activeArea) {
     target: item.target || "Gerencia general",
     subject: item.subject || "",
     message: item.message || "",
-    status: item.status || "Enviada"
+    status: item.status || "Enviada",
+    response: item.response || "",
+    sourceRiskId: item.sourceRiskId || ""
   }));
 }
 
@@ -2026,25 +2028,30 @@ function renderHistoryList(rows) {
 function renderStrategicRisks(items) {
   return `
     <section class="strategic-risks" aria-label="Listado de riesgos futuros">
-      <div class="strategic-risk-row strategic-risk-header">
-        <strong>Fecha</strong>
-        <strong>Riesgo</strong>
-        <strong>Gestiona</strong>
-        <strong>Gerencias involucradas</strong>
-        <strong>Estado</strong>
-      </div>
       <div class="strategic-risk-body">
         ${items.length ? items.map((item) => `
           <article class="strategic-risk-row">
-            <span>${formatDate(item.date)}</span>
-            <strong>${item.risk}</strong>
-            <span>${item.owner}</span>
-            <span class="risk-impact-tags">
-              ${item.affectsOthers && item.involved.length
-                ? item.involved.map((name) => `<em>${name}</em>`).join("")
-                : "<em>Sin repercusion</em>"}
-            </span>
-            <span class="tag notice">${item.status}</span>
+            <div class="risk-date-block">
+              <span>Fecha</span>
+              <strong>${formatDate(item.date)}</strong>
+            </div>
+            <div class="risk-main-block">
+              <span>Riesgo</span>
+              <strong>${item.risk}</strong>
+              <small>Gestiona: ${item.owner}</small>
+            </div>
+            <div class="risk-impact-block">
+              <span>Gerencias involucradas</span>
+              <div class="risk-impact-tags">
+                ${item.affectsOthers && item.involved.length
+                  ? item.involved.map((name) => `<em>${name}</em>`).join("")
+                  : "<em>Sin repercusion</em>"}
+              </div>
+            </div>
+            <div class="risk-status-block">
+              <span>Estado</span>
+              <strong class="tag notice">${item.status}</strong>
+            </div>
           </article>
         `).join("") : `
           <div class="empty-state">
@@ -2059,33 +2066,40 @@ function renderStrategicRisks(items) {
 function renderManagementRequests(items) {
   return `
     <section class="management-requests" aria-label="Solicitudes a Gerencia General">
-      <div class="management-request-row management-request-header">
-        <strong>Fecha</strong>
-        <strong>Solicitud</strong>
-        <strong>Origen</strong>
-        <strong>Destino</strong>
-        <strong>Estado</strong>
-        <strong>Acciones</strong>
-      </div>
       <div class="management-request-body">
         ${items.length ? items.map((item) => `
           <article class="management-request-row">
-            <span>${formatDate(item.date)}</span>
+            <div class="request-date-block">
+              <span>Fecha</span>
+              <strong>${formatDate(item.date)}</strong>
+            </div>
             <div class="request-message-main">
+              <span>Solicitud</span>
               <strong>${item.subject}</strong>
               <p>${item.message}</p>
+              ${item.response ? `<div class="request-response"><span>Respuesta</span><p>${item.response}</p></div>` : ""}
             </div>
-            <span>${item.owner}</span>
-            <span>${item.target}</span>
-            <span class="tag notice">${item.status}</span>
-            <span class="row-actions">
+            <div class="request-route-block">
+              <span>Origen</span>
+              <strong>${item.owner}</strong>
+              <span>Destino</span>
+              <strong>${item.target}</strong>
+            </div>
+            <div class="request-status-block">
+              <span>Estado</span>
+              <strong class="tag notice">${item.status}</strong>
+            </div>
+            <div class="row-actions request-actions">
+              <button class="ghost-btn compact-btn" type="button" data-request-action="response" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">Responder</button>
+              <button class="ghost-btn compact-btn" type="button" data-request-action="status" data-status="En revision" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">En revision</button>
+              <button class="ghost-btn compact-btn" type="button" data-request-action="status" data-status="Atendida" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">Atendida</button>
               <button class="action-icon-btn" type="button" data-request-action="edit" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Editar solicitud">
                 <span aria-hidden="true">✎</span>
               </button>
               <button class="action-icon-btn danger" type="button" data-request-action="delete" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Borrar solicitud">
                 <span aria-hidden="true">⌫</span>
               </button>
-            </span>
+            </div>
           </article>
         `).join("") : `
           <div class="empty-state">
@@ -5006,14 +5020,17 @@ managementRequestForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const submenu = getManagementRequestSubmenu();
   const id = managementRequestId.value || crypto.randomUUID();
+  const current = submenu.items.find((item) => item.id === id);
   const payload = {
     id,
     date: managementRequestDate.value,
-    owner: currentRequestOwner(),
-    target: "Gerencia general",
+    owner: current?.owner || currentRequestOwner(),
+    target: current?.target || "Gerencia general",
     subject: managementRequestSubject.value.trim(),
     message: managementRequestMessage.value.trim(),
-    status: "Enviada"
+    status: current?.status || "Enviada",
+    response: current?.response || "",
+    sourceRiskId: current?.sourceRiskId || ""
   };
 
   const index = submenu.items.findIndex((item) => item.id === id);
@@ -5073,6 +5090,23 @@ opportunityTable.addEventListener("click", (event) => {
 
     if (requestButton.dataset.requestAction === "delete") {
       submenu.items = submenu.items.filter((record) => record.id !== item.id);
+      saveManagementRequests();
+      renderCommercialSubmenu(areas[state.activeArea]);
+      return;
+    }
+
+    if (requestButton.dataset.requestAction === "response") {
+      const response = prompt("Respuesta de la gerencia:", item.response || "");
+      if (response === null) return;
+      item.response = response.trim();
+      item.status = item.response ? "Respondida" : item.status;
+      saveManagementRequests();
+      renderCommercialSubmenu(areas[state.activeArea]);
+      return;
+    }
+
+    if (requestButton.dataset.requestAction === "status") {
+      item.status = requestButton.dataset.status || item.status;
       saveManagementRequests();
       renderCommercialSubmenu(areas[state.activeArea]);
       return;

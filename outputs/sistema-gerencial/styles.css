@@ -7948,6 +7948,24 @@ body.operations-fullscreen-open {
   overflow: hidden;
 }
 
+/* Default management placeholders: keep the glass theme, no white panels. */
+.app-shell .clean-section {
+  border-color: rgba(186, 205, 232, .18) !important;
+  background:
+    linear-gradient(145deg, rgba(96, 112, 146, .18), rgba(30, 43, 72, .16)),
+    rgba(16, 28, 50, .42) !important;
+  color: #f3f7fb !important;
+}
+
+.app-shell .clean-section h3,
+.app-shell .clean-section-state strong {
+  color: rgba(246, 250, 255, .94) !important;
+}
+
+.app-shell .clean-section-state span {
+  color: rgba(216, 228, 244, .64) !important;
+}
+
 /* Financial presentations: one continuous scrollable report for June 2026. */
 .app-shell .financial-presentation .operations-presentation-head {
   align-items: center;
@@ -8044,4 +8062,118 @@ body.operations-fullscreen-open {
   border-color: rgba(186, 205, 232, .22) !important;
   background: rgba(16, 28, 50, .36) !important;
   color: rgba(234, 241, 248, .72) !important;
+}
+
+/* Risks and requests: full-width cards with visible CRUD and responses. */
+.app-shell .strategic-risks,
+.app-shell .management-requests {
+  min-height: 0;
+}
+
+.app-shell .strategic-risk-body,
+.app-shell .management-request-body {
+  display: grid;
+  gap: 12px;
+  max-height: min(64vh, 760px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+}
+
+.app-shell .strategic-risk-header,
+.app-shell .management-request-header {
+  display: none !important;
+}
+
+.app-shell .strategic-risk-row,
+.app-shell .management-request-row {
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+  border-radius: 14px !important;
+  padding: 16px !important;
+}
+
+.app-shell .strategic-risk-row {
+  grid-template-columns: minmax(110px, .32fr) minmax(260px, 1.35fr) minmax(220px, .9fr) minmax(150px, .42fr) !important;
+}
+
+.app-shell .management-request-row {
+  grid-template-columns: minmax(110px, .28fr) minmax(320px, 1.35fr) minmax(220px, .72fr) minmax(150px, .42fr) minmax(260px, .7fr) !important;
+}
+
+.app-shell .risk-date-block,
+.app-shell .risk-main-block,
+.app-shell .risk-impact-block,
+.app-shell .risk-status-block,
+.app-shell .request-date-block,
+.app-shell .request-message-main,
+.app-shell .request-route-block,
+.app-shell .request-status-block {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.app-shell .risk-date-block > span,
+.app-shell .risk-main-block > span,
+.app-shell .risk-impact-block > span,
+.app-shell .risk-status-block > span,
+.app-shell .request-date-block > span,
+.app-shell .request-message-main > span,
+.app-shell .request-route-block > span,
+.app-shell .request-status-block > span,
+.app-shell .request-response span {
+  color: rgba(199, 216, 238, .62) !important;
+  font-size: 11px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.app-shell .risk-main-block strong,
+.app-shell .request-message-main strong {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.app-shell .risk-main-block small,
+.app-shell .request-route-block strong,
+.app-shell .request-response p {
+  color: rgba(233, 241, 250, .84) !important;
+  font-weight: 800;
+}
+
+.app-shell .request-response {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  border-left: 3px solid rgba(123, 247, 219, .5);
+  padding-left: 10px;
+}
+
+.app-shell .request-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.app-shell .request-actions .compact-btn {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1280px) {
+  .app-shell .strategic-risk-row,
+  .app-shell .management-request-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app-shell .request-actions {
+    justify-content: flex-start;
+  }
 }
