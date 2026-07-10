@@ -42,6 +42,11 @@ button, select, input {
 
 .hidden { display: none !important; }
 
+.app-shell .opportunity-table.hidden,
+.app-shell .opportunity-dashboard.hidden {
+  display: none !important;
+}
+
 .login-view {
   position: fixed;
   inset: 0;

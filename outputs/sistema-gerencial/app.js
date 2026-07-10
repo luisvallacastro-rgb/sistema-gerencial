@@ -3011,6 +3011,7 @@ function renderCommercialSubmenu(area) {
     newManagementRequestBtn.classList.add("hidden");
     goalsMatrixBtn.classList.remove("hidden");
     opportunityTable.classList.add("hidden");
+    opportunityTable.innerHTML = "";
     opportunityDashboard.classList.remove("hidden");
     commercialSubmenuStatus.textContent = "Ventas ganadas / meta";
     renderOpportunityDashboard(opportunitySubmenu.items);
@@ -3024,6 +3025,7 @@ function renderCommercialSubmenu(area) {
     goalsMatrixBtn.classList.add("hidden");
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
+    opportunityDashboard.innerHTML = "";
     commercialSubmenuStatus.textContent = submenu.status;
     opportunityTable.innerHTML = renderCrmModule(submenu.key);
     opportunityTable.querySelector("[data-crm-refresh]")?.addEventListener("click", loadCrmData);
