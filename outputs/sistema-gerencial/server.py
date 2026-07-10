@@ -87,6 +87,29 @@ def load_crm_seed():
     return data
 
 
+def sync_crm_seed_updates(data):
+    seed = load_crm_seed()
+    seed_version = text(seed.get("opportunityImportVersion"))
+    if not seed_version or text(data.get("opportunityImportVersion")) == seed_version:
+        return data, False
+
+    existing_users = data.setdefault("users", [])
+    existing_user_ids = {text(user.get("id")) for user in existing_users}
+    existing_user_emails = {text(user.get("email")).lower() for user in existing_users if text(user.get("email"))}
+    for seed_user in seed.get("users", []):
+        seed_email = text(seed_user.get("email")).lower()
+        if text(seed_user.get("id")) not in existing_user_ids and seed_email not in existing_user_emails:
+            existing_users.append(seed_user)
+
+    data["opportunities"] = seed.get("opportunities", [])
+    data["customers"] = seed.get("customers", [])
+    data["agenda"] = seed.get("agenda", [])
+    data["gestiones"] = seed.get("gestiones", [])
+    data["opportunityImportVersion"] = seed_version
+    data["opportunityImportLabel"] = text(seed.get("opportunityImportLabel"))
+    return data, True
+
+
 def read_crm_data(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
     if not row:
@@ -96,6 +119,9 @@ def read_crm_data(conn):
     data = json.loads(row["value"])
     data.setdefault("gestiones", [])
     data.setdefault("customers", [])
+    data, changed = sync_crm_seed_updates(data)
+    if changed:
+        write_crm_data(conn, data)
     return data
 
 
