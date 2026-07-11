@@ -591,6 +591,7 @@ const historicalClosedSales = (window.historicalClosedSalesCsv || "")
 const opportunitiesStorageKey = "sistemaGerencial.oportunidades.v6";
 const usersStorageKey = "sistemaGerencial.usuarios.v2";
 const sessionStorageKey = "sistemaGerencial.sesion.v1";
+const navigationSessionKey = "sistemaGerencial.navigation.v1";
 const minutesStorageKey = "sistemaGerencial.actas.v1";
 const strategicRisksStorageKey = "sistemaGerencial.riesgos.v2";
 const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v2";
@@ -1859,6 +1860,7 @@ function renderNav() {
           }
         }
       }
+      persistNavigationState();
       renderDashboard();
     });
     navList.appendChild(button);
@@ -1878,6 +1880,7 @@ function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
     button.addEventListener("click", () => {
       state.activeArea = areaKey;
       state.activeSubmenu = button.dataset.submenu;
+      persistNavigationState();
       renderDashboard();
     });
   });
@@ -4654,6 +4657,46 @@ function renderDashboard() {
 function setSidebarCollapsed(collapsed) {
   appShell.classList.toggle("sidebar-collapsed", collapsed);
   sidebarRestoreBtn.classList.toggle("hidden", !collapsed);
+  persistNavigationState();
+}
+
+function navigationStorageId(user = state.currentUser) {
+  return `${navigationSessionKey}:${user?.id || user?.username || "guest"}`;
+}
+
+function persistNavigationState() {
+  if (!state.currentUser) return;
+  try {
+    sessionStorage.setItem(navigationStorageId(), JSON.stringify({
+      activeArea: state.activeArea,
+      activeSubmenu: state.activeSubmenu,
+      openMenus: [...state.openMenus],
+      sidebarCollapsed: appShell.classList.contains("sidebar-collapsed")
+    }));
+  } catch {
+    // Navigation persistence is progressive enhancement.
+  }
+}
+
+function restoreNavigationState(user = state.currentUser) {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(navigationStorageId(user)) || "null");
+    if (!saved) return false;
+    const available = allowedAreas(user);
+    if (available.includes(saved.activeArea)) state.activeArea = saved.activeArea;
+    const submenus = visibleSubmenus(state.activeArea, user);
+    if (submenus.some((item) => item.key === saved.activeSubmenu)) {
+      state.activeSubmenu = saved.activeSubmenu;
+    }
+    state.openMenus = new Set(
+      (Array.isArray(saved.openMenus) ? saved.openMenus : [])
+        .filter((areaKey) => available.includes(areaKey))
+    );
+    setSidebarCollapsed(Boolean(saved.sidebarCollapsed));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function normalizeUsers(items) {
@@ -4893,7 +4936,8 @@ function openApp(userOrRole, options = {}) {
   state.currentUser = user;
   state.role = user.role;
   const available = allowedAreas(user);
-  if (!options.restoreSession || !available.includes(state.activeArea)) {
+  const navigationRestored = restoreNavigationState(user);
+  if (!navigationRestored && (!options.restoreSession || !available.includes(state.activeArea))) {
     state.activeArea = defaultAreaForRole(user.role, user);
     const firstSubmenu = visibleSubmenus(state.activeArea, user)[0];
     state.activeSubmenu = firstSubmenu?.key || "resultados";
@@ -4905,6 +4949,12 @@ function openApp(userOrRole, options = {}) {
   startPresence();
   renderDashboard();
 }
+
+window.addEventListener("pagehide", persistNavigationState);
+window.addEventListener("popstate", () => {
+  restoreNavigationState();
+  if (state.currentUser) renderDashboard();
+});
 
 function fillRequestAreas() {
   requestArea.innerHTML = areaOptions.map((key) => `<option value="${key}">${areas[key].nav}</option>`).join("");

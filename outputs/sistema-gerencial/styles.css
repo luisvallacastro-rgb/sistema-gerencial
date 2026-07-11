@@ -7619,6 +7619,203 @@ body.operations-fullscreen-open {
   }
 }
 
+/* Borderless navigation system: compact hierarchy, motion and session-aware state. */
+.app-shell .sidebar {
+  padding: 18px 14px !important;
+  border: 0 !important;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(94, 132, 206, .18), transparent 34%),
+    linear-gradient(180deg, rgba(25, 39, 70, .96), rgba(12, 25, 48, .98)) !important;
+  box-shadow: 14px 0 48px rgba(2, 8, 22, .22) !important;
+}
+
+.app-shell .sidebar-head {
+  padding: 6px 8px 14px;
+}
+
+.app-shell .sidebar-toggle,
+.app-shell .sidebar-restore {
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, .08) !important;
+  box-shadow: none !important;
+  transition: transform .25s ease, background .25s ease;
+}
+
+.app-shell .sidebar-toggle:hover,
+.app-shell .sidebar-restore:hover {
+  transform: translateY(-2px) scale(1.04);
+  background: rgba(123, 247, 219, .14) !important;
+}
+
+.app-shell .nav-list {
+  display: flex !important;
+  flex-direction: column;
+  gap: 2px !important;
+  padding: 4px 4px 8px !important;
+}
+
+.app-shell .nav-item,
+.app-shell .submenu-item {
+  position: relative;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: 0;
+  transform: translateZ(0);
+  transition: color .22s ease, background .22s ease, transform .22s ease, opacity .22s ease !important;
+}
+
+.app-shell .nav-item {
+  min-height: 42px !important;
+  padding: 0 10px !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: rgba(232, 240, 250, .78) !important;
+  font-size: 15px;
+}
+
+.app-shell .nav-item:hover {
+  background: rgba(255, 255, 255, .055) !important;
+  color: #fff !important;
+  transform: translateX(3px);
+}
+
+.app-shell .nav-item.active {
+  background: linear-gradient(90deg, rgba(88, 153, 255, .16), rgba(123, 247, 219, .055)) !important;
+  color: #fff !important;
+}
+
+.app-shell .nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 99px;
+  background: linear-gradient(#63a9ff, #72f5d1);
+  box-shadow: 0 0 18px rgba(104, 225, 219, .55);
+  animation: navPulse 2.8s ease-in-out infinite;
+}
+
+.app-shell .nav-caret {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  display: grid;
+  place-items: center;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, .07) !important;
+  color: rgba(235, 243, 252, .72) !important;
+  font-size: 16px !important;
+  transition: transform .3s cubic-bezier(.2,.8,.2,1), background .2s ease !important;
+}
+
+.app-shell .nav-item[aria-expanded="true"] .nav-caret {
+  transform: rotate(180deg);
+  background: rgba(123, 247, 219, .12) !important;
+  color: #7bf7db !important;
+}
+
+.app-shell .submenu-list,
+.app-shell .submenu-list.open {
+  display: grid !important;
+  gap: 1px !important;
+  margin: 0 0 0 14px !important;
+  padding: 0 0 0 8px !important;
+  border: 0 !important;
+  overflow: hidden;
+  transform-origin: top;
+  transition: max-height .38s cubic-bezier(.2,.8,.2,1), opacity .25s ease, transform .38s cubic-bezier(.2,.8,.2,1) !important;
+}
+
+.app-shell .submenu-list {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px) scaleY(.96);
+  pointer-events: none;
+}
+
+.app-shell .submenu-list.open {
+  max-height: 520px;
+  opacity: 1;
+  transform: translateY(0) scaleY(1);
+  pointer-events: auto;
+}
+
+.app-shell .submenu-item {
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  color: rgba(212, 224, 240, .66) !important;
+  font-size: 12px !important;
+}
+
+.app-shell .submenu-item:hover {
+  background: rgba(255, 255, 255, .045) !important;
+  color: #fff !important;
+  transform: translateX(3px);
+}
+
+.app-shell .submenu-item.active {
+  background: rgba(106, 174, 255, .1) !important;
+  color: #9ddcff !important;
+}
+
+.app-shell .submenu-item.crm-parent {
+  min-height: 30px !important;
+  margin-top: 2px !important;
+  color: #7bf7db !important;
+}
+
+.app-shell .submenu-item.crm-child {
+  width: calc(100% - 10px) !important;
+  min-height: 29px !important;
+  margin-left: 10px !important;
+}
+
+.app-shell .submenu-item.crm-child::before {
+  opacity: .42;
+}
+
+.app-shell .presence-panel,
+.app-shell .logout {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: rgba(255, 255, 255, .04) !important;
+}
+
+.app-shell .presence-panel {
+  margin-top: 6px !important;
+  border-radius: 14px !important;
+}
+
+.app-shell .logout {
+  min-height: 42px !important;
+  margin-top: 6px !important;
+  border-radius: 12px !important;
+  justify-content: center !important;
+}
+
+@keyframes navPulse {
+  0%, 100% { opacity: .72; transform: scaleY(.72); }
+  50% { opacity: 1; transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .nav-item,
+  .app-shell .submenu-item,
+  .app-shell .submenu-list,
+  .app-shell .nav-caret,
+  .app-shell .nav-item.active::before {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 .app-shell.sidebar-collapsed .sidebar-restore {
   position: fixed;
   top: 18px;
