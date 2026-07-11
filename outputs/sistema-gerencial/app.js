@@ -1909,7 +1909,7 @@ function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
     return `
       <section class="submenu-group ${isOpen ? "open" : ""} ${hasActiveChild ? "has-active" : ""}">
         <button class="submenu-item submenu-group-toggle ${hasActiveChild ? "active-parent" : ""}" type="button" data-submenu-group="${item.key}" aria-expanded="${isOpen}">
-          <span>${item.label}</span><span class="submenu-group-caret" aria-hidden="true">⌄</span>
+          <span class="submenu-group-label"><span class="submenu-group-caret" aria-hidden="true">${isOpen ? "−" : "+"}</span><span>${item.label}</span></span>
         </button>
         <div class="submenu-group-children">
           ${children.map((child) => `<button class="submenu-item submenu-group-child ${state.activeArea === areaKey && state.activeSubmenu === child.key ? "active" : ""}" type="button" data-submenu="${child.key}">${child.label}</button>`).join("")}
