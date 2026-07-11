@@ -4481,6 +4481,64 @@ button:disabled {
   }
 }
 
+/* Compact visual temperature indicator: icon + word, no wasted column width. */
+.app-shell.sidebar-collapsed .opportunity-header,
+.app-shell.sidebar-collapsed .opportunity-table-body .opportunity-row {
+  grid-template-columns: 118px minmax(240px, 1.55fr) minmax(185px, .95fr) minmax(165px, .82fr) 132px minmax(145px, .7fr) 150px !important;
+}
+
+.app-shell:not(.sidebar-collapsed) .opportunity-header,
+.app-shell:not(.sidebar-collapsed) .opportunity-table-body .opportunity-row {
+  grid-template-columns: minmax(88px, .62fr) minmax(175px, 1.38fr) minmax(150px, .98fr) minmax(125px, .82fr) 118px minmax(112px, .72fr) 128px !important;
+}
+
+.app-shell .opportunity-row .tag {
+  width: fit-content !important;
+  min-width: 0 !important;
+  max-width: 126px !important;
+  min-height: 30px !important;
+  padding: 0 11px !important;
+  justify-self: start;
+  justify-content: flex-start !important;
+  border-radius: 10px !important;
+  line-height: 1;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+}
+
+.app-shell .opportunity-row .tag.danger {
+  background: linear-gradient(135deg, rgba(255, 98, 73, .24), rgba(219, 62, 54, .12)) !important;
+  color: #ffc2ad !important;
+}
+
+.app-shell .opportunity-row .tag.warn {
+  background: linear-gradient(135deg, rgba(244, 176, 68, .22), rgba(190, 119, 31, .12)) !important;
+  color: #ffd28a !important;
+}
+
+.app-shell .opportunity-row .tag.info {
+  background: linear-gradient(135deg, rgba(91, 163, 255, .22), rgba(54, 102, 183, .12)) !important;
+  color: #c7ddff !important;
+}
+
+.app-shell .opportunity-row .tag:not(.danger):not(.warn):not(.info) {
+  background: linear-gradient(135deg, rgba(128, 213, 255, .18), rgba(101, 131, 194, .1)) !important;
+  color: #d5efff !important;
+}
+
+@media (max-width: 1280px) {
+  .app-shell:not(.sidebar-collapsed) .opportunity-header,
+  .app-shell:not(.sidebar-collapsed) .opportunity-table-body .opportunity-row {
+    grid-template-columns: 82px minmax(150px, 1.28fr) minmax(132px, .92fr) minmax(112px, .78fr) 108px minmax(105px, .7fr) 116px !important;
+  }
+
+  .app-shell .opportunity-row .tag {
+    max-width: 108px !important;
+    padding-inline: 8px !important;
+    font-size: 11px !important;
+  }
+}
+
 @media (max-width: 720px) {
   .crm-tracking-metrics,
   .crm-tracking-grid,

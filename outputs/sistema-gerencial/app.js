@@ -322,10 +322,10 @@ const opportunityStages = [
   "Postventa"
 ];
 const opportunityProbabilities = [
-  ["caliente", "Caliente", "80% o mas"],
-  ["tibio", "Tibio", "50% a 79%"],
-  ["frio", "Frio", "20% a 49%"],
-  ["congelado", "Congelado", "Menos de 20%"]
+  ["caliente", "🔥 Caliente", "80% o mas"],
+  ["tibio", "🌤️ Tibio", "50% a 79%"],
+  ["frio", "❄️ Frio", "20% a 49%"],
+  ["congelado", "🧊 Congelado", "Menos de 20%"]
 ];
 const commercialSellers = [
   "Gabriela Amador",
@@ -3422,7 +3422,7 @@ function renderCommercialSubmenu(area) {
       <strong>Empresa</strong>
       <strong>Vendedor</strong>
       <strong>Etapa</strong>
-      <strong>Estado / probabilidad</strong>
+      <strong>Temperatura</strong>
       <strong>Monto</strong>
       <strong>Acciones</strong>
     </div>
