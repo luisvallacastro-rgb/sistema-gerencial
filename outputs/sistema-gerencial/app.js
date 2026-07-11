@@ -1974,9 +1974,17 @@ function renderCycleDashboard(items) {
       <article class="accumulated-month-card">
         <div class="accumulated-chart-top">
           <h3>Acumulado global</h3>
+        </div>
+        <div class="accumulated-column-head" aria-label="Encabezados del dashboard acumulado">
+          <span>Periodo</span>
           <div class="chart-legend">
             <span><i class="plan"></i>Meta</span>
             <span><i class="actual"></i>Alcanzado</span>
+          </div>
+          <span class="accumulated-values-title">Valores acumulados</span>
+          <div class="accumulated-kpi-titles">
+            <span>KPI mensual</span>
+            <span>KPI anual</span>
           </div>
         </div>
         <div class="accumulated-month-rows">
