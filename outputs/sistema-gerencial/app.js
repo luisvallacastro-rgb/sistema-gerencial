@@ -716,6 +716,10 @@ const managementDialog = document.querySelector("#managementDialog");
 const managementForm = document.querySelector("#managementForm");
 const managementDialogTitle = document.querySelector("#managementDialogTitle");
 const managementOpportunityId = document.querySelector("#managementOpportunityId");
+const managementEditId = document.querySelector("#managementEditId");
+const managementEntryEyebrow = document.querySelector("#managementEntryEyebrow");
+const managementEntryTitle = document.querySelector("#managementEntryTitle");
+const managementSubmitBtn = document.querySelector("#managementSubmitBtn");
 const managementTable = document.querySelector("#managementTable");
 const managementDate = document.querySelector("#managementDate");
 const managementStage = document.querySelector("#managementStage");
@@ -860,6 +864,14 @@ function canDeleteOpportunities() {
   return isAdminUser() || ["general", "financiera", "comercializacion"].includes(state.role);
 }
 
+function canCancelManagements() {
+  return isAdminUser() || state.role === "financiera";
+}
+
+function canEditManagements() {
+  return Boolean(state.currentUser);
+}
+
 function roleDisplayName(role = state.role) {
   return accessRoles.find(([key]) => key === role)?.[1] || areas[role]?.nav || "Usuario";
 }
@@ -961,7 +973,7 @@ function normalizeStage(stage) {
 
 function closureResult(item) {
   const managements = Array.isArray(item.managements) ? item.managements : [];
-  return [...managements].reverse().find((management) => isClosureStage(management.stage) && management.result);
+  return [...managements].reverse().find((management) => !management.canceled && isClosureStage(management.stage) && management.result);
 }
 
 function sumAmounts(items) {
@@ -1275,6 +1287,7 @@ function kpiDetailLabel(category) {
 }
 
 function managementResultTag(management) {
+  if (management.canceled) return `<span class="tag danger">Anulada</span>`;
   if (management.notified) return `<span class="tag notice">Notificado</span>`;
   if (!management.result) return "<span></span>";
   return `<span class="tag ${management.result === "ganado" ? "" : "danger"}">${management.result === "ganado" ? "Ganado" : "Perdida"}</span>`;
@@ -1640,7 +1653,11 @@ function normalizeManagements(item) {
     return item.managements.map((management, index) => ({
       ...management,
       stage: normalizeStage(management.stage),
-      time: management.time || seededTime(index + 1)
+      time: management.time || seededTime(index + 1),
+      canceled: Boolean(management.canceled),
+      canceledAt: management.canceledAt || "",
+      canceledBy: management.canceledBy || "",
+      cancelReason: management.cancelReason || ""
     }));
   }
   return [{
@@ -1736,7 +1753,7 @@ function sanitizeTestOpportunities(items) {
     const cleaned = item.managements
       .filter((management) => {
         if (management.notified && item.id !== notifiedId) return false;
-        if (isClosureStage(management.stage) && management.result) {
+        if (!management.canceled && isClosureStage(management.stage) && management.result) {
           if (keptClosure) return false;
           keptClosure = true;
         }
@@ -1752,8 +1769,8 @@ function sanitizeTestOpportunities(items) {
       }));
 
     const ordered = orderedManagements(cleaned);
-    const latestClosure = [...ordered].reverse().find((management) => isClosureStage(management.stage) && management.result);
-    const latestManagement = [...ordered].reverse().find((management) => !management.notified);
+    const latestClosure = [...ordered].reverse().find((management) => !management.canceled && isClosureStage(management.stage) && management.result);
+    const latestManagement = [...ordered].reverse().find((management) => !management.notified && !management.canceled);
     return {
       ...item,
       stage: latestClosure ? closureStage : latestManagement?.stage || item.stage,
@@ -5330,13 +5347,22 @@ opportunityDashboard.addEventListener("click", (event) => {
 function openManagementDialog(item) {
   managementOpportunityId.value = item.id;
   managementDialogTitle.textContent = item.company;
-  managementDate.valueAsDate = new Date();
-  managementStage.value = item.stage;
-  managementResult.value = "ganado";
-  managementComment.value = "";
+  resetManagementEntry(item);
   updateClosureControls();
   renderManagements(item);
   managementDialog.showModal();
+}
+
+function resetManagementEntry(item = currentManagementItem()) {
+  managementEditId.value = "";
+  managementEntryEyebrow.textContent = "Nuevo registro";
+  managementEntryTitle.textContent = "Nueva gestion";
+  managementSubmitBtn.textContent = "Agregar gestion";
+  managementDate.valueAsDate = new Date();
+  managementStage.value = item?.stage || "Prospeccion";
+  managementResult.value = "ganado";
+  managementComment.value = "";
+  updateClosureControls();
 }
 
 function renderManagements(item) {
@@ -5344,7 +5370,7 @@ function renderManagements(item) {
   item.managements = managements;
   managementTable.innerHTML = `
     ${managements.map((management) => `
-      <article class="management-row">
+      <article class="management-row ${management.canceled ? "canceled" : ""}">
         <div class="management-date-chip">
           <strong>${formatDate(management.date)}</strong>
           <small>${formatTime(management.time)}</small>
@@ -5353,10 +5379,66 @@ function renderManagements(item) {
           <span class="tag info">${management.stage}</span>
           ${managementResultTag(management)}
         </div>
-        <p>${management.comment}</p>
+        <div class="management-copy">
+          <p>${management.comment}</p>
+          ${management.canceled ? `<small class="management-cancel-note">Anulada por ${escapeHtml(management.canceledBy || "Financiera")}${management.cancelReason ? `: ${escapeHtml(management.cancelReason)}` : ""}</small>` : ""}
+        </div>
+        <div class="management-row-actions">
+          ${canEditManagements() && !management.canceled && !management.notified
+            ? `<button class="ghost-btn compact-btn" type="button" data-management-edit="${management.id}">Editar</button>`
+            : ""}
+          ${canCancelManagements() && !management.canceled
+            ? `<button class="ghost-btn compact-btn danger" type="button" data-management-cancel="${management.id}">Anular</button>`
+            : ""}
+        </div>
       </article>
     `).join("") || `<div class="empty-state compact">Aun no hay gestiones registradas.</div>`}
   `;
+  managementTable.querySelectorAll("[data-management-cancel]").forEach((button) => {
+    button.addEventListener("click", () => cancelManagementRecord(item, button.dataset.managementCancel));
+  });
+  managementTable.querySelectorAll("[data-management-edit]").forEach((button) => {
+    button.addEventListener("click", () => editManagementRecord(item, button.dataset.managementEdit));
+  });
+}
+
+function editManagementRecord(item, managementId) {
+  if (!canEditManagements()) return;
+  const management = normalizeManagements(item).find((record) => record.id === managementId);
+  if (!management || management.canceled) return;
+
+  managementEditId.value = management.id;
+  managementEntryEyebrow.textContent = "Edicion";
+  managementEntryTitle.textContent = "Editar gestion";
+  managementSubmitBtn.textContent = "Guardar cambios";
+  managementDate.value = management.date;
+  managementStage.value = management.stage;
+  managementResult.value = management.result || "ganado";
+  managementComment.value = management.comment || "";
+  updateClosureControls();
+  managementEntryTitle.closest(".management-section").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cancelManagementRecord(item, managementId) {
+  if (!canCancelManagements()) return;
+  item.managements = normalizeManagements(item);
+  const management = item.managements.find((record) => record.id === managementId);
+  if (!management || management.canceled) return;
+
+  const reason = prompt("Motivo de anulacion de la gestion:");
+  if (reason === null) return;
+
+  management.canceled = true;
+  management.canceledAt = new Date().toISOString();
+  management.canceledBy = state.currentUser?.name || roleDisplayName();
+  management.cancelReason = reason.trim();
+
+  const activeManagements = orderedManagements(item.managements).filter((record) => !record.notified && !record.canceled);
+  item.stage = activeManagements.at(-1)?.stage || "Prospeccion";
+  saveOpportunities();
+  renderManagements(item);
+  renderCommercialSubmenu(areas.comercializacion);
+  updateClosureControls();
 }
 
 function currentManagementItem() {
@@ -5442,21 +5524,33 @@ managementForm.addEventListener("submit", (event) => {
   if (!item) return;
 
   item.managements = normalizeManagements(item);
-  item.managements.push({
-    id: crypto.randomUUID(),
+  const payload = {
     date: managementDate.value,
-    time: currentTimeValue(),
     stage: managementStage.value,
     result: isClosureStage(managementStage.value) ? managementResult.value : "",
     comment: managementComment.value.trim()
-  });
-  item.stage = managementStage.value;
+  };
+  const editing = managementEditId.value
+    ? item.managements.find((record) => record.id === managementEditId.value)
+    : null;
+  if (editing && canEditManagements() && !editing.canceled && !editing.notified) {
+    Object.assign(editing, payload, {
+      editedAt: new Date().toISOString(),
+      editedBy: state.currentUser?.name || roleDisplayName()
+    });
+  } else {
+    item.managements.push({
+      id: crypto.randomUUID(),
+      time: currentTimeValue(),
+      ...payload
+    });
+  }
+  const activeManagements = orderedManagements(item.managements).filter((record) => !record.notified && !record.canceled);
+  item.stage = activeManagements.at(-1)?.stage || "Prospeccion";
   saveOpportunities();
   renderManagements(item);
   renderCommercialSubmenu(areas.comercializacion);
-  managementDate.valueAsDate = new Date();
-  managementComment.value = "";
-  updateClosureControls();
+  resetManagementEntry(item);
 });
 
 managementStage.addEventListener("change", updateClosureControls);
@@ -5495,6 +5589,7 @@ notifyOperationsBtn.addEventListener("click", () => {
 function closeManagementForm() {
   managementDialog.close();
   managementForm.reset();
+  managementEditId.value = "";
   notifyOperationsBtn.textContent = "Notificar";
   notifyOperationsBtn.disabled = false;
   updateClosureControls();

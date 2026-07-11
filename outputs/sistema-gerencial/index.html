@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260710-risk-detail-crud">
+    <link rel="stylesheet" href="styles.css?v=20260710-individual-management-crud">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -417,6 +417,7 @@
           <button class="icon-btn" id="closeManagementDialog" aria-label="Cerrar" type="button">x</button>
         </div>
         <input type="hidden" id="managementOpportunityId">
+        <input type="hidden" id="managementEditId">
         <div class="management-scroll">
           <section class="management-section history">
             <div class="management-section-head">
@@ -430,8 +431,8 @@
           <section class="management-section entry">
             <div class="management-section-head">
               <div>
-                <span>Nuevo registro</span>
-                <strong>Nueva gestion</strong>
+                <span id="managementEntryEyebrow">Nuevo registro</span>
+                <strong id="managementEntryTitle">Nueva gestion</strong>
               </div>
             </div>
             <div class="management-form-grid">
@@ -460,7 +461,7 @@
         <menu>
           <button class="secondary-btn hidden" id="notifyOperationsBtn" type="button">Notificar</button>
           <button class="ghost-btn" id="cancelManagement" type="button">Cancelar</button>
-          <button class="primary-btn" value="default" type="submit">Agregar gestion</button>
+          <button class="primary-btn" id="managementSubmitBtn" value="default" type="submit">Agregar gestion</button>
         </menu>
       </form>
     </dialog>
@@ -531,6 +532,6 @@
     </dialog>
 
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
-    <script src="app.js?v=20260710-risk-detail-crud"></script>
+    <script src="app.js?v=20260710-individual-management-crud"></script>
   </body>
 </html>

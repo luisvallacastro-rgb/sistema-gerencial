@@ -4874,7 +4874,7 @@ dialog::backdrop {
 
 .management-row {
   display: grid;
-  grid-template-columns: 150px minmax(150px, .6fr) minmax(0, 1fr);
+  grid-template-columns: 150px minmax(150px, .55fr) minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
   border: 1px solid rgba(183, 206, 236, .16);
@@ -4884,6 +4884,13 @@ dialog::backdrop {
     linear-gradient(145deg, rgba(86, 101, 134, .24), rgba(16, 30, 56, .34)),
     rgba(13, 28, 53, .58);
   color: rgba(242, 248, 255, .9);
+}
+
+.management-row.canceled {
+  border-color: rgba(255, 117, 139, .38);
+  background:
+    linear-gradient(145deg, rgba(92, 54, 73, .36), rgba(16, 30, 56, .34)),
+    rgba(13, 28, 53, .58);
 }
 
 .management-header {
@@ -4923,6 +4930,24 @@ dialog::backdrop {
   color: rgba(240, 247, 255, .9);
   font-weight: 800;
   line-height: 1.35;
+}
+
+.management-copy {
+  min-width: 0;
+}
+
+.management-cancel-note {
+  display: block;
+  margin-top: 4px;
+  color: #ff8798;
+  font-weight: 900;
+}
+
+.management-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .management-form-grid {
