@@ -4359,6 +4359,128 @@ button:disabled {
   }
 }
 
+/* Borderless opportunity stream with modern motion and depth. */
+.app-shell .opportunity-table-body {
+  gap: 8px !important;
+  perspective: 1200px;
+}
+
+.app-shell .opportunity-table-body .opportunity-row {
+  position: relative;
+  isolation: isolate;
+  border: 0 !important;
+  border-radius: 16px !important;
+  background:
+    linear-gradient(100deg, rgba(98, 122, 171, .16), rgba(23, 46, 78, .08) 48%, rgba(15, 34, 59, .22)),
+    rgba(255, 255, 255, .025) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .055),
+    0 8px 26px rgba(1, 8, 22, .08) !important;
+  overflow: hidden !important;
+  animation: opportunityEnter .5s cubic-bezier(.2,.8,.2,1) both;
+  transition: transform .28s cubic-bezier(.2,.8,.2,1), background .28s ease, box-shadow .28s ease !important;
+}
+
+.app-shell .opportunity-table-body .opportunity-row::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  width: 3px;
+  border-radius: 0 99px 99px 0;
+  background: linear-gradient(180deg, #68a8ff, #72f5d1);
+  opacity: 0;
+  transform: scaleY(.3);
+  transition: opacity .25s ease, transform .32s cubic-bezier(.2,.8,.2,1);
+}
+
+.app-shell .opportunity-table-body .opportunity-row::after {
+  content: "";
+  position: absolute;
+  inset: -60% auto -60% -30%;
+  z-index: -2;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(123, 247, 219, .07), transparent);
+  transform: skewX(-18deg) translateX(-180%);
+  transition: transform .65s cubic-bezier(.2,.8,.2,1);
+}
+
+.app-shell .opportunity-table-body .opportunity-row:hover {
+  transform: translateY(-2px) translateX(3px);
+  background:
+    linear-gradient(100deg, rgba(92, 145, 215, .22), rgba(35, 67, 102, .12) 50%, rgba(21, 51, 74, .25)),
+    rgba(255, 255, 255, .04) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .09),
+    0 16px 34px rgba(2, 10, 26, .2) !important;
+}
+
+.app-shell .opportunity-table-body .opportunity-row:hover::before {
+  opacity: 1;
+  transform: scaleY(.72);
+}
+
+.app-shell .opportunity-table-body .opportunity-row:hover::after {
+  transform: skewX(-18deg) translateX(520%);
+}
+
+.app-shell .opportunity-table-body .opportunity-row:nth-child(2) { animation-delay: .035s; }
+.app-shell .opportunity-table-body .opportunity-row:nth-child(3) { animation-delay: .07s; }
+.app-shell .opportunity-table-body .opportunity-row:nth-child(4) { animation-delay: .105s; }
+.app-shell .opportunity-table-body .opportunity-row:nth-child(5) { animation-delay: .14s; }
+.app-shell .opportunity-table-body .opportunity-row:nth-child(6) { animation-delay: .175s; }
+.app-shell .opportunity-table-body .opportunity-row:nth-child(7) { animation-delay: .21s; }
+.app-shell .opportunity-table-body .opportunity-row:nth-child(8) { animation-delay: .245s; }
+.app-shell .opportunity-table-body .opportunity-row:nth-child(9) { animation-delay: .28s; }
+.app-shell .opportunity-table-body .opportunity-row:nth-child(10) { animation-delay: .315s; }
+
+.app-shell .opportunity-row .action-icon-btn {
+  border: 0 !important;
+  background: rgba(255, 255, 255, .06) !important;
+  box-shadow: none !important;
+  transition: transform .2s ease, background .2s ease, color .2s ease, opacity .2s ease !important;
+}
+
+.app-shell .opportunity-row .action-icon-btn:hover {
+  transform: translateY(-2px) scale(1.06);
+  background: rgba(123, 247, 219, .14) !important;
+  color: #9dffe6 !important;
+}
+
+.app-shell .opportunity-row .action-icon-btn.danger:hover {
+  background: rgba(255, 107, 125, .14) !important;
+  color: #ff9aaa !important;
+}
+
+.app-shell .opportunity-row .tag,
+.app-shell .opportunity-row .closure-badge {
+  border: 0 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07) !important;
+}
+
+@keyframes opportunityEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(.985);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .opportunity-table-body .opportunity-row,
+  .app-shell .opportunity-table-body .opportunity-row::before,
+  .app-shell .opportunity-table-body .opportunity-row::after,
+  .app-shell .opportunity-row .action-icon-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 @media (max-width: 720px) {
   .crm-tracking-metrics,
   .crm-tracking-grid,
