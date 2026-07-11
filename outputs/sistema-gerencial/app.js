@@ -3443,17 +3443,17 @@ function renderCommercialSubmenu(area) {
           <span class="row-actions">
           ${!isHistory ? `
             <button class="action-icon-btn" type="button" data-action="edit" data-id="${item.id}" aria-label="Editar">
-              <span aria-hidden="true">✎</span>
+              <span aria-hidden="true">✏️</span>
             </button>
           ` : ""}
           ${isImportedHistory ? `<span class="history-lock">Cierre real</span>` : `
             <button class="action-icon-btn" type="button" data-action="manage" data-id="${item.id}" aria-label="Gestiones">
-              <span aria-hidden="true">☷</span>
+              <span aria-hidden="true">📋</span>
             </button>
           `}
           ${canDeleteOpportunities() && !isHistory ? `
             <button class="action-icon-btn danger" type="button" data-action="delete" data-id="${item.id}" aria-label="Borrar">
-              <span aria-hidden="true">⌫</span>
+              <span aria-hidden="true">🗑️</span>
             </button>
           ` : ""}
           </span>
