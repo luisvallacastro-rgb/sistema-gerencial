@@ -748,6 +748,18 @@ const managementEntryEyebrow = document.querySelector("#managementEntryEyebrow")
 const managementEntryTitle = document.querySelector("#managementEntryTitle");
 const managementSubmitBtn = document.querySelector("#managementSubmitBtn");
 const managementTable = document.querySelector("#managementTable");
+const sampleCustodyToggle = document.querySelector("#sampleCustodyToggle");
+const sampleCustodyPanel = document.querySelector("#sampleCustodyPanel");
+const sampleCustodyId = document.querySelector("#sampleCustodyId");
+const sampleCustodyQuantity = document.querySelector("#sampleCustodyQuantity");
+const sampleCustodySize = document.querySelector("#sampleCustodySize");
+const sampleCustodyDescription = document.querySelector("#sampleCustodyDescription");
+const sampleCustodyExitDate = document.querySelector("#sampleCustodyExitDate");
+const sampleCustodyEntryDate = document.querySelector("#sampleCustodyEntryDate");
+const saveSampleCustody = document.querySelector("#saveSampleCustody");
+const resetSampleCustody = document.querySelector("#resetSampleCustody");
+const closeSampleCustody = document.querySelector("#closeSampleCustody");
+const sampleCustodyList = document.querySelector("#sampleCustodyList");
 const managementDate = document.querySelector("#managementDate");
 const managementStage = document.querySelector("#managementStage");
 const managementResultField = document.querySelector("#managementResultField");
@@ -1690,6 +1702,14 @@ function normalizeOpportunities(items) {
     agendaPlace: item.agendaPlace || "Por definir",
     note: item.note || item.comment || "",
     crmOpportunityId: item.crmOpportunityId || "",
+    sampleCustodies: Array.isArray(item.sampleCustodies) ? item.sampleCustodies.map((custody) => ({
+      id: custody.id || crypto.randomUUID(),
+      quantity: Math.max(1, Number(custody.quantity || 1)),
+      size: custody.size || "",
+      description: custody.description || "",
+      exitDate: custody.exitDate || item.date || todayISO(),
+      entryDate: custody.entryDate || ""
+    })) : [],
     managements: normalizeManagements({ ...item, time: item.time || seededTime(index) })
   }));
 }
@@ -3515,6 +3535,7 @@ function renderCommercialSubmenu(area) {
             ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
             ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
             ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}">${result.result === "ganado" ? "Ganado" : "Perdida"}</span>` : ""}
+            ${hasOutstandingSamples(item) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}
           </strong>
           <span>${item.seller}</span>
           <span>${item.stage}</span>
@@ -5514,7 +5535,55 @@ function openManagementDialog(item) {
   resetManagementEntry(item);
   updateClosureControls();
   renderManagements(item);
+  resetSampleCustodyForm();
+  renderSampleCustodies(item);
+  sampleCustodyPanel.classList.add("hidden");
   managementDialog.showModal();
+}
+
+function sampleCustodies(item) {
+  if (!Array.isArray(item.sampleCustodies)) item.sampleCustodies = [];
+  return item.sampleCustodies;
+}
+
+function hasOutstandingSamples(item) {
+  return sampleCustodies(item).some((custody) => custody.exitDate && !custody.entryDate);
+}
+
+function resetSampleCustodyForm() {
+  sampleCustodyId.value = "";
+  sampleCustodyQuantity.value = "1";
+  sampleCustodySize.value = "";
+  sampleCustodyDescription.value = "";
+  sampleCustodyExitDate.value = todayISO();
+  sampleCustodyEntryDate.value = "";
+  saveSampleCustody.textContent = "Guardar custodia";
+}
+
+function renderSampleCustodies(item) {
+  const records = sampleCustodies(item);
+  sampleCustodyList.innerHTML = records.length ? records.map((custody) => `
+    <article class="sample-custody-record ${custody.entryDate ? "returned" : "assigned"}">
+      <div><strong>${escapeHtml(custody.description || "Juego de tallas")}</strong><span>${custody.quantity} unidad${custody.quantity === 1 ? "" : "es"} · ${escapeHtml(custody.size || "Sin talla")}</span></div>
+      <div><small>Salida</small><strong>${formatDate(custody.exitDate)}</strong></div>
+      <div><small>Ingreso</small><strong>${custody.entryDate ? formatDate(custody.entryDate) : "Pendiente"}</strong></div>
+      <button type="button" data-sample-custody-edit="${custody.id}">${custody.entryDate ? "Ver" : "Registrar ingreso"}</button>
+    </article>
+  `).join("") : `<p class="sample-custody-empty">Sin muestras asignadas a esta oportunidad.</p>`;
+  sampleCustodyList.querySelectorAll("[data-sample-custody-edit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const custody = records.find((record) => record.id === button.dataset.sampleCustodyEdit);
+      if (!custody) return;
+      sampleCustodyId.value = custody.id;
+      sampleCustodyQuantity.value = custody.quantity;
+      sampleCustodySize.value = custody.size;
+      sampleCustodyDescription.value = custody.description;
+      sampleCustodyExitDate.value = custody.exitDate;
+      sampleCustodyEntryDate.value = custody.entryDate;
+      saveSampleCustody.textContent = custody.entryDate ? "Guardar cambios" : "Registrar ingreso";
+      sampleCustodyPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  });
 }
 
 function resetManagementEntry(item = currentManagementItem()) {
@@ -5652,6 +5721,7 @@ opportunityForm.addEventListener("submit", (event) => {
     agendaPlace: opportunityAgendaPlace.value.trim(),
     note: opportunityNote.value.trim(),
     crmOpportunityId: opportunityCrmSourceId.value,
+    sampleCustodies: currentIndex >= 0 ? sampleCustodies(submenu.items[currentIndex]) : [],
     managements: currentIndex >= 0 ? normalizeManagements(submenu.items[currentIndex]) : [{
       id: `${id}-mgmt-001`,
       date: opportunityDate.value,
@@ -5719,6 +5789,52 @@ managementForm.addEventListener("submit", (event) => {
 
 managementStage.addEventListener("change", updateClosureControls);
 managementResult.addEventListener("change", updateClosureControls);
+
+sampleCustodyToggle.addEventListener("click", () => {
+  sampleCustodyPanel.classList.toggle("hidden");
+  if (!sampleCustodyPanel.classList.contains("hidden")) {
+    renderSampleCustodies(currentManagementItem());
+    sampleCustodyQuantity.focus();
+  }
+});
+
+closeSampleCustody.addEventListener("click", () => {
+  sampleCustodyPanel.classList.add("hidden");
+});
+
+resetSampleCustody.addEventListener("click", resetSampleCustodyForm);
+
+saveSampleCustody.addEventListener("click", () => {
+  const item = currentManagementItem();
+  if (!item) return;
+  const quantity = Math.max(1, Number(sampleCustodyQuantity.value || 1));
+  const exitDate = sampleCustodyExitDate.value;
+  const entryDate = sampleCustodyEntryDate.value;
+  if (!exitDate) {
+    sampleCustodyExitDate.focus();
+    return;
+  }
+  if (entryDate && entryDate < exitDate) {
+    alert("La fecha de ingreso no puede ser anterior a la fecha de salida.");
+    sampleCustodyEntryDate.focus();
+    return;
+  }
+  const records = sampleCustodies(item);
+  const existing = records.find((record) => record.id === sampleCustodyId.value);
+  const payload = {
+    quantity,
+    size: sampleCustodySize.value.trim(),
+    description: sampleCustodyDescription.value.trim(),
+    exitDate,
+    entryDate
+  };
+  if (existing) Object.assign(existing, payload);
+  else records.unshift({ id: crypto.randomUUID(), ...payload });
+  saveOpportunities();
+  renderSampleCustodies(item);
+  renderCommercialSubmenu(areas.comercializacion);
+  resetSampleCustodyForm();
+});
 
 notifyOperationsBtn.addEventListener("click", () => {
   const submenu = getOpportunitySubmenu();

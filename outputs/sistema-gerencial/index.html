@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260710-opportunity-toolbar-total">
+    <link rel="stylesheet" href="styles.css?v=20260710-sample-custody">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -432,7 +432,27 @@
                 <span>Historial</span>
                 <strong>Gestiones registradas</strong>
               </div>
+              <button class="sample-custody-toggle" id="sampleCustodyToggle" type="button">Custodia de Muestras</button>
             </div>
+            <section class="sample-custody-panel hidden" id="sampleCustodyPanel">
+              <div class="sample-custody-head">
+                <div><span>Control de muestras</span><strong>Juego de tallas asignado</strong></div>
+                <button type="button" id="closeSampleCustody">Cerrar</button>
+              </div>
+              <input id="sampleCustodyId" type="hidden">
+              <div class="sample-custody-grid">
+                <label>Cantidad<input id="sampleCustodyQuantity" type="number" min="1" step="1" placeholder="1"></label>
+                <label>Talla<input id="sampleCustodySize" maxlength="60" placeholder="Ej. S, M, L, XL"></label>
+                <label class="sample-description">Descripción<input id="sampleCustodyDescription" maxlength="160" placeholder="Detalle del juego de tallas"></label>
+                <label>Fecha de salida<input id="sampleCustodyExitDate" type="date"></label>
+                <label>Fecha de ingreso<input id="sampleCustodyEntryDate" type="date"></label>
+              </div>
+              <div class="sample-custody-actions">
+                <button type="button" id="resetSampleCustody">Nueva asignación</button>
+                <button class="primary-btn" type="button" id="saveSampleCustody">Guardar custodia</button>
+              </div>
+              <div class="sample-custody-list" id="sampleCustodyList"></div>
+            </section>
             <div class="management-table" id="managementTable"></div>
           </section>
           <section class="management-section entry">
@@ -539,6 +559,6 @@
     </dialog>
 
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
-    <script src="app.js?v=20260710-opportunity-toolbar-total"></script>
+    <script src="app.js?v=20260710-sample-custody"></script>
   </body>
 </html>

@@ -4670,6 +4670,100 @@ button:disabled {
   }
 }
 
+/* Sample custody inside opportunity management. */
+#managementDialog .sample-custody-toggle {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(114, 245, 209, .15), rgba(67, 145, 219, .1));
+  color: #9fffe4;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform .2s ease, background .2s ease;
+}
+
+#managementDialog .sample-custody-toggle:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(114, 245, 209, .24), rgba(67, 145, 219, .15));
+}
+
+#managementDialog .sample-custody-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 0;
+  border-radius: 15px;
+  background: linear-gradient(135deg, rgba(34, 109, 99, .13), rgba(20, 48, 79, .1)), rgba(2, 14, 31, .28);
+  box-shadow: inset 3px 0 0 rgba(114, 245, 209, .56), inset 0 1px 0 rgba(255,255,255,.045);
+  animation: sampleCustodyReveal .32s cubic-bezier(.2,.8,.2,1) both;
+}
+
+#managementDialog .sample-custody-panel.hidden { display: none !important; }
+#managementDialog .sample-custody-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#managementDialog .sample-custody-head > div { display: grid; gap: 2px; }
+#managementDialog .sample-custody-head span { color: #72f5d1; font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+#managementDialog .sample-custody-head strong { color: #fff; font-size: 14px; }
+#managementDialog .sample-custody-head button,
+#managementDialog .sample-custody-actions > button:first-child {
+  border: 0; background: rgba(255,255,255,.06); color: rgba(226,236,247,.75); border-radius: 9px; min-height: 30px; padding: 0 10px; font-size: 10px; font-weight: 850; cursor: pointer;
+}
+
+#managementDialog .sample-custody-grid {
+  display: grid;
+  grid-template-columns: 90px 150px minmax(210px, 1fr) 150px 150px;
+  gap: 8px;
+}
+
+#managementDialog .sample-custody-grid label { display: grid; gap: 4px; color: rgba(221,232,245,.68); font-size: 9px; font-weight: 850; }
+#managementDialog .sample-custody-grid input { min-width: 0; }
+#managementDialog .sample-custody-actions { display: flex; justify-content: flex-end; gap: 7px; }
+#managementDialog .sample-custody-actions .primary-btn { min-height: 34px; border: 0; border-radius: 10px; padding: 0 13px; background: linear-gradient(135deg, #209a72, #1a755f); color: #fff; font-size: 11px; }
+
+#managementDialog .sample-custody-list { display: grid; gap: 6px; max-height: 150px; overflow-y: auto; }
+#managementDialog .sample-custody-record {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) 110px 110px 120px;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 7px 9px;
+  border-radius: 11px;
+  background: rgba(255,255,255,.035);
+}
+#managementDialog .sample-custody-record.assigned { box-shadow: inset 3px 0 0 #f0af4f; }
+#managementDialog .sample-custody-record.returned { opacity: .72; box-shadow: inset 3px 0 0 rgba(114,245,209,.58); }
+#managementDialog .sample-custody-record > div { display: grid; gap: 2px; min-width: 0; }
+#managementDialog .sample-custody-record strong { color: #f3f8ff; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#managementDialog .sample-custody-record span,
+#managementDialog .sample-custody-record small { color: rgba(210,225,240,.58); font-size: 9px; }
+#managementDialog .sample-custody-record button { min-height: 30px; border: 0; border-radius: 9px; background: rgba(84,151,229,.13); color: #b9daff; font-size: 9px; font-weight: 900; cursor: pointer; }
+#managementDialog .sample-custody-empty { margin: 0; color: rgba(210,225,240,.52); font-size: 10px; font-weight: 750; }
+
+.app-shell .closure-badge.samples-assigned {
+  max-width: 132px !important;
+  background: linear-gradient(135deg, rgba(240, 175, 79, .2), rgba(198, 116, 35, .11)) !important;
+  color: #ffd28b !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 16px rgba(240,175,79,.12) !important;
+}
+
+@keyframes sampleCustodyReveal {
+  from { opacity: 0; transform: translateY(-8px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 900px) {
+  #managementDialog .sample-custody-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #managementDialog .sample-custody-grid .sample-description { grid-column: 1 / -1; }
+  #managementDialog .sample-custody-record { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 560px) {
+  #managementDialog .sample-custody-grid,
+  #managementDialog .sample-custody-record { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 760px) {
   .app-shell .commercial-panel.opportunity-mode > .panel-head .panel-actions {
     grid-template-columns: 1fr auto;
