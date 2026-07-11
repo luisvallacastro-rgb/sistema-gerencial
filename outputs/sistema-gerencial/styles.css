@@ -7444,6 +7444,115 @@ body.operations-fullscreen-open {
   padding: 18px 24px 28px 24px;
 }
 
+/* Opportunity rows: final symmetric grid with room for stacked status labels. */
+.app-shell .opportunity-header,
+.app-shell .opportunity-table-body .opportunity-row {
+  grid-template-columns:
+    118px
+    minmax(240px, 1.35fr)
+    minmax(185px, .95fr)
+    minmax(165px, .82fr)
+    minmax(190px, .95fr)
+    minmax(145px, .7fr)
+    150px !important;
+  column-gap: 16px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+}
+
+.app-shell .opportunity-table-body .opportunity-row {
+  min-height: 92px !important;
+  height: 92px !important;
+  padding: 12px 18px !important;
+  overflow: hidden !important;
+}
+
+.app-shell .opportunity-header {
+  min-height: 52px !important;
+  height: 52px !important;
+  padding: 10px 18px !important;
+}
+
+.app-shell .opportunity-row > span,
+.app-shell .opportunity-row > strong {
+  align-self: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-shell .opportunity-row > span:not(.row-actions),
+.app-shell .opportunity-row > strong:not(.company-cell) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-shell .company-cell {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start !important;
+  justify-content: center;
+  gap: 6px !important;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-shell .company-name {
+  display: -webkit-box;
+  width: 100%;
+  max-height: 2.3em;
+  overflow: hidden;
+  font-size: 16px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.app-shell .company-cell .closure-badge {
+  flex: 0 0 auto;
+  min-height: 22px;
+  height: 22px;
+  margin: 0 !important;
+  position: static !important;
+}
+
+.app-shell .opportunity-row .tag {
+  width: 100%;
+  max-width: 100%;
+  min-height: 30px;
+  box-sizing: border-box;
+}
+
+.app-shell .opportunity-row .row-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 36px);
+  justify-content: end;
+  align-items: center;
+  gap: 8px !important;
+  width: 150px;
+}
+
+.app-shell .opportunity-row .action-icon-btn {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+}
+
+@media (max-width: 1450px) {
+  .app-shell .opportunity-header,
+  .app-shell .opportunity-table-body .opportunity-row {
+    grid-template-columns: 102px minmax(190px, 1.25fr) minmax(155px, .9fr) minmax(140px, .78fr) minmax(155px, .9fr) minmax(120px, .65fr) 132px !important;
+    column-gap: 10px !important;
+  }
+
+  .app-shell .opportunity-row .row-actions {
+    grid-template-columns: repeat(3, 34px);
+    gap: 6px !important;
+    width: 132px;
+  }
+}
+
 .app-shell.sidebar-collapsed .sidebar-restore {
   position: fixed;
   top: 18px;
