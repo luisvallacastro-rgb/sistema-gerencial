@@ -1869,7 +1869,7 @@ function renderNav() {
     button.className = `nav-item ${state.activeArea === key ? "active" : ""}`;
     button.type = "button";
     button.setAttribute("aria-expanded", hasSubmenus ? String(isOpen) : "false");
-    button.innerHTML = `<span>${area.nav}</span>${hasSubmenus ? `<span class="nav-caret" title="${isOpen ? "Ocultar" : "Ver"}">${isOpen ? "−" : "+"}</span>` : ""}`;
+    button.innerHTML = `<span class="nav-item-label">${hasSubmenus ? `<span class="nav-caret" title="${isOpen ? "Ocultar" : "Ver"}">${isOpen ? "−" : "+"}</span>` : ""}<span>${area.nav}</span></span>`;
     button.addEventListener("click", () => {
       state.activeArea = key;
       if (hasSubmenus) {

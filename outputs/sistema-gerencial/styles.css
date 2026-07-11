@@ -8042,6 +8042,21 @@ body.operations-fullscreen-open {
   background: transparent !important;
   color: rgba(232, 240, 250, .78) !important;
   font-size: 15px;
+  justify-content: flex-start !important;
+}
+
+.app-shell .nav-item-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.app-shell .nav-item-label > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-shell .nav-item:hover {
@@ -8069,24 +8084,29 @@ body.operations-fullscreen-open {
 }
 
 .app-shell .nav-caret {
-  width: 28px !important;
-  height: 28px !important;
-  min-width: 28px !important;
+  width: 14px !important;
+  height: 20px !important;
+  min-width: 14px !important;
   padding: 0 !important;
   display: grid;
   place-items: center;
   border: 0 !important;
-  border-radius: 10px !important;
-  background: rgba(255, 255, 255, .07) !important;
-  color: rgba(235, 243, 252, .72) !important;
-  font-size: 16px !important;
-  transition: transform .3s cubic-bezier(.2,.8,.2,1), background .2s ease !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: rgba(123, 247, 219, .72) !important;
+  font-size: 17px !important;
+  transition: transform .2s ease, color .2s ease !important;
 }
 
 .app-shell .nav-item[aria-expanded="true"] .nav-caret {
-  transform: rotate(180deg);
-  background: rgba(123, 247, 219, .12) !important;
+  transform: none;
+  background: transparent !important;
   color: #7bf7db !important;
+}
+
+.app-shell .nav-item:hover .nav-caret {
+  transform: scale(1.16);
+  color: #b6ffed !important;
 }
 
 .app-shell .submenu-list,
