@@ -4608,16 +4608,12 @@ button:disabled {
 .app-shell .submenu-group-child {
   width: calc(100% - 6px) !important;
   min-height: 29px !important;
-  padding-left: 14px !important;
+  padding-left: 12px !important;
 }
 
 .app-shell .submenu-group-child::before {
-  content: "";
-  display: inline-block;
-  width: 8px;
-  height: 1px;
-  margin: 0 7px 4px 0;
-  background: rgba(123, 247, 219, .42);
+  content: none !important;
+  display: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
