@@ -3986,6 +3986,27 @@ button:disabled {
   color: #86f2dc;
 }
 
+.app-shell .submenu-item.resultados-parent {
+  min-height: 30px !important;
+  margin-top: 2px !important;
+  color: #7bf7db !important;
+}
+
+.app-shell .submenu-item.resultados-child {
+  width: calc(100% - 10px) !important;
+  min-height: 29px !important;
+  margin-left: 10px !important;
+}
+
+.app-shell .submenu-item.resultados-child::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 1px;
+  margin: 0 7px 4px 0;
+  background: rgba(123, 247, 219, .42);
+}
+
 .app-shell .submenu-item.crm-child {
   color: rgba(239, 245, 250, .8);
 }

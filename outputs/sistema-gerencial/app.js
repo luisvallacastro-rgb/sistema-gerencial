@@ -81,6 +81,24 @@ const areas = {
         items: []
       },
       {
+        key: "resultados-oportunidades",
+        label: "Oportunidades",
+        status: "Pipeline activo",
+        items: []
+      },
+      {
+        key: "resultados-dashboard",
+        label: "Dashboard",
+        status: "Acumulado comercial",
+        items: []
+      },
+      {
+        key: "resultados-historial",
+        label: "Historial",
+        status: "Cierres archivados",
+        items: []
+      },
+      {
         key: "kpi",
         label: "KPI",
         status: "Dashboard visual",
@@ -1872,14 +1890,16 @@ function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
   const submenu = document.createElement("div");
   submenu.className = `submenu-list ${state.openMenus.has(areaKey) ? "open" : ""}`;
   submenu.innerHTML = items.map((item) => `
-    <button class="submenu-item ${item.key === "crm" ? "crm-parent" : item.key.startsWith("crm-") ? "crm-child" : ""} ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
+    <button class="submenu-item ${["crm", "resultados"].includes(item.key) ? `${item.key}-parent` : item.key.startsWith("crm-") ? "crm-child" : item.key.startsWith("resultados-") ? "resultados-child" : ""} ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
       ${item.label}
     </button>
   `).join("");
   submenu.querySelectorAll("button").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeArea = areaKey;
-      state.activeSubmenu = button.dataset.submenu;
+      state.activeSubmenu = button.dataset.submenu === "resultados"
+        ? "resultados-oportunidades"
+        : button.dataset.submenu;
       persistNavigationState();
       renderDashboard();
     });
@@ -3255,6 +3275,12 @@ function renderCommercialSubmenu(area) {
   }
 
   const opportunitySubmenu = getOpportunitySubmenu();
+  const resultViews = {
+    resultados: "active",
+    "resultados-oportunidades": "active",
+    "resultados-dashboard": "dashboard",
+    "resultados-historial": "history"
+  };
 
   if (submenu.key === "kpi") {
     newOpportunityBtn.classList.add("hidden");
@@ -3358,13 +3384,15 @@ function renderCommercialSubmenu(area) {
     return;
   }
 
-  newOpportunityBtn.classList.remove("hidden");
+  const resultView = resultViews[submenu.key] || "active";
+  state.opportunityCycleView = resultView;
+  newOpportunityBtn.classList.toggle("hidden", resultView !== "active");
   newRiskBtn.classList.add("hidden");
   newManagementRequestBtn.classList.add("hidden");
   goalsMatrixBtn.classList.add("hidden");
   opportunityTable.classList.remove("hidden");
   opportunityDashboard.classList.add("hidden");
-  const cycleRows = opportunityCycleRows(submenu.items);
+  const cycleRows = opportunityCycleRows(opportunitySubmenu.items);
   const activeRows = cycleRows.active;
   const historyRows = cycleRows.history;
   const displayRows = state.opportunityCycleView === "history" ? historyRows : activeRows;
@@ -3375,7 +3403,7 @@ function renderCommercialSubmenu(area) {
   const pagedRows = displayRows.slice(pageStart, pageEnd);
   commercialSubmenuStatus.textContent = `${activeRows.length} vigentes / ${historyRows.length} historial`;
 
-  if (!submenu.items.length) {
+  if (!opportunitySubmenu.items.length) {
     opportunityTable.innerHTML = `
       <div class="empty-state">
         No hay oportunidades ingresadas. Usa el formulario para crear el primer registro.
@@ -3385,19 +3413,7 @@ function renderCommercialSubmenu(area) {
   }
 
   opportunityTable.innerHTML = `
-    <div class="cycle-tabs">
-      <button class="cycle-tab ${state.opportunityCycleView === "active" ? "active" : ""}" type="button" data-cycle-view="active">
-        Vigentes <span>${activeRows.length}</span>
-      </button>
-      <button class="cycle-tab ${state.opportunityCycleView === "dashboard" ? "active" : ""}" type="button" data-cycle-view="dashboard">
-        Dashboard <span>${activeRows.length}</span>
-      </button>
-      <button class="cycle-tab ${state.opportunityCycleView === "history" ? "active" : ""}" type="button" data-cycle-view="history">
-        Historial <span>${historyRows.length}</span>
-      </button>
-      <small>Corte mensual: las cerradas antes de ${formatDate(activePeriodStart())} quedan archivadas.</small>
-    </div>
-    ${state.opportunityCycleView === "dashboard" ? renderCycleDashboard(submenu.items) : state.opportunityCycleView === "history" ? renderHistoryList(historyRows) : `
+    ${resultView === "dashboard" ? renderCycleDashboard(opportunitySubmenu.items) : resultView === "history" ? renderHistoryList(historyRows) : `
     <div class="opportunity-row opportunity-header">
       <strong>Fecha</strong>
       <strong>Empresa</strong>
@@ -4577,7 +4593,7 @@ function renderAdminPanel() {
 }
 
 function renderPageTitle(area, activeSubmenu) {
-  const isResultsView = state.activeArea === "comercializacion" && activeSubmenu?.key === "resultados";
+  const isResultsView = state.activeArea === "comercializacion" && activeSubmenu?.key?.startsWith("resultados");
   const isKpiView = state.activeArea === "comercializacion" && activeSubmenu?.key === "kpi";
   pageTitle.classList.toggle("with-results-summary", isResultsView || isKpiView);
 
@@ -4601,10 +4617,10 @@ function renderPageTitle(area, activeSubmenu) {
     return;
   }
 
-  const activeRows = opportunityCycleRows(activeSubmenu.items).active;
+  const activeRows = opportunityCycleRows(getOpportunitySubmenu().items).active;
   const activeAmount = activeRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   pageTitle.innerHTML = `
-    <span>Resultados</span>
+    <span>${activeSubmenu?.key === "resultados-dashboard" ? "Dashboard" : activeSubmenu?.key === "resultados-historial" ? "Historial" : "Oportunidades"}</span>
     <span class="results-title-metrics">
       <span><strong>${activeRows.length}</strong> vigentes</span>
       <span>${formatMoney(activeAmount)}</span>
@@ -4649,7 +4665,7 @@ function renderDashboard() {
     state.activeSubmenu = visibleItems[0].key;
   }
   const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
-  dashboard.classList.toggle("opportunity-focus", hasSubmenus && ["resultados", "kpi", "presentaciones", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu));
+  dashboard.classList.toggle("opportunity-focus", hasSubmenus && (["kpi", "presentaciones", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu) || state.activeSubmenu.startsWith("resultados")));
   renderPageTitle(area, activeSubmenu);
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;
