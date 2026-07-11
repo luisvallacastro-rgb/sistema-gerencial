@@ -281,6 +281,9 @@ const adminEmail = "luisvallacastro@gmail.com";
 const adminAreaKey = "administracion";
 const sectionOptions = [
   { key: "resultados", label: "Resultados" },
+  { key: "resultados-oportunidades", label: "Resultados · Oportunidades" },
+  { key: "resultados-dashboard", label: "Resultados · Dashboard" },
+  { key: "resultados-historial", label: "Resultados · Historial" },
   { key: "kpi", label: "KPI" },
   { key: "crm", label: "CRM" },
   { key: "crm-vendedores", label: "CRM Vendedores" },
