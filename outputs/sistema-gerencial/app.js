@@ -5537,8 +5537,21 @@ function openManagementDialog(item) {
   renderManagements(item);
   resetSampleCustodyForm();
   renderSampleCustodies(item);
-  sampleCustodyPanel.classList.add("hidden");
+  setSampleCustodyMode(false);
   managementDialog.showModal();
+}
+
+function setSampleCustodyMode(enabled) {
+  managementForm.classList.toggle("sample-custody-mode", enabled);
+  sampleCustodyPanel.classList.toggle("hidden", !enabled);
+  const historyEyebrow = managementForm.querySelector(".management-section.history .management-section-head span");
+  const historyTitle = managementForm.querySelector(".management-section.history .management-section-head strong");
+  if (historyEyebrow) historyEyebrow.textContent = enabled ? "Custodia" : "Historial";
+  if (historyTitle) historyTitle.textContent = enabled ? "Historial de muestras asignadas" : "Gestiones registradas";
+  if (enabled) {
+    renderSampleCustodies(currentManagementItem());
+    requestAnimationFrame(() => sampleCustodyQuantity.focus());
+  }
 }
 
 function sampleCustodies(item) {
@@ -5818,15 +5831,11 @@ managementStage.addEventListener("change", updateClosureControls);
 managementResult.addEventListener("change", updateClosureControls);
 
 sampleCustodyToggle.addEventListener("click", () => {
-  sampleCustodyPanel.classList.toggle("hidden");
-  if (!sampleCustodyPanel.classList.contains("hidden")) {
-    renderSampleCustodies(currentManagementItem());
-    sampleCustodyQuantity.focus();
-  }
+  setSampleCustodyMode(true);
 });
 
 closeSampleCustody.addEventListener("click", () => {
-  sampleCustodyPanel.classList.add("hidden");
+  setSampleCustodyMode(false);
 });
 
 resetSampleCustody.addEventListener("click", resetSampleCustodyForm);

@@ -4783,6 +4783,39 @@ button:disabled {
   #managementDialog .sample-custody-record { grid-template-columns: 1fr; }
 }
 
+/* Custody is a focused mode, separate from the management CRUD. */
+#managementDialog .management-card.sample-custody-mode .management-section.history {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+#managementDialog .management-card.sample-custody-mode .sample-custody-toggle,
+#managementDialog .management-card.sample-custody-mode .management-table,
+#managementDialog .management-card.sample-custody-mode .management-section.entry,
+#managementDialog .management-card.sample-custody-mode > menu {
+  display: none !important;
+}
+
+#managementDialog .management-card.sample-custody-mode .sample-custody-panel {
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+#managementDialog .management-card.sample-custody-mode .sample-custody-list {
+  max-height: none;
+  min-height: 220px;
+  padding-right: 4px;
+}
+
+#managementDialog .management-card.sample-custody-mode .sample-custody-record {
+  min-height: 58px;
+  padding: 9px 11px;
+  background: linear-gradient(100deg, rgba(82, 125, 177, .12), rgba(23, 56, 83, .07)), rgba(255,255,255,.035);
+}
+
 @media (max-width: 760px) {
   .app-shell .commercial-panel.opportunity-mode > .panel-head .panel-actions {
     grid-template-columns: 1fr auto;
