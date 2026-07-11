@@ -4481,6 +4481,114 @@ button:disabled {
   }
 }
 
+/* Management dialog shares the compact glass opportunity design system. */
+#managementDialog {
+  width: min(1080px, calc(100vw - 28px)) !important;
+  max-height: calc(100vh - 28px) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 24px !important;
+  background: transparent !important;
+  color: #f4f8ff;
+  box-shadow: none !important;
+  overflow: visible;
+}
+
+#managementDialog::backdrop {
+  background: radial-gradient(circle at 18% 10%, rgba(67, 117, 180, .18), transparent 34%), rgba(3, 10, 22, .7);
+  backdrop-filter: blur(15px) saturate(1.12);
+}
+
+#managementDialog .management-card {
+  max-height: calc(100vh - 28px);
+  height: min(780px, calc(100vh - 28px)) !important;
+  gap: 12px !important;
+  padding: 18px !important;
+  border: 0 !important;
+  border-radius: 24px !important;
+  background: radial-gradient(circle at 12% 0%, rgba(88, 145, 225, .18), transparent 30%), radial-gradient(circle at 94% 12%, rgba(63, 211, 175, .1), transparent 30%), linear-gradient(145deg, rgba(33, 50, 84, .9), rgba(8, 22, 43, .95)) !important;
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .48), inset 0 1px 0 rgba(255,255,255,.08) !important;
+  backdrop-filter: blur(28px) saturate(1.2);
+}
+
+#managementDialog[open] .management-card { animation: opportunityFormEnter .42s cubic-bezier(.2,.8,.2,1) both; }
+#managementDialog .panel-head { min-height: 50px; padding: 0 2px 8px; }
+#managementDialog .panel-head .eyebrow,
+#managementDialog .management-section-head span { color: #72f5d1 !important; font-size: 10px !important; letter-spacing: .08em; }
+#managementDialog .panel-head h3,
+#managementDialog .management-section-head strong { color: #fff !important; }
+#managementDialog .panel-head h3 { font-size: 21px; }
+
+#managementDialog .icon-btn {
+  width: 36px; height: 36px; min-height: 36px;
+  border: 0 !important; border-radius: 12px !important;
+  background: rgba(255,255,255,.07) !important;
+  color: rgba(235, 243, 252, .82) !important;
+  box-shadow: none !important;
+  transition: transform .2s ease, background .2s ease, color .2s ease;
+}
+#managementDialog .icon-btn:hover { transform: rotate(6deg) scale(1.06); background: rgba(255, 101, 126, .14) !important; color: #ffb6c1 !important; }
+
+#managementDialog .management-scroll { gap: 10px !important; padding-right: 5px; scrollbar-width: thin; scrollbar-color: rgba(123,247,219,.38) transparent; }
+#managementDialog .management-section {
+  gap: 10px !important; padding: 12px !important;
+  border: 0 !important; border-radius: 17px !important;
+  background: rgba(2, 14, 31, .2) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+#managementDialog .management-section.entry { background: linear-gradient(135deg, rgba(44, 170, 139, .08), transparent 48%), rgba(2, 14, 31, .22) !important; }
+#managementDialog .management-table { gap: 7px !important; }
+#managementDialog .management-row {
+  min-height: 66px !important; padding: 9px 11px !important;
+  border: 0 !important; border-radius: 13px !important;
+  background: linear-gradient(100deg, rgba(99, 126, 174, .12), rgba(27, 52, 84, .06)), rgba(255,255,255,.035) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045) !important;
+  transition: transform .22s ease, background .22s ease;
+}
+#managementDialog .management-row:hover { transform: translateX(3px); background: linear-gradient(100deg, rgba(82, 145, 211, .17), rgba(34, 69, 99, .08)), rgba(255,255,255,.045) !important; }
+#managementDialog .management-row.canceled { background: linear-gradient(100deg, rgba(190, 61, 88, .13), rgba(78, 38, 67, .06)), rgba(255,255,255,.025) !important; box-shadow: inset 3px 0 0 rgba(255, 105, 130, .62) !important; }
+#managementDialog .management-stage-chip .tag { border: 0 !important; border-radius: 10px !important; background: rgba(83, 149, 231, .15) !important; color: #a9d2ff !important; }
+#managementDialog .management-cancel-note { color: #ff899c !important; }
+
+#managementDialog .management-row-actions .compact-btn {
+  min-height: 32px; padding: 0 11px;
+  border: 0 !important; border-radius: 10px !important;
+  background: rgba(79, 151, 239, .13) !important;
+  color: #b9daff !important; font-size: 11px; box-shadow: none !important;
+}
+#managementDialog .management-row-actions .compact-btn:hover { transform: translateY(-2px); background: rgba(79, 151, 239, .22) !important; color: #fff !important; }
+#managementDialog .management-row-actions .compact-btn.danger { background: rgba(255, 94, 119, .12) !important; color: #ff9daf !important; }
+#managementDialog .management-row-actions .compact-btn.danger:hover { background: rgba(255, 94, 119, .22) !important; color: #ffe8ec !important; }
+
+#managementDialog .management-form-grid { gap: 9px 12px !important; }
+#managementDialog .management-form-grid label { gap: 4px; color: rgba(221, 232, 245, .72) !important; font-size: 10px !important; font-weight: 850 !important; }
+#managementDialog input,
+#managementDialog select,
+#managementDialog textarea {
+  min-height: 42px; border: 0 !important; border-radius: 12px !important;
+  padding: 9px 12px !important;
+  background: linear-gradient(135deg, rgba(128, 154, 193, .13), rgba(49, 74, 108, .08)), rgba(255,255,255,.055) !important;
+  color: #f3f8ff !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.055) !important;
+  font-size: 12px !important; font-weight: 750;
+  transition: background .22s ease, box-shadow .22s ease, transform .22s ease;
+}
+#managementDialog input:focus,
+#managementDialog select:focus,
+#managementDialog textarea:focus { outline: 0 !important; background: linear-gradient(135deg, rgba(71, 151, 255, .18), rgba(44, 178, 149, .1)), rgba(255,255,255,.07) !important; box-shadow: inset 3px 0 0 #72f5d1, 0 10px 24px rgba(2, 9, 24, .12) !important; transform: translateY(-1px); }
+#managementDialog textarea { min-height: 76px !important; }
+
+#managementDialog > .management-card > menu { gap: 8px; margin: 0; padding: 10px 0 0; border: 0 !important; background: linear-gradient(180deg, transparent, rgba(5,16,33,.4)) !important; }
+#managementDialog > .management-card > menu button { min-height: 40px; border: 0 !important; border-radius: 12px !important; padding: 0 17px; }
+#managementDialog #managementSubmitBtn { background: linear-gradient(135deg, #209a72, #1a755f) !important; color: #fff !important; box-shadow: 0 12px 28px rgba(17, 132, 96, .24) !important; }
+#managementDialog #managementSubmitBtn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+
+@media (max-width: 760px) {
+  #managementDialog .management-card { padding: 14px !important; }
+  #managementDialog .management-row,
+  #managementDialog .management-form-grid { grid-template-columns: 1fr !important; }
+}
+@media (prefers-reduced-motion: reduce) { #managementDialog[open] .management-card { animation: none !important; } }
+
 /* Clean opportunity header with an instant, multi-field search. */
 .app-shell .commercial-panel > .panel-head {
   align-items: center;
