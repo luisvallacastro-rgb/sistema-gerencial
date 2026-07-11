@@ -5562,14 +5562,24 @@ function resetSampleCustodyForm() {
 
 function renderSampleCustodies(item) {
   const records = sampleCustodies(item);
-  sampleCustodyList.innerHTML = records.length ? records.map((custody) => `
+  sampleCustodyList.innerHTML = `
+    <div class="sample-custody-list-head">
+      <strong>Historial de custodia</strong>
+      <span>${records.length} registro${records.length === 1 ? "" : "s"}</span>
+    </div>
+    ${records.length ? records.map((custody) => `
     <article class="sample-custody-record ${custody.entryDate ? "returned" : "assigned"}">
       <div><strong>${escapeHtml(custody.description || "Juego de tallas")}</strong><span>${custody.quantity} unidad${custody.quantity === 1 ? "" : "es"} · ${escapeHtml(custody.size || "Sin talla")}</span></div>
       <div><small>Salida</small><strong>${formatDate(custody.exitDate)}</strong></div>
       <div><small>Ingreso</small><strong>${custody.entryDate ? formatDate(custody.entryDate) : "Pendiente"}</strong></div>
-      <button type="button" data-sample-custody-edit="${custody.id}">${custody.entryDate ? "Ver" : "Registrar ingreso"}</button>
+      <div class="sample-custody-row-actions">
+        <button type="button" data-sample-custody-edit="${custody.id}">Editar</button>
+        ${custody.entryDate ? "" : `<button type="button" data-sample-custody-return="${custody.id}">Registrar ingreso</button>`}
+        <button class="danger" type="button" data-sample-custody-delete="${custody.id}">Eliminar</button>
+      </div>
     </article>
-  `).join("") : `<p class="sample-custody-empty">Sin muestras asignadas a esta oportunidad.</p>`;
+  `).join("") : `<p class="sample-custody-empty">Sin muestras asignadas a esta oportunidad.</p>`}
+  `;
   sampleCustodyList.querySelectorAll("[data-sample-custody-edit]").forEach((button) => {
     button.addEventListener("click", () => {
       const custody = records.find((record) => record.id === button.dataset.sampleCustodyEdit);
@@ -5582,6 +5592,23 @@ function renderSampleCustodies(item) {
       sampleCustodyEntryDate.value = custody.entryDate;
       saveSampleCustody.textContent = custody.entryDate ? "Guardar cambios" : "Registrar ingreso";
       sampleCustodyPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  });
+  sampleCustodyList.querySelectorAll("[data-sample-custody-return]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const editButton = sampleCustodyList.querySelector(`[data-sample-custody-edit="${button.dataset.sampleCustodyReturn}"]`);
+      editButton?.click();
+      sampleCustodyEntryDate.focus();
+    });
+  });
+  sampleCustodyList.querySelectorAll("[data-sample-custody-delete]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (!confirm("Eliminar esta línea del historial de custodia?")) return;
+      item.sampleCustodies = records.filter((record) => record.id !== button.dataset.sampleCustodyDelete);
+      saveOpportunities();
+      renderSampleCustodies(item);
+      renderCommercialSubmenu(areas.comercializacion);
+      resetSampleCustodyForm();
     });
   });
 }
@@ -5828,8 +5855,8 @@ saveSampleCustody.addEventListener("click", () => {
     exitDate,
     entryDate
   };
-  if (existing) Object.assign(existing, payload);
-  else records.unshift({ id: crypto.randomUUID(), ...payload });
+  if (existing) Object.assign(existing, payload, { updatedAt: new Date().toISOString() });
+  else records.unshift({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...payload });
   saveOpportunities();
   renderSampleCustodies(item);
   renderCommercialSubmenu(areas.comercializacion);

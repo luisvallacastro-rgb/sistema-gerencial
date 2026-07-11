@@ -4722,9 +4722,23 @@ button:disabled {
 #managementDialog .sample-custody-actions .primary-btn { min-height: 34px; border: 0; border-radius: 10px; padding: 0 13px; background: linear-gradient(135deg, #209a72, #1a755f); color: #fff; font-size: 11px; }
 
 #managementDialog .sample-custody-list { display: grid; gap: 6px; max-height: 150px; overflow-y: auto; }
+#managementDialog .sample-custody-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  padding: 0 4px;
+  background: rgba(8, 25, 45, .94);
+  backdrop-filter: blur(12px);
+}
+#managementDialog .sample-custody-list-head strong { color: #f3f8ff; font-size: 11px; }
+#managementDialog .sample-custody-list-head span { color: #72f5d1; font-size: 9px; font-weight: 900; }
 #managementDialog .sample-custody-record {
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) 110px 110px 120px;
+  grid-template-columns: minmax(190px, 1fr) 105px 105px minmax(230px, auto);
   align-items: center;
   gap: 9px;
   min-height: 48px;
@@ -4738,7 +4752,11 @@ button:disabled {
 #managementDialog .sample-custody-record strong { color: #f3f8ff; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #managementDialog .sample-custody-record span,
 #managementDialog .sample-custody-record small { color: rgba(210,225,240,.58); font-size: 9px; }
-#managementDialog .sample-custody-record button { min-height: 30px; border: 0; border-radius: 9px; background: rgba(84,151,229,.13); color: #b9daff; font-size: 9px; font-weight: 900; cursor: pointer; }
+#managementDialog .sample-custody-row-actions { display: flex !important; grid-auto-flow: unset; flex-direction: row; justify-content: flex-end; gap: 5px !important; }
+#managementDialog .sample-custody-record button { min-height: 30px; border: 0; border-radius: 9px; padding: 0 9px; background: rgba(84,151,229,.13); color: #b9daff; font-size: 9px; font-weight: 900; cursor: pointer; white-space: nowrap; }
+#managementDialog .sample-custody-record button:hover { transform: translateY(-1px); background: rgba(84,151,229,.22); color: #fff; }
+#managementDialog .sample-custody-record button.danger { background: rgba(255,94,119,.1); color: #ff9daf; }
+#managementDialog .sample-custody-record button.danger:hover { background: rgba(255,94,119,.2); color: #ffe8ec; }
 #managementDialog .sample-custody-empty { margin: 0; color: rgba(210,225,240,.52); font-size: 10px; font-weight: 750; }
 
 .app-shell .closure-badge.samples-assigned {
@@ -4757,6 +4775,7 @@ button:disabled {
   #managementDialog .sample-custody-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #managementDialog .sample-custody-grid .sample-description { grid-column: 1 / -1; }
   #managementDialog .sample-custody-record { grid-template-columns: 1fr 1fr; }
+  #managementDialog .sample-custody-row-actions { grid-column: 1 / -1; justify-content: flex-start; }
 }
 
 @media (max-width: 560px) {
