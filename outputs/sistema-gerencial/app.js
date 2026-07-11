@@ -3287,6 +3287,7 @@ function renderCommercialSubmenu(area) {
 
   const submenu = area.submenus.find((item) => item.key === state.activeSubmenu) || area.submenus[0];
   commercialPanel.classList.remove("hidden");
+  commercialSubmenuTitle.classList.remove("hidden");
   opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
@@ -3442,6 +3443,7 @@ function renderCommercialSubmenu(area) {
 
   const resultView = resultViews[submenu.key] || "active";
   state.opportunityCycleView = resultView;
+  commercialSubmenuTitle.classList.toggle("hidden", resultView === "active");
   opportunitySearchField.classList.toggle("hidden", resultView !== "active");
   opportunitySearchInput.value = state.opportunitySearch;
   newOpportunityBtn.classList.toggle("hidden", resultView !== "active");

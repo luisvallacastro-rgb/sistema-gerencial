@@ -4568,6 +4568,206 @@ button:disabled {
   }
 }
 
+/* Compact borderless glass form for new opportunities. */
+#opportunityDialog {
+  width: min(1080px, calc(100vw - 28px)) !important;
+  max-height: calc(100vh - 28px) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 24px !important;
+  background: transparent !important;
+  color: #f4f8ff;
+  box-shadow: none !important;
+  overflow: visible;
+}
+
+#opportunityDialog::backdrop {
+  background:
+    radial-gradient(circle at 18% 10%, rgba(67, 117, 180, .18), transparent 34%),
+    rgba(3, 10, 22, .7);
+  backdrop-filter: blur(15px) saturate(1.12);
+}
+
+#opportunityDialog .opportunity-form {
+  max-height: calc(100vh - 28px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px !important;
+  padding: 18px !important;
+  border: 0 !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(88, 145, 225, .18), transparent 30%),
+    radial-gradient(circle at 94% 12%, rgba(63, 211, 175, .1), transparent 30%),
+    linear-gradient(145deg, rgba(33, 50, 84, .88), rgba(8, 22, 43, .94)) !important;
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .48), inset 0 1px 0 rgba(255,255,255,.08) !important;
+  backdrop-filter: blur(28px) saturate(1.2);
+  overflow: hidden;
+}
+
+#opportunityDialog[open] .opportunity-form {
+  animation: opportunityFormEnter .42s cubic-bezier(.2,.8,.2,1) both;
+}
+
+#opportunityDialog .panel-head {
+  min-height: 50px;
+  padding: 0 2px 8px;
+}
+
+#opportunityDialog .panel-head .eyebrow {
+  margin: 0 0 2px;
+  color: #72f5d1;
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+#opportunityDialog .panel-head h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 21px;
+}
+
+#opportunityDialog .icon-btn {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: rgba(255,255,255,.07) !important;
+  color: rgba(235, 243, 252, .82) !important;
+  box-shadow: none !important;
+  transition: transform .2s ease, background .2s ease, color .2s ease;
+}
+
+#opportunityDialog .icon-btn:hover {
+  transform: rotate(6deg) scale(1.06);
+  background: rgba(255, 101, 126, .14) !important;
+  color: #ffb6c1 !important;
+}
+
+#opportunityDialog .crm-form-grid {
+  gap: 9px 12px !important;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 5px 4px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(123,247,219,.38) transparent;
+}
+
+#opportunityDialog .opportunity-form label {
+  gap: 4px !important;
+  color: rgba(221, 232, 245, .72) !important;
+  font-size: 10px !important;
+  font-weight: 850 !important;
+  letter-spacing: .025em;
+}
+
+#opportunityDialog .opportunity-form input,
+#opportunityDialog .opportunity-form select,
+#opportunityDialog .opportunity-form textarea {
+  min-height: 42px;
+  border: 0 !important;
+  border-radius: 12px !important;
+  padding: 9px 12px !important;
+  background:
+    linear-gradient(135deg, rgba(128, 154, 193, .13), rgba(49, 74, 108, .08)),
+    rgba(255,255,255,.055) !important;
+  color: #f3f8ff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055) !important;
+  font-size: 12px !important;
+  font-weight: 750;
+  transition: background .22s ease, box-shadow .22s ease, transform .22s ease;
+}
+
+#opportunityDialog .opportunity-form input:focus,
+#opportunityDialog .opportunity-form select:focus,
+#opportunityDialog .opportunity-form textarea:focus {
+  outline: 0 !important;
+  background:
+    linear-gradient(135deg, rgba(71, 151, 255, .18), rgba(44, 178, 149, .1)),
+    rgba(255,255,255,.07) !important;
+  box-shadow: inset 3px 0 0 #72f5d1, 0 10px 24px rgba(2, 9, 24, .12) !important;
+  transform: translateY(-1px);
+}
+
+#opportunityDialog .opportunity-form input::placeholder,
+#opportunityDialog .opportunity-form textarea::placeholder {
+  color: rgba(207, 220, 238, .38) !important;
+}
+
+#opportunityDialog .crm-form-section {
+  gap: 8px !important;
+  padding: 11px !important;
+  border: 0 !important;
+  border-radius: 15px !important;
+  background: rgba(2, 14, 31, .2) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
+}
+
+#opportunityDialog .crm-form-grid.compact {
+  gap: 8px !important;
+  overflow: visible;
+  padding: 0;
+}
+
+#opportunityDialog textarea {
+  min-height: 64px !important;
+  resize: vertical;
+}
+
+#opportunityDialog menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 0 0;
+  background: linear-gradient(180deg, transparent, rgba(5,16,33,.4));
+}
+
+#opportunityDialog menu button {
+  min-height: 40px;
+  border: 0 !important;
+  border-radius: 12px !important;
+  padding: 0 17px;
+}
+
+#opportunityDialog #saveOpportunityBtn {
+  background: linear-gradient(135deg, #209a72, #1a755f) !important;
+  color: #fff !important;
+  box-shadow: 0 12px 28px rgba(17, 132, 96, .24) !important;
+}
+
+#opportunityDialog #saveOpportunityBtn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+
+@keyframes opportunityFormEnter {
+  from { opacity: 0; transform: translateY(18px) scale(.975); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+@media (max-width: 760px) {
+  #opportunityDialog .opportunity-form {
+    padding: 14px !important;
+  }
+
+  #opportunityDialog .crm-form-grid,
+  #opportunityDialog .crm-form-grid.compact {
+    grid-template-columns: 1fr !important;
+  }
+
+  #opportunityDialog .span-2 {
+    grid-column: span 1 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #opportunityDialog[open] .opportunity-form {
+    animation: none !important;
+  }
+}
+
 /* Compact visual temperature indicator: icon + word, no wasted column width. */
 .app-shell.sidebar-collapsed .opportunity-header,
 .app-shell.sidebar-collapsed .opportunity-table-body .opportunity-row {
