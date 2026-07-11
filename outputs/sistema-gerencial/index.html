@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260710-inline-area-toggle">
+    <link rel="stylesheet" href="styles.css?v=20260710-opportunity-smart-search">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -113,11 +113,14 @@
         <section class="panel commercial-panel hidden" id="commercialPanel" aria-label="Submodulo de comercializacion">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">Comercializacion</p>
               <h3 id="commercialSubmenuTitle">Resultados</h3>
             </div>
             <div class="panel-actions">
-              <span class="status-pill" id="commercialSubmenuStatus">Pipeline activo</span>
+              <span class="status-pill hidden" id="commercialSubmenuStatus">Pipeline activo</span>
+              <label class="opportunity-search hidden" id="opportunitySearchField">
+                <span aria-hidden="true">⌕</span>
+                <input id="opportunitySearchInput" type="search" placeholder="Buscar empresa, vendedor, etapa..." autocomplete="off">
+              </label>
               <button class="secondary-btn icon-text-btn" id="newOpportunityBtn" type="button">
                 <span aria-hidden="true">+</span>
                 Nuevo registro
@@ -532,6 +535,6 @@
     </dialog>
 
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
-    <script src="app.js?v=20260710-inline-area-toggle"></script>
+    <script src="app.js?v=20260710-opportunity-smart-search"></script>
   </body>
 </html>

@@ -4481,6 +4481,93 @@ button:disabled {
   }
 }
 
+/* Clean opportunity header with an instant, multi-field search. */
+.app-shell .commercial-panel > .panel-head {
+  align-items: center;
+  gap: 18px;
+}
+
+.app-shell .commercial-panel > .panel-head > div:first-child {
+  flex: 0 0 auto;
+}
+
+.app-shell .commercial-panel > .panel-head .panel-actions {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.app-shell .opportunity-search {
+  position: relative;
+  flex: 1 1 360px;
+  max-width: 620px;
+  min-width: 220px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(100, 139, 195, .14), rgba(36, 65, 98, .08)),
+    rgba(255, 255, 255, .045);
+  color: rgba(206, 225, 243, .66);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  transition: background .22s ease, box-shadow .22s ease, transform .22s ease;
+}
+
+.app-shell .opportunity-search:focus-within {
+  background:
+    linear-gradient(135deg, rgba(76, 156, 255, .18), rgba(44, 161, 139, .09)),
+    rgba(255, 255, 255, .055);
+  box-shadow: inset 3px 0 0 #72f5d1, 0 12px 28px rgba(2, 10, 26, .14);
+  transform: translateY(-1px);
+}
+
+.app-shell .opportunity-search > span {
+  flex: 0 0 auto;
+  color: #7bf7db;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.app-shell .opportunity-search input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  color: #f5f9ff !important;
+  box-shadow: none !important;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.app-shell .opportunity-search input::placeholder {
+  color: rgba(206, 220, 237, .48);
+}
+
+.app-shell .opportunity-search.hidden {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  .app-shell .commercial-panel > .panel-head,
+  .app-shell .commercial-panel > .panel-head .panel-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-shell .opportunity-search {
+    flex-basis: 44px;
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 /* Compact visual temperature indicator: icon + word, no wasted column width. */
 .app-shell.sidebar-collapsed .opportunity-header,
 .app-shell.sidebar-collapsed .opportunity-table-body .opportunity-row {

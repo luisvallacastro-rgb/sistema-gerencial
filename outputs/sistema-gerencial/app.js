@@ -260,6 +260,7 @@ const state = {
   opportunityFilter: null,
   opportunityCycleView: "active",
   opportunityPage: 1,
+  opportunitySearch: "",
   kpiView: "dashboard",
   kpiSeller: "all",
   adminQuery: "",
@@ -704,6 +705,8 @@ const requestTable = document.querySelector("#requestTable");
 const commercialPanel = document.querySelector("#commercialPanel");
 const commercialSubmenuTitle = document.querySelector("#commercialSubmenuTitle");
 const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus");
+const opportunitySearchField = document.querySelector("#opportunitySearchField");
+const opportunitySearchInput = document.querySelector("#opportunitySearchInput");
 const opportunityDashboard = document.querySelector("#opportunityDashboard");
 const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
 const newRiskBtn = document.querySelector("#newRiskBtn");
@@ -812,6 +815,29 @@ const cancelAdminPassword = document.querySelector("#cancelAdminPassword");
 
 function normalizeKey(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function searchTokenMatches(value, query) {
+  const text = normalizeKey(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const needle = normalizeKey(query).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (!needle || text.includes(needle)) return true;
+  const distance = (left, right) => {
+    let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+    for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+      const current = [leftIndex];
+      for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+        current[rightIndex] = Math.min(
+          current[rightIndex - 1] + 1,
+          previous[rightIndex] + 1,
+          previous[rightIndex - 1] + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1)
+        );
+      }
+      previous = current;
+    }
+    return previous[right.length];
+  };
+  const tolerance = needle.length >= 8 ? 2 : 1;
+  return text.split(/\s+/).some((word) => distance(word, needle) <= tolerance);
 }
 
 function permissionKey(areaKey, sectionKey) {
@@ -3261,6 +3287,7 @@ function renderCommercialSubmenu(area) {
 
   const submenu = area.submenus.find((item) => item.key === state.activeSubmenu) || area.submenus[0];
   commercialPanel.classList.remove("hidden");
+  opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
 
@@ -3415,6 +3442,8 @@ function renderCommercialSubmenu(area) {
 
   const resultView = resultViews[submenu.key] || "active";
   state.opportunityCycleView = resultView;
+  opportunitySearchField.classList.toggle("hidden", resultView !== "active");
+  opportunitySearchInput.value = state.opportunitySearch;
   newOpportunityBtn.classList.toggle("hidden", resultView !== "active");
   newRiskBtn.classList.add("hidden");
   newManagementRequestBtn.classList.add("hidden");
@@ -3424,13 +3453,28 @@ function renderCommercialSubmenu(area) {
   const cycleRows = opportunityCycleRows(opportunitySubmenu.items);
   const activeRows = cycleRows.active;
   const historyRows = cycleRows.history;
-  const displayRows = state.opportunityCycleView === "history" ? historyRows : activeRows;
+  const searchQuery = normalizeKey(state.opportunitySearch);
+  const filteredActiveRows = searchQuery
+    ? activeRows.filter(({ item, result }) => [
+        item.date,
+        formatDate(item.date),
+        item.company,
+        item.seller,
+        item.stage,
+        item.probability,
+        probabilityLabel(item.probability),
+        item.amount,
+        formatMoney(item.amount),
+        result?.result
+      ].some((value) => searchTokenMatches(value, searchQuery)))
+    : activeRows;
+  const displayRows = state.opportunityCycleView === "history" ? historyRows : filteredActiveRows;
   const pageCount = Math.max(1, Math.ceil(displayRows.length / opportunityPageSize));
   state.opportunityPage = Math.min(Math.max(Number(state.opportunityPage) || 1, 1), pageCount);
   const pageStart = (state.opportunityPage - 1) * opportunityPageSize;
   const pageEnd = pageStart + opportunityPageSize;
   const pagedRows = displayRows.slice(pageStart, pageEnd);
-  commercialSubmenuStatus.textContent = `${activeRows.length} vigentes / ${historyRows.length} historial`;
+  commercialSubmenuStatus.textContent = "";
 
   if (!opportunitySubmenu.items.length) {
     opportunityTable.innerHTML = `
@@ -4646,15 +4690,11 @@ function renderPageTitle(area, activeSubmenu) {
     return;
   }
 
-  const activeRows = opportunityCycleRows(getOpportunitySubmenu().items).active;
-  const activeAmount = activeRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
-  pageTitle.innerHTML = `
-    <span>${activeSubmenu?.key === "resultados-dashboard" ? "Dashboard" : activeSubmenu?.key === "resultados-historial" ? "Historial" : "Oportunidades"}</span>
-    <span class="results-title-metrics">
-      <span><strong>${activeRows.length}</strong> vigentes</span>
-      <span>${formatMoney(activeAmount)}</span>
-    </span>
-  `;
+  pageTitle.textContent = activeSubmenu?.key === "resultados-dashboard"
+    ? "Dashboard"
+    : activeSubmenu?.key === "resultados-historial"
+      ? "Historial"
+      : "Oportunidades";
 }
 
 function renderDashboard() {
@@ -5119,6 +5159,12 @@ sidebarToggleBtn.addEventListener("click", () => {
 
 sidebarRestoreBtn.addEventListener("click", () => {
   setSidebarCollapsed(false);
+});
+
+opportunitySearchInput.addEventListener("input", () => {
+  state.opportunitySearch = opportunitySearchInput.value;
+  state.opportunityPage = 1;
+  renderCommercialSubmenu(areas.comercializacion);
 });
 
 periodSelect.addEventListener("change", () => {
