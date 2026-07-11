@@ -255,6 +255,7 @@ const state = {
   activeArea: "general",
   activeSubmenu: "resultados",
   openMenus: new Set(["comercializacion"]),
+  openSubmenuGroups: new Set(["resultados", "crm"]),
   onlineUsers: [],
   opportunityFilter: null,
   opportunityCycleView: "active",
@@ -1892,17 +1893,42 @@ function renderNav() {
 function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
   const submenu = document.createElement("div");
   submenu.className = `submenu-list ${state.openMenus.has(areaKey) ? "open" : ""}`;
-  submenu.innerHTML = items.map((item) => `
-    <button class="submenu-item ${["crm", "resultados"].includes(item.key) ? `${item.key}-parent` : item.key.startsWith("crm-") ? "crm-child" : item.key.startsWith("resultados-") ? "resultados-child" : ""} ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">
-      ${item.label}
-    </button>
-  `).join("");
-  submenu.querySelectorAll("button").forEach((button) => {
+  const groupedPrefixes = ["resultados", "crm"];
+  const childKeys = new Set(items.filter((item) => groupedPrefixes.some((prefix) => item.key.startsWith(`${prefix}-`))).map((item) => item.key));
+  submenu.innerHTML = items.filter((item) => !childKeys.has(item.key)).map((item) => {
+    const isGroup = groupedPrefixes.includes(item.key);
+    if (!isGroup) {
+      return `<button class="submenu-item ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">${item.label}</button>`;
+    }
+    const children = [
+      ...(item.key === "crm" ? [{ ...item, label: "Dashboard" }] : []),
+      ...items.filter((child) => child.key.startsWith(`${item.key}-`))
+    ];
+    const isOpen = state.openSubmenuGroups.has(item.key);
+    const hasActiveChild = children.some((child) => child.key === state.activeSubmenu);
+    return `
+      <section class="submenu-group ${isOpen ? "open" : ""} ${hasActiveChild ? "has-active" : ""}">
+        <button class="submenu-item submenu-group-toggle ${hasActiveChild ? "active-parent" : ""}" type="button" data-submenu-group="${item.key}" aria-expanded="${isOpen}">
+          <span>${item.label}</span><span class="submenu-group-caret" aria-hidden="true">⌄</span>
+        </button>
+        <div class="submenu-group-children">
+          ${children.map((child) => `<button class="submenu-item submenu-group-child ${state.activeArea === areaKey && state.activeSubmenu === child.key ? "active" : ""}" type="button" data-submenu="${child.key}">${child.label}</button>`).join("")}
+        </div>
+      </section>`;
+  }).join("");
+  submenu.querySelectorAll("[data-submenu-group]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const groupKey = button.dataset.submenuGroup;
+      if (state.openSubmenuGroups.has(groupKey)) state.openSubmenuGroups.delete(groupKey);
+      else state.openSubmenuGroups.add(groupKey);
+      persistNavigationState();
+      renderNav();
+    });
+  });
+  submenu.querySelectorAll("[data-submenu]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeArea = areaKey;
-      state.activeSubmenu = button.dataset.submenu === "resultados"
-        ? "resultados-oportunidades"
-        : button.dataset.submenu;
+      state.activeSubmenu = button.dataset.submenu;
       persistNavigationState();
       renderDashboard();
     });
@@ -4698,6 +4724,7 @@ function persistNavigationState() {
       activeArea: state.activeArea,
       activeSubmenu: state.activeSubmenu,
       openMenus: [...state.openMenus],
+      openSubmenuGroups: [...state.openSubmenuGroups],
       sidebarCollapsed: appShell.classList.contains("sidebar-collapsed")
     }));
   } catch {
@@ -4718,6 +4745,10 @@ function restoreNavigationState(user = state.currentUser) {
     state.openMenus = new Set(
       (Array.isArray(saved.openMenus) ? saved.openMenus : [])
         .filter((areaKey) => available.includes(areaKey))
+    );
+    state.openSubmenuGroups = new Set(
+      (Array.isArray(saved.openSubmenuGroups) ? saved.openSubmenuGroups : ["resultados", "crm"])
+        .filter((key) => ["resultados", "crm"].includes(key))
     );
     setSidebarCollapsed(Boolean(saved.sidebarCollapsed));
     return true;

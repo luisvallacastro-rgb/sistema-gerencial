@@ -4539,6 +4539,86 @@ button:disabled {
   }
 }
 
+/* Independent nested navigation groups; never clip CRM, Riesgos or Solicitudes. */
+.app-shell .submenu-list.open {
+  max-height: 1600px !important;
+  overflow: visible !important;
+}
+
+.app-shell .submenu-group {
+  display: grid;
+  min-width: 0;
+}
+
+.app-shell .submenu-group-toggle {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  color: #7bf7db !important;
+  font-weight: 900 !important;
+}
+
+.app-shell .submenu-group-toggle.active-parent {
+  background: rgba(104, 169, 255, .07) !important;
+}
+
+.app-shell .submenu-group-caret {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.055);
+  color: rgba(225, 239, 250, .68);
+  font-size: 15px;
+  transition: transform .32s cubic-bezier(.2,.8,.2,1), color .2s ease, background .2s ease;
+}
+
+.app-shell .submenu-group.open .submenu-group-caret {
+  transform: rotate(180deg);
+  color: #7bf7db;
+  background: rgba(123, 247, 219, .1);
+}
+
+.app-shell .submenu-group-children {
+  display: grid;
+  gap: 1px;
+  max-height: 0;
+  margin-left: 10px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: max-height .38s cubic-bezier(.2,.8,.2,1), opacity .24s ease, transform .38s cubic-bezier(.2,.8,.2,1);
+}
+
+.app-shell .submenu-group.open .submenu-group-children {
+  max-height: 360px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.app-shell .submenu-group-child {
+  width: calc(100% - 6px) !important;
+  min-height: 29px !important;
+  padding-left: 14px !important;
+}
+
+.app-shell .submenu-group-child::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 1px;
+  margin: 0 7px 4px 0;
+  background: rgba(123, 247, 219, .42);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .submenu-group-caret,
+  .app-shell .submenu-group-children {
+    transition: none !important;
+  }
+}
+
 /* Stable row rhythm and color-coded modern actions. */
 .app-shell .dashboard.opportunity-focus .opportunity-table-body {
   align-content: start !important;
