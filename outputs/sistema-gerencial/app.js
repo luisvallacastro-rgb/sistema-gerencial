@@ -707,6 +707,7 @@ const commercialSubmenuTitle = document.querySelector("#commercialSubmenuTitle")
 const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus");
 const opportunitySearchField = document.querySelector("#opportunitySearchField");
 const opportunitySearchInput = document.querySelector("#opportunitySearchInput");
+const opportunityTotalAmount = document.querySelector("#opportunityTotalAmount");
 const opportunityDashboard = document.querySelector("#opportunityDashboard");
 const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
 const newRiskBtn = document.querySelector("#newRiskBtn");
@@ -3287,6 +3288,8 @@ function renderCommercialSubmenu(area) {
 
   const submenu = area.submenus.find((item) => item.key === state.activeSubmenu) || area.submenus[0];
   commercialPanel.classList.remove("hidden");
+  commercialPanel.classList.remove("opportunity-mode");
+  opportunityTotalAmount.classList.add("hidden");
   commercialSubmenuTitle.classList.remove("hidden");
   opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
@@ -3444,6 +3447,8 @@ function renderCommercialSubmenu(area) {
   const resultView = resultViews[submenu.key] || "active";
   state.opportunityCycleView = resultView;
   commercialSubmenuTitle.classList.toggle("hidden", resultView === "active");
+  commercialPanel.classList.toggle("opportunity-mode", resultView === "active");
+  opportunityTotalAmount.classList.toggle("hidden", resultView !== "active");
   opportunitySearchField.classList.toggle("hidden", resultView !== "active");
   opportunitySearchInput.value = state.opportunitySearch;
   newOpportunityBtn.classList.toggle("hidden", resultView !== "active");
@@ -3471,6 +3476,9 @@ function renderCommercialSubmenu(area) {
       ].some((value) => searchTokenMatches(value, searchQuery)))
     : activeRows;
   const displayRows = state.opportunityCycleView === "history" ? historyRows : filteredActiveRows;
+  opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
+    filteredActiveRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0)
+  );
   const pageCount = Math.max(1, Math.ceil(displayRows.length / opportunityPageSize));
   state.opportunityPage = Math.min(Math.max(Number(state.opportunityPage) || 1, 1), pageCount);
   const pageStart = (state.opportunityPage - 1) * opportunityPageSize;

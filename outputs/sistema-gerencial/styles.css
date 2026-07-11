@@ -4589,6 +4589,102 @@ button:disabled {
 }
 @media (prefers-reduced-motion: reduce) { #managementDialog[open] .management-card { animation: none !important; } }
 
+/* Opportunity toolbar aligned with search, amount and action table columns. */
+.app-shell .commercial-panel.opportunity-mode > .panel-head {
+  display: block !important;
+  min-height: 54px;
+}
+
+.app-shell .commercial-panel.opportunity-mode > .panel-head > div:first-child {
+  display: none !important;
+}
+
+.app-shell .commercial-panel.opportunity-mode > .panel-head .panel-actions {
+  width: 100%;
+  display: grid !important;
+  grid-template-columns: minmax(320px, 1fr) 145px 150px;
+  align-items: center;
+  justify-content: stretch;
+  gap: 12px;
+}
+
+.app-shell .commercial-panel.opportunity-mode .opportunity-search {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  justify-self: stretch;
+}
+
+.app-shell .opportunity-total {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 1px;
+  padding-left: 4px;
+}
+
+.app-shell .opportunity-total small {
+  color: rgba(189, 210, 230, .54);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.app-shell .opportunity-total strong {
+  color: #72f5d1;
+  font-size: 19px;
+  font-weight: 950;
+  letter-spacing: -.035em;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-shadow: 0 0 18px rgba(114, 245, 209, .34);
+}
+
+.app-shell .opportunity-total.hidden {
+  display: none !important;
+}
+
+.app-shell .commercial-panel.opportunity-mode #newOpportunityBtn {
+  width: 150px;
+  min-width: 150px;
+  justify-content: center;
+  justify-self: end;
+}
+
+@media (max-width: 1050px) {
+  .app-shell .commercial-panel.opportunity-mode > .panel-head .panel-actions {
+    grid-template-columns: minmax(220px, 1fr) 128px 136px;
+    gap: 8px;
+  }
+
+  .app-shell .commercial-panel.opportunity-mode #newOpportunityBtn {
+    width: 136px;
+    min-width: 136px;
+  }
+
+  .app-shell .opportunity-total strong {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell .commercial-panel.opportunity-mode > .panel-head .panel-actions {
+    grid-template-columns: 1fr auto;
+  }
+
+  .app-shell .commercial-panel.opportunity-mode .opportunity-search {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell .commercial-panel.opportunity-mode #newOpportunityBtn {
+    width: auto;
+    min-width: 132px;
+  }
+}
+
 /* Clean opportunity header with an instant, multi-field search. */
 .app-shell .commercial-panel > .panel-head {
   align-items: center;

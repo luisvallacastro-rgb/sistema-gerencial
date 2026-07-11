@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260710-glass-management-dialog">
+    <link rel="stylesheet" href="styles.css?v=20260710-opportunity-toolbar-total">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -121,6 +121,10 @@
                 <span aria-hidden="true">⌕</span>
                 <input id="opportunitySearchInput" type="search" placeholder="Buscar empresa, vendedor, etapa..." autocomplete="off">
               </label>
+              <span class="opportunity-total hidden" id="opportunityTotalAmount">
+                <small>Total</small>
+                <strong>$0.00</strong>
+              </span>
               <button class="secondary-btn icon-text-btn" id="newOpportunityBtn" type="button">
                 <span aria-hidden="true">+</span>
                 Nuevo registro
@@ -535,6 +539,6 @@
     </dialog>
 
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
-    <script src="app.js?v=20260710-glass-management-dialog"></script>
+    <script src="app.js?v=20260710-opportunity-toolbar-total"></script>
   </body>
 </html>
