@@ -2132,24 +2132,14 @@ function renderFinancialOrders() {
       </div>
       <div class="financial-orders-table-wrap">
       <div class="financial-orders-table">
-        <div class="financial-order-row header"><span>Número</span><span>Mes</span><span>Año</span><span>Fecha de ingreso</span><span>Vendedor</span><span>Venta</span><span>N° de orden</span><span>Factura</span><span>Condiciones</span><span>Cliente</span><span>Tipo de cliente</span><span>Estrategia</span><span>Gestión</span><span>País</span><span>Departamento</span><span>Acciones</span></div>
+        <div class="financial-order-row header"><span>Fecha</span><span>#</span><span>Venta</span><span>Vendedor</span><span>Clientes</span><span>Acciones</span></div>
         ${rows.map((order) => `
           <article class="financial-order-row">
-            <strong>${escapeHtml(order.number)}</strong>
-            <span>${escapeHtml(order.month)}</span>
-            <span>${escapeHtml(order.year)}</span>
             <span>${formatDate(order.date)}</span>
-            <span>${escapeHtml(order.seller)}</span>
+            <strong>${escapeHtml(order.number)}</strong>
             <strong class="financial-order-sale">${formatMoney(order.sale)}</strong>
-            <span>${escapeHtml(order.orderNumber || "—")}</span>
-            <span>${escapeHtml(order.invoice || "—")}</span>
-            <span>${escapeHtml(order.conditions || "—")}</span>
+            <span>${escapeHtml(order.seller)}</span>
             <span>${escapeHtml(order.client)}</span>
-            <span>${escapeHtml(order.clientType || "—")}</span>
-            <span>${escapeHtml(order.strategy || "—")}</span>
-            <span>${escapeHtml(order.management || "—")}</span>
-            <span>${escapeHtml(order.country || "—")}</span>
-            <span>${escapeHtml(order.department || "—")}</span>
             <span class="financial-order-actions"><button type="button" data-financial-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-financial-order-delete="${order.id}">Eliminar</button></span>
           </article>
         `).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}

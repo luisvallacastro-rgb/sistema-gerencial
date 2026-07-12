@@ -4857,10 +4857,10 @@ button:disabled {
   scrollbar-color: rgba(114,245,209,.4) rgba(255,255,255,.03);
 }
 
-.app-shell .financial-orders-table { min-width: 2380px; display: grid; gap: 7px; }
+.app-shell .financial-orders-table { min-width: 0; width: 100%; display: grid; gap: 7px; }
 .app-shell .financial-order-row {
   display: grid;
-  grid-template-columns: 100px 90px 76px 130px 170px 120px 120px 110px 150px 190px 150px 150px 150px 130px 150px 150px;
+  grid-template-columns: 100px 56px 110px minmax(120px, .9fr) minmax(160px, 1.7fr) 140px;
   align-items: center;
   gap: 10px;
   min-height: 62px;
@@ -4891,6 +4891,11 @@ button:disabled {
 .app-shell .financial-order-actions { display: flex; gap: 6px; overflow: visible !important; }
 .app-shell .financial-order-actions button { min-height: 32px; border: 0; border-radius: 9px; padding: 0 10px; background: rgba(76,145,229,.14); color: #b9daff; font-size: 10px; font-weight: 900; cursor: pointer; }
 .app-shell .financial-order-actions button.danger { background: rgba(255,94,119,.12); color: #ff9daf; }
+
+@media (max-width: 900px) {
+  .app-shell .financial-orders-table { min-width: 720px; }
+  .app-shell .financial-order-row { grid-template-columns: 96px 52px 104px 120px 190px 134px; }
+}
 
 #financialOrderDialog {
   width: min(1060px,calc(100vw - 28px));
