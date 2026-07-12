@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260712-financial-orders-compact-v3">
+    <link rel="stylesheet" href="styles.css?v=20260712-financial-orders-filters-v4">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -96,6 +96,16 @@
           <div>
             <p class="eyebrow" id="periodLabel">Julio 2026</p>
             <h2 id="pageTitle">Vista ejecutiva</h2>
+          </div>
+          <div class="financial-orders-topbar-filters hidden" id="financialOrdersTopbarFilters" aria-label="Filtros de pedidos">
+            <label>
+              <span>Año</span>
+              <select id="financialOrderYearFilter" aria-label="Filtrar pedidos por año"></select>
+            </label>
+            <label>
+              <span>Mes</span>
+              <select id="financialOrderMonthFilter" aria-label="Filtrar pedidos por mes"></select>
+            </label>
           </div>
           <div class="topbar-actions">
             <select id="periodSelect" aria-label="Periodo">
@@ -591,6 +601,6 @@
 
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
-    <script src="app.js?v=20260712-financial-orders-compact-v3"></script>
+    <script src="app.js?v=20260712-financial-orders-filters-v4"></script>
   </body>
 </html>

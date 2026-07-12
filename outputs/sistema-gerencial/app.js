@@ -273,6 +273,8 @@ const state = {
   financialPresentationSection: 0,
   financialOrders: [],
   financialOrderQuery: "",
+  financialOrderYearFilter: "all",
+  financialOrderMonthFilter: "all",
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -626,6 +628,7 @@ const financialOrdersStorageKey = "sistemaGerencial.pedidosFinancieros.v1";
 const financialOrdersSeedVersionKey = "sistemaGerencial.pedidosFinancieros.seedVersion";
 const financialOrdersSeedManifestKey = "sistemaGerencial.pedidosFinancieros.seedManifest";
 const financialOrdersDeletedSeedKeysKey = "sistemaGerencial.pedidosFinancieros.deletedSeedKeys";
+const financialOrdersFiltersStorageKey = "sistemaGerencial.pedidosFinancieros.filters.v1";
 const financialOrdersSeedVersion = "base-pedidos-20260712-v2";
 const financialOrdersSeedExpectedCount = 2590;
 const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
@@ -707,6 +710,9 @@ const pageTitle = document.querySelector("#pageTitle");
 const periodLabel = document.querySelector("#periodLabel");
 const periodSelect = document.querySelector("#periodSelect");
 const topbarActions = document.querySelector(".topbar-actions");
+const financialOrdersTopbarFilters = document.querySelector("#financialOrdersTopbarFilters");
+const financialOrderYearFilter = document.querySelector("#financialOrderYearFilter");
+const financialOrderMonthFilter = document.querySelector("#financialOrderMonthFilter");
 const summaryGrid = document.querySelector("#summaryGrid");
 const resultsChart = document.querySelector("#resultsChart");
 const kpiList = document.querySelector("#kpiList");
@@ -2104,6 +2110,44 @@ function saveFinancialOrders() {
   localStorage.setItem(financialOrdersStorageKey, JSON.stringify(state.financialOrders));
 }
 
+function loadFinancialOrderFilters() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(financialOrdersFiltersStorageKey) || "{}");
+    state.financialOrderYearFilter = saved.year ? String(saved.year) : "all";
+    state.financialOrderMonthFilter = saved.month ? String(saved.month) : "all";
+  } catch {
+    state.financialOrderYearFilter = "all";
+    state.financialOrderMonthFilter = "all";
+  }
+}
+
+function saveFinancialOrderFilters() {
+  localStorage.setItem(financialOrdersFiltersStorageKey, JSON.stringify({
+    year: state.financialOrderYearFilter,
+    month: state.financialOrderMonthFilter
+  }));
+}
+
+function filteredFinancialOrders() {
+  const query = state.financialOrderQuery;
+  return state.financialOrders.filter((order) => {
+    if (state.financialOrderYearFilter !== "all" && String(order.year) !== state.financialOrderYearFilter) return false;
+    if (state.financialOrderMonthFilter !== "all" && String(order.month) !== state.financialOrderMonthFilter) return false;
+    return !query || Object.values(order).some((value) => searchTokenMatches(value, query));
+  });
+}
+
+function renderFinancialOrderTopbarFilters(isVisible) {
+  financialOrdersTopbarFilters?.classList.toggle("hidden", !isVisible);
+  if (!isVisible || !financialOrderYearFilter || !financialOrderMonthFilter) return;
+  const years = [...new Set(state.financialOrders.map((order) => String(order.year)).filter(Boolean))].sort((a, b) => Number(b) - Number(a));
+  financialOrderYearFilter.innerHTML = `<option value="all">Todos</option>${years.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join("")}`;
+  financialOrderMonthFilter.innerHTML = `<option value="all">Todos</option>${Array.from({ length: 12 }, (_, index) => monthLabel(index + 1)).map((month) => `<option value="${month}">${month}</option>`).join("")}`;
+  if (!years.includes(state.financialOrderYearFilter)) state.financialOrderYearFilter = "all";
+  financialOrderYearFilter.value = state.financialOrderYearFilter;
+  financialOrderMonthFilter.value = state.financialOrderMonthFilter;
+}
+
 function resetFinancialOrderForm(order = null) {
   financialOrderForm.reset();
   financialOrderId.value = order?.id || "";
@@ -2120,8 +2164,7 @@ function resetFinancialOrderForm(order = null) {
 }
 
 function renderFinancialOrders() {
-  const query = state.financialOrderQuery;
-  const rows = query ? state.financialOrders.filter((order) => Object.values(order).some((value) => searchTokenMatches(value, query))) : state.financialOrders;
+  const rows = filteredFinancialOrders();
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   return `
     <section class="financial-orders-shell">
@@ -3489,7 +3532,7 @@ function renderCommercialSubmenu(area) {
     goalsMatrixBtn.classList.add("hidden");
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
-    commercialSubmenuStatus.textContent = `${state.financialOrders.length} pedidos`;
+    commercialSubmenuStatus.textContent = `${filteredFinancialOrders().length} de ${state.financialOrders.length} pedidos`;
     opportunityTable.innerHTML = renderFinancialOrders();
     wireFinancialOrders();
     return;
@@ -4852,7 +4895,9 @@ function renderAdminPanel() {
 function renderPageTitle(area, activeSubmenu) {
   const isResultsView = state.activeArea === "comercializacion" && activeSubmenu?.key?.startsWith("resultados");
   const isKpiView = state.activeArea === "comercializacion" && activeSubmenu?.key === "kpi";
+  const isFinancialOrdersView = state.activeArea === "financiera" && activeSubmenu?.key === "resultados-pedidos";
   pageTitle.classList.toggle("with-results-summary", isResultsView || isKpiView);
+  renderFinancialOrderTopbarFilters(isFinancialOrdersView);
 
   if (isKpiView) {
     const rows = wonSalesFulfillmentRows(getOpportunitySubmenu().items);
@@ -6075,6 +6120,16 @@ closeKpiDetailDialog.addEventListener("click", () => {
 
 closeFinancialOrderDialog.addEventListener("click", () => financialOrderDialog.close());
 cancelFinancialOrder.addEventListener("click", () => financialOrderDialog.close());
+financialOrderYearFilter?.addEventListener("change", () => {
+  state.financialOrderYearFilter = financialOrderYearFilter.value;
+  saveFinancialOrderFilters();
+  renderCommercialSubmenu(areas.financiera);
+});
+financialOrderMonthFilter?.addEventListener("change", () => {
+  state.financialOrderMonthFilter = financialOrderMonthFilter.value;
+  saveFinancialOrderFilters();
+  renderCommercialSubmenu(areas.financiera);
+});
 financialOrderForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const payload = {};
@@ -6092,6 +6147,7 @@ financialOrderForm.addEventListener("submit", (event) => {
 
 fillOpportunityOptions();
 loadUsers();
+loadFinancialOrderFilters();
 loadFinancialOrders();
 loadOpportunities();
 loadStrategicRisks();

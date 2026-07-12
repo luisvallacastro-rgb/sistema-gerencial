@@ -4071,6 +4071,76 @@ button:disabled {
   backdrop-filter: blur(22px) saturate(1.18);
 }
 
+.app-shell .financial-orders-topbar-filters {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(19, 53, 77, .66), rgba(20, 39, 69, .48));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 12px 32px rgba(2, 12, 28, .2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  animation: financialFiltersEnter .36s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.app-shell .financial-orders-topbar-filters.hidden { display: none !important; }
+
+.app-shell .financial-orders-topbar-filters label {
+  position: relative;
+  min-width: 150px;
+  display: grid;
+  grid-template-columns: auto minmax(82px, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .055);
+  transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
+}
+
+.app-shell .financial-orders-topbar-filters label:hover,
+.app-shell .financial-orders-topbar-filters label:focus-within {
+  transform: translateY(-1px);
+  background: rgba(114, 245, 209, .09);
+  box-shadow: 0 8px 22px rgba(16, 92, 82, .12);
+}
+
+.app-shell .financial-orders-topbar-filters label > span {
+  color: #72f5d1;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.app-shell .financial-orders-topbar-filters select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  appearance: none;
+  padding: 0 18px 0 0;
+  background: linear-gradient(45deg, transparent 50%, #72f5d1 50%) right 3px center / 6px 6px no-repeat;
+  color: #f3f8ff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+@keyframes financialFiltersEnter {
+  from { opacity: 0; transform: translateY(-7px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 900px) {
+  .app-shell .topbar { align-items: flex-start; flex-wrap: wrap; }
+  .app-shell .financial-orders-topbar-filters { width: 100%; margin-left: 0; }
+  .app-shell .financial-orders-topbar-filters label { flex: 1; min-width: 0; }
+}
+
 .app-shell #pageTitle.with-results-summary {
   display: flex;
   align-items: baseline;
