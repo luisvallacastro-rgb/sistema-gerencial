@@ -624,7 +624,10 @@ const strategicRisksStorageKey = "sistemaGerencial.riesgos.v2";
 const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v2";
 const financialOrdersStorageKey = "sistemaGerencial.pedidosFinancieros.v1";
 const financialOrdersSeedVersionKey = "sistemaGerencial.pedidosFinancieros.seedVersion";
-const financialOrdersSeedVersion = "base-pedidos-20260712-v1";
+const financialOrdersSeedManifestKey = "sistemaGerencial.pedidosFinancieros.seedManifest";
+const financialOrdersDeletedSeedKeysKey = "sistemaGerencial.pedidosFinancieros.deletedSeedKeys";
+const financialOrdersSeedVersion = "base-pedidos-20260712-v2";
+const financialOrdersSeedExpectedCount = 2590;
 const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
 const legacyManagementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
 const defaultUsers = [
@@ -2067,12 +2070,22 @@ function loadFinancialOrders() {
     const saved = JSON.parse(localStorage.getItem(financialOrdersStorageKey) || "[]");
     const localOrders = Array.isArray(saved) ? saved : [];
     const seedOrders = Array.isArray(window.financialOrdersSeed) ? window.financialOrdersSeed : [];
-    if (localStorage.getItem(financialOrdersSeedVersionKey) === financialOrdersSeedVersion) {
+    if (seedOrders.length !== financialOrdersSeedExpectedCount) {
+      state.financialOrders = localOrders;
+      return;
+    }
+    const deletedSeedKeys = new Set(JSON.parse(localStorage.getItem(financialOrdersDeletedSeedKeysKey) || "[]"));
+    const manifest = JSON.parse(localStorage.getItem(financialOrdersSeedManifestKey) || "null");
+    const localSeedKeys = new Set(localOrders.filter((order) => order.sourceKey).map((order) => order.sourceKey));
+    const completeLocalImport = localSeedKeys.size + deletedSeedKeys.size >= financialOrdersSeedExpectedCount;
+    if (manifest?.version === financialOrdersSeedVersion && manifest?.count === financialOrdersSeedExpectedCount && completeLocalImport) {
       state.financialOrders = localOrders;
       return;
     }
     const merged = new Map();
-    seedOrders.forEach((order) => merged.set(`source:${order.sourceKey || order.id}`, { ...order }));
+    seedOrders.forEach((order) => {
+      if (!deletedSeedKeys.has(order.sourceKey)) merged.set(`source:${order.sourceKey || order.id}`, { ...order });
+    });
     localOrders.forEach((order) => {
       const key = order.sourceKey ? `source:${order.sourceKey}` : `local:${order.id}`;
       merged.set(key, order);
@@ -2080,8 +2093,10 @@ function loadFinancialOrders() {
     state.financialOrders = [...merged.values()];
     saveFinancialOrders();
     localStorage.setItem(financialOrdersSeedVersionKey, financialOrdersSeedVersion);
+    localStorage.setItem(financialOrdersSeedManifestKey, JSON.stringify({ version: financialOrdersSeedVersion, count: financialOrdersSeedExpectedCount }));
   } catch {
-    state.financialOrders = Array.isArray(window.financialOrdersSeed) ? window.financialOrdersSeed.map((order) => ({ ...order })) : [];
+    const seedOrders = Array.isArray(window.financialOrdersSeed) ? window.financialOrdersSeed : [];
+    state.financialOrders = seedOrders.length === financialOrdersSeedExpectedCount ? seedOrders.map((order) => ({ ...order })) : [];
   }
 }
 
@@ -2162,6 +2177,12 @@ function wireFinancialOrders() {
   }));
   opportunityTable.querySelectorAll("[data-financial-order-delete]").forEach((button) => button.addEventListener("click", () => {
     if (!confirm("Eliminar este pedido?")) return;
+    const deletedOrder = state.financialOrders.find((item) => item.id === button.dataset.financialOrderDelete);
+    if (deletedOrder?.sourceKey) {
+      const deletedSeedKeys = new Set(JSON.parse(localStorage.getItem(financialOrdersDeletedSeedKeysKey) || "[]"));
+      deletedSeedKeys.add(deletedOrder.sourceKey);
+      localStorage.setItem(financialOrdersDeletedSeedKeysKey, JSON.stringify([...deletedSeedKeys]));
+    }
     state.financialOrders = state.financialOrders.filter((item) => item.id !== button.dataset.financialOrderDelete);
     saveFinancialOrders();
     renderCommercialSubmenu(areas.financiera);
