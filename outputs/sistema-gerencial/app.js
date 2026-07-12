@@ -2139,6 +2139,7 @@ function filteredFinancialOrders() {
 
 function renderFinancialOrderTopbarFilters(isVisible) {
   financialOrdersTopbarFilters?.classList.toggle("hidden", !isVisible);
+  financialOrdersTopbarFilters?.closest(".topbar")?.classList.toggle("financial-orders-filter-mode", isVisible);
   if (!isVisible || !financialOrderYearFilter || !financialOrderMonthFilter) return;
   const years = [...new Set(state.financialOrders.map((order) => String(order.year)).filter(Boolean))].sort((a, b) => Number(b) - Number(a));
   financialOrderYearFilter.innerHTML = `<option value="all">Todos</option>${years.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join("")}`;

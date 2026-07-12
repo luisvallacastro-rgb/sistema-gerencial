@@ -8557,6 +8557,182 @@ body.operations-fullscreen-open {
   }
 }
 
+/* Unified hierarchy: centered period filters and one navigation rhythm. */
+.app-shell .topbar.financial-orders-filter-mode {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+  align-items: center;
+  min-height: 82px;
+}
+
+.app-shell .topbar.financial-orders-filter-mode > div:first-child { grid-column: 1; }
+.app-shell .topbar.financial-orders-filter-mode .financial-orders-topbar-filters {
+  grid-column: 2;
+  width: max-content;
+  margin: 0;
+  justify-self: center;
+}
+.app-shell .topbar.financial-orders-filter-mode .topbar-actions { grid-column: 3; justify-self: end; }
+
+.app-shell .financial-orders-topbar-filters {
+  gap: 10px;
+  padding: 5px;
+  background: rgba(8, 25, 48, .46);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 14px 34px rgba(1,10,24,.18);
+}
+
+.app-shell .financial-orders-topbar-filters label {
+  width: 148px;
+  min-width: 148px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 11px;
+  background: linear-gradient(135deg, rgba(78, 104, 150, .2), rgba(28, 52, 82, .22));
+}
+
+.app-shell .financial-orders-topbar-filters label > span {
+  text-align: center;
+  color: #72f5d1;
+}
+
+.app-shell .financial-orders-topbar-filters select {
+  text-align: center;
+  text-align-last: center;
+  padding-left: 8px;
+  padding-right: 18px;
+  color: #f8fbff;
+  background-color: rgba(114, 137, 177, .18);
+  border-radius: 10px;
+  min-height: 32px;
+}
+
+.app-shell .nav-list {
+  --nav-level-gap: 18px;
+  gap: 3px !important;
+  padding: 5px 4px 10px !important;
+}
+
+.app-shell .nav-item,
+.app-shell .submenu-item,
+.app-shell .submenu-group-toggle,
+.app-shell .submenu-group-child {
+  width: 100% !important;
+  margin-left: 0 !important;
+  text-align: left !important;
+}
+
+.app-shell .nav-item {
+  min-height: 44px !important;
+  padding: 0 12px !important;
+  border-radius: 13px !important;
+  font-size: 14px !important;
+  font-weight: 760 !important;
+}
+
+.app-shell .nav-item-label,
+.app-shell .submenu-group-label {
+  width: 100%;
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px !important;
+}
+
+.app-shell .nav-caret,
+.app-shell .submenu-group-caret {
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 22px !important;
+  font-size: 16px !important;
+  font-weight: 900;
+}
+
+.app-shell .submenu-list,
+.app-shell .submenu-list.open {
+  margin: 0 !important;
+  padding: 3px 0 8px var(--nav-level-gap) !important;
+  gap: 3px !important;
+}
+
+.app-shell .submenu-item {
+  min-height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  color: rgba(208, 221, 239, .7) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+.app-shell .submenu-group-toggle {
+  min-height: 36px !important;
+  color: rgba(224, 235, 248, .82) !important;
+  background: rgba(255,255,255,.018) !important;
+}
+
+.app-shell .submenu-group-toggle:hover,
+.app-shell .submenu-group-toggle.active-parent {
+  background: linear-gradient(90deg, rgba(114,245,209,.09), rgba(89,153,255,.055)) !important;
+  color: #9fffe6 !important;
+}
+
+.app-shell .submenu-group-children {
+  position: relative;
+  margin-left: 0 !important;
+  padding-left: var(--nav-level-gap);
+  gap: 3px !important;
+}
+
+.app-shell .submenu-group-children::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: linear-gradient(transparent, rgba(114,245,209,.28), transparent);
+}
+
+.app-shell .submenu-group-child {
+  min-height: 34px !important;
+  padding: 0 10px !important;
+}
+
+.app-shell .submenu-group-child.active {
+  background: linear-gradient(90deg, rgba(84,155,255,.18), rgba(105,221,213,.07)) !important;
+  color: #b9e5ff !important;
+  box-shadow: inset 3px 0 0 #72f5d1 !important;
+}
+
+.app-shell .submenu-list > .submenu-item:not(.submenu-group-toggle)::before,
+.app-shell .submenu-group-child::before {
+  content: "" !important;
+  display: inline-block !important;
+  width: 5px;
+  height: 5px;
+  margin: 0 10px 1px 2px;
+  border-radius: 50%;
+  background: rgba(133, 165, 205, .48);
+}
+
+.app-shell .submenu-list > .submenu-item.active:not(.submenu-group-toggle)::before,
+.app-shell .submenu-group-child.active::before {
+  background: #72f5d1;
+  box-shadow: 0 0 10px rgba(114,245,209,.65);
+}
+
+@media (max-width: 900px) {
+  .app-shell .topbar.financial-orders-filter-mode { grid-template-columns: 1fr; }
+  .app-shell .topbar.financial-orders-filter-mode > div:first-child,
+  .app-shell .topbar.financial-orders-filter-mode .financial-orders-topbar-filters,
+  .app-shell .topbar.financial-orders-filter-mode .topbar-actions { grid-column: 1; }
+  .app-shell .topbar.financial-orders-filter-mode .financial-orders-topbar-filters {
+    width: 100%;
+    justify-self: stretch;
+  }
+  .app-shell .financial-orders-topbar-filters label { width: auto; min-width: 0; }
+}
+
 /* Final layout guardrails: keep the sidebar and opportunity table inside their lanes. */
 .app-shell {
   grid-template-columns: 336px minmax(0, 1fr) !important;
@@ -9183,6 +9359,62 @@ body.operations-fullscreen-open {
   width: 5px;
   background: linear-gradient(180deg, var(--metric-accent, #7dd3fc), var(--metric-accent-soft, #a7f3d0));
   opacity: .92;
+}
+
+/* Final cascade guard for the sidebar hierarchy. */
+.app-shell .sidebar .nav-list {
+  gap: 3px !important;
+  padding: 5px 4px 10px !important;
+}
+
+.app-shell .sidebar .nav-item {
+  width: 100% !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 0 12px !important;
+  border-radius: 13px !important;
+}
+
+.app-shell .sidebar .nav-item-label,
+.app-shell .sidebar .submenu-group-label {
+  width: 100% !important;
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.app-shell .sidebar .nav-caret,
+.app-shell .sidebar .submenu-group-caret {
+  width: 18px !important;
+  min-width: 18px !important;
+  height: 22px !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.app-shell .sidebar .submenu-list,
+.app-shell .sidebar .submenu-list.open {
+  margin: 0 !important;
+  padding: 3px 0 8px 18px !important;
+  gap: 3px !important;
+}
+
+.app-shell .sidebar .submenu-item,
+.app-shell .sidebar .submenu-group-toggle,
+.app-shell .sidebar .submenu-group-child {
+  width: 100% !important;
+  min-height: 34px !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  text-align: left !important;
+}
+
+.app-shell .sidebar .submenu-group-children {
+  margin: 0 !important;
+  padding-left: 18px !important;
+  gap: 3px !important;
 }
 
 .app-shell .crm-metrics .crm-metric::after {
