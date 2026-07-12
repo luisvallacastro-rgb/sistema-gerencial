@@ -623,6 +623,8 @@ const minutesStorageKey = "sistemaGerencial.actas.v1";
 const strategicRisksStorageKey = "sistemaGerencial.riesgos.v2";
 const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v2";
 const financialOrdersStorageKey = "sistemaGerencial.pedidosFinancieros.v1";
+const financialOrdersSeedVersionKey = "sistemaGerencial.pedidosFinancieros.seedVersion";
+const financialOrdersSeedVersion = "base-pedidos-20260712-v1";
 const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
 const legacyManagementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
 const defaultUsers = [
@@ -2063,9 +2065,23 @@ const financialOrderFields = [
 function loadFinancialOrders() {
   try {
     const saved = JSON.parse(localStorage.getItem(financialOrdersStorageKey) || "[]");
-    state.financialOrders = Array.isArray(saved) ? saved : [];
+    const localOrders = Array.isArray(saved) ? saved : [];
+    const seedOrders = Array.isArray(window.financialOrdersSeed) ? window.financialOrdersSeed : [];
+    if (localStorage.getItem(financialOrdersSeedVersionKey) === financialOrdersSeedVersion) {
+      state.financialOrders = localOrders;
+      return;
+    }
+    const merged = new Map();
+    seedOrders.forEach((order) => merged.set(`source:${order.sourceKey || order.id}`, { ...order }));
+    localOrders.forEach((order) => {
+      const key = order.sourceKey ? `source:${order.sourceKey}` : `local:${order.id}`;
+      merged.set(key, order);
+    });
+    state.financialOrders = [...merged.values()];
+    saveFinancialOrders();
+    localStorage.setItem(financialOrdersSeedVersionKey, financialOrdersSeedVersion);
   } catch {
-    state.financialOrders = [];
+    state.financialOrders = Array.isArray(window.financialOrdersSeed) ? window.financialOrdersSeed.map((order) => ({ ...order })) : [];
   }
 }
 
