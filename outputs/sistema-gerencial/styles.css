@@ -4816,6 +4816,123 @@ button:disabled {
   background: linear-gradient(100deg, rgba(82, 125, 177, .12), rgba(23, 56, 83, .07)), rgba(255,255,255,.035);
 }
 
+/* Financiera / Resultados / Pedidos. */
+.app-shell .financial-orders-shell {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+}
+
+.app-shell .financial-orders-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-shell .financial-orders-toolbar label {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.05);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.app-shell .financial-orders-toolbar label > span { color: #72f5d1; font-size: 20px; }
+.app-shell .financial-orders-toolbar input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #f4f8ff; font: inherit; font-size: 13px; font-weight: 750; }
+.app-shell .financial-orders-toolbar input::placeholder { color: rgba(207,222,239,.45); }
+.app-shell .financial-orders-toolbar > strong { color: #72f5d1; font-size: 19px; text-shadow: 0 0 18px rgba(114,245,209,.3); white-space: nowrap; }
+.app-shell .financial-orders-toolbar > button { min-height: 42px; border: 0; border-radius: 12px; padding: 0 16px; background: linear-gradient(135deg,#209a72,#1a755f); color: #fff; font-weight: 900; cursor: pointer; }
+
+.app-shell .financial-orders-table-wrap {
+  min-height: 0;
+  overflow: auto;
+  border-radius: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(114,245,209,.4) rgba(255,255,255,.03);
+}
+
+.app-shell .financial-orders-table { min-width: 2380px; display: grid; gap: 7px; }
+.app-shell .financial-order-row {
+  display: grid;
+  grid-template-columns: 100px 90px 76px 130px 170px 120px 120px 110px 150px 190px 150px 150px 150px 130px 150px 150px;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(100deg,rgba(92,121,168,.14),rgba(23,48,78,.07)),rgba(255,255,255,.03);
+  color: rgba(233,241,250,.82);
+  animation: opportunityEnter .42s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.app-shell .financial-order-row.header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  min-height: 46px;
+  background: rgba(14,32,58,.96);
+  color: rgba(224,235,247,.68);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  backdrop-filter: blur(16px);
+}
+
+.app-shell .financial-order-row > span,
+.app-shell .financial-order-row > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .financial-order-sale { color: #72f5d1; }
+.app-shell .financial-order-actions { display: flex; gap: 6px; overflow: visible !important; }
+.app-shell .financial-order-actions button { min-height: 32px; border: 0; border-radius: 9px; padding: 0 10px; background: rgba(76,145,229,.14); color: #b9daff; font-size: 10px; font-weight: 900; cursor: pointer; }
+.app-shell .financial-order-actions button.danger { background: rgba(255,94,119,.12); color: #ff9daf; }
+
+#financialOrderDialog {
+  width: min(1060px,calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  color: #f4f8ff;
+  overflow: visible;
+}
+#financialOrderDialog::backdrop { background: rgba(3,10,22,.72); backdrop-filter: blur(15px) saturate(1.12); }
+#financialOrderDialog .financial-order-form {
+  display: grid;
+  gap: 14px;
+  max-height: calc(100vh - 28px);
+  padding: 20px;
+  border: 0;
+  border-radius: 24px;
+  background: radial-gradient(circle at 12% 0%,rgba(88,145,225,.18),transparent 30%),radial-gradient(circle at 94% 12%,rgba(63,211,175,.1),transparent 30%),linear-gradient(145deg,rgba(33,50,84,.92),rgba(8,22,43,.96));
+  box-shadow: 0 34px 100px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.08);
+  animation: opportunityFormEnter .42s cubic-bezier(.2,.8,.2,1) both;
+}
+#financialOrderDialog .financial-order-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px 12px; overflow-y: auto; }
+#financialOrderDialog .financial-order-grid label { display: grid; gap: 4px; color: rgba(221,232,245,.72); font-size: 10px; font-weight: 850; }
+#financialOrderDialog .financial-order-grid .span-2 { grid-column: span 2; }
+#financialOrderDialog input { min-height: 42px; border: 0; border-radius: 12px; padding: 9px 12px; background: rgba(255,255,255,.06); color: #f3f8ff; box-shadow: inset 0 1px 0 rgba(255,255,255,.055); font: inherit; font-size: 12px; font-weight: 750; }
+#financialOrderDialog input:focus { outline: 0; box-shadow: inset 3px 0 0 #72f5d1,0 10px 24px rgba(2,9,24,.12); }
+#financialOrderDialog menu { display: flex; justify-content: flex-end; gap: 8px; margin: 0; padding: 8px 0 0; }
+#financialOrderDialog menu button { min-height: 40px; border: 0; border-radius: 12px; padding: 0 17px; }
+#financialOrderDialog menu .primary-btn { background: linear-gradient(135deg,#209a72,#1a755f); color: #fff; }
+
+@media (max-width: 800px) {
+  .app-shell .financial-orders-toolbar { grid-template-columns: 1fr auto; }
+  .app-shell .financial-orders-toolbar label { grid-column: 1 / -1; }
+  #financialOrderDialog .financial-order-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 520px) {
+  #financialOrderDialog .financial-order-grid { grid-template-columns: 1fr; }
+  #financialOrderDialog .financial-order-grid .span-2 { grid-column: span 1; }
+}
+
 @media (max-width: 760px) {
   .app-shell .commercial-panel.opportunity-mode > .panel-head .panel-actions {
     grid-template-columns: 1fr auto;

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sistema Gerencial</title>
-    <link rel="stylesheet" href="styles.css?v=20260710-focused-sample-custody">
+    <link rel="stylesheet" href="styles.css?v=20260712-financial-orders">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -387,6 +387,37 @@
       </form>
     </dialog>
 
+    <dialog id="financialOrderDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-card financial-order-form" id="financialOrderForm">
+        <div class="panel-head">
+          <div><p class="eyebrow">Financiera</p><h3 id="financialOrderDialogTitle">Nuevo pedido</h3></div>
+          <button class="icon-btn" id="closeFinancialOrderDialog" type="button" aria-label="Cerrar">x</button>
+        </div>
+        <input id="financialOrderId" type="hidden">
+        <div class="financial-order-grid">
+          <label>Número<input id="financialOrderNumber" required></label>
+          <label>Mes<input id="financialOrderMonth" required></label>
+          <label>Año<input id="financialOrderYear" type="number" min="2000" max="2100" required></label>
+          <label>Fecha de ingreso<input id="financialOrderDate" type="date" required></label>
+          <label>Vendedor<input id="financialOrderSeller" required></label>
+          <label>Venta<input id="financialOrderSale" type="number" min="0" step="0.01" required></label>
+          <label>N° de orden<input id="financialOrderOrderNumber"></label>
+          <label>Factura<input id="financialOrderInvoice"></label>
+          <label>Condiciones<input id="financialOrderConditions"></label>
+          <label class="span-2">Cliente<input id="financialOrderClient" required></label>
+          <label>Tipo de cliente<input id="financialOrderClientType"></label>
+          <label>Estrategia<input id="financialOrderStrategy"></label>
+          <label>Gestión<input id="financialOrderManagement"></label>
+          <label>País<input id="financialOrderCountry"></label>
+          <label>Departamento<input id="financialOrderDepartment"></label>
+        </div>
+        <menu>
+          <button class="ghost-btn" id="cancelFinancialOrder" type="button">Cancelar</button>
+          <button class="primary-btn" type="submit">Guardar pedido</button>
+        </menu>
+      </form>
+    </dialog>
+
     <dialog id="goalsMatrixDialog" class="wide-dialog">
       <section class="dialog-card matrix-card">
         <div class="panel-head">
@@ -559,6 +590,6 @@
     </dialog>
 
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
-    <script src="app.js?v=20260710-focused-sample-custody"></script>
+    <script src="app.js?v=20260712-financial-orders"></script>
   </body>
 </html>

@@ -40,6 +40,7 @@ const areas = {
     status: "Controlado",
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
+      { key: "resultados-pedidos", label: "Pedidos", status: "Registro financiero de pedidos", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
       { key: "presentaciones", label: "Presentaciones", status: "Junio 2026", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
@@ -270,6 +271,8 @@ const state = {
   operationsPresentationYear: String(new Date().getFullYear()),
   operationsPresentationSection: 0,
   financialPresentationSection: 0,
+  financialOrders: [],
+  financialOrderQuery: "",
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -283,6 +286,7 @@ const adminEmail = "luisvallacastro@gmail.com";
 const adminAreaKey = "administracion";
 const sectionOptions = [
   { key: "resultados", label: "Resultados" },
+  { key: "resultados-pedidos", label: "Resultados · Pedidos" },
   { key: "resultados-oportunidades", label: "Resultados · Oportunidades" },
   { key: "resultados-dashboard", label: "Resultados · Dashboard" },
   { key: "resultados-historial", label: "Resultados · Historial" },
@@ -618,6 +622,7 @@ const navigationSessionKey = "sistemaGerencial.navigation.v1";
 const minutesStorageKey = "sistemaGerencial.actas.v1";
 const strategicRisksStorageKey = "sistemaGerencial.riesgos.v2";
 const managementRequestsStorageKey = "sistemaGerencial.solicitudes.v2";
+const financialOrdersStorageKey = "sistemaGerencial.pedidosFinancieros.v1";
 const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
 const legacyManagementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
 const defaultUsers = [
@@ -708,6 +713,12 @@ const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus
 const opportunitySearchField = document.querySelector("#opportunitySearchField");
 const opportunitySearchInput = document.querySelector("#opportunitySearchInput");
 const opportunityTotalAmount = document.querySelector("#opportunityTotalAmount");
+const financialOrderDialog = document.querySelector("#financialOrderDialog");
+const financialOrderForm = document.querySelector("#financialOrderForm");
+const financialOrderDialogTitle = document.querySelector("#financialOrderDialogTitle");
+const financialOrderId = document.querySelector("#financialOrderId");
+const closeFinancialOrderDialog = document.querySelector("#closeFinancialOrderDialog");
+const cancelFinancialOrder = document.querySelector("#cancelFinancialOrder");
 const opportunityDashboard = document.querySelector("#opportunityDashboard");
 const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
 const newRiskBtn = document.querySelector("#newRiskBtn");
@@ -2039,6 +2050,108 @@ function renderRequests(area) {
   `).join("");
 }
 
+const financialOrderFields = [
+  ["number", "financialOrderNumber"], ["month", "financialOrderMonth"], ["year", "financialOrderYear"],
+  ["date", "financialOrderDate"], ["seller", "financialOrderSeller"], ["sale", "financialOrderSale"],
+  ["orderNumber", "financialOrderOrderNumber"], ["invoice", "financialOrderInvoice"],
+  ["conditions", "financialOrderConditions"], ["client", "financialOrderClient"],
+  ["clientType", "financialOrderClientType"], ["strategy", "financialOrderStrategy"],
+  ["management", "financialOrderManagement"], ["country", "financialOrderCountry"],
+  ["department", "financialOrderDepartment"]
+];
+
+function loadFinancialOrders() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(financialOrdersStorageKey) || "[]");
+    state.financialOrders = Array.isArray(saved) ? saved : [];
+  } catch {
+    state.financialOrders = [];
+  }
+}
+
+function saveFinancialOrders() {
+  localStorage.setItem(financialOrdersStorageKey, JSON.stringify(state.financialOrders));
+}
+
+function resetFinancialOrderForm(order = null) {
+  financialOrderForm.reset();
+  financialOrderId.value = order?.id || "";
+  financialOrderDialogTitle.textContent = order ? "Editar pedido" : "Nuevo pedido";
+  financialOrderFields.forEach(([key, id]) => {
+    const input = document.querySelector(`#${id}`);
+    if (input) input.value = order?.[key] ?? "";
+  });
+  if (!order) {
+    document.querySelector("#financialOrderDate").value = todayISO();
+    document.querySelector("#financialOrderYear").value = new Date().getFullYear();
+    document.querySelector("#financialOrderMonth").value = monthLabel(new Date().getMonth() + 1);
+  }
+}
+
+function renderFinancialOrders() {
+  const query = state.financialOrderQuery;
+  const rows = query ? state.financialOrders.filter((order) => Object.values(order).some((value) => searchTokenMatches(value, query))) : state.financialOrders;
+  const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
+  return `
+    <section class="financial-orders-shell">
+      <div class="financial-orders-toolbar">
+        <label><span>⌕</span><input data-financial-order-search type="search" value="${escapeHtml(state.financialOrderQuery)}" placeholder="Buscar pedido, cliente, vendedor..."></label>
+        <strong>${formatMoney(total)}</strong>
+        <button type="button" data-financial-order-new>+ Nuevo pedido</button>
+      </div>
+      <div class="financial-orders-table-wrap">
+      <div class="financial-orders-table">
+        <div class="financial-order-row header"><span>Número</span><span>Mes</span><span>Año</span><span>Fecha de ingreso</span><span>Vendedor</span><span>Venta</span><span>N° de orden</span><span>Factura</span><span>Condiciones</span><span>Cliente</span><span>Tipo de cliente</span><span>Estrategia</span><span>Gestión</span><span>País</span><span>Departamento</span><span>Acciones</span></div>
+        ${rows.map((order) => `
+          <article class="financial-order-row">
+            <strong>${escapeHtml(order.number)}</strong>
+            <span>${escapeHtml(order.month)}</span>
+            <span>${escapeHtml(order.year)}</span>
+            <span>${formatDate(order.date)}</span>
+            <span>${escapeHtml(order.seller)}</span>
+            <strong class="financial-order-sale">${formatMoney(order.sale)}</strong>
+            <span>${escapeHtml(order.orderNumber || "—")}</span>
+            <span>${escapeHtml(order.invoice || "—")}</span>
+            <span>${escapeHtml(order.conditions || "—")}</span>
+            <span>${escapeHtml(order.client)}</span>
+            <span>${escapeHtml(order.clientType || "—")}</span>
+            <span>${escapeHtml(order.strategy || "—")}</span>
+            <span>${escapeHtml(order.management || "—")}</span>
+            <span>${escapeHtml(order.country || "—")}</span>
+            <span>${escapeHtml(order.department || "—")}</span>
+            <span class="financial-order-actions"><button type="button" data-financial-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-financial-order-delete="${order.id}">Eliminar</button></span>
+          </article>
+        `).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
+      </div>
+      </div>
+    </section>`;
+}
+
+function wireFinancialOrders() {
+  opportunityTable.querySelector("[data-financial-order-new]")?.addEventListener("click", () => {
+    resetFinancialOrderForm();
+    financialOrderDialog.showModal();
+  });
+  opportunityTable.querySelector("[data-financial-order-search]")?.addEventListener("input", (event) => {
+    state.financialOrderQuery = event.target.value;
+    renderCommercialSubmenu(areas.financiera);
+    const input = opportunityTable.querySelector("[data-financial-order-search]");
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  });
+  opportunityTable.querySelectorAll("[data-financial-order-edit]").forEach((button) => button.addEventListener("click", () => {
+    const order = state.financialOrders.find((item) => item.id === button.dataset.financialOrderEdit);
+    resetFinancialOrderForm(order);
+    financialOrderDialog.showModal();
+  }));
+  opportunityTable.querySelectorAll("[data-financial-order-delete]").forEach((button) => button.addEventListener("click", () => {
+    if (!confirm("Eliminar este pedido?")) return;
+    state.financialOrders = state.financialOrders.filter((item) => item.id !== button.dataset.financialOrderDelete);
+    saveFinancialOrders();
+    renderCommercialSubmenu(areas.financiera);
+  }));
+}
+
 function renderCycleDashboard(items) {
   const monthNumber = activeMonthNumber();
   const annualGoal = cumulativeGlobalGoal(12);
@@ -3339,6 +3452,19 @@ function renderCommercialSubmenu(area) {
     commercialSubmenuStatus.textContent = submenu.status;
     opportunityTable.innerHTML = renderFinancialPresentations();
     wireFinancialPresentations(opportunityTable);
+    return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "resultados-pedidos") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = `${state.financialOrders.length} pedidos`;
+    opportunityTable.innerHTML = renderFinancialOrders();
+    wireFinancialOrders();
     return;
   }
 
@@ -5920,8 +6046,26 @@ closeKpiDetailDialog.addEventListener("click", () => {
   kpiDetailDialog.close();
 });
 
+closeFinancialOrderDialog.addEventListener("click", () => financialOrderDialog.close());
+cancelFinancialOrder.addEventListener("click", () => financialOrderDialog.close());
+financialOrderForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const payload = {};
+  financialOrderFields.forEach(([key, id]) => {
+    payload[key] = document.querySelector(`#${id}`).value.trim();
+  });
+  payload.sale = Number(payload.sale || 0);
+  const existing = state.financialOrders.find((order) => order.id === financialOrderId.value);
+  if (existing) Object.assign(existing, payload, { updatedAt: new Date().toISOString() });
+  else state.financialOrders.unshift({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...payload });
+  saveFinancialOrders();
+  financialOrderDialog.close();
+  renderCommercialSubmenu(areas.financiera);
+});
+
 fillOpportunityOptions();
 loadUsers();
+loadFinancialOrders();
 loadOpportunities();
 loadStrategicRisks();
 loadManagementRequests();
