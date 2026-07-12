@@ -273,6 +273,7 @@ const state = {
   financialPresentationSection: 0,
   financialOrders: [],
   financialOrderQuery: "",
+  financialOrdersView: "list",
   financialOrderYearFilter: "all",
   financialOrderMonthFilter: "all",
   crmData: null,
@@ -721,6 +722,7 @@ const requestTable = document.querySelector("#requestTable");
 const commercialPanel = document.querySelector("#commercialPanel");
 const commercialSubmenuTitle = document.querySelector("#commercialSubmenuTitle");
 const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus");
+const financialOrdersViewTabs = document.querySelector("#financialOrdersViewTabs");
 const opportunitySearchField = document.querySelector("#opportunitySearchField");
 const opportunitySearchInput = document.querySelector("#opportunitySearchInput");
 const opportunityTotalAmount = document.querySelector("#opportunityTotalAmount");
@@ -2115,26 +2117,34 @@ function loadFinancialOrderFilters() {
     const saved = JSON.parse(localStorage.getItem(financialOrdersFiltersStorageKey) || "{}");
     state.financialOrderYearFilter = saved.year ? String(saved.year) : "all";
     state.financialOrderMonthFilter = saved.month ? String(saved.month) : "all";
+    state.financialOrdersView = ["list", "seller-kpi"].includes(saved.view) ? saved.view : "list";
   } catch {
     state.financialOrderYearFilter = "all";
     state.financialOrderMonthFilter = "all";
+    state.financialOrdersView = "list";
   }
 }
 
 function saveFinancialOrderFilters() {
   localStorage.setItem(financialOrdersFiltersStorageKey, JSON.stringify({
     year: state.financialOrderYearFilter,
-    month: state.financialOrderMonthFilter
+    month: state.financialOrderMonthFilter,
+    view: state.financialOrdersView
   }));
+}
+
+function financialOrdersForSelectedPeriod() {
+  return state.financialOrders.filter((order) => {
+    if (state.financialOrderYearFilter !== "all" && String(order.year) !== state.financialOrderYearFilter) return false;
+    if (state.financialOrderMonthFilter !== "all" && String(order.month) !== state.financialOrderMonthFilter) return false;
+    return true;
+  });
 }
 
 function filteredFinancialOrders() {
   const query = state.financialOrderQuery;
-  return state.financialOrders.filter((order) => {
-    if (state.financialOrderYearFilter !== "all" && String(order.year) !== state.financialOrderYearFilter) return false;
-    if (state.financialOrderMonthFilter !== "all" && String(order.month) !== state.financialOrderMonthFilter) return false;
-    return !query || Object.values(order).some((value) => searchTokenMatches(value, query));
-  });
+  const rows = financialOrdersForSelectedPeriod();
+  return query ? rows.filter((order) => Object.values(order).some((value) => searchTokenMatches(value, query))) : rows;
 }
 
 function renderFinancialOrderTopbarFilters(isVisible) {
@@ -2164,7 +2174,7 @@ function resetFinancialOrderForm(order = null) {
   }
 }
 
-function renderFinancialOrders() {
+function renderFinancialOrderList() {
   const rows = filteredFinancialOrders();
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   return `
@@ -2190,6 +2200,56 @@ function renderFinancialOrders() {
       </div>
       </div>
     </section>`;
+}
+
+function financialOrdersBySeller() {
+  const periodRows = financialOrdersForSelectedPeriod();
+  const sellers = new Map();
+  periodRows.forEach((order) => {
+    const seller = String(order.seller || "Sin vendedor").trim() || "Sin vendedor";
+    const key = seller.toLocaleUpperCase("es");
+    const current = sellers.get(key) || { seller, orders: 0, sales: 0 };
+    current.orders += 1;
+    current.sales += Number(order.sale || 0);
+    sellers.set(key, current);
+  });
+  return [...sellers.values()].sort((a, b) => b.orders - a.orders || b.sales - a.sales || a.seller.localeCompare(b.seller, "es"));
+}
+
+function renderFinancialOrdersSellerKpi() {
+  const periodRows = financialOrdersForSelectedPeriod();
+  const sellerRows = financialOrdersBySeller();
+  const totalOrders = periodRows.length;
+  const totalSales = periodRows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
+  const maxOrders = Math.max(1, ...sellerRows.map((row) => row.orders));
+  return `
+    <section class="financial-seller-kpi" aria-label="Pedidos por vendedor">
+      <div class="financial-seller-kpi-summary">
+        <article><span>Pedidos filtrados</span><strong>${totalOrders.toLocaleString("es-SV")}</strong></article>
+        <article><span>Venta filtrada</span><strong>${formatMoney(totalSales)}</strong></article>
+        <article><span>Vendedores</span><strong>${sellerRows.length.toLocaleString("es-SV")}</strong></article>
+      </div>
+      <div class="financial-seller-chart-head">
+        <div><span>KPI comercial</span><h4>Pedidos por vendedor</h4></div>
+        <small>Ordenado por cantidad de pedidos</small>
+      </div>
+      <div class="financial-seller-chart" role="list">
+        ${sellerRows.map((row, index) => {
+          const percentage = totalOrders ? (row.orders / totalOrders) * 100 : 0;
+          const width = (row.orders / maxOrders) * 100;
+          return `
+            <article class="financial-seller-bar-row" role="listitem" style="--seller-bar-width:${width.toFixed(2)}%;--seller-accent-hue:${164 + (index % 6) * 18}" aria-label="${escapeHtml(row.seller)}: ${row.orders} pedidos, ${percentage.toFixed(1)} por ciento, ${formatMoney(row.sales)}">
+              <div class="financial-seller-bar-label"><strong>${escapeHtml(row.seller)}</strong><span>${row.orders.toLocaleString("es-SV")} pedidos</span></div>
+              <div class="financial-seller-bar-track" aria-hidden="true"><i></i></div>
+              <div class="financial-seller-bar-values"><strong>${percentage.toFixed(1)}%</strong><span>${formatMoney(row.sales)}</span></div>
+            </article>`;
+        }).join("") || `<div class="empty-state">No hay pedidos para el período seleccionado.</div>`}
+      </div>
+    </section>`;
+}
+
+function renderFinancialOrders() {
+  return state.financialOrdersView === "seller-kpi" ? renderFinancialOrdersSellerKpi() : renderFinancialOrderList();
 }
 
 function wireFinancialOrders() {
@@ -3495,6 +3555,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("opportunity-mode");
   opportunityTotalAmount.classList.add("hidden");
   commercialSubmenuTitle.classList.remove("hidden");
+  financialOrdersViewTabs?.classList.add("hidden");
   opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
@@ -3533,7 +3594,14 @@ function renderCommercialSubmenu(area) {
     goalsMatrixBtn.classList.add("hidden");
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
-    commercialSubmenuStatus.textContent = `${filteredFinancialOrders().length} de ${state.financialOrders.length} pedidos`;
+    financialOrdersViewTabs?.classList.remove("hidden");
+    financialOrdersViewTabs?.querySelectorAll("[data-financial-orders-view]").forEach((button) => {
+      const isActive = button.dataset.financialOrdersView === state.financialOrdersView;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-selected", String(isActive));
+    });
+    const visibleOrders = state.financialOrdersView === "seller-kpi" ? financialOrdersForSelectedPeriod().length : filteredFinancialOrders().length;
+    commercialSubmenuStatus.textContent = `${visibleOrders} de ${state.financialOrders.length} pedidos`;
     opportunityTable.innerHTML = renderFinancialOrders();
     wireFinancialOrders();
     return;
@@ -6121,6 +6189,13 @@ closeKpiDetailDialog.addEventListener("click", () => {
 
 closeFinancialOrderDialog.addEventListener("click", () => financialOrderDialog.close());
 cancelFinancialOrder.addEventListener("click", () => financialOrderDialog.close());
+financialOrdersViewTabs?.querySelectorAll("[data-financial-orders-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.financialOrdersView = button.dataset.financialOrdersView;
+    saveFinancialOrderFilters();
+    renderCommercialSubmenu(areas.financiera);
+  });
+});
 financialOrderYearFilter?.addEventListener("change", () => {
   state.financialOrderYearFilter = financialOrderYearFilter.value;
   saveFinancialOrderFilters();
