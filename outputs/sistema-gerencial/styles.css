@@ -4787,6 +4787,42 @@ button:disabled {
   min-width: 0;
 }
 
+.app-shell .crm-tracking-card > div {
+  min-height: 112px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  text-align: center;
+}
+
+.app-shell .crm-tracking-card > div > span,
+.app-shell .crm-tracking-card > div > strong,
+.app-shell .crm-tracking-card > div > p {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+}
+
+.app-shell .crm-tracking-card footer {
+  min-height: 112px;
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
+  text-align: center;
+}
+
+.app-shell .crm-tracking-card footer > strong,
+.app-shell .crm-tracking-card footer > span {
+  width: 100%;
+  text-align: center;
+}
+
+.app-shell .crm-tracking-card footer .crm-link-pill {
+  justify-self: center;
+}
+
 .app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs > .panel-head {
   min-height: 132px !important;
   height: auto !important;
