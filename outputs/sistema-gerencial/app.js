@@ -3613,16 +3613,17 @@ function renderCrmTracking() {
 function renderCrmAgenda() {
   const data = crmData();
   const sellers = crmSortedSellers();
+  const linkedSellerId = crmLinkedSellerId();
   const agenda = data.agenda.slice(0, 80);
   const slots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
   const date = state.crmAgendaDate || new Date().toISOString().slice(0, 10);
-  const selectedSellerId = state.crmSellerId || "all";
+  const selectedSellerId = linkedSellerId || state.crmSellerId || "all";
   const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
   const dayItems = agenda.filter((item) => item.date === date);
   const visibleDayItems = dayItems.filter((item) => selectedSellerId === "all" || item.ownerId === selectedSellerId);
   const availableCount = Math.max(0, sellers.length * slots.length - dayItems.length);
   const sellerRail = [
-    `
+    linkedSellerId ? "" : `
       <button class="crm-seller-chip ${selectedSellerId === "all" ? "is-active" : ""}" type="button" data-crm-seller-only="all">
         <strong>Todos los vendedores</strong>
         <span>${dayItems.length} programadas · ${availableCount} libres</span>
@@ -3671,9 +3672,9 @@ function renderCrmAgenda() {
       <section class="crm-panel crm-agenda-hero">
         <div class="crm-module-head">
           <div>
-            <span class="eyebrow">Agenda integral</span>
-            <h3>Disponibilidad por hora de todos los vendedores</h3>
-            <p>Vista unificada para detectar espacios libres, visitas programadas y carga diaria.</p>
+            <span class="eyebrow">${linkedSellerId ? "Agenda personal" : "Agenda integral"}</span>
+            <h3>${linkedSellerId ? `Disponibilidad por hora de ${escapeHtml(selectedSeller?.name || "vendedor")}` : "Disponibilidad por hora de todos los vendedores"}</h3>
+            <p>${linkedSellerId ? "Visitas, llamadas y espacios disponibles asignados a tu usuario." : "Vista unificada para detectar espacios libres, visitas programadas y carga diaria."}</p>
           </div>
           <div class="crm-agenda-datebar">
             <button class="primary-btn" type="button" data-crm-agenda-today>Hoy</button>
