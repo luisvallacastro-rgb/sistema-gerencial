@@ -10757,3 +10757,75 @@ body.operations-fullscreen-open {
     flex-direction: column;
   }
 }
+
+/* Compact connected-users tab: collapsed by default, expandable on demand. */
+.app-shell .presence-panel {
+  width: 54px;
+  align-self: flex-end;
+  overflow: hidden;
+  margin-top: 6px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  transition: width .22s ease, border-radius .22s ease, background .22s ease !important;
+}
+
+.app-shell .presence-panel[open] {
+  width: 100%;
+  border-radius: 14px !important;
+}
+
+.app-shell .presence-head {
+  width: 54px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 9px;
+  margin-left: auto;
+  border-radius: 999px;
+  outline: none;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.app-shell .presence-head::-webkit-details-marker {
+  display: none;
+}
+
+.app-shell .presence-head::marker {
+  content: "";
+}
+
+.app-shell .presence-head i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: #31d485;
+  box-shadow: 0 0 0 4px rgba(49, 212, 133, .13);
+}
+
+.app-shell .presence-head span {
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.app-shell .presence-panel[open] .presence-head {
+  justify-content: center;
+  background: rgba(49, 212, 133, .06);
+}
+
+.app-shell .presence-head:focus-visible {
+  box-shadow: 0 0 0 2px rgba(114, 245, 209, .32);
+}
+
+.app-shell .presence-panel:not([open]) .presence-list {
+  display: none;
+}
+
+.app-shell .presence-list {
+  max-height: 126px;
+  padding: 9px 12px 12px;
+}

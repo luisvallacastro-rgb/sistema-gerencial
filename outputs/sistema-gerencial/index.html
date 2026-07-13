@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>KMI</title>
-    <link rel="stylesheet" href="styles.css?v=20260713-expanded-year-totals-v40">
+    <link rel="stylesheet" href="styles.css?v=20260713-compact-presence-v41">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -75,15 +75,15 @@
           </button>
         </div>
         <nav class="nav-list" id="navList" aria-label="Gerencias"></nav>
-        <section class="presence-panel" aria-label="Usuarios conectados">
-          <div class="presence-head">
-            <strong>Conectados</strong>
+        <details class="presence-panel" aria-label="Usuarios conectados">
+          <summary class="presence-head" aria-label="Usuarios conectados" title="Ver usuarios conectados">
+            <i aria-hidden="true"></i>
             <span id="onlineCount">0</span>
-          </div>
+          </summary>
           <div class="presence-list" id="presenceList">
             <span class="presence-empty">Sin usuarios activos</span>
           </div>
-        </section>
+        </details>
         <button class="ghost-btn logout" id="logoutBtn" type="button">Cerrar sesion</button>
       </aside>
 
