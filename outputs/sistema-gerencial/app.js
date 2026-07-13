@@ -2950,8 +2950,73 @@ function wireFinancialPresentations(root = opportunityTable) {
   root.querySelector("[data-financial-close-fullscreen]")?.addEventListener("click", closeOperationsPresentationFullscreen);
 }
 
+const emptyCrmData = { users: [], opportunities: [], agenda: [], gestiones: [], pipeline: [], customers: [], kpis: {} };
+const crmSellerAccountLinks = new Map([
+  ["gabriela natalie amador flores", "u-xlsx-gabriela-amador"],
+  ["gabriela amador", "u-xlsx-gabriela-amador"]
+]);
+
+function crmIdentityKey(value) {
+  return normalizeKey(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function crmLinkedSellerId(data = state.crmData, user = state.currentUser) {
+  if (!data || !user || user.role !== "operativos") return "";
+  const identities = [user.name, user.username, String(user.email || "").split("@")[0]]
+    .map(crmIdentityKey)
+    .filter(Boolean);
+  for (const identity of identities) {
+    const linkedId = crmSellerAccountLinks.get(identity);
+    if (linkedId && data.users?.some((seller) => seller.id === linkedId)) return linkedId;
+  }
+  const combinedIdentity = identities.join(" ");
+  const seller = (data.users || []).find((candidate) => {
+    if (candidate.roleId !== "sales_exec") return false;
+    const sellerTokens = crmIdentityKey(candidate.name).split(" ").filter(Boolean);
+    return sellerTokens.length >= 2 && sellerTokens.every((token) => combinedIdentity.includes(token));
+  });
+  return seller?.id || "";
+}
+
 function crmData() {
-  return state.crmData || { users: [], opportunities: [], agenda: [], gestiones: [], pipeline: [], customers: [], kpis: {} };
+  const data = state.crmData || emptyCrmData;
+  const linkedSellerId = crmLinkedSellerId(data);
+  if (!linkedSellerId) return data;
+  const opportunities = (data.opportunities || []).filter((item) => item.ownerId === linkedSellerId);
+  const opportunityIds = new Set(opportunities.map((item) => item.id));
+  const customerIds = new Set(opportunities.map((item) => item.customerId).filter(Boolean));
+  const agenda = (data.agenda || []).filter((item) => item.ownerId === linkedSellerId || opportunityIds.has(item.opportunityId));
+  const gestiones = (data.gestiones || []).filter((item) => item.ownerId === linkedSellerId || opportunityIds.has(item.opportunityId));
+  const totalPipeline = opportunities.reduce((sum, item) => sum + Number(item.estimatedAmount || 0), 0);
+  const closed = opportunities.filter((item) => Number(item.stageId || item.stage?.id || 0) >= 6).length;
+  return {
+    ...data,
+    users: (data.users || []).filter((item) => item.id === linkedSellerId),
+    opportunities,
+    agenda,
+    gestiones,
+    customers: (data.customers || []).filter((item) => customerIds.has(item.id)),
+    pipeline: (data.pipeline || []).map((stage) => {
+      const stageOpportunities = opportunities.filter((item) => Number(item.stageId || item.stage?.id) === Number(stage.id));
+      const amount = stageOpportunities.reduce((sum, item) => sum + Number(item.estimatedAmount || 0), 0);
+      return { ...stage, opportunities: stageOpportunities, count: stageOpportunities.length, amount, amountLabel: formatMoney(amount) };
+    }),
+    kpis: {
+      ...(data.kpis || {}),
+      totalProspects: opportunities.length,
+      totalPipeline,
+      totalPipelineLabel: formatMoney(totalPipeline),
+      hotOpportunities: opportunities.filter((item) => item.temperature === "Caliente").length,
+      scheduledMeetings: agenda.filter((item) => item.status === "Programada").length,
+      inProgressVisits: agenda.filter((item) => item.status === "En visita").length,
+      completedVisits: agenda.filter((item) => item.status === "Realizada").length,
+      closeRate: opportunities.length ? Math.round((closed / opportunities.length) * 100) : 0
+    }
+  };
 }
 
 function crmSalesUsers() {
@@ -3468,6 +3533,7 @@ function renderCrmSellers() {
 
 function renderCrmTracking() {
   const data = crmData();
+  const linkedSellerId = crmLinkedSellerId();
   const sellers = crmSortedSellers();
   const selectedSellerId = crmEnsureSellerId();
   const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
@@ -3522,7 +3588,7 @@ function renderCrmTracking() {
         <div class="crm-tracking-metrics crm-tracking-metrics-reconciled">
           <div><span>Vigentes</span><strong>${activeOpportunities.length}</strong></div>
           <div><span>Valor vendedor</span><strong>${formatMoney(activeValue)}</strong></div>
-          <div class="crm-global-reconciliation"><span>Pipeline global conciliado</span><strong>${formatMoney(globalActiveValue)}</strong><small>${globalActiveOpportunities.length} oportunidades</small></div>
+          <div class="crm-global-reconciliation"><span>${linkedSellerId ? "Pipeline personal" : "Pipeline global conciliado"}</span><strong>${formatMoney(globalActiveValue)}</strong><small>${globalActiveOpportunities.length} oportunidades</small></div>
           <div><span>Ganadas</span><strong>${formatMoney(wonValue)}</strong></div>
           <div><span>Conversion</span><strong>${conversion}%</strong></div>
         </div>
@@ -5612,6 +5678,7 @@ function openApp(userOrRole, options = {}) {
 
   state.currentUser = user;
   state.role = user.role;
+  state.crmSellerId = "";
   const available = allowedAreas(user);
   const navigationRestored = restoreNavigationState(user);
   if (!navigationRestored && (!options.restoreSession || !available.includes(state.activeArea))) {
