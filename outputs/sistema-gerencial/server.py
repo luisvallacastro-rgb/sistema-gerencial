@@ -16,6 +16,7 @@ DB_PATH = DATA_DIR / "sistema-gerencial.db"
 CRM_SEED_PATH = ROOT / "crm-seed.json"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
+API_VERSION = "kmi-mobile-auth-v1"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -692,7 +693,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
     def handle_api_get(self):
         if self.path == "/api/health":
-            self.send_json({"ok": True})
+            self.send_json({"ok": True, "version": API_VERSION})
             return
 
         if self.path.startswith("/api/crm/"):
