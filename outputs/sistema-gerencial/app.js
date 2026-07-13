@@ -2342,7 +2342,6 @@ function renderFinancialOrdersComparisonKpi() {
   const yAt = (value) => pad.top + plotHeight - (value / maxValue) * plotHeight;
   const ticks = Array.from({ length: 5 }, (_, index) => maxValue * index / 4).reverse();
   const formatAxis = (value) => value >= 1000000 ? `$${(value / 1000000).toFixed(1)}M` : value >= 1000 ? `$${(value / 1000).toFixed(0)}k` : `$${value.toFixed(0)}`;
-  const selectedOrders = state.financialOrders.filter((order) => state.financialComparisonYears.includes(String(order.year)) && state.financialComparisonMonths.includes(String(order.month)));
   const selectedYearTotals = series.map((item, index) => ({
     year: item.year,
     total: item.values.reduce((sum, value) => sum + value, 0),
@@ -2365,7 +2364,6 @@ function renderFinancialOrdersComparisonKpi() {
       </div>
       <div class="financial-comparison-summary">
         <article><span>Años comparados</span><strong>${series.length}</strong></article>
-        <article><span>Pedidos incluidos</span><strong>${selectedOrders.length.toLocaleString("es-SV")}</strong></article>
         <article class="financial-year-totals-card">
           <span>Totales por año seleccionado</span>
           <div class="financial-year-totals">

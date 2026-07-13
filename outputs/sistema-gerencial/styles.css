@@ -5328,11 +5328,11 @@ button:disabled {
 .app-shell .financial-comparison-summary article { min-height: 68px; display: grid; align-content: center; gap: 4px; padding: 12px 15px; border-radius: 15px; background: linear-gradient(135deg,rgba(70,107,160,.15),rgba(16,52,72,.11)),rgba(255,255,255,.025); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
 .app-shell .financial-comparison-summary span { color: rgba(194,213,234,.55); font-size: 8px; font-weight: 950; letter-spacing: .09em; text-transform: uppercase; }
 .app-shell .financial-comparison-summary strong { color: #eafff9; font-size: clamp(17px,2vw,25px); text-shadow: 0 0 17px rgba(114,245,209,.2); }
-.app-shell .financial-comparison-summary .financial-year-totals-card { align-content: stretch; gap: 8px; }
-.app-shell .financial-year-totals { display: grid; grid-template-columns: repeat(auto-fit,minmax(96px,1fr)); gap: 6px; }
-.app-shell .financial-year-total { min-width: 0; display: grid; align-content: center; gap: 3px; padding: 7px 9px; border-radius: 10px; background: linear-gradient(135deg,color-mix(in srgb,var(--year-color) 11%,transparent),rgba(5,24,43,.2)); box-shadow: inset 3px 0 0 var(--year-color); }
+.app-shell .financial-comparison-summary .financial-year-totals-card { grid-column: span 2; align-content: stretch; gap: 8px; }
+.app-shell .financial-year-totals { display: grid; grid-template-columns: repeat(auto-fit,minmax(138px,1fr)); gap: 8px; }
+.app-shell .financial-year-total { min-width: 0; display: grid; align-content: center; gap: 4px; padding: 9px 12px; border-radius: 11px; background: linear-gradient(135deg,color-mix(in srgb,var(--year-color) 11%,transparent),rgba(5,24,43,.2)); box-shadow: inset 4px 0 0 var(--year-color); }
 .app-shell .financial-year-total small { color: rgba(215,229,243,.68); font-size: 8px; font-weight: 950; letter-spacing: .06em; }
-.app-shell .financial-year-total strong { overflow: hidden; color: var(--year-color); font-size: clamp(11px,1.2vw,15px); line-height: 1.05; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 0 14px color-mix(in srgb,var(--year-color) 34%,transparent); }
+.app-shell .financial-year-total strong { color: var(--year-color); font-size: clamp(15px,1.65vw,21px); line-height: 1.05; white-space: nowrap; text-shadow: 0 0 14px color-mix(in srgb,var(--year-color) 34%,transparent); }
 .app-shell .financial-year-totals em { align-self: center; color: rgba(194,213,234,.48); font-size: 10px; font-style: normal; font-weight: 800; }
 .app-shell .financial-line-chart-wrap { min-height: 350px; padding: 14px 14px 4px; overflow-x: auto; border-radius: 18px; background: radial-gradient(circle at 70% 20%,rgba(60,152,172,.08),transparent 38%),rgba(4,23,43,.23); box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
 .app-shell .financial-line-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
@@ -5359,6 +5359,7 @@ button:disabled {
   .app-shell .financial-multifilters { display: grid; grid-template-columns: 1fr 1fr; }
   .app-shell .financial-multiselect { min-width: 0; }
   .app-shell .financial-comparison-summary { grid-template-columns: 1fr; }
+  .app-shell .financial-comparison-summary .financial-year-totals-card { grid-column: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
