@@ -202,15 +202,6 @@ button, select, input {
   text-shadow: 0 0 18px rgba(114,245,209,.26);
 }
 
-.product-wordmark em {
-  color: rgba(238,246,255,.88);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
-  font-size: .72em;
-  font-style: normal;
-  font-weight: 520;
-  letter-spacing: .055em;
-}
-
 .product-wordmark::after {
   content: "";
   width: .24em;

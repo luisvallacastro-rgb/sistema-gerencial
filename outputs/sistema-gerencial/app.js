@@ -4738,7 +4738,7 @@ function normalizeMinute(item = {}) {
     area: item.area || "Comite de apoyo",
     date: item.date || new Date().toISOString().slice(0, 10),
     body: sanitizeMinuteBody(item.body || ""),
-    createdBy: item.createdBy || state.currentUser?.name || "KMI Core",
+    createdBy: item.createdBy || state.currentUser?.name || "KMI",
     createdAt: item.createdAt || new Date().toISOString()
   };
 }
