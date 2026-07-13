@@ -262,6 +262,7 @@ const state = {
   financialPresentationSection: 0,
   financialOrders: [],
   financialOrderQuery: "",
+  financialOrderPage: 1,
   financialOrdersView: "list",
   financialOrderYearFilter: "all",
   financialOrderMonthFilter: "all",
@@ -2225,6 +2226,12 @@ function resetFinancialOrderForm(order = null) {
 function renderFinancialOrderList() {
   const rows = filteredFinancialOrders();
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  state.financialOrderPage = Math.max(1, Math.min(state.financialOrderPage, pageCount));
+  const pageStart = (state.financialOrderPage - 1) * pageSize;
+  const pageEnd = pageStart + pageSize;
+  const pagedRows = rows.slice(pageStart, pageEnd);
   return `
     <section class="financial-orders-shell">
       <div class="financial-orders-toolbar">
@@ -2235,7 +2242,7 @@ function renderFinancialOrderList() {
       <div class="financial-orders-table-wrap">
       <div class="financial-orders-table">
         <div class="financial-order-row header"><span>Fecha</span><span>#</span><span>Venta</span><span>Vendedor</span><span>Clientes</span><span>Acciones</span></div>
-        ${rows.map((order) => `
+        ${pagedRows.map((order) => `
           <article class="financial-order-row">
             <span>${formatDate(order.date)}</span>
             <strong>${escapeHtml(order.number)}</strong>
@@ -2247,6 +2254,16 @@ function renderFinancialOrderList() {
         `).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
       </div>
       </div>
+      ${rows.length > pageSize ? `
+        <div class="opportunity-pagination financial-orders-pagination" aria-label="Paginacion de pedidos">
+          <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
+          <div>
+            <button class="ghost-btn compact-btn" type="button" data-financial-order-page="prev" ${state.financialOrderPage <= 1 ? "disabled" : ""}>Anterior</button>
+            <strong>Pagina ${state.financialOrderPage} de ${pageCount}</strong>
+            <button class="ghost-btn compact-btn" type="button" data-financial-order-page="next" ${state.financialOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button>
+          </div>
+        </div>
+      ` : ""}
     </section>`;
 }
 
@@ -2399,11 +2416,16 @@ function wireFinancialOrders() {
   });
   opportunityTable.querySelector("[data-financial-order-search]")?.addEventListener("input", (event) => {
     state.financialOrderQuery = event.target.value;
+    state.financialOrderPage = 1;
     renderCommercialSubmenu(areas.financiera);
     const input = opportunityTable.querySelector("[data-financial-order-search]");
     input?.focus();
     input?.setSelectionRange(input.value.length, input.value.length);
   });
+  opportunityTable.querySelectorAll("[data-financial-order-page]").forEach((button) => button.addEventListener("click", () => {
+    state.financialOrderPage += button.dataset.financialOrderPage === "next" ? 1 : -1;
+    renderCommercialSubmenu(areas.financiera);
+  }));
   opportunityTable.querySelectorAll("[data-financial-order-edit]").forEach((button) => button.addEventListener("click", () => {
     const order = state.financialOrders.find((item) => item.id === button.dataset.financialOrderEdit);
     resetFinancialOrderForm(order);
@@ -6752,11 +6774,13 @@ crmOpportunitiesViewTabs?.querySelectorAll("[data-crm-opportunities-view]").forE
 });
 financialOrderYearFilter?.addEventListener("change", () => {
   state.financialOrderYearFilter = financialOrderYearFilter.value;
+  state.financialOrderPage = 1;
   saveFinancialOrderFilters();
   renderCommercialSubmenu(areas.financiera);
 });
 financialOrderMonthFilter?.addEventListener("change", () => {
   state.financialOrderMonthFilter = financialOrderMonthFilter.value;
+  state.financialOrderPage = 1;
   saveFinancialOrderFilters();
   renderCommercialSubmenu(areas.financiera);
 });
@@ -6769,7 +6793,10 @@ financialOrderForm.addEventListener("submit", (event) => {
   payload.sale = Number(payload.sale || 0);
   const existing = state.financialOrders.find((order) => order.id === financialOrderId.value);
   if (existing) Object.assign(existing, payload, { updatedAt: new Date().toISOString() });
-  else state.financialOrders.unshift({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...payload });
+  else {
+    state.financialOrders.unshift({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...payload });
+    state.financialOrderPage = 1;
+  }
   saveFinancialOrders();
   financialOrderDialog.close();
   renderCommercialSubmenu(areas.financiera);
