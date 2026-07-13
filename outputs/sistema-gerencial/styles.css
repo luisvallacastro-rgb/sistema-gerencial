@@ -4726,6 +4726,60 @@ button:disabled {
   content: "Pipeline";
 }
 
+.app-shell .crm-tracking-overview {
+  background:
+    radial-gradient(circle at 92% 10%, rgba(114, 245, 209, .09), transparent 32%),
+    linear-gradient(135deg, rgba(65, 91, 139, .16), rgba(15, 39, 65, .1)),
+    rgba(255, 255, 255, .024) !important;
+}
+
+.app-shell .crm-tracking-metrics-reconciled {
+  grid-template-columns: .65fr 1fr 1.35fr .9fr .65fr;
+}
+
+.app-shell .crm-tracking-metrics-reconciled > div {
+  min-height: 76px;
+  align-content: center;
+  border-radius: 15px !important;
+}
+
+.app-shell .crm-tracking-metrics-reconciled .crm-global-reconciliation {
+  position: relative;
+  overflow: hidden;
+  padding-left: 17px;
+  background:
+    linear-gradient(135deg, rgba(49, 151, 127, .22), rgba(39, 99, 143, .15)),
+    rgba(255, 255, 255, .035) !important;
+  box-shadow: inset 3px 0 0 #72f5d1, inset 0 1px 0 rgba(255, 255, 255, .09), 0 14px 28px rgba(1, 18, 34, .16) !important;
+}
+
+.app-shell .crm-global-reconciliation strong {
+  color: #c9fff1 !important;
+  font-size: clamp(18px, 2vw, 26px) !important;
+  text-shadow: 0 0 18px rgba(114, 245, 209, .3);
+}
+
+.app-shell .crm-global-reconciliation small {
+  color: rgba(202, 225, 239, .58);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.app-shell .crm-tracking-layout-refined {
+  grid-template-columns: minmax(210px, 255px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1050px) {
+  .app-shell .crm-tracking-metrics-reconciled {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-shell .crm-tracking-metrics-reconciled .crm-global-reconciliation {
+    grid-column: span 2;
+  }
+}
+
 .app-shell .commercial-panel.opportunity-mode > .panel-head .panel-actions {
   width: 100%;
   display: grid !important;

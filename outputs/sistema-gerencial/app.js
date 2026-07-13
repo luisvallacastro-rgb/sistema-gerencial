@@ -3476,9 +3476,11 @@ function renderCrmTracking() {
   const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
   const sellerOpportunities = selectedSeller ? data.opportunities.filter((opp) => opp.ownerId === selectedSeller.id) : [];
   const activeOpportunities = crmActiveOpportunitiesForSeller(selectedSellerId);
+  const globalActiveOpportunities = data.opportunities.filter((opportunity) => !["ganada", "perdida", "cancelada"].includes(String(opportunity.status || "Vigente").toLowerCase()));
   const wonOpportunities = sellerOpportunities.filter((opp) => opp.status === "Ganada");
   const lostOpportunities = sellerOpportunities.filter((opp) => opp.status === "Perdida");
   const activeValue = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
+  const globalActiveValue = globalActiveOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
   const wonValue = wonOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
   const conversionBase = wonOpportunities.length + lostOpportunities.length;
   const conversion = conversionBase ? Math.round((wonOpportunities.length / conversionBase) * 100) : 0;
@@ -3514,7 +3516,7 @@ function renderCrmTracking() {
   `).join("");
   return `
     <section class="crm-shell crm-original-module">
-      <section class="crm-panel">
+      <section class="crm-panel crm-tracking-overview">
         <div class="crm-module-head">
           <div>
             <span class="eyebrow">Seguimiento individual</span>
@@ -3523,14 +3525,15 @@ function renderCrmTracking() {
           </div>
           <button class="primary-btn" type="button" data-crm-new>Abrir oportunidad</button>
         </div>
-        <div class="crm-tracking-metrics">
+        <div class="crm-tracking-metrics crm-tracking-metrics-reconciled">
           <div><span>Vigentes</span><strong>${activeOpportunities.length}</strong></div>
-          <div><span>Valor vigente</span><strong>${formatMoney(activeValue)}</strong></div>
+          <div><span>Valor vendedor</span><strong>${formatMoney(activeValue)}</strong></div>
+          <div class="crm-global-reconciliation"><span>Pipeline global conciliado</span><strong>${formatMoney(globalActiveValue)}</strong><small>${globalActiveOpportunities.length} oportunidades</small></div>
           <div><span>Ganadas</span><strong>${formatMoney(wonValue)}</strong></div>
           <div><span>Conversion</span><strong>${conversion}%</strong></div>
         </div>
       </section>
-      <div class="crm-tracking-layout">
+      <div class="crm-tracking-layout crm-tracking-layout-refined">
         <aside class="crm-panel crm-tracking-sidebar">
           <span class="eyebrow">Vendedores</span>
           <div class="crm-seller-chip-list">${sellerButtons}</div>
