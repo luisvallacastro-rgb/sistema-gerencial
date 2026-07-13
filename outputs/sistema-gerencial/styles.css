@@ -182,6 +182,59 @@ button, select, input {
   margin-top: 3px;
 }
 
+.product-wordmark {
+  position: relative;
+  display: inline-flex !important;
+  align-items: baseline;
+  gap: .32em;
+  width: max-content;
+  max-width: 100%;
+  margin: 0;
+  color: inherit;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.product-wordmark span {
+  color: #72f5d1;
+  font-weight: 950;
+  letter-spacing: -.055em;
+  text-shadow: 0 0 18px rgba(114,245,209,.26);
+}
+
+.product-wordmark em {
+  color: rgba(238,246,255,.88);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
+  font-size: .72em;
+  font-style: normal;
+  font-weight: 520;
+  letter-spacing: .055em;
+}
+
+.product-wordmark::after {
+  content: "";
+  width: .24em;
+  height: .24em;
+  align-self: center;
+  margin-left: .08em;
+  border-radius: 50%;
+  background: #72f5d1;
+  box-shadow: 0 0 9px rgba(114,245,209,.65);
+  opacity: .8;
+}
+
+.login-wordmark {
+  font-size: clamp(25px,3vw,34px) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.sidebar-wordmark {
+  overflow: visible !important;
+  font-size: 22px !important;
+  text-overflow: clip !important;
+}
+
 .brand-mark {
   width: 48px;
   height: 48px;
