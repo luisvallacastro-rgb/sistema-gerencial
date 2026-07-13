@@ -26,6 +26,10 @@ AREA_SECTION_KEYS = {
 }
 SHARED_DEFAULT_SECTION_KEYS = ["riesgos", "solicitudes"]
 VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
+ADMIN_MINUTE_PERMISSION_KEYS = [
+    "administracion:actas-nueva",
+    "administracion:actas-historial",
+]
 LEGACY_ROLE_MAP = {
     "general": "gerencias",
     "comercializacion": "gerencias",
@@ -33,11 +37,12 @@ LEGACY_ROLE_MAP = {
     "operaciones": "gerencias",
     "rrhh": "gerencias",
 }
-ALL_PERMISSIONS = [
+ALL_OPERATIONAL_PERMISSIONS = [
     f"{area}:{section}"
     for area in AREA_KEYS
     for section in AREA_SECTION_KEYS[area]
 ]
+ALL_PERMISSIONS = [*ALL_OPERATIONAL_PERMISSIONS, *ADMIN_MINUTE_PERMISSION_KEYS]
 SHARED_DEFAULT_PERMISSIONS = [
     f"{area}:{section}" for area in AREA_KEYS for section in SHARED_DEFAULT_SECTION_KEYS
 ]
@@ -375,7 +380,7 @@ def default_permissions_for_role(role):
             "financiera:resultados",
             "financiera:resultados-pedidos",
         ]
-    return list(ALL_PERMISSIONS)
+    return list(ALL_PERMISSIONS if role == "gerencias" else ALL_OPERATIONAL_PERMISSIONS)
 
 
 def normalize_permissions(value, role):
@@ -472,6 +477,37 @@ def connect():
     return conn
 
 
+def grant_johanna_minutes_permissions(conn):
+    migration_key = "migration_johanna_actas_tabs_v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    rows = conn.execute("""
+        SELECT id, name, username, email, role, permissions
+        FROM users
+    """).fetchall()
+    updated = False
+    for row in rows:
+        identity = " ".join([
+            text(row["name"]).lower(),
+            text(row["username"]).lower(),
+            text(row["email"]).lower(),
+        ])
+        if not (("johanna" in identity or "johana" in identity) and "coreas" in identity):
+            continue
+        permissions = normalize_permissions(row["permissions"], row["role"])
+        permissions = list(dict.fromkeys([*permissions, *ADMIN_MINUTE_PERMISSION_KEYS]))
+        conn.execute(
+            "UPDATE users SET permissions = ?, permissions_customized = 1 WHERE id = ?",
+            (json.dumps(permissions, ensure_ascii=True), row["id"]),
+        )
+        updated = True
+    if updated:
+        conn.execute(
+            "INSERT INTO app_state (key, value) VALUES (?, ?)",
+            (migration_key, "completed"),
+        )
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -534,6 +570,7 @@ def init_db():
         if not rows:
             for user in DEFAULT_USERS:
                 upsert_user(conn, user)
+        grant_johanna_minutes_permissions(conn)
 
 
 class AppHandler(BaseHTTPRequestHandler):

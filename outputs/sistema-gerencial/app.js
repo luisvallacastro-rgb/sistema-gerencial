@@ -252,6 +252,8 @@ const state = {
   kpiSeller: "all",
   adminQuery: "",
   adminMinuteQuery: "",
+  adminMinuteView: "new",
+  adminMinuteEditId: "",
   minutes: [],
   operationsPresentationMonth: String(new Date().getMonth() + 1).padStart(2, "0"),
   operationsPresentationYear: String(new Date().getFullYear()),
@@ -277,6 +279,10 @@ const areaKeys = ["comercializacion", "financiera", "operaciones", "rrhh"];
 const areaOptions = areaKeys;
 const adminEmail = "luisvallacastro@gmail.com";
 const adminAreaKey = "administracion";
+const adminMinutePermissionSections = [
+  { key: "actas-nueva", label: "Nueva acta" },
+  { key: "actas-historial", label: "Historial de actas" }
+];
 areas[adminAreaKey] = {
   label: "Administracion",
   nav: "Administracion",
@@ -689,6 +695,7 @@ const pageTitle = document.querySelector("#pageTitle");
 const periodLabel = document.querySelector("#periodLabel");
 const periodSelect = document.querySelector("#periodSelect");
 const topbarActions = document.querySelector(".topbar-actions");
+const minutesTopbarTabs = document.querySelector("#minutesTopbarTabs");
 const financialOrdersTopbarFilters = document.querySelector("#financialOrdersTopbarFilters");
 const financialOrderYearFilter = document.querySelector("#financialOrderYearFilter");
 const financialOrderMonthFilter = document.querySelector("#financialOrderMonthFilter");
@@ -861,6 +868,14 @@ function permissionKey(areaKey, sectionKey) {
 }
 
 function allPermissionKeys() {
+  return [
+    ...areaKeys.flatMap((areaKey) => (areas[areaKey]?.submenus || [])
+      .map((section) => permissionKey(areaKey, section.key))),
+    ...adminMinutePermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
+  ];
+}
+
+function operationalPermissionKeys() {
   return areaKeys.flatMap((areaKey) => (areas[areaKey]?.submenus || [])
     .map((section) => permissionKey(areaKey, section.key)));
 }
@@ -888,7 +903,7 @@ function defaultPermissionsForRole(role) {
       permissionKey("financiera", "resultados-pedidos")
     ];
   }
-  return allPermissionKeys();
+  return role === "gerencias" ? allPermissionKeys() : operationalPermissionKeys();
 }
 
 function normalizePermissionList(value, role) {
@@ -912,7 +927,15 @@ function canOpenAdminPermissions(user = state.currentUser) {
 }
 
 function canOpenAdminMinutes(user = state.currentUser) {
-  return Boolean(user) && (isAdminUser(user) || user.role === "gerencias");
+  return canCreateAdminMinutes(user) || canViewAdminMinuteHistory(user);
+}
+
+function canCreateAdminMinutes(user = state.currentUser) {
+  return Boolean(user) && userPermissions(user).has(permissionKey(adminAreaKey, "actas-nueva"));
+}
+
+function canViewAdminMinuteHistory(user = state.currentUser) {
+  return Boolean(user) && userPermissions(user).has(permissionKey(adminAreaKey, "actas-historial"));
 }
 
 function userPermissions(user = state.currentUser) {
@@ -4575,6 +4598,9 @@ function adminPermissionSummary(user) {
       return count ? `${areas[areaKey].nav}: ${count}` : "";
     })
     .filter(Boolean);
+  const minuteCount = adminMinutePermissionSections
+    .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
+  if (minuteCount) areaLabels.push(`Actas: ${minuteCount}`);
   return areaLabels.length ? areaLabels.join(" · ") : "Sin permisos";
 }
 
@@ -4583,7 +4609,7 @@ function adminPermissionModules(user) {
     return [{ label: "Acceso total", count: allPermissionKeys().length, total: true }];
   }
   const permissions = userPermissions(user);
-  return areaKeys
+  const modules = areaKeys
     .map((areaKey) => {
       const count = (areas[areaKey]?.submenus || [])
         .filter((section) => permissions.has(permissionKey(areaKey, section.key)))
@@ -4591,6 +4617,10 @@ function adminPermissionModules(user) {
       return count ? { label: areas[areaKey].nav, count } : null;
     })
     .filter(Boolean);
+  const minuteCount = adminMinutePermissionSections
+    .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
+  if (minuteCount) modules.push({ label: "Actas", count: minuteCount });
+  return modules;
 }
 
 function adminUserInitials(user) {
@@ -4615,7 +4645,7 @@ function renderAdminPermissionControls(existingUser = null) {
       ? existingUser.permissions
       : defaultPermissionsForRole(role)
   });
-  adminPermissionGrid.innerHTML = areaKeys.map((areaKey) => `
+  adminPermissionGrid.innerHTML = `${areaKeys.map((areaKey) => `
     <fieldset class="permission-group">
       <legend>${areas[areaKey].nav}</legend>
       ${(areas[areaKey]?.submenus || []).map((section) => {
@@ -4628,7 +4658,19 @@ function renderAdminPermissionControls(existingUser = null) {
         `;
       }).join("")}
     </fieldset>
-  `).join("");
+  `).join("")}
+    <fieldset class="permission-group">
+      <legend>Actas</legend>
+      ${adminMinutePermissionSections.map((section) => {
+        const key = permissionKey(adminAreaKey, section.key);
+        return `
+          <label class="permission-check">
+            <input type="checkbox" value="${key}" ${selected.has(key) ? "checked" : ""} ${fullAccessProfile ? "disabled" : ""}>
+            <span>${section.label}</span>
+          </label>
+        `;
+      }).join("")}
+    </fieldset>`;
 }
 
 function collectAdminPermissions() {
@@ -4756,13 +4798,22 @@ function updateUserModulePermission(userId, areaKey, enabled) {
 }
 
 function adminOperationalPermissionColumns() {
-  return areaKeys.flatMap((areaKey) => (areas[areaKey]?.submenus || []).map((section) => ({
-    areaKey,
-    areaLabel: areas[areaKey].nav,
-    sectionKey: section.key,
-    label: section.label,
-    key: permissionKey(areaKey, section.key)
-  })));
+  return [
+    ...areaKeys.flatMap((areaKey) => (areas[areaKey]?.submenus || []).map((section) => ({
+      areaKey,
+      areaLabel: areas[areaKey].nav,
+      sectionKey: section.key,
+      label: section.label,
+      key: permissionKey(areaKey, section.key)
+    }))),
+    ...adminMinutePermissionSections.map((section) => ({
+      areaKey: adminAreaKey,
+      areaLabel: "Actas",
+      sectionKey: section.key,
+      label: section.label,
+      key: permissionKey(adminAreaKey, section.key)
+    }))
+  ];
 }
 
 function setUserOperationalPermission(userId, permission, enabled) {
@@ -4837,9 +4888,10 @@ function renderAdminPermissionsPanel() {
   const permissionColumns = adminOperationalPermissionColumns();
   const operationalKeys = new Set(permissionColumns.map((column) => column.key));
   const totalPermissions = users.reduce((sum, user) => sum + [...userPermissions(user)].filter((key) => operationalKeys.has(key)).length, 0);
-  const areaGroups = areaKeys.map((areaKey) => ({
+  const permissionAreaKeys = [...new Set(permissionColumns.map((column) => column.areaKey))];
+  const areaGroups = permissionAreaKeys.map((areaKey) => ({
     areaKey,
-    label: areas[areaKey].nav,
+    label: areaKey === adminAreaKey ? "Actas" : areas[areaKey].nav,
     count: permissionColumns.filter((column) => column.areaKey === areaKey).length
   }));
   return `
@@ -5131,13 +5183,20 @@ function renderAdminMinutesPanel() {
   const query = normalizeKey(state.adminMinuteQuery);
   const minutes = [...state.minutes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const filtered = minutes.filter((item) => !query || normalizeKey([item.title, item.area, item.createdBy, item.body].join(" ")).includes(query));
+  const canCreate = canCreateAdminMinutes();
+  const canViewHistory = canViewAdminMinuteHistory();
+  const availableViews = [canCreate ? "new" : "", canViewHistory ? "history" : ""].filter(Boolean);
+  if (!availableViews.includes(state.adminMinuteView)) state.adminMinuteView = availableViews[0] || "new";
+  const editingMinute = canCreate
+    ? state.minutes.find((item) => item.id === state.adminMinuteEditId) || null
+    : null;
   return `
     <div class="admin-shell minutes-shell">
       <div class="admin-hero minutes-hero">
         <div>
           <p class="eyebrow">Administracion / Actas</p>
-          <h3>Editor de actas</h3>
-          <p class="muted-copy">Acuerdos, compromisos y seguimiento de todas las gerencias en un solo historial.</p>
+          <h3>Actas</h3>
+          <p class="muted-copy">Separa la redaccion del historial para trabajar con mayor claridad.</p>
         </div>
         <div class="minutes-counter">
           <span>Actas guardadas</span>
@@ -5145,11 +5204,12 @@ function renderAdminMinutesPanel() {
         </div>
       </div>
 
-      <div id="minuteInlineEditor">
-        ${minuteFormMarkup()}
-      </div>
-
-      <section class="minutes-history-card" aria-label="Historial de actas">
+      ${state.adminMinuteView === "new" ? `
+        <div id="minuteInlineEditor">
+          ${minuteFormMarkup({ item: editingMinute })}
+        </div>
+      ` : `
+        <section class="minutes-history-card" aria-label="Historial de actas">
         <div class="minutes-history-head">
           <div>
             <p class="eyebrow">Historial</p>
@@ -5171,8 +5231,8 @@ function renderAdminMinutesPanel() {
               <div class="minute-preview">${item.body || "<em>Sin contenido.</em>"}</div>
               <div class="minute-history-actions">
                 <button class="action-icon-btn minute-action-icon" type="button" title="Vista panoramica" aria-label="Abrir acta en vista panoramica" data-minutes-action="fullscreen-existing" data-minute-id="${escapeHtml(item.id)}">⛶</button>
-                <button class="action-icon-btn minute-action-icon" type="button" title="Editar acta" aria-label="Editar acta" data-minutes-action="edit" data-minute-id="${escapeHtml(item.id)}">✎</button>
-                <button class="action-icon-btn minute-action-icon danger" type="button" title="Eliminar acta" aria-label="Eliminar acta" data-minutes-action="delete" data-minute-id="${escapeHtml(item.id)}">⌫</button>
+                ${canCreate ? `<button class="action-icon-btn minute-action-icon" type="button" title="Editar acta" aria-label="Editar acta" data-minutes-action="edit" data-minute-id="${escapeHtml(item.id)}">✎</button>` : ""}
+                ${canCreate ? `<button class="action-icon-btn minute-action-icon danger" type="button" title="Eliminar acta" aria-label="Eliminar acta" data-minutes-action="delete" data-minute-id="${escapeHtml(item.id)}">⌫</button>` : ""}
               </div>
             </article>
           `).join("") : `
@@ -5182,12 +5242,13 @@ function renderAdminMinutesPanel() {
             </div>
           `}
         </div>
-      </section>
+      </section>`}
     </div>
   `;
 }
 
 function resetInlineMinuteEditor() {
+  state.adminMinuteEditId = "";
   const wrapper = adminPanel.querySelector("#minuteInlineEditor");
   if (!wrapper) return;
   wrapper.innerHTML = minuteFormMarkup();
@@ -5196,11 +5257,11 @@ function resetInlineMinuteEditor() {
 
 function loadMinuteIntoInlineEditor(minuteId) {
   const minute = state.minutes.find((item) => item.id === minuteId);
-  const wrapper = adminPanel.querySelector("#minuteInlineEditor");
-  if (!minute || !wrapper) return;
-  wrapper.innerHTML = minuteFormMarkup({ item: minute });
-  wireMinuteForms(wrapper);
-  wrapper.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (!minute || !canCreateAdminMinutes()) return;
+  state.adminMinuteEditId = minuteId;
+  state.adminMinuteView = "new";
+  renderAdminPanel();
+  adminPanel.querySelector("#minuteInlineEditor")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function wireMinuteForms(root = document) {
@@ -5237,6 +5298,7 @@ function wireMinuteForms(root = document) {
         alert("Agrega titulo y contenido para guardar el acta.");
         return;
       }
+      state.adminMinuteEditId = "";
       saveMinute(payload);
       closeMinuteFullscreen();
     });
@@ -5276,6 +5338,19 @@ function wireAdminMinutesPanel() {
       nextSearchInput?.setSelectionRange(nextSearchInput.value.length, nextSearchInput.value.length);
     });
   });
+}
+
+function renderAdminMinutesTopbar() {
+  if (!minutesTopbarTabs) return;
+  const canCreate = canCreateAdminMinutes();
+  const canViewHistory = canViewAdminMinuteHistory();
+  const availableViews = [canCreate ? "new" : "", canViewHistory ? "history" : ""].filter(Boolean);
+  if (!availableViews.includes(state.adminMinuteView)) state.adminMinuteView = availableViews[0] || "new";
+  minutesTopbarTabs.innerHTML = `
+    ${canCreate ? `<button class="${state.adminMinuteView === "new" ? "active" : ""}" type="button" data-minute-view="new"><span aria-hidden="true">＋</span>Nueva acta</button>` : ""}
+    ${canViewHistory ? `<button class="${state.adminMinuteView === "history" ? "active" : ""}" type="button" data-minute-view="history"><span aria-hidden="true">◷</span>Historial de actas</button>` : ""}
+  `;
+  minutesTopbarTabs.classList.toggle("hidden", !availableViews.length);
 }
 
 function renderAdminPanel() {
@@ -5354,7 +5429,11 @@ function renderDashboard() {
     dashboard.classList.remove("opportunity-focus");
     pageTitle.classList.remove("with-results-summary");
     pageTitle.textContent = activeAdminSubmenu?.label || area.label;
-    periodLabel.textContent = state.activeSubmenu === "actas" ? "Editor e historial" : "Control de accesos";
+    if (state.activeSubmenu === "actas") renderAdminMinutesTopbar();
+    else minutesTopbarTabs?.classList.add("hidden");
+    periodLabel.textContent = state.activeSubmenu === "actas"
+      ? (state.adminMinuteView === "history" ? "Historial de actas" : "Nueva acta")
+      : "Control de accesos";
     topbarActions?.classList.add("hidden");
     overallStatus.textContent = state.activeSubmenu === "actas" ? `${state.minutes.length} actas` : area.status;
     renderNav();
@@ -5365,6 +5444,7 @@ function renderDashboard() {
   }
 
   dashboard.classList.remove("admin-focus");
+  minutesTopbarTabs?.classList.add("hidden");
   topbarActions?.classList.remove("hidden");
   adminPanel?.classList.add("hidden");
   if (hasSubmenus && !visibleItems.some((item) => item.key === state.activeSubmenu)) {
@@ -5807,6 +5887,14 @@ sidebarToggleBtn.addEventListener("click", () => {
 
 sidebarRestoreBtn.addEventListener("click", () => {
   setSidebarCollapsed(false);
+});
+
+minutesTopbarTabs?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-minute-view]");
+  if (!button) return;
+  state.adminMinuteView = button.dataset.minuteView;
+  if (state.adminMinuteView !== "new") state.adminMinuteEditId = "";
+  renderDashboard();
 });
 
 opportunitySearchInput.addEventListener("input", () => {
