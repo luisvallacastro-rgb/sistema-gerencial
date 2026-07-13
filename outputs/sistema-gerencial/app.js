@@ -106,12 +106,6 @@ const areas = {
         items: []
       },
       {
-        key: "crm-vendedores",
-        label: "Vendedores",
-        status: "Equipo comercial",
-        items: []
-      },
-      {
         key: "crm-seguimiento",
         label: "Seguimiento",
         status: "Pipeline por etapa",
@@ -278,6 +272,7 @@ const state = {
   crmStatusFilter: "Vigente",
   crmSearch: "",
   crmOpportunityPage: 1,
+  crmOpportunitiesView: "list",
   period: "Julio 2026"
 };
 
@@ -709,6 +704,7 @@ const commercialPanel = document.querySelector("#commercialPanel");
 const commercialSubmenuTitle = document.querySelector("#commercialSubmenuTitle");
 const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus");
 const financialOrdersViewTabs = document.querySelector("#financialOrdersViewTabs");
+const crmOpportunitiesViewTabs = document.querySelector("#crmOpportunitiesViewTabs");
 const opportunitySearchField = document.querySelector("#opportunitySearchField");
 const opportunitySearchInput = document.querySelector("#opportunitySearchInput");
 const opportunityTotalAmount = document.querySelector("#opportunityTotalAmount");
@@ -884,7 +880,7 @@ function withSharedDefaultPermissions(permissions) {
 
 function defaultPermissionsForRole(role) {
   if (role === "operativos") {
-    return ["crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"]
+    return ["crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"]
       .map((sectionKey) => permissionKey("comercializacion", sectionKey));
   }
   if (role === "jefaturas") {
@@ -2683,7 +2679,6 @@ function renderCleanManagementSection(area, submenu) {
     resultados: "Resultados",
     kpi: "KPI",
     crm: "CRM",
-    "crm-vendedores": "Vendedores",
     "crm-seguimiento": "Seguimiento",
     "crm-agenda": "Agenda",
     "crm-respuestas": "Respuestas",
@@ -3308,10 +3303,10 @@ function crmSellerOpportunityShare() {
     .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
 }
 
-function renderCrmDashboard() {
+function filteredCrmDashboardOpportunities() {
   const activeStatuses = new Set(["vigente", "pendiente", "abierta", "activo"]);
   const query = normalizeKey(state.crmSearch);
-  const rows = crmData().opportunities
+  return crmData().opportunities
     .filter((opportunity) => {
       const status = String(opportunity.status || "Vigente").toLowerCase();
       return activeStatuses.has(status) || !["ganada", "perdida", "cancelada"].includes(status);
@@ -3327,9 +3322,55 @@ function renderCrmDashboard() {
       opportunity.estimatedAmount,
       formatMoney(opportunity.estimatedAmount)
     ].some((value) => searchTokenMatches(value, query)));
+}
+
+function renderCrmSellerKpi(rows) {
+  const query = normalizeKey(state.crmSearch);
+  const totalOpportunities = rows.length;
+  const totalPipeline = rows.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0);
+  const sellerRows = crmSalesUsers().map((seller) => {
+    const opportunities = rows.filter((opportunity) => opportunity.ownerId === seller.id);
+    return {
+      id: seller.id,
+      seller: seller.name,
+      opportunities: opportunities.length,
+      pipeline: opportunities.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
+    };
+  }).filter((seller) => !query || seller.opportunities || searchTokenMatches(seller.seller, query))
+    .sort((a, b) => b.opportunities - a.opportunities || b.pipeline - a.pipeline || a.seller.localeCompare(b.seller, "es"));
+  const maxOpportunities = Math.max(1, ...sellerRows.map((seller) => seller.opportunities));
+  return `
+    <section class="financial-seller-kpi" aria-label="Oportunidades por vendedor">
+      <div class="financial-seller-kpi-summary">
+        <article><span>Oportunidades filtradas</span><strong>${totalOpportunities.toLocaleString("es-SV")}</strong></article>
+        <article><span>Pipeline filtrado</span><strong>${formatMoney(totalPipeline)}</strong></article>
+        <article><span>Vendedores</span><strong>${sellerRows.length.toLocaleString("es-SV")}</strong></article>
+      </div>
+      <div class="financial-seller-chart-head">
+        <div><span>KPI comercial</span><h4>Oportunidades por vendedor</h4></div>
+        <small>Ordenado por cantidad de oportunidades</small>
+      </div>
+      <div class="financial-seller-chart" role="list">
+        ${sellerRows.map((seller, index) => {
+          const percentage = totalOpportunities ? (seller.opportunities / totalOpportunities) * 100 : 0;
+          const width = (seller.opportunities / maxOpportunities) * 100;
+          return `
+            <article class="financial-seller-bar-row" role="listitem" data-crm-seller="${seller.id}" style="--seller-bar-width:${width.toFixed(2)}%;--seller-accent-hue:${164 + (index % 6) * 18}" aria-label="${escapeHtml(seller.seller)}: ${seller.opportunities} oportunidades, ${percentage.toFixed(1)} por ciento, ${formatMoney(seller.pipeline)}">
+              <div class="financial-seller-bar-label"><strong>${escapeHtml(seller.seller)}</strong><span>${seller.opportunities.toLocaleString("es-SV")} oportunidades</span></div>
+              <div class="financial-seller-bar-track" aria-hidden="true"><i></i></div>
+              <div class="financial-seller-bar-values"><strong>${percentage.toFixed(1)}%</strong><span>${formatMoney(seller.pipeline)}</span></div>
+            </article>`;
+        }).join("") || `<div class="empty-state">No hay oportunidades para el filtro seleccionado.</div>`}
+      </div>
+    </section>`;
+}
+
+function renderCrmDashboard() {
+  const rows = filteredCrmDashboardOpportunities();
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
     rows.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
   );
+  if (state.crmOpportunitiesView === "seller-kpi") return renderCrmSellerKpi(rows);
   const pageCount = Math.max(1, Math.ceil(rows.length / opportunityPageSize));
   state.crmOpportunityPage = Math.min(Math.max(Number(state.crmOpportunityPage) || 1, 1), pageCount);
   const pageStart = (state.crmOpportunityPage - 1) * opportunityPageSize;
@@ -3688,7 +3729,6 @@ function renderCrmModule(submenuKey) {
   }
   const views = {
     crm: renderCrmDashboard,
-    "crm-vendedores": renderCrmSellers,
     "crm-seguimiento": renderCrmTracking,
     "crm-agenda": renderCrmAgenda,
     "crm-respuestas": renderCrmResponses,
@@ -3706,9 +3746,11 @@ function renderCommercialSubmenu(area) {
   const submenu = area.submenus.find((item) => item.key === state.activeSubmenu) || area.submenus[0];
   commercialPanel.classList.remove("hidden");
   commercialPanel.classList.remove("opportunity-mode");
+  commercialPanel.classList.remove("crm-opportunity-tabs");
   opportunityTotalAmount.classList.add("hidden");
   commercialSubmenuTitle.classList.remove("hidden");
   financialOrdersViewTabs?.classList.add("hidden");
+  crmOpportunitiesViewTabs?.classList.add("hidden");
   opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
@@ -3794,6 +3836,7 @@ function renderCommercialSubmenu(area) {
   if (submenu.key.startsWith("crm")) {
     const isCrmOpportunityView = submenu.key === "crm";
     commercialPanel.classList.toggle("opportunity-mode", isCrmOpportunityView);
+    commercialPanel.classList.toggle("crm-opportunity-tabs", isCrmOpportunityView);
     commercialSubmenuTitle.classList.toggle("hidden", false);
     commercialSubmenuTitle.textContent = isCrmOpportunityView ? "Oportunidades / Vendedores" : submenu.label;
     opportunitySearchField.classList.toggle("hidden", !isCrmOpportunityView);
@@ -3806,6 +3849,14 @@ function renderCommercialSubmenu(area) {
       );
     }
     newOpportunityBtn.classList.toggle("hidden", !isCrmOpportunityView);
+    crmOpportunitiesViewTabs?.classList.toggle("hidden", !isCrmOpportunityView);
+    if (isCrmOpportunityView) {
+      crmOpportunitiesViewTabs?.querySelectorAll("[data-crm-opportunities-view]").forEach((button) => {
+        const isActive = button.dataset.crmOpportunitiesView === state.crmOpportunitiesView;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", String(isActive));
+      });
+    }
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");
     goalsMatrixBtn.classList.add("hidden");
@@ -5277,7 +5328,7 @@ function renderDashboard() {
     state.activeSubmenu = visibleItems[0].key;
   }
   const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
-  dashboard.classList.toggle("opportunity-focus", hasSubmenus && (["kpi", "presentaciones", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu) || state.activeSubmenu.startsWith("resultados")));
+  dashboard.classList.toggle("opportunity-focus", hasSubmenus && (["kpi", "presentaciones", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu) || state.activeSubmenu.startsWith("resultados")));
   renderPageTitle(area, activeSubmenu);
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;
@@ -6501,6 +6552,13 @@ financialOrdersViewTabs?.querySelectorAll("[data-financial-orders-view]").forEac
     state.financialOrdersView = button.dataset.financialOrdersView;
     saveFinancialOrderFilters();
     renderCommercialSubmenu(areas.financiera);
+  });
+});
+crmOpportunitiesViewTabs?.querySelectorAll("[data-crm-opportunities-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.crmOpportunitiesView = button.dataset.crmOpportunitiesView;
+    state.crmOpportunityPage = 1;
+    renderCommercialSubmenu(areas.comercializacion);
   });
 });
 financialOrderYearFilter?.addEventListener("change", () => {

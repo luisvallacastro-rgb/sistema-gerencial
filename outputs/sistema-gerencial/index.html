@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>KMI</title>
-    <link rel="stylesheet" href="styles.css?v=20260713-profile-access-defaults-v18">
+    <link rel="stylesheet" href="styles.css?v=20260713-crm-seller-kpi-v22">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -128,6 +128,10 @@
                 <button class="active" type="button" role="tab" data-financial-orders-view="list" aria-selected="true">Listado</button>
                 <button type="button" role="tab" data-financial-orders-view="seller-kpi" aria-selected="false">KPI vendedores</button>
                 <button type="button" role="tab" data-financial-orders-view="comparison-kpi" aria-selected="false">KPI comparativo</button>
+              </div>
+              <div class="financial-orders-view-tabs hidden" id="crmOpportunitiesViewTabs" role="tablist" aria-label="Vistas de oportunidades por vendedor">
+                <button class="active" type="button" role="tab" data-crm-opportunities-view="list" aria-selected="true">Listado</button>
+                <button type="button" role="tab" data-crm-opportunities-view="seller-kpi" aria-selected="false">KPI vendedores</button>
               </div>
             </div>
             <div class="panel-actions">
@@ -606,6 +610,6 @@
 
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
-    <script src="app.js?v=20260713-opportunity-labels-v21"></script>
+    <script src="app.js?v=20260713-crm-seller-kpi-v22"></script>
   </body>
 </html>

@@ -19,7 +19,7 @@ PORT = int(os.environ.get("PORT", "8097"))
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
-    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"],
+    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"],
     "financiera": ["resultados", "resultados-pedidos", "kpi", "presentaciones", "riesgos", "solicitudes"],
     "operaciones": ["resultados", "kpi", "presentaciones", "riesgos", "solicitudes"],
     "rrhh": ["resultados", "kpi", "presentaciones", "riesgos", "solicitudes"],
@@ -367,7 +367,7 @@ def default_permissions_for_role(role):
     if role == "operativos":
         return [
             f"comercializacion:{section}"
-            for section in ["crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"]
+            for section in ["crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"]
         ]
     if role == "jefaturas":
         return [

@@ -4713,6 +4713,19 @@ button:disabled {
   display: none !important;
 }
 
+.app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs > .panel-head > div:first-child {
+  display: flex !important;
+  margin-bottom: 12px;
+}
+
+.app-shell .commercial-panel.crm-opportunity-tabs .financial-seller-bar-row[data-crm-seller] {
+  cursor: pointer;
+}
+
+.app-shell .commercial-panel.crm-opportunity-tabs .financial-seller-bar-values span::before {
+  content: "Pipeline";
+}
+
 .app-shell .commercial-panel.opportunity-mode > .panel-head .panel-actions {
   width: 100%;
   display: grid !important;
