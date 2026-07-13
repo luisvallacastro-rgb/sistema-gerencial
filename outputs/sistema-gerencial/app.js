@@ -254,6 +254,7 @@ const state = {
   adminMinuteQuery: "",
   adminMinuteView: "new",
   adminMinuteEditId: "",
+  managementRequestAreaKey: "",
   minutes: [],
   operationsPresentationMonth: String(new Date().getMonth() + 1).padStart(2, "0"),
   operationsPresentationYear: String(new Date().getFullYear()),
@@ -283,13 +284,19 @@ const adminMinutePermissionSections = [
   { key: "actas-nueva", label: "Nueva acta" },
   { key: "actas-historial", label: "Historial de actas" }
 ];
+const adminConsolidatedPermissionSections = [
+  { key: "riesgos", label: "Riesgos" },
+  { key: "solicitudes", label: "Solicitudes" }
+];
 areas[adminAreaKey] = {
   label: "Administracion",
   nav: "Administracion",
   status: "Usuarios",
   submenus: [
     { key: "permisos", label: "Permisos" },
-    { key: "actas", label: "Actas" }
+    { key: "actas", label: "Actas" },
+    { key: "riesgos", label: "Riesgos", status: "Consolidado de todas las gerencias" },
+    { key: "solicitudes", label: "Solicitudes", status: "Consolidado de todas las gerencias" }
   ],
   summary: [],
   results: [],
@@ -867,27 +874,22 @@ function permissionKey(areaKey, sectionKey) {
   return `${areaKey}:${sectionKey}`;
 }
 
+function areaPermissionSections(areaKey) {
+  return (areas[areaKey]?.submenus || []).filter((section) => !["riesgos", "solicitudes"].includes(section.key));
+}
+
 function allPermissionKeys() {
   return [
-    ...areaKeys.flatMap((areaKey) => (areas[areaKey]?.submenus || [])
+    ...areaKeys.flatMap((areaKey) => areaPermissionSections(areaKey)
       .map((section) => permissionKey(areaKey, section.key))),
+    ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key)),
     ...adminMinutePermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
   ];
 }
 
 function operationalPermissionKeys() {
-  return areaKeys.flatMap((areaKey) => (areas[areaKey]?.submenus || [])
+  return areaKeys.flatMap((areaKey) => areaPermissionSections(areaKey)
     .map((section) => permissionKey(areaKey, section.key)));
-}
-
-const sharedDefaultSections = ["riesgos", "solicitudes"];
-
-function sharedDefaultPermissionKeys() {
-  return areaKeys.flatMap((areaKey) => sharedDefaultSections.map((sectionKey) => permissionKey(areaKey, sectionKey)));
-}
-
-function withSharedDefaultPermissions(permissions) {
-  return [...new Set([...permissions, ...sharedDefaultPermissionKeys()])];
 }
 
 function defaultPermissionsForRole(role) {
@@ -897,19 +899,29 @@ function defaultPermissionsForRole(role) {
   }
   if (role === "jefaturas") {
     return [
-      ...(areas.comercializacion?.submenus || [])
+      ...areaPermissionSections("comercializacion")
         .map((section) => permissionKey("comercializacion", section.key)),
       permissionKey("financiera", "resultados"),
-      permissionKey("financiera", "resultados-pedidos")
+      permissionKey("financiera", "resultados-pedidos"),
+      ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
     ];
   }
-  return role === "gerencias" ? allPermissionKeys() : operationalPermissionKeys();
+  return role === "gerencias"
+    ? allPermissionKeys()
+    : [...operationalPermissionKeys(), ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))];
 }
 
 function normalizePermissionList(value, role) {
   const valid = new Set(allPermissionKeys());
   if (!Array.isArray(value)) return defaultPermissionsForRole(role);
-  const next = value.filter((item) => valid.has(item));
+  const legacyRisks = value.some((item) => item.endsWith(":riesgos"));
+  const legacyRequests = value.some((item) => item.endsWith(":solicitudes"));
+  const migrated = [
+    ...value,
+    ...(legacyRisks ? [permissionKey(adminAreaKey, "riesgos")] : []),
+    ...(legacyRequests ? [permissionKey(adminAreaKey, "solicitudes")] : [])
+  ];
+  const next = migrated.filter((item) => valid.has(item));
   return [...new Set(next)];
 }
 
@@ -951,6 +963,9 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
     return area.submenus.filter((item) => {
       if (item.key === "permisos") return canOpenAdminPermissions(user);
       if (item.key === "actas") return canOpenAdminMinutes(user);
+      if (["riesgos", "solicitudes"].includes(item.key)) {
+        return userPermissions(user).has(permissionKey(adminAreaKey, item.key));
+      }
       return false;
     });
   }
@@ -1546,10 +1561,12 @@ function getAreaSubmenu(areaKey, submenuKey) {
 }
 
 function getStrategicRiskSubmenu(areaKey = state.activeArea) {
+  if (areaKey === adminAreaKey) return getAreaSubmenu("comercializacion", "riesgos");
   return getAreaSubmenu(areaKey, "riesgos") || getAreaSubmenu("comercializacion", "riesgos");
 }
 
 function getManagementRequestSubmenu(areaKey = state.activeArea) {
+  if (areaKey === adminAreaKey) return getAreaSubmenu("comercializacion", "solicitudes");
   return getAreaSubmenu(areaKey, "solicitudes") || getAreaSubmenu("comercializacion", "solicitudes");
 }
 
@@ -1704,6 +1721,7 @@ function saveManagementRequests(options = {}) {
 function resetManagementRequestForm() {
   managementRequestForm.reset();
   managementRequestId.value = "";
+  state.managementRequestAreaKey = "";
   managementRequestDate.value = todayISO();
   managementRequestTitle.textContent = "Nueva solicitud";
   saveManagementRequestBtn.textContent = "Enviar solicitud";
@@ -4592,12 +4610,15 @@ function adminPermissionSummary(user) {
   const permissions = userPermissions(user);
   const areaLabels = areaKeys
     .map((areaKey) => {
-      const count = (areas[areaKey]?.submenus || [])
+      const count = areaPermissionSections(areaKey)
         .filter((section) => permissions.has(permissionKey(areaKey, section.key)))
         .length;
       return count ? `${areas[areaKey].nav}: ${count}` : "";
     })
     .filter(Boolean);
+  const consolidatedCount = adminConsolidatedPermissionSections
+    .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
+  if (consolidatedCount) areaLabels.push(`Consolidados: ${consolidatedCount}`);
   const minuteCount = adminMinutePermissionSections
     .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
   if (minuteCount) areaLabels.push(`Actas: ${minuteCount}`);
@@ -4611,12 +4632,15 @@ function adminPermissionModules(user) {
   const permissions = userPermissions(user);
   const modules = areaKeys
     .map((areaKey) => {
-      const count = (areas[areaKey]?.submenus || [])
+      const count = areaPermissionSections(areaKey)
         .filter((section) => permissions.has(permissionKey(areaKey, section.key)))
         .length;
       return count ? { label: areas[areaKey].nav, count } : null;
     })
     .filter(Boolean);
+  const consolidatedCount = adminConsolidatedPermissionSections
+    .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
+  if (consolidatedCount) modules.push({ label: "Consolidados", count: consolidatedCount });
   const minuteCount = adminMinutePermissionSections
     .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
   if (minuteCount) modules.push({ label: "Actas", count: minuteCount });
@@ -4648,7 +4672,7 @@ function renderAdminPermissionControls(existingUser = null) {
   adminPermissionGrid.innerHTML = `${areaKeys.map((areaKey) => `
     <fieldset class="permission-group">
       <legend>${areas[areaKey].nav}</legend>
-      ${(areas[areaKey]?.submenus || []).map((section) => {
+      ${areaPermissionSections(areaKey).map((section) => {
         const key = permissionKey(areaKey, section.key);
         return `
           <label class="permission-check">
@@ -4659,6 +4683,18 @@ function renderAdminPermissionControls(existingUser = null) {
       }).join("")}
     </fieldset>
   `).join("")}
+    <fieldset class="permission-group">
+      <legend>Riesgos y solicitudes</legend>
+      ${adminConsolidatedPermissionSections.map((section) => {
+        const key = permissionKey(adminAreaKey, section.key);
+        return `
+          <label class="permission-check">
+            <input type="checkbox" value="${key}" ${selected.has(key) ? "checked" : ""} ${fullAccessProfile ? "disabled" : ""}>
+            <span>${section.label}</span>
+          </label>
+        `;
+      }).join("")}
+    </fieldset>
     <fieldset class="permission-group">
       <legend>Actas</legend>
       ${adminMinutePermissionSections.map((section) => {
@@ -4778,7 +4814,7 @@ function deleteAdminUser(userId) {
 
 function modulePermissionCount(user, areaKey) {
   const permissions = userPermissions(user);
-  return (areas[areaKey]?.submenus || [])
+  return areaPermissionSections(areaKey)
     .filter((section) => permissions.has(permissionKey(areaKey, section.key))).length;
 }
 
@@ -4786,7 +4822,7 @@ function updateUserModulePermission(userId, areaKey, enabled) {
   systemUsers = systemUsers.map((user) => {
     if (user.id !== userId || isAdminUser(user)) return user;
     const existing = new Set(normalizePermissionList(user.permissions, user.role));
-    (areas[areaKey]?.submenus || []).forEach((section) => {
+    areaPermissionSections(areaKey).forEach((section) => {
       const key = permissionKey(areaKey, section.key);
       if (enabled) existing.add(key);
       else existing.delete(key);
@@ -4799,13 +4835,20 @@ function updateUserModulePermission(userId, areaKey, enabled) {
 
 function adminOperationalPermissionColumns() {
   return [
-    ...areaKeys.flatMap((areaKey) => (areas[areaKey]?.submenus || []).map((section) => ({
+    ...areaKeys.flatMap((areaKey) => areaPermissionSections(areaKey).map((section) => ({
       areaKey,
       areaLabel: areas[areaKey].nav,
       sectionKey: section.key,
       label: section.label,
       key: permissionKey(areaKey, section.key)
     }))),
+    ...adminConsolidatedPermissionSections.map((section) => ({
+      areaKey: adminAreaKey,
+      areaLabel: "Riesgos y solicitudes",
+      sectionKey: section.key,
+      label: section.label,
+      key: permissionKey(adminAreaKey, section.key)
+    })),
     ...adminMinutePermissionSections.map((section) => ({
       areaKey: adminAreaKey,
       areaLabel: "Actas",
@@ -4891,7 +4934,7 @@ function renderAdminPermissionsPanel() {
   const permissionAreaKeys = [...new Set(permissionColumns.map((column) => column.areaKey))];
   const areaGroups = permissionAreaKeys.map((areaKey) => ({
     areaKey,
-    label: areaKey === adminAreaKey ? "Actas" : areas[areaKey].nav,
+    label: areaKey === adminAreaKey ? "Administracion" : areas[areaKey].nav,
     count: permissionColumns.filter((column) => column.areaKey === areaKey).length
   }));
   return `
@@ -5433,13 +5476,26 @@ function renderDashboard() {
     else minutesTopbarTabs?.classList.add("hidden");
     periodLabel.textContent = state.activeSubmenu === "actas"
       ? (state.adminMinuteView === "history" ? "Historial de actas" : "Nueva acta")
-      : "Control de accesos";
+      : ["riesgos", "solicitudes"].includes(state.activeSubmenu)
+        ? "Consolidado gerencial"
+        : "Control de accesos";
     topbarActions?.classList.add("hidden");
-    overallStatus.textContent = state.activeSubmenu === "actas" ? `${state.minutes.length} actas` : area.status;
+    overallStatus.textContent = state.activeSubmenu === "actas"
+      ? `${state.minutes.length} actas`
+      : state.activeSubmenu === "riesgos"
+        ? `${visibleStrategicRiskItems().length} riesgos`
+        : state.activeSubmenu === "solicitudes"
+          ? `${visibleManagementRequestItems().length} solicitudes`
+          : area.status;
     renderNav();
     summaryGrid.innerHTML = "";
-    commercialPanel.classList.add("hidden");
-    renderAdminPanel();
+    if (["riesgos", "solicitudes"].includes(state.activeSubmenu)) {
+      adminPanel?.classList.add("hidden");
+      renderCommercialSubmenu(area);
+    } else {
+      commercialPanel.classList.add("hidden");
+      renderAdminPanel();
+    }
     return;
   }
 
@@ -6003,7 +6059,7 @@ strategicRiskForm.addEventListener("submit", (event) => {
         owner: currentRiskOwner(),
         target: targetName,
         subject: `Riesgo notificado: ${riskText}`,
-        message: `Comercializacion registro un riesgo que involucra a ${targetName}. Revisar seguimiento gerencial.`,
+        message: `${currentRiskOwner()} registro un riesgo que involucra a ${targetName}. Revisar seguimiento gerencial.`,
         status: "Notificada",
         sourceRiskId: riskId
       });
@@ -6026,7 +6082,7 @@ cancelManagementRequest.addEventListener("click", () => {
 
 managementRequestForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const submenu = getManagementRequestSubmenu();
+  const submenu = getManagementRequestSubmenu(state.managementRequestAreaKey || state.activeArea);
   const id = managementRequestId.value || crypto.randomUUID();
   const current = submenu.items.find((item) => item.id === id);
   const payload = {
@@ -6130,6 +6186,7 @@ opportunityTable.addEventListener("click", (event) => {
     }
 
     managementRequestId.value = item.id;
+    state.managementRequestAreaKey = requestButton.dataset.area || state.activeArea;
     managementRequestDate.value = item.date;
     managementRequestSubject.value = item.subject;
     managementRequestMessage.value = item.message;

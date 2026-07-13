@@ -19,13 +19,16 @@ PORT = int(os.environ.get("PORT", "8097"))
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
-    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"],
-    "financiera": ["resultados", "resultados-pedidos", "kpi", "riesgos", "solicitudes"],
-    "operaciones": ["resultados", "kpi", "riesgos", "solicitudes"],
-    "rrhh": ["resultados", "kpi", "riesgos", "solicitudes"],
+    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"],
+    "financiera": ["resultados", "resultados-pedidos", "kpi"],
+    "operaciones": ["resultados", "kpi"],
+    "rrhh": ["resultados", "kpi"],
 }
-SHARED_DEFAULT_SECTION_KEYS = ["riesgos", "solicitudes"]
 VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
+ADMIN_CONSOLIDATED_PERMISSION_KEYS = [
+    "administracion:riesgos",
+    "administracion:solicitudes",
+]
 ADMIN_MINUTE_PERMISSION_KEYS = [
     "administracion:actas-nueva",
     "administracion:actas-historial",
@@ -42,9 +45,10 @@ ALL_OPERATIONAL_PERMISSIONS = [
     for area in AREA_KEYS
     for section in AREA_SECTION_KEYS[area]
 ]
-ALL_PERMISSIONS = [*ALL_OPERATIONAL_PERMISSIONS, *ADMIN_MINUTE_PERMISSION_KEYS]
-SHARED_DEFAULT_PERMISSIONS = [
-    f"{area}:{section}" for area in AREA_KEYS for section in SHARED_DEFAULT_SECTION_KEYS
+ALL_PERMISSIONS = [
+    *ALL_OPERATIONAL_PERMISSIONS,
+    *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
+    *ADMIN_MINUTE_PERMISSION_KEYS,
 ]
 
 DEFAULT_USERS = [
@@ -379,8 +383,13 @@ def default_permissions_for_role(role):
             *[f"comercializacion:{section}" for section in AREA_SECTION_KEYS["comercializacion"]],
             "financiera:resultados",
             "financiera:resultados-pedidos",
+            *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
         ]
-    return list(ALL_PERMISSIONS if role == "gerencias" else ALL_OPERATIONAL_PERMISSIONS)
+    return list(
+        ALL_PERMISSIONS
+        if role == "gerencias"
+        else [*ALL_OPERATIONAL_PERMISSIONS, *ADMIN_CONSOLIDATED_PERMISSION_KEYS]
+    )
 
 
 def normalize_permissions(value, role):
@@ -477,6 +486,36 @@ def connect():
     return conn
 
 
+def migrate_consolidated_permissions(conn):
+    migration_key = "migration_admin_consolidated_risks_requests_v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    rows = conn.execute("""
+        SELECT id, role, permissions, permissions_customized
+        FROM users
+    """).fetchall()
+    for row in rows:
+        try:
+            raw_permissions = json.loads(row["permissions"] or "[]")
+        except json.JSONDecodeError:
+            raw_permissions = []
+        raw_permissions = raw_permissions if isinstance(raw_permissions, list) else []
+        permissions = normalize_permissions(raw_permissions, row["role"])
+        if any(item.endswith(":riesgos") for item in raw_permissions):
+            permissions.append("administracion:riesgos")
+        if any(item.endswith(":solicitudes") for item in raw_permissions):
+            permissions.append("administracion:solicitudes")
+        permissions = list(dict.fromkeys(item for item in permissions if item in ALL_PERMISSIONS))
+        conn.execute(
+            "UPDATE users SET permissions = ? WHERE id = ?",
+            (json.dumps(permissions, ensure_ascii=True), row["id"]),
+        )
+    conn.execute(
+        "INSERT INTO app_state (key, value) VALUES (?, ?)",
+        (migration_key, "completed"),
+    )
+
+
 def grant_johanna_minutes_permissions(conn):
     migration_key = "migration_johanna_actas_tabs_v1"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
@@ -570,6 +609,7 @@ def init_db():
         if not rows:
             for user in DEFAULT_USERS:
                 upsert_user(conn, user)
+        migrate_consolidated_permissions(conn)
         grant_johanna_minutes_permissions(conn)
 
 
