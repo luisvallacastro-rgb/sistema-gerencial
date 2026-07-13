@@ -185,7 +185,7 @@ button, select, input {
 .product-wordmark {
   position: relative;
   display: inline-flex !important;
-  align-items: flex-end;
+  align-items: center;
   gap: 0;
   width: max-content;
   max-width: 100%;
@@ -195,35 +195,12 @@ button, select, input {
   white-space: nowrap;
 }
 
-.product-wordmark .wordmark-letters {
-  color: #72f5d1;
-  font-weight: 950;
-  letter-spacing: -.055em;
-  text-shadow: 0 0 18px rgba(114,245,209,.26);
-}
-
-.product-wordmark .wordmark-i {
-  position: relative;
-  display: inline-block;
-  width: .19em;
-  height: .54em;
-  margin: 0 0 .12em .075em;
-  border-radius: .015em;
-  background: #72f5d1;
-  box-shadow: 0 0 12px rgba(114,245,209,.3);
-}
-
-.product-wordmark .wordmark-i::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: -.27em;
-  width: .19em;
-  height: .19em;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: #72f5d1;
-  box-shadow: 0 0 9px rgba(114,245,209,.65);
+.product-wordmark .kmi-logo-mark {
+  display: block;
+  width: 1.58em;
+  height: 1em;
+  background: url("assets/kmi-logo.png") center / contain no-repeat;
+  filter: drop-shadow(0 0 8px rgba(114,245,209,.28));
 }
 
 .login-wordmark {
