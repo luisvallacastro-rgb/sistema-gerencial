@@ -5100,17 +5100,28 @@ button:disabled {
 .app-shell .financial-comparison-toolbar h4 { margin: 0; color: #f6fbff; font-size: 20px; }
 .app-shell .financial-comparison-toolbar p { margin: 0; color: rgba(195,213,234,.52); font-size: 10px; font-weight: 700; }
 .app-shell .financial-multifilters { display: flex; align-items: center; gap: 9px; }
-.app-shell .financial-multiselect { position: relative; min-width: 170px; }
-.app-shell .financial-multiselect summary { min-height: 50px; display: grid; align-content: center; gap: 2px; padding: 7px 36px 7px 14px; border-radius: 14px; list-style: none; cursor: pointer; background: linear-gradient(135deg,rgba(82,119,172,.2),rgba(20,59,83,.2)),rgba(255,255,255,.035); box-shadow: inset 0 1px 0 rgba(255,255,255,.07); }
+.app-shell .financial-multiselect { position: relative; min-width: 180px; }
+.app-shell .financial-multiselect summary { min-height: 54px; display: grid; align-content: center; gap: 3px; padding: 8px 42px 8px 16px; border: 1px solid transparent; border-radius: 16px; list-style: none; cursor: pointer; background: linear-gradient(135deg,rgba(82,119,172,.22),rgba(20,72,88,.2)),rgba(255,255,255,.04); box-shadow: inset 0 1px 0 rgba(255,255,255,.075), 0 10px 24px rgba(1,13,28,.12); transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease, background .22s ease; }
 .app-shell .financial-multiselect summary::-webkit-details-marker { display: none; }
-.app-shell .financial-multiselect summary::after { content: "+"; position: absolute; right: 14px; top: 15px; color: #72f5d1; font-size: 18px; font-weight: 900; }
+.app-shell .financial-multiselect summary:hover { transform: translateY(-2px); background: linear-gradient(135deg,rgba(82,142,184,.28),rgba(24,94,99,.23)),rgba(255,255,255,.05); box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 14px 30px rgba(1,13,28,.2); }
+.app-shell .financial-multiselect summary:focus { outline: 0; }
+.app-shell .financial-multiselect summary:focus-visible { border-color: rgba(114,245,209,.62); box-shadow: 0 0 0 3px rgba(114,245,209,.12), 0 14px 32px rgba(1,13,28,.24); }
+.app-shell .financial-multiselect summary::after { content: "+"; position: absolute; right: 14px; top: 15px; width: 23px; height: 23px; display: grid; place-items: center; border-radius: 8px; color: #72f5d1; font-size: 17px; font-weight: 900; line-height: 1; background: rgba(114,245,209,.08); transition: transform .25s ease, background .25s ease; }
 .app-shell .financial-multiselect[open] summary::after { content: "−"; }
+.app-shell .financial-multiselect[open] summary { border-color: rgba(114,245,209,.28); background: linear-gradient(135deg,rgba(68,133,174,.29),rgba(24,101,101,.23)),rgba(255,255,255,.05); box-shadow: 0 0 0 3px rgba(114,245,209,.07), 0 17px 38px rgba(1,13,28,.27); }
+.app-shell .financial-multiselect[open] summary::after { transform: rotate(180deg); background: rgba(114,245,209,.15); }
 .app-shell .financial-multiselect summary small { color: #72f5d1; font-size: 8px; font-weight: 950; letter-spacing: .1em; text-transform: uppercase; }
 .app-shell .financial-multiselect summary strong { max-width: 145px; overflow: hidden; color: #eff7ff; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.app-shell .financial-multiselect > div { position: absolute; z-index: 12; top: calc(100% + 7px); right: 0; width: 210px; max-height: 260px; overflow-y: auto; display: grid; gap: 3px; padding: 9px; border-radius: 15px; background: rgba(12,31,55,.97); box-shadow: 0 20px 45px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.07); backdrop-filter: blur(18px); }
-.app-shell .financial-multiselect label { min-height: 34px; display: flex; align-items: center; gap: 9px; padding: 5px 9px; border-radius: 9px; color: rgba(220,233,247,.76); font-size: 11px; font-weight: 850; cursor: pointer; }
-.app-shell .financial-multiselect label:hover { color: #fff; background: rgba(114,245,209,.07); }
-.app-shell .financial-multiselect input { accent-color: #37d9ad; }
+.app-shell .financial-multiselect > div { position: absolute; z-index: 12; top: calc(100% + 10px); right: 0; width: 235px; max-height: 282px; overflow-y: auto; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; padding: 11px; border: 1px solid rgba(126,183,209,.1); border-radius: 18px; background: linear-gradient(145deg,rgba(17,42,70,.97),rgba(7,29,52,.98)); box-shadow: 0 26px 65px rgba(0,0,0,.43), inset 0 1px 0 rgba(255,255,255,.075); backdrop-filter: blur(22px) saturate(1.18); animation: comparisonFilterReveal .25s cubic-bezier(.2,.8,.2,1) both; scrollbar-width: thin; scrollbar-color: rgba(114,245,209,.36) transparent; }
+.app-shell .financial-multiselect label { position: relative; min-height: 40px; display: flex; align-items: center; gap: 9px; padding: 6px 9px; border: 1px solid transparent; border-radius: 11px; color: rgba(220,233,247,.7); font-size: 10px; font-weight: 900; cursor: pointer; background: rgba(255,255,255,.025); transition: color .18s ease, background .18s ease, border-color .18s ease, transform .18s ease; }
+.app-shell .financial-multiselect label:hover { color: #fff; border-color: rgba(114,245,209,.14); background: rgba(114,245,209,.07); transform: translateY(-1px); }
+.app-shell .financial-multiselect input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; appearance: none; border: 1px solid rgba(175,204,228,.26); border-radius: 6px; background: rgba(5,21,40,.52); box-shadow: inset 0 1px 2px rgba(0,0,0,.22); cursor: pointer; transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease; }
+.app-shell .financial-multiselect input::after { content: ""; display: block; width: 8px; height: 4px; margin: 5px 0 0 4px; border: solid #062e31; border-width: 0 0 2px 2px; opacity: 0; transform: rotate(-45deg) scale(.5); transition: opacity .16s ease, transform .16s ease; }
+.app-shell .financial-multiselect input:checked { border-color: #72f5d1; background: linear-gradient(135deg,#72f5d1,#36cfa9); box-shadow: 0 0 13px rgba(114,245,209,.28); transform: scale(1.04); }
+.app-shell .financial-multiselect input:checked::after { opacity: 1; transform: rotate(-45deg) scale(1); }
+.app-shell .financial-multiselect label:has(input:checked) { color: #dffdf5; border-color: rgba(114,245,209,.18); background: linear-gradient(135deg,rgba(114,245,209,.1),rgba(76,137,213,.07)); }
+.app-shell .financial-multiselect input:focus-visible { outline: 2px solid rgba(114,245,209,.72); outline-offset: 2px; }
+@keyframes comparisonFilterReveal { from { opacity: 0; transform: translateY(-7px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .app-shell .financial-comparison-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; }
 .app-shell .financial-comparison-summary article { min-height: 68px; display: grid; align-content: center; gap: 4px; padding: 12px 15px; border-radius: 15px; background: linear-gradient(135deg,rgba(70,107,160,.15),rgba(16,52,72,.11)),rgba(255,255,255,.025); box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
 .app-shell .financial-comparison-summary span { color: rgba(194,213,234,.55); font-size: 8px; font-weight: 950; letter-spacing: .09em; text-transform: uppercase; }
@@ -5145,6 +5156,7 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .app-shell .financial-seller-bar-track i { animation: none; }
   .app-shell .financial-line-chart .line-series polyline { animation: none; }
+  .app-shell .financial-multiselect > div { animation: none; }
 }
 
 @media (max-width: 900px) {
