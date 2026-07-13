@@ -3327,6 +3327,9 @@ function renderCrmDashboard() {
       opportunity.estimatedAmount,
       formatMoney(opportunity.estimatedAmount)
     ].some((value) => searchTokenMatches(value, query)));
+  opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
+    rows.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
+  );
   const pageCount = Math.max(1, Math.ceil(rows.length / opportunityPageSize));
   state.crmOpportunityPage = Math.min(Math.max(Number(state.crmOpportunityPage) || 1, 1), pageCount);
   const pageStart = (state.crmOpportunityPage - 1) * opportunityPageSize;
