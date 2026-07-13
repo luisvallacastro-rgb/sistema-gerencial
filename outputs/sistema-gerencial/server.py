@@ -18,10 +18,26 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
-SECTION_KEYS = ["resultados", "kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"]
+AREA_SECTION_KEYS = {
+    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"],
+    "financiera": ["resultados", "resultados-pedidos", "kpi", "riesgos", "solicitudes"],
+    "operaciones": ["resultados", "kpi", "riesgos", "solicitudes"],
+    "rrhh": ["resultados", "kpi", "riesgos", "solicitudes"],
+}
 SHARED_DEFAULT_SECTION_KEYS = ["riesgos", "solicitudes"]
-VALID_ROLES = {"general", "accionistas", *AREA_KEYS}
-ALL_PERMISSIONS = [f"{area}:{section}" for area in AREA_KEYS for section in SECTION_KEYS]
+VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
+LEGACY_ROLE_MAP = {
+    "general": "gerencias",
+    "comercializacion": "gerencias",
+    "financiera": "gerencias",
+    "operaciones": "gerencias",
+    "rrhh": "gerencias",
+}
+ALL_PERMISSIONS = [
+    f"{area}:{section}"
+    for area in AREA_KEYS
+    for section in AREA_SECTION_KEYS[area]
+]
 SHARED_DEFAULT_PERMISSIONS = [
     f"{area}:{section}" for area in AREA_KEYS for section in SHARED_DEFAULT_SECTION_KEYS
 ]
@@ -32,16 +48,16 @@ DEFAULT_USERS = [
         "name": "Luis Valladares",
         "username": "luisvallacastro",
         "email": ADMIN_EMAIL,
-        "role": "financiera",
+        "role": "gerencias",
         "password": "admin123",
         "admin": True,
     },
-    {"id": "user-general", "name": "Gerencia general", "username": "general", "email": "general@empresa.local", "role": "general", "password": "admin123"},
+    {"id": "user-general", "name": "Gerencia general", "username": "general", "email": "general@empresa.local", "role": "gerencias", "password": "admin123"},
     {"id": "user-accionistas", "name": "Accionistas", "username": "accionistas", "email": "accionistas@empresa.local", "role": "accionistas", "password": "admin123"},
-    {"id": "user-financiera", "name": "Gerencia financiera", "username": "financiera", "email": "financiera@empresa.local", "role": "financiera", "password": "admin123"},
-    {"id": "user-comercial", "name": "Gerencia comercializacion", "username": "comercializacion", "email": "comercializacion@empresa.local", "role": "comercializacion", "password": "admin123"},
-    {"id": "user-operaciones", "name": "Gerencia operaciones", "username": "operaciones", "email": "operaciones@empresa.local", "role": "operaciones", "password": "admin123"},
-    {"id": "user-rrhh", "name": "Gerencia recursos humanos", "username": "rrhh", "email": "rrhh@empresa.local", "role": "rrhh", "password": "admin123"},
+    {"id": "user-financiera", "name": "Gerencia financiera", "username": "financiera", "email": "financiera@empresa.local", "role": "gerencias", "password": "admin123"},
+    {"id": "user-comercial", "name": "Gerencia comercializacion", "username": "comercializacion", "email": "comercializacion@empresa.local", "role": "gerencias", "password": "admin123"},
+    {"id": "user-operaciones", "name": "Gerencia operaciones", "username": "operaciones", "email": "operaciones@empresa.local", "role": "gerencias", "password": "admin123"},
+    {"id": "user-rrhh", "name": "Gerencia recursos humanos", "username": "rrhh", "email": "rrhh@empresa.local", "role": "gerencias", "password": "admin123"},
 ]
 
 
@@ -356,27 +372,29 @@ def normalize_permissions(value, role):
         try:
             value = json.loads(value)
         except json.JSONDecodeError:
-            value = []
-    if not isinstance(value, list) or not value:
+            value = None
+    if not isinstance(value, list):
         return default_permissions_for_role(role)
     valid = set(ALL_PERMISSIONS)
     permissions = [item for item in value if item in valid]
-    return list(dict.fromkeys(permissions)) or default_permissions_for_role(role)
+    return list(dict.fromkeys(permissions))
 
 
 def normalize_user(data, index=0):
     item = dict(data or {})
     email = str(item.get("email") or "").strip().lower()
     username = str(item.get("username") or (email.split("@")[0] if email else f"usuario{index + 1}")).strip().lower()
-    role = item.get("role") if item.get("role") in VALID_ROLES else "comercializacion"
+    raw_role = item.get("role")
+    migrated_role = LEGACY_ROLE_MAP.get(raw_role, raw_role)
+    role = migrated_role if migrated_role in VALID_ROLES else "gerencias"
     admin = bool(item.get("admin")) or email == ADMIN_EMAIL
-    permissions = list(ALL_PERMISSIONS) if admin else normalize_permissions(item.get("permissions"), role)
+    permissions = list(ALL_PERMISSIONS) if admin or role == "gerencias" else normalize_permissions(item.get("permissions"), role)
     return {
         "id": item.get("id") or f"user-{index + 1}",
         "name": item.get("name") or username or "Usuario",
         "username": username,
         "email": email,
-        "role": "financiera" if admin else role,
+        "role": "gerencias" if admin else role,
         "password": item.get("password") or "admin123",
         "permissions": permissions,
         "admin": admin,
@@ -385,10 +403,13 @@ def normalize_user(data, index=0):
 
 def user_payload(row):
     data = dict(row)
-    data["permissions"] = normalize_permissions(data.get("permissions"), data.get("role"))
+    raw_role = data.get("role")
+    migrated_role = LEGACY_ROLE_MAP.get(raw_role, raw_role)
+    data["role"] = migrated_role if migrated_role in VALID_ROLES else "gerencias"
+    data["permissions"] = normalize_permissions(data.get("permissions"), data["role"])
     data["admin"] = bool(data.get("admin")) or data.get("email") == ADMIN_EMAIL
-    if data["admin"]:
-        data["role"] = "financiera"
+    if data["admin"] or data["role"] == "gerencias":
+        data["role"] = "gerencias"
         data["permissions"] = list(ALL_PERMISSIONS)
     return data
 
@@ -597,7 +618,7 @@ class AppHandler(BaseHTTPRequestHandler):
             data = self.read_json()
             user_id = text(data.get("userId"))
             name = text(data.get("name"), "Usuario")
-            role = text(data.get("role"), "general")
+            role = text(data.get("role"), "gerencias")
             if not user_id:
                 self.send_json({"error": "Usuario requerido"}, status=400)
                 return

@@ -242,9 +242,9 @@ const areas = {
 };
 
 const state = {
-  role: "general",
+  role: "gerencias",
   currentUser: null,
-  activeArea: "general",
+  activeArea: "comercializacion",
   activeSubmenu: "resultados",
   openMenus: new Set(["comercializacion"]),
   openSubmenuGroups: new Set(["resultados", "crm"]),
@@ -280,21 +280,6 @@ const areaKeys = ["comercializacion", "financiera", "operaciones", "rrhh"];
 const areaOptions = areaKeys;
 const adminEmail = "luisvallacastro@gmail.com";
 const adminAreaKey = "administracion";
-const sectionOptions = [
-  { key: "resultados", label: "Resultados" },
-  { key: "resultados-pedidos", label: "Resultados · Pedidos" },
-  { key: "resultados-oportunidades", label: "Resultados · Oportunidades" },
-  { key: "resultados-dashboard", label: "Resultados · Dashboard" },
-  { key: "kpi", label: "KPI" },
-  { key: "crm", label: "CRM" },
-  { key: "crm-vendedores", label: "CRM Vendedores" },
-  { key: "crm-seguimiento", label: "CRM Seguimiento" },
-  { key: "crm-agenda", label: "CRM Agenda" },
-  { key: "crm-respuestas", label: "CRM Respuestas" },
-  { key: "crm-clientes", label: "CRM Clientes" },
-  { key: "riesgos", label: "Riesgos" },
-  { key: "solicitudes", label: "Solicitudes" }
-];
 areas[adminAreaKey] = {
   label: "Administracion",
   nav: "Administracion",
@@ -626,22 +611,27 @@ const financialOrdersSeedExpectedCount = 2590;
 const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
 const legacyManagementRequestsStorageKey = "sistemaGerencial.solicitudes.v1";
 const defaultUsers = [
-  { id: "user-admin-luis", name: "Luis Valladares", username: "luisvallacastro", email: adminEmail, role: "financiera", password: "admin123", admin: true },
-  { id: "user-general", name: "Gerencia general", username: "general", email: "general@empresa.local", role: "general", password: "admin123" },
+  { id: "user-admin-luis", name: "Luis Valladares", username: "luisvallacastro", email: adminEmail, role: "gerencias", password: "admin123", admin: true },
+  { id: "user-general", name: "Gerencia general", username: "general", email: "general@empresa.local", role: "gerencias", password: "admin123" },
   { id: "user-accionistas", name: "Accionistas", username: "accionistas", email: "accionistas@empresa.local", role: "accionistas", password: "admin123" },
-  { id: "user-financiera", name: "Gerencia financiera", username: "financiera", email: "financiera@empresa.local", role: "financiera", password: "admin123" },
-  { id: "user-comercial", name: "Gerencia comercializacion", username: "comercializacion", email: "comercializacion@empresa.local", role: "comercializacion", password: "admin123" },
-  { id: "user-operaciones", name: "Gerencia operaciones", username: "operaciones", email: "operaciones@empresa.local", role: "operaciones", password: "admin123" },
-  { id: "user-rrhh", name: "Gerencia recursos humanos", username: "rrhh", email: "rrhh@empresa.local", role: "rrhh", password: "admin123" }
+  { id: "user-financiera", name: "Gerencia financiera", username: "financiera", email: "financiera@empresa.local", role: "gerencias", password: "admin123" },
+  { id: "user-comercial", name: "Gerencia comercializacion", username: "comercializacion", email: "comercializacion@empresa.local", role: "gerencias", password: "admin123" },
+  { id: "user-operaciones", name: "Gerencia operaciones", username: "operaciones", email: "operaciones@empresa.local", role: "gerencias", password: "admin123" },
+  { id: "user-rrhh", name: "Gerencia recursos humanos", username: "rrhh", email: "rrhh@empresa.local", role: "gerencias", password: "admin123" }
 ];
 const accessRoles = [
-  ["general", "Gerencia general"],
-  ["accionistas", "Accionistas"],
-  ["comercializacion", "Comercializacion"],
-  ["financiera", "Financiera"],
-  ["operaciones", "Operaciones"],
-  ["rrhh", "Recursos humanos"]
+  ["gerencias", "Gerencias"],
+  ["jefaturas", "Jefaturas"],
+  ["operativos", "Operativos"],
+  ["accionistas", "Accionistas"]
 ];
+const legacyAccessRoleMap = {
+  general: "gerencias",
+  comercializacion: "gerencias",
+  financiera: "gerencias",
+  operaciones: "gerencias",
+  rrhh: "gerencias"
+};
 let systemUsers = [];
 let sessionRestored = false;
 let presenceTimer = null;
@@ -873,7 +863,8 @@ function permissionKey(areaKey, sectionKey) {
 }
 
 function allPermissionKeys() {
-  return areaKeys.flatMap((areaKey) => sectionOptions.map((section) => permissionKey(areaKey, section.key)));
+  return areaKeys.flatMap((areaKey) => (areas[areaKey]?.submenus || [])
+    .map((section) => permissionKey(areaKey, section.key)));
 }
 
 const sharedDefaultSections = ["riesgos", "solicitudes"];
@@ -892,9 +883,9 @@ function defaultPermissionsForRole(role) {
 
 function normalizePermissionList(value, role) {
   const valid = new Set(allPermissionKeys());
-  if (!Array.isArray(value) || !value.length) return defaultPermissionsForRole(role);
+  if (!Array.isArray(value)) return defaultPermissionsForRole(role);
   const next = value.filter((item) => valid.has(item));
-  return next.length ? [...new Set(next)] : defaultPermissionsForRole(role);
+  return [...new Set(next)];
 }
 
 function isAdminUser(user = state.currentUser) {
@@ -902,7 +893,12 @@ function isAdminUser(user = state.currentUser) {
 }
 
 function canOpenAdminPermissions(user = state.currentUser) {
-  return isAdminUser(user);
+  const username = normalizeKey(user?.username);
+  const email = normalizeKey(user?.email);
+  return isAdminUser(user)
+    || Boolean(user?.permissionManager)
+    || username === "financiera"
+    || email === "financiera@empresa.local";
 }
 
 function canOpenAdminMinutes(user = state.currentUser) {
@@ -910,7 +906,9 @@ function canOpenAdminMinutes(user = state.currentUser) {
 }
 
 function userPermissions(user = state.currentUser) {
-  return new Set(allPermissionKeys());
+  if (!user) return new Set();
+  if (isAdminUser(user) || user.role === "gerencias") return new Set(allPermissionKeys());
+  return new Set(normalizePermissionList(user.permissions, user.role));
 }
 
 function visibleSubmenus(areaKey, user = state.currentUser) {
@@ -928,7 +926,7 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
 }
 
 function fallbackAreaForRole(role) {
-  return areaKeys.includes(role) ? role : "comercializacion";
+  return "comercializacion";
 }
 
 function allowedAreas(user = state.currentUser) {
@@ -938,11 +936,11 @@ function allowedAreas(user = state.currentUser) {
 }
 
 function canDeleteOpportunities() {
-  return isAdminUser() || ["general", "financiera", "comercializacion"].includes(state.role);
+  return isAdminUser() || state.role === "gerencias";
 }
 
 function canCancelManagements() {
-  return isAdminUser() || state.role === "financiera";
+  return isAdminUser() || state.role === "gerencias";
 }
 
 function canEditManagements() {
@@ -4357,7 +4355,7 @@ function adminPermissionSummary(user) {
   const permissions = userPermissions(user);
   const areaLabels = areaKeys
     .map((areaKey) => {
-      const count = sectionOptions
+      const count = (areas[areaKey]?.submenus || [])
         .filter((section) => permissions.has(permissionKey(areaKey, section.key)))
         .length;
       return count ? `${areas[areaKey].nav}: ${count}` : "";
@@ -4368,12 +4366,12 @@ function adminPermissionSummary(user) {
 
 function adminPermissionModules(user) {
   if (isAdminUser(user)) {
-    return [{ label: "Acceso total", count: sectionOptions.length * areaKeys.length, total: true }];
+    return [{ label: "Acceso total", count: allPermissionKeys().length, total: true }];
   }
   const permissions = userPermissions(user);
   return areaKeys
     .map((areaKey) => {
-      const count = sectionOptions
+      const count = (areas[areaKey]?.submenus || [])
         .filter((section) => permissions.has(permissionKey(areaKey, section.key)))
         .length;
       return count ? { label: areas[areaKey].nav, count } : null;
@@ -4394,19 +4392,23 @@ function adminUserInitials(user) {
 
 function renderAdminPermissionControls(existingUser = null) {
   if (!adminPermissionGrid) return;
-  const role = adminUserRole?.value || existingUser?.role || "comercializacion";
-  const selected = userPermissions(existingUser || {
+  const role = adminUserRole?.value || existingUser?.role || "gerencias";
+  const fullAccessProfile = role === "gerencias";
+  const selected = userPermissions({
+    ...(existingUser || {}),
     role,
-    permissions: defaultPermissionsForRole(role)
+    permissions: existingUser?.role === role
+      ? existingUser.permissions
+      : defaultPermissionsForRole(role)
   });
   adminPermissionGrid.innerHTML = areaKeys.map((areaKey) => `
     <fieldset class="permission-group">
       <legend>${areas[areaKey].nav}</legend>
-      ${sectionOptions.map((section) => {
+      ${(areas[areaKey]?.submenus || []).map((section) => {
         const key = permissionKey(areaKey, section.key);
         return `
           <label class="permission-check">
-            <input type="checkbox" value="${key}" ${selected.has(key) ? "checked" : ""}>
+            <input type="checkbox" value="${key}" ${selected.has(key) ? "checked" : ""} ${fullAccessProfile ? "disabled" : ""}>
             <span>${section.label}</span>
           </label>
         `;
@@ -4430,10 +4432,9 @@ function openAdminUserDialog(userId = "") {
   adminUsername.value = user?.username || "";
   adminUserEmail.value = user?.email || "";
   adminUserRole.innerHTML = accessRoles
-    .filter(([key]) => !["general", "accionistas"].includes(key))
     .map(([key, label]) => `<option value="${key}">${label}</option>`)
     .join("");
-  adminUserRole.value = user?.role || "comercializacion";
+  adminUserRole.value = user?.role || "gerencias";
   adminUserPassword.value = "";
   adminUserPassword.required = !user;
   renderAdminPermissionControls(user || null);
@@ -4468,7 +4469,7 @@ function saveAdminUserFromForm(event) {
   }
   const existing = systemUsers.find((user) => user.id === userId);
   const admin = normalizeKey(email) === adminEmail;
-  const role = admin ? "financiera" : adminUserRole.value;
+  const role = admin ? "gerencias" : adminUserRole.value;
   const payload = {
     id: userId || crypto.randomUUID(),
     name: adminUserName.value.trim(),
@@ -4477,7 +4478,7 @@ function saveAdminUserFromForm(event) {
     role,
     password: adminUserPassword.value || existing?.password || "admin123",
     admin,
-    permissions: admin ? allPermissionKeys() : collectAdminPermissions()
+    permissions: (admin || role === "gerencias") ? allPermissionKeys() : collectAdminPermissions()
   };
   systemUsers = userId
     ? systemUsers.map((user) => user.id === userId ? payload : user)
@@ -4520,14 +4521,15 @@ function deleteAdminUser(userId) {
 
 function modulePermissionCount(user, areaKey) {
   const permissions = userPermissions(user);
-  return sectionOptions.filter((section) => permissions.has(permissionKey(areaKey, section.key))).length;
+  return (areas[areaKey]?.submenus || [])
+    .filter((section) => permissions.has(permissionKey(areaKey, section.key))).length;
 }
 
 function updateUserModulePermission(userId, areaKey, enabled) {
   systemUsers = systemUsers.map((user) => {
     if (user.id !== userId || isAdminUser(user)) return user;
     const existing = new Set(normalizePermissionList(user.permissions, user.role));
-    sectionOptions.forEach((section) => {
+    (areas[areaKey]?.submenus || []).forEach((section) => {
       const key = permissionKey(areaKey, section.key);
       if (enabled) existing.add(key);
       else existing.delete(key);
@@ -4659,7 +4661,7 @@ function renderAdminPermissionsPanel() {
       <div class="admin-toolbar">
         <label class="admin-search" for="adminSearchInput">
           <span>Buscar usuario</span>
-          <input id="adminSearchInput" type="search" value="${escapeHtml(state.adminQuery)}" placeholder="Nombre, correo o gerencia">
+          <input id="adminSearchInput" type="search" value="${escapeHtml(state.adminQuery)}" placeholder="Nombre, correo o perfil">
         </label>
         <div class="admin-matrix-actions">
           <span class="admin-toolbar-pill">${filteredUsers.length} visibles</span>
@@ -4686,15 +4688,16 @@ function renderAdminPermissionsPanel() {
           ${filteredUsers.map((user) => {
             const permissions = userPermissions(user);
             const activeCount = permissionColumns.filter((column) => permissions.has(column.key)).length;
-            const isLocked = isAdminUser(user);
-            return `<div class="permission-matrix-row ${isLocked ? "admin-owner" : ""}" role="row">
+            const isProtected = isAdminUser(user);
+            const permissionsLocked = isProtected || user.role === "gerencias";
+            return `<div class="permission-matrix-row ${permissionsLocked ? "admin-owner" : ""}" role="row">
               <div class="permission-matrix-user" role="rowheader">
                 <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
                 <div><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(roleDisplayName(user.role))}</span><small>${activeCount}/${permissionColumns.length} permisos</small></div>
-                <label class="permission-row-toggle" title="Cambiar todos los permisos de ${escapeHtml(user.name)}"><input type="checkbox" data-admin-action="row-permission" data-user-id="${user.id}" ${activeCount === permissionColumns.length ? "checked" : ""} ${isLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>
-                <div class="permission-matrix-user-actions"><button type="button" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button><button type="button" aria-label="Cambiar clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>${isLocked ? "" : `<button class="danger" type="button" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}</div>
+                <label class="permission-row-toggle" title="Cambiar todos los permisos de ${escapeHtml(user.name)}"><input type="checkbox" data-admin-action="row-permission" data-user-id="${user.id}" ${activeCount === permissionColumns.length ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>
+                <div class="permission-matrix-user-actions"><button type="button" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button><button type="button" aria-label="Cambiar clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>${isProtected ? "" : `<button class="danger" type="button" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}</div>
               </div>
-              ${permissionColumns.map((column) => `<label class="permission-matrix-cell ${isLocked ? "locked" : ""}" title="${escapeHtml(user.name)} · ${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}"><input type="checkbox" data-admin-action="cell-permission" data-user-id="${user.id}" data-permission="${column.key}" ${permissions.has(column.key) ? "checked" : ""} ${isLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>`).join("")}
+              ${permissionColumns.map((column) => `<label class="permission-matrix-cell ${permissionsLocked ? "locked" : ""}" title="${escapeHtml(user.name)} · ${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}"><input type="checkbox" data-admin-action="cell-permission" data-user-id="${user.id}" data-permission="${column.key}" ${permissions.has(column.key) ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>`).join("")}
             </div>`;
           }).join("")}
         </div>` : `
@@ -5219,9 +5222,10 @@ function normalizeUsers(items) {
     const normalizedEmail = normalizeKey(email);
     const username = String(item.username || email || `usuario${index + 1}`).trim();
     const normalizedUsername = normalizeKey(username);
-    const requestedRole = accessRoles.some(([key]) => key === item.role) ? item.role : "comercializacion";
+    const migratedRole = legacyAccessRoleMap[item.role] || item.role;
+    const requestedRole = accessRoles.some(([key]) => key === migratedRole) ? migratedRole : "gerencias";
     const admin = Boolean(item.admin) || normalizedEmail === adminEmail;
-    const role = admin ? "financiera" : requestedRole;
+    const role = admin ? "gerencias" : requestedRole;
     const user = {
       id: item.id || `user-${index + 1}`,
       name: item.name || item.username || item.email || "Usuario",
@@ -5229,8 +5233,12 @@ function normalizeUsers(items) {
       email,
       role,
       password: item.password || "admin123",
+      permissionManager: Boolean(item.permissionManager)
+        || item.role === "financiera"
+        || normalizedUsername === "financiera"
+        || normalizedEmail === "financiera@empresa.local",
       admin,
-      permissions: admin ? allPermissionKeys() : normalizePermissionList(item.permissions, role)
+      permissions: (admin || role === "gerencias") ? allPermissionKeys() : normalizePermissionList(item.permissions, role)
     };
     byCredential.set(normalizedEmail || normalizedUsername || user.id, user);
   };
@@ -5409,7 +5417,6 @@ function fillUserAccessOptions() {
     `).join("");
   }
   registerRole.innerHTML = accessRoles
-    .filter(([key]) => !["general", "accionistas"].includes(key))
     .map(([key, label]) => `<option value="${key}">${label}</option>`)
     .join("");
 }
@@ -5538,7 +5545,7 @@ registerForm.addEventListener("submit", (event) => {
   }
 
   const admin = normalizeKey(email) === adminEmail;
-  const role = admin ? "financiera" : registerRole.value;
+  const role = admin ? "gerencias" : registerRole.value;
   const user = {
     id: crypto.randomUUID(),
     name: registerName.value.trim(),
@@ -5547,7 +5554,7 @@ registerForm.addEventListener("submit", (event) => {
     role,
     password: registerPassword.value,
     admin,
-    permissions: admin ? allPermissionKeys() : defaultPermissionsForRole(role)
+    permissions: (admin || role === "gerencias") ? allPermissionKeys() : defaultPermissionsForRole(role)
   };
   systemUsers.push(user);
   saveUsers();
