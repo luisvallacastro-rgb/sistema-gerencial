@@ -614,6 +614,20 @@ def init_db():
 
 
 class AppHandler(BaseHTTPRequestHandler):
+    def send_cors_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+    def do_OPTIONS(self):
+        if self.path.startswith("/api/"):
+            self.send_response(204)
+            self.send_cors_headers()
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self.send_error(404)
+
     def do_GET(self):
         if self.path.startswith("/api/"):
             self.handle_api_get()
@@ -624,6 +638,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/api/"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_cors_headers()
             self.end_headers()
             return
         self.serve_static(send_body=False)
@@ -1102,6 +1117,7 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(raw)))
+        self.send_cors_headers()
         self.end_headers()
         self.wfile.write(raw)
 
