@@ -256,6 +256,7 @@ const state = {
   opportunityCycleView: "active",
   opportunityPage: 1,
   opportunitySearch: "",
+  opportunityFormContext: "results",
   kpiView: "dashboard",
   kpiSeller: "all",
   adminQuery: "",
@@ -276,6 +277,7 @@ const state = {
   crmSellerId: "",
   crmStatusFilter: "Vigente",
   crmSearch: "",
+  crmOpportunityPage: 1,
   period: "Julio 2026"
 };
 
@@ -1898,7 +1900,9 @@ function saveOpportunities() {
 }
 
 function resetOpportunityForm() {
+  state.opportunityFormContext = "results";
   opportunityForm.reset();
+  fillOpportunityOptions();
   opportunityId.value = "";
   opportunityCrmSourceId.value = "";
   opportunityDate.valueAsDate = new Date();
@@ -2983,6 +2987,61 @@ function crmStageToOpportunityStage(opportunity = {}) {
   return opportunityStages[Math.max(0, Math.min(opportunityStages.length - 1, stageId - 1))] || "Prospeccion";
 }
 
+function crmOpportunityToFormItem(opportunity = {}) {
+  const agenda = crmData().agenda.find((item) => item.opportunityId === opportunity.id) || {};
+  return {
+    id: opportunity.id || "",
+    date: opportunity.nextDate || opportunity.deadline || opportunity.startDate || todayISO(),
+    company: opportunity.company || "",
+    seller: opportunity.owner?.name || crmOwnerName(opportunity.ownerId),
+    contact: opportunity.contact || opportunity.responsible || "",
+    phone: opportunity.phone || "",
+    segment: opportunity.segment || opportunity.product || "",
+    location: opportunity.location || "",
+    stage: crmStageToOpportunityStage(opportunity),
+    priority: opportunity.priority || "Media",
+    probability: crmTemperatureToProbability(opportunity.temperature),
+    amount: Number(opportunity.estimatedAmount || 0),
+    nextAction: opportunity.nextAction || "Primer seguimiento",
+    agendaDate: agenda.date || opportunity.agendaDate || opportunity.nextDate || "",
+    agendaTime: agenda.time || opportunity.agendaTime || "",
+    agendaType: agenda.type || opportunity.agendaType || "Seguimiento",
+    agendaPlace: agenda.place || opportunity.agendaPlace || "Por definir",
+    note: opportunity.lastNote || opportunity.comment || ""
+  };
+}
+
+function fillOpportunityForm(item, context = "results") {
+  state.opportunityFormContext = context;
+  opportunityId.value = item?.id || "";
+  opportunityCrmSourceId.value = "";
+  opportunityDate.value = item?.date || todayISO();
+  opportunityCompany.value = item?.company || "";
+  if (context === "crm") {
+    opportunitySeller.innerHTML = crmSortedSellers().map((seller) => (
+      `<option value="${escapeHtml(seller.name)}">${escapeHtml(seller.name)}</option>`
+    )).join("");
+  }
+  ensureSelectOption(opportunitySeller, item?.seller || crmSortedSellers()[0]?.name || commercialSellers[0]);
+  opportunityContact.value = item?.contact || "";
+  opportunityPhone.value = item?.phone || "";
+  opportunitySegment.value = item?.segment || "";
+  opportunityLocation.value = item?.location || "";
+  opportunityStage.value = item?.stage || opportunityStages[0];
+  opportunityPriority.value = item?.priority || "Media";
+  opportunityProbability.value = item?.probability || "tibio";
+  opportunityAmount.value = item?.amount || "";
+  opportunityNextAction.value = item?.nextAction || "Primer seguimiento";
+  opportunityAgendaDate.value = item?.agendaDate || item?.date || todayISO();
+  opportunityAgendaTime.value = item?.agendaTime || "";
+  opportunityAgendaType.value = item?.agendaType || "Seguimiento";
+  opportunityAgendaPlace.value = item?.agendaPlace || "Por definir";
+  opportunityNote.value = item?.note || item?.comment || "";
+  opportunityDialogTitle.textContent = item?.id ? "Editar oportunidad" : "Nueva oportunidad";
+  saveOpportunityBtn.textContent = item?.id ? "Actualizar oportunidad" : "Guardar oportunidad";
+  opportunityDialog.showModal();
+}
+
 function opportunityMigratedFromCrm(crmOpportunityId) {
   if (!crmOpportunityId) return false;
   return getOpportunitySubmenu().items.some((item) => item.crmOpportunityId === crmOpportunityId);
@@ -3143,31 +3202,7 @@ function ensureCrmOpportunityDialog() {
 }
 
 function openCrmOpportunityDialog(opportunity = null) {
-  const dialog = ensureCrmOpportunityDialog();
-  const sellers = crmSortedSellers();
-  const stages = crmData().stages || [];
-  dialog.querySelector("#crmOpportunityTitle").textContent = opportunity ? "Editar oportunidad" : "Nueva oportunidad";
-  dialog.querySelector("#crmOpportunityId").value = opportunity?.id || "";
-  dialog.querySelector("#crmCompany").value = opportunity?.company || "";
-  dialog.querySelector("#crmContact").value = opportunity?.contact || opportunity?.responsible || "";
-  dialog.querySelector("#crmPhone").value = opportunity?.phone || "";
-  dialog.querySelector("#crmSegment").value = opportunity?.segment || "";
-  dialog.querySelector("#crmLocation").value = opportunity?.location || "";
-  dialog.querySelector("#crmOwnerId").innerHTML = sellers.map((seller) => `<option value="${seller.id}">${escapeHtml(seller.name)}</option>`).join("");
-  dialog.querySelector("#crmStageId").innerHTML = stages.map((stage) => `<option value="${stage.id}">${stage.id}. ${escapeHtml(stage.name)}</option>`).join("");
-  dialog.querySelector("#crmOwnerId").value = opportunity?.ownerId || state.crmSellerId || sellers[0]?.id || "";
-  dialog.querySelector("#crmStageId").value = opportunity?.stageId || "1";
-  dialog.querySelector("#crmPriority").value = opportunity?.priority || "Media";
-  dialog.querySelector("#crmTemperature").value = opportunity?.temperature || "Tibio";
-  dialog.querySelector("#crmEstimatedAmount").value = opportunity?.estimatedAmount || "";
-  dialog.querySelector("#crmNextDate").value = opportunity?.nextDate || new Date().toISOString().slice(0, 10);
-  dialog.querySelector("#crmNextAction").value = opportunity?.nextAction || "";
-  dialog.querySelector("#crmAgendaDate").value = opportunity?.agendaDate || opportunity?.nextDate || new Date().toISOString().slice(0, 10);
-  dialog.querySelector("#crmAgendaTime").value = opportunity?.agendaTime || "";
-  dialog.querySelector("#crmAgendaType").value = opportunity?.agendaType || "Seguimiento";
-  dialog.querySelector("#crmAgendaPlace").value = opportunity?.agendaPlace || "Por definir";
-  dialog.querySelector("#crmLastNote").value = opportunity?.lastNote || opportunity?.comment || "";
-  dialog.showModal();
+  fillOpportunityForm(opportunity ? crmOpportunityToFormItem(opportunity) : null, "crm");
 }
 
 function saveCrmOpportunity() {
@@ -3274,56 +3309,69 @@ function crmSellerOpportunityShare() {
 }
 
 function renderCrmDashboard() {
-  const data = crmData();
-  const sellerShare = crmSellerOpportunityShare();
-  const pipeline = data.pipeline.slice(0, 8);
+  const activeStatuses = new Set(["vigente", "pendiente", "abierta", "activo"]);
+  const query = normalizeKey(state.crmSearch);
+  const rows = crmData().opportunities
+    .filter((opportunity) => {
+      const status = String(opportunity.status || "Vigente").toLowerCase();
+      return activeStatuses.has(status) || !["ganada", "perdida", "cancelada"].includes(status);
+    })
+    .filter((opportunity) => !query || [
+      opportunity.nextDate,
+      opportunity.deadline,
+      opportunity.company,
+      opportunity.owner?.name,
+      crmOwnerName(opportunity.ownerId),
+      crmStageToOpportunityStage(opportunity),
+      opportunity.temperature,
+      opportunity.estimatedAmount,
+      formatMoney(opportunity.estimatedAmount)
+    ].some((value) => searchTokenMatches(value, query)));
+  const pageCount = Math.max(1, Math.ceil(rows.length / opportunityPageSize));
+  state.crmOpportunityPage = Math.min(Math.max(Number(state.crmOpportunityPage) || 1, 1), pageCount);
+  const pageStart = (state.crmOpportunityPage - 1) * opportunityPageSize;
+  const pageEnd = pageStart + opportunityPageSize;
+  const pagedRows = rows.slice(pageStart, pageEnd);
   return `
-    <section class="crm-shell">
-      <div class="crm-hero">
+    <div class="opportunity-row opportunity-header">
+      <strong>Fecha</strong>
+      <strong>Empresa</strong>
+      <strong>Vendedor</strong>
+      <strong>Etapa</strong>
+      <strong>Temperatura</strong>
+      <strong>Monto</strong>
+      <strong>Acciones</strong>
+    </div>
+    <div class="opportunity-table-body">
+      ${pagedRows.length ? pagedRows.map((opportunity) => {
+        const probability = crmTemperatureToProbability(opportunity.temperature);
+        return `
+          <div class="opportunity-row">
+            <span>${formatDate(opportunity.nextDate || opportunity.deadline || opportunity.startDate)}</span>
+            <strong class="company-cell"><span class="company-name">${escapeHtml(opportunity.company || "Sin empresa")}</span></strong>
+            <span>${escapeHtml(opportunity.owner?.name || crmOwnerName(opportunity.ownerId))}</span>
+            <span>${escapeHtml(crmStageToOpportunityStage(opportunity))}</span>
+            <span class="tag ${probabilityClass(probability)}">${escapeHtml(probabilityLabel(probability))}</span>
+            <strong>${formatMoney(opportunity.estimatedAmount)}</strong>
+            <span class="row-actions">
+              <button class="action-icon-btn" type="button" data-crm-edit="${opportunity.id}" aria-label="Editar"><span aria-hidden="true">✏️</span></button>
+              <button class="action-icon-btn" type="button" data-crm-edit="${opportunity.id}" aria-label="Ver detalle"><span aria-hidden="true">📋</span></button>
+              <button class="action-icon-btn danger" type="button" data-crm-delete="${opportunity.id}" aria-label="Borrar"><span aria-hidden="true">🗑️</span></button>
+            </span>
+          </div>
+        `;
+      }).join("") : `<div class="empty-state">No hay oportunidades vigentes para este filtro.</div>`}
+    </div>
+    ${rows.length > opportunityPageSize ? `
+      <div class="opportunity-pagination" aria-label="Paginacion de oportunidades CRM">
+        <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
         <div>
-          <p class="eyebrow">Comercializacion</p>
-          <h3>CRM operativo</h3>
-          <span>${data.generatedAt ? `Actualizado ${new Date(data.generatedAt).toLocaleString("es-SV")}` : "Conectando datos CRM"}</span>
-        </div>
-        <div class="crm-hero-actions">
-          <button class="primary-btn" type="button" data-crm-new>+ Oportunidad</button>
-          <button class="secondary-btn" type="button" data-crm-refresh>Actualizar</button>
+          <button class="ghost-btn compact-btn" type="button" data-crm-page="prev" ${state.crmOpportunityPage <= 1 ? "disabled" : ""}>Anterior</button>
+          <strong>Pagina ${state.crmOpportunityPage} de ${pageCount}</strong>
+          <button class="ghost-btn compact-btn" type="button" data-crm-page="next" ${state.crmOpportunityPage >= pageCount ? "disabled" : ""}>Siguiente</button>
         </div>
       </div>
-      <div class="crm-metrics">${crmMetricCards()}</div>
-      <div class="crm-two-column">
-        <section class="crm-section">
-          <div class="crm-section-head"><strong>Pipeline por etapa</strong><span>${pipeline.length} etapas</span></div>
-          <div class="crm-stage-list">
-            ${pipeline.map((stage) => `
-              <article class="crm-stage-row">
-                <span>${stage.id}. ${escapeHtml(stage.name)}</span>
-                <strong>${stage.amountLabel || formatMoney(stage.amount || 0)}</strong>
-                <em>${stage.count || 0}</em>
-              </article>
-            `).join("") || `<div class="empty-state">No hay etapas CRM cargadas.</div>`}
-          </div>
-        </section>
-        <section class="crm-section">
-          <div class="crm-section-head"><strong>Peso por vendedor</strong><span>${formatMoney(sellerShare.reduce((sum, seller) => sum + seller.amount, 0))}</span></div>
-          <div class="crm-seller-share-list">
-            ${sellerShare.map((seller) => `
-              <article class="crm-seller-share-row">
-                <div>
-                  <strong>${escapeHtml(seller.name)}</strong>
-                  <span>${seller.count} oportunidades activas</span>
-                </div>
-                <div class="crm-share-meter" aria-label="${seller.percent.toFixed(1)}% del pipeline">
-                  <i style="width: ${Math.max(2, Math.min(100, seller.percent)).toFixed(2)}%"></i>
-                </div>
-                <strong>${formatMoney(seller.amount)}</strong>
-                <em>${seller.percent.toFixed(1)}%</em>
-              </article>
-            `).join("") || `<div class="empty-state">No hay oportunidades vigentes para sumar.</div>`}
-          </div>
-        </section>
-      </div>
-    </section>
+    ` : ""}
   `;
 }
 
@@ -3741,7 +3789,20 @@ function renderCommercialSubmenu(area) {
   }
 
   if (submenu.key.startsWith("crm")) {
-    newOpportunityBtn.classList.add("hidden");
+    const isCrmOpportunityView = submenu.key === "crm";
+    commercialPanel.classList.toggle("opportunity-mode", isCrmOpportunityView);
+    commercialSubmenuTitle.classList.toggle("hidden", false);
+    commercialSubmenuTitle.textContent = isCrmOpportunityView ? "Oportunidades" : submenu.label;
+    opportunitySearchField.classList.toggle("hidden", !isCrmOpportunityView);
+    opportunitySearchInput.value = state.crmSearch;
+    opportunityTotalAmount.classList.toggle("hidden", !isCrmOpportunityView);
+    if (isCrmOpportunityView) {
+      const activeCrm = crmData().opportunities.filter((opportunity) => !["ganada", "perdida", "cancelada"].includes(String(opportunity.status || "Vigente").toLowerCase()));
+      opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
+        activeCrm.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
+      );
+    }
+    newOpportunityBtn.classList.toggle("hidden", !isCrmOpportunityView);
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");
     goalsMatrixBtn.classList.add("hidden");
@@ -3786,6 +3847,21 @@ function renderCommercialSubmenu(area) {
     });
     opportunityTable.querySelectorAll("[data-crm-opportunity]").forEach((item) => {
       item.addEventListener("click", () => openCrmOpportunityById(item.dataset.crmOpportunity));
+    });
+    opportunityTable.querySelectorAll("[data-crm-edit]").forEach((button) => {
+      button.addEventListener("click", () => openCrmOpportunityById(button.dataset.crmEdit));
+    });
+    opportunityTable.querySelectorAll("[data-crm-delete]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (!confirm("¿Eliminar esta oportunidad del CRM?")) return;
+        crmApi(`/opportunities/${button.dataset.crmDelete}`, { method: "DELETE" });
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmOpportunityPage += button.dataset.crmPage === "next" ? 1 : -1;
+        renderCommercialSubmenu(areas.comercializacion);
+      });
     });
     opportunityTable.querySelectorAll("[data-crm-agenda-status]").forEach((button) => {
       button.addEventListener("click", (event) => {
@@ -5631,9 +5707,17 @@ sidebarRestoreBtn.addEventListener("click", () => {
 });
 
 opportunitySearchInput.addEventListener("input", () => {
-  state.opportunitySearch = opportunitySearchInput.value;
-  state.opportunityPage = 1;
+  if (state.activeSubmenu === "crm") {
+    state.crmSearch = opportunitySearchInput.value;
+    state.crmOpportunityPage = 1;
+  } else {
+    state.opportunitySearch = opportunitySearchInput.value;
+    state.opportunityPage = 1;
+  }
   renderCommercialSubmenu(areas.comercializacion);
+  const input = document.querySelector("#opportunitySearchInput");
+  input?.focus();
+  input?.setSelectionRange(input.value.length, input.value.length);
 });
 
 periodSelect.addEventListener("change", () => {
@@ -5885,6 +5969,8 @@ opportunityTable.addEventListener("click", (event) => {
     return;
   }
 
+  state.opportunityFormContext = "results";
+  fillOpportunityOptions();
   opportunityId.value = item.id;
   opportunityCrmSourceId.value = item.crmOpportunityId || "";
   opportunityDate.value = item.date;
@@ -6174,6 +6260,44 @@ function updateClosureControls() {
 opportunityForm.addEventListener("submit", (event) => {
   if (event.submitter && event.submitter.value === "cancel") return;
   event.preventDefault();
+  if (state.opportunityFormContext === "crm") {
+    const id = opportunityId.value;
+    const seller = crmSalesUsers().find((user) => normalizeKey(user.name) === normalizeKey(opportunitySeller.value));
+    const stageId = Math.max(1, opportunityStages.indexOf(opportunityStage.value) + 1);
+    const temperature = { caliente: "Caliente", tibio: "Tibio", frio: "Frio", congelado: "Congelado" }[opportunityProbability.value] || "Tibio";
+    const payload = {
+      company: opportunityCompany.value.trim(),
+      product: opportunitySegment.value.trim(),
+      contact: opportunityContact.value.trim(),
+      responsible: opportunityContact.value.trim(),
+      phone: opportunityPhone.value.trim(),
+      segment: opportunitySegment.value.trim(),
+      location: opportunityLocation.value.trim(),
+      ownerId: seller?.id || state.crmSellerId || crmSalesUsers()[0]?.id || "",
+      stageId,
+      priority: opportunityPriority.value,
+      temperature,
+      estimatedAmount: Number(opportunityAmount.value || 0),
+      closePercent: crmTemperatureToPercent(temperature),
+      nextDate: opportunityDate.value,
+      deadline: opportunityDate.value,
+      status: "Vigente",
+      nextAction: opportunityNextAction.value.trim() || "Seguimiento comercial",
+      lastNote: opportunityNote.value.trim(),
+      comment: opportunityNote.value.trim(),
+      agendaDate: opportunityAgendaDate.value,
+      agendaTime: opportunityAgendaTime.value,
+      agendaType: opportunityAgendaType.value.trim(),
+      agendaPlace: opportunityAgendaPlace.value.trim()
+    };
+    const method = id ? "PATCH" : "POST";
+    const path = id ? `/opportunities/${id}` : "/opportunities";
+    crmApi(path, { method, body: JSON.stringify(payload) }).then(() => {
+      opportunityDialog.close();
+      resetOpportunityForm();
+    });
+    return;
+  }
   const submenu = getOpportunitySubmenu();
   const id = opportunityId.value || crypto.randomUUID();
   const currentIndex = submenu.items.findIndex((item) => item.id === id);
@@ -6222,8 +6346,12 @@ opportunityForm.addEventListener("submit", (event) => {
 });
 
 newOpportunityBtn.addEventListener("click", () => {
-  resetOpportunityForm();
-  opportunityDialog.showModal();
+  if (state.activeArea === "comercializacion" && state.activeSubmenu === "crm") {
+    openCrmOpportunityDialog();
+  } else {
+    resetOpportunityForm();
+    opportunityDialog.showModal();
+  }
 });
 
 closeOpportunityDialog.addEventListener("click", closeOpportunityForm);
