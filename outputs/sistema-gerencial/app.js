@@ -94,12 +94,6 @@ const areas = {
         items: []
       },
       {
-        key: "resultados-historial",
-        label: "Historial",
-        status: "Cierres archivados",
-        items: []
-      },
-      {
         key: "kpi",
         label: "KPI",
         status: "Dashboard visual",
@@ -924,6 +918,8 @@ function userPermissions(user = state.currentUser) {
   return new Set(allPermissionKeys());
 }
 
+const commercialHiddenSubmenus = new Set(["presentaciones", "resultados-historial"]);
+
 function visibleSubmenus(areaKey, user = state.currentUser) {
   const area = areas[areaKey];
   if (!Array.isArray(area?.submenus)) return [];
@@ -935,7 +931,10 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
     });
   }
   const permissions = userPermissions(user);
-  return area.submenus.filter((item) => permissions.has(permissionKey(areaKey, item.key)));
+  return area.submenus.filter((item) =>
+    permissions.has(permissionKey(areaKey, item.key))
+    && (areaKey !== "comercializacion" || !commercialHiddenSubmenus.has(item.key))
+  );
 }
 
 function fallbackAreaForRole(role) {
