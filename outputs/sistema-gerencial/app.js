@@ -42,7 +42,6 @@ const areas = {
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "resultados-pedidos", label: "Pedidos", status: "Registro financiero de pedidos", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
-      { key: "presentaciones", label: "Presentaciones", status: "Junio 2026", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -173,7 +172,6 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
-      { key: "presentaciones", label: "Presentaciones", status: "Informe gerencial mensual", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -208,7 +206,6 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
-      { key: "presentaciones", label: "Presentaciones", status: "Sin datos cargados", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -3753,32 +3750,6 @@ function renderCommercialSubmenu(area) {
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
 
-  if (state.activeArea === "operaciones" && submenu.key === "presentaciones") {
-    newOpportunityBtn.classList.add("hidden");
-    newRiskBtn.classList.add("hidden");
-    newManagementRequestBtn.classList.add("hidden");
-    goalsMatrixBtn.classList.add("hidden");
-    opportunityTable.classList.remove("hidden");
-    opportunityDashboard.classList.add("hidden");
-    commercialSubmenuStatus.textContent = submenu.status;
-    opportunityTable.innerHTML = renderOperationsPresentations();
-    wireOperationsPresentations(opportunityTable);
-    return;
-  }
-
-  if (state.activeArea === "financiera" && submenu.key === "presentaciones") {
-    newOpportunityBtn.classList.add("hidden");
-    newRiskBtn.classList.add("hidden");
-    newManagementRequestBtn.classList.add("hidden");
-    goalsMatrixBtn.classList.add("hidden");
-    opportunityTable.classList.remove("hidden");
-    opportunityDashboard.classList.add("hidden");
-    commercialSubmenuStatus.textContent = submenu.status;
-    opportunityTable.innerHTML = renderFinancialPresentations();
-    wireFinancialPresentations(opportunityTable);
-    return;
-  }
-
   if (state.activeArea === "financiera" && submenu.key === "resultados-pedidos") {
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
@@ -5333,7 +5304,7 @@ function renderDashboard() {
     state.activeSubmenu = visibleItems[0].key;
   }
   const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
-  dashboard.classList.toggle("opportunity-focus", hasSubmenus && (["kpi", "presentaciones", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu) || state.activeSubmenu.startsWith("resultados")));
+  dashboard.classList.toggle("opportunity-focus", hasSubmenus && (["kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu) || state.activeSubmenu.startsWith("resultados")));
   renderPageTitle(area, activeSubmenu);
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;

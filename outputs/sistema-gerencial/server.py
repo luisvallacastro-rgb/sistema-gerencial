@@ -20,9 +20,9 @@ ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"],
-    "financiera": ["resultados", "resultados-pedidos", "kpi", "presentaciones", "riesgos", "solicitudes"],
-    "operaciones": ["resultados", "kpi", "presentaciones", "riesgos", "solicitudes"],
-    "rrhh": ["resultados", "kpi", "presentaciones", "riesgos", "solicitudes"],
+    "financiera": ["resultados", "resultados-pedidos", "kpi", "riesgos", "solicitudes"],
+    "operaciones": ["resultados", "kpi", "riesgos", "solicitudes"],
+    "rrhh": ["resultados", "kpi", "riesgos", "solicitudes"],
 }
 SHARED_DEFAULT_SECTION_KEYS = ["riesgos", "solicitudes"]
 VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
