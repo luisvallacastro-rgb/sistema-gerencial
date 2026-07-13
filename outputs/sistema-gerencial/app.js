@@ -83,7 +83,7 @@ const areas = {
       },
       {
         key: "resultados-oportunidades",
-        label: "Oportunidades",
+        label: "Oportunidades / Gerencia",
         status: "Pipeline activo",
         items: []
       },
@@ -1980,7 +1980,7 @@ function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
       return `<button class="submenu-item ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">${item.label}</button>`;
     }
     const children = [
-      ...(item.key === "crm" ? [{ ...item, label: "Dashboard" }] : []),
+      ...(item.key === "crm" ? [{ ...item, label: "Oportunidades / Vendedores" }] : []),
       ...items.filter((child) => child.key.startsWith(`${item.key}-`))
     ];
     const isOpen = state.openSubmenuGroups.has(item.key);
@@ -3795,7 +3795,7 @@ function renderCommercialSubmenu(area) {
     const isCrmOpportunityView = submenu.key === "crm";
     commercialPanel.classList.toggle("opportunity-mode", isCrmOpportunityView);
     commercialSubmenuTitle.classList.toggle("hidden", false);
-    commercialSubmenuTitle.textContent = isCrmOpportunityView ? "Oportunidades" : submenu.label;
+    commercialSubmenuTitle.textContent = isCrmOpportunityView ? "Oportunidades / Vendedores" : submenu.label;
     opportunitySearchField.classList.toggle("hidden", !isCrmOpportunityView);
     opportunitySearchInput.value = state.crmSearch;
     opportunityTotalAmount.classList.toggle("hidden", !isCrmOpportunityView);
@@ -5212,6 +5212,11 @@ function renderPageTitle(area, activeSubmenu) {
   pageTitle.classList.toggle("with-results-summary", isResultsView || isKpiView);
   renderFinancialOrderTopbarFilters(isFinancialOrdersView);
 
+  if (state.activeArea === "comercializacion" && activeSubmenu?.key === "crm") {
+    pageTitle.textContent = "Oportunidades / Vendedores";
+    return;
+  }
+
   if (isKpiView) {
     const rows = wonSalesFulfillmentRows(getOpportunitySubmenu().items);
     const totalSales = rows.reduce((sum, row) => sum + row.sales, 0);
@@ -5232,7 +5237,7 @@ function renderPageTitle(area, activeSubmenu) {
     return;
   }
 
-  pageTitle.textContent = activeSubmenu?.key === "resultados-dashboard" ? "Dashboard" : "Oportunidades";
+  pageTitle.textContent = activeSubmenu?.key === "resultados-dashboard" ? "Dashboard" : "Oportunidades / Gerencia";
 }
 
 function renderDashboard() {
