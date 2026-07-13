@@ -4770,15 +4770,21 @@ button:disabled {
   gap: 14px;
 }
 
-.app-shell .crm-tracking-view-tabs {
-  width: max-content;
-  max-width: 100%;
+.app-shell .crm-tracking-search {
+  width: 100%;
+  max-width: none;
+  min-height: 52px;
   margin: 0 0 12px;
-  align-self: start;
+  border-color: rgba(114, 245, 209, .24) !important;
+  background:
+    linear-gradient(135deg, rgba(72, 108, 163, .16), rgba(24, 61, 86, .11)),
+    rgba(255, 255, 255, .025) !important;
+  box-shadow: inset 3px 0 0 #72f5d1, inset 0 1px 0 rgba(255, 255, 255, .06);
 }
 
-.app-shell .crm-tracking-view-tabs button {
-  min-width: 86px;
+.app-shell .crm-tracking-search input {
+  width: 100%;
+  min-width: 0;
 }
 
 .app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs > .panel-head {
@@ -4806,14 +4812,6 @@ button:disabled {
     grid-column: span 2;
   }
 
-  .app-shell .crm-tracking-view-tabs {
-    width: 100%;
-  }
-
-  .app-shell .crm-tracking-view-tabs button {
-    flex: 1;
-    min-width: 0;
-  }
 }
 
 .app-shell .commercial-panel.opportunity-mode > .panel-head .panel-actions {

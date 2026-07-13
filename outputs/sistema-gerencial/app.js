@@ -3484,10 +3484,7 @@ function renderCrmTracking() {
   const wonValue = wonOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
   const conversionBase = wonOpportunities.length + lostOpportunities.length;
   const conversion = conversionBase ? Math.round((wonOpportunities.length / conversionBase) * 100) : 0;
-  const statusOptions = [["Vigente", "Vigentes"], ["Ganada", "Ganadas"], ["Perdida", "Perdidas"], ["all", "Todas"]];
-  const visibleOpportunities = state.crmStatusFilter === "all"
-    ? sellerOpportunities
-    : sellerOpportunities.filter((opp) => String(opp.status || "Vigente") === state.crmStatusFilter);
+  const visibleOpportunities = sellerOpportunities;
   const sellerButtons = sellers.map((seller) => {
     const active = crmActiveOpportunitiesForSeller(seller.id);
     const activeTotal = active.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
@@ -3539,9 +3536,10 @@ function renderCrmTracking() {
           <div class="crm-seller-chip-list">${sellerButtons}</div>
         </aside>
         <section class="crm-tracking-main">
-          <div class="financial-orders-view-tabs crm-tracking-view-tabs" role="tablist" aria-label="Filtrar seguimiento por estatus">
-            ${statusOptions.map(([value, label]) => `<button class="${state.crmStatusFilter === value ? "active" : ""}" type="button" role="tab" aria-selected="${state.crmStatusFilter === value}" data-crm-status="${value}">${label}</button>`).join("")}
-          </div>
+          <label class="opportunity-search crm-tracking-search">
+            <span aria-hidden="true">⌕</span>
+            <input type="search" data-crm-tracking-search value="${escapeHtml(state.crmSearch)}" placeholder="Buscar empresa, etapa, estatus o producto..." autocomplete="off">
+          </label>
           <div class="crm-tracking-grid">${opportunityCards || `<div class="empty-state">No hay oportunidades para este filtro.</div>`}</div>
         </section>
       </div>
@@ -3871,6 +3869,13 @@ function renderCommercialSubmenu(area) {
       state.crmSearch = event.target.value;
       renderCommercialSubmenu(areas.comercializacion);
       const input = opportunityTable.querySelector("[data-crm-search]");
+      input?.focus();
+      input?.setSelectionRange(input.value.length, input.value.length);
+    });
+    opportunityTable.querySelector("[data-crm-tracking-search]")?.addEventListener("input", (event) => {
+      state.crmSearch = event.target.value;
+      renderCommercialSubmenu(areas.comercializacion);
+      const input = opportunityTable.querySelector("[data-crm-tracking-search]");
       input?.focus();
       input?.setSelectionRange(input.value.length, input.value.length);
     });
