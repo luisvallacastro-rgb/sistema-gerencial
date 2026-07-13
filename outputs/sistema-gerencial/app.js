@@ -276,7 +276,7 @@ const state = {
   financialOrdersView: "list",
   financialOrderYearFilter: "all",
   financialOrderMonthFilter: "all",
-  financialComparisonYears: [],
+  financialComparisonYears: null,
   financialComparisonMonths: ["Enero", "Febrero", "Marzo"],
   crmData: null,
   crmSellerId: "",
@@ -2120,13 +2120,13 @@ function loadFinancialOrderFilters() {
     state.financialOrderYearFilter = saved.year ? String(saved.year) : "all";
     state.financialOrderMonthFilter = saved.month ? String(saved.month) : "all";
     state.financialOrdersView = ["list", "seller-kpi", "comparison-kpi"].includes(saved.view) ? saved.view : "list";
-    state.financialComparisonYears = Array.isArray(saved.comparisonYears) ? saved.comparisonYears.map(String) : [];
+    state.financialComparisonYears = Array.isArray(saved.comparisonYears) ? saved.comparisonYears.map(String) : null;
     state.financialComparisonMonths = Array.isArray(saved.comparisonMonths) && saved.comparisonMonths.length ? saved.comparisonMonths.map(String) : ["Enero", "Febrero", "Marzo"];
   } catch {
     state.financialOrderYearFilter = "all";
     state.financialOrderMonthFilter = "all";
     state.financialOrdersView = "list";
-    state.financialComparisonYears = [];
+    state.financialComparisonYears = null;
     state.financialComparisonMonths = ["Enero", "Febrero", "Marzo"];
   }
 }
@@ -2260,7 +2260,7 @@ const financialComparisonPalette = ["#72f5d1", "#67a9ff", "#ffbd66", "#ff7895", 
 
 function financialComparisonData() {
   const availableYears = [...new Set(state.financialOrders.map((order) => String(order.year)).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
-  if (!state.financialComparisonYears.length) state.financialComparisonYears = availableYears.slice(-2);
+  if (!Array.isArray(state.financialComparisonYears)) state.financialComparisonYears = availableYears.slice(-2);
   state.financialComparisonYears = state.financialComparisonYears.filter((year) => availableYears.includes(year));
   const months = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
   state.financialComparisonMonths = state.financialComparisonMonths.filter((month) => months.includes(month));
@@ -2296,11 +2296,11 @@ function renderFinancialOrdersComparisonKpi() {
         <div class="financial-multifilters">
           <details class="financial-multiselect">
             <summary><small>Años</small><strong>${state.financialComparisonYears.length ? state.financialComparisonYears.join(" · ") : "Seleccionar"}</strong></summary>
-            <div>${availableYears.map((year) => `<label><input type="checkbox" data-comparison-year value="${escapeHtml(year)}" ${state.financialComparisonYears.includes(year) ? "checked" : ""}><span>${escapeHtml(year)}</span></label>`).join("")}</div>
+            <div class="financial-slicer-panel"><header><span>Años</span><nav><button type="button" data-comparison-all="year">Todos</button><button type="button" data-comparison-clear="year">Limpiar</button></nav></header><section>${availableYears.map((year) => `<label><input type="checkbox" data-comparison-year value="${escapeHtml(year)}" ${state.financialComparisonYears.includes(year) ? "checked" : ""}><span>${escapeHtml(year)}</span></label>`).join("")}</section></div>
           </details>
           <details class="financial-multiselect">
             <summary><small>Meses</small><strong>${selectedMonths.length === 12 ? "Todos" : `${selectedMonths.length} seleccionados`}</strong></summary>
-            <div>${months.map((month) => `<label><input type="checkbox" data-comparison-month value="${month}" ${state.financialComparisonMonths.includes(month) ? "checked" : ""}><span>${month}</span></label>`).join("")}</div>
+            <div class="financial-slicer-panel"><header><span>Meses</span><nav><button type="button" data-comparison-all="month">Todos</button><button type="button" data-comparison-clear="month">Limpiar</button></nav></header><section>${months.map((month) => `<label><input type="checkbox" data-comparison-month value="${month}" ${state.financialComparisonMonths.includes(month) ? "checked" : ""}><span>${month}</span></label>`).join("")}</section></div>
           </details>
         </div>
       </div>
@@ -2331,6 +2331,18 @@ function renderFinancialOrders() {
 }
 
 function wireFinancialOrders() {
+  opportunityTable.querySelectorAll("[data-comparison-all]").forEach((button) => button.addEventListener("click", () => {
+    if (button.dataset.comparisonAll === "year") state.financialComparisonYears = [...new Set(state.financialOrders.map((order) => String(order.year)).filter(Boolean))];
+    else state.financialComparisonMonths = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
+    saveFinancialOrderFilters();
+    renderCommercialSubmenu(areas.financiera);
+  }));
+  opportunityTable.querySelectorAll("[data-comparison-clear]").forEach((button) => button.addEventListener("click", () => {
+    if (button.dataset.comparisonClear === "year") state.financialComparisonYears = [];
+    else state.financialComparisonMonths = [];
+    saveFinancialOrderFilters();
+    renderCommercialSubmenu(areas.financiera);
+  }));
   opportunityTable.querySelectorAll("[data-comparison-year]").forEach((input) => input.addEventListener("change", () => {
     state.financialComparisonYears = [...opportunityTable.querySelectorAll("[data-comparison-year]:checked")].map((item) => item.value);
     saveFinancialOrderFilters();
