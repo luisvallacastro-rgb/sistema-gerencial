@@ -4788,12 +4788,12 @@ button:disabled {
 }
 
 .app-shell .crm-tracking-card > div {
-  min-height: 112px;
+  min-height: 58px;
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 6px;
-  padding: 10px 18px;
+  gap: 2px;
+  padding: 4px 10px;
   text-align: center;
 }
 
@@ -4806,10 +4806,13 @@ button:disabled {
 }
 
 .app-shell .crm-tracking-card footer {
-  min-height: 112px;
+  min-height: 58px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-content: center;
-  justify-items: center;
-  gap: 9px;
+  align-items: center;
+  justify-items: stretch;
+  gap: 3px 8px;
+  padding: 4px 0 4px 10px;
   text-align: center;
 }
 
@@ -4820,7 +4823,30 @@ button:disabled {
 }
 
 .app-shell .crm-tracking-card footer .crm-link-pill {
+  grid-column: 1 / -1;
   justify-self: center;
+  min-height: 24px;
+  padding: 0 10px;
+  font-size: 10px;
+}
+
+.app-shell .crm-tracking-card {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+  gap: 8px;
+  padding: 5px 10px;
+}
+
+.app-shell .crm-tracking-card > div > span,
+.app-shell .crm-tracking-card > div > p,
+.app-shell .crm-tracking-card footer > span {
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.app-shell .crm-tracking-card > div > strong,
+.app-shell .crm-tracking-card footer > strong {
+  font-size: 13px;
+  line-height: 1.15;
 }
 
 .app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs > .panel-head {
