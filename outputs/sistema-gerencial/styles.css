@@ -185,8 +185,8 @@ button, select, input {
 .product-wordmark {
   position: relative;
   display: inline-flex !important;
-  align-items: baseline;
-  gap: .32em;
+  align-items: flex-end;
+  gap: 0;
   width: max-content;
   max-width: 100%;
   margin: 0;
@@ -195,23 +195,35 @@ button, select, input {
   white-space: nowrap;
 }
 
-.product-wordmark span {
+.product-wordmark .wordmark-letters {
   color: #72f5d1;
   font-weight: 950;
   letter-spacing: -.055em;
   text-shadow: 0 0 18px rgba(114,245,209,.26);
 }
 
-.product-wordmark::after {
+.product-wordmark .wordmark-i {
+  position: relative;
+  display: inline-block;
+  width: .19em;
+  height: .67em;
+  margin: 0 0 .04em .075em;
+  border-radius: .015em;
+  background: #72f5d1;
+  box-shadow: 0 0 12px rgba(114,245,209,.3);
+}
+
+.product-wordmark .wordmark-i::after {
   content: "";
-  width: .24em;
-  height: .24em;
-  align-self: center;
-  margin-left: .08em;
+  position: absolute;
+  left: 50%;
+  top: -.29em;
+  width: .19em;
+  height: .19em;
+  transform: translateX(-50%);
   border-radius: 50%;
   background: #72f5d1;
   box-shadow: 0 0 9px rgba(114,245,209,.65);
-  opacity: .8;
 }
 
 .login-wordmark {
