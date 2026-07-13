@@ -3539,11 +3539,8 @@ function renderCrmTracking() {
           <div class="crm-seller-chip-list">${sellerButtons}</div>
         </aside>
         <section class="crm-tracking-main">
-          <div class="crm-panel crm-tracking-controls">
-            <span class="eyebrow">Estatus</span>
-            <div class="crm-filter-chips">
-              ${statusOptions.map(([value, label]) => `<button class="${state.crmStatusFilter === value ? "is-active" : ""}" type="button" data-crm-status="${value}">${label}</button>`).join("")}
-            </div>
+          <div class="financial-orders-view-tabs crm-tracking-view-tabs" role="tablist" aria-label="Filtrar seguimiento por estatus">
+            ${statusOptions.map(([value, label]) => `<button class="${state.crmStatusFilter === value ? "active" : ""}" type="button" role="tab" aria-selected="${state.crmStatusFilter === value}" data-crm-status="${value}">${label}</button>`).join("")}
           </div>
           <div class="crm-tracking-grid">${opportunityCards || `<div class="empty-state">No hay oportunidades para este filtro.</div>`}</div>
         </section>

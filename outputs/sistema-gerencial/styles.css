@@ -4770,6 +4770,33 @@ button:disabled {
   gap: 14px;
 }
 
+.app-shell .crm-tracking-view-tabs {
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 12px;
+  align-self: start;
+}
+
+.app-shell .crm-tracking-view-tabs button {
+  min-width: 86px;
+}
+
+.app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs > .panel-head {
+  min-height: 132px !important;
+  height: auto !important;
+  flex: 0 0 auto;
+  overflow: visible !important;
+  padding: 0 0 16px !important;
+}
+
+.app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs > .panel-head .panel-actions {
+  min-height: 58px;
+}
+
+.app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs > .opportunity-table {
+  margin-top: 8px;
+}
+
 @media (max-width: 1050px) {
   .app-shell .crm-tracking-metrics-reconciled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4777,6 +4804,15 @@ button:disabled {
 
   .app-shell .crm-tracking-metrics-reconciled .crm-global-reconciliation {
     grid-column: span 2;
+  }
+
+  .app-shell .crm-tracking-view-tabs {
+    width: 100%;
+  }
+
+  .app-shell .crm-tracking-view-tabs button {
+    flex: 1;
+    min-width: 0;
   }
 }
 
