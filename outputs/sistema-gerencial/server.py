@@ -90,6 +90,13 @@ def crm_money(value):
     return "${:,.0f}".format(amount)
 
 
+def whole_number(value, fallback=0):
+    try:
+        return int(value if value is not None else fallback)
+    except (TypeError, ValueError):
+        return int(fallback)
+
+
 def crm_key(value):
     source = text(value, "cliente").lower()
     cleaned = []
@@ -322,6 +329,8 @@ def normalize_crm_gestion(payload, existing=None):
         "opportunityId": text(payload.get("opportunityId"), existing.get("opportunityId")),
         "company": text(payload.get("company"), existing.get("company")),
         "ownerId": text(payload.get("ownerId"), existing.get("ownerId")),
+        "stageId": whole_number(payload.get("stageId"), existing.get("stageId") or 0),
+        "stageName": text(payload.get("stageName"), existing.get("stageName")),
         "type": text(payload.get("type"), existing.get("type") or "Llamada"),
         "date": text(payload.get("date"), existing.get("date") or today),
         "time": text(payload.get("time"), existing.get("time") or "09:00"),
@@ -1125,6 +1134,19 @@ class AppHandler(BaseHTTPRequestHandler):
                         "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                         **normalize_crm_gestion({**payload, "company": payload.get("company") or opportunity.get("company"), "ownerId": payload.get("ownerId") or opportunity.get("ownerId")}),
                     }
+                    stage_id = whole_number(gestion.get("stageId"), opportunity.get("stageId") or 1)
+                    stage = next((item for item in data.get("stages", []) if whole_number(item.get("id")) == stage_id), None)
+                    if stage:
+                        gestion["stageId"] = stage_id
+                        gestion["stageName"] = text(stage.get("name"), f"Etapa {stage_id}")
+                        opportunity["stageId"] = stage_id
+                    closure_result = text(gestion.get("result")).lower()
+                    if closure_result == "ganado":
+                        opportunity["status"] = "Ganada"
+                    elif closure_result == "perdida":
+                        opportunity["status"] = "Perdida"
+                    elif text(opportunity.get("status")).lower() in {"ganada", "perdida"}:
+                        opportunity["status"] = "Vigente"
                     data.setdefault("gestiones", []).append(gestion)
                     if gestion.get("status") == "Programada":
                         data.setdefault("agenda", []).append({
