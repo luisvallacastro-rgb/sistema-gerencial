@@ -265,6 +265,9 @@ def duplicate_crm_user(data, payload, current_id=""):
 
 def normalize_crm_opportunity(payload, existing=None):
     existing = dict(existing or {})
+    owner_id = text(payload.get("ownerId"), existing.get("ownerId") or "u2")
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    owner_changed = bool(existing) and owner_id != text(existing.get("ownerId"))
     try:
         stage_id = int(payload.get("stageId", existing.get("stageId", 1)) or 1)
     except (TypeError, ValueError):
@@ -291,7 +294,10 @@ def normalize_crm_opportunity(payload, existing=None):
         "strategy": text(payload.get("strategy"), existing.get("strategy")),
         "status": text(payload.get("status"), existing.get("status") or "Vigente"),
         "responsible": text(payload.get("responsible"), existing.get("responsible") or payload.get("contact")),
-        "ownerId": text(payload.get("ownerId"), existing.get("ownerId") or "u2"),
+        "ownerId": owner_id,
+        "source": text(payload.get("source"), existing.get("source") or "CRM gerencia"),
+        "createdAt": text(payload.get("createdAt"), existing.get("createdAt") or now),
+        "assignedAt": now if not existing or owner_changed else text(existing.get("assignedAt"), existing.get("createdAt") or now),
         "nextAction": text(payload.get("nextAction"), existing.get("nextAction") or "Primer seguimiento"),
         "nextDate": text(payload.get("nextDate"), existing.get("nextDate") or payload.get("deadline")),
         "lastNote": text(payload.get("lastNote"), existing.get("lastNote") or payload.get("comment")),
