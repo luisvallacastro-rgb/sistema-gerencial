@@ -17,6 +17,12 @@ CRM_SEED_PATH = ROOT / "crm-seed.json"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
+CRM_SELLER_ACCOUNT_LINKS = {
+    "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
+    "gabriela amador": "u-xlsx-gabriela-amador",
+    "asesorayc konfinversiones com": "u-xlsx-gabriela-amador",
+    "asesorayc": "u-xlsx-gabriela-amador",
+}
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"],
@@ -164,6 +170,35 @@ def public_crm_user(user):
     safe = dict(user or {})
     safe.pop("password", None)
     return safe
+
+
+def crm_identity_key(value):
+    source = text(value).lower()
+    return " ".join("".join(char if char.isalnum() else " " for char in source).split())
+
+
+def linked_crm_seller(data, account):
+    identities = [
+        text(account.get("name")),
+        text(account.get("username")),
+        text(account.get("email")),
+        text(account.get("email")).split("@", 1)[0],
+    ]
+    for identity in identities:
+        seller_id = CRM_SELLER_ACCOUNT_LINKS.get(crm_identity_key(identity))
+        if seller_id:
+            seller = next((item for item in data.get("users", []) if item.get("id") == seller_id), None)
+            if seller:
+                return seller
+
+    combined_identity = " ".join(crm_identity_key(value) for value in identities)
+    for seller in data.get("users", []):
+        if seller.get("roleId") != "sales_exec":
+            continue
+        tokens = [token for token in crm_identity_key(seller.get("name")).split() if token]
+        if len(tokens) >= 2 and all(token in combined_identity for token in tokens):
+            return seller
+    return None
 
 
 def crm_customer_from_opportunity(opportunity):
@@ -938,16 +973,40 @@ class AppHandler(BaseHTTPRequestHandler):
                 payload = self.read_json()
                 username = text(payload.get("username")).lower()
                 password = text(payload.get("password"))
-                user = next((
+                crm_user = next((
                     item for item in data.get("users", [])
                     if username in {text(item.get("username") or item.get("email")).lower(), text(item.get("email")).lower()}
                     and text(item.get("password"), "konfi123") == password
                 ), None)
-                if not user:
+                system_row = conn.execute("""
+                    SELECT id, name, username, email, role, permissions
+                    FROM users
+                    WHERE (lower(username) = ? OR lower(email) = ?) AND password = ?
+                    LIMIT 1
+                """, (username, username, password)).fetchone()
+                system_user = dict(system_row) if system_row else None
+                linked_seller = linked_crm_seller(data, system_user) if system_user else None
+                if system_user and system_user.get("role") != "operativos":
+                    self.send_json({"error": "La app movil esta disponible para usuarios Operativos"}, status=403)
+                    return
+                if system_user and not linked_seller:
+                    self.send_json({"error": "Usuario sin vendedor CRM vinculado"}, status=403)
+                    return
+                active_user = linked_seller or crm_user
+                if not active_user:
                     self.send_json({"error": "Credenciales invalidas"}, status=401)
                     return
                 model = build_crm_view_model(data)
-                model["activeUserId"] = user.get("id")
+                model["activeUserId"] = active_user.get("id")
+                if system_user:
+                    model["sessionUser"] = {
+                        "id": system_user.get("id"),
+                        "name": system_user.get("name"),
+                        "username": system_user.get("username"),
+                        "email": system_user.get("email"),
+                        "role": system_user.get("role"),
+                        "crmSellerId": active_user.get("id"),
+                    }
                 self.send_json(model)
                 return
 
