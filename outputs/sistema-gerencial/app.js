@@ -2254,16 +2254,14 @@ function renderFinancialOrderList() {
         `).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
       </div>
       </div>
-      ${rows.length > pageSize ? `
-        <div class="opportunity-pagination financial-orders-pagination" aria-label="Paginacion de pedidos">
-          <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
-          <div>
-            <button class="ghost-btn compact-btn" type="button" data-financial-order-page="prev" ${state.financialOrderPage <= 1 ? "disabled" : ""}>Anterior</button>
-            <strong>Pagina ${state.financialOrderPage} de ${pageCount}</strong>
-            <button class="ghost-btn compact-btn" type="button" data-financial-order-page="next" ${state.financialOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button>
-          </div>
+      <div class="opportunity-pagination financial-orders-pagination" aria-label="Paginacion de pedidos">
+        <span>Mostrando ${rows.length ? pageStart + 1 : 0}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
+        <div>
+          <button class="ghost-btn compact-btn" type="button" data-financial-order-page="prev" ${state.financialOrderPage <= 1 ? "disabled" : ""}>Anterior</button>
+          <strong>Pagina ${state.financialOrderPage} de ${pageCount}</strong>
+          <button class="ghost-btn compact-btn" type="button" data-financial-order-page="next" ${state.financialOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button>
         </div>
-      ` : ""}
+      </div>
     </section>`;
 }
 
