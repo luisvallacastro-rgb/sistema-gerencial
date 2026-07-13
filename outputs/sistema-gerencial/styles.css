@@ -7942,6 +7942,47 @@ menu {
   font-weight: 800;
 }
 
+/* Permission matrix: users in rows, operational views in columns. */
+.app-shell .admin-matrix-actions { display: flex; align-items: end; gap: 9px; }
+.app-shell .admin-matrix-actions > button { min-height: 44px; border: 0; border-radius: 13px; padding: 0 14px; background: linear-gradient(135deg,rgba(47,155,121,.88),rgba(35,111,102,.9)); color: #f2fffb; font-size: 10px; font-weight: 950; cursor: pointer; box-shadow: 0 10px 24px rgba(3,20,31,.18), inset 0 1px 0 rgba(255,255,255,.1); }
+.app-shell .admin-matrix-actions > button span { color: #72f5d1; margin-right: 5px; }
+.app-shell .permission-matrix-shell { min-height: 0; overflow: auto; border-radius: 18px; background: rgba(5,22,42,.22); box-shadow: inset 0 1px 0 rgba(255,255,255,.045); scrollbar-width: thin; scrollbar-color: rgba(114,245,209,.42) rgba(255,255,255,.025); }
+.app-shell .permission-matrix { width: max-content; min-width: 100%; padding: 7px; }
+.app-shell .permission-matrix-area-row,.app-shell .permission-matrix-section-row,.app-shell .permission-matrix-row { display: grid; grid-template-columns: 270px repeat(var(--permission-columns),96px); }
+.app-shell .permission-matrix-area-row { position: sticky; top: 0; z-index: 9; }
+.app-shell .permission-matrix-section-row { position: sticky; top: 48px; z-index: 8; }
+.app-shell .permission-matrix-user-head,.app-shell .permission-matrix-user-tools { position: sticky; left: 0; z-index: 11; display: grid; align-content: center; padding: 8px 13px; background: rgba(13,35,62,.98); }
+.app-shell .permission-matrix-user-head { min-height: 48px; border-radius: 12px 0 0 0; color: #fff; font-size: 12px; font-weight: 950; }
+.app-shell .permission-matrix-area-head { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 7px; border-left: 1px solid rgba(154,188,218,.08); background: linear-gradient(135deg,rgba(48,111,139,.38),rgba(28,70,92,.34)),rgba(12,34,58,.97); color: #dffff5; }
+.app-shell .permission-matrix-area-head strong { font-size: 10px; }
+.app-shell .permission-matrix-area-head small { color: rgba(185,216,231,.48) !important; font-size: 8px; }
+.app-shell .permission-matrix-user-tools { min-height: 64px; border-top: 1px solid rgba(161,191,222,.08); color: rgba(231,241,252,.8); font-size: 10px; font-weight: 900; }
+.app-shell .permission-matrix-user-tools small { margin-top: 2px; color: rgba(184,207,229,.46) !important; font-size: 8px; }
+.app-shell .permission-matrix-section-head { min-height: 64px; display: grid; place-items: center; align-content: center; gap: 5px; padding: 6px 4px; border: 0; border-left: 1px solid rgba(151,184,215,.07); background: rgba(11,32,56,.98); color: rgba(213,229,244,.68); text-align: center; cursor: pointer; }
+.app-shell .permission-matrix-section-head strong { max-width: 88px; overflow: hidden; font-size: 8px; line-height: 1.15; text-overflow: ellipsis; }
+.app-shell .permission-matrix-section-head input,.app-shell .permission-matrix-cell input,.app-shell .permission-row-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.app-shell .permission-matrix-section-head > span,.app-shell .permission-matrix-cell > span,.app-shell .permission-row-toggle > span { width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid rgba(178,205,230,.3); border-radius: 5px; background: rgba(146,178,207,.09); transition: background .18s ease,border-color .18s ease,box-shadow .18s ease; }
+.app-shell .permission-matrix-section-head input:checked + span,.app-shell .permission-matrix-cell input:checked + span,.app-shell .permission-row-toggle input:checked + span { border-color: #72f5d1; background: linear-gradient(135deg,#72f5d1,#37cda8); box-shadow: 0 0 11px rgba(114,245,209,.25); }
+.app-shell .permission-matrix-section-head input:checked + span::after,.app-shell .permission-matrix-cell input:checked + span::after,.app-shell .permission-row-toggle input:checked + span::after { content: "✓"; color: #073633; font-size: 12px; font-weight: 1000; }
+.app-shell .permission-matrix-row { min-height: 70px; border-top: 1px solid rgba(151,185,216,.075); }
+.app-shell .permission-matrix-row:hover .permission-matrix-cell { background: rgba(90,143,180,.055); }
+.app-shell .permission-matrix-user { position: sticky; left: 0; z-index: 5; display: grid; grid-template-columns: 38px minmax(0,1fr) 22px; align-items: center; gap: 9px; padding: 8px 10px; background: linear-gradient(90deg,rgba(31,55,89,.99),rgba(22,45,74,.98)); box-shadow: 8px 0 16px rgba(3,13,29,.13); }
+.app-shell .permission-matrix-user .admin-avatar { width: 36px; height: 36px; border-radius: 10px; font-size: 10px; }
+.app-shell .permission-matrix-user > div:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+.app-shell .permission-matrix-user strong,.app-shell .permission-matrix-user span,.app-shell .permission-matrix-user small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .permission-matrix-user strong { color: #f5faff; font-size: 10px; }
+.app-shell .permission-matrix-user span { color: rgba(193,214,235,.64); font-size: 8px; font-weight: 800; }
+.app-shell .permission-matrix-user small { color: #72f5d1; font-size: 7px; font-weight: 900; }
+.app-shell .permission-row-toggle { display: grid; place-items: center; cursor: pointer; }
+.app-shell .permission-matrix-user-actions { grid-column: 1/-1; display: flex; gap: 4px; padding-left: 47px; }
+.app-shell .permission-matrix-user-actions button { border: 0; background: transparent; color: rgba(186,211,235,.55); font-size: 10px; cursor: pointer; }
+.app-shell .permission-matrix-user-actions button.danger { color: rgba(255,143,164,.7); }
+.app-shell .permission-matrix-cell { display: grid; place-items: center; border-left: 1px solid rgba(151,185,216,.065); background: rgba(255,255,255,.012); cursor: pointer; transition: background .15s ease; }
+.app-shell .permission-matrix-cell:hover { background: rgba(114,245,209,.08) !important; }
+.app-shell .permission-matrix-cell.locked { cursor: not-allowed; opacity: .65; }
+.app-shell .permission-matrix-row.admin-owner .permission-matrix-user { background: linear-gradient(90deg,rgba(31,83,74,.97),rgba(24,56,76,.98)); }
+@media (max-width:760px) { .app-shell .admin-toolbar { align-items: stretch; flex-direction: column; } .app-shell .admin-matrix-actions { align-items: stretch; } .app-shell .admin-matrix-actions > button { flex: 1; } .app-shell .permission-matrix-area-row,.app-shell .permission-matrix-section-row,.app-shell .permission-matrix-row { grid-template-columns: 220px repeat(var(--permission-columns),88px); } }
+
 .app-shell .minutes-shell {
   grid-template-columns: minmax(0, 1fr);
 }

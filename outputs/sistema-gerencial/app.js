@@ -4577,6 +4577,62 @@ function updateUserModulePermission(userId, areaKey, enabled) {
   renderAdminPanel();
 }
 
+function adminOperationalPermissionColumns() {
+  return areaKeys.flatMap((areaKey) => (areas[areaKey]?.submenus || []).map((section) => ({
+    areaKey,
+    areaLabel: areas[areaKey].nav,
+    sectionKey: section.key,
+    label: section.label,
+    key: permissionKey(areaKey, section.key)
+  })));
+}
+
+function setUserOperationalPermission(userId, permission, enabled) {
+  systemUsers = systemUsers.map((user) => {
+    if (user.id !== userId || isAdminUser(user)) return user;
+    const permissions = new Set(normalizePermissionList(user.permissions, user.role));
+    if (enabled) permissions.add(permission);
+    else permissions.delete(permission);
+    return { ...user, permissions: [...permissions] };
+  });
+  saveUsers();
+  renderAdminPanel();
+}
+
+function setUsersOperationalPermission(permission, enabled) {
+  systemUsers = systemUsers.map((user) => {
+    if (isAdminUser(user)) return user;
+    const permissions = new Set(normalizePermissionList(user.permissions, user.role));
+    if (enabled) permissions.add(permission);
+    else permissions.delete(permission);
+    return { ...user, permissions: [...permissions] };
+  });
+  saveUsers();
+  renderAdminPanel();
+}
+
+function setUserAllOperationalPermissions(userId, enabled) {
+  const operationalKeys = adminOperationalPermissionColumns().map((column) => column.key);
+  systemUsers = systemUsers.map((user) => {
+    if (user.id !== userId || isAdminUser(user)) return user;
+    const permissions = new Set(normalizePermissionList(user.permissions, user.role));
+    operationalKeys.forEach((key) => enabled ? permissions.add(key) : permissions.delete(key));
+    return { ...user, permissions: [...permissions] };
+  });
+  saveUsers();
+  renderAdminPanel();
+}
+
+function grantAllOperationalPermissionsToUsers() {
+  const operationalKeys = adminOperationalPermissionColumns().map((column) => column.key);
+  systemUsers = systemUsers.map((user) => isAdminUser(user) ? user : {
+    ...user,
+    permissions: [...new Set([...normalizePermissionList(user.permissions, user.role), ...operationalKeys])]
+  });
+  saveUsers();
+  renderAdminPanel();
+}
+
 function renderAdminPermissionsPanel() {
   if (!adminPanel) return;
   adminPanel.classList.remove("hidden");
@@ -4599,7 +4655,14 @@ function renderAdminPermissionsPanel() {
       .filter((module) => !module.total)
       .map((module) => module.label)
   )).size;
-  const totalPermissions = users.reduce((sum, user) => sum + userPermissions(user).size, 0);
+  const permissionColumns = adminOperationalPermissionColumns();
+  const operationalKeys = new Set(permissionColumns.map((column) => column.key));
+  const totalPermissions = users.reduce((sum, user) => sum + [...userPermissions(user)].filter((key) => operationalKeys.has(key)).length, 0);
+  const areaGroups = areaKeys.map((areaKey) => ({
+    areaKey,
+    label: areas[areaKey].nav,
+    count: permissionColumns.filter((column) => column.areaKey === areaKey).length
+  }));
   return `
     <div class="admin-shell">
       <div class="admin-hero">
@@ -4637,53 +4700,43 @@ function renderAdminPermissionsPanel() {
           <span>Buscar usuario</span>
           <input id="adminSearchInput" type="search" value="${escapeHtml(state.adminQuery)}" placeholder="Nombre, correo o gerencia">
         </label>
-        <span class="admin-toolbar-pill">${filteredUsers.length} visibles</span>
+        <div class="admin-matrix-actions">
+          <span class="admin-toolbar-pill">${filteredUsers.length} visibles</span>
+          <button type="button" data-admin-action="grant-all-users"><span>✓</span> Acceso total a usuarios</button>
+        </div>
       </div>
 
-      <div class="permission-user-list">
-        ${filteredUsers.length ? filteredUsers.map((user) => {
-          const modules = adminPermissionModules(user);
-          const permissions = userPermissions(user);
-          return `
-          <article class="permission-user-card ${isAdminUser(user) ? "admin-owner" : ""}">
-            <div class="admin-person">
-              <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
-              <div>
-                <strong>${escapeHtml(user.name)}</strong>
-                <span>${escapeHtml(user.email || user.username)}</span>
-                ${user.username ? `<small>${escapeHtml(user.username)}</small>` : ""}
+      <div class="permission-matrix-shell" style="--permission-columns:${permissionColumns.length}">
+        ${filteredUsers.length ? `<div class="permission-matrix" role="table" aria-label="Matriz de permisos por usuario">
+          <div class="permission-matrix-area-row" role="row">
+            <div class="permission-matrix-user-head" role="columnheader">Usuarios activos</div>
+            ${areaGroups.map((group) => `<div class="permission-matrix-area-head" role="columnheader" style="grid-column:span ${group.count}"><strong>${escapeHtml(group.label)}</strong><small>${group.count} vistas</small></div>`).join("")}
+          </div>
+          <div class="permission-matrix-section-row" role="row">
+            <div class="permission-matrix-user-tools" role="columnheader"><span>Usuario y perfil</span><small>Marca la fila completa</small></div>
+            ${permissionColumns.map((column) => {
+              const enabledCount = filteredUsers.filter((user) => userPermissions(user).has(column.key)).length;
+              return `<label class="permission-matrix-section-head" title="${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}">
+                <input type="checkbox" data-admin-action="column-permission" data-permission="${column.key}" ${enabledCount === filteredUsers.length ? "checked" : ""}>
+                <span aria-hidden="true"></span><strong>${escapeHtml(column.label)}</strong>
+              </label>`;
+            }).join("")}
+          </div>
+          ${filteredUsers.map((user) => {
+            const permissions = userPermissions(user);
+            const activeCount = permissionColumns.filter((column) => permissions.has(column.key)).length;
+            const isLocked = isAdminUser(user);
+            return `<div class="permission-matrix-row ${isLocked ? "admin-owner" : ""}" role="row">
+              <div class="permission-matrix-user" role="rowheader">
+                <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
+                <div><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(roleDisplayName(user.role))}</span><small>${activeCount}/${permissionColumns.length} permisos</small></div>
+                <label class="permission-row-toggle" title="Cambiar todos los permisos de ${escapeHtml(user.name)}"><input type="checkbox" data-admin-action="row-permission" data-user-id="${user.id}" ${activeCount === permissionColumns.length ? "checked" : ""} ${isLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>
+                <div class="permission-matrix-user-actions"><button type="button" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button><button type="button" aria-label="Cambiar clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>${isLocked ? "" : `<button class="danger" type="button" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}</div>
               </div>
-            </div>
-            <div class="admin-role-block">
-              <span class="admin-label">Perfil</span>
-              <span class="admin-role-pill">${escapeHtml(roleDisplayName(user.role))}</span>
-            </div>
-            <div class="permission-checklist" aria-label="Permisos de ${escapeHtml(user.name)}">
-              ${areaKeys.map((areaKey) => {
-                const count = modulePermissionCount(user, areaKey);
-                const checked = count === sectionOptions.length;
-                const partial = count > 0 && !checked;
-                return `
-                  <label class="permission-check ${checked ? "checked" : partial ? "partial" : ""} ${isAdminUser(user) ? "locked" : ""}">
-                    <input type="checkbox" data-admin-action="module-permission" data-user-id="${user.id}" data-area="${areaKey}" ${checked ? "checked" : ""} ${isAdminUser(user) ? "disabled" : ""}>
-                    <span class="permission-box" aria-hidden="true">${checked ? "✓" : partial ? "–" : ""}</span>
-                    <span>
-                      <strong>${escapeHtml(areas[areaKey].nav)}</strong>
-                      <small>${count}/${sectionOptions.length} vistas</small>
-                    </span>
-                  </label>
-                `;
-              }).join("")}
-              <span class="permission-total">${permissions.size} permisos activos</span>
-              </div>
-            <div class="admin-row-actions">
-              <button class="action-icon-btn" type="button" title="Editar usuario" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button>
-              <button class="action-icon-btn" type="button" title="Resetear clave" aria-label="Resetear clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>
-              ${isAdminUser(user) ? "" : `<button class="action-icon-btn danger" type="button" title="Eliminar usuario" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}
-            </div>
-          </article>
-        `;
-        }).join("") : `
+              ${permissionColumns.map((column) => `<label class="permission-matrix-cell ${isLocked ? "locked" : ""}" title="${escapeHtml(user.name)} · ${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}"><input type="checkbox" data-admin-action="cell-permission" data-user-id="${user.id}" data-permission="${column.key}" ${permissions.has(column.key) ? "checked" : ""} ${isLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>`).join("")}
+            </div>`;
+          }).join("")}
+        </div>` : `
           <div class="admin-empty">
             <strong>No hay usuarios con ese criterio.</strong>
             <span>Prueba con otro nombre, correo o gerencia.</span>
@@ -4701,6 +4754,9 @@ function wireAdminPermissionsPanel() {
     renderAdminPanel();
   });
   adminPanel.querySelector("[data-admin-action='new']")?.addEventListener("click", () => openAdminUserDialog());
+  adminPanel.querySelector("[data-admin-action='grant-all-users']")?.addEventListener("click", () => {
+    if (confirm("Asignar todas las vistas operativas a todos los usuarios registrados?")) grantAllOperationalPermissionsToUsers();
+  });
   adminPanel.querySelectorAll("[data-admin-action='edit']").forEach((button) => {
     button.addEventListener("click", () => openAdminUserDialog(button.dataset.userId));
   });
@@ -4710,11 +4766,13 @@ function wireAdminPermissionsPanel() {
   adminPanel.querySelectorAll("[data-admin-action='delete']").forEach((button) => {
     button.addEventListener("click", () => deleteAdminUser(button.dataset.userId));
   });
-  adminPanel.querySelectorAll("[data-admin-action='module-permission']").forEach((input) => {
+  adminPanel.querySelectorAll("[data-admin-action='cell-permission']").forEach((input) => {
     input.addEventListener("change", () => {
-      updateUserModulePermission(input.dataset.userId, input.dataset.area, input.checked);
+      setUserOperationalPermission(input.dataset.userId, input.dataset.permission, input.checked);
     });
   });
+  adminPanel.querySelectorAll("[data-admin-action='column-permission']").forEach((input) => input.addEventListener("change", () => setUsersOperationalPermission(input.dataset.permission, input.checked)));
+  adminPanel.querySelectorAll("[data-admin-action='row-permission']").forEach((input) => input.addEventListener("change", () => setUserAllOperationalPermissions(input.dataset.userId, input.checked)));
 }
 
 function sanitizeMinuteBody(html = "") {
