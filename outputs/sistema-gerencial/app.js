@@ -881,6 +881,18 @@ function withSharedDefaultPermissions(permissions) {
 }
 
 function defaultPermissionsForRole(role) {
+  if (role === "operativos") {
+    return ["crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"]
+      .map((sectionKey) => permissionKey("comercializacion", sectionKey));
+  }
+  if (role === "jefaturas") {
+    return [
+      ...(areas.comercializacion?.submenus || [])
+        .map((section) => permissionKey("comercializacion", section.key)),
+      permissionKey("financiera", "resultados"),
+      permissionKey("financiera", "resultados-pedidos")
+    ];
+  }
   return allPermissionKeys();
 }
 
@@ -905,7 +917,7 @@ function canOpenAdminPermissions(user = state.currentUser) {
 }
 
 function canOpenAdminMinutes(user = state.currentUser) {
-  return Boolean(user);
+  return Boolean(user) && (isAdminUser(user) || user.role === "gerencias");
 }
 
 function userPermissions(user = state.currentUser) {
@@ -4507,6 +4519,7 @@ function saveAdminUserFromForm(event) {
     role,
     password: adminUserPassword.value || existing?.password || "admin123",
     admin,
+    permissionsCustomized: role !== "gerencias",
     permissions: (admin || role === "gerencias") ? allPermissionKeys() : collectAdminPermissions()
   };
   systemUsers = userId
@@ -4563,7 +4576,7 @@ function updateUserModulePermission(userId, areaKey, enabled) {
       if (enabled) existing.add(key);
       else existing.delete(key);
     });
-    return { ...user, permissions: [...existing] };
+    return { ...user, permissions: [...existing], permissionsCustomized: true };
   });
   saveUsers();
   renderAdminPanel();
@@ -4585,7 +4598,7 @@ function setUserOperationalPermission(userId, permission, enabled) {
     const permissions = new Set(normalizePermissionList(user.permissions, user.role));
     if (enabled) permissions.add(permission);
     else permissions.delete(permission);
-    return { ...user, permissions: [...permissions] };
+    return { ...user, permissions: [...permissions], permissionsCustomized: true };
   });
   saveUsers();
   renderAdminPanel();
@@ -4597,7 +4610,7 @@ function setUsersOperationalPermission(permission, enabled) {
     const permissions = new Set(normalizePermissionList(user.permissions, user.role));
     if (enabled) permissions.add(permission);
     else permissions.delete(permission);
-    return { ...user, permissions: [...permissions] };
+    return { ...user, permissions: [...permissions], permissionsCustomized: true };
   });
   saveUsers();
   renderAdminPanel();
@@ -4609,7 +4622,7 @@ function setUserAllOperationalPermissions(userId, enabled) {
     if (user.id !== userId || isAdminUser(user)) return user;
     const permissions = new Set(normalizePermissionList(user.permissions, user.role));
     operationalKeys.forEach((key) => enabled ? permissions.add(key) : permissions.delete(key));
-    return { ...user, permissions: [...permissions] };
+    return { ...user, permissions: [...permissions], permissionsCustomized: true };
   });
   saveUsers();
   renderAdminPanel();
@@ -4619,6 +4632,7 @@ function grantAllOperationalPermissionsToUsers() {
   const operationalKeys = adminOperationalPermissionColumns().map((column) => column.key);
   systemUsers = systemUsers.map((user) => isAdminUser(user) ? user : {
     ...user,
+    permissionsCustomized: true,
     permissions: [...new Set([...normalizePermissionList(user.permissions, user.role), ...operationalKeys])]
   });
   saveUsers();
@@ -5267,7 +5281,12 @@ function normalizeUsers(items) {
         || normalizedUsername === "financiera"
         || normalizedEmail === "financiera@empresa.local",
       admin,
-      permissions: (admin || role === "gerencias") ? allPermissionKeys() : normalizePermissionList(item.permissions, role)
+      permissionsCustomized: Boolean(item.permissionsCustomized),
+      permissions: (admin || role === "gerencias")
+        ? allPermissionKeys()
+        : item.permissionsCustomized
+          ? normalizePermissionList(item.permissions, role)
+          : defaultPermissionsForRole(role)
     };
     byCredential.set(normalizedEmail || normalizedUsername || user.id, user);
   };
@@ -5583,6 +5602,7 @@ registerForm.addEventListener("submit", (event) => {
     role,
     password: registerPassword.value,
     admin,
+    permissionsCustomized: false,
     permissions: (admin || role === "gerencias") ? allPermissionKeys() : defaultPermissionsForRole(role)
   };
   systemUsers.push(user);

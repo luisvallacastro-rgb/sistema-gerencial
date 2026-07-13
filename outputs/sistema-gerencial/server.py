@@ -20,9 +20,9 @@ ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"],
-    "financiera": ["resultados", "resultados-pedidos", "kpi", "riesgos", "solicitudes"],
-    "operaciones": ["resultados", "kpi", "riesgos", "solicitudes"],
-    "rrhh": ["resultados", "kpi", "riesgos", "solicitudes"],
+    "financiera": ["resultados", "resultados-pedidos", "kpi", "presentaciones", "riesgos", "solicitudes"],
+    "operaciones": ["resultados", "kpi", "presentaciones", "riesgos", "solicitudes"],
+    "rrhh": ["resultados", "kpi", "presentaciones", "riesgos", "solicitudes"],
 }
 SHARED_DEFAULT_SECTION_KEYS = ["riesgos", "solicitudes"]
 VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
@@ -364,6 +364,17 @@ def build_crm_view_model(data, include_private=False):
 
 
 def default_permissions_for_role(role):
+    if role == "operativos":
+        return [
+            f"comercializacion:{section}"
+            for section in ["crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"]
+        ]
+    if role == "jefaturas":
+        return [
+            *[f"comercializacion:{section}" for section in AREA_SECTION_KEYS["comercializacion"]],
+            "financiera:resultados",
+            "financiera:resultados-pedidos",
+        ]
     return list(ALL_PERMISSIONS)
 
 
@@ -388,7 +399,14 @@ def normalize_user(data, index=0):
     migrated_role = LEGACY_ROLE_MAP.get(raw_role, raw_role)
     role = migrated_role if migrated_role in VALID_ROLES else "gerencias"
     admin = bool(item.get("admin")) or email == ADMIN_EMAIL
-    permissions = list(ALL_PERMISSIONS) if admin or role == "gerencias" else normalize_permissions(item.get("permissions"), role)
+    permissions_customized = bool(item.get("permissionsCustomized") or item.get("permissions_customized"))
+    permissions = (
+        list(ALL_PERMISSIONS)
+        if admin or role == "gerencias"
+        else normalize_permissions(item.get("permissions"), role)
+        if permissions_customized
+        else default_permissions_for_role(role)
+    )
     return {
         "id": item.get("id") or f"user-{index + 1}",
         "name": item.get("name") or username or "Usuario",
@@ -397,6 +415,7 @@ def normalize_user(data, index=0):
         "role": "gerencias" if admin else role,
         "password": item.get("password") or "admin123",
         "permissions": permissions,
+        "permissionsCustomized": permissions_customized,
         "admin": admin,
     }
 
@@ -406,7 +425,12 @@ def user_payload(row):
     raw_role = data.get("role")
     migrated_role = LEGACY_ROLE_MAP.get(raw_role, raw_role)
     data["role"] = migrated_role if migrated_role in VALID_ROLES else "gerencias"
-    data["permissions"] = normalize_permissions(data.get("permissions"), data["role"])
+    data["permissionsCustomized"] = bool(data.pop("permissions_customized", 0))
+    data["permissions"] = (
+        normalize_permissions(data.get("permissions"), data["role"])
+        if data["permissionsCustomized"]
+        else default_permissions_for_role(data["role"])
+    )
     data["admin"] = bool(data.get("admin")) or data.get("email") == ADMIN_EMAIL
     if data["admin"] or data["role"] == "gerencias":
         data["role"] = "gerencias"
@@ -417,8 +441,8 @@ def user_payload(row):
 def upsert_user(conn, user):
     normalized = normalize_user(user)
     conn.execute("""
-        INSERT INTO users (id, name, username, email, role, password, permissions, admin)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, name, username, email, role, password, permissions, permissions_customized, admin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             name = excluded.name,
             username = excluded.username,
@@ -426,6 +450,7 @@ def upsert_user(conn, user):
             role = excluded.role,
             password = excluded.password,
             permissions = excluded.permissions,
+            permissions_customized = excluded.permissions_customized,
             admin = excluded.admin
     """, (
         normalized["id"],
@@ -435,6 +460,7 @@ def upsert_user(conn, user):
         normalized["role"],
         normalized["password"],
         json.dumps(normalized["permissions"], ensure_ascii=True),
+        1 if normalized["permissionsCustomized"] else 0,
         1 if normalized["admin"] else 0,
     ))
     return normalized
@@ -464,6 +490,8 @@ def init_db():
             conn.execute("ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT '[]'")
         if "admin" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN admin INTEGER DEFAULT 0")
+        if "permissions_customized" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN permissions_customized INTEGER DEFAULT 0")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS app_state (
                 key TEXT PRIMARY KEY,
@@ -547,7 +575,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path == "/api/users":
             with connect() as conn:
                 rows = conn.execute("""
-                    SELECT id, name, username, email, role, password, permissions, admin
+                    SELECT id, name, username, email, role, password, permissions, permissions_customized, admin
                     FROM users
                     ORDER BY created_at, username
                 """).fetchall()
