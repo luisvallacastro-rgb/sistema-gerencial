@@ -42,7 +42,6 @@ const areas = {
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "resultados-pedidos", label: "Pedidos", status: "Registro financiero de pedidos", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
-      { key: "presentaciones", label: "Presentaciones", status: "Junio 2026", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -179,7 +178,6 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
-      { key: "presentaciones", label: "Presentaciones", status: "Informe gerencial mensual", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -214,7 +212,6 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
-      { key: "presentaciones", label: "Presentaciones", status: "Sin datos cargados", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -288,7 +285,6 @@ const sectionOptions = [
   { key: "resultados-pedidos", label: "Resultados · Pedidos" },
   { key: "resultados-oportunidades", label: "Resultados · Oportunidades" },
   { key: "resultados-dashboard", label: "Resultados · Dashboard" },
-  { key: "resultados-historial", label: "Resultados · Historial" },
   { key: "kpi", label: "KPI" },
   { key: "crm", label: "CRM" },
   { key: "crm-vendedores", label: "CRM Vendedores" },
@@ -296,7 +292,6 @@ const sectionOptions = [
   { key: "crm-agenda", label: "CRM Agenda" },
   { key: "crm-respuestas", label: "CRM Respuestas" },
   { key: "crm-clientes", label: "CRM Clientes" },
-  { key: "presentaciones", label: "Presentaciones" },
   { key: "riesgos", label: "Riesgos" },
   { key: "solicitudes", label: "Solicitudes" }
 ];
@@ -918,8 +913,6 @@ function userPermissions(user = state.currentUser) {
   return new Set(allPermissionKeys());
 }
 
-const commercialHiddenSubmenus = new Set(["presentaciones", "resultados-historial"]);
-
 function visibleSubmenus(areaKey, user = state.currentUser) {
   const area = areas[areaKey];
   if (!Array.isArray(area?.submenus)) return [];
@@ -931,10 +924,7 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
     });
   }
   const permissions = userPermissions(user);
-  return area.submenus.filter((item) =>
-    permissions.has(permissionKey(areaKey, item.key))
-    && (areaKey !== "comercializacion" || !commercialHiddenSubmenus.has(item.key))
-  );
+  return area.submenus.filter((item) => permissions.has(permissionKey(areaKey, item.key)));
 }
 
 function fallbackAreaForRole(role) {
@@ -3659,33 +3649,6 @@ function renderCommercialSubmenu(area) {
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
 
-  if (state.activeArea === "operaciones" && submenu.key === "presentaciones") {
-    newOpportunityBtn.classList.add("hidden");
-    newRiskBtn.classList.add("hidden");
-    newManagementRequestBtn.classList.add("hidden");
-    goalsMatrixBtn.classList.add("hidden");
-    opportunityTable.classList.remove("hidden");
-    opportunityDashboard.classList.add("hidden");
-    commercialSubmenuStatus.textContent = submenu.status;
-    opportunityTable.innerHTML = renderOperationsPresentations();
-    wireOperationsPresentations(opportunityTable);
-    return;
-  }
-
-
-  if (state.activeArea === "financiera" && submenu.key === "presentaciones") {
-    newOpportunityBtn.classList.add("hidden");
-    newRiskBtn.classList.add("hidden");
-    newManagementRequestBtn.classList.add("hidden");
-    goalsMatrixBtn.classList.add("hidden");
-    opportunityTable.classList.remove("hidden");
-    opportunityDashboard.classList.add("hidden");
-    commercialSubmenuStatus.textContent = submenu.status;
-    opportunityTable.innerHTML = renderFinancialPresentations();
-    wireFinancialPresentations(opportunityTable);
-    return;
-  }
-
   if (state.activeArea === "financiera" && submenu.key === "resultados-pedidos") {
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
@@ -3722,8 +3685,7 @@ function renderCommercialSubmenu(area) {
   const resultViews = {
     resultados: "active",
     "resultados-oportunidades": "active",
-    "resultados-dashboard": "dashboard",
-    "resultados-historial": "history"
+    "resultados-dashboard": "dashboard"
   };
 
   if (submenu.key === "kpi") {
@@ -5145,11 +5107,7 @@ function renderPageTitle(area, activeSubmenu) {
     return;
   }
 
-  pageTitle.textContent = activeSubmenu?.key === "resultados-dashboard"
-    ? "Dashboard"
-    : activeSubmenu?.key === "resultados-historial"
-      ? "Historial"
-      : "Oportunidades";
+  pageTitle.textContent = activeSubmenu?.key === "resultados-dashboard" ? "Dashboard" : "Oportunidades";
 }
 
 function renderDashboard() {
@@ -5189,7 +5147,7 @@ function renderDashboard() {
     state.activeSubmenu = visibleItems[0].key;
   }
   const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
-  dashboard.classList.toggle("opportunity-focus", hasSubmenus && (["kpi", "presentaciones", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu) || state.activeSubmenu.startsWith("resultados")));
+  dashboard.classList.toggle("opportunity-focus", hasSubmenus && (["kpi", "crm", "crm-vendedores", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu) || state.activeSubmenu.startsWith("resultados")));
   renderPageTitle(area, activeSubmenu);
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;
