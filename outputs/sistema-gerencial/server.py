@@ -1002,18 +1002,20 @@ class AppHandler(BaseHTTPRequestHandler):
                 """, (username, username, password)).fetchone()
                 system_user = dict(system_row) if system_row else None
                 linked_seller = linked_crm_seller(data, system_user) if system_user else None
-                if system_user and system_user.get("role") != "operativos":
-                    self.send_json({"error": "La app movil esta disponible para usuarios Operativos"}, status=403)
+                system_role = text(system_user.get("role")) if system_user else ""
+                if system_user and system_role not in {"operativos", "gerencias", "jefaturas"}:
+                    self.send_json({"error": "Perfil sin acceso a la app movil"}, status=403)
                     return
-                if system_user and not linked_seller:
+                if system_user and system_role == "operativos" and not linked_seller:
                     self.send_json({"error": "Usuario sin vendedor CRM vinculado"}, status=403)
                     return
                 active_user = linked_seller or crm_user
-                if not active_user:
+                if not system_user and not active_user:
                     self.send_json({"error": "Credenciales invalidas"}, status=401)
                     return
                 model = build_crm_view_model(data)
-                model["activeUserId"] = active_user.get("id")
+                if active_user:
+                    model["activeUserId"] = active_user.get("id")
                 if system_user:
                     model["sessionUser"] = {
                         "id": system_user.get("id"),
@@ -1021,7 +1023,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         "username": system_user.get("username"),
                         "email": system_user.get("email"),
                         "role": system_user.get("role"),
-                        "crmSellerId": active_user.get("id"),
+                        "crmSellerId": active_user.get("id") if active_user else "",
                     }
                 self.send_json(model)
                 return
