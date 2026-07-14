@@ -10829,3 +10829,52 @@ body.operations-fullscreen-open {
   max-height: 126px;
   padding: 9px 12px 12px;
 }
+
+/* Keep native form controls dark on Windows, Linux and Chromium variants. */
+.app-shell,
+dialog,
+.operations-fullscreen-overlay,
+.minute-fullscreen-overlay {
+  color-scheme: dark;
+}
+
+.app-shell select,
+dialog select,
+.operations-fullscreen-overlay select,
+.minute-fullscreen-overlay select {
+  color-scheme: dark;
+}
+
+.app-shell select option,
+.app-shell select optgroup,
+dialog select option,
+dialog select optgroup,
+.operations-fullscreen-overlay select option,
+.operations-fullscreen-overlay select optgroup,
+.minute-fullscreen-overlay select option,
+.minute-fullscreen-overlay select optgroup {
+  background-color: #132641;
+  color: #f2f7ff;
+}
+
+.app-shell select option:checked,
+dialog select option:checked,
+.operations-fullscreen-overlay select option:checked,
+.minute-fullscreen-overlay select option:checked {
+  background-color: #176fd1;
+  color: #ffffff;
+}
+
+.app-shell select option:disabled,
+dialog select option:disabled,
+.operations-fullscreen-overlay select option:disabled,
+.minute-fullscreen-overlay select option:disabled {
+  color: rgba(220, 232, 246, .48);
+}
+
+.app-shell input[type="date"],
+.app-shell input[type="time"],
+dialog input[type="date"],
+dialog input[type="time"] {
+  color-scheme: dark;
+}
