@@ -2276,7 +2276,7 @@ function financialOrdersBySeller() {
     current.sales += Number(order.sale || 0);
     sellers.set(key, current);
   });
-  return [...sellers.values()].sort((a, b) => b.orders - a.orders || b.sales - a.sales || a.seller.localeCompare(b.seller, "es"));
+  return [...sellers.values()].sort((a, b) => b.sales - a.sales || b.orders - a.orders || a.seller.localeCompare(b.seller, "es"));
 }
 
 function renderFinancialOrdersSellerKpi() {
@@ -2284,27 +2284,28 @@ function renderFinancialOrdersSellerKpi() {
   const sellerRows = financialOrdersBySeller();
   const totalOrders = periodRows.length;
   const totalSales = periodRows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
-  const maxOrders = Math.max(1, ...sellerRows.map((row) => row.orders));
+  const averageSale = totalOrders ? totalSales / totalOrders : 0;
+  const sellersWithSales = sellerRows.filter((row) => row.sales > 0).length;
   return `
-    <section class="financial-seller-kpi" aria-label="Pedidos por vendedor">
+    <section class="financial-seller-kpi" aria-label="Ventas por vendedor">
       <div class="financial-seller-kpi-summary">
-        <article><span>Pedidos filtrados</span><strong>${totalOrders.toLocaleString("es-SV")}</strong></article>
-        <article><span>Venta filtrada</span><strong>${formatMoney(totalSales)}</strong></article>
-        <article><span>Vendedores</span><strong>${sellerRows.length.toLocaleString("es-SV")}</strong></article>
+        <article><span>Monto total filtrado</span><strong>${formatMoney(totalSales)}</strong></article>
+        <article><span>Venta promedio por pedido</span><strong>${formatMoney(averageSale)}</strong></article>
+        <article><span>Vendedores con ventas</span><strong>${sellersWithSales.toLocaleString("es-SV")}</strong></article>
       </div>
       <div class="financial-seller-chart-head">
-        <div><span>KPI comercial</span><h4>Pedidos por vendedor</h4></div>
-        <small>Ordenado por cantidad de pedidos</small>
+        <div><span>KPI comercial</span><h4>Ventas por vendedor</h4></div>
+        <small>Ordenado por monto vendido</small>
       </div>
       <div class="financial-seller-chart" role="list">
         ${sellerRows.map((row, index) => {
-          const percentage = totalOrders ? (row.orders / totalOrders) * 100 : 0;
-          const width = (row.orders / maxOrders) * 100;
+          const percentage = totalSales ? (row.sales / totalSales) * 100 : 0;
+          const orderLabel = row.orders === 1 ? "pedido" : "pedidos";
           return `
-            <article class="financial-seller-bar-row" role="listitem" style="--seller-bar-width:${width.toFixed(2)}%;--seller-accent-hue:${164 + (index % 6) * 18}" aria-label="${escapeHtml(row.seller)}: ${row.orders} pedidos, ${percentage.toFixed(1)} por ciento, ${formatMoney(row.sales)}">
-              <div class="financial-seller-bar-label"><strong>${escapeHtml(row.seller)}</strong><span>${row.orders.toLocaleString("es-SV")} pedidos</span></div>
+            <article class="financial-seller-bar-row" role="listitem" style="--seller-bar-width:${percentage.toFixed(2)}%;--seller-accent-hue:${164 + (index % 6) * 18}" aria-label="${escapeHtml(row.seller)}: ${formatMoney(row.sales)}, ${percentage.toFixed(2)} por ciento de la venta total, ${row.orders} ${orderLabel}">
+              <div class="financial-seller-bar-label"><strong>${escapeHtml(row.seller)}</strong><span>${row.orders.toLocaleString("es-SV")} ${orderLabel}</span></div>
               <div class="financial-seller-bar-track" aria-hidden="true"><i></i></div>
-              <div class="financial-seller-bar-values"><strong>${percentage.toFixed(1)}%</strong><span>${formatMoney(row.sales)}</span></div>
+              <div class="financial-seller-bar-values"><strong>${percentage.toFixed(2)}%</strong><span>${formatMoney(row.sales)}</span></div>
             </article>`;
         }).join("") || `<div class="empty-state">No hay pedidos para el período seleccionado.</div>`}
       </div>
