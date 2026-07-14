@@ -10845,8 +10845,9 @@ html.macos-render-safe dialog * {
 }
 
 html.macos-render-safe .app-shell .sidebar {
-  position: relative !important;
-  top: auto !important;
+  position: sticky !important;
+  top: 16px !important;
+  height: calc(100vh - 32px);
   align-self: start;
 }
 
