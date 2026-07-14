@@ -1,3 +1,6 @@
+const macOSRenderSafe = /Macintosh|MacIntel|Mac OS X/i.test(`${navigator.platform || ""} ${navigator.userAgent || ""}`);
+document.documentElement.classList.toggle("macos-render-safe", macOSRenderSafe);
+
 const areas = {
   general: {
     label: "Vista ejecutiva",

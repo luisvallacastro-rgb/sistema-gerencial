@@ -10829,3 +10829,62 @@ body.operations-fullscreen-open {
   max-height: 126px;
   padding: 9px 12px 12px;
 }
+
+/*
+ * macOS safe rendering mode.
+ * Some Chromium/WebKit GPU combinations corrupt nested sticky and blurred
+ * layers into large opaque rectangles. Keep the same layout and palette while
+ * avoiding those compositor paths only on Mac.
+ */
+html.macos-render-safe .app-shell,
+html.macos-render-safe .app-shell *,
+html.macos-render-safe dialog,
+html.macos-render-safe dialog * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.macos-render-safe .app-shell .sidebar {
+  position: relative !important;
+  top: auto !important;
+  align-self: start;
+}
+
+html.macos-render-safe .app-shell .nav-item,
+html.macos-render-safe .app-shell .submenu-item,
+html.macos-render-safe .app-shell .submenu-group-toggle,
+html.macos-render-safe .app-shell .submenu-group-child {
+  transform: none !important;
+  filter: none !important;
+}
+
+html.macos-render-safe .app-shell .permission-matrix-shell,
+html.macos-render-safe .app-shell .permission-matrix {
+  isolation: auto !important;
+}
+
+html.macos-render-safe .app-shell .permission-matrix-area-row,
+html.macos-render-safe .app-shell .permission-matrix-section-row,
+html.macos-render-safe .app-shell .permission-matrix-user-head,
+html.macos-render-safe .app-shell .permission-matrix-user-tools,
+html.macos-render-safe .app-shell .permission-matrix-user {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  -webkit-backface-visibility: visible !important;
+  backface-visibility: visible !important;
+}
+
+html.macos-render-safe .app-shell .permission-matrix-user,
+html.macos-render-safe .app-shell .permission-matrix-cell,
+html.macos-render-safe .app-shell .permission-matrix-section-head {
+  filter: none !important;
+  transform: none !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.macos-render-safe .app-shell .permission-matrix *,
+  html.macos-render-safe .app-shell .sidebar * {
+    animation: none !important;
+  }
+}
