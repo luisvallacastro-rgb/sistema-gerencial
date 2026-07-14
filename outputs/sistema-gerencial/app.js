@@ -668,6 +668,7 @@ function loadCrmData() {
   apiJson("/api/crm/bootstrap")
     .then((data) => {
       state.crmData = data;
+      syncLostCrmOpportunities();
       if (state.activeArea === "comercializacion" && state.activeSubmenu?.startsWith("crm")) {
         renderDashboard();
       }
@@ -1103,6 +1104,14 @@ function closureResult(item) {
   return [...managements].reverse().find((management) => !management.canceled && isClosureStage(management.stage) && management.result);
 }
 
+function isLostOpportunity(item) {
+  return closureResult(item)?.result === "perdida";
+}
+
+function visibleResultOpportunities(items = []) {
+  return items.filter((item) => !isLostOpportunity(item));
+}
+
 function sumAmounts(items) {
   return items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 }
@@ -1195,7 +1204,7 @@ function nextPeriodStart() {
 function opportunityCycleRows(items) {
   const periodStart = activePeriodStart();
   const nextStart = nextPeriodStart();
-  const rows = items.map((item) => {
+  const rows = visibleResultOpportunities(items).map((item) => {
     const result = closureResult(item);
     const closureDate = result?.date || "";
     const isClosedBeforePeriod = Boolean(result && closureDate < periodStart);
@@ -1932,7 +1941,10 @@ function saveOpportunities() {
       method: "PUT",
       body: JSON.stringify(getOpportunitySubmenu().items)
     })
-      .then(() => syncOpportunityViews())
+      .then(() => {
+        syncOpportunityViews();
+        return syncLostCrmOpportunities();
+      })
       .catch(() => {});
   }
 }
@@ -3030,6 +3042,11 @@ const crmSellerAccountLinks = new Map([
   ["asesor arteycolor", "u-xlsx-marjorie-morales"]
 ]);
 
+function isCrmArchivedOpportunity(opportunity = {}) {
+  const status = String(opportunity.status || "Vigente").toLowerCase();
+  return Boolean(opportunity.archived) || ["perdida", "cancelada"].includes(status);
+}
+
 function crmIdentityKey(value) {
   return normalizeKey(value)
     .normalize("NFD")
@@ -3061,12 +3078,13 @@ function crmData() {
   const linkedSellerId = crmLinkedSellerId(data);
   if (!linkedSellerId) return data;
   const opportunities = (data.opportunities || []).filter((item) => item.ownerId === linkedSellerId);
+  const pipelineOpportunities = opportunities.filter((item) => !isCrmArchivedOpportunity(item));
   const opportunityIds = new Set(opportunities.map((item) => item.id));
   const customerIds = new Set(opportunities.map((item) => item.customerId).filter(Boolean));
   const agenda = (data.agenda || []).filter((item) => item.ownerId === linkedSellerId || opportunityIds.has(item.opportunityId));
   const gestiones = (data.gestiones || []).filter((item) => item.ownerId === linkedSellerId || opportunityIds.has(item.opportunityId));
-  const totalPipeline = opportunities.reduce((sum, item) => sum + Number(item.estimatedAmount || 0), 0);
-  const closed = opportunities.filter((item) => Number(item.stageId || item.stage?.id || 0) >= 6).length;
+  const totalPipeline = pipelineOpportunities.reduce((sum, item) => sum + Number(item.estimatedAmount || 0), 0);
+  const closed = pipelineOpportunities.filter((item) => Number(item.stageId || item.stage?.id || 0) >= 6).length;
   return {
     ...data,
     users: (data.users || []).filter((item) => item.id === linkedSellerId),
@@ -3075,20 +3093,20 @@ function crmData() {
     gestiones,
     customers: (data.customers || []).filter((item) => customerIds.has(item.id)),
     pipeline: (data.pipeline || []).map((stage) => {
-      const stageOpportunities = opportunities.filter((item) => Number(item.stageId || item.stage?.id) === Number(stage.id));
+      const stageOpportunities = pipelineOpportunities.filter((item) => Number(item.stageId || item.stage?.id) === Number(stage.id));
       const amount = stageOpportunities.reduce((sum, item) => sum + Number(item.estimatedAmount || 0), 0);
       return { ...stage, opportunities: stageOpportunities, count: stageOpportunities.length, amount, amountLabel: formatMoney(amount) };
     }),
     kpis: {
       ...(data.kpis || {}),
-      totalProspects: opportunities.length,
+      totalProspects: pipelineOpportunities.length,
       totalPipeline,
       totalPipelineLabel: formatMoney(totalPipeline),
-      hotOpportunities: opportunities.filter((item) => item.temperature === "Caliente").length,
+      hotOpportunities: pipelineOpportunities.filter((item) => item.temperature === "Caliente").length,
       scheduledMeetings: agenda.filter((item) => item.status === "Programada").length,
       inProgressVisits: agenda.filter((item) => item.status === "En visita").length,
       completedVisits: agenda.filter((item) => item.status === "Realizada").length,
-      closeRate: opportunities.length ? Math.round((closed / opportunities.length) * 100) : 0
+      closeRate: pipelineOpportunities.length ? Math.round((closed / pipelineOpportunities.length) * 100) : 0
     }
   };
 }
@@ -3251,7 +3269,7 @@ function crmMatchesSearch(opportunity, seller = null) {
 function crmActiveOpportunitiesForSeller(sellerId) {
   return crmData().opportunities.filter((opp) => {
     const status = String(opp.status || "Vigente").toLowerCase();
-    return opp.ownerId === sellerId && !["ganada", "perdida", "cancelada"].includes(status) && crmMatchesSearch(opp);
+    return opp.ownerId === sellerId && !isCrmArchivedOpportunity(opp) && status !== "ganada" && crmMatchesSearch(opp);
   });
 }
 
@@ -3277,6 +3295,37 @@ function crmApi(path, options = {}) {
     updateCrmModel(payload);
     return payload;
   });
+}
+
+let syncingLostCrmOpportunities = false;
+
+async function syncLostCrmOpportunities() {
+  if (!apiEnabled || syncingLostCrmOpportunities || !state.crmData) return;
+  const lostCrmIds = new Set(
+    getOpportunitySubmenu().items
+      .filter(isLostOpportunity)
+      .map((item) => item.crmOpportunityId)
+      .filter(Boolean)
+  );
+  const pending = (state.crmData.opportunities || []).filter((opportunity) => (
+    lostCrmIds.has(opportunity.id) && !isCrmArchivedOpportunity(opportunity)
+  ));
+  if (!pending.length) return;
+  syncingLostCrmOpportunities = true;
+  try {
+    for (const opportunity of pending) {
+      state.crmData = await apiJson(`/api/crm/opportunities/${encodeURIComponent(opportunity.id)}`, {
+        method: "PATCH",
+        headers: { "X-System-User-Id": state.currentUser?.id || "" },
+        body: JSON.stringify({ status: "Perdida", archived: true, archivedReason: "Cierre perdido" })
+      });
+    }
+    if (!appShell.classList.contains("hidden")) renderDashboard();
+  } catch {
+    // El servidor vuelve a conciliar los cierres almacenados en la siguiente carga.
+  } finally {
+    syncingLostCrmOpportunities = false;
+  }
 }
 
 function canManageCrmOpportunity(opportunity = {}) {
@@ -3416,7 +3465,7 @@ function crmSellerOpportunityShare() {
   const activeStatuses = new Set(["vigente", "pendiente", "abierta", "activo"]);
   const activeOpportunities = crmData().opportunities.filter((opp) => {
     const status = String(opp.status || "Vigente").toLowerCase();
-    return activeStatuses.has(status) || !["ganada", "perdida", "cancelada"].includes(status);
+    return !isCrmArchivedOpportunity(opp) && (activeStatuses.has(status) || status !== "ganada");
   });
   const opportunityAmount = (opp) => Number(opp.estimatedAmount ?? opp.amount ?? 0);
   const total = activeOpportunities.reduce((sum, opp) => sum + opportunityAmount(opp), 0);
@@ -3455,7 +3504,7 @@ function filteredCrmDashboardOpportunities() {
   return crmData().opportunities
     .filter((opportunity) => {
       const status = String(opportunity.status || "Vigente").toLowerCase();
-      return activeStatuses.has(status) || !["ganada", "perdida", "cancelada"].includes(status);
+      return !isCrmArchivedOpportunity(opportunity) && (activeStatuses.has(status) || status !== "ganada");
     })
     .filter((opportunity) => !query || [
       opportunity.nextDate,
@@ -3624,7 +3673,7 @@ function renderCrmTracking() {
   const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
   const sellerOpportunities = selectedSeller ? data.opportunities.filter((opp) => opp.ownerId === selectedSeller.id) : [];
   const activeOpportunities = crmActiveOpportunitiesForSeller(selectedSellerId);
-  const globalActiveOpportunities = data.opportunities.filter((opportunity) => !["ganada", "perdida", "cancelada"].includes(String(opportunity.status || "Vigente").toLowerCase()));
+  const globalActiveOpportunities = data.opportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity) && String(opportunity.status || "Vigente").toLowerCase() !== "ganada");
   const wonOpportunities = sellerOpportunities.filter((opp) => opp.status === "Ganada");
   const lostOpportunities = sellerOpportunities.filter((opp) => opp.status === "Perdida");
   const activeValue = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
@@ -3632,7 +3681,7 @@ function renderCrmTracking() {
   const wonValue = wonOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
   const conversionBase = wonOpportunities.length + lostOpportunities.length;
   const conversion = conversionBase ? Math.round((wonOpportunities.length / conversionBase) * 100) : 0;
-  const visibleOpportunities = sellerOpportunities;
+  const visibleOpportunities = sellerOpportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity));
   const sellerButtons = sellers.map((seller) => {
     const active = crmActiveOpportunitiesForSeller(seller.id);
     const activeTotal = active.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
@@ -3841,7 +3890,7 @@ function renderCrmResponses() {
 }
 
 function renderCrmClients() {
-  const opportunities = crmData().opportunities;
+  const opportunities = crmData().opportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity));
   const clients = Object.values(opportunities.reduce((acc, opp) => {
     const key = opp.customerId || opp.company;
     if (!acc[key]) acc[key] = { name: opp.customer?.commercialName || opp.company, owner: opp.owner?.name || crmOwnerName(opp.ownerId), count: 0, amount: 0, segment: opp.segment };
@@ -3964,7 +4013,7 @@ function renderCommercialSubmenu(area) {
     opportunitySearchInput.value = state.crmSearch;
     opportunityTotalAmount.classList.toggle("hidden", !isCrmOpportunityView);
     if (isCrmOpportunityView) {
-      const activeCrm = crmData().opportunities.filter((opportunity) => !["ganada", "perdida", "cancelada"].includes(String(opportunity.status || "Vigente").toLowerCase()));
+      const activeCrm = crmData().opportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity) && String(opportunity.status || "Vigente").toLowerCase() !== "ganada");
       opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
         activeCrm.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
       );
@@ -4203,6 +4252,7 @@ function renderCommercialSubmenu(area) {
 }
 
 function renderOpportunityDashboard(items) {
+  items = visibleResultOpportunities(items);
   state.opportunityFilter = null;
   state.kpiView = "dashboard";
   const fulfillmentRows = wonSalesFulfillmentRows(items);
@@ -4516,6 +4566,7 @@ function renderKpiTabs() {
 }
 
 function commercialKpiRows(items) {
+  items = visibleResultOpportunities(items);
   const total = sumAmounts(items);
   const weightedTotal = items.reduce((sum, item) => {
     const probabilityWeight = { caliente: .8, tibio: .55, frio: .3, congelado: .1 }[item.probability] || .2;

@@ -152,16 +152,58 @@ def sync_crm_seed_updates(data):
     return data, True
 
 
+def sync_crm_result_closures(conn, data):
+    row = conn.execute("SELECT value FROM app_state WHERE key = 'opportunities'").fetchone()
+    if not row:
+        return data, False
+    try:
+        result_opportunities = json.loads(row["value"] or "[]")
+    except json.JSONDecodeError:
+        return data, False
+    if not isinstance(result_opportunities, list):
+        return data, False
+
+    lost_crm_ids = set()
+    for item in result_opportunities:
+        crm_opportunity_id = text(item.get("crmOpportunityId"))
+        if not crm_opportunity_id:
+            continue
+        managements = item.get("managements") if isinstance(item.get("managements"), list) else []
+        latest_closure = next((
+            management for management in reversed(managements)
+            if not management.get("canceled")
+            and text(management.get("stage")).lower() in {"cierre", "cierre de ventas"}
+            and text(management.get("result"))
+        ), None)
+        if text((latest_closure or {}).get("result")).lower() == "perdida":
+            lost_crm_ids.add(crm_opportunity_id)
+
+    changed = False
+    for opportunity in data.get("opportunities", []):
+        if opportunity.get("id") not in lost_crm_ids:
+            continue
+        if text(opportunity.get("status")).lower() != "perdida" or not opportunity.get("archived"):
+            opportunity["status"] = "Perdida"
+            opportunity["archived"] = True
+            opportunity["archivedReason"] = "Cierre perdido"
+            opportunity["archivedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            changed = True
+    return data, changed
+
+
 def read_crm_data(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
     if not row:
         data = load_crm_seed()
+        data, _ = sync_crm_result_closures(conn, data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
     data.setdefault("gestiones", [])
     data.setdefault("customers", [])
     data, changed = sync_crm_seed_updates(data)
+    data, closure_changed = sync_crm_result_closures(conn, data)
+    changed = changed or closure_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -373,6 +415,11 @@ def build_crm_view_model(data, include_private=False):
         item["stage"] = stages_by_id.get(opportunity.get("stageId"), {})
         item["estimatedAmountLabel"] = crm_money(amount)
         opportunities.append(item)
+    pipeline_opportunities = [
+        item for item in opportunities
+        if text(item.get("status"), "Vigente").lower() not in {"perdida", "cancelada"}
+        and not item.get("archived")
+    ]
     derived_customers = list({item["customer"]["id"]: item["customer"] for item in opportunities}.values())
     agenda = []
     for item in data.get("agenda", []):
@@ -391,12 +438,12 @@ def build_crm_view_model(data, include_private=False):
         row["owner"] = public_crm_user(users_by_id.get(item.get("ownerId"), {}))
         gestiones.append(row)
     gestiones.sort(key=lambda row: f"{row.get('date', '')} {row.get('time', '')}", reverse=True)
-    total_pipeline = sum(float(item.get("estimatedAmount") or 0) for item in opportunities)
-    closed = len([item for item in opportunities if int(item.get("stageId") or 0) >= 6])
-    hot = len([item for item in opportunities if item.get("temperature") == "Caliente"])
+    total_pipeline = sum(float(item.get("estimatedAmount") or 0) for item in pipeline_opportunities)
+    closed = len([item for item in pipeline_opportunities if int(item.get("stageId") or 0) >= 6])
+    hot = len([item for item in pipeline_opportunities if item.get("temperature") == "Caliente"])
     pipeline = []
     for stage in stages:
-        stage_opportunities = [item for item in opportunities if item.get("stageId") == stage.get("id")]
+        stage_opportunities = [item for item in pipeline_opportunities if item.get("stageId") == stage.get("id")]
         amount = sum(float(item.get("estimatedAmount") or 0) for item in stage_opportunities)
         pipeline.append({**stage, "count": len(stage_opportunities), "amount": amount, "amountLabel": crm_money(amount), "opportunities": stage_opportunities})
     return {
@@ -412,14 +459,14 @@ def build_crm_view_model(data, include_private=False):
         "gestiones": gestiones,
         "pipeline": pipeline,
         "kpis": {
-            "totalProspects": len(opportunities),
+            "totalProspects": len(pipeline_opportunities),
             "totalPipeline": total_pipeline,
             "totalPipelineLabel": crm_money(total_pipeline),
             "hotOpportunities": hot,
             "scheduledMeetings": len([item for item in agenda if item.get("status") == "Programada"]),
             "inProgressVisits": len([item for item in agenda if item.get("status") == "En visita"]),
             "completedVisits": len([item for item in agenda if item.get("status") == "Realizada"]),
-            "closeRate": round((closed / len(opportunities)) * 100) if opportunities else 0,
+            "closeRate": round((closed / len(pipeline_opportunities)) * 100) if pipeline_opportunities else 0,
             "nps": data.get("postSales", {}).get("nps", 0),
             "openClaims": data.get("postSales", {}).get("openClaims", 0),
         },
@@ -1176,8 +1223,14 @@ class AppHandler(BaseHTTPRequestHandler):
                         opportunity["status"] = "Ganada"
                     elif closure_result == "perdida":
                         opportunity["status"] = "Perdida"
+                        opportunity["archived"] = True
+                        opportunity["archivedReason"] = "Cierre perdido"
+                        opportunity["archivedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                     elif text(opportunity.get("status")).lower() in {"ganada", "perdida"}:
                         opportunity["status"] = "Vigente"
+                        opportunity["archived"] = False
+                        opportunity["archivedReason"] = ""
+                        opportunity["archivedAt"] = ""
                     data.setdefault("gestiones", []).append(gestion)
                     if gestion.get("status") == "Programada":
                         data.setdefault("agenda", []).append({
