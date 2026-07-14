@@ -3025,7 +3025,9 @@ function wireFinancialPresentations(root = opportunityTable) {
 const emptyCrmData = { users: [], opportunities: [], agenda: [], gestiones: [], pipeline: [], customers: [], kpis: {} };
 const crmSellerAccountLinks = new Map([
   ["gabriela natalie amador flores", "u-xlsx-gabriela-amador"],
-  ["gabriela amador", "u-xlsx-gabriela-amador"]
+  ["gabriela amador", "u-xlsx-gabriela-amador"],
+  ["marjorie morales", "u-xlsx-marjorie-morales"],
+  ["asesor arteycolor", "u-xlsx-marjorie-morales"]
 ]);
 
 function crmIdentityKey(value) {

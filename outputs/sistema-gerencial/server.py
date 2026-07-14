@@ -23,6 +23,9 @@ CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela amador": "u-xlsx-gabriela-amador",
     "asesorayc konfinversiones com": "u-xlsx-gabriela-amador",
     "asesorayc": "u-xlsx-gabriela-amador",
+    "marjorie morales": "u-xlsx-marjorie-morales",
+    "asesor arteycolor gmail com": "u-xlsx-marjorie-morales",
+    "asesor arteycolor": "u-xlsx-marjorie-morales",
 }
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
