@@ -3269,10 +3269,20 @@ function updateCrmModel(payload) {
 }
 
 function crmApi(path, options = {}) {
-  return apiJson(`/api/crm${path}`, options).then((payload) => {
+  const headers = {
+    ...(options.headers || {}),
+    "X-System-User-Id": state.currentUser?.id || ""
+  };
+  return apiJson(`/api/crm${path}`, { ...options, headers }).then((payload) => {
     updateCrmModel(payload);
     return payload;
   });
+}
+
+function canManageCrmOpportunity(opportunity = {}) {
+  if (state.currentUser?.role !== "operativos") return true;
+  const linkedSellerId = crmLinkedSellerId();
+  return Boolean(linkedSellerId && opportunity.ownerId === linkedSellerId);
 }
 
 function ensureCrmOpportunityDialog() {
@@ -3525,6 +3535,7 @@ function renderCrmDashboard() {
     <div class="opportunity-table-body">
       ${pagedRows.length ? pagedRows.map((opportunity) => {
         const probability = crmTemperatureToProbability(opportunity.temperature);
+        const canManage = canManageCrmOpportunity(opportunity);
         return `
           <div class="opportunity-row">
             <span>${formatDate(opportunity.nextDate || opportunity.deadline || opportunity.startDate)}</span>
@@ -3534,9 +3545,9 @@ function renderCrmDashboard() {
             <span class="tag ${probabilityClass(probability)}">${escapeHtml(probabilityLabel(probability))}</span>
             <strong>${formatMoney(opportunity.estimatedAmount)}</strong>
             <span class="row-actions">
-              <button class="action-icon-btn" type="button" data-crm-edit="${opportunity.id}" aria-label="Editar"><span aria-hidden="true">✏️</span></button>
+              ${canManage ? `<button class="action-icon-btn" type="button" data-crm-edit="${opportunity.id}" aria-label="Editar"><span aria-hidden="true">✏️</span></button>` : ""}
               <button class="action-icon-btn" type="button" data-crm-edit="${opportunity.id}" aria-label="Ver detalle"><span aria-hidden="true">📋</span></button>
-              <button class="action-icon-btn danger" type="button" data-crm-delete="${opportunity.id}" aria-label="Borrar"><span aria-hidden="true">🗑️</span></button>
+              ${canManage ? `<button class="action-icon-btn danger" type="button" data-crm-delete="${opportunity.id}" aria-label="Borrar"><span aria-hidden="true">🗑️</span></button>` : ""}
             </span>
           </div>
         `;

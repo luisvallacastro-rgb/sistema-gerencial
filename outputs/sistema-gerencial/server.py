@@ -671,7 +671,7 @@ class AppHandler(BaseHTTPRequestHandler):
     def send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-System-User-Id")
 
     def do_OPTIONS(self):
         if self.path.startswith("/api/"):
@@ -971,6 +971,15 @@ class AppHandler(BaseHTTPRequestHandler):
 
         with connect() as conn:
             data = read_crm_data(conn)
+            request_user_id = text(self.headers.get("X-System-User-Id"))
+            request_user_row = conn.execute("""
+                SELECT id, name, username, email, role
+                FROM users
+                WHERE id = ?
+                LIMIT 1
+            """, (request_user_id,)).fetchone() if request_user_id else None
+            request_user = dict(request_user_row) if request_user_row else None
+            request_linked_seller = linked_crm_seller(data, request_user) if request_user and request_user.get("role") == "operativos" else None
 
             if resource == "bootstrap" and self.command == "GET":
                 self.send_json(build_crm_view_model(data))
@@ -1082,6 +1091,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     return
                 if self.command == "POST":
                     payload = self.read_json()
+                    if request_user and request_user.get("role") == "operativos":
+                        if not request_linked_seller:
+                            self.send_json({"error": "Usuario sin vendedor CRM vinculado"}, status=403)
+                            return
+                        payload["ownerId"] = request_linked_seller.get("id")
                     if not text(payload.get("company")) or not text(payload.get("ownerId")):
                         self.send_json({"error": "Empresa y vendedor requeridos"}, status=400)
                         return
@@ -1096,8 +1110,14 @@ class AppHandler(BaseHTTPRequestHandler):
                     if index == -1:
                         self.send_json({"error": "Oportunidad no encontrada"}, status=404)
                         return
+                    if request_user and request_user.get("role") == "operativos":
+                        if not request_linked_seller or data["opportunities"][index].get("ownerId") != request_linked_seller.get("id"):
+                            self.send_json({"error": "Solo puede administrar sus propias oportunidades"}, status=403)
+                            return
                     if self.command in {"PUT", "PATCH"}:
                         payload = self.read_json()
+                        if request_linked_seller:
+                            payload["ownerId"] = request_linked_seller.get("id")
                         opportunity = normalize_crm_opportunity(payload, data["opportunities"][index])
                         data["opportunities"][index] = opportunity
                         upsert_crm_agenda(data, opportunity, payload)
