@@ -4822,7 +4822,8 @@ function openAdminUserDialog(userId = "") {
     .map(([key, label]) => `<option value="${key}">${label}</option>`)
     .join("");
   adminUserRole.value = user?.role || "gerencias";
-  adminUserPassword.value = "";
+  adminUserPassword.value = user?.password || "";
+  adminUserPassword.dataset.originalPassword = user?.password || "";
   adminUserPassword.required = !user;
   renderAdminPermissionControls(user || null);
   adminUserDialog.showModal();
@@ -4858,6 +4859,7 @@ async function saveAdminUserFromForm(event) {
   const admin = normalizeKey(email) === adminEmail;
   const role = admin ? "gerencias" : adminUserRole.value;
   const newPassword = adminUserPassword.value;
+  const passwordChanged = !existing || newPassword !== (adminUserPassword.dataset.originalPassword || "");
   const payload = {
     id: userId || crypto.randomUUID(),
     name: adminUserName.value.trim(),
@@ -4868,7 +4870,7 @@ async function saveAdminUserFromForm(event) {
     permissionsCustomized: role !== "gerencias",
     permissions: (admin || role === "gerencias") ? allPermissionKeys() : collectAdminPermissions()
   };
-  if (!existing || newPassword) payload.password = newPassword;
+  if (passwordChanged) payload.password = newPassword;
 
   try {
     let savedUser = { ...existing, ...payload, password: newPassword || existing?.password || "admin123" };
@@ -4886,7 +4888,7 @@ async function saveAdminUserFromForm(event) {
     fillUserAccessOptions();
     adminUserDialog.close();
     renderDashboard();
-    alert(newPassword ? "Usuario y contraseña guardados correctamente." : "Usuario guardado. La contraseña actual se conservó.");
+    alert(passwordChanged ? "Usuario y contraseña guardados correctamente." : "Usuario guardado. La contraseña actual se conservó.");
   } catch (error) {
     alert("No se pudo guardar el usuario. La contraseña no fue modificada. Intenta nuevamente.");
   }
