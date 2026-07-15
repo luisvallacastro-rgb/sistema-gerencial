@@ -581,6 +581,24 @@ def upsert_user(conn, user):
     return normalized
 
 
+def patch_user(conn, user_id, changes):
+    row = conn.execute("""
+        SELECT id, name, username, email, role, password,
+               permissions, permissions_customized, admin
+        FROM users WHERE id = ? LIMIT 1
+    """, (user_id,)).fetchone()
+    if not row:
+        return None
+    merged = dict(user_payload(row))
+    for key in ("name", "username", "email", "role", "permissions", "permissionsCustomized", "admin"):
+        if key in changes:
+            merged[key] = changes[key]
+    password = str(changes.get("password") or "")
+    merged["password"] = password if password else row["password"]
+    merged["id"] = user_id
+    return upsert_user(conn, merged)
+
+
 def connect():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -899,8 +917,16 @@ class AppHandler(BaseHTTPRequestHandler):
             data = self.read_json()
             if isinstance(data.get("users"), list):
                 with connect() as conn:
+                    saved_passwords = {
+                        row["id"]: row["password"]
+                        for row in conn.execute("SELECT id, password FROM users").fetchall()
+                    }
                     conn.execute("DELETE FROM users")
-                    users = [upsert_user(conn, item) for item in data["users"]]
+                    users = []
+                    for item in data["users"]:
+                        merged = dict(item)
+                        merged["password"] = saved_passwords.get(str(item.get("id") or ""), "admin123")
+                        users.append(upsert_user(conn, merged))
                 self.send_json(users)
                 return
 
@@ -989,6 +1015,20 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_api_patch(self):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+        if self.path.startswith("/api/users/"):
+            user_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            changes = self.read_json()
+            with connect() as conn:
+                try:
+                    user = patch_user(conn, user_id, changes)
+                except sqlite3.IntegrityError:
+                    self.send_json({"error": "Usuario existente"}, status=409)
+                    return
+                if not user:
+                    self.send_json({"error": "Usuario no encontrado"}, status=404)
+                    return
+            self.send_json({"ok": True, "user": user})
             return
         self.send_error(404)
 

@@ -4841,7 +4841,7 @@ function syncCurrentUserFromSystem() {
   }
 }
 
-function saveAdminUserFromForm(event) {
+async function saveAdminUserFromForm(event) {
   event.preventDefault();
   const userId = adminUserId.value;
   const username = adminUsername.value.trim();
@@ -4857,24 +4857,39 @@ function saveAdminUserFromForm(event) {
   const existing = systemUsers.find((user) => user.id === userId);
   const admin = normalizeKey(email) === adminEmail;
   const role = admin ? "gerencias" : adminUserRole.value;
+  const newPassword = adminUserPassword.value;
   const payload = {
     id: userId || crypto.randomUUID(),
     name: adminUserName.value.trim(),
     username,
     email,
     role,
-    password: adminUserPassword.value || existing?.password || "admin123",
     admin,
     permissionsCustomized: role !== "gerencias",
     permissions: (admin || role === "gerencias") ? allPermissionKeys() : collectAdminPermissions()
   };
-  systemUsers = userId
-    ? systemUsers.map((user) => user.id === userId ? payload : user)
-    : [...systemUsers, payload];
-  saveUsers();
-  fillUserAccessOptions();
-  adminUserDialog.close();
-  renderDashboard();
+  if (!existing || newPassword) payload.password = newPassword;
+
+  try {
+    let savedUser = { ...existing, ...payload, password: newPassword || existing?.password || "admin123" };
+    if (apiEnabled) {
+      const result = await apiJson(userId ? `/api/users/${encodeURIComponent(userId)}` : "/api/users", {
+        method: userId ? "PATCH" : "POST",
+        body: JSON.stringify(payload)
+      });
+      savedUser = result.user;
+    }
+    systemUsers = userId
+      ? systemUsers.map((user) => user.id === userId ? savedUser : user)
+      : [...systemUsers, savedUser];
+    saveUsers({ sync: false });
+    fillUserAccessOptions();
+    adminUserDialog.close();
+    renderDashboard();
+    alert(newPassword ? "Usuario y contraseña guardados correctamente." : "Usuario guardado. La contraseña actual se conservó.");
+  } catch (error) {
+    alert("No se pudo guardar el usuario. La contraseña no fue modificada. Intenta nuevamente.");
+  }
 }
 
 function openAdminPasswordDialog(userId) {
@@ -4887,15 +4902,29 @@ function openAdminPasswordDialog(userId) {
   adminPasswordDialog.showModal();
 }
 
-function resetAdminPasswordFromForm(event) {
+async function resetAdminPasswordFromForm(event) {
   event.preventDefault();
   const userId = adminPasswordUserId.value;
-  systemUsers = systemUsers.map((user) =>
-    user.id === userId ? { ...user, password: adminPasswordValue.value } : user
-  );
-  saveUsers();
-  adminPasswordDialog.close();
-  renderDashboard();
+  const password = adminPasswordValue.value;
+  try {
+    let savedUser = systemUsers.find((user) => user.id === userId);
+    if (apiEnabled) {
+      const result = await apiJson(`/api/users/${encodeURIComponent(userId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ password })
+      });
+      savedUser = result.user;
+    } else {
+      savedUser = { ...savedUser, password };
+    }
+    systemUsers = systemUsers.map((user) => user.id === userId ? savedUser : user);
+    saveUsers({ sync: false });
+    adminPasswordDialog.close();
+    renderDashboard();
+    alert("Contraseña actualizada correctamente para web y app.");
+  } catch (error) {
+    alert("No se pudo actualizar la contraseña. Intenta nuevamente.");
+  }
 }
 
 function deleteAdminUser(userId) {
@@ -5751,7 +5780,9 @@ function saveUsers(options = {}) {
   if (apiEnabled && options.sync !== false) {
     apiJson("/api/users", {
       method: "POST",
-      body: JSON.stringify({ users: systemUsers })
+      body: JSON.stringify({
+        users: systemUsers.map(({ password, ...user }) => user)
+      })
     }).catch(() => {});
   }
 }
