@@ -1016,6 +1016,26 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
             return
+        if self.path.startswith("/api/users/") and self.path.split("?", 1)[0].endswith("/password"):
+            parts = self.path.split("?", 1)[0].strip("/").split("/")
+            user_id = unquote(parts[-2]) if len(parts) >= 4 else ""
+            changes = self.read_json()
+            current_password = str(changes.get("currentPassword") or "")
+            new_password = str(changes.get("newPassword") or "")
+            if len(new_password) < 8 or not any(char.isalpha() for char in new_password) or not any(char.isdigit() for char in new_password):
+                self.send_json({"error": "Contrasena nueva invalida"}, status=400)
+                return
+            with connect() as conn:
+                valid = conn.execute(
+                    "SELECT 1 FROM users WHERE id = ? AND password = ? LIMIT 1",
+                    (user_id, current_password),
+                ).fetchone()
+                if not valid:
+                    self.send_json({"error": "Contrasena actual incorrecta"}, status=401)
+                    return
+                user = patch_user(conn, user_id, {"password": new_password})
+            self.send_json({"ok": True, "user": user})
+            return
         if self.path.startswith("/api/users/"):
             user_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
             changes = self.read_json()

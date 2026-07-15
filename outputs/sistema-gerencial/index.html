@@ -84,6 +84,7 @@
             <span class="presence-empty">Sin usuarios activos</span>
           </div>
         </details>
+        <button class="ghost-btn account-password-btn" id="accountPasswordBtn" type="button">Cambiar contrasena</button>
         <button class="ghost-btn logout" id="logoutBtn" type="button">Cerrar sesion</button>
       </aside>
 
@@ -608,8 +609,39 @@
       </form>
     </dialog>
 
+    <dialog id="accountPasswordDialog">
+      <form method="dialog" class="dialog-card admin-password-form" id="accountPasswordForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Seguridad de la cuenta</p>
+            <h3>Cambiar contrasena</h3>
+          </div>
+          <button class="icon-btn" id="closeAccountPasswordDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <p class="muted-copy">La nueva contrasena funcionara en el sistema web y en la app.</p>
+        <label>
+          Contrasena actual
+          <input id="accountCurrentPassword" type="password" autocomplete="current-password" required>
+        </label>
+        <label>
+          Nueva contrasena
+          <input id="accountNewPassword" type="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <label>
+          Confirmar nueva contrasena
+          <input id="accountConfirmPassword" type="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <p class="password-requirements">Minimo 8 caracteres e incluye al menos una letra y un numero.</p>
+        <p class="form-error hidden" id="accountPasswordError" role="alert"></p>
+        <menu>
+          <button class="ghost-btn" id="cancelAccountPassword" type="button">Cancelar</button>
+          <button class="primary-btn" type="submit">Guardar nueva contrasena</button>
+        </menu>
+      </form>
+    </dialog>
+
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
-    <script src="app.js?v=20260715-visible-saved-password-v48"></script>
+    <script src="app.js?v=20260715-self-service-password-v49"></script>
   </body>
 </html>

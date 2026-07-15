@@ -801,6 +801,15 @@ const closeManagementDialog = document.querySelector("#closeManagementDialog");
 const cancelManagement = document.querySelector("#cancelManagement");
 const overallStatus = document.querySelector("#overallStatus");
 const logoutBtn = document.querySelector("#logoutBtn");
+const accountPasswordBtn = document.querySelector("#accountPasswordBtn");
+const accountPasswordDialog = document.querySelector("#accountPasswordDialog");
+const accountPasswordForm = document.querySelector("#accountPasswordForm");
+const accountCurrentPassword = document.querySelector("#accountCurrentPassword");
+const accountNewPassword = document.querySelector("#accountNewPassword");
+const accountConfirmPassword = document.querySelector("#accountConfirmPassword");
+const accountPasswordError = document.querySelector("#accountPasswordError");
+const closeAccountPasswordDialog = document.querySelector("#closeAccountPasswordDialog");
+const cancelAccountPassword = document.querySelector("#cancelAccountPassword");
 const exportBtn = document.querySelector("#exportBtn");
 const requestDialog = document.querySelector("#requestDialog");
 const requestForm = document.querySelector("#requestForm");
@@ -4929,6 +4938,61 @@ async function resetAdminPasswordFromForm(event) {
   }
 }
 
+function openAccountPasswordDialog() {
+  if (!accountPasswordDialog || !state.currentUser) return;
+  accountPasswordForm.reset();
+  accountPasswordError.textContent = "";
+  accountPasswordError.classList.add("hidden");
+  accountPasswordDialog.showModal();
+  accountCurrentPassword.focus();
+}
+
+function showAccountPasswordError(message) {
+  accountPasswordError.textContent = message;
+  accountPasswordError.classList.remove("hidden");
+}
+
+async function changeCurrentUserPassword(event) {
+  event.preventDefault();
+  if (!state.currentUser) return;
+  const currentPassword = accountCurrentPassword.value;
+  const newPassword = accountNewPassword.value;
+  const confirmation = accountConfirmPassword.value;
+  if (newPassword !== confirmation) {
+    showAccountPasswordError("La confirmacion no coincide con la nueva contrasena.");
+    return;
+  }
+  if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+    showAccountPasswordError("La nueva contrasena debe tener 8 caracteres, una letra y un numero.");
+    return;
+  }
+  if (newPassword === currentPassword) {
+    showAccountPasswordError("La nueva contrasena debe ser diferente de la actual.");
+    return;
+  }
+  try {
+    let savedUser;
+    if (apiEnabled) {
+      const result = await apiJson(`/api/users/${encodeURIComponent(state.currentUser.id)}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      savedUser = result.user;
+    } else {
+      if (state.currentUser.password !== currentPassword) throw new Error("current-password");
+      savedUser = { ...state.currentUser, password: newPassword };
+    }
+    systemUsers = systemUsers.map((user) => user.id === savedUser.id ? savedUser : user);
+    state.currentUser = savedUser;
+    saveUsers({ sync: false });
+    persistSession(savedUser);
+    accountPasswordDialog.close();
+    alert("Contrasena actualizada correctamente para web y app.");
+  } catch (error) {
+    showAccountPasswordError("La contrasena actual no es correcta o no se pudo guardar el cambio.");
+  }
+}
+
 function deleteAdminUser(userId) {
   const user = systemUsers.find((item) => item.id === userId);
   if (!user || isAdminUser(user)) return;
@@ -6010,6 +6074,10 @@ adminUserRole?.addEventListener("change", () => {
 closeAdminPasswordDialog?.addEventListener("click", () => adminPasswordDialog.close());
 cancelAdminPassword?.addEventListener("click", () => adminPasswordDialog.close());
 adminPasswordForm?.addEventListener("submit", resetAdminPasswordFromForm);
+accountPasswordBtn?.addEventListener("click", openAccountPasswordDialog);
+closeAccountPasswordDialog?.addEventListener("click", () => accountPasswordDialog.close());
+cancelAccountPassword?.addEventListener("click", () => accountPasswordDialog.close());
+accountPasswordForm?.addEventListener("submit", changeCurrentUserPassword);
 
 loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
