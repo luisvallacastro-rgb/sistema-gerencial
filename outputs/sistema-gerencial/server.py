@@ -14,9 +14,10 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ROOT))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "sistema-gerencial.db"
 CRM_SEED_PATH = ROOT / "crm-seed.json"
+ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-mobile-auth-v1"
+API_VERSION = "kmi-accounts-receivable-v1"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -30,7 +31,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"],
-    "financiera": ["resultados", "resultados-pedidos", "kpi"],
+    "financiera": ["resultados", "resultados-pedidos", "resultados-cuentas-por-cobrar", "kpi"],
     "operaciones": ["resultados", "kpi"],
     "rrhh": ["resultados", "kpi"],
 }
@@ -484,6 +485,7 @@ def default_permissions_for_role(role):
             *[f"comercializacion:{section}" for section in AREA_SECTION_KEYS["comercializacion"]],
             "financiera:resultados",
             "financiera:resultados-pedidos",
+            "financiera:resultados-cuentas-por-cobrar",
             *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
         ]
     return list(
@@ -605,6 +607,125 @@ def connect():
     return conn
 
 
+def decimal_number(value, fallback=0):
+    try:
+        return round(float(value if value not in (None, "") else fallback), 2)
+    except (TypeError, ValueError):
+        return round(float(fallback or 0), 2)
+
+
+def normalize_receivable(data, existing=None):
+    current = dict(existing or {})
+    payload = dict(data or {})
+    invoice_amount = decimal_number(payload.get("invoiceAmount"), current.get("invoiceAmount", 0))
+    payments = decimal_number(payload.get("payments"), current.get("payments", 0))
+    credit_notes = decimal_number(payload.get("creditNotes"), current.get("creditNotes", 0))
+    provided_balance = payload.get("balance")
+    balance = decimal_number(
+        provided_balance,
+        current.get("balance", invoice_amount - payments - credit_notes),
+    )
+    return {
+        "id": text(payload.get("id"), current.get("id") or f"cxc-{int(time.time() * 1000)}"),
+        "invoiceNumber": text(payload.get("invoiceNumber"), current.get("invoiceNumber") or ""),
+        "referenceNumber": text(payload.get("referenceNumber"), current.get("referenceNumber") or ""),
+        "customerCode": text(payload.get("customerCode"), current.get("customerCode") or ""),
+        "customerName": text(payload.get("customerName"), current.get("customerName") or ""),
+        "description": text(payload.get("description"), current.get("description") or ""),
+        "invoiceDate": text(payload.get("invoiceDate"), current.get("invoiceDate") or ""),
+        "dueDate": text(payload.get("dueDate"), current.get("dueDate") or ""),
+        "daysOutstanding": whole_number(payload.get("daysOutstanding"), current.get("daysOutstanding", 0)),
+        "invoiceAmount": invoice_amount,
+        "payments": payments,
+        "creditNotes": credit_notes,
+        "balance": balance,
+        "projectId": text(payload.get("projectId"), current.get("projectId") or ""),
+        "seller": text(payload.get("seller"), current.get("seller") or ""),
+        "documentNumber": text(payload.get("documentNumber"), current.get("documentNumber") or ""),
+        "address": text(payload.get("address"), current.get("address") or ""),
+        "source": text(payload.get("source"), current.get("source") or "manual"),
+        "createdAt": text(payload.get("createdAt"), current.get("createdAt") or time.strftime("%Y-%m-%dT%H:%M:%S")),
+        "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+
+
+def receivable_payload(row):
+    return {
+        "id": row["id"],
+        "invoiceNumber": row["invoice_number"],
+        "referenceNumber": row["reference_number"],
+        "customerCode": row["customer_code"],
+        "customerName": row["customer_name"],
+        "description": row["description"],
+        "invoiceDate": row["invoice_date"],
+        "dueDate": row["due_date"],
+        "daysOutstanding": row["days_outstanding"],
+        "invoiceAmount": row["invoice_amount"],
+        "payments": row["payments"],
+        "creditNotes": row["credit_notes"],
+        "balance": row["balance"],
+        "projectId": row["project_id"],
+        "seller": row["seller"],
+        "documentNumber": row["document_number"],
+        "address": row["address"],
+        "source": row["source"],
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+    }
+
+
+def upsert_receivable(conn, data, existing=None):
+    item = normalize_receivable(data, existing)
+    conn.execute("""
+        INSERT INTO accounts_receivable (
+            id, invoice_number, reference_number, customer_code, customer_name, description,
+            invoice_date, due_date, days_outstanding, invoice_amount, payments, credit_notes,
+            balance, project_id, seller, document_number, address, source, created_at, updated_at
+        ) VALUES (
+            :id, :invoiceNumber, :referenceNumber, :customerCode, :customerName, :description,
+            :invoiceDate, :dueDate, :daysOutstanding, :invoiceAmount, :payments, :creditNotes,
+            :balance, :projectId, :seller, :documentNumber, :address, :source, :createdAt, :updatedAt
+        )
+        ON CONFLICT(id) DO UPDATE SET
+            invoice_number = excluded.invoice_number,
+            reference_number = excluded.reference_number,
+            customer_code = excluded.customer_code,
+            customer_name = excluded.customer_name,
+            description = excluded.description,
+            invoice_date = excluded.invoice_date,
+            due_date = excluded.due_date,
+            days_outstanding = excluded.days_outstanding,
+            invoice_amount = excluded.invoice_amount,
+            payments = excluded.payments,
+            credit_notes = excluded.credit_notes,
+            balance = excluded.balance,
+            project_id = excluded.project_id,
+            seller = excluded.seller,
+            document_number = excluded.document_number,
+            address = excluded.address,
+            source = excluded.source,
+            updated_at = excluded.updated_at
+    """, item)
+    return item
+
+
+def seed_accounts_receivable(conn):
+    migration_key = "migration_accounts_receivable_matrix_20260718_v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    records = []
+    try:
+        records = json.loads(ACCOUNTS_RECEIVABLE_SEED_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"No se pudo cargar la matriz de cuentas por cobrar: {error}")
+    for record in records if isinstance(records, list) else []:
+        upsert_receivable(conn, record)
+    conn.execute(
+        "INSERT INTO app_state (key, value) VALUES (?, ?)",
+        (migration_key, json.dumps({"count": len(records), "source": ACCOUNTS_RECEIVABLE_SEED_PATH.name})),
+    )
+
+
 def migrate_consolidated_permissions(conn):
     migration_key = "migration_admin_consolidated_risks_requests_v1"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
@@ -713,6 +834,32 @@ def init_db():
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS accounts_receivable (
+                id TEXT PRIMARY KEY,
+                invoice_number TEXT NOT NULL,
+                reference_number TEXT DEFAULT '',
+                customer_code TEXT DEFAULT '',
+                customer_name TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                invoice_date TEXT DEFAULT '',
+                due_date TEXT DEFAULT '',
+                days_outstanding INTEGER DEFAULT 0,
+                invoice_amount REAL DEFAULT 0,
+                payments REAL DEFAULT 0,
+                credit_notes REAL DEFAULT 0,
+                balance REAL DEFAULT 0,
+                project_id TEXT DEFAULT '',
+                seller TEXT DEFAULT '',
+                document_number TEXT DEFAULT '',
+                address TEXT DEFAULT '',
+                source TEXT DEFAULT 'manual',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_accounts_receivable_customer ON accounts_receivable(customer_name)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_accounts_receivable_invoice ON accounts_receivable(invoice_number)")
+        conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
@@ -730,6 +877,7 @@ def init_db():
                 upsert_user(conn, user)
         migrate_consolidated_permissions(conn)
         grant_johanna_minutes_permissions(conn)
+        seed_accounts_receivable(conn)
 
 
 class AppHandler(BaseHTTPRequestHandler):
@@ -826,6 +974,16 @@ class AppHandler(BaseHTTPRequestHandler):
             ])
             return
 
+        if self.path == "/api/accounts-receivable":
+            with connect() as conn:
+                rows = conn.execute("""
+                    SELECT * FROM accounts_receivable
+                    ORDER BY CASE WHEN balance > 0.009 THEN 0 WHEN balance < -0.009 THEN 2 ELSE 1 END,
+                             days_outstanding DESC, invoice_date DESC, invoice_number DESC
+                """).fetchall()
+            self.send_json([receivable_payload(row) for row in rows])
+            return
+
         if self.path == "/api/opportunities":
             with connect() as conn:
                 value = conn.execute(
@@ -913,6 +1071,16 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "minute": data}, status=201)
             return
 
+        if self.path == "/api/accounts-receivable":
+            data = self.read_json()
+            if not text(data.get("invoiceNumber")) or not text(data.get("customerName")):
+                self.send_json({"error": "Factura y cliente son requeridos"}, status=400)
+                return
+            with connect() as conn:
+                item = upsert_receivable(conn, data)
+            self.send_json({"ok": True, "item": item}, status=201)
+            return
+
         if self.path == "/api/users":
             data = self.read_json()
             if isinstance(data.get("users"), list):
@@ -948,6 +1116,20 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_api_put(self):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+
+        if self.path.startswith("/api/accounts-receivable/"):
+            item_id = unquote(self.path.rsplit("/", 1)[-1])
+            data = self.read_json()
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM accounts_receivable WHERE id = ?", (item_id,)).fetchone()
+                if not row:
+                    self.send_json({"error": "Cuenta por cobrar no encontrada"}, status=404)
+                    return
+                existing = receivable_payload(row)
+                data["id"] = item_id
+                item = upsert_receivable(conn, data, existing)
+            self.send_json({"ok": True, "item": item})
             return
 
         if self.path == "/api/opportunities":
@@ -1055,6 +1237,15 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_api_delete(self):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+        if self.path.startswith("/api/accounts-receivable/"):
+            item_id = unquote(self.path.rsplit("/", 1)[-1])
+            with connect() as conn:
+                result = conn.execute("DELETE FROM accounts_receivable WHERE id = ?", (item_id,))
+            if not result.rowcount:
+                self.send_json({"error": "Cuenta por cobrar no encontrada"}, status=404)
+                return
+            self.send_json({"ok": True})
             return
         if self.path.startswith("/api/minutes/"):
             minute_id = unquote(self.path.rsplit("/", 1)[-1])

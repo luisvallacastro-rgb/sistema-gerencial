@@ -44,6 +44,7 @@ const areas = {
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "resultados-pedidos", label: "Pedidos", status: "Registro financiero de pedidos", items: [] },
+      { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
@@ -271,6 +272,11 @@ const state = {
   financialOrderMonthFilter: "all",
   financialComparisonYears: null,
   financialComparisonMonths: ["Enero", "Febrero", "Marzo"],
+  accountsReceivable: [],
+  accountsReceivableQuery: "",
+  accountsReceivablePage: 1,
+  accountsReceivableView: "list",
+  accountsReceivableStatus: "pending",
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -720,6 +726,7 @@ const commercialPanel = document.querySelector("#commercialPanel");
 const commercialSubmenuTitle = document.querySelector("#commercialSubmenuTitle");
 const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus");
 const financialOrdersViewTabs = document.querySelector("#financialOrdersViewTabs");
+const accountsReceivableViewTabs = document.querySelector("#accountsReceivableViewTabs");
 const crmOpportunitiesViewTabs = document.querySelector("#crmOpportunitiesViewTabs");
 const opportunitySearchField = document.querySelector("#opportunitySearchField");
 const opportunitySearchInput = document.querySelector("#opportunitySearchInput");
@@ -730,6 +737,12 @@ const financialOrderDialogTitle = document.querySelector("#financialOrderDialogT
 const financialOrderId = document.querySelector("#financialOrderId");
 const closeFinancialOrderDialog = document.querySelector("#closeFinancialOrderDialog");
 const cancelFinancialOrder = document.querySelector("#cancelFinancialOrder");
+const accountsReceivableDialog = document.querySelector("#accountsReceivableDialog");
+const accountsReceivableForm = document.querySelector("#accountsReceivableForm");
+const accountsReceivableDialogTitle = document.querySelector("#accountsReceivableDialogTitle");
+const accountsReceivableId = document.querySelector("#accountsReceivableId");
+const closeAccountsReceivableDialog = document.querySelector("#closeAccountsReceivableDialog");
+const cancelAccountsReceivable = document.querySelector("#cancelAccountsReceivable");
 const opportunityDashboard = document.querySelector("#opportunityDashboard");
 const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
 const newRiskBtn = document.querySelector("#newRiskBtn");
@@ -917,6 +930,7 @@ function defaultPermissionsForRole(role) {
         .map((section) => permissionKey("comercializacion", section.key)),
       permissionKey("financiera", "resultados"),
       permissionKey("financiera", "resultados-pedidos"),
+      permissionKey("financiera", "resultados-cuentas-por-cobrar"),
       ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
     ];
   }
@@ -2140,6 +2154,39 @@ const financialOrderFields = [
   ["department", "financialOrderDepartment"]
 ];
 
+const accountsReceivableFields = [
+  ["invoiceNumber", "accountsReceivableInvoiceNumber"],
+  ["referenceNumber", "accountsReceivableReferenceNumber"],
+  ["customerCode", "accountsReceivableCustomerCode"],
+  ["customerName", "accountsReceivableCustomerName"],
+  ["description", "accountsReceivableDescription"],
+  ["invoiceDate", "accountsReceivableInvoiceDate"],
+  ["dueDate", "accountsReceivableDueDate"],
+  ["daysOutstanding", "accountsReceivableDaysOutstanding"],
+  ["invoiceAmount", "accountsReceivableInvoiceAmount"],
+  ["payments", "accountsReceivablePayments"],
+  ["creditNotes", "accountsReceivableCreditNotes"],
+  ["balance", "accountsReceivableBalance"],
+  ["seller", "accountsReceivableSeller"],
+  ["projectId", "accountsReceivableProjectId"],
+  ["documentNumber", "accountsReceivableDocumentNumber"],
+  ["address", "accountsReceivableAddress"]
+];
+
+function loadAccountsReceivable() {
+  if (!apiEnabled) return;
+  apiJson("/api/accounts-receivable")
+    .then((records) => {
+      state.accountsReceivable = Array.isArray(records) ? records : [];
+      if (state.activeArea === "financiera" && state.activeSubmenu === "resultados-cuentas-por-cobrar") {
+        renderDashboard();
+      }
+    })
+    .catch(() => {
+      state.accountsReceivable = [];
+    });
+}
+
 function loadFinancialOrders() {
   try {
     const saved = JSON.parse(localStorage.getItem(financialOrdersStorageKey) || "[]");
@@ -2472,6 +2519,206 @@ function wireFinancialOrders() {
     state.financialOrders = state.financialOrders.filter((item) => item.id !== button.dataset.financialOrderDelete);
     saveFinancialOrders();
     renderCommercialSubmenu(areas.financiera);
+  }));
+}
+
+function receivableStatus(item) {
+  const balance = Number(item.balance || 0);
+  if (balance < -0.009) return { key: "credit", label: "Saldo a favor", className: "credit" };
+  if (balance <= 0.009) return { key: "settled", label: "Saldada", className: "settled" };
+  if (Number(item.daysOutstanding || 0) > 30) return { key: "overdue", label: "Vencida", className: "overdue" };
+  return { key: "pending", label: "Pendiente", className: "pending" };
+}
+
+function filteredAccountsReceivable() {
+  const query = state.accountsReceivableQuery.trim();
+  return state.accountsReceivable.filter((item) => {
+    const status = receivableStatus(item).key;
+    const statusMatches = state.accountsReceivableStatus === "all"
+      || (state.accountsReceivableStatus === "pending" && ["pending", "overdue"].includes(status))
+      || state.accountsReceivableStatus === status;
+    if (!statusMatches) return false;
+    return !query || Object.values(item).some((value) => searchTokenMatches(value, query));
+  });
+}
+
+function resetAccountsReceivableForm(item = null) {
+  accountsReceivableForm.reset();
+  accountsReceivableId.value = item?.id || "";
+  accountsReceivableDialogTitle.textContent = item ? "Editar cuenta por cobrar" : "Nueva cuenta por cobrar";
+  accountsReceivableFields.forEach(([key, id]) => {
+    const input = document.querySelector(`#${id}`);
+    if (input) input.value = item?.[key] ?? "";
+  });
+  if (!item) {
+    document.querySelector("#accountsReceivableInvoiceDate").value = todayISO();
+    document.querySelector("#accountsReceivableDaysOutstanding").value = "0";
+    document.querySelector("#accountsReceivableInvoiceAmount").value = "0";
+    document.querySelector("#accountsReceivablePayments").value = "0";
+    document.querySelector("#accountsReceivableCreditNotes").value = "0";
+    document.querySelector("#accountsReceivableBalance").value = "0";
+  }
+}
+
+function calculateReceivableBalance() {
+  const amount = Number(document.querySelector("#accountsReceivableInvoiceAmount")?.value || 0);
+  const payments = Number(document.querySelector("#accountsReceivablePayments")?.value || 0);
+  const creditNotes = Number(document.querySelector("#accountsReceivableCreditNotes")?.value || 0);
+  const balanceInput = document.querySelector("#accountsReceivableBalance");
+  if (balanceInput) balanceInput.value = (amount - payments - creditNotes).toFixed(2);
+}
+
+function renderAccountsReceivableList() {
+  const rows = filteredAccountsReceivable();
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  state.accountsReceivablePage = Math.max(1, Math.min(state.accountsReceivablePage, pageCount));
+  const pageStart = (state.accountsReceivablePage - 1) * pageSize;
+  const pageEnd = pageStart + pageSize;
+  const pagedRows = rows.slice(pageStart, pageEnd);
+  const total = rows.reduce((sum, item) => sum + Number(item.balance || 0), 0);
+  const statusTabs = [
+    ["pending", "Pendientes"],
+    ["overdue", "Vencidas"],
+    ["settled", "Saldadas"],
+    ["all", "Todas"]
+  ];
+  return `
+    <section class="financial-orders-shell accounts-receivable-shell">
+      <div class="financial-orders-toolbar accounts-receivable-toolbar">
+        <label><span>⌕</span><input data-accounts-receivable-search type="search" value="${escapeHtml(state.accountsReceivableQuery)}" placeholder="Buscar factura, cliente, vendedor..."></label>
+        <strong>${formatMoney(total)}</strong>
+        <button type="button" data-accounts-receivable-new>+ Nueva cuenta</button>
+      </div>
+      <div class="accounts-receivable-status-tabs" role="tablist" aria-label="Estado de cartera">
+        ${statusTabs.map(([key, label]) => `<button type="button" role="tab" data-accounts-receivable-status="${key}" class="${state.accountsReceivableStatus === key ? "active" : ""}" aria-selected="${state.accountsReceivableStatus === key}">${label}</button>`).join("")}
+      </div>
+      <div class="financial-orders-table-wrap">
+        <div class="financial-orders-table accounts-receivable-table">
+          <div class="accounts-receivable-row header"><span>Fecha</span><span>Factura</span><span>Cliente</span><span>Vendedor</span><span>Días</span><span>Saldo</span><span>Acciones</span></div>
+          ${pagedRows.map((item) => {
+            const status = receivableStatus(item);
+            return `<article class="accounts-receivable-row">
+              <span>${formatDate(item.invoiceDate)}</span>
+              <span class="accounts-receivable-invoice"><strong>${escapeHtml(item.invoiceNumber)}</strong><small>${escapeHtml(item.referenceNumber || item.customerCode || "Sin referencia")}</small></span>
+              <span class="accounts-receivable-customer"><strong>${escapeHtml(item.customerName)}</strong><small>${escapeHtml(item.description || "Sin descripción")}</small></span>
+              <span>${escapeHtml(item.seller || "Sin asignar")}</span>
+              <span class="accounts-receivable-days"><strong>${Number(item.daysOutstanding || 0)}</strong><small class="accounts-receivable-status ${status.className}">${status.label}</small></span>
+              <strong class="financial-order-sale">${formatMoney(item.balance)}</strong>
+              <span class="financial-order-actions"><button type="button" data-accounts-receivable-edit="${item.id}">Editar</button><button class="danger" type="button" data-accounts-receivable-delete="${item.id}">Eliminar</button></span>
+            </article>`;
+          }).join("") || `<div class="empty-state">No hay cuentas por cobrar para este filtro.</div>`}
+        </div>
+      </div>
+      <div class="opportunity-pagination financial-orders-pagination" aria-label="Paginación de cuentas por cobrar">
+        <span>Mostrando ${rows.length ? pageStart + 1 : 0}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
+        <div>
+          <button class="ghost-btn compact-btn" type="button" data-accounts-receivable-page="prev" ${state.accountsReceivablePage <= 1 ? "disabled" : ""}>Anterior</button>
+          <strong>Página ${state.accountsReceivablePage} de ${pageCount}</strong>
+          <button class="ghost-btn compact-btn" type="button" data-accounts-receivable-page="next" ${state.accountsReceivablePage >= pageCount ? "disabled" : ""}>Siguiente</button>
+        </div>
+      </div>
+    </section>`;
+}
+
+function renderAccountsReceivableAging() {
+  const active = state.accountsReceivable.filter((item) => Number(item.balance || 0) > 0.009);
+  const buckets = [
+    { label: "Corriente", hint: "0 días", min: 0, max: 0, color: 164 },
+    { label: "1 a 30 días", hint: "Seguimiento", min: 1, max: 30, color: 188 },
+    { label: "31 a 60 días", hint: "Vencida", min: 31, max: 60, color: 36 },
+    { label: "61 a 90 días", hint: "Prioritaria", min: 61, max: 90, color: 18 },
+    { label: "Más de 90 días", hint: "Crítica", min: 91, max: Infinity, color: 350 }
+  ].map((bucket) => {
+    const items = active.filter((item) => Number(item.daysOutstanding || 0) >= bucket.min && Number(item.daysOutstanding || 0) <= bucket.max);
+    return { ...bucket, count: items.length, amount: items.reduce((sum, item) => sum + Number(item.balance || 0), 0) };
+  });
+  const total = active.reduce((sum, item) => sum + Number(item.balance || 0), 0);
+  const maxAmount = Math.max(...buckets.map((bucket) => bucket.amount), 1);
+  return `<section class="accounts-receivable-kpi">
+    <div class="accounts-receivable-kpi-summary">
+      <article><span>Saldo pendiente</span><strong>${formatMoney(total)}</strong><small>${active.length} documentos</small></article>
+      <article><span>Cartera vencida</span><strong>${formatMoney(buckets.slice(2).reduce((sum, bucket) => sum + bucket.amount, 0))}</strong><small>${buckets.slice(2).reduce((sum, bucket) => sum + bucket.count, 0)} documentos</small></article>
+      <article><span>Recuperación registrada</span><strong>${formatMoney(state.accountsReceivable.reduce((sum, item) => sum + Number(item.payments || 0), 0))}</strong><small>Abonos de la matriz</small></article>
+    </div>
+    <div class="financial-seller-chart-head"><div><span>KPI financiero</span><h4>Antigüedad de saldos</h4></div><small>Distribución por días en cartera</small></div>
+    <div class="accounts-receivable-aging-list">
+      ${buckets.map((bucket) => `<article class="accounts-receivable-aging-row" style="--aging-width:${Math.max(2, (bucket.amount / maxAmount) * 100).toFixed(2)}%;--aging-hue:${bucket.color}">
+        <div><strong>${bucket.label}</strong><span>${bucket.hint} · ${bucket.count} documentos</span></div>
+        <i><b></b></i>
+        <strong>${formatMoney(bucket.amount)}</strong>
+      </article>`).join("")}
+    </div>
+  </section>`;
+}
+
+function renderAccountsReceivableCustomers() {
+  const customers = new Map();
+  state.accountsReceivable.filter((item) => Number(item.balance || 0) > 0.009).forEach((item) => {
+    const key = normalizeKey(item.customerName || item.customerCode || "Sin cliente");
+    const current = customers.get(key) || { name: item.customerName || "Sin cliente", documents: 0, amount: 0, seller: item.seller || "Sin asignar" };
+    current.documents += 1;
+    current.amount += Number(item.balance || 0);
+    customers.set(key, current);
+  });
+  const rows = [...customers.values()].sort((a, b) => b.amount - a.amount);
+  const total = rows.reduce((sum, item) => sum + item.amount, 0);
+  return `<section class="accounts-receivable-kpi">
+    <div class="accounts-receivable-kpi-summary">
+      <article><span>Clientes con saldo</span><strong>${rows.length}</strong><small>Cartera activa</small></article>
+      <article class="wide"><span>Saldo pendiente consolidado</span><strong>${formatMoney(total)}</strong><small>Ordenado por exposición</small></article>
+    </div>
+    <div class="financial-seller-chart-head"><div><span>Concentración de cartera</span><h4>Saldo por cliente</h4></div><small>Top de cuentas abiertas</small></div>
+    <div class="accounts-receivable-customer-list">
+      ${rows.slice(0, 30).map((item, index) => `<article>
+        <span>${index + 1}</span><div><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.seller)} · ${item.documents} documentos</small></div><strong>${formatMoney(item.amount)}</strong>
+      </article>`).join("") || `<div class="empty-state">No hay clientes con saldo pendiente.</div>`}
+    </div>
+  </section>`;
+}
+
+function renderAccountsReceivable() {
+  if (state.accountsReceivableView === "aging") return renderAccountsReceivableAging();
+  if (state.accountsReceivableView === "customers") return renderAccountsReceivableCustomers();
+  return renderAccountsReceivableList();
+}
+
+function wireAccountsReceivable() {
+  opportunityTable.querySelector("[data-accounts-receivable-new]")?.addEventListener("click", () => {
+    resetAccountsReceivableForm();
+    accountsReceivableDialog.showModal();
+  });
+  opportunityTable.querySelector("[data-accounts-receivable-search]")?.addEventListener("input", (event) => {
+    state.accountsReceivableQuery = event.target.value;
+    state.accountsReceivablePage = 1;
+    renderCommercialSubmenu(areas.financiera);
+    const input = opportunityTable.querySelector("[data-accounts-receivable-search]");
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  });
+  opportunityTable.querySelectorAll("[data-accounts-receivable-status]").forEach((button) => button.addEventListener("click", () => {
+    state.accountsReceivableStatus = button.dataset.accountsReceivableStatus;
+    state.accountsReceivablePage = 1;
+    renderCommercialSubmenu(areas.financiera);
+  }));
+  opportunityTable.querySelectorAll("[data-accounts-receivable-page]").forEach((button) => button.addEventListener("click", () => {
+    state.accountsReceivablePage += button.dataset.accountsReceivablePage === "next" ? 1 : -1;
+    renderCommercialSubmenu(areas.financiera);
+  }));
+  opportunityTable.querySelectorAll("[data-accounts-receivable-edit]").forEach((button) => button.addEventListener("click", () => {
+    const item = state.accountsReceivable.find((record) => record.id === button.dataset.accountsReceivableEdit);
+    resetAccountsReceivableForm(item);
+    accountsReceivableDialog.showModal();
+  }));
+  opportunityTable.querySelectorAll("[data-accounts-receivable-delete]").forEach((button) => button.addEventListener("click", async () => {
+    if (!confirm("¿Eliminar esta cuenta por cobrar?")) return;
+    try {
+      await apiJson(`/api/accounts-receivable/${encodeURIComponent(button.dataset.accountsReceivableDelete)}`, { method: "DELETE" });
+      state.accountsReceivable = state.accountsReceivable.filter((item) => item.id !== button.dataset.accountsReceivableDelete);
+      renderCommercialSubmenu(areas.financiera);
+    } catch {
+      alert("No se pudo eliminar la cuenta por cobrar.");
+    }
   }));
 }
 
@@ -3955,6 +4202,7 @@ function renderCommercialSubmenu(area) {
   opportunityTotalAmount.classList.add("hidden");
   commercialSubmenuTitle.classList.remove("hidden");
   financialOrdersViewTabs?.classList.add("hidden");
+  accountsReceivableViewTabs?.classList.add("hidden");
   crmOpportunitiesViewTabs?.classList.add("hidden");
   opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
@@ -3977,6 +4225,28 @@ function renderCommercialSubmenu(area) {
     commercialSubmenuStatus.textContent = `${visibleOrders} de ${state.financialOrders.length} pedidos`;
     opportunityTable.innerHTML = renderFinancialOrders();
     wireFinancialOrders();
+    return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "resultados-cuentas-por-cobrar") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    accountsReceivableViewTabs?.classList.remove("hidden");
+    accountsReceivableViewTabs?.querySelectorAll("[data-accounts-receivable-view]").forEach((button) => {
+      const isActive = button.dataset.accountsReceivableView === state.accountsReceivableView;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-selected", String(isActive));
+    });
+    const pendingCount = state.accountsReceivable.filter((item) => Number(item.balance || 0) > 0.009).length;
+    commercialSubmenuStatus.textContent = state.accountsReceivable.length
+      ? `${pendingCount} pendientes · ${state.accountsReceivable.length} documentos`
+      : "Cargando matriz de cartera...";
+    opportunityTable.innerHTML = renderAccountsReceivable();
+    wireAccountsReceivable();
     return;
   }
 
@@ -6932,10 +7202,19 @@ closeKpiDetailDialog.addEventListener("click", () => {
 
 closeFinancialOrderDialog.addEventListener("click", () => financialOrderDialog.close());
 cancelFinancialOrder.addEventListener("click", () => financialOrderDialog.close());
+closeAccountsReceivableDialog.addEventListener("click", () => accountsReceivableDialog.close());
+cancelAccountsReceivable.addEventListener("click", () => accountsReceivableDialog.close());
 financialOrdersViewTabs?.querySelectorAll("[data-financial-orders-view]").forEach((button) => {
   button.addEventListener("click", () => {
     state.financialOrdersView = button.dataset.financialOrdersView;
     saveFinancialOrderFilters();
+    renderCommercialSubmenu(areas.financiera);
+  });
+});
+accountsReceivableViewTabs?.querySelectorAll("[data-accounts-receivable-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.accountsReceivableView = button.dataset.accountsReceivableView;
+    state.accountsReceivablePage = 1;
     renderCommercialSubmenu(areas.financiera);
   });
 });
@@ -6976,10 +7255,42 @@ financialOrderForm.addEventListener("submit", (event) => {
   renderCommercialSubmenu(areas.financiera);
 });
 
+["accountsReceivableInvoiceAmount", "accountsReceivablePayments", "accountsReceivableCreditNotes"].forEach((id) => {
+  document.querySelector(`#${id}`)?.addEventListener("input", calculateReceivableBalance);
+});
+
+accountsReceivableForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {};
+  accountsReceivableFields.forEach(([key, id]) => {
+    payload[key] = document.querySelector(`#${id}`).value.trim();
+  });
+  ["daysOutstanding", "invoiceAmount", "payments", "creditNotes", "balance"].forEach((key) => {
+    payload[key] = Number(payload[key] || 0);
+  });
+  const existingId = accountsReceivableId.value;
+  try {
+    const response = await apiJson(
+      existingId ? `/api/accounts-receivable/${encodeURIComponent(existingId)}` : "/api/accounts-receivable",
+      { method: existingId ? "PUT" : "POST", body: JSON.stringify(payload) }
+    );
+    const saved = response.item;
+    const index = state.accountsReceivable.findIndex((item) => item.id === saved.id);
+    if (index >= 0) state.accountsReceivable[index] = saved;
+    else state.accountsReceivable.unshift(saved);
+    state.accountsReceivablePage = 1;
+    accountsReceivableDialog.close();
+    renderCommercialSubmenu(areas.financiera);
+  } catch {
+    alert("No se pudo guardar la cuenta por cobrar.");
+  }
+});
+
 fillOpportunityOptions();
 loadUsers();
 loadFinancialOrderFilters();
 loadFinancialOrders();
+loadAccountsReceivable();
 loadOpportunities();
 loadStrategicRisks();
 loadManagementRequests();
