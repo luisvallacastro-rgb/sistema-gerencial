@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>KMI</title>
-    <link rel="stylesheet" href="styles.css?v=20260718-accounts-receivable-v50">
+    <link rel="stylesheet" href="styles.css?v=20260719-crm-lifecycle-v51">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -138,6 +138,7 @@
               <div class="financial-orders-view-tabs hidden" id="crmOpportunitiesViewTabs" role="tablist" aria-label="Vistas de oportunidades por vendedor">
                 <button class="active" type="button" role="tab" data-crm-opportunities-view="list" aria-selected="true">Listado</button>
                 <button type="button" role="tab" data-crm-opportunities-view="seller-kpi" aria-selected="false">KPI vendedores</button>
+                <button type="button" role="tab" data-crm-opportunities-view="history" aria-selected="false">Historial</button>
               </div>
             </div>
             <div class="panel-actions">
@@ -581,6 +582,29 @@
       </form>
     </dialog>
 
+    <dialog id="crmCancellationDialog">
+      <form method="dialog" class="dialog-card crm-cancellation-card" id="crmCancellationForm">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Bitacora comercial</p>
+            <h3>Anular oportunidad</h3>
+          </div>
+          <button class="icon-btn" id="closeCrmCancellationDialog" aria-label="Cerrar" type="button">x</button>
+        </div>
+        <input type="hidden" id="crmCancellationOpportunityId">
+        <p class="crm-cancellation-copy" id="crmCancellationOpportunityLabel"></p>
+        <label>
+          Razon de anulacion
+          <textarea id="crmCancellationReason" rows="5" minlength="5" maxlength="500" placeholder="Explique por que se anula esta oportunidad..." required></textarea>
+        </label>
+        <p class="muted-copy">La oportunidad desaparecera del pipeline activo, pero permanecera en el Historial con fecha, usuario, monto y motivo.</p>
+        <menu>
+          <button class="ghost-btn" id="cancelCrmCancellation" type="button">Cancelar</button>
+          <button class="danger-btn" id="confirmCrmCancellation" value="default" type="submit">Anular y guardar historial</button>
+        </menu>
+      </form>
+    </dialog>
+
     <dialog id="adminUserDialog" class="wide-dialog">
       <form method="dialog" class="dialog-card admin-user-form" id="adminUserForm">
         <div class="panel-head">
@@ -679,6 +703,6 @@
 
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
-    <script src="app.js?v=20260718-accounts-receivable-v50"></script>
+    <script src="app.js?v=20260719-crm-lifecycle-v51"></script>
   </body>
 </html>

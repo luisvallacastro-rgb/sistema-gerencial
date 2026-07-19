@@ -728,6 +728,13 @@ const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus
 const financialOrdersViewTabs = document.querySelector("#financialOrdersViewTabs");
 const accountsReceivableViewTabs = document.querySelector("#accountsReceivableViewTabs");
 const crmOpportunitiesViewTabs = document.querySelector("#crmOpportunitiesViewTabs");
+const crmCancellationDialog = document.querySelector("#crmCancellationDialog");
+const crmCancellationForm = document.querySelector("#crmCancellationForm");
+const crmCancellationOpportunityId = document.querySelector("#crmCancellationOpportunityId");
+const crmCancellationOpportunityLabel = document.querySelector("#crmCancellationOpportunityLabel");
+const crmCancellationReason = document.querySelector("#crmCancellationReason");
+const closeCrmCancellationDialog = document.querySelector("#closeCrmCancellationDialog");
+const cancelCrmCancellation = document.querySelector("#cancelCrmCancellation");
 const opportunitySearchField = document.querySelector("#opportunitySearchField");
 const opportunitySearchInput = document.querySelector("#opportunitySearchInput");
 const opportunityTotalAmount = document.querySelector("#opportunityTotalAmount");
@@ -3300,7 +3307,7 @@ const crmSellerAccountLinks = new Map([
 
 function isCrmArchivedOpportunity(opportunity = {}) {
   const status = String(opportunity.status || "Vigente").toLowerCase();
-  return Boolean(opportunity.archived) || ["perdida", "cancelada"].includes(status);
+  return Boolean(opportunity.archived) || Boolean(opportunity.migratedToResults) || ["perdida", "cancelada", "anulada", "migrada"].includes(status);
 }
 
 function crmIdentityKey(value) {
@@ -3487,16 +3494,41 @@ function resultOpportunityFromCrm(opportunity) {
   };
 }
 
-function migrateCrmOpportunityToResults(opportunityId) {
+async function migrateCrmOpportunityToResults(opportunityId, trigger = null) {
   const opportunity = crmData().opportunities.find((item) => item.id === opportunityId);
-  if (!opportunity || opportunityMigratedFromCrm(opportunity.id)) return;
-  const submenu = getOpportunitySubmenu();
-  submenu.items = [
-    resultOpportunityFromCrm(opportunity),
-    ...submenu.items
-  ];
-  saveOpportunities();
-  renderCommercialSubmenu(areas.comercializacion);
+  if (!opportunity || isCrmArchivedOpportunity(opportunity)) return;
+  const originalText = trigger?.textContent;
+  if (trigger) {
+    trigger.disabled = true;
+    trigger.textContent = "Migrando...";
+  }
+  try {
+    const payload = await apiJson(`/api/crm/opportunities/${encodeURIComponent(opportunityId)}/migrate`, {
+      method: "POST",
+      headers: { "X-System-User-Id": state.currentUser?.id || "" },
+      body: "{}"
+    });
+    state.crmData = payload.crm;
+    getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(payload.opportunities || []));
+    localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+    renderCommercialSubmenu(areas.comercializacion);
+  } catch (error) {
+    if (trigger) {
+      trigger.disabled = false;
+      trigger.textContent = originalText;
+    }
+    alert("No fue posible migrar la oportunidad. Recargue e intente nuevamente.");
+  }
+}
+
+function openCrmCancellationDialog(opportunityId) {
+  const opportunity = crmData().opportunities.find((item) => item.id === opportunityId);
+  if (!opportunity || isCrmArchivedOpportunity(opportunity)) return;
+  crmCancellationOpportunityId.value = opportunity.id;
+  crmCancellationOpportunityLabel.textContent = `${opportunity.company || "Oportunidad"} · ${formatMoney(opportunity.estimatedAmount || 0)}`;
+  crmCancellationReason.value = "";
+  crmCancellationDialog.showModal();
+  setTimeout(() => crmCancellationReason.focus(), 0);
 }
 
 function crmSearchText() {
@@ -3816,11 +3848,58 @@ function renderCrmSellerKpi(rows) {
     </section>`;
 }
 
+function renderCrmHistory() {
+  const query = crmSearchText();
+  const rows = crmData().opportunities
+    .filter((opportunity) => isCrmArchivedOpportunity(opportunity))
+    .filter((opportunity) => {
+      if (!query) return true;
+      return [
+        opportunity.company,
+        opportunity.owner?.name,
+        crmOwnerName(opportunity.ownerId),
+        opportunity.status,
+        opportunity.archivedReason,
+        opportunity.archivedBy
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+    })
+    .sort((a, b) => String(b.archivedAt || b.migratedAt || "").localeCompare(String(a.archivedAt || a.migratedAt || "")));
+  return `
+    <section class="crm-history-shell" aria-label="Bitacora de oportunidades">
+      <div class="crm-history-summary">
+        <div><span>Bitacora comercial</span><h4>Historial de oportunidades</h4></div>
+        <p>${rows.length} registros conservados · ninguna anulacion elimina datos de la base</p>
+      </div>
+      <div class="crm-history-list">
+        ${rows.map((opportunity) => {
+          const isMigration = opportunity.archiveType === "migration" || opportunity.migratedToResults;
+          const audit = [...(Array.isArray(opportunity.auditLog) ? opportunity.auditLog : [])].reverse()[0] || {};
+          const date = String(opportunity.archivedAt || opportunity.migratedAt || audit.date || "").slice(0, 10);
+          return `
+            <article class="crm-history-card ${isMigration ? "is-migration" : "is-cancellation"}">
+              <div class="crm-history-main">
+                <span class="crm-history-status">${isMigration ? "Migrada a Gerencia" : escapeHtml(opportunity.status || "Anulada")}</span>
+                <strong>${escapeHtml(opportunity.company || "Sin empresa")}</strong>
+                <small>${escapeHtml(opportunity.owner?.name || crmOwnerName(opportunity.ownerId))}</small>
+              </div>
+              <div class="crm-history-reason">
+                <span>Motivo / movimiento</span>
+                <strong>${escapeHtml(opportunity.archivedReason || audit.reason || "Movimiento registrado")}</strong>
+                <small>${escapeHtml(opportunity.archivedBy || opportunity.migratedBy || audit.userName || "Sistema")}${date ? ` · ${formatDate(date)}` : ""}</small>
+              </div>
+              <div class="crm-history-amount"><span>Monto historico</span><strong>${formatMoney(opportunity.estimatedAmount || 0)}</strong></div>
+            </article>`;
+        }).join("") || `<div class="empty-state">No hay movimientos en la bitacora para este filtro.</div>`}
+      </div>
+    </section>`;
+}
+
 function renderCrmDashboard() {
   const rows = filteredCrmDashboardOpportunities();
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
     rows.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
   );
+  if (state.crmOpportunitiesView === "history") return renderCrmHistory();
   if (state.crmOpportunitiesView === "seller-kpi") return renderCrmSellerKpi(rows);
   const pageCount = Math.max(1, Math.ceil(rows.length / opportunityPageSize));
   state.crmOpportunityPage = Math.min(Math.max(Number(state.crmOpportunityPage) || 1, 1), pageCount);
@@ -4352,7 +4431,7 @@ function renderCommercialSubmenu(area) {
     opportunityTable.querySelectorAll("[data-crm-migrate]").forEach((button) => {
       button.addEventListener("click", (event) => {
         event.stopPropagation();
-        migrateCrmOpportunityToResults(button.dataset.crmMigrate);
+        migrateCrmOpportunityToResults(button.dataset.crmMigrate, button);
       });
     });
     opportunityTable.querySelectorAll("[data-crm-opportunity]").forEach((item) => {
@@ -4363,8 +4442,7 @@ function renderCommercialSubmenu(area) {
     });
     opportunityTable.querySelectorAll("[data-crm-delete]").forEach((button) => {
       button.addEventListener("click", () => {
-        if (!confirm("¿Eliminar esta oportunidad del CRM?")) return;
-        crmApi(`/opportunities/${button.dataset.crmDelete}`, { method: "DELETE" });
+        openCrmCancellationDialog(button.dataset.crmDelete);
       });
     });
     opportunityTable.querySelectorAll("[data-crm-page]").forEach((button) => {
@@ -7224,6 +7302,38 @@ crmOpportunitiesViewTabs?.querySelectorAll("[data-crm-opportunities-view]").forE
     state.crmOpportunityPage = 1;
     renderCommercialSubmenu(areas.comercializacion);
   });
+});
+closeCrmCancellationDialog?.addEventListener("click", () => crmCancellationDialog.close());
+cancelCrmCancellation?.addEventListener("click", () => crmCancellationDialog.close());
+crmCancellationForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const opportunityId = crmCancellationOpportunityId.value;
+  const reason = crmCancellationReason.value.trim();
+  if (!opportunityId || reason.length < 5) {
+    crmCancellationReason.setCustomValidity("Escriba una razon de al menos 5 caracteres.");
+    crmCancellationReason.reportValidity();
+    return;
+  }
+  crmCancellationReason.setCustomValidity("");
+  const submit = event.submitter;
+  if (submit) {
+    submit.disabled = true;
+    submit.textContent = "Guardando...";
+  }
+  try {
+    await crmApi(`/opportunities/${encodeURIComponent(opportunityId)}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ reason })
+    });
+    crmCancellationDialog.close();
+  } catch (error) {
+    alert("No fue posible guardar la anulacion. Recargue e intente nuevamente.");
+  } finally {
+    if (submit) {
+      submit.disabled = false;
+      submit.textContent = "Anular y guardar historial";
+    }
+  }
 });
 financialOrderYearFilter?.addEventListener("change", () => {
   state.financialOrderYearFilter = financialOrderYearFilter.value;

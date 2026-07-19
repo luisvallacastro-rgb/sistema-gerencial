@@ -17,7 +17,7 @@ CRM_SEED_PATH = ROOT / "crm-seed.json"
 ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-accounts-receivable-v1"
+API_VERSION = "kmi-crm-lifecycle-v2"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -192,10 +192,61 @@ def sync_crm_result_closures(conn, data):
     return data, changed
 
 
+def read_result_opportunities(conn):
+    row = conn.execute("SELECT value FROM app_state WHERE key = 'opportunities'").fetchone()
+    if not row:
+        return []
+    try:
+        items = json.loads(row["value"] or "[]")
+    except json.JSONDecodeError:
+        return []
+    return items if isinstance(items, list) else []
+
+
+def write_result_opportunities(conn, items):
+    conn.execute("""
+        INSERT INTO app_state (key, value, updated_at)
+        VALUES ('opportunities', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET
+            value = excluded.value,
+            updated_at = CURRENT_TIMESTAMP
+    """, (json.dumps(items, ensure_ascii=True),))
+
+
+def sync_crm_result_migrations(conn, data):
+    migrated = {
+        text(item.get("crmOpportunityId")): item
+        for item in read_result_opportunities(conn)
+        if text(item.get("crmOpportunityId"))
+    }
+    if not migrated:
+        return data, False
+
+    changed = False
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    for opportunity in data.get("opportunities", []):
+        result = migrated.get(text(opportunity.get("id")))
+        if not result:
+            continue
+        if not opportunity.get("migratedToResults"):
+            opportunity["migratedToResults"] = True
+            opportunity["migratedAt"] = text(opportunity.get("migratedAt"), now)
+            opportunity["resultOpportunityId"] = text(result.get("id"))
+            opportunity["archived"] = True
+            if text(opportunity.get("status")).lower() not in {"perdida", "cancelada", "anulada"}:
+                opportunity["status"] = "Migrada"
+                opportunity["archiveType"] = "migration"
+                opportunity["archivedReason"] = "Migrada a Oportunidades / Gerencia"
+                opportunity["archivedAt"] = text(opportunity.get("archivedAt"), opportunity["migratedAt"])
+            changed = True
+    return data, changed
+
+
 def read_crm_data(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
     if not row:
         data = load_crm_seed()
+        data, _ = sync_crm_result_migrations(conn, data)
         data, _ = sync_crm_result_closures(conn, data)
         write_crm_data(conn, data)
         return data
@@ -203,8 +254,9 @@ def read_crm_data(conn):
     data.setdefault("gestiones", [])
     data.setdefault("customers", [])
     data, changed = sync_crm_seed_updates(data)
+    data, migration_changed = sync_crm_result_migrations(conn, data)
     data, closure_changed = sync_crm_result_closures(conn, data)
-    changed = changed or closure_changed
+    changed = changed or migration_changed or closure_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -348,6 +400,59 @@ def normalize_crm_opportunity(payload, existing=None):
         "nextDate": text(payload.get("nextDate"), existing.get("nextDate") or payload.get("deadline")),
         "lastNote": text(payload.get("lastNote"), existing.get("lastNote") or payload.get("comment")),
         "comment": text(payload.get("comment"), existing.get("comment") or payload.get("lastNote")),
+    }
+
+
+def crm_audit_event(event_type, opportunity, request_user, reason="", related_id=""):
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    return {
+        "id": f"audit-{int(time.time() * 1000)}",
+        "type": event_type,
+        "date": now,
+        "reason": text(reason),
+        "userId": text((request_user or {}).get("id")),
+        "userName": text((request_user or {}).get("name"), "Sistema"),
+        "previousStatus": text(opportunity.get("status"), "Vigente"),
+        "amount": float(opportunity.get("estimatedAmount") or 0),
+        "relatedOpportunityId": text(related_id),
+    }
+
+
+def result_opportunity_from_crm(data, opportunity):
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    today = time.strftime("%Y-%m-%d")
+    result_id = f"result-{text(opportunity.get('id'))}"
+    owner = next((item for item in data.get("users", []) if item.get("id") == opportunity.get("ownerId")), {})
+    stage = next((item for item in data.get("stages", []) if item.get("id") == opportunity.get("stageId")), {})
+    date = text(opportunity.get("nextDate"), opportunity.get("deadline") or opportunity.get("startDate") or today)
+    stage_name = text(stage.get("name"), "Prospeccion")
+    note = text(opportunity.get("lastNote"), opportunity.get("comment"))
+    return {
+        "id": result_id,
+        "date": date,
+        "time": time.strftime("%H:%M"),
+        "company": text(opportunity.get("company"), "Cliente CRM"),
+        "seller": text(owner.get("name"), "Vendedor CRM"),
+        "contact": text(opportunity.get("contact"), opportunity.get("responsible")),
+        "phone": text(opportunity.get("phone")),
+        "segment": text(opportunity.get("segment"), opportunity.get("product")),
+        "location": text(opportunity.get("location")),
+        "stage": stage_name,
+        "priority": text(opportunity.get("priority"), "Media"),
+        "probability": text(opportunity.get("temperature"), "Tibio").lower(),
+        "amount": float(opportunity.get("estimatedAmount") or 0),
+        "nextAction": text(opportunity.get("nextAction"), "Primer seguimiento"),
+        "agendaDate": date,
+        "note": note,
+        "crmOpportunityId": opportunity.get("id"),
+        "migratedAt": now,
+        "managements": [{
+            "id": f"{result_id}-mgmt-001",
+            "date": date,
+            "time": time.strftime("%H:%M"),
+            "stage": stage_name,
+            "comment": f"Migrada desde CRM{': ' + note if note else '.'}",
+        }],
     }
 
 
@@ -1266,6 +1371,7 @@ class AppHandler(BaseHTTPRequestHandler):
         parts = path.strip("/").split("/")
         resource = parts[2] if len(parts) > 2 else ""
         item_id = parts[3] if len(parts) > 3 else ""
+        action = parts[4] if len(parts) > 4 else ""
 
         with connect() as conn:
             data = read_crm_data(conn)
@@ -1342,7 +1448,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 if self.command == "GET" and not item_id:
                     self.send_json([public_crm_user(user) for user in data.get("users", [])])
                     return
-                if self.command == "POST":
+                if self.command == "POST" and not item_id:
                     payload = self.read_json()
                     if not text(payload.get("name")) and not text(payload.get("email")):
                         self.send_json({"error": "Nombre o correo requerido"}, status=400)
@@ -1387,7 +1493,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 if self.command == "GET" and not item_id:
                     self.send_json(build_crm_view_model(data)["opportunities"])
                     return
-                if self.command == "POST":
+                if self.command == "POST" and not item_id:
                     payload = self.read_json()
                     if request_user and request_user.get("role") == "operativos":
                         if not request_linked_seller:
@@ -1412,6 +1518,61 @@ class AppHandler(BaseHTTPRequestHandler):
                         if not request_linked_seller or data["opportunities"][index].get("ownerId") != request_linked_seller.get("id"):
                             self.send_json({"error": "Solo puede administrar sus propias oportunidades"}, status=403)
                             return
+                    if action == "cancel" and self.command == "POST":
+                        payload = self.read_json()
+                        reason = text(payload.get("reason"))
+                        if len(reason) < 5:
+                            self.send_json({"error": "Debe indicar una razon de anulacion"}, status=400)
+                            return
+                        opportunity = data["opportunities"][index]
+                        if opportunity.get("migratedToResults"):
+                            self.send_json({"error": "La oportunidad ya fue migrada a Gerencia"}, status=409)
+                            return
+                        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        audit = crm_audit_event("seller_cancellation", opportunity, request_user, reason)
+                        opportunity["status"] = "Anulada"
+                        opportunity["archived"] = True
+                        opportunity["archiveType"] = "seller_cancellation"
+                        opportunity["archivedReason"] = reason
+                        opportunity["archivedAt"] = now
+                        opportunity["archivedBy"] = audit["userName"]
+                        opportunity.setdefault("auditLog", []).append(audit)
+                        data["agenda"] = [item for item in data.get("agenda", []) if item.get("opportunityId") != item_id]
+                        write_crm_data(conn, data)
+                        self.send_json(build_crm_view_model(data))
+                        return
+                    if action == "migrate" and self.command == "POST":
+                        opportunity = data["opportunities"][index]
+                        if opportunity.get("archived") and not opportunity.get("migratedToResults"):
+                            self.send_json({"error": "No se puede migrar una oportunidad anulada o cerrada"}, status=409)
+                            return
+                        result_opportunities = read_result_opportunities(conn)
+                        result = next((item for item in result_opportunities if item.get("crmOpportunityId") == item_id), None)
+                        if not result:
+                            result = result_opportunity_from_crm(data, opportunity)
+                            result_opportunities.insert(0, result)
+                            write_result_opportunities(conn, result_opportunities)
+                        if not opportunity.get("migratedToResults"):
+                            now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                            audit = crm_audit_event("migration", opportunity, request_user, "Migrada a Oportunidades / Gerencia", result.get("id"))
+                            opportunity["migratedToResults"] = True
+                            opportunity["migratedAt"] = now
+                            opportunity["migratedBy"] = audit["userName"]
+                            opportunity["resultOpportunityId"] = result.get("id")
+                            opportunity["status"] = "Migrada"
+                            opportunity["archived"] = True
+                            opportunity["archiveType"] = "migration"
+                            opportunity["archivedReason"] = "Migrada a Oportunidades / Gerencia"
+                            opportunity["archivedAt"] = now
+                            opportunity.setdefault("auditLog", []).append(audit)
+                            data["agenda"] = [item for item in data.get("agenda", []) if item.get("opportunityId") != item_id]
+                            write_crm_data(conn, data)
+                        self.send_json({
+                            "crm": build_crm_view_model(data),
+                            "opportunities": result_opportunities,
+                            "resultOpportunity": result,
+                        })
+                        return
                     if self.command in {"PUT", "PATCH"}:
                         payload = self.read_json()
                         if request_linked_seller:
@@ -1423,10 +1584,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_json(build_crm_view_model(data))
                         return
                     if self.command == "DELETE":
-                        data["opportunities"].pop(index)
-                        data["agenda"] = [item for item in data.get("agenda", []) if item.get("opportunityId") != item_id]
-                        write_crm_data(conn, data)
-                        self.send_json(build_crm_view_model(data))
+                        self.send_json({"error": "Use la anulacion con razon para conservar la bitacora"}, status=409)
                         return
 
             if resource == "agenda" and item_id and self.command in {"PUT", "PATCH"}:

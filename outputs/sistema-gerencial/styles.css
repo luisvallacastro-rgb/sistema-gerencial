@@ -10963,3 +10963,97 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
     animation: none !important;
   }
 }
+
+/* CRM lifecycle: auditable cancellations and seller-to-management transfers. */
+.app-shell .crm-history-shell {
+  display: grid;
+  gap: 18px;
+  padding: 4px 0 12px;
+}
+
+.app-shell .crm-history-summary,
+.app-shell .crm-history-card {
+  border: 1px solid rgba(151, 185, 216, .22);
+  background: linear-gradient(105deg, rgba(45, 62, 98, .92), rgba(15, 40, 53, .92));
+  border-radius: 24px;
+}
+
+.app-shell .crm-history-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 20px;
+  padding: 22px 26px;
+}
+
+.app-shell .crm-history-summary span,
+.app-shell .crm-history-card span {
+  color: #72f5d1;
+  font-size: .74rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.app-shell .crm-history-summary h4 { margin: 5px 0 0; font-size: 1.45rem; }
+.app-shell .crm-history-summary p { margin: 0; color: #aebbd2; font-weight: 700; }
+.app-shell .crm-history-list { display: grid; gap: 12px; }
+
+.app-shell .crm-history-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(300px, 1.8fr) minmax(160px, .6fr);
+  align-items: center;
+  gap: 24px;
+  padding: 18px 24px;
+  overflow: hidden;
+}
+
+.app-shell .crm-history-card::before {
+  content: "";
+  width: 5px;
+  align-self: stretch;
+  border-radius: 10px;
+  background: #72f5d1;
+  grid-row: 1;
+  grid-column: 1;
+  margin-left: -14px;
+  position: absolute;
+}
+
+.app-shell .crm-history-card { position: relative; }
+.app-shell .crm-history-card.is-cancellation::before { background: #ff8ba7; }
+.app-shell .crm-history-main,
+.app-shell .crm-history-reason,
+.app-shell .crm-history-amount { display: grid; gap: 5px; }
+.app-shell .crm-history-main > strong { font-size: 1.08rem; }
+.app-shell .crm-history-reason > strong { color: #e8eef8; }
+.app-shell .crm-history-card small { color: #aebbd2; font-weight: 700; }
+.app-shell .crm-history-amount { text-align: right; }
+.app-shell .crm-history-amount strong { color: #72f5d1; font-size: 1.35rem; }
+
+.crm-cancellation-card { width: min(620px, calc(100vw - 32px)); }
+.crm-cancellation-copy {
+  margin: 0;
+  padding: 14px 16px;
+  color: #eaf1fb;
+  font-weight: 900;
+  border-radius: 14px;
+  background: rgba(28, 52, 82, .74);
+}
+.crm-cancellation-card textarea { resize: vertical; min-height: 130px; }
+.crm-cancellation-card .danger-btn {
+  border: 1px solid rgba(255, 139, 167, .4);
+  border-radius: 16px;
+  padding: 12px 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #a94f70, #7c3d59);
+  font-weight: 900;
+  cursor: pointer;
+}
+.crm-cancellation-card .danger-btn:disabled { opacity: .6; cursor: wait; }
+
+@media (max-width: 900px) {
+  .app-shell .crm-history-summary { align-items: start; flex-direction: column; }
+  .app-shell .crm-history-card { grid-template-columns: 1fr; gap: 14px; }
+  .app-shell .crm-history-amount { text-align: left; }
+}
