@@ -306,7 +306,8 @@ areas[adminAreaKey] = {
     { key: "permisos", label: "Permisos" },
     { key: "actas", label: "Actas" },
     { key: "riesgos", label: "Riesgos", status: "Consolidado de todas las gerencias" },
-    { key: "solicitudes", label: "Solicitudes", status: "Consolidado de todas las gerencias" }
+    { key: "solicitudes", label: "Solicitudes", status: "Consolidado de todas las gerencias" },
+    { key: "cambiar-contrasena", label: "Cambiar contraseña" }
   ],
   summary: [],
   results: [],
@@ -821,7 +822,6 @@ const closeManagementDialog = document.querySelector("#closeManagementDialog");
 const cancelManagement = document.querySelector("#cancelManagement");
 const overallStatus = document.querySelector("#overallStatus");
 const logoutBtn = document.querySelector("#logoutBtn");
-const accountPasswordBtn = document.querySelector("#accountPasswordBtn");
 const accountPasswordDialog = document.querySelector("#accountPasswordDialog");
 const accountPasswordForm = document.querySelector("#accountPasswordForm");
 const accountCurrentPassword = document.querySelector("#accountCurrentPassword");
@@ -996,6 +996,7 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
   if (!Array.isArray(area?.submenus)) return [];
   if (areaKey === adminAreaKey) {
     return area.submenus.filter((item) => {
+      if (item.key === "cambiar-contrasena") return Boolean(user);
       if (item.key === "permisos") return canOpenAdminPermissions(user);
       if (item.key === "actas") return canOpenAdminMinutes(user);
       if (["riesgos", "solicitudes"].includes(item.key)) {
@@ -6008,15 +6009,58 @@ function renderAdminMinutesTopbar() {
   minutesTopbarTabs.classList.toggle("hidden", !availableViews.length);
 }
 
+function renderAccountPasswordPanel() {
+  const user = state.currentUser;
+  return `
+    <div class="admin-shell">
+      <div class="admin-hero">
+        <div>
+          <p class="eyebrow">Administracion personal</p>
+          <h3>Cambiar contraseña</h3>
+          <p class="muted-copy">Actualiza de forma segura la clave que utilizas en el sistema web y en la app.</p>
+        </div>
+        <button class="primary-btn icon-text-btn" type="button" data-account-password-open>
+          <span aria-hidden="true">⌁</span> Cambiar mi contraseña
+        </button>
+      </div>
+
+      <div class="admin-summary-grid" aria-label="Cuenta actual">
+        <article class="admin-metric">
+          <span>Usuario</span>
+          <strong>${escapeHtml(user?.name || "Usuario")}</strong>
+        </article>
+        <article class="admin-metric">
+          <span>Correo</span>
+          <strong>${escapeHtml(user?.email || user?.username || "Sin correo")}</strong>
+        </article>
+      </div>
+
+      <div class="admin-empty">
+        <strong>Tu contraseña es personal.</strong>
+        <span>Debes confirmar la clave actual. La nueva clave se guardara en el servidor y funcionara tambien en la app.</span>
+      </div>
+    </div>
+  `;
+}
+
+function wireAccountPasswordPanel() {
+  adminPanel?.querySelector("[data-account-password-open]")?.addEventListener("click", openAccountPasswordDialog);
+}
+
 function renderAdminPanel() {
   if (!adminPanel) return;
   adminPanel.classList.remove("hidden");
   const keepAdminSearchFocus = document.activeElement?.id === "adminSearchInput";
-  const activeAdminSubmenu = state.activeSubmenu === "actas" ? "actas" : "permisos";
+  const activeAdminSubmenu = ["actas", "cambiar-contrasena"].includes(state.activeSubmenu)
+    ? state.activeSubmenu
+    : "permisos";
   adminPanel.innerHTML = activeAdminSubmenu === "actas"
     ? renderAdminMinutesPanel()
-    : renderAdminPermissionsPanel();
+    : activeAdminSubmenu === "cambiar-contrasena"
+      ? renderAccountPasswordPanel()
+      : renderAdminPermissionsPanel();
   if (activeAdminSubmenu === "actas") wireAdminMinutesPanel();
+  else if (activeAdminSubmenu === "cambiar-contrasena") wireAccountPasswordPanel();
   else {
     wireAdminPermissionsPanel();
     if (keepAdminSearchFocus) {
@@ -6088,12 +6132,16 @@ function renderDashboard() {
     else minutesTopbarTabs?.classList.add("hidden");
     periodLabel.textContent = state.activeSubmenu === "actas"
       ? (state.adminMinuteView === "history" ? "Historial de actas" : "Nueva acta")
+      : state.activeSubmenu === "cambiar-contrasena"
+        ? "Seguridad de la cuenta"
       : ["riesgos", "solicitudes"].includes(state.activeSubmenu)
         ? "Consolidado gerencial"
         : "Control de accesos";
     topbarActions?.classList.add("hidden");
     overallStatus.textContent = state.activeSubmenu === "actas"
       ? `${state.minutes.length} actas`
+      : state.activeSubmenu === "cambiar-contrasena"
+        ? "Cuenta personal"
       : state.activeSubmenu === "riesgos"
         ? `${visibleStrategicRiskItems().length} riesgos`
         : state.activeSubmenu === "solicitudes"
@@ -6496,7 +6544,6 @@ adminUserRole?.addEventListener("change", () => {
 closeAdminPasswordDialog?.addEventListener("click", () => adminPasswordDialog.close());
 cancelAdminPassword?.addEventListener("click", () => adminPasswordDialog.close());
 adminPasswordForm?.addEventListener("submit", resetAdminPasswordFromForm);
-accountPasswordBtn?.addEventListener("click", openAccountPasswordDialog);
 closeAccountPasswordDialog?.addEventListener("click", () => accountPasswordDialog.close());
 cancelAccountPassword?.addEventListener("click", () => accountPasswordDialog.close());
 accountPasswordForm?.addEventListener("submit", changeCurrentUserPassword);

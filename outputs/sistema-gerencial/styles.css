@@ -680,11 +680,6 @@ button:disabled {
   justify-content: start;
 }
 
-.account-password-btn {
-  width: 100%;
-  margin-top: 8px;
-}
-
 .password-requirements {
   margin: -4px 0 0;
   color: var(--muted);
