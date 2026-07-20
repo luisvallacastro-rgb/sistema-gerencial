@@ -1461,6 +1461,7 @@ function managementResultTag(management) {
 }
 
 function renderKpiDetailReport(seller, category) {
+  kpiDetailDialog.classList.remove("financial-seller-dialog");
   const submenu = getOpportunitySubmenu();
   const label = kpiDetailLabel(category);
   const historicalMonthNumber = Math.max(Math.min(activeMonthNumber() - 1, 6), 0);
@@ -2466,6 +2467,7 @@ function renderFinancialSellerPortfolio(seller) {
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   const period = financialOrdersPeriodLabel();
 
+  kpiDetailDialog.classList.add("financial-seller-dialog");
   kpiDetailEyebrow.textContent = "Pedidos / Cartera por vendedor";
   kpiDetailTitle.textContent = seller;
   kpiDetailSummary.classList.remove("tabbed");
@@ -2480,25 +2482,21 @@ function renderFinancialSellerPortfolio(seller) {
         <div><span>Cartera administrada</span><strong>Pedidos registrados a nombre de ${escapeHtml(seller)}</strong></div>
         <strong>${rows.length} registros / ${formatMoney(total)}</strong>
       </div>
-      <div class="financial-seller-detail-list">
-        ${rows.length ? rows.map((order) => `
-          <article class="kpi-report-card kpi-clean-card financial-seller-order-card">
-            <div class="kpi-report-head">
-              <div><strong>${escapeHtml(order.client || "Cliente sin nombre")}</strong><span>Pedido #${escapeHtml(order.number || "—")}</span></div>
+      <div class="financial-seller-detail-table" role="table" aria-label="Pedidos administrados por ${escapeHtml(seller)}">
+        ${rows.length ? `
+          <div class="financial-seller-detail-row header" role="row">
+            <span>Cliente / pedido</span><span>Fecha</span><span>Documento</span><span>Condición / ubicación</span><span>Monto</span>
+          </div>
+          ${rows.map((order) => `
+            <article class="financial-seller-detail-row" role="row">
+              <span class="seller-detail-client"><strong>${escapeHtml(order.client || "Cliente sin nombre")}</strong><small>Pedido #${escapeHtml(order.number || "—")} · ${escapeHtml(order.clientType || "Sin clasificación")}</small></span>
+              <span class="seller-detail-date"><strong>${formatDate(order.date)}</strong><small>${escapeHtml(order.month || "")}${order.year ? ` ${escapeHtml(order.year)}` : ""}</small></span>
+              <span class="seller-detail-document"><strong>${escapeHtml(order.orderNumber || "Sin orden")}</strong><small>Factura: ${escapeHtml(order.invoice || "—")}</small></span>
+              <span class="seller-detail-conditions"><strong>${escapeHtml(order.conditions || "Sin condición")}</strong><small>${escapeHtml([order.country, order.department].filter(Boolean).join(", ") || "Sin ubicación")}</small></span>
               <strong class="financial-seller-order-amount">${formatMoney(order.sale)}</strong>
-            </div>
-            <div class="kpi-report-meta">
-              <span><small>Fecha de ingreso</small><strong>${formatDate(order.date)}</strong></span>
-              <span><small>N.º de orden</small><strong>${escapeHtml(order.orderNumber || "—")}</strong></span>
-              <span><small>Factura</small><strong>${escapeHtml(order.invoice || "—")}</strong></span>
-            </div>
-            <div class="financial-seller-order-extra">
-              <span><small>Condiciones</small><strong>${escapeHtml(order.conditions || "—")}</strong></span>
-              <span><small>Tipo de cliente</small><strong>${escapeHtml(order.clientType || "—")}</strong></span>
-              <span><small>Ubicación</small><strong>${escapeHtml([order.country, order.department].filter(Boolean).join(", ") || "—")}</strong></span>
-            </div>
-          </article>
-        `).join("") : `<div class="empty-state">No hay pedidos para este vendedor en el periodo seleccionado.</div>`}
+            </article>
+          `).join("")}
+        ` : `<div class="empty-state">No hay pedidos para este vendedor en el periodo seleccionado.</div>`}
       </div>
     </section>
   `;
