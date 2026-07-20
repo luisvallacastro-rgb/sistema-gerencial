@@ -1,0 +1,137 @@
+(() => {
+  const additions = [
+    {
+      id: "pedido-julio-2026-270",
+      sourceKey: "000242|cf|colegio david livingstone|2026-07-13",
+      source: "Carga manual 2026-07-20",
+      number: "270",
+      month: "Julio",
+      year: "2026",
+      date: "2026-07-13",
+      seller: "GABRIELA AMADOR",
+      sale: 730.24,
+      orderNumber: "000242",
+      invoice: "CF",
+      conditions: "50% anticipo",
+      client: "Colegio David Livingstone",
+      clientType: "Instituciones Educativas",
+      strategy: "Retencion",
+      management: "C. AYC",
+      country: "El Salvador",
+      department: "San Salvador"
+    },
+    {
+      id: "pedido-julio-2026-271",
+      sourceKey: "000356|ccf|distribuidora escolar gl,s.a. de c.v. (liceo castilla)|2026-07-14",
+      source: "Carga manual 2026-07-20",
+      number: "271",
+      month: "Julio",
+      year: "2026",
+      date: "2026-07-14",
+      seller: "MARCO VELADO",
+      sale: 28363.41,
+      orderNumber: "000356",
+      invoice: "CCF",
+      conditions: "50% anticipo",
+      client: "Distribuidora Escolar GL,S.A. DE C.V. (Liceo Castilla)",
+      clientType: "Instituciones Educativas",
+      strategy: "Retencion",
+      management: "C. AYC",
+      country: "El Salvador",
+      department: "La Libertad"
+    },
+    {
+      id: "pedido-julio-2026-272",
+      sourceKey: "000357|ccf|distribuidora escolar gl,s.a. de c.v. (liceo castilla)|2026-07-14",
+      source: "Carga manual 2026-07-20",
+      number: "272",
+      month: "Julio",
+      year: "2026",
+      date: "2026-07-14",
+      seller: "MARCO VELADO",
+      sale: 7660.34,
+      orderNumber: "000357",
+      invoice: "CCF",
+      conditions: "50% anticipo",
+      client: "Distribuidora Escolar GL,S.A. DE C.V. (Liceo Castilla)",
+      clientType: "Instituciones Educativas",
+      strategy: "Retencion",
+      management: "C. AYC",
+      country: "El Salvador",
+      department: "La Libertad"
+    },
+    {
+      id: "pedido-julio-2026-273",
+      sourceKey: "000358|ccf|distribuidora escolar gl,s.a. de c.v. (liceo castilla)|2026-07-14",
+      source: "Carga manual 2026-07-20",
+      number: "273",
+      month: "Julio",
+      year: "2026",
+      date: "2026-07-14",
+      seller: "MARCO VELADO",
+      sale: 5388.03,
+      orderNumber: "000358",
+      invoice: "CCF",
+      conditions: "50% anticipo",
+      client: "Distribuidora Escolar GL,S.A. DE C.V. (Liceo Castilla)",
+      clientType: "Instituciones Educativas",
+      strategy: "Retencion",
+      management: "C. AYC",
+      country: "El Salvador",
+      department: "La Libertad"
+    },
+    {
+      id: "pedido-julio-2026-274",
+      sourceKey: "000359|ce|alejandra rivera (liceo castilla)|2026-07-14",
+      source: "Carga manual 2026-07-20",
+      number: "274",
+      month: "Julio",
+      year: "2026",
+      date: "2026-07-14",
+      seller: "MARCO VELADO",
+      sale: 292.25,
+      orderNumber: "000359",
+      invoice: "CE",
+      conditions: "50% anticipo",
+      client: "Alejandra Rivera (Liceo Castilla)",
+      clientType: "Instituciones Educativas",
+      strategy: "Retencion",
+      management: "C. AYC",
+      country: "El Salvador",
+      department: "La Libertad"
+    },
+    {
+      id: "pedido-julio-2026-275",
+      sourceKey: "000354|ce|asociacion centro cultural salvadoreño americano|2026-07-16",
+      source: "Carga manual 2026-07-20",
+      number: "275",
+      month: "Julio",
+      year: "2026",
+      date: "2026-07-16",
+      seller: "MARCO VELADO",
+      sale: 131.1,
+      orderNumber: "000354",
+      invoice: "CE",
+      conditions: "50% anticipo",
+      client: "Asociacion Centro Cultural Salvadoreño Americano",
+      clientType: "Instituciones Educativas",
+      strategy: "Retencion",
+      management: "C. AYC",
+      country: "El Salvador",
+      department: "San Salvador"
+    }
+  ];
+
+  const existing = Array.isArray(window.financialOrdersSeed) ? window.financialOrdersSeed : [];
+  const existingKeys = new Set(existing.map((order) => order.sourceKey));
+  window.financialOrdersSeed = [
+    ...existing,
+    ...additions.filter((order) => !existingKeys.has(order.sourceKey))
+  ];
+  window.financialOrdersSeedAudit = {
+    sourceRows: window.financialOrdersSeed.length,
+    importedRows: window.financialOrdersSeed.length,
+    sourceTotal: Number(window.financialOrdersSeed.reduce((total, order) => total + Number(order.sale || 0), 0).toFixed(2)),
+    uniqueSourceKeys: new Set(window.financialOrdersSeed.map((order) => order.sourceKey)).size
+  };
+})();
