@@ -2259,6 +2259,8 @@ function purchaseOrderSummary(rows = state.purchaseOrders) {
   return {
     count: rows.length,
     amount: rows.reduce((sum, order) => sum + Number(order.amount || 0), 0),
+    advances: rows.reduce((sum, order) => sum + Number(order.advance || 0), 0),
+    payments: rows.reduce((sum, order) => sum + Number(order.payment || 0), 0),
     remaining: rows.reduce((sum, order) => sum + Number(order.remaining || 0), 0),
     inProcess: rows.filter((order) => !purchaseOrderIsDelivered(order)).length,
     overdue: rows.filter((order) => purchaseOrderDeadline(order).className === "overdue").length
@@ -2275,9 +2277,10 @@ function renderPurchaseOrderList() {
   const pagedRows = rows.slice(start, start + pageSize);
   return `<section class="purchase-orders-shell">
     <div class="purchase-orders-hero">
-      <article><span>Órdenes visibles</span><strong>${totals.count}</strong><small>${totals.inProcess} en producción</small></article>
-      <article><span>Monto comprometido</span><strong>${formatMoney(totals.amount)}</strong><small>Según filtro actual</small></article>
-      <article><span>Saldo pendiente</span><strong>${formatMoney(totals.remaining)}</strong><small>${totals.overdue} entregas vencidas</small></article>
+      <article><span>Monto</span><strong>${formatMoney(totals.amount)}</strong><small>${totals.count} órdenes según filtro actual</small></article>
+      <article><span>Anticipo</span><strong>${formatMoney(totals.advances)}</strong><small>Total anticipado</small></article>
+      <article><span>Abono</span><strong>${formatMoney(totals.payments)}</strong><small>Total abonado</small></article>
+      <article><span>Saldo</span><strong>${formatMoney(totals.remaining)}</strong><small>${totals.inProcess} en producción · ${totals.overdue} vencidas</small></article>
     </div>
     <div class="purchase-orders-toolbar">
       <label><span>⌕</span><input data-purchase-order-search type="search" value="${escapeHtml(state.purchaseOrderQuery)}" placeholder="Buscar orden, cliente, producto o responsable..."></label>
@@ -2305,7 +2308,7 @@ function renderPurchaseOrderList() {
 function renderPurchaseOrderDelivery() {
   const open = state.purchaseOrders.filter((order) => !purchaseOrderIsDelivered(order)).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
   const totals = purchaseOrderSummary(open);
-  return `<section class="purchase-orders-insight"><div class="purchase-orders-hero"><article><span>En producción</span><strong>${open.length}</strong><small>Órdenes activas</small></article><article><span>Valor en proceso</span><strong>${formatMoney(totals.amount)}</strong><small>Compromiso operativo</small></article><article><span>Alertas vencidas</span><strong>${totals.overdue}</strong><small>Requieren acción inmediata</small></article></div><div class="purchase-orders-insight-head"><div><span>Agenda operativa</span><h4>Próximas entregas</h4></div><small>Ordenado por fecha límite</small></div><div class="purchase-orders-timeline">${open.map((order) => { const deadline = purchaseOrderDeadline(order); return `<article><time>${formatDate(order.dueDate)}</time><i class="${deadline.className}"></i><div><strong>${escapeHtml(order.customerName)}</strong><small>#${escapeHtml(order.orderNumber)} · ${escapeHtml(order.description)}</small></div><span class="${deadline.className}">${deadline.label}</span><strong>${formatMoney(order.amount)}</strong></article>`; }).join("") || `<div class="empty-state">No hay entregas pendientes.</div>`}</div></section>`;
+  return `<section class="purchase-orders-insight"><div class="purchase-orders-hero"><article><span>Monto</span><strong>${formatMoney(totals.amount)}</strong><small>${open.length} órdenes en producción</small></article><article><span>Anticipo</span><strong>${formatMoney(totals.advances)}</strong><small>Total anticipado</small></article><article><span>Abono</span><strong>${formatMoney(totals.payments)}</strong><small>Total abonado</small></article><article><span>Saldo</span><strong>${formatMoney(totals.remaining)}</strong><small>${totals.overdue} entregas vencidas</small></article></div><div class="purchase-orders-insight-head"><div><span>Agenda operativa</span><h4>Próximas entregas</h4></div><small>Ordenado por fecha límite</small></div><div class="purchase-orders-timeline">${open.map((order) => { const deadline = purchaseOrderDeadline(order); return `<article><time>${formatDate(order.dueDate)}</time><i class="${deadline.className}"></i><div><strong>${escapeHtml(order.customerName)}</strong><small>#${escapeHtml(order.orderNumber)} · ${escapeHtml(order.description)}</small></div><span class="${deadline.className}">${deadline.label}</span><strong>${formatMoney(order.amount)}</strong></article>`; }).join("") || `<div class="empty-state">No hay entregas pendientes.</div>`}</div></section>`;
 }
 
 function renderPurchaseOrderProduction() {
