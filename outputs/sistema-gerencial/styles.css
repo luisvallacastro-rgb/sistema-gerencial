@@ -5317,17 +5317,25 @@ button:disabled {
   line-height: 1;
   text-align: center;
 }
-.app-shell .financial-seller-bar-values span {
+.app-shell .financial-seller-total-button {
   display: grid;
   gap: 2px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
   color: #72f5d1;
+  font-family: inherit;
   font-size: clamp(13px, 1.25vw, 17px);
   font-weight: 950;
   letter-spacing: -.025em;
   line-height: 1.05;
+  text-align: right;
   text-shadow: 0 0 14px rgba(114,245,209,.32);
+  transition: color .18s ease, transform .18s ease, text-shadow .18s ease;
 }
-.app-shell .financial-seller-bar-values span::before {
+.app-shell .financial-seller-total-button::before {
   content: "Venta total";
   color: rgba(189,211,232,.5);
   font-size: 7px;
@@ -5336,6 +5344,53 @@ button:disabled {
   line-height: 1;
   text-transform: uppercase;
   text-shadow: none;
+}
+.app-shell .financial-seller-total-button:hover,
+.app-shell .financial-seller-total-button:focus-visible {
+  color: #a4ffe8;
+  outline: none;
+  transform: translateY(-1px);
+  text-shadow: 0 0 20px rgba(114,245,209,.58);
+}
+.app-shell .financial-seller-total-button:focus-visible {
+  border-radius: 7px;
+  box-shadow: 0 0 0 3px rgba(114,245,209,.18);
+}
+
+#kpiDetailDialog .financial-seller-detail-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+#kpiDetailDialog .financial-seller-order-card { gap: 8px; }
+#kpiDetailDialog .financial-seller-order-amount {
+  color: #72f5d1 !important;
+  font-size: clamp(18px, 1.7vw, 25px);
+  text-shadow: 0 0 16px rgba(114,245,209,.28);
+}
+#kpiDetailDialog .financial-seller-order-extra {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+#kpiDetailDialog .financial-seller-order-extra span { display: grid; gap: 3px; }
+#kpiDetailDialog .financial-seller-order-extra small {
+  color: rgba(218,229,241,.6);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+#kpiDetailDialog .financial-seller-order-extra strong {
+  color: rgba(240,247,255,.9) !important;
+  font-size: 12px;
+}
+@media (max-width: 720px) {
+  #kpiDetailDialog .financial-seller-order-extra { grid-template-columns: 1fr; }
+  #kpiDetailDialog .financial-seller-order-card .kpi-report-head { align-items: flex-start; }
 }
 @keyframes sellerBarGrow { from { transform: scaleX(0); opacity: .25; } to { transform: scaleX(1); opacity: 1; } }
 

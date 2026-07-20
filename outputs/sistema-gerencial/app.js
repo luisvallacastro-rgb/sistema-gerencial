@@ -2442,11 +2442,67 @@ function renderFinancialOrdersSellerKpi() {
             <article class="financial-seller-bar-row" role="listitem" style="--seller-bar-width:${percentage.toFixed(2)}%;--seller-accent-hue:${164 + (index % 6) * 18}" aria-label="${escapeHtml(row.seller)}: ${formatMoney(row.sales)}, ${percentage.toFixed(2)} por ciento de la venta total, ${row.orders} ${orderLabel}">
               <div class="financial-seller-bar-label"><strong>${escapeHtml(row.seller)}</strong><span>${row.orders.toLocaleString("es-SV")} ${orderLabel}</span></div>
               <div class="financial-seller-bar-track" aria-hidden="true"><i></i></div>
-              <div class="financial-seller-bar-values"><strong>${percentage.toFixed(2)}%</strong><span>${formatMoney(row.sales)}</span></div>
+              <div class="financial-seller-bar-values"><strong>${percentage.toFixed(2)}%</strong><button class="financial-seller-total-button" type="button" data-financial-seller-detail="${escapeHtml(row.seller)}" aria-label="Ver cartera administrada por ${escapeHtml(row.seller)}">${formatMoney(row.sales)}</button></div>
             </article>`;
         }).join("") || `<div class="empty-state">No hay pedidos para el período seleccionado.</div>`}
       </div>
     </section>`;
+}
+
+function financialOrdersPeriodLabel() {
+  const year = state.financialOrderYearFilter;
+  const month = state.financialOrderMonthFilter;
+  if (year === "all" && month === "all") return "Todos los periodos";
+  if (year === "all") return `${month} / todos los años`;
+  if (month === "all") return year;
+  return `${month} ${year}`;
+}
+
+function renderFinancialSellerPortfolio(seller) {
+  const sellerKey = normalizeKey(seller);
+  const rows = financialOrdersForSelectedPeriod()
+    .filter((order) => normalizeKey(order.seller || "Sin vendedor") === sellerKey)
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || Number(b.number || 0) - Number(a.number || 0));
+  const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
+  const period = financialOrdersPeriodLabel();
+
+  kpiDetailEyebrow.textContent = "Pedidos / Cartera por vendedor";
+  kpiDetailTitle.textContent = seller;
+  kpiDetailSummary.classList.remove("tabbed");
+  kpiDetailSummary.innerHTML = `
+    <article><span>Pedidos</span><strong>${rows.length.toLocaleString("es-SV")}</strong></article>
+    <article><span>Venta total</span><strong>${formatMoney(total)}</strong></article>
+    <article><span>Periodo</span><strong>${escapeHtml(period)}</strong></article>
+  `;
+  kpiDetailReport.innerHTML = `
+    <section class="kpi-report-section kpi-clean-detail financial-seller-detail">
+      <div class="kpi-report-section-head">
+        <div><span>Cartera administrada</span><strong>Pedidos registrados a nombre de ${escapeHtml(seller)}</strong></div>
+        <strong>${rows.length} registros / ${formatMoney(total)}</strong>
+      </div>
+      <div class="financial-seller-detail-list">
+        ${rows.length ? rows.map((order) => `
+          <article class="kpi-report-card kpi-clean-card financial-seller-order-card">
+            <div class="kpi-report-head">
+              <div><strong>${escapeHtml(order.client || "Cliente sin nombre")}</strong><span>Pedido #${escapeHtml(order.number || "—")}</span></div>
+              <strong class="financial-seller-order-amount">${formatMoney(order.sale)}</strong>
+            </div>
+            <div class="kpi-report-meta">
+              <span><small>Fecha de ingreso</small><strong>${formatDate(order.date)}</strong></span>
+              <span><small>N.º de orden</small><strong>${escapeHtml(order.orderNumber || "—")}</strong></span>
+              <span><small>Factura</small><strong>${escapeHtml(order.invoice || "—")}</strong></span>
+            </div>
+            <div class="financial-seller-order-extra">
+              <span><small>Condiciones</small><strong>${escapeHtml(order.conditions || "—")}</strong></span>
+              <span><small>Tipo de cliente</small><strong>${escapeHtml(order.clientType || "—")}</strong></span>
+              <span><small>Ubicación</small><strong>${escapeHtml([order.country, order.department].filter(Boolean).join(", ") || "—")}</strong></span>
+            </div>
+          </article>
+        `).join("") : `<div class="empty-state">No hay pedidos para este vendedor en el periodo seleccionado.</div>`}
+      </div>
+    </section>
+  `;
+  kpiDetailDialog.showModal();
 }
 
 const financialComparisonPalette = ["#72f5d1", "#67a9ff", "#ffbd66", "#ff7895", "#b899ff", "#63d7ed"];
@@ -2531,6 +2587,9 @@ function renderFinancialOrders() {
 }
 
 function wireFinancialOrders() {
+  opportunityTable.querySelectorAll("[data-financial-seller-detail]").forEach((button) => button.addEventListener("click", () => {
+    renderFinancialSellerPortfolio(button.dataset.financialSellerDetail);
+  }));
   opportunityTable.querySelectorAll("[data-comparison-all]").forEach((button) => button.addEventListener("click", () => {
     if (button.dataset.comparisonAll === "year") state.financialComparisonYears = [...new Set(state.financialOrders.map((order) => String(order.year)).filter(Boolean))];
     else state.financialComparisonMonths = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
