@@ -45,6 +45,7 @@ const areas = {
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "resultados-pedidos", label: "Pedidos", status: "Registro financiero de pedidos", items: [] },
       { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
+      { key: "resultados-ordenes-de-pedido", label: "Órdenes de Pedido", status: "Control de producción y entregas", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
@@ -277,6 +278,11 @@ const state = {
   accountsReceivablePage: 1,
   accountsReceivableView: "list",
   accountsReceivableStatus: "pending",
+  purchaseOrders: [],
+  purchaseOrderQuery: "",
+  purchaseOrderPage: 1,
+  purchaseOrderView: "list",
+  purchaseOrderStatus: "all",
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -728,6 +734,7 @@ const commercialSubmenuTitle = document.querySelector("#commercialSubmenuTitle")
 const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus");
 const financialOrdersViewTabs = document.querySelector("#financialOrdersViewTabs");
 const accountsReceivableViewTabs = document.querySelector("#accountsReceivableViewTabs");
+const purchaseOrdersViewTabs = document.querySelector("#purchaseOrdersViewTabs");
 const crmOpportunitiesViewTabs = document.querySelector("#crmOpportunitiesViewTabs");
 const crmCancellationDialog = document.querySelector("#crmCancellationDialog");
 const crmCancellationForm = document.querySelector("#crmCancellationForm");
@@ -751,6 +758,12 @@ const accountsReceivableDialogTitle = document.querySelector("#accountsReceivabl
 const accountsReceivableId = document.querySelector("#accountsReceivableId");
 const closeAccountsReceivableDialog = document.querySelector("#closeAccountsReceivableDialog");
 const cancelAccountsReceivable = document.querySelector("#cancelAccountsReceivable");
+const purchaseOrderDialog = document.querySelector("#purchaseOrderDialog");
+const purchaseOrderForm = document.querySelector("#purchaseOrderForm");
+const purchaseOrderDialogTitle = document.querySelector("#purchaseOrderDialogTitle");
+const purchaseOrderId = document.querySelector("#purchaseOrderId");
+const closePurchaseOrderDialog = document.querySelector("#closePurchaseOrderDialog");
+const cancelPurchaseOrder = document.querySelector("#cancelPurchaseOrder");
 const opportunityDashboard = document.querySelector("#opportunityDashboard");
 const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
 const newRiskBtn = document.querySelector("#newRiskBtn");
@@ -938,6 +951,7 @@ function defaultPermissionsForRole(role) {
       permissionKey("financiera", "resultados"),
       permissionKey("financiera", "resultados-pedidos"),
       permissionKey("financiera", "resultados-cuentas-por-cobrar"),
+      permissionKey("financiera", "resultados-ordenes-de-pedido"),
       ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
     ];
   }
@@ -2181,6 +2195,141 @@ const accountsReceivableFields = [
   ["documentNumber", "accountsReceivableDocumentNumber"],
   ["address", "accountsReceivableAddress"]
 ];
+
+const purchaseOrderFields = [
+  ["orderNumber", "purchaseOrderNumber"], ["invoiceType", "purchaseOrderInvoiceType"],
+  ["customerCode", "purchaseOrderCustomerCode"], ["customerName", "purchaseOrderCustomerName"],
+  ["description", "purchaseOrderDescription"], ["entryDate", "purchaseOrderEntryDate"],
+  ["dueDate", "purchaseOrderDueDate"], ["amount", "purchaseOrderAmount"],
+  ["advance", "purchaseOrderAdvance"], ["payment", "purchaseOrderPayment"],
+  ["remaining", "purchaseOrderRemaining"], ["balancePaymentDate", "purchaseOrderBalancePaymentDate"],
+  ["address", "purchaseOrderAddress"], ["status", "purchaseOrderStatus"],
+  ["productionManager", "purchaseOrderProductionManager"]
+];
+
+function purchaseOrderIsDelivered(order) {
+  return normalizeKey(order.status) === "entregado";
+}
+
+function purchaseOrderDeadline(order) {
+  if (purchaseOrderIsDelivered(order)) return { label: "Entregada", className: "delivered", days: 0 };
+  if (!order.dueDate) return { label: "Sin fecha", className: "neutral", days: 0 };
+  const today = new Date(`${todayISO()}T00:00:00`);
+  const due = new Date(`${order.dueDate}T00:00:00`);
+  const days = Math.ceil((due - today) / 86400000);
+  if (days < 0) return { label: `${Math.abs(days)} d vencida`, className: "overdue", days };
+  if (days <= 7) return { label: `${days} d restantes`, className: "urgent", days };
+  return { label: `${days} d restantes`, className: "ontrack", days };
+}
+
+function loadPurchaseOrders() {
+  if (!apiEnabled) return;
+  apiJson("/api/purchase-orders")
+    .then((records) => {
+      state.purchaseOrders = Array.isArray(records) ? records : [];
+      if (state.activeArea === "financiera" && state.activeSubmenu === "resultados-ordenes-de-pedido") renderDashboard();
+    })
+    .catch((error) => console.error("No se pudieron cargar las órdenes de pedido.", error));
+}
+
+function resetPurchaseOrderForm(order = null) {
+  purchaseOrderForm.reset();
+  purchaseOrderId.value = order?.id || "";
+  purchaseOrderDialogTitle.textContent = order ? "Editar orden de pedido" : "Nueva orden de pedido";
+  purchaseOrderFields.forEach(([key, id]) => {
+    const input = document.querySelector(`#${id}`);
+    if (input) input.value = order?.[key] ?? "";
+  });
+  if (!order) {
+    document.querySelector("#purchaseOrderEntryDate").value = todayISO();
+    document.querySelector("#purchaseOrderStatus").value = "Proceso";
+  }
+}
+
+function filteredPurchaseOrders() {
+  let rows = state.purchaseOrders;
+  if (state.purchaseOrderStatus !== "all") {
+    rows = rows.filter((order) => state.purchaseOrderStatus === "delivered" ? purchaseOrderIsDelivered(order) : !purchaseOrderIsDelivered(order));
+  }
+  const query = state.purchaseOrderQuery;
+  return query ? rows.filter((order) => Object.values(order).some((value) => searchTokenMatches(value, query))) : rows;
+}
+
+function purchaseOrderSummary(rows = state.purchaseOrders) {
+  return {
+    count: rows.length,
+    amount: rows.reduce((sum, order) => sum + Number(order.amount || 0), 0),
+    remaining: rows.reduce((sum, order) => sum + Number(order.remaining || 0), 0),
+    inProcess: rows.filter((order) => !purchaseOrderIsDelivered(order)).length,
+    overdue: rows.filter((order) => purchaseOrderDeadline(order).className === "overdue").length
+  };
+}
+
+function renderPurchaseOrderList() {
+  const rows = filteredPurchaseOrders();
+  const totals = purchaseOrderSummary(rows);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  state.purchaseOrderPage = Math.max(1, Math.min(state.purchaseOrderPage, pageCount));
+  const start = (state.purchaseOrderPage - 1) * pageSize;
+  const pagedRows = rows.slice(start, start + pageSize);
+  return `<section class="purchase-orders-shell">
+    <div class="purchase-orders-hero">
+      <article><span>Órdenes visibles</span><strong>${totals.count}</strong><small>${totals.inProcess} en producción</small></article>
+      <article><span>Monto comprometido</span><strong>${formatMoney(totals.amount)}</strong><small>Según filtro actual</small></article>
+      <article><span>Saldo pendiente</span><strong>${formatMoney(totals.remaining)}</strong><small>${totals.overdue} entregas vencidas</small></article>
+    </div>
+    <div class="purchase-orders-toolbar">
+      <label><span>⌕</span><input data-purchase-order-search type="search" value="${escapeHtml(state.purchaseOrderQuery)}" placeholder="Buscar orden, cliente, producto o responsable..."></label>
+      <div class="purchase-orders-status-tabs" role="tablist">
+        ${[["all","Todas"],["process","En proceso"],["delivered","Entregadas"]].map(([key,label]) => `<button type="button" data-purchase-order-status="${key}" class="${state.purchaseOrderStatus === key ? "active" : ""}">${label}</button>`).join("")}
+      </div>
+      <button type="button" data-purchase-order-new>+ Nueva orden</button>
+    </div>
+    <div class="purchase-orders-list">
+      ${pagedRows.map((order) => {
+        const deadline = purchaseOrderDeadline(order);
+        return `<article class="purchase-order-card">
+          <div class="purchase-order-identity"><span>#${escapeHtml(order.orderNumber)}</span><strong>${escapeHtml(order.customerName)}</strong><small>${escapeHtml(order.description || "Sin descripción")}</small></div>
+          <div class="purchase-order-dates"><small>Ingreso · ${formatDate(order.entryDate)}</small><strong>${formatDate(order.dueDate) || "Sin fecha límite"}</strong><em class="${deadline.className}">${deadline.label}</em></div>
+          <div class="purchase-order-finance"><small>Monto</small><strong>${formatMoney(order.amount)}</strong><span>Saldo ${formatMoney(order.remaining)}</span></div>
+          <div class="purchase-order-owner"><small>Producción</small><strong>${escapeHtml(order.productionManager)}</strong><span>${escapeHtml(order.invoiceType || "Sin factura")}</span></div>
+          <div class="purchase-order-actions"><button type="button" data-purchase-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-purchase-order-delete="${order.id}">Eliminar</button></div>
+        </article>`;
+      }).join("") || `<div class="empty-state">No hay órdenes para este filtro.</div>`}
+    </div>
+    <div class="opportunity-pagination financial-orders-pagination"><span>Mostrando ${rows.length ? start + 1 : 0}-${Math.min(start + pageSize, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" data-purchase-order-page="prev" ${state.purchaseOrderPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.purchaseOrderPage} de ${pageCount}</strong><button class="ghost-btn compact-btn" data-purchase-order-page="next" ${state.purchaseOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>
+  </section>`;
+}
+
+function renderPurchaseOrderDelivery() {
+  const open = state.purchaseOrders.filter((order) => !purchaseOrderIsDelivered(order)).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+  const totals = purchaseOrderSummary(open);
+  return `<section class="purchase-orders-insight"><div class="purchase-orders-hero"><article><span>En producción</span><strong>${open.length}</strong><small>Órdenes activas</small></article><article><span>Valor en proceso</span><strong>${formatMoney(totals.amount)}</strong><small>Compromiso operativo</small></article><article><span>Alertas vencidas</span><strong>${totals.overdue}</strong><small>Requieren acción inmediata</small></article></div><div class="purchase-orders-insight-head"><div><span>Agenda operativa</span><h4>Próximas entregas</h4></div><small>Ordenado por fecha límite</small></div><div class="purchase-orders-timeline">${open.map((order) => { const deadline = purchaseOrderDeadline(order); return `<article><time>${formatDate(order.dueDate)}</time><i class="${deadline.className}"></i><div><strong>${escapeHtml(order.customerName)}</strong><small>#${escapeHtml(order.orderNumber)} · ${escapeHtml(order.description)}</small></div><span class="${deadline.className}">${deadline.label}</span><strong>${formatMoney(order.amount)}</strong></article>`; }).join("") || `<div class="empty-state">No hay entregas pendientes.</div>`}</div></section>`;
+}
+
+function renderPurchaseOrderProduction() {
+  const owners = new Map();
+  state.purchaseOrders.forEach((order) => { const key = order.productionManager || "Sin asignar"; const item = owners.get(key) || { name:key,count:0,open:0,amount:0,remaining:0 }; item.count++; item.open += purchaseOrderIsDelivered(order) ? 0 : 1; item.amount += Number(order.amount || 0); item.remaining += Number(order.remaining || 0); owners.set(key,item); });
+  const rows = [...owners.values()].sort((a,b) => b.open - a.open || b.amount - a.amount);
+  const max = Math.max(...rows.map((row) => row.amount), 1);
+  return `<section class="purchase-orders-insight"><div class="purchase-orders-insight-head"><div><span>Capacidad y cartera</span><h4>Control por responsable</h4></div><small>${rows.length} responsables</small></div><div class="purchase-orders-production">${rows.map((row,index) => `<article style="--production-width:${((row.amount/max)*100).toFixed(2)}%;--production-hue:${164 + index*18}"><div><strong>${escapeHtml(row.name)}</strong><small>${row.open} activas · ${row.count} totales</small></div><i><b></b></i><span>${formatMoney(row.amount)}<small>Saldo ${formatMoney(row.remaining)}</small></span></article>`).join("")}</div></section>`;
+}
+
+function renderPurchaseOrders() {
+  if (state.purchaseOrderView === "delivery") return renderPurchaseOrderDelivery();
+  if (state.purchaseOrderView === "production") return renderPurchaseOrderProduction();
+  return renderPurchaseOrderList();
+}
+
+function wirePurchaseOrders() {
+  document.querySelector("[data-purchase-order-search]")?.addEventListener("input", (event) => { state.purchaseOrderQuery = event.target.value.trim(); state.purchaseOrderPage = 1; renderCommercialSubmenu(areas.financiera); });
+  document.querySelectorAll("[data-purchase-order-status]").forEach((button) => button.addEventListener("click", () => { state.purchaseOrderStatus = button.dataset.purchaseOrderStatus; state.purchaseOrderPage = 1; renderCommercialSubmenu(areas.financiera); }));
+  document.querySelector("[data-purchase-order-new]")?.addEventListener("click", () => { resetPurchaseOrderForm(); purchaseOrderDialog.showModal(); });
+  document.querySelectorAll("[data-purchase-order-edit]").forEach((button) => button.addEventListener("click", () => { const order = state.purchaseOrders.find((item) => item.id === button.dataset.purchaseOrderEdit); if (order) { resetPurchaseOrderForm(order); purchaseOrderDialog.showModal(); } }));
+  document.querySelectorAll("[data-purchase-order-delete]").forEach((button) => button.addEventListener("click", async () => { const order = state.purchaseOrders.find((item) => item.id === button.dataset.purchaseOrderDelete); if (!order || !confirm(`¿Eliminar la orden #${order.orderNumber}?`)) return; try { await apiJson(`/api/purchase-orders/${encodeURIComponent(order.id)}`, { method:"DELETE" }); state.purchaseOrders = state.purchaseOrders.filter((item) => item.id !== order.id); renderCommercialSubmenu(areas.financiera); } catch { alert("No se pudo eliminar la orden."); } }));
+  document.querySelectorAll("[data-purchase-order-page]").forEach((button) => button.addEventListener("click", () => { state.purchaseOrderPage += button.dataset.purchaseOrderPage === "next" ? 1 : -1; renderCommercialSubmenu(areas.financiera); }));
+}
 
 function loadAccountsReceivable() {
   if (!apiEnabled) return;
@@ -4414,6 +4563,7 @@ function renderCommercialSubmenu(area) {
   commercialSubmenuTitle.classList.remove("hidden");
   financialOrdersViewTabs?.classList.add("hidden");
   accountsReceivableViewTabs?.classList.add("hidden");
+  purchaseOrdersViewTabs?.classList.add("hidden");
   crmOpportunitiesViewTabs?.classList.add("hidden");
   opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
@@ -4458,6 +4608,26 @@ function renderCommercialSubmenu(area) {
       : "Cargando matriz de cartera...";
     opportunityTable.innerHTML = renderAccountsReceivable();
     wireAccountsReceivable();
+    return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "resultados-ordenes-de-pedido") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    purchaseOrdersViewTabs?.classList.remove("hidden");
+    purchaseOrdersViewTabs?.querySelectorAll("[data-purchase-orders-view]").forEach((button) => {
+      const isActive = button.dataset.purchaseOrdersView === state.purchaseOrderView;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-selected", String(isActive));
+    });
+    const totals = purchaseOrderSummary();
+    commercialSubmenuStatus.textContent = state.purchaseOrders.length ? `${totals.inProcess} en proceso · ${totals.count} órdenes` : "Cargando matriz de órdenes...";
+    opportunityTable.innerHTML = renderPurchaseOrders();
+    wirePurchaseOrders();
     return;
   }
 
@@ -7460,6 +7630,8 @@ closeFinancialOrderDialog.addEventListener("click", () => financialOrderDialog.c
 cancelFinancialOrder.addEventListener("click", () => financialOrderDialog.close());
 closeAccountsReceivableDialog.addEventListener("click", () => accountsReceivableDialog.close());
 cancelAccountsReceivable.addEventListener("click", () => accountsReceivableDialog.close());
+closePurchaseOrderDialog.addEventListener("click", () => purchaseOrderDialog.close());
+cancelPurchaseOrder.addEventListener("click", () => purchaseOrderDialog.close());
 financialOrdersViewTabs?.querySelectorAll("[data-financial-orders-view]").forEach((button) => {
   button.addEventListener("click", () => {
     state.financialOrdersView = button.dataset.financialOrdersView;
@@ -7471,6 +7643,13 @@ accountsReceivableViewTabs?.querySelectorAll("[data-accounts-receivable-view]").
   button.addEventListener("click", () => {
     state.accountsReceivableView = button.dataset.accountsReceivableView;
     state.accountsReceivablePage = 1;
+    renderCommercialSubmenu(areas.financiera);
+  });
+});
+purchaseOrdersViewTabs?.querySelectorAll("[data-purchase-orders-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.purchaseOrderView = button.dataset.purchaseOrdersView;
+    state.purchaseOrderPage = 1;
     renderCommercialSubmenu(areas.financiera);
   });
 });
@@ -7601,12 +7780,38 @@ accountsReceivableForm.addEventListener("submit", async (event) => {
   }
 });
 
+purchaseOrderForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {};
+  purchaseOrderFields.forEach(([key, id]) => { payload[key] = document.querySelector(`#${id}`).value.trim(); });
+  ["amount", "advance", "payment", "remaining"].forEach((key) => { payload[key] = Number(payload[key] || 0); });
+  const existingId = purchaseOrderId.value;
+  payload.updatedBy = state.currentUser?.name || "Sistema Gerencial";
+  if (!existingId) payload.createdBy = payload.updatedBy;
+  const submit = purchaseOrderForm.querySelector('button[type="submit"]');
+  if (submit) submit.disabled = true;
+  try {
+    const response = await apiJson(existingId ? `/api/purchase-orders/${encodeURIComponent(existingId)}` : "/api/purchase-orders", { method: existingId ? "PUT" : "POST", body: JSON.stringify(payload) });
+    const saved = response.item;
+    const index = state.purchaseOrders.findIndex((item) => item.id === saved.id);
+    if (index >= 0) state.purchaseOrders[index] = saved; else state.purchaseOrders.unshift(saved);
+    state.purchaseOrderPage = 1;
+    purchaseOrderDialog.close();
+    renderCommercialSubmenu(areas.financiera);
+  } catch {
+    alert("No se pudo guardar la orden de pedido en la base de datos.");
+  } finally {
+    if (submit) submit.disabled = false;
+  }
+});
+
 fillOpportunityOptions();
 loadUsers();
 loadFinancialOrderFilters();
 loadFinancialOrders();
 syncFinancialOrdersWithApi();
 loadAccountsReceivable();
+loadPurchaseOrders();
 loadOpportunities();
 loadStrategicRisks();
 loadManagementRequests();

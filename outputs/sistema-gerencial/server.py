@@ -15,9 +15,10 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "sistema-gerencial.db"
 CRM_SEED_PATH = ROOT / "crm-seed.json"
 ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
+PURCHASE_ORDERS_SEED_PATH = ROOT / "purchase-orders-seed.json"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-financial-orders-persistence-v3"
+API_VERSION = "kmi-purchase-orders-v1"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -31,7 +32,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"],
-    "financiera": ["resultados", "resultados-pedidos", "resultados-cuentas-por-cobrar", "kpi"],
+    "financiera": ["resultados", "resultados-pedidos", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido", "kpi"],
     "operaciones": ["resultados", "kpi"],
     "rrhh": ["resultados", "kpi"],
 }
@@ -591,6 +592,7 @@ def default_permissions_for_role(role):
             "financiera:resultados",
             "financiera:resultados-pedidos",
             "financiera:resultados-cuentas-por-cobrar",
+            "financiera:resultados-ordenes-de-pedido",
             *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
         ]
     return list(
@@ -912,6 +914,77 @@ def upsert_financial_order(conn, data, existing=None):
     return item
 
 
+def normalize_purchase_order(data, existing=None):
+    current = dict(existing or {})
+    payload = dict(data or {})
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    return {
+        "id": text(payload.get("id"), current.get("id") or f"orden-pedido-{time.time_ns()}"),
+        "sourceKey": text(payload.get("sourceKey"), current.get("sourceKey") or ""),
+        "source": text(payload.get("source"), current.get("source") or "manual"),
+        "orderNumber": text(payload.get("orderNumber"), current.get("orderNumber") or ""),
+        "invoiceType": text(payload.get("invoiceType"), current.get("invoiceType") or ""),
+        "customerCode": text(payload.get("customerCode"), current.get("customerCode") or ""),
+        "customerName": text(payload.get("customerName"), current.get("customerName") or ""),
+        "description": text(payload.get("description"), current.get("description") or ""),
+        "entryDate": text(payload.get("entryDate"), current.get("entryDate") or ""),
+        "dueDate": text(payload.get("dueDate"), current.get("dueDate") or ""),
+        "amount": decimal_number(payload.get("amount"), current.get("amount", 0)),
+        "advance": decimal_number(payload.get("advance"), current.get("advance", 0)),
+        "payment": decimal_number(payload.get("payment"), current.get("payment", 0)),
+        "remaining": decimal_number(payload.get("remaining"), current.get("remaining", 0)),
+        "balancePaymentDate": text(payload.get("balancePaymentDate"), current.get("balancePaymentDate") or ""),
+        "address": text(payload.get("address"), current.get("address") or ""),
+        "status": text(payload.get("status"), current.get("status") or "Proceso"),
+        "productionManager": text(payload.get("productionManager"), current.get("productionManager") or "Sin asignar"),
+        "createdBy": text(payload.get("createdBy"), current.get("createdBy") or "Sistema Gerencial"),
+        "updatedBy": text(payload.get("updatedBy"), current.get("updatedBy") or payload.get("createdBy") or "Sistema Gerencial"),
+        "createdAt": text(payload.get("createdAt"), current.get("createdAt") or now),
+        "updatedAt": now,
+    }
+
+
+def purchase_order_payload(row):
+    return {
+        "id": row["id"], "sourceKey": row["source_key"], "source": row["source"],
+        "orderNumber": row["order_number"], "invoiceType": row["invoice_type"],
+        "customerCode": row["customer_code"], "customerName": row["customer_name"],
+        "description": row["description"], "entryDate": row["entry_date"], "dueDate": row["due_date"],
+        "amount": row["amount"], "advance": row["advance"], "payment": row["payment"],
+        "remaining": row["remaining"], "balancePaymentDate": row["balance_payment_date"],
+        "address": row["address"], "status": row["status"], "productionManager": row["production_manager"],
+        "createdBy": row["created_by"], "updatedBy": row["updated_by"],
+        "createdAt": row["created_at"], "updatedAt": row["updated_at"],
+    }
+
+
+def upsert_purchase_order(conn, data, existing=None):
+    item = normalize_purchase_order(data, existing)
+    conn.execute("""
+        INSERT INTO purchase_orders (
+            id, source_key, source, order_number, invoice_type, customer_code, customer_name,
+            description, entry_date, due_date, amount, advance, payment, remaining,
+            balance_payment_date, address, status, production_manager, created_by, updated_by,
+            created_at, updated_at
+        ) VALUES (
+            :id, :sourceKey, :source, :orderNumber, :invoiceType, :customerCode, :customerName,
+            :description, :entryDate, :dueDate, :amount, :advance, :payment, :remaining,
+            :balancePaymentDate, :address, :status, :productionManager, :createdBy, :updatedBy,
+            :createdAt, :updatedAt
+        )
+        ON CONFLICT(id) DO UPDATE SET
+            source_key=excluded.source_key, source=excluded.source, order_number=excluded.order_number,
+            invoice_type=excluded.invoice_type, customer_code=excluded.customer_code,
+            customer_name=excluded.customer_name, description=excluded.description,
+            entry_date=excluded.entry_date, due_date=excluded.due_date, amount=excluded.amount,
+            advance=excluded.advance, payment=excluded.payment, remaining=excluded.remaining,
+            balance_payment_date=excluded.balance_payment_date, address=excluded.address,
+            status=excluded.status, production_manager=excluded.production_manager,
+            updated_by=excluded.updated_by, updated_at=excluded.updated_at
+    """, item)
+    return item
+
+
 def seed_accounts_receivable(conn):
     migration_key = "migration_accounts_receivable_matrix_20260718_v1"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
@@ -927,6 +1000,39 @@ def seed_accounts_receivable(conn):
         "INSERT INTO app_state (key, value) VALUES (?, ?)",
         (migration_key, json.dumps({"count": len(records), "source": ACCOUNTS_RECEIVABLE_SEED_PATH.name})),
     )
+
+
+def seed_purchase_orders(conn):
+    migration_key = "migration_purchase_orders_matrix_20260720_v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    records = []
+    try:
+        records = json.loads(PURCHASE_ORDERS_SEED_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"No se pudo cargar la matriz de ordenes de pedido: {error}")
+    for record in records if isinstance(records, list) else []:
+        upsert_purchase_order(conn, record)
+    conn.execute(
+        "INSERT INTO app_state (key, value) VALUES (?, ?)",
+        (migration_key, json.dumps({"count": len(records), "source": PURCHASE_ORDERS_SEED_PATH.name})),
+    )
+
+
+def grant_purchase_order_permissions(conn):
+    migration_key = "migration_purchase_order_permissions_v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    permission = "financiera:resultados-ordenes-de-pedido"
+    for row in conn.execute("SELECT id, permissions FROM users").fetchall():
+        try:
+            permissions = json.loads(row["permissions"] or "[]")
+        except json.JSONDecodeError:
+            permissions = []
+        if "financiera:resultados-pedidos" in permissions and permission not in permissions:
+            permissions.append(permission)
+            conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions, ensure_ascii=True), row["id"]))
+    conn.execute("INSERT INTO app_state (key, value) VALUES (?, ?)", (migration_key, "completed"))
 
 
 def migrate_consolidated_permissions(conn):
@@ -1092,6 +1198,35 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_financial_orders_number ON financial_orders(number)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_financial_orders_date ON financial_orders(date)")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS purchase_orders (
+                id TEXT PRIMARY KEY,
+                source_key TEXT DEFAULT '',
+                source TEXT DEFAULT 'manual',
+                order_number TEXT NOT NULL,
+                invoice_type TEXT DEFAULT '',
+                customer_code TEXT DEFAULT '',
+                customer_name TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                entry_date TEXT DEFAULT '',
+                due_date TEXT DEFAULT '',
+                amount REAL DEFAULT 0,
+                advance REAL DEFAULT 0,
+                payment REAL DEFAULT 0,
+                remaining REAL DEFAULT 0,
+                balance_payment_date TEXT DEFAULT '',
+                address TEXT DEFAULT '',
+                status TEXT DEFAULT 'Proceso',
+                production_manager TEXT DEFAULT 'Sin asignar',
+                created_by TEXT DEFAULT 'Sistema Gerencial',
+                updated_by TEXT DEFAULT 'Sistema Gerencial',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_purchase_orders_number ON purchase_orders(order_number)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_purchase_orders_due_date ON purchase_orders(due_date)")
+        conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
@@ -1110,6 +1245,8 @@ def init_db():
         migrate_consolidated_permissions(conn)
         grant_johanna_minutes_permissions(conn)
         seed_accounts_receivable(conn)
+        seed_purchase_orders(conn)
+        grant_purchase_order_permissions(conn)
 
 
 class AppHandler(BaseHTTPRequestHandler):
@@ -1225,6 +1362,16 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([financial_order_payload(row) for row in rows])
             return
 
+        if self.path == "/api/purchase-orders":
+            with connect() as conn:
+                rows = conn.execute("""
+                    SELECT * FROM purchase_orders
+                    ORDER BY CASE WHEN lower(status) = 'proceso' THEN 0 ELSE 1 END,
+                             due_date DESC, entry_date DESC, order_number DESC
+                """).fetchall()
+            self.send_json([purchase_order_payload(row) for row in rows])
+            return
+
         if self.path == "/api/opportunities":
             with connect() as conn:
                 value = conn.execute(
@@ -1333,6 +1480,16 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
+        if self.path == "/api/purchase-orders":
+            data = self.read_json()
+            if not text(data.get("orderNumber")) or not text(data.get("customerName")):
+                self.send_json({"error": "Numero de orden y cliente son requeridos"}, status=400)
+                return
+            with connect() as conn:
+                item = upsert_purchase_order(conn, data)
+            self.send_json({"ok": True, "item": item}, status=201)
+            return
+
         if self.path == "/api/users":
             data = self.read_json()
             if isinstance(data.get("users"), list):
@@ -1392,6 +1549,19 @@ class AppHandler(BaseHTTPRequestHandler):
                 existing = financial_order_payload(row) if row else None
                 data["id"] = item_id
                 item = upsert_financial_order(conn, data, existing)
+            self.send_json({"ok": True, "item": item})
+            return
+
+        if self.path.startswith("/api/purchase-orders/"):
+            item_id = unquote(self.path.rsplit("/", 1)[-1])
+            data = self.read_json()
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM purchase_orders WHERE id = ?", (item_id,)).fetchone()
+                if not row:
+                    self.send_json({"error": "Orden de pedido no encontrada"}, status=404)
+                    return
+                data["id"] = item_id
+                item = upsert_purchase_order(conn, data, purchase_order_payload(row))
             self.send_json({"ok": True, "item": item})
             return
 
@@ -1520,6 +1690,15 @@ class AppHandler(BaseHTTPRequestHandler):
                 existing = financial_order_payload(row) if row else None
                 item = upsert_financial_order(conn, data, existing)
             self.send_json({"ok": True, "item": item})
+            return
+        if self.path.startswith("/api/purchase-orders/"):
+            item_id = unquote(self.path.rsplit("/", 1)[-1])
+            with connect() as conn:
+                result = conn.execute("DELETE FROM purchase_orders WHERE id = ?", (item_id,))
+            if not result.rowcount:
+                self.send_json({"error": "Orden de pedido no encontrada"}, status=404)
+                return
+            self.send_json({"ok": True})
             return
         if self.path.startswith("/api/minutes/"):
             minute_id = unquote(self.path.rsplit("/", 1)[-1])

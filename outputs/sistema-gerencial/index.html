@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>KMI</title>
-    <link rel="stylesheet" href="styles.css?v=20260720-seller-portfolio-compact-v56">
+    <link rel="stylesheet" href="styles.css?v=20260720-purchase-orders-v57">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -133,6 +133,11 @@
                 <button class="active" type="button" role="tab" data-accounts-receivable-view="list" aria-selected="true">Listado</button>
                 <button type="button" role="tab" data-accounts-receivable-view="aging" aria-selected="false">Antigüedad</button>
                 <button type="button" role="tab" data-accounts-receivable-view="customers" aria-selected="false">Clientes</button>
+              </div>
+              <div class="financial-orders-view-tabs hidden" id="purchaseOrdersViewTabs" role="tablist" aria-label="Vistas de órdenes de pedido">
+                <button class="active" type="button" role="tab" data-purchase-orders-view="list" aria-selected="true">Listado</button>
+                <button type="button" role="tab" data-purchase-orders-view="delivery" aria-selected="false">Control de entrega</button>
+                <button type="button" role="tab" data-purchase-orders-view="production" aria-selected="false">Producción</button>
               </div>
               <div class="financial-orders-view-tabs hidden" id="crmOpportunitiesViewTabs" role="tablist" aria-label="Vistas de oportunidades por vendedor">
                 <button class="active" type="button" role="tab" data-crm-opportunities-view="list" aria-selected="true">Listado</button>
@@ -443,6 +448,37 @@
       </form>
     </dialog>
 
+    <dialog id="purchaseOrderDialog" class="wide-dialog">
+      <form method="dialog" class="dialog-card purchase-order-form" id="purchaseOrderForm">
+        <div class="panel-head">
+          <div><p class="eyebrow">Financiera / Operaciones</p><h3 id="purchaseOrderDialogTitle">Nueva orden de pedido</h3></div>
+          <button class="icon-btn" id="closePurchaseOrderDialog" type="button" aria-label="Cerrar">x</button>
+        </div>
+        <input id="purchaseOrderId" type="hidden">
+        <div class="purchase-order-grid">
+          <label>Número de orden<input id="purchaseOrderNumber" maxlength="40" required></label>
+          <label>Tipo de factura<input id="purchaseOrderInvoiceType" maxlength="20"></label>
+          <label>Código de cliente<input id="purchaseOrderCustomerCode" maxlength="40"></label>
+          <label>Responsable de producción<input id="purchaseOrderProductionManager" maxlength="80" required></label>
+          <label class="span-2">Cliente<input id="purchaseOrderCustomerName" maxlength="180" required></label>
+          <label class="span-2">Descripción<input id="purchaseOrderDescription" maxlength="180"></label>
+          <label>Fecha de ingreso<input id="purchaseOrderEntryDate" type="date" required></label>
+          <label>Fecha límite de entrega<input id="purchaseOrderDueDate" type="date"></label>
+          <label>Estado<select id="purchaseOrderStatus"><option>Proceso</option><option>Entregado</option></select></label>
+          <label>Fecha abono complemento<input id="purchaseOrderBalancePaymentDate" type="date"></label>
+          <label>Monto<input id="purchaseOrderAmount" type="number" min="0" step="0.01" required></label>
+          <label>Anticipo<input id="purchaseOrderAdvance" type="number" min="0" step="0.01" value="0"></label>
+          <label>Abono<input id="purchaseOrderPayment" type="number" min="0" step="0.01" value="0"></label>
+          <label>Restante<input id="purchaseOrderRemaining" type="number" step="0.01" value="0" required></label>
+          <label class="span-4">Dirección<textarea id="purchaseOrderAddress" rows="2" maxlength="400"></textarea></label>
+        </div>
+        <menu>
+          <button class="ghost-btn" id="cancelPurchaseOrder" type="button">Cancelar</button>
+          <button class="primary-btn" type="submit">Guardar orden</button>
+        </menu>
+      </form>
+    </dialog>
+
     <dialog id="accountsReceivableDialog" class="wide-dialog">
       <form method="dialog" class="dialog-card accounts-receivable-form" id="accountsReceivableForm">
         <div class="panel-head">
@@ -703,6 +739,6 @@
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
     <script src="financial-orders-additions.js?v=20260720-pedidos-270-275-v1"></script>
-    <script src="app.js?v=20260720-seller-portfolio-compact-v56"></script>
+    <script src="app.js?v=20260720-purchase-orders-v57"></script>
   </body>
 </html>
