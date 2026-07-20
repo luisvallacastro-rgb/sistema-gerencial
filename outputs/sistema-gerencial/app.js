@@ -2211,6 +2211,10 @@ function purchaseOrderIsDelivered(order) {
   return normalizeKey(order.status) === "entregado";
 }
 
+function purchaseOrderHasBalance(order) {
+  return Number(order.remaining || 0) > 0.009;
+}
+
 function purchaseOrderDeadline(order) {
   if (purchaseOrderIsDelivered(order)) return { label: "Entregada", className: "delivered", days: 0 };
   if (!order.dueDate) return { label: "Sin fecha", className: "neutral", days: 0 };
@@ -2247,7 +2251,7 @@ function resetPurchaseOrderForm(order = null) {
 }
 
 function filteredPurchaseOrders() {
-  let rows = state.purchaseOrders;
+  let rows = state.purchaseOrders.filter(purchaseOrderHasBalance);
   if (state.purchaseOrderStatus !== "all") {
     rows = rows.filter((order) => state.purchaseOrderStatus === "delivered" ? purchaseOrderIsDelivered(order) : !purchaseOrderIsDelivered(order));
   }
@@ -2285,7 +2289,7 @@ function renderPurchaseOrderList() {
     <div class="purchase-orders-toolbar">
       <label><span>⌕</span><input data-purchase-order-search type="search" value="${escapeHtml(state.purchaseOrderQuery)}" placeholder="Buscar orden, cliente, producto o responsable..."></label>
       <div class="purchase-orders-status-tabs" role="tablist">
-        ${[["all","Todas"],["process","En proceso"],["delivered","Entregadas"]].map(([key,label]) => `<button type="button" data-purchase-order-status="${key}" class="${state.purchaseOrderStatus === key ? "active" : ""}">${label}</button>`).join("")}
+        ${[["all","Con saldo"],["process","En proceso"],["delivered","Entregadas"]].map(([key,label]) => `<button type="button" data-purchase-order-status="${key}" class="${state.purchaseOrderStatus === key ? "active" : ""}">${label}</button>`).join("")}
       </div>
       <button type="button" data-purchase-order-new>+ Nueva orden</button>
     </div>
@@ -2306,7 +2310,7 @@ function renderPurchaseOrderList() {
 }
 
 function renderPurchaseOrderDelivery() {
-  const open = state.purchaseOrders.filter((order) => !purchaseOrderIsDelivered(order)).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+  const open = state.purchaseOrders.filter((order) => purchaseOrderHasBalance(order) && !purchaseOrderIsDelivered(order)).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
   const totals = purchaseOrderSummary(open);
   return `<section class="purchase-orders-insight"><div class="purchase-orders-hero"><article><span>Monto</span><strong>${formatMoney(totals.amount)}</strong><small>${open.length} órdenes en producción</small></article><article><span>Anticipo</span><strong>${formatMoney(totals.advances)}</strong><small>Total anticipado</small></article><article><span>Abono</span><strong>${formatMoney(totals.payments)}</strong><small>Total abonado</small></article><article><span>Saldo</span><strong>${formatMoney(totals.remaining)}</strong><small>${totals.overdue} entregas vencidas</small></article></div><div class="purchase-orders-insight-head"><div><span>Agenda operativa</span><h4>Próximas entregas</h4></div><small>Ordenado por fecha límite</small></div><div class="purchase-orders-timeline">${open.map((order) => { const deadline = purchaseOrderDeadline(order); return `<article><time>${formatDate(order.dueDate)}</time><i class="${deadline.className}"></i><div><strong>${escapeHtml(order.customerName)}</strong><small>#${escapeHtml(order.orderNumber)} · ${escapeHtml(order.description)}</small></div><span class="${deadline.className}">${deadline.label}</span><strong>${formatMoney(order.amount)}</strong></article>`; }).join("") || `<div class="empty-state">No hay entregas pendientes.</div>`}</div></section>`;
 }
@@ -2363,13 +2367,40 @@ function renderPurchaseOrderMatrix() {
 
 function renderPurchaseOrderProduction() {
   const owners = new Map();
-  state.purchaseOrders.forEach((order) => { const key = order.productionManager || "Sin asignar"; const item = owners.get(key) || { name:key,count:0,open:0,amount:0,remaining:0 }; item.count++; item.open += purchaseOrderIsDelivered(order) ? 0 : 1; item.amount += Number(order.amount || 0); item.remaining += Number(order.remaining || 0); owners.set(key,item); });
+  state.purchaseOrders.filter(purchaseOrderHasBalance).forEach((order) => { const key = order.productionManager || "Sin asignar"; const item = owners.get(key) || { name:key,count:0,open:0,amount:0,remaining:0 }; item.count++; item.open += purchaseOrderIsDelivered(order) ? 0 : 1; item.amount += Number(order.amount || 0); item.remaining += Number(order.remaining || 0); owners.set(key,item); });
   const rows = [...owners.values()].sort((a,b) => b.open - a.open || b.amount - a.amount);
   const max = Math.max(...rows.map((row) => row.amount), 1);
   return `<section class="purchase-orders-insight"><div class="purchase-orders-insight-head"><div><span>Capacidad y cartera</span><h4>Control por responsable</h4></div><small>${rows.length} responsables</small></div><div class="purchase-orders-production">${rows.map((row,index) => `<article style="--production-width:${((row.amount/max)*100).toFixed(2)}%;--production-hue:${164 + index*18}"><div><strong>${escapeHtml(row.name)}</strong><small>${row.open} activas · ${row.count} totales</small></div><i><b></b></i><span>${formatMoney(row.amount)}<small>Saldo ${formatMoney(row.remaining)}</small></span></article>`).join("")}</div></section>`;
 }
 
+function renderPurchaseOrderHistory() {
+  const query = state.purchaseOrderQuery;
+  let rows = state.purchaseOrders.filter((order) => !purchaseOrderHasBalance(order));
+  if (query) rows = rows.filter((order) => Object.values(order).some((value) => searchTokenMatches(value, query)));
+  const totals = purchaseOrderSummary(rows);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  state.purchaseOrderPage = Math.max(1, Math.min(state.purchaseOrderPage, pageCount));
+  const start = (state.purchaseOrderPage - 1) * pageSize;
+  const pagedRows = rows.slice(start, start + pageSize);
+  return `<section class="purchase-orders-shell purchase-orders-history">
+    <div class="purchase-orders-history-head"><div><span>Archivo financiero</span><h4>Órdenes liquidadas</h4><small>Registros conservados automáticamente al alcanzar saldo $0.</small></div><strong>${rows.length}<small>órdenes históricas</small></strong></div>
+    <div class="purchase-orders-toolbar history-toolbar"><label><span>⌕</span><input data-purchase-order-search type="search" value="${escapeHtml(state.purchaseOrderQuery)}" placeholder="Buscar orden, cliente, producto o responsable..."></label><div class="history-total"><small>Monto histórico</small><strong>${formatMoney(totals.amount)}</strong></div></div>
+    <div class="purchase-orders-list">
+      ${pagedRows.map((order) => `<article class="purchase-order-card historical">
+        <div class="purchase-order-identity"><span>#${escapeHtml(order.orderNumber)}</span><strong>${escapeHtml(order.customerName)}</strong><small>${escapeHtml(order.description || "Sin descripción")}</small></div>
+        <div class="purchase-order-dates"><small>Ingreso · ${formatDate(order.entryDate)}</small><strong>${formatDate(order.balancePaymentDate || order.dueDate) || "Sin fecha de liquidación"}</strong><em class="delivered">Liquidada</em></div>
+        <div class="purchase-order-finance"><small>Monto histórico</small><strong>${formatMoney(order.amount)}</strong><span>Saldo ${formatMoney(order.remaining)}</span></div>
+        <div class="purchase-order-owner"><small>Producción</small><strong>${escapeHtml(order.productionManager)}</strong><span>${escapeHtml(order.invoiceType || "Sin factura")}</span></div>
+        <div class="purchase-order-history-badge">Histórico</div>
+      </article>`).join("") || `<div class="empty-state">No hay órdenes liquidadas para esta búsqueda.</div>`}
+    </div>
+    <div class="opportunity-pagination financial-orders-pagination"><span>Mostrando ${rows.length ? start + 1 : 0}-${Math.min(start + pageSize, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" data-purchase-order-page="prev" ${state.purchaseOrderPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.purchaseOrderPage} de ${pageCount}</strong><button class="ghost-btn compact-btn" data-purchase-order-page="next" ${state.purchaseOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>
+  </section>`;
+}
+
 function renderPurchaseOrders() {
+  if (state.purchaseOrderView === "history") return renderPurchaseOrderHistory();
   if (state.purchaseOrderView === "matrix") return renderPurchaseOrderMatrix();
   if (state.purchaseOrderView === "delivery") return renderPurchaseOrderDelivery();
   if (state.purchaseOrderView === "production") return renderPurchaseOrderProduction();
@@ -4678,8 +4709,9 @@ function renderCommercialSubmenu(area) {
       button.classList.toggle("active", isActive);
       button.setAttribute("aria-selected", String(isActive));
     });
-    const totals = purchaseOrderSummary();
-    commercialSubmenuStatus.textContent = state.purchaseOrders.length ? `${totals.inProcess} en proceso · ${totals.count} órdenes` : "Cargando matriz de órdenes...";
+    const activeOrders = state.purchaseOrders.filter(purchaseOrderHasBalance);
+    const totals = purchaseOrderSummary(activeOrders);
+    commercialSubmenuStatus.textContent = state.purchaseOrders.length ? `${totals.count} con saldo · ${formatMoney(totals.remaining)} pendiente` : "Cargando matriz de órdenes...";
     opportunityTable.innerHTML = renderPurchaseOrders();
     wirePurchaseOrders();
     return;
