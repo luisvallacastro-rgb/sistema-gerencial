@@ -2311,6 +2311,56 @@ function renderPurchaseOrderDelivery() {
   return `<section class="purchase-orders-insight"><div class="purchase-orders-hero"><article><span>Monto</span><strong>${formatMoney(totals.amount)}</strong><small>${open.length} órdenes en producción</small></article><article><span>Anticipo</span><strong>${formatMoney(totals.advances)}</strong><small>Total anticipado</small></article><article><span>Abono</span><strong>${formatMoney(totals.payments)}</strong><small>Total abonado</small></article><article><span>Saldo</span><strong>${formatMoney(totals.remaining)}</strong><small>${totals.overdue} entregas vencidas</small></article></div><div class="purchase-orders-insight-head"><div><span>Agenda operativa</span><h4>Próximas entregas</h4></div><small>Ordenado por fecha límite</small></div><div class="purchase-orders-timeline">${open.map((order) => { const deadline = purchaseOrderDeadline(order); return `<article><time>${formatDate(order.dueDate)}</time><i class="${deadline.className}"></i><div><strong>${escapeHtml(order.customerName)}</strong><small>#${escapeHtml(order.orderNumber)} · ${escapeHtml(order.description)}</small></div><span class="${deadline.className}">${deadline.label}</span><strong>${formatMoney(order.amount)}</strong></article>`; }).join("") || `<div class="empty-state">No hay entregas pendientes.</div>`}</div></section>`;
 }
 
+function purchaseOrderMonthLabel(monthKey) {
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-SV", { month: "long", year: "numeric", timeZone: "UTC" })
+    .format(new Date(Date.UTC(year, month - 1, 1)))
+    .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function purchaseOrderMonthlyMatrix() {
+  const pending = state.purchaseOrders.filter((order) => Number(order.remaining || 0) > 0.009 && /^\d{4}-\d{2}/.test(order.entryDate || ""));
+  if (!pending.length) return [];
+  const firstMonth = pending.map((order) => order.entryDate.slice(0, 7)).sort()[0];
+  const currentMonth = todayISO().slice(0, 7);
+  const [firstYear, firstNumber] = firstMonth.split("-").map(Number);
+  const [currentYear, currentNumber] = currentMonth.split("-").map(Number);
+  const cursor = new Date(Date.UTC(firstYear, firstNumber - 1, 1));
+  const limit = new Date(Date.UTC(currentYear, currentNumber - 1, 1));
+  const months = [];
+  while (cursor <= limit) {
+    const monthKey = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}`;
+    const rows = pending.filter((order) => order.entryDate.slice(0, 7) <= monthKey);
+    if (rows.length) months.push({ monthKey, ...purchaseOrderSummary(rows) });
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return months;
+}
+
+function renderPurchaseOrderMatrix() {
+  const months = purchaseOrderMonthlyMatrix();
+  const latest = months.at(-1);
+  const maxBalance = Math.max(...months.map((month) => month.remaining), 1);
+  return `<section class="purchase-orders-matrix-view">
+    <div class="purchase-orders-matrix-head">
+      <div><span>Matriz de liquidación</span><h4>Saldos pendientes por mes</h4><small>Cada orden se arrastra desde su mes inicial mientras conserve saldo.</small></div>
+      <div><small>Saldo vigente</small><strong>${formatMoney(latest?.remaining || 0)}</strong><span>${latest?.count || 0} órdenes por liquidar</span></div>
+    </div>
+    <div class="purchase-orders-matrix-scroll">
+      <div class="purchase-orders-matrix-row header"><span>Mes</span><span>Órdenes</span><span>Monto</span><span>Anticipo</span><span>Abono</span><span>Saldo</span></div>
+      ${months.map((month) => `<article class="purchase-orders-matrix-row">
+        <div><i style="--matrix-progress:${((month.remaining / maxBalance) * 100).toFixed(2)}%"></i><strong>${purchaseOrderMonthLabel(month.monthKey)}</strong></div>
+        <span><b>${month.count}</b><small>con saldo</small></span>
+        <span><b>${formatMoney(month.amount)}</b><small>monto</small></span>
+        <span><b>${formatMoney(month.advances)}</b><small>anticipo</small></span>
+        <span><b>${formatMoney(month.payments)}</b><small>abono</small></span>
+        <span class="balance"><b>${formatMoney(month.remaining)}</b><small>pendiente</small></span>
+      </article>`).join("") || `<div class="empty-state">No existen órdenes con saldo pendiente.</div>`}
+    </div>
+    <p class="purchase-orders-matrix-note">Solo se incluyen órdenes con saldo mayor a $0. Las órdenes liquidadas se omiten automáticamente.</p>
+  </section>`;
+}
+
 function renderPurchaseOrderProduction() {
   const owners = new Map();
   state.purchaseOrders.forEach((order) => { const key = order.productionManager || "Sin asignar"; const item = owners.get(key) || { name:key,count:0,open:0,amount:0,remaining:0 }; item.count++; item.open += purchaseOrderIsDelivered(order) ? 0 : 1; item.amount += Number(order.amount || 0); item.remaining += Number(order.remaining || 0); owners.set(key,item); });
@@ -2320,6 +2370,7 @@ function renderPurchaseOrderProduction() {
 }
 
 function renderPurchaseOrders() {
+  if (state.purchaseOrderView === "matrix") return renderPurchaseOrderMatrix();
   if (state.purchaseOrderView === "delivery") return renderPurchaseOrderDelivery();
   if (state.purchaseOrderView === "production") return renderPurchaseOrderProduction();
   return renderPurchaseOrderList();
