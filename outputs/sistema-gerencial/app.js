@@ -2233,6 +2233,64 @@ function saveFinancialOrders() {
   localStorage.setItem(financialOrdersStorageKey, JSON.stringify(state.financialOrders));
 }
 
+function applyPersistedFinancialOrders(records) {
+  const remoteRecords = Array.isArray(records) ? records : [];
+  const deletedIds = new Set(remoteRecords.filter((order) => order.deleted).map((order) => order.id));
+  const deletedSourceKeys = new Set(remoteRecords.filter((order) => order.deleted && order.sourceKey).map((order) => order.sourceKey));
+  const activeRemote = remoteRecords.filter((order) => !order.deleted);
+  const remoteById = new Map(activeRemote.map((order) => [order.id, order]));
+  const remoteBySourceKey = new Map(activeRemote.filter((order) => order.sourceKey).map((order) => [order.sourceKey, order]));
+
+  const seedRows = state.financialOrders
+    .filter((order) => order.sourceKey && !deletedIds.has(order.id) && !deletedSourceKeys.has(order.sourceKey))
+    .map((order) => remoteById.get(order.id) || remoteBySourceKey.get(order.sourceKey) || order);
+  const seedIds = new Set(seedRows.map((order) => order.id));
+  const seedSourceKeys = new Set(seedRows.map((order) => order.sourceKey));
+  const manualRows = new Map();
+  state.financialOrders.filter((order) => !order.sourceKey && !deletedIds.has(order.id)).forEach((order) => {
+    manualRows.set(order.id, order);
+  });
+  activeRemote.forEach((order) => {
+    if (!seedIds.has(order.id) && !seedSourceKeys.has(order.sourceKey)) manualRows.set(order.id, order);
+  });
+  const orderedManualRows = [...manualRows.values()].sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  state.financialOrders = [...orderedManualRows, ...seedRows];
+  saveFinancialOrders();
+}
+
+async function syncFinancialOrdersWithApi() {
+  if (!apiEnabled) return;
+  try {
+    let remoteRecords = await apiJson("/api/financial-orders");
+    const remoteIds = new Set(remoteRecords.map((order) => order.id));
+    const remoteSourceKeys = new Set(remoteRecords.filter((order) => order.sourceKey).map((order) => order.sourceKey));
+    const localManualRows = state.financialOrders.filter((order) => !order.sourceKey && !remoteIds.has(order.id));
+    const deletedSeedKeys = new Set(JSON.parse(localStorage.getItem(financialOrdersDeletedSeedKeysKey) || "[]"));
+    const seedRows = Array.isArray(window.financialOrdersSeed) ? window.financialOrdersSeed : [];
+    const deletedSeedRows = seedRows.filter((order) => deletedSeedKeys.has(order.sourceKey) && !remoteSourceKeys.has(order.sourceKey));
+    const migrationRequests = [
+      ...localManualRows.map((order) => apiJson("/api/financial-orders", {
+        method: "POST",
+        body: JSON.stringify({ ...order, updatedBy: state.currentUser?.name || order.updatedBy || "Migración local" })
+      })),
+      ...deletedSeedRows.map((order) => apiJson(`/api/financial-orders/${encodeURIComponent(order.id)}`, {
+        method: "DELETE",
+        body: JSON.stringify({ ...order, updatedBy: state.currentUser?.name || "Migración local", deleted: true })
+      }))
+    ];
+    if (migrationRequests.length) {
+      await Promise.all(migrationRequests);
+      remoteRecords = await apiJson("/api/financial-orders");
+    }
+    applyPersistedFinancialOrders(remoteRecords);
+    if (state.activeArea === "financiera" && state.activeSubmenu === "resultados-pedidos") {
+      renderDashboard();
+    }
+  } catch (error) {
+    console.error("No se pudieron sincronizar los pedidos con el servidor.", error);
+  }
+}
+
 function loadFinancialOrderFilters() {
   try {
     const saved = JSON.parse(localStorage.getItem(financialOrdersFiltersStorageKey) || "{}");
@@ -2515,9 +2573,25 @@ function wireFinancialOrders() {
     resetFinancialOrderForm(order);
     financialOrderDialog.showModal();
   }));
-  opportunityTable.querySelectorAll("[data-financial-order-delete]").forEach((button) => button.addEventListener("click", () => {
+  opportunityTable.querySelectorAll("[data-financial-order-delete]").forEach((button) => button.addEventListener("click", async () => {
     if (!confirm("Eliminar este pedido?")) return;
     const deletedOrder = state.financialOrders.find((item) => item.id === button.dataset.financialOrderDelete);
+    if (!deletedOrder) return;
+    if (apiEnabled) {
+      try {
+        await apiJson(`/api/financial-orders/${encodeURIComponent(deletedOrder.id)}`, {
+          method: "DELETE",
+          body: JSON.stringify({
+            ...deletedOrder,
+            deleted: true,
+            updatedBy: state.currentUser?.name || "Sistema Gerencial"
+          })
+        });
+      } catch {
+        alert("No se pudo eliminar el pedido. Verifica la conexión e intenta nuevamente.");
+        return;
+      }
+    }
     if (deletedOrder?.sourceKey) {
       const deletedSeedKeys = new Set(JSON.parse(localStorage.getItem(financialOrdersDeletedSeedKeysKey) || "[]"));
       deletedSeedKeys.add(deletedOrder.sourceKey);
@@ -7347,7 +7421,7 @@ financialOrderMonthFilter?.addEventListener("change", () => {
   saveFinancialOrderFilters();
   renderCommercialSubmenu(areas.financiera);
 });
-financialOrderForm.addEventListener("submit", (event) => {
+financialOrderForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const payload = {};
   financialOrderFields.forEach(([key, id]) => {
@@ -7355,14 +7429,41 @@ financialOrderForm.addEventListener("submit", (event) => {
   });
   payload.sale = Number(payload.sale || 0);
   const existing = state.financialOrders.find((order) => order.id === financialOrderId.value);
-  if (existing) Object.assign(existing, payload, { updatedAt: new Date().toISOString() });
-  else {
-    state.financialOrders.unshift({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...payload });
+  const now = new Date().toISOString();
+  const pendingOrder = existing
+    ? { ...existing, ...payload, updatedAt: now, updatedBy: state.currentUser?.name || "Sistema Gerencial" }
+    : {
+        id: crypto.randomUUID(),
+        source: "manual",
+        createdAt: now,
+        createdBy: state.currentUser?.name || "Sistema Gerencial",
+        updatedAt: now,
+        updatedBy: state.currentUser?.name || "Sistema Gerencial",
+        ...payload
+      };
+  const submitButton = financialOrderForm.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
+  try {
+    let savedOrder = pendingOrder;
+    if (apiEnabled) {
+      const response = await apiJson(
+        existing ? `/api/financial-orders/${encodeURIComponent(existing.id)}` : "/api/financial-orders",
+        { method: existing ? "PUT" : "POST", body: JSON.stringify(pendingOrder) }
+      );
+      savedOrder = response.item;
+    }
+    const existingIndex = state.financialOrders.findIndex((order) => order.id === savedOrder.id);
+    if (existingIndex >= 0) state.financialOrders[existingIndex] = savedOrder;
+    else state.financialOrders.unshift(savedOrder);
     state.financialOrderPage = 1;
+    saveFinancialOrders();
+    financialOrderDialog.close();
+    renderCommercialSubmenu(areas.financiera);
+  } catch {
+    alert("No se pudo guardar el pedido en la base de datos. Verifica la conexión e intenta nuevamente.");
+  } finally {
+    if (submitButton) submitButton.disabled = false;
   }
-  saveFinancialOrders();
-  financialOrderDialog.close();
-  renderCommercialSubmenu(areas.financiera);
 });
 
 ["accountsReceivableInvoiceAmount", "accountsReceivablePayments", "accountsReceivableCreditNotes"].forEach((id) => {
@@ -7400,6 +7501,7 @@ fillOpportunityOptions();
 loadUsers();
 loadFinancialOrderFilters();
 loadFinancialOrders();
+syncFinancialOrdersWithApi();
 loadAccountsReceivable();
 loadOpportunities();
 loadStrategicRisks();

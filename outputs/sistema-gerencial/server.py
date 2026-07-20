@@ -17,7 +17,7 @@ CRM_SEED_PATH = ROOT / "crm-seed.json"
 ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-crm-lifecycle-v2"
+API_VERSION = "kmi-financial-orders-persistence-v3"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -814,6 +814,104 @@ def upsert_receivable(conn, data, existing=None):
     return item
 
 
+def normalize_financial_order(data, existing=None):
+    current = dict(existing or {})
+    payload = dict(data or {})
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    return {
+        "id": text(payload.get("id"), current.get("id") or f"pedido-{time.time_ns()}"),
+        "sourceKey": text(payload.get("sourceKey"), current.get("sourceKey") or ""),
+        "source": text(payload.get("source"), current.get("source") or "manual"),
+        "number": text(payload.get("number"), current.get("number") or ""),
+        "month": text(payload.get("month"), current.get("month") or ""),
+        "year": text(payload.get("year"), current.get("year") or ""),
+        "date": text(payload.get("date"), current.get("date") or ""),
+        "seller": text(payload.get("seller"), current.get("seller") or ""),
+        "sale": decimal_number(payload.get("sale"), current.get("sale", 0)),
+        "orderNumber": text(payload.get("orderNumber"), current.get("orderNumber") or ""),
+        "invoice": text(payload.get("invoice"), current.get("invoice") or ""),
+        "conditions": text(payload.get("conditions"), current.get("conditions") or ""),
+        "client": text(payload.get("client"), current.get("client") or ""),
+        "clientType": text(payload.get("clientType"), current.get("clientType") or ""),
+        "strategy": text(payload.get("strategy"), current.get("strategy") or ""),
+        "management": text(payload.get("management"), current.get("management") or ""),
+        "country": text(payload.get("country"), current.get("country") or ""),
+        "department": text(payload.get("department"), current.get("department") or ""),
+        "deleted": bool(payload.get("deleted", current.get("deleted", False))),
+        "createdBy": text(payload.get("createdBy"), current.get("createdBy") or "Sistema Gerencial"),
+        "updatedBy": text(payload.get("updatedBy"), current.get("updatedBy") or payload.get("createdBy") or "Sistema Gerencial"),
+        "createdAt": text(payload.get("createdAt"), current.get("createdAt") or now),
+        "updatedAt": now,
+    }
+
+
+def financial_order_payload(row):
+    return {
+        "id": row["id"],
+        "sourceKey": row["source_key"],
+        "source": row["source"],
+        "number": row["number"],
+        "month": row["month"],
+        "year": row["year"],
+        "date": row["date"],
+        "seller": row["seller"],
+        "sale": row["sale"],
+        "orderNumber": row["order_number"],
+        "invoice": row["invoice"],
+        "conditions": row["conditions"],
+        "client": row["client"],
+        "clientType": row["client_type"],
+        "strategy": row["strategy"],
+        "management": row["management"],
+        "country": row["country"],
+        "department": row["department"],
+        "deleted": bool(row["deleted"]),
+        "createdBy": row["created_by"],
+        "updatedBy": row["updated_by"],
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+    }
+
+
+def upsert_financial_order(conn, data, existing=None):
+    item = normalize_financial_order(data, existing)
+    conn.execute("""
+        INSERT INTO financial_orders (
+            id, source_key, source, number, month, year, date, seller, sale,
+            order_number, invoice, conditions, client, client_type, strategy,
+            management, country, department, deleted, created_by, updated_by,
+            created_at, updated_at
+        ) VALUES (
+            :id, :sourceKey, :source, :number, :month, :year, :date, :seller, :sale,
+            :orderNumber, :invoice, :conditions, :client, :clientType, :strategy,
+            :management, :country, :department, :deleted, :createdBy, :updatedBy,
+            :createdAt, :updatedAt
+        )
+        ON CONFLICT(id) DO UPDATE SET
+            source_key = excluded.source_key,
+            source = excluded.source,
+            number = excluded.number,
+            month = excluded.month,
+            year = excluded.year,
+            date = excluded.date,
+            seller = excluded.seller,
+            sale = excluded.sale,
+            order_number = excluded.order_number,
+            invoice = excluded.invoice,
+            conditions = excluded.conditions,
+            client = excluded.client,
+            client_type = excluded.client_type,
+            strategy = excluded.strategy,
+            management = excluded.management,
+            country = excluded.country,
+            department = excluded.department,
+            deleted = excluded.deleted,
+            updated_by = excluded.updated_by,
+            updated_at = excluded.updated_at
+    """, item)
+    return item
+
+
 def seed_accounts_receivable(conn):
     migration_key = "migration_accounts_receivable_matrix_20260718_v1"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
@@ -965,6 +1063,35 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_accounts_receivable_customer ON accounts_receivable(customer_name)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_accounts_receivable_invoice ON accounts_receivable(invoice_number)")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS financial_orders (
+                id TEXT PRIMARY KEY,
+                source_key TEXT DEFAULT '',
+                source TEXT DEFAULT 'manual',
+                number TEXT NOT NULL,
+                month TEXT NOT NULL,
+                year TEXT NOT NULL,
+                date TEXT NOT NULL,
+                seller TEXT NOT NULL,
+                sale REAL DEFAULT 0,
+                order_number TEXT DEFAULT '',
+                invoice TEXT DEFAULT '',
+                conditions TEXT DEFAULT '',
+                client TEXT NOT NULL,
+                client_type TEXT DEFAULT '',
+                strategy TEXT DEFAULT '',
+                management TEXT DEFAULT '',
+                country TEXT DEFAULT '',
+                department TEXT DEFAULT '',
+                deleted INTEGER DEFAULT 0,
+                created_by TEXT DEFAULT 'Sistema Gerencial',
+                updated_by TEXT DEFAULT 'Sistema Gerencial',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_financial_orders_number ON financial_orders(number)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_financial_orders_date ON financial_orders(date)")
+        conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
@@ -1089,6 +1216,15 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([receivable_payload(row) for row in rows])
             return
 
+        if self.path == "/api/financial-orders":
+            with connect() as conn:
+                rows = conn.execute("""
+                    SELECT * FROM financial_orders
+                    ORDER BY updated_at DESC, created_at DESC, number DESC
+                """).fetchall()
+            self.send_json([financial_order_payload(row) for row in rows])
+            return
+
         if self.path == "/api/opportunities":
             with connect() as conn:
                 value = conn.execute(
@@ -1186,6 +1322,17 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
+        if self.path == "/api/financial-orders":
+            data = self.read_json()
+            required = ("number", "month", "year", "date", "seller", "client")
+            if not all(text(data.get(key)) for key in required):
+                self.send_json({"error": "Numero, periodo, fecha, vendedor y cliente son requeridos"}, status=400)
+                return
+            with connect() as conn:
+                item = upsert_financial_order(conn, data)
+            self.send_json({"ok": True, "item": item}, status=201)
+            return
+
         if self.path == "/api/users":
             data = self.read_json()
             if isinstance(data.get("users"), list):
@@ -1234,6 +1381,17 @@ class AppHandler(BaseHTTPRequestHandler):
                 existing = receivable_payload(row)
                 data["id"] = item_id
                 item = upsert_receivable(conn, data, existing)
+            self.send_json({"ok": True, "item": item})
+            return
+
+        if self.path.startswith("/api/financial-orders/"):
+            item_id = unquote(self.path.rsplit("/", 1)[-1])
+            data = self.read_json()
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM financial_orders WHERE id = ?", (item_id,)).fetchone()
+                existing = financial_order_payload(row) if row else None
+                data["id"] = item_id
+                item = upsert_financial_order(conn, data, existing)
             self.send_json({"ok": True, "item": item})
             return
 
@@ -1351,6 +1509,17 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": "Cuenta por cobrar no encontrada"}, status=404)
                 return
             self.send_json({"ok": True})
+            return
+        if self.path.startswith("/api/financial-orders/"):
+            item_id = unquote(self.path.rsplit("/", 1)[-1])
+            data = self.read_json()
+            data["id"] = item_id
+            data["deleted"] = True
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM financial_orders WHERE id = ?", (item_id,)).fetchone()
+                existing = financial_order_payload(row) if row else None
+                item = upsert_financial_order(conn, data, existing)
+            self.send_json({"ok": True, "item": item})
             return
         if self.path.startswith("/api/minutes/"):
             minute_id = unquote(self.path.rsplit("/", 1)[-1])
