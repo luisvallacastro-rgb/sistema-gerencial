@@ -176,6 +176,7 @@ const areas = {
     status: "Estable",
     submenus: [
       { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
+      { key: "resultados-control-ventas", label: "Control de Ventas", status: "Órdenes, productos y auditoría", items: [] },
       { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
@@ -283,6 +284,15 @@ const state = {
   purchaseOrderPage: 1,
   purchaseOrderView: "list",
   purchaseOrderStatus: "all",
+  controlSales: [],
+  controlSalesCounts: { orders: 0, details: 0 },
+  controlSalesQuery: "",
+  controlSalesSeller: "all",
+  controlSalesStatus: "active",
+  controlSalesDateFrom: "",
+  controlSalesDateTo: "",
+  controlSalesSort: "date-desc",
+  controlSalesPage: 1,
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -2449,6 +2459,200 @@ function renderPurchaseOrders() {
   if (state.purchaseOrderView === "delivery") return renderPurchaseOrderDelivery();
   if (state.purchaseOrderView === "production") return renderPurchaseOrderProduction();
   return renderPurchaseOrderList();
+}
+
+function formatControlSalesMoney(cents) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(cents || 0) / 100);
+}
+
+function loadControlSales() {
+  if (!apiEnabled) return;
+  apiJson("/api/control-sales")
+    .then((payload) => {
+      state.controlSales = Array.isArray(payload.items) ? payload.items : [];
+      state.controlSalesCounts = payload.counts || { orders: state.controlSales.length, details: 0 };
+      if (state.activeArea === "operaciones" && state.activeSubmenu === "resultados-control-ventas") renderDashboard();
+    })
+    .catch((error) => console.error("No se pudo cargar Control de Ventas.", error));
+}
+
+function controlSalesFilteredRows() {
+  const query = normalizeKey(state.controlSalesQuery);
+  let rows = state.controlSales.filter((order) => {
+    if (state.controlSalesStatus === "active" && order.archived) return false;
+    if (state.controlSalesStatus === "archived" && !order.archived) return false;
+    if (state.controlSalesStatus === "review" && !(order.anomalies?.length || order.details.some((detail) => detail.reviewRequired || detail.anomalies?.length))) return false;
+    if (state.controlSalesSeller !== "all" && order.seller !== state.controlSalesSeller) return false;
+    if (state.controlSalesDateFrom && order.date < state.controlSalesDateFrom) return false;
+    if (state.controlSalesDateTo && order.date > state.controlSalesDateTo) return false;
+    if (!query) return true;
+    const detailText = order.details.map((detail) => `${detail.product} ${detail.size}`).join(" ");
+    return normalizeKey(`${order.number} ${order.seller} ${order.client} ${order.status} ${detailText}`).includes(query);
+  });
+  const sorts = {
+    "date-desc": (a, b) => String(b.date).localeCompare(String(a.date)) || String(b.number).localeCompare(String(a.number), "es", { numeric: true }),
+    "date-asc": (a, b) => String(a.date).localeCompare(String(b.date)),
+    "total-desc": (a, b) => b.totalCents - a.totalCents,
+    "number-asc": (a, b) => String(a.number).localeCompare(String(b.number), "es", { numeric: true })
+  };
+  return rows.sort(sorts[state.controlSalesSort] || sorts["date-desc"]);
+}
+
+function renderControlSales() {
+  const rows = controlSalesFilteredRows();
+  const sellers = [...new Set(state.controlSales.map((order) => order.seller).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const pageSize = 10;
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  state.controlSalesPage = Math.min(Math.max(state.controlSalesPage, 1), pages);
+  const start = (state.controlSalesPage - 1) * pageSize;
+  const visible = rows.slice(start, start + pageSize);
+  const total = rows.reduce((sum, order) => sum + Number(order.totalCents || 0), 0);
+  const anomalies = rows.filter((order) => order.anomalies?.length || order.details.some((detail) => detail.reviewRequired || detail.anomalies?.length)).length;
+  return `<section class="control-sales-shell">
+    <header class="control-sales-hero">
+      <div><span>Operaciones · trazabilidad comercial</span><h3>Control de Ventas</h3><p>Historial normalizado, líneas cobrables y auditoría en una sola vista.</p></div>
+      <div class="control-sales-kpis"><article><small>Órdenes visibles</small><strong>${rows.length}</strong><span>${state.controlSalesCounts.orders || 0} históricas y manuales</span></article><article><small>Total consolidado</small><strong>${formatControlSalesMoney(total)}</strong><span>Calculado desde líneas activas</span></article><article class="${anomalies ? "warning" : ""}"><small>Por revisar</small><strong>${anomalies}</strong><span>Advertencias del origen</span></article></div>
+    </header>
+    <div class="control-sales-toolbar">
+      <label class="control-sales-search"><span>⌕</span><input type="search" data-control-sales-query value="${escapeHtml(state.controlSalesQuery)}" placeholder="Buscar orden, vendedor, cliente, producto o talla..."></label>
+      <select data-control-sales-seller><option value="all">Todos los vendedores</option>${sellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.controlSalesSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select>
+      <select data-control-sales-status><option value="active" ${state.controlSalesStatus === "active" ? "selected" : ""}>Activas</option><option value="all" ${state.controlSalesStatus === "all" ? "selected" : ""}>Todas</option><option value="archived" ${state.controlSalesStatus === "archived" ? "selected" : ""}>Archivadas</option><option value="review" ${state.controlSalesStatus === "review" ? "selected" : ""}>Por revisar</option></select>
+      <input type="date" data-control-sales-from value="${escapeHtml(state.controlSalesDateFrom)}" aria-label="Fecha inicial"><input type="date" data-control-sales-to value="${escapeHtml(state.controlSalesDateTo)}" aria-label="Fecha final">
+      <select data-control-sales-sort><option value="date-desc">Más recientes</option><option value="date-asc" ${state.controlSalesSort === "date-asc" ? "selected" : ""}>Más antiguas</option><option value="total-desc" ${state.controlSalesSort === "total-desc" ? "selected" : ""}>Mayor total</option><option value="number-asc" ${state.controlSalesSort === "number-asc" ? "selected" : ""}>Número de orden</option></select>
+      <button type="button" class="primary-btn" data-control-sales-new>+ Nueva orden</button>
+    </div>
+    <div class="control-sales-table">
+      <div class="control-sales-row head"><span>Orden</span><span>Fecha</span><span>Vendedor</span><span>Cliente</span><span>Líneas</span><span>Total</span><span>Estado</span><span>Acciones</span></div>
+      ${visible.map((order) => {
+        const warning = order.anomalies?.length || order.details.some((detail) => detail.reviewRequired || detail.anomalies?.length);
+        return `<article class="control-sales-row ${order.archived ? "archived" : ""}">
+          <span><b>#${escapeHtml(order.number)}</b><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Manual"}</small></span>
+          <span>${formatDate(order.date)}</span><span>${escapeHtml(order.seller)}</span><span title="${escapeHtml(order.client)}">${escapeHtml(order.client)}</span>
+          <span><b>${order.details.length}</b><small>productos</small></span><span class="money">${formatControlSalesMoney(order.totalCents)}</span>
+          <span><em class="control-sales-status ${warning ? "warning" : ""}">${warning ? "⚠ Revisar" : escapeHtml(order.status)}</em></span>
+          <span class="control-sales-actions"><button type="button" data-control-sales-view="${order.id}">Ver</button><button type="button" data-control-sales-edit="${order.id}">Editar</button><button type="button" class="${order.archived ? "restore" : "danger"}" data-control-sales-archive="${order.id}">${order.archived ? "Restaurar" : "Archivar"}</button></span>
+        </article>`;
+      }).join("") || `<div class="empty-state">No hay órdenes para los filtros seleccionados.</div>`}
+    </div>
+    <footer class="control-sales-pagination"><span>Mostrando ${rows.length ? start + 1 : 0}-${Math.min(start + pageSize, rows.length)} de ${rows.length}</span><div><button type="button" data-control-sales-page="prev" ${state.controlSalesPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.controlSalesPage} de ${pages}</strong><button type="button" data-control-sales-page="next" ${state.controlSalesPage >= pages ? "disabled" : ""}>Siguiente</button></div></footer>
+  </section>`;
+}
+
+function ensureControlSalesDialogs() {
+  if (document.querySelector("#controlSalesDialog")) return;
+  document.body.insertAdjacentHTML("beforeend", `
+    <dialog id="controlSalesDialog" class="wide-dialog control-sales-dialog"><form id="controlSalesForm" method="dialog">
+      <header><div><p class="eyebrow">Operaciones</p><h3 id="controlSalesDialogTitle">Nueva orden</h3></div><button type="button" data-control-sales-close>×</button></header>
+      <input type="hidden" id="controlSalesId"><section class="control-sales-form-head"><label>Número de orden<input id="controlSalesNumber" required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
+      <section class="control-sales-lines"><div class="control-sales-lines-title"><div><span>Detalle de productos</span><strong>Líneas dinámicas</strong></div><button type="button" data-control-sales-add-line>+ Agregar línea</button></div><div id="controlSalesLines"></div></section>
+      <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
+    </form></dialog>
+    <dialog id="controlSalesDetailDialog" class="wide-dialog control-sales-detail-dialog"><section id="controlSalesDetailContent"></section></dialog>`);
+  const formDialog = document.querySelector("#controlSalesDialog");
+  const form = document.querySelector("#controlSalesForm");
+  formDialog.addEventListener("click", (event) => {
+    if (event.target.matches("[data-control-sales-close]")) formDialog.close();
+    if (event.target.matches("[data-control-sales-add-line]")) {
+      document.querySelector("#controlSalesLines").insertAdjacentHTML("beforeend", controlSalesLineTemplate());
+      updateControlSalesFormTotal();
+    }
+    if (event.target.matches("[data-control-sales-remove-line]")) {
+      const lines = document.querySelectorAll("#controlSalesLines .control-sales-line");
+      if (lines.length <= 1) return alert("La orden debe conservar al menos una línea.");
+      if (!confirm("¿Quitar esta línea? El registro anterior se conservará en auditoría.")) return;
+      event.target.closest(".control-sales-line").remove();
+      updateControlSalesFormTotal();
+    }
+  });
+  formDialog.addEventListener("input", (event) => {
+    if (event.target.closest(".control-sales-line")) updateControlSalesFormTotal();
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const details = [...document.querySelectorAll("#controlSalesLines .control-sales-line")].map((line) => ({
+      id: line.dataset.lineId, product: line.querySelector("[data-line-product]").value.trim(),
+      size: line.querySelector("[data-line-size]").value.trim(), quantity: line.querySelector("[data-line-quantity]").value,
+      unitPrice: line.querySelector("[data-line-price]").value, vat: line.querySelector("[data-line-vat]").value || "0",
+      notes: line.querySelector("[data-line-notes]").value.trim()
+    }));
+    const id = document.querySelector("#controlSalesId").value;
+    const payload = { number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+    const submit = form.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    try {
+      await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
+      formDialog.close();
+      loadControlSales();
+    } catch (error) {
+      alert("No fue posible guardar la orden. Verifica los campos, precios y que el número no esté repetido.");
+    } finally { submit.disabled = false; }
+  });
+  const detailDialog = document.querySelector("#controlSalesDetailDialog");
+  detailDialog.addEventListener("click", (event) => {
+    if (event.target.matches("[data-control-sales-detail-close]")) detailDialog.close();
+    if (event.target.matches("[data-control-sales-detail-edit]")) {
+      const order = state.controlSales.find((item) => item.id === event.target.dataset.controlSalesDetailEdit);
+      detailDialog.close();
+      if (order) openControlSalesForm(order);
+    }
+  });
+}
+
+function controlSalesLineTemplate(detail = {}) {
+  const id = detail.id || crypto.randomUUID();
+  const price = detail.unitPriceCents == null ? "" : (detail.unitPriceCents / 100).toFixed(2);
+  return `<div class="control-sales-line" data-line-id="${escapeHtml(id)}"><label>Producto<input data-line-product required value="${escapeHtml(detail.product || "")}"></label><label>Talla<input data-line-size value="${escapeHtml(detail.size || "")}"></label><label>Cantidad<input data-line-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(detail.quantity || "1")}"></label><label>Precio unitario<input data-line-price required type="number" min="0" step="0.01" value="${price}"></label><label>IVA<input data-line-vat type="number" min="0" step="0.01" value="${((detail.vatCents || 0) / 100).toFixed(2)}"></label><output data-line-total>${formatControlSalesMoney(detail.lineTotalCents || 0)}</output><label>Observaciones<input data-line-notes value="${escapeHtml(detail.notes || "")}"></label><button type="button" data-control-sales-remove-line aria-label="Quitar línea">×</button></div>`;
+}
+
+function updateControlSalesFormTotal() {
+  let cents = 0;
+  document.querySelectorAll("#controlSalesLines .control-sales-line").forEach((line) => {
+    const quantity = Number(line.querySelector("[data-line-quantity]").value || 0);
+    const price = Math.round(Number(line.querySelector("[data-line-price]").value || 0) * 100);
+    const vat = Math.round(Number(line.querySelector("[data-line-vat]").value || 0) * 100);
+    const lineTotal = Math.round(quantity * price) + vat;
+    cents += lineTotal;
+    line.querySelector("[data-line-total]").textContent = formatControlSalesMoney(lineTotal);
+  });
+  document.querySelector("#controlSalesFormTotal").textContent = formatControlSalesMoney(cents);
+}
+
+function openControlSalesForm(order = null) {
+  ensureControlSalesDialogs();
+  document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar orden #${order.number}` : "Nueva orden";
+  document.querySelector("#controlSalesId").value = order?.id || "";
+  document.querySelector("#controlSalesNumber").value = order?.number || "";
+  document.querySelector("#controlSalesDate").value = order?.date || todayISO();
+  document.querySelector("#controlSalesSeller").value = order?.seller || "";
+  document.querySelector("#controlSalesClient").value = order?.client || "";
+  document.querySelector("#controlSalesOrderStatus").value = order?.status === "Histórica" ? "Activa" : (order?.status || "Activa");
+  document.querySelector("#controlSalesLines").innerHTML = (order?.details?.length ? order.details : [{}]).map(controlSalesLineTemplate).join("");
+  updateControlSalesFormTotal();
+  document.querySelector("#controlSalesDialog").showModal();
+}
+
+async function openControlSalesDetail(orderId) {
+  ensureControlSalesDialogs();
+  const order = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}`);
+  const warnings = [...(order.anomalies || []), ...order.details.flatMap((detail) => detail.reviewRequired ? [{ description: `Precio faltante en ${detail.product}; requiere revisión.` }] : (detail.anomalies || []))];
+  document.querySelector("#controlSalesDetailContent").innerHTML = `<header><div><p class="eyebrow">Control de Ventas · ${escapeHtml(order.source)}</p><h3>Orden #${escapeHtml(order.number)}</h3><span>${escapeHtml(order.client)} · ${escapeHtml(order.seller)}</span></div><button type="button" data-control-sales-detail-close>×</button></header>
+    <div class="control-sales-detail-summary"><article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article><article><small>Líneas</small><strong>${order.details.length}</strong></article><article><small>Total consolidado</small><strong>${formatControlSalesMoney(order.totalCents)}</strong></article><article><small>Estado</small><strong>${escapeHtml(order.status)}</strong></article></div>
+    ${warnings.length ? `<aside class="control-sales-warnings"><strong>⚠ Advertencias históricas</strong>${warnings.map((warning) => `<p>${escapeHtml(warning.description || warning.type || "Dato por revisar")}</p>`).join("")}</aside>` : ""}
+    <div class="control-sales-detail-lines"><div class="control-sales-detail-row head"><span>#</span><span>Producto</span><span>Talla</span><span>Cantidad</span><span>Precio</span><span>IVA</span><span>Total</span></div>${order.details.map((detail, index) => `<article class="control-sales-detail-row"><span>${index + 1}</span><strong>${escapeHtml(detail.product)}</strong><span>${escapeHtml(detail.size || "—")}</span><span>${escapeHtml(detail.quantity)}</span><span>${detail.unitPriceCents == null ? "Revisar" : formatControlSalesMoney(detail.unitPriceCents)}</span><span>${formatControlSalesMoney(detail.vatCents)}</span><strong>${formatControlSalesMoney(detail.lineTotalCents)}</strong></article>`).join("")}</div>
+    <section class="control-sales-audit"><h4>Auditoría</h4>${order.audit.map((entry) => `<article><strong>${escapeHtml(entry.action)}</strong><span>${escapeHtml(entry.userName)} · ${escapeHtml(entry.createdAt)}</span><small>${escapeHtml(entry.summary)}</small></article>`).join("") || `<p>Historial importado desde Excel.</p>`}</section>
+    <footer><button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar orden</button></footer>`;
+  document.querySelector("#controlSalesDetailDialog").showModal();
+}
+
+function wireControlSales() {
+  const rerender = () => { state.controlSalesPage = 1; renderCommercialSubmenu(areas.operaciones); };
+  document.querySelector("[data-control-sales-query]")?.addEventListener("input", (event) => { state.controlSalesQuery = event.target.value; rerender(); const input = document.querySelector("[data-control-sales-query]"); input?.focus({ preventScroll: true }); input?.setSelectionRange(input.value.length, input.value.length); });
+  [["seller","controlSalesSeller"],["status","controlSalesStatus"],["from","controlSalesDateFrom"],["to","controlSalesDateTo"],["sort","controlSalesSort"]].forEach(([name,key]) => document.querySelector(`[data-control-sales-${name}]`)?.addEventListener("change", (event) => { state[key] = event.target.value; rerender(); }));
+  document.querySelector("[data-control-sales-new]")?.addEventListener("click", () => openControlSalesForm());
+  document.querySelectorAll("[data-control-sales-view]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.controlSalesView)));
+  document.querySelectorAll("[data-control-sales-edit]").forEach((button) => button.addEventListener("click", () => openControlSalesForm(state.controlSales.find((order) => order.id === button.dataset.controlSalesEdit))));
+  document.querySelectorAll("[data-control-sales-archive]").forEach((button) => button.addEventListener("click", async () => { const order = state.controlSales.find((item) => item.id === button.dataset.controlSalesArchive); if (!order) return; const reason = prompt(order.archived ? "Motivo de restauración:" : "Motivo de anulación o archivo:"); if (reason === null || !reason.trim()) return; await apiJson(`/api/control-sales/${encodeURIComponent(order.id)}`, { method:"PATCH", body:JSON.stringify({ archived:!order.archived, reason, updatedBy:state.currentUser?.name }) }); loadControlSales(); }));
+  document.querySelectorAll("[data-control-sales-page]").forEach((button) => button.addEventListener("click", () => { state.controlSalesPage += button.dataset.controlSalesPage === "next" ? 1 : -1; renderCommercialSubmenu(areas.operaciones); }));
 }
 
 function wirePurchaseOrders() {
@@ -4775,6 +4979,21 @@ function renderCommercialSubmenu(area) {
     commercialSubmenuStatus.textContent = state.purchaseOrders.length ? `${totals.count} con saldo · ${formatMoney(totals.remaining)} pendiente` : "Cargando matriz de órdenes...";
     opportunityTable.innerHTML = renderPurchaseOrders();
     wirePurchaseOrders();
+    return;
+  }
+
+  if (state.activeArea === "operaciones" && submenu.key === "resultados-control-ventas") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = state.controlSales.length
+      ? `${state.controlSalesCounts.orders || state.controlSales.length} órdenes · ${state.controlSalesCounts.details || 0} detalles`
+      : "Cargando historial normalizado...";
+    opportunityTable.innerHTML = renderControlSales();
+    wireControlSales();
     return;
   }
 
@@ -7960,6 +8179,7 @@ loadFinancialOrders();
 syncFinancialOrdersWithApi();
 loadAccountsReceivable();
 loadPurchaseOrders();
+loadControlSales();
 loadOpportunities();
 loadStrategicRisks();
 loadManagementRequests();

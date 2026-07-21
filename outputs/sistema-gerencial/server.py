@@ -4,6 +4,8 @@ import mimetypes
 import os
 import sqlite3
 import time
+import uuid
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote
@@ -16,9 +18,10 @@ DB_PATH = DATA_DIR / "sistema-gerencial.db"
 CRM_SEED_PATH = ROOT / "crm-seed.json"
 ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
 PURCHASE_ORDERS_SEED_PATH = ROOT / "purchase-orders-seed.json"
+CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-purchase-orders-v1"
+API_VERSION = "kmi-control-sales-v1"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -33,7 +36,7 @@ AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"],
     "financiera": ["resultados", "resultados-pedidos", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido", "kpi"],
-    "operaciones": ["resultados", "kpi"],
+    "operaciones": ["resultados", "resultados-control-ventas", "kpi"],
     "rrhh": ["resultados", "kpi"],
 }
 VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
@@ -1019,6 +1022,200 @@ def seed_purchase_orders(conn):
     )
 
 
+def control_sales_cents(value, field="monto"):
+    if isinstance(value, bool) or value in (None, ""):
+        raise ValueError(f"{field} es requerido")
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        raise ValueError(f"{field} no es valido")
+    return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def control_sales_quantity(value):
+    try:
+        quantity = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        raise ValueError("Cantidad no valida")
+    if quantity <= 0:
+        raise ValueError("La cantidad debe ser mayor que cero")
+    return format(quantity.normalize(), "f")
+
+
+def control_sales_order_payload(conn, row, include_audit=False):
+    detail_rows = conn.execute("""
+        SELECT * FROM control_sales_details
+        WHERE order_id = ? AND active = 1
+        ORDER BY sequence, created_at, id
+    """, (row["id"],)).fetchall()
+    item = {
+        "id": row["id"], "externalId": row["external_id"], "source": row["source"],
+        "number": row["order_number"], "date": row["order_date"], "seller": row["seller"],
+        "client": row["client"], "status": row["status"], "totalCents": row["total_cents"],
+        "declaredTotalCents": row["declared_total_cents"], "archived": bool(row["archived"]),
+        "qualityStatus": row["quality_status"], "anomalies": json.loads(row["anomalies"] or "[]"),
+        "sourceRowStart": row["source_row_start"], "sourceRowEnd": row["source_row_end"],
+        "notes": row["notes"], "createdBy": row["created_by"], "updatedBy": row["updated_by"],
+        "createdAt": row["created_at"], "updatedAt": row["updated_at"],
+        "details": [{
+            "id": detail["id"], "externalId": detail["external_id"],
+            "groupExternalId": detail["group_external_id"], "sequence": detail["sequence"],
+            "product": detail["product"], "size": detail["size"], "quantity": detail["quantity"],
+            "unitPriceCents": detail["unit_price_cents"], "vatCents": detail["vat_cents"],
+            "lineTotalCents": detail["line_total_cents"], "originalTotalCents": detail["original_total_cents"],
+            "notes": detail["notes"], "sourceRow": detail["source_row"],
+            "qualityStatus": detail["quality_status"], "reviewRequired": bool(detail["review_required"]),
+            "anomalies": json.loads(detail["anomalies"] or "[]"),
+        } for detail in detail_rows],
+    }
+    if include_audit:
+        item["audit"] = [dict(entry) for entry in conn.execute("""
+            SELECT action, user_name AS userName, created_at AS createdAt, summary
+            FROM control_sales_audit WHERE order_id = ? ORDER BY created_at DESC, id DESC
+        """, (row["id"],)).fetchall()]
+    return item
+
+
+def control_sales_validate(data, existing=None):
+    current = dict(existing or {})
+    number = text(data.get("number"), current.get("number") or "")
+    seller = text(data.get("seller"), current.get("seller") or "")
+    order_date = text(data.get("date"), current.get("date") or "")
+    client = text(data.get("client"), current.get("client") or "")
+    if not all((number, seller, order_date, client)):
+        raise ValueError("Numero, vendedor, fecha y cliente son requeridos")
+    raw_details = data.get("details")
+    if not isinstance(raw_details, list) or not raw_details:
+        raise ValueError("La orden debe contener al menos una linea")
+    details = []
+    total_cents = 0
+    for index, raw in enumerate(raw_details, start=1):
+        product = text(raw.get("product"))
+        if not product:
+            raise ValueError(f"Producto requerido en la linea {index}")
+        quantity_text = control_sales_quantity(raw.get("quantity"))
+        quantity = Decimal(quantity_text)
+        unit_price_cents = control_sales_cents(raw.get("unitPrice"), f"Precio unitario de la linea {index}")
+        vat_cents = control_sales_cents(raw.get("vat", 0), f"IVA de la linea {index}")
+        if unit_price_cents < 0 or vat_cents < 0:
+            raise ValueError("Precio unitario e IVA deben ser mayores o iguales a cero")
+        line_total_cents = int((quantity * Decimal(unit_price_cents)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) + vat_cents
+        total_cents += line_total_cents
+        details.append({
+            "id": text(raw.get("id"), f"cvd-{uuid.uuid4()}"), "sequence": index,
+            "product": product, "size": text(raw.get("size")), "quantity": quantity_text,
+            "unitPriceCents": unit_price_cents, "vatCents": vat_cents,
+            "lineTotalCents": line_total_cents, "notes": text(raw.get("notes")),
+        })
+    return {
+        "number": number, "seller": seller, "date": order_date, "client": client,
+        "status": text(data.get("status"), current.get("status") or "Activa"),
+        "details": details, "totalCents": total_cents,
+    }
+
+
+def save_control_sales_order(conn, data, existing_row=None):
+    existing = control_sales_order_payload(conn, existing_row) if existing_row else None
+    item = control_sales_validate(data, existing)
+    order_id = existing_row["id"] if existing_row else f"cv-{uuid.uuid4()}"
+    duplicate = conn.execute("""
+        SELECT id FROM control_sales_orders
+        WHERE lower(order_number) = lower(?) AND source = 'manual' AND id <> ?
+    """, (item["number"], order_id)).fetchone()
+    if duplicate:
+        raise sqlite3.IntegrityError("Numero de orden duplicado")
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
+    if existing_row:
+        conn.execute("""
+            UPDATE control_sales_orders SET order_number=?, order_date=?, seller=?, client=?, status=?,
+                total_cents=?, updated_by=?, updated_at=? WHERE id=?
+        """, (item["number"], item["date"], item["seller"], item["client"], item["status"], item["totalCents"], actor, now, order_id))
+        conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
+        action = "edicion"
+    else:
+        conn.execute("""
+            INSERT INTO control_sales_orders (
+                id, source, order_number, order_date, seller, client, status, total_cents,
+                created_by, updated_by, created_at, updated_at
+            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["totalCents"], actor, actor, now, now))
+        action = "creacion"
+    for detail in item["details"]:
+        conn.execute("""
+            INSERT INTO control_sales_details (
+                id, order_id, sequence, product, size, quantity, unit_price_cents, vat_cents,
+                line_total_cents, notes, active, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET sequence=excluded.sequence, product=excluded.product,
+                size=excluded.size, quantity=excluded.quantity, unit_price_cents=excluded.unit_price_cents,
+                vat_cents=excluded.vat_cents, line_total_cents=excluded.line_total_cents,
+                notes=excluded.notes, active=1, updated_at=excluded.updated_at
+        """, (detail["id"], order_id, detail["sequence"], detail["product"], detail["size"], detail["quantity"], detail["unitPriceCents"], detail["vatCents"], detail["lineTotalCents"], detail["notes"], now, now))
+    conn.execute("INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
+                 (order_id, action, actor, now, f"Orden {item['number']} · {len(item['details'])} lineas"))
+    row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone()
+    return control_sales_order_payload(conn, row, include_audit=True)
+
+
+def seed_control_sales(conn):
+    try:
+        seed = json.loads(CONTROL_SALES_SEED_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"No se pudo cargar Control de Ventas: {error}")
+        return
+    version = text(seed.get("version"), "control-sales-v1")
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    for order in seed.get("orders", []):
+        external_id = text(order.get("externalId"))
+        order_id = f"cv-import-{external_id}"
+        total_cents = sum(int(detail.get("lineTotalCents") or 0) for detail in order.get("details", []))
+        conn.execute("""
+            INSERT INTO control_sales_orders (
+                id, external_id, source, order_number, order_date, seller, client, status,
+                total_cents, declared_total_cents, quality_status, anomalies, source_row_start,
+                source_row_end, notes, created_by, updated_by, created_at, updated_at
+            ) VALUES (?, ?, 'importado', ?, ?, ?, ?, 'Histórica', ?, ?, ?, ?, ?, ?, ?, 'Importación Excel', 'Importación Excel', ?, ?)
+            ON CONFLICT(external_id) DO NOTHING
+        """, (order_id, external_id, text(order.get("number")), text(order.get("date")), text(order.get("seller")), text(order.get("client")), total_cents, order.get("declaredTotalCents"), text(order.get("qualityStatus")), json.dumps(order.get("anomalies") or [], ensure_ascii=False), text(order.get("sourceRowStart")), text(order.get("sourceRowEnd")), text(order.get("notes")), now, now))
+        stored = conn.execute("SELECT id FROM control_sales_orders WHERE external_id = ?", (external_id,)).fetchone()
+        if not stored:
+            continue
+        conn.execute("""
+            INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary)
+            SELECT ?, 'importacion', 'Importación Excel', ?, ?
+            WHERE NOT EXISTS (
+                SELECT 1 FROM control_sales_audit WHERE order_id = ? AND action = 'importacion'
+            )
+        """, (stored["id"], now, f"Importación histórica · orden {text(order.get('number'))}", stored["id"]))
+        for detail in order.get("details", []):
+            detail_external_id = text(detail.get("externalId"))
+            conn.execute("""
+                INSERT INTO control_sales_details (
+                    id, external_id, order_id, group_external_id, sequence, product, size, quantity,
+                    unit_price_cents, vat_cents, line_total_cents, original_total_cents, notes,
+                    source_row, quality_status, review_required, anomalies, active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                ON CONFLICT(external_id) DO NOTHING
+            """, (f"cvd-import-{detail_external_id}", detail_external_id, stored["id"], text(detail.get("groupExternalId")), int(detail.get("sequence") or 0), text(detail.get("product")), text(detail.get("size")), text(detail.get("quantity")), detail.get("unitPriceCents"), int(detail.get("vatCents") or 0), int(detail.get("lineTotalCents") or 0), detail.get("originalTotalCents"), text(detail.get("notes")), text(detail.get("sourceRow")), text(detail.get("qualityStatus")), int(bool(detail.get("reviewRequired"))), json.dumps(detail.get("anomalies") or [], ensure_ascii=False), now, now))
+    conn.execute("""
+        INSERT INTO app_state (key, value, updated_at) VALUES ('control_sales_import', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP
+    """, (json.dumps({"version": version, "orders": seed.get("orderCount"), "details": seed.get("detailCount")}),))
+
+
+def grant_control_sales_permissions(conn):
+    permission = "operaciones:resultados-control-ventas"
+    for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
+        try:
+            permissions = json.loads(row["permissions"] or "[]")
+        except json.JSONDecodeError:
+            permissions = []
+        if row["role"] in {"gerencias", "jefaturas"} and permission not in permissions:
+            permissions.append(permission)
+            conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions, ensure_ascii=True), row["id"]))
+
+
 def grant_purchase_order_permissions(conn):
     migration_key = "migration_purchase_order_permissions_v1"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
@@ -1227,6 +1424,68 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_purchase_orders_due_date ON purchase_orders(due_date)")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS control_sales_orders (
+                id TEXT PRIMARY KEY,
+                external_id TEXT UNIQUE,
+                source TEXT NOT NULL DEFAULT 'manual',
+                order_number TEXT NOT NULL,
+                order_date TEXT NOT NULL,
+                seller TEXT NOT NULL,
+                client TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'Activa',
+                total_cents INTEGER NOT NULL DEFAULT 0,
+                declared_total_cents INTEGER,
+                archived INTEGER NOT NULL DEFAULT 0,
+                quality_status TEXT DEFAULT '',
+                anomalies TEXT NOT NULL DEFAULT '[]',
+                source_row_start TEXT DEFAULT '',
+                source_row_end TEXT DEFAULT '',
+                notes TEXT DEFAULT '',
+                created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                updated_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS control_sales_details (
+                id TEXT PRIMARY KEY,
+                external_id TEXT UNIQUE,
+                order_id TEXT NOT NULL REFERENCES control_sales_orders(id),
+                group_external_id TEXT DEFAULT '',
+                sequence INTEGER NOT NULL,
+                product TEXT NOT NULL,
+                size TEXT DEFAULT '',
+                quantity TEXT NOT NULL,
+                unit_price_cents INTEGER,
+                vat_cents INTEGER NOT NULL DEFAULT 0,
+                line_total_cents INTEGER NOT NULL DEFAULT 0,
+                original_total_cents INTEGER,
+                notes TEXT DEFAULT '',
+                source_row TEXT DEFAULT '',
+                quality_status TEXT DEFAULT '',
+                review_required INTEGER NOT NULL DEFAULT 0,
+                anomalies TEXT NOT NULL DEFAULT '[]',
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS control_sales_audit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id TEXT NOT NULL REFERENCES control_sales_orders(id),
+                action TEXT NOT NULL,
+                user_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                summary TEXT DEFAULT ''
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_number ON control_sales_orders(order_number)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_date ON control_sales_orders(order_date)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_seller ON control_sales_orders(seller)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_details_order ON control_sales_details(order_id, active)")
+        conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
@@ -1247,6 +1506,8 @@ def init_db():
         seed_accounts_receivable(conn)
         seed_purchase_orders(conn)
         grant_purchase_order_permissions(conn)
+        seed_control_sales(conn)
+        grant_control_sales_permissions(conn)
 
 
 class AppHandler(BaseHTTPRequestHandler):
@@ -1372,6 +1633,33 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([purchase_order_payload(row) for row in rows])
             return
 
+        if self.path == "/api/control-sales":
+            with connect() as conn:
+                rows = conn.execute("""
+                    SELECT * FROM control_sales_orders
+                    ORDER BY archived, order_date DESC, CAST(order_number AS INTEGER) DESC, order_number DESC
+                """).fetchall()
+                items = [control_sales_order_payload(conn, row) for row in rows]
+                counts = conn.execute("""
+                    SELECT COUNT(*) AS orders,
+                           (SELECT COUNT(*) FROM control_sales_details WHERE active = 1) AS details
+                    FROM control_sales_orders
+                """).fetchone()
+                imported = conn.execute("SELECT value FROM app_state WHERE key = 'control_sales_import'").fetchone()
+            self.send_json({"items": items, "counts": dict(counts), "import": json.loads(imported["value"] if imported else "{}")})
+            return
+
+        if self.path.startswith("/api/control-sales/"):
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (item_id,)).fetchone()
+                item = control_sales_order_payload(conn, row, include_audit=True) if row else None
+            if not item:
+                self.send_json({"error": "Orden no encontrada"}, status=404)
+                return
+            self.send_json(item)
+            return
+
         if self.path == "/api/opportunities":
             with connect() as conn:
                 value = conn.execute(
@@ -1490,6 +1778,31 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
+        if self.path == "/api/control-sales":
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    item = save_control_sales_order(conn, data)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "El numero de orden ya existe"}, status=409)
+                return
+            self.send_json({"ok": True, "item": item}, status=201)
+            return
+
+        if self.path == "/api/control-sales/import":
+            with connect() as conn:
+                seed_control_sales(conn)
+                counts = conn.execute("""
+                    SELECT COUNT(*) AS orders,
+                           (SELECT COUNT(*) FROM control_sales_details WHERE active = 1) AS details
+                    FROM control_sales_orders WHERE source = 'importado'
+                """).fetchone()
+            self.send_json({"ok": True, **dict(counts)})
+            return
+
         if self.path == "/api/users":
             data = self.read_json()
             if isinstance(data.get("users"), list):
@@ -1562,6 +1875,25 @@ class AppHandler(BaseHTTPRequestHandler):
                     return
                 data["id"] = item_id
                 item = upsert_purchase_order(conn, data, purchase_order_payload(row))
+            self.send_json({"ok": True, "item": item})
+            return
+
+        if self.path.startswith("/api/control-sales/"):
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (item_id,)).fetchone()
+                    if not row:
+                        self.send_json({"error": "Orden no encontrada"}, status=404)
+                        return
+                    item = save_control_sales_order(conn, data, row)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "El numero de orden ya existe"}, status=409)
+                return
             self.send_json({"ok": True, "item": item})
             return
 
@@ -1664,6 +1996,26 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "Usuario no encontrado"}, status=404)
                     return
             self.send_json({"ok": True, "user": user})
+            return
+        if self.path.startswith("/api/control-sales/"):
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            changes = self.read_json()
+            archived = 1 if changes.get("archived") else 0
+            actor = text(changes.get("updatedBy"), "Sistema Gerencial")
+            action = "anulacion" if archived else "restauracion"
+            now = time.strftime("%Y-%m-%dT%H:%M:%S")
+            with connect() as conn:
+                result = conn.execute("""
+                    UPDATE control_sales_orders SET archived=?, status=?, updated_by=?, updated_at=? WHERE id=?
+                """, (archived, "Archivada" if archived else "Activa", actor, now, item_id))
+                if not result.rowcount:
+                    self.send_json({"error": "Orden no encontrada"}, status=404)
+                    return
+                conn.execute("INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
+                             (item_id, action, actor, now, text(changes.get("reason"))))
+                row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (item_id,)).fetchone()
+                item = control_sales_order_payload(conn, row, include_audit=True)
+            self.send_json({"ok": True, "item": item})
             return
         self.send_error(404)
 
