@@ -11912,3 +11912,67 @@ dialog select:disabled {
     max-height: 52vh;
   }
 }
+
+/* Ordenes de venta: captura compacta de productos en una sola linea. */
+.control-sales-lines,
+#controlSalesLines {
+  min-width: 0;
+}
+
+#controlSalesLines {
+  display: grid;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-color: #4c8ab6 #0d2039;
+  scrollbar-width: thin;
+}
+
+.control-sales-line {
+  grid-template-columns: minmax(220px, 1.55fr) minmax(100px, .55fr) 86px 118px 94px 116px minmax(190px, 1.25fr) 42px;
+  gap: 8px;
+  min-width: 1060px;
+  padding: 10px 12px;
+}
+
+.control-sales-line label {
+  min-width: 0;
+}
+
+.control-sales-line input {
+  min-height: 42px;
+  padding-inline: 10px;
+}
+
+.control-sales-line label:has([data-line-quantity]),
+.control-sales-line label:has([data-line-price]),
+.control-sales-line label:has([data-line-vat]) {
+  text-align: center;
+}
+
+.control-sales-line [data-line-quantity],
+.control-sales-line [data-line-price],
+.control-sales-line [data-line-vat] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.control-sales-line output {
+  justify-content: flex-end;
+  min-height: 42px;
+  padding-inline: 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.control-sales-line > button {
+  width: 42px;
+  height: 42px;
+}
+
+@media (max-width: 760px) {
+  .control-sales-line {
+    grid-template-columns: minmax(190px, 1.4fr) 95px 76px 108px 88px 105px minmax(170px, 1.2fr) 42px;
+    min-width: 930px;
+  }
+}
