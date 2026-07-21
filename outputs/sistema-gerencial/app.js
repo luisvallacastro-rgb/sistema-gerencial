@@ -2465,6 +2465,27 @@ function formatControlSalesMoney(cents) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(cents || 0) / 100);
 }
 
+function controlSalesIsoToDay(value) {
+  return Math.floor(Date.parse(`${value}T00:00:00Z`) / 86400000);
+}
+
+function controlSalesDayToIso(value) {
+  return new Date(Number(value) * 86400000).toISOString().slice(0, 10);
+}
+
+function controlSalesRangeModel() {
+  const dates = state.controlSales.map((order) => order.date).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+  const today = new Date().toISOString().slice(0, 10);
+  const minIso = dates[0] || today;
+  const maxIso = dates[dates.length - 1] || minIso;
+  const min = controlSalesIsoToDay(minIso);
+  const max = Math.max(min + 1, controlSalesIsoToDay(maxIso));
+  const from = Math.min(max, Math.max(min, controlSalesIsoToDay(state.controlSalesDateFrom || minIso)));
+  const to = Math.min(max, Math.max(from, controlSalesIsoToDay(state.controlSalesDateTo || maxIso)));
+  const span = Math.max(1, max - min);
+  return { min, max, from, to, minIso, maxIso, fromPercent: ((from - min) / span) * 100, toPercent: ((to - min) / span) * 100 };
+}
+
 function loadControlSales() {
   if (!apiEnabled) return;
   apiJson("/api/control-sales")
@@ -2501,6 +2522,7 @@ function controlSalesFilteredRows() {
 function renderControlSales() {
   const rows = controlSalesFilteredRows();
   const sellers = [...new Set(state.controlSales.map((order) => order.seller).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const range = controlSalesRangeModel();
   const pageSize = 15;
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   state.controlSalesPage = Math.min(Math.max(state.controlSalesPage, 1), pages);
@@ -2517,8 +2539,10 @@ function renderControlSales() {
       <label class="control-sales-search"><span>⌕</span><input type="search" data-control-sales-query value="${escapeHtml(state.controlSalesQuery)}" placeholder="Buscar orden, vendedor, cliente, producto o talla..."></label>
       <label class="control-sales-control"><small>Vendedor</small><select data-control-sales-seller><option value="all">Todos los vendedores</option>${sellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.controlSalesSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label>
       <label class="control-sales-control"><small>Estado</small><select data-control-sales-status><option value="active" ${state.controlSalesStatus === "active" ? "selected" : ""}>Activas</option><option value="all" ${state.controlSalesStatus === "all" ? "selected" : ""}>Todas</option><option value="archived" ${state.controlSalesStatus === "archived" ? "selected" : ""}>Archivadas</option><option value="review" ${state.controlSalesStatus === "review" ? "selected" : ""}>Por revisar</option></select></label>
-      <label class="control-sales-control"><small>Desde</small><input type="date" data-control-sales-from value="${escapeHtml(state.controlSalesDateFrom)}" aria-label="Fecha inicial"></label>
-      <label class="control-sales-control"><small>Hasta</small><input type="date" data-control-sales-to value="${escapeHtml(state.controlSalesDateTo)}" aria-label="Fecha final"></label>
+      <div class="control-sales-range" data-control-sales-range style="--range-start:${range.fromPercent.toFixed(2)}%;--range-end:${range.toPercent.toFixed(2)}%">
+        <div class="control-sales-range-head"><small>Rango de fechas</small><strong data-control-sales-range-label>${formatDate(controlSalesDayToIso(range.from))} — ${formatDate(controlSalesDayToIso(range.to))}</strong></div>
+        <div class="control-sales-range-track"><input type="range" min="${range.min}" max="${range.max}" value="${range.from}" data-control-sales-from aria-label="Fecha inicial"><input type="range" min="${range.min}" max="${range.max}" value="${range.to}" data-control-sales-to aria-label="Fecha final"></div>
+      </div>
       <label class="control-sales-control"><small>Ordenar</small><select data-control-sales-sort><option value="date-desc">Más recientes</option><option value="date-asc" ${state.controlSalesSort === "date-asc" ? "selected" : ""}>Más antiguas</option><option value="total-desc" ${state.controlSalesSort === "total-desc" ? "selected" : ""}>Mayor total</option><option value="number-asc" ${state.controlSalesSort === "number-asc" ? "selected" : ""}>Número de orden</option></select></label>
       <button type="button" class="primary-btn" data-control-sales-new>+ Nueva orden</button>
     </div>
@@ -2648,7 +2672,31 @@ async function openControlSalesDetail(orderId) {
 function wireControlSales() {
   const rerender = () => { state.controlSalesPage = 1; renderCommercialSubmenu(areas.operaciones); };
   document.querySelector("[data-control-sales-query]")?.addEventListener("input", (event) => { state.controlSalesQuery = event.target.value; rerender(); const input = document.querySelector("[data-control-sales-query]"); input?.focus({ preventScroll: true }); input?.setSelectionRange(input.value.length, input.value.length); });
-  [["seller","controlSalesSeller"],["status","controlSalesStatus"],["from","controlSalesDateFrom"],["to","controlSalesDateTo"],["sort","controlSalesSort"]].forEach(([name,key]) => document.querySelector(`[data-control-sales-${name}]`)?.addEventListener("change", (event) => { state[key] = event.target.value; rerender(); }));
+  [["seller","controlSalesSeller"],["status","controlSalesStatus"],["sort","controlSalesSort"]].forEach(([name,key]) => document.querySelector(`[data-control-sales-${name}]`)?.addEventListener("change", (event) => { state[key] = event.target.value; rerender(); }));
+  const fromRange = document.querySelector("[data-control-sales-from]");
+  const toRange = document.querySelector("[data-control-sales-to]");
+  const syncRange = (source) => {
+    if (!fromRange || !toRange) return;
+    let from = Number(fromRange.value);
+    let to = Number(toRange.value);
+    if (from > to && source === fromRange) to = from;
+    if (to < from && source === toRange) from = to;
+    fromRange.value = String(from);
+    toRange.value = String(to);
+    state.controlSalesDateFrom = controlSalesDayToIso(from);
+    state.controlSalesDateTo = controlSalesDayToIso(to);
+    const min = Number(fromRange.min);
+    const span = Math.max(1, Number(fromRange.max) - min);
+    const rangeElement = document.querySelector("[data-control-sales-range]");
+    rangeElement?.style.setProperty("--range-start", `${((from - min) / span) * 100}%`);
+    rangeElement?.style.setProperty("--range-end", `${((to - min) / span) * 100}%`);
+    const label = document.querySelector("[data-control-sales-range-label]");
+    if (label) label.textContent = `${formatDate(state.controlSalesDateFrom)} — ${formatDate(state.controlSalesDateTo)}`;
+  };
+  [fromRange, toRange].forEach((input) => {
+    input?.addEventListener("input", () => syncRange(input));
+    input?.addEventListener("change", () => { syncRange(input); rerender(); });
+  });
   document.querySelector("[data-control-sales-new]")?.addEventListener("click", () => openControlSalesForm());
   document.querySelectorAll("[data-control-sales-view]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.controlSalesView)));
   document.querySelectorAll("[data-control-sales-edit]").forEach((button) => button.addEventListener("click", () => openControlSalesForm(state.controlSales.find((order) => order.id === button.dataset.controlSalesEdit))));
