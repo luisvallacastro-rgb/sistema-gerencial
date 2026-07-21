@@ -11575,6 +11575,25 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   background: linear-gradient(90deg, #42d9b8, #72f5d1 52%, #69d8f5);
   box-shadow: 0 0 10px rgba(88, 230, 206, .38);
 }
+.control-sales-range-handle {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border: 4px solid #132e4d;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #a5ffe8, #59dfc2);
+  box-shadow: 0 0 0 3px rgba(114, 245, 209, .24), 0 3px 10px rgba(3, 15, 32, .5);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.control-sales-range-handle.is-from {
+  left: var(--range-start);
+}
+.control-sales-range-handle.is-to {
+  left: var(--range-end);
+}
 .control-sales-range-track input[type="range"] {
   position: absolute;
   z-index: 2;
@@ -11604,8 +11623,9 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   margin-top: -6px;
   border: 4px solid #132e4d;
   border-radius: 50%;
-  background: linear-gradient(145deg, #a5ffe8, #59dfc2);
-  box-shadow: 0 0 0 2px rgba(114, 245, 209, .28), 0 3px 10px rgba(3, 15, 32, .5);
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
   pointer-events: auto;
   cursor: grab;
   -webkit-appearance: none !important;
@@ -11620,14 +11640,53 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   height: 12px;
   border: 4px solid #132e4d;
   border-radius: 50%;
-  background: linear-gradient(145deg, #a5ffe8, #59dfc2);
-  box-shadow: 0 0 0 2px rgba(114, 245, 209, .28), 0 3px 10px rgba(3, 15, 32, .5);
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
   pointer-events: auto;
   cursor: grab;
 }
 .control-sales-range-track input[type="range"]:focus-visible::-webkit-slider-thumb {
-  outline: 2px solid #65aef8;
-  outline-offset: 2px;
+  outline: 0;
+}
+
+/* Controles nativos consistentes en Windows, macOS y Linux. */
+.app-shell select,
+.dialog-card select,
+.modal-card select,
+dialog select,
+.app-shell input[type="date"],
+.app-shell input[type="time"],
+.app-shell input[type="datetime-local"],
+.dialog-card input[type="date"],
+.dialog-card input[type="time"],
+.dialog-card input[type="datetime-local"] {
+  color-scheme: dark;
+}
+.app-shell select,
+.dialog-card select,
+.modal-card select,
+dialog select {
+  background-color: #263956 !important;
+  color: #f3f8ff !important;
+}
+.app-shell select option,
+.app-shell select optgroup,
+.dialog-card select option,
+.dialog-card select optgroup,
+.modal-card select option,
+.modal-card select optgroup,
+dialog select option,
+dialog select optgroup {
+  background: #142844;
+  color: #f3f8ff;
+}
+.app-shell select:disabled,
+.dialog-card select:disabled,
+.modal-card select:disabled,
+dialog select:disabled {
+  color: rgba(218, 230, 242, .58) !important;
+  opacity: .72;
 }
 .control-sales-search {
   padding: 0 12px;
