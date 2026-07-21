@@ -11391,3 +11391,203 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   #purchaseOrderMonthDialog .purchase-order-month-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #purchaseOrderMonthDialog .purchase-order-month-summary article:last-child { grid-column: span 2; }
 }
+
+/* Control de Ventas: vista operativa compacta y conservadora. */
+.control-sales-shell {
+  gap: 10px;
+  min-height: 0;
+}
+.control-sales-hero {
+  display: grid;
+  grid-template-columns: minmax(180px, .55fr) minmax(680px, 2.45fr);
+  align-items: stretch;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 18px;
+  background: rgba(24, 48, 78, .78);
+  box-shadow: none;
+}
+.control-sales-heading {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 8px;
+}
+.control-sales-heading p {
+  max-width: 230px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.control-sales-kpis {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.control-sales-kpis article {
+  min-height: 54px;
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: #142d4d;
+}
+.control-sales-kpis strong {
+  font-size: clamp(19px, 1.55vw, 27px);
+  line-height: 1;
+}
+.control-sales-kpis span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.control-sales-toolbar {
+  display: grid;
+  grid-template-columns: minmax(300px, 2.1fr) repeat(5, minmax(135px, .72fr)) minmax(150px, .8fr);
+  align-items: stretch;
+  gap: 6px;
+}
+.control-sales-search,
+.control-sales-control,
+.control-sales-toolbar > .primary-btn {
+  min-height: 40px;
+  border-radius: 13px;
+}
+.control-sales-control {
+  display: grid;
+  grid-template-rows: 15px 1fr;
+  gap: 1px;
+  min-width: 0;
+  padding: 3px 10px 4px;
+  border: 1px solid rgba(142,178,216,.22);
+  background: #1d304f;
+}
+.control-sales-control small {
+  color: #8fa2bb;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.control-sales-control input,
+.control-sales-control select {
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #edf6ff;
+  outline: 0;
+  font: inherit;
+  font-size: 12px;
+}
+.control-sales-search {
+  padding: 0 12px;
+}
+.control-sales-search input {
+  min-height: 38px;
+}
+.control-sales-toolbar > .primary-btn {
+  padding: 0 14px;
+  white-space: nowrap;
+}
+.control-sales-table {
+  max-height: clamp(310px, 48vh, 610px);
+  overflow: auto;
+  border-radius: 16px;
+  scrollbar-gutter: stable;
+}
+.control-sales-row {
+  min-height: 42px;
+  padding: 4px 10px;
+  gap: 9px;
+  font-size: 11px;
+}
+.control-sales-row.head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 36px;
+  padding-block: 4px;
+  box-shadow: 0 1px 0 rgba(142,178,216,.2);
+}
+.control-sales-row small {
+  font-size: 9px;
+}
+.control-sales-status {
+  padding: 4px 7px;
+  font-size: 9px;
+}
+.control-sales-actions {
+  gap: 4px;
+}
+.control-sales-actions button,
+.control-sales-pagination button {
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+.control-sales-pagination {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  min-height: 46px;
+  padding: 7px 12px;
+  border-radius: 13px;
+  font-size: 11px;
+}
+
+@media (max-width: 1500px) {
+  .control-sales-hero {
+    grid-template-columns: 1fr;
+  }
+  .control-sales-heading {
+    display: none;
+  }
+  .control-sales-toolbar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .control-sales-search {
+    grid-column: span 2;
+  }
+  .control-sales-toolbar > .primary-btn {
+    grid-column: 4;
+  }
+}
+
+@media (max-width: 1050px) {
+  .control-sales-hero {
+    grid-template-columns: 1fr;
+  }
+  .control-sales-heading {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+  }
+  .control-sales-heading p {
+    max-width: none;
+  }
+  .control-sales-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .control-sales-search,
+  .control-sales-toolbar > .primary-btn {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .control-sales-kpis {
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+    overflow-x: auto;
+  }
+  .control-sales-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .control-sales-search,
+  .control-sales-toolbar > .primary-btn {
+    grid-column: auto;
+  }
+  .control-sales-table {
+    max-height: 52vh;
+  }
+}

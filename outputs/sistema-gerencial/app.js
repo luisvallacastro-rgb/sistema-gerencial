@@ -2501,7 +2501,7 @@ function controlSalesFilteredRows() {
 function renderControlSales() {
   const rows = controlSalesFilteredRows();
   const sellers = [...new Set(state.controlSales.map((order) => order.seller).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
-  const pageSize = 10;
+  const pageSize = 15;
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   state.controlSalesPage = Math.min(Math.max(state.controlSalesPage, 1), pages);
   const start = (state.controlSalesPage - 1) * pageSize;
@@ -2510,15 +2510,16 @@ function renderControlSales() {
   const anomalies = rows.filter((order) => order.anomalies?.length || order.details.some((detail) => detail.reviewRequired || detail.anomalies?.length)).length;
   return `<section class="control-sales-shell">
     <header class="control-sales-hero">
-      <div><span>Operaciones · trazabilidad comercial</span><h3>Control de Ventas</h3><p>Historial normalizado, líneas cobrables y auditoría en una sola vista.</p></div>
+      <div class="control-sales-heading"><span>Resumen operativo</span><p>Órdenes, totales y alertas del filtro actual.</p></div>
       <div class="control-sales-kpis"><article><small>Órdenes visibles</small><strong>${rows.length}</strong><span>${state.controlSalesCounts.orders || 0} históricas y manuales</span></article><article><small>Total consolidado</small><strong>${formatControlSalesMoney(total)}</strong><span>Calculado desde líneas activas</span></article><article class="${anomalies ? "warning" : ""}"><small>Por revisar</small><strong>${anomalies}</strong><span>Advertencias del origen</span></article></div>
     </header>
     <div class="control-sales-toolbar">
       <label class="control-sales-search"><span>⌕</span><input type="search" data-control-sales-query value="${escapeHtml(state.controlSalesQuery)}" placeholder="Buscar orden, vendedor, cliente, producto o talla..."></label>
-      <select data-control-sales-seller><option value="all">Todos los vendedores</option>${sellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.controlSalesSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select>
-      <select data-control-sales-status><option value="active" ${state.controlSalesStatus === "active" ? "selected" : ""}>Activas</option><option value="all" ${state.controlSalesStatus === "all" ? "selected" : ""}>Todas</option><option value="archived" ${state.controlSalesStatus === "archived" ? "selected" : ""}>Archivadas</option><option value="review" ${state.controlSalesStatus === "review" ? "selected" : ""}>Por revisar</option></select>
-      <input type="date" data-control-sales-from value="${escapeHtml(state.controlSalesDateFrom)}" aria-label="Fecha inicial"><input type="date" data-control-sales-to value="${escapeHtml(state.controlSalesDateTo)}" aria-label="Fecha final">
-      <select data-control-sales-sort><option value="date-desc">Más recientes</option><option value="date-asc" ${state.controlSalesSort === "date-asc" ? "selected" : ""}>Más antiguas</option><option value="total-desc" ${state.controlSalesSort === "total-desc" ? "selected" : ""}>Mayor total</option><option value="number-asc" ${state.controlSalesSort === "number-asc" ? "selected" : ""}>Número de orden</option></select>
+      <label class="control-sales-control"><small>Vendedor</small><select data-control-sales-seller><option value="all">Todos los vendedores</option>${sellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.controlSalesSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label>
+      <label class="control-sales-control"><small>Estado</small><select data-control-sales-status><option value="active" ${state.controlSalesStatus === "active" ? "selected" : ""}>Activas</option><option value="all" ${state.controlSalesStatus === "all" ? "selected" : ""}>Todas</option><option value="archived" ${state.controlSalesStatus === "archived" ? "selected" : ""}>Archivadas</option><option value="review" ${state.controlSalesStatus === "review" ? "selected" : ""}>Por revisar</option></select></label>
+      <label class="control-sales-control"><small>Desde</small><input type="date" data-control-sales-from value="${escapeHtml(state.controlSalesDateFrom)}" aria-label="Fecha inicial"></label>
+      <label class="control-sales-control"><small>Hasta</small><input type="date" data-control-sales-to value="${escapeHtml(state.controlSalesDateTo)}" aria-label="Fecha final"></label>
+      <label class="control-sales-control"><small>Ordenar</small><select data-control-sales-sort><option value="date-desc">Más recientes</option><option value="date-asc" ${state.controlSalesSort === "date-asc" ? "selected" : ""}>Más antiguas</option><option value="total-desc" ${state.controlSalesSort === "total-desc" ? "selected" : ""}>Mayor total</option><option value="number-asc" ${state.controlSalesSort === "number-asc" ? "selected" : ""}>Número de orden</option></select></label>
       <button type="button" class="primary-btn" data-control-sales-new>+ Nueva orden</button>
     </div>
     <div class="control-sales-table">
