@@ -2370,8 +2370,18 @@ function openPurchaseOrderMonthDetail(monthKey) {
       <div class="purchase-order-month-dates"><small>Ingreso ${formatDate(order.entryDate)}</small><strong>${formatDate(order.dueDate) || "Sin fecha limite"}</strong><em class="${deadline.className}">${deadline.label}</em></div>
       <div class="purchase-order-month-owner"><small>Produccion</small><strong>${escapeHtml(order.productionManager || "Sin asignar")}</strong><span>${escapeHtml(order.invoiceType || "Sin factura")}</span></div>
       <div class="purchase-order-month-values"><span><small>Monto</small><strong>${formatMoney(order.amount)}</strong></span><span><small>Anticipo</small><strong>${formatMoney(order.advance)}</strong></span><span><small>Abono</small><strong>${formatMoney(order.payment)}</strong></span><span class="balance"><small>Saldo</small><strong>${formatMoney(order.remaining)}</strong></span></div>
+      <button class="purchase-order-month-edit" type="button" data-purchase-order-month-edit="${order.id}" aria-label="Editar orden ${escapeHtml(order.orderNumber)}">Editar</button>
     </article>`;
   }).join("") || `<div class="empty-state">No existen ordenes con saldo para este mes.</div>`;
+  purchaseOrderMonthList.querySelectorAll("[data-purchase-order-month-edit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const order = state.purchaseOrders.find((item) => item.id === button.dataset.purchaseOrderMonthEdit);
+      if (!order) return;
+      purchaseOrderMonthDialog.close();
+      resetPurchaseOrderForm(order);
+      purchaseOrderDialog.showModal();
+    });
+  });
   purchaseOrderMonthDialog.showModal();
 }
 
@@ -2443,7 +2453,7 @@ function renderPurchaseOrders() {
 
 function wirePurchaseOrders() {
   document.querySelector("[data-purchase-order-search]")?.addEventListener("input", (event) => {
-    state.purchaseOrderQuery = event.target.value.trim();
+    state.purchaseOrderQuery = event.target.value;
     state.purchaseOrderPage = 1;
     renderCommercialSubmenu(areas.financiera);
     const searchInput = document.querySelector("[data-purchase-order-search]");

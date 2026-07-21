@@ -11304,10 +11304,10 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   scrollbar-color: rgba(114, 245, 209, .62) rgba(7, 25, 47, .3);
 }
 #purchaseOrderMonthDialog .purchase-order-month-row {
-  min-width: 880px;
+  min-width: 940px;
   min-height: 64px;
   display: grid;
-  grid-template-columns: minmax(210px, 1.5fr) 155px 125px minmax(390px, 2fr);
+  grid-template-columns: minmax(210px, 1.5fr) 155px 125px minmax(390px, 2fr) auto;
   align-items: center;
   gap: 12px;
   padding: 9px 12px;
@@ -11361,6 +11361,27 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 #purchaseOrderMonthDialog .purchase-order-month-values strong { font-size: 10px; }
 #purchaseOrderMonthDialog .purchase-order-month-values .balance { background: rgba(40, 120, 111, .18); }
 #purchaseOrderMonthDialog .purchase-order-month-values .balance strong { color: #72f5d1; }
+#purchaseOrderMonthDialog .purchase-order-month-edit {
+  min-height: 34px;
+  border: 1px solid rgba(105, 174, 245, .14);
+  border-radius: 10px;
+  padding: 0 11px;
+  background: rgba(75, 144, 228, .14);
+  color: #c6e2ff;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform .16s ease, background .16s ease, border-color .16s ease;
+}
+#purchaseOrderMonthDialog .purchase-order-month-edit:hover,
+#purchaseOrderMonthDialog .purchase-order-month-edit:focus-visible {
+  border-color: rgba(114, 245, 209, .34);
+  background: rgba(114, 245, 209, .14);
+  color: #baffed;
+  outline: 0;
+  transform: translateY(-1px);
+}
 
 @media (max-width: 900px) {
   #purchaseOrderMonthDialog .purchase-order-month-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
