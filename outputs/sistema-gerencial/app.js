@@ -2699,6 +2699,51 @@ function wireControlSales() {
     input?.addEventListener("input", () => syncRange(input));
     input?.addEventListener("change", () => { syncRange(input); rerender(); });
   });
+  const rangeTrack = document.querySelector("[data-control-sales-range] .control-sales-range-track");
+  if (rangeTrack && fromRange && toRange) {
+    let activeRange = null;
+    const rangeValueAtPointer = (event) => {
+      const bounds = rangeTrack.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left) / Math.max(1, bounds.width)));
+      const min = Number(fromRange.min);
+      const max = Number(fromRange.max);
+      return Math.round(min + ratio * (max - min));
+    };
+    const updateRangeFromPointer = (event) => {
+      if (!activeRange) return;
+      const value = rangeValueAtPointer(event);
+      if (activeRange === fromRange) {
+        fromRange.value = String(Math.min(value, Number(toRange.value)));
+      } else {
+        toRange.value = String(Math.max(value, Number(fromRange.value)));
+      }
+      syncRange(activeRange);
+    };
+    rangeTrack.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 && event.pointerType !== "touch") return;
+      event.preventDefault();
+      const value = rangeValueAtPointer(event);
+      activeRange = Math.abs(value - Number(fromRange.value)) <= Math.abs(value - Number(toRange.value)) ? fromRange : toRange;
+      rangeTrack.classList.add("is-dragging");
+      rangeTrack.setPointerCapture?.(event.pointerId);
+      updateRangeFromPointer(event);
+    });
+    rangeTrack.addEventListener("pointermove", (event) => {
+      if (!activeRange) return;
+      event.preventDefault();
+      updateRangeFromPointer(event);
+    });
+    const finishRangeDrag = (event) => {
+      if (!activeRange) return;
+      updateRangeFromPointer(event);
+      rangeTrack.classList.remove("is-dragging");
+      if (rangeTrack.hasPointerCapture?.(event.pointerId)) rangeTrack.releasePointerCapture(event.pointerId);
+      activeRange = null;
+      rerender();
+    };
+    rangeTrack.addEventListener("pointerup", finishRangeDrag);
+    rangeTrack.addEventListener("pointercancel", finishRangeDrag);
+  }
   document.querySelector("[data-control-sales-new]")?.addEventListener("click", () => openControlSalesForm());
   document.querySelectorAll("[data-control-sales-view]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.controlSalesView)));
   document.querySelectorAll("[data-control-sales-edit]").forEach((button) => button.addEventListener("click", () => openControlSalesForm(state.controlSales.find((order) => order.id === button.dataset.controlSalesEdit))));
@@ -6247,7 +6292,7 @@ function renderAdminPermissionsPanel() {
             <div class="permission-matrix-user-tools" role="columnheader"><span>Usuario y perfil</span><small>Marca la fila completa</small></div>
             ${permissionColumns.map((column) => {
               const enabledCount = filteredUsers.filter((user) => userPermissions(user).has(column.key)).length;
-              return `<label class="permission-matrix-section-head" title="${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}">
+              return `<label class="permission-matrix-section-head" aria-label="${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}">
                 <input type="checkbox" data-admin-action="column-permission" data-permission="${column.key}" ${enabledCount === filteredUsers.length ? "checked" : ""}>
                 <span aria-hidden="true"></span><strong>${escapeHtml(column.label)}</strong>
               </label>`;
@@ -6262,10 +6307,10 @@ function renderAdminPermissionsPanel() {
               <div class="permission-matrix-user" role="rowheader">
                 <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
                 <div><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(roleDisplayName(user.role))}</span><small>${activeCount}/${permissionColumns.length} permisos</small></div>
-                <label class="permission-row-toggle" title="Cambiar todos los permisos de ${escapeHtml(user.name)}"><input type="checkbox" data-admin-action="row-permission" data-user-id="${user.id}" ${activeCount === permissionColumns.length ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>
+                <label class="permission-row-toggle" aria-label="Cambiar todos los permisos de ${escapeHtml(user.name)}"><input type="checkbox" data-admin-action="row-permission" data-user-id="${user.id}" ${activeCount === permissionColumns.length ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>
                 <div class="permission-matrix-user-actions"><button type="button" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button><button type="button" aria-label="Cambiar clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>${isProtected ? "" : `<button class="danger" type="button" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}</div>
               </div>
-              ${permissionColumns.map((column) => `<label class="permission-matrix-cell ${permissionsLocked ? "locked" : ""}" title="${escapeHtml(user.name)} · ${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}"><input type="checkbox" data-admin-action="cell-permission" data-user-id="${user.id}" data-permission="${column.key}" ${permissions.has(column.key) ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>`).join("")}
+              ${permissionColumns.map((column) => `<label class="permission-matrix-cell ${permissionsLocked ? "locked" : ""}" aria-label="${escapeHtml(user.name)} · ${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}"><input type="checkbox" data-admin-action="cell-permission" data-user-id="${user.id}" data-permission="${column.key}" ${permissions.has(column.key) ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>`).join("")}
             </div>`;
           }).join("")}
         </div>` : `

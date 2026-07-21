@@ -11553,6 +11553,9 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   position: relative;
   height: 18px;
   margin: 0 5px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
 }
 .control-sales-range-track::before,
 .control-sales-range-track::after {
@@ -11587,6 +11590,10 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   box-shadow: 0 0 0 3px rgba(114, 245, 209, .24), 0 3px 10px rgba(3, 15, 32, .5);
   pointer-events: none;
   transform: translate(-50%, -50%);
+}
+.control-sales-range-track.is-dragging,
+.control-sales-range-track.is-dragging * {
+  cursor: grabbing !important;
 }
 .control-sales-range-handle.is-from {
   left: var(--range-start);
@@ -11648,6 +11655,88 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 }
 .control-sales-range-track input[type="range"]:focus-visible::-webkit-slider-thumb {
   outline: 0;
+}
+
+/* Matriz estable y navegable en Windows/macOS: el desplazamiento queda dentro
+   del panel y conserva visibles encabezados y usuarios. */
+.app-shell .admin-panel,
+.app-shell .admin-shell,
+.app-shell .permission-matrix-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.app-shell .admin-panel {
+  overflow: hidden;
+}
+.app-shell .permission-matrix-shell {
+  position: relative;
+  max-height: clamp(420px, 62vh, 720px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  isolation: isolate;
+}
+.app-shell .permission-matrix {
+  min-width: 100%;
+  padding: 0;
+}
+.app-shell .permission-matrix-area-row,
+.app-shell .permission-matrix-section-row,
+.app-shell .permission-matrix-row {
+  width: max-content;
+  min-width: 100%;
+}
+.app-shell .permission-matrix-area-row {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 30;
+}
+.app-shell .permission-matrix-section-row {
+  position: sticky !important;
+  top: 48px !important;
+  z-index: 29;
+}
+.app-shell .permission-matrix-user-head,
+.app-shell .permission-matrix-user-tools,
+.app-shell .permission-matrix-user {
+  position: sticky !important;
+  left: 0 !important;
+}
+.app-shell .permission-matrix-user-head,
+.app-shell .permission-matrix-user-tools {
+  z-index: 35;
+}
+.app-shell .permission-matrix-user {
+  z-index: 20;
+}
+html.macos-render-safe .app-shell .permission-matrix-area-row {
+  position: sticky !important;
+  top: 0 !important;
+}
+html.macos-render-safe .app-shell .permission-matrix-section-row {
+  position: sticky !important;
+  top: 48px !important;
+}
+html.macos-render-safe .app-shell .permission-matrix-user-head,
+html.macos-render-safe .app-shell .permission-matrix-user-tools,
+html.macos-render-safe .app-shell .permission-matrix-user {
+  position: sticky !important;
+  left: 0 !important;
+}
+.app-shell .permission-matrix-area-head,
+.app-shell .permission-matrix-section-head,
+.app-shell .permission-matrix-cell {
+  box-sizing: border-box;
+  border-left: 1px solid rgba(151, 185, 216, .18);
+  background-color: #102641;
+}
+.app-shell .permission-matrix-row:hover .permission-matrix-cell {
+  background-color: #102641;
+}
+.app-shell .permission-matrix-cell:hover {
+  background-color: #173a50 !important;
 }
 
 /* Controles nativos consistentes en Windows, macOS y Linux. */
