@@ -11233,3 +11233,136 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   .app-shell .crm-history-card { grid-template-columns: 1fr; gap: 14px; }
   .app-shell .crm-history-amount { text-align: left; }
 }
+
+.app-shell .purchase-orders-matrix-row.is-interactive {
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.app-shell .purchase-orders-matrix-row.is-interactive:hover,
+.app-shell .purchase-orders-matrix-row.is-interactive:focus-visible {
+  outline: 0;
+  border-color: rgba(114, 245, 209, .34);
+  background: linear-gradient(100deg, rgba(78, 120, 169, .22), rgba(15, 58, 72, .18));
+  box-shadow: 0 12px 28px rgba(1, 12, 29, .2), inset 3px 0 0 #72f5d1;
+  transform: translateY(-1px);
+}
+
+#purchaseOrderMonthDialog .purchase-order-month-card {
+  width: min(1180px, calc(100vw - 28px));
+  max-height: min(780px, calc(100vh - 28px));
+  display: grid;
+  grid-template-rows: auto auto minmax(0, auto);
+  gap: 12px;
+  padding: 18px;
+  border: 0;
+  border-radius: 24px;
+  background: radial-gradient(circle at 8% 0%, rgba(82, 143, 224, .2), transparent 30%), radial-gradient(circle at 96% 8%, rgba(62, 215, 175, .11), transparent 30%), linear-gradient(145deg, rgba(33, 50, 84, .98), rgba(8, 22, 43, .99));
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .52), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+#purchaseOrderMonthDialog .purchase-order-month-summary {
+  display: grid;
+  grid-template-columns: .7fr repeat(4, 1fr);
+  gap: 8px;
+}
+#purchaseOrderMonthDialog .purchase-order-month-summary article {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid rgba(120, 166, 210, .12);
+  border-radius: 13px;
+  background: rgba(31, 59, 91, .46);
+}
+#purchaseOrderMonthDialog .purchase-order-month-summary article:last-child {
+  border-color: rgba(114, 245, 209, .25);
+  background: linear-gradient(135deg, rgba(35, 118, 114, .28), rgba(25, 66, 91, .45));
+}
+#purchaseOrderMonthDialog .purchase-order-month-summary span,
+#purchaseOrderMonthDialog .purchase-order-month-summary small {
+  color: rgba(191, 211, 235, .55);
+  font-size: 8px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+#purchaseOrderMonthDialog .purchase-order-month-summary strong {
+  overflow: hidden;
+  color: #f2f8ff;
+  font-size: 18px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#purchaseOrderMonthDialog .purchase-order-month-summary article:last-child strong { color: #72f5d1; }
+#purchaseOrderMonthDialog .purchase-order-month-list {
+  min-height: 0;
+  max-height: calc(100vh - 220px);
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  overflow: auto;
+  padding-right: 5px;
+  scrollbar-color: rgba(114, 245, 209, .62) rgba(7, 25, 47, .3);
+}
+#purchaseOrderMonthDialog .purchase-order-month-row {
+  min-width: 880px;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(210px, 1.5fr) 155px 125px minmax(390px, 2fr);
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid rgba(126, 167, 209, .1);
+  border-radius: 14px;
+  background: linear-gradient(102deg, rgba(79, 108, 160, .14), rgba(14, 43, 69, .08));
+}
+#purchaseOrderMonthDialog .purchase-order-month-row > div { min-width: 0; }
+#purchaseOrderMonthDialog .purchase-order-month-identity,
+#purchaseOrderMonthDialog .purchase-order-month-dates,
+#purchaseOrderMonthDialog .purchase-order-month-owner { display: grid; gap: 2px; }
+#purchaseOrderMonthDialog .purchase-order-month-identity > span {
+  width: max-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(114, 245, 209, .1);
+  color: #8fffe0;
+  font-size: 8px;
+  font-weight: 900;
+}
+#purchaseOrderMonthDialog .purchase-order-month-row strong {
+  overflow: hidden;
+  color: #eef6ff;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#purchaseOrderMonthDialog .purchase-order-month-row small,
+#purchaseOrderMonthDialog .purchase-order-month-row span { color: rgba(192, 211, 234, .58); font-size: 8px; font-weight: 750; }
+#purchaseOrderMonthDialog .purchase-order-month-dates em {
+  width: max-content;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(86, 139, 198, .14);
+  color: #a9c8ec;
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+#purchaseOrderMonthDialog .purchase-order-month-dates em.overdue { background: rgba(255, 139, 167, .12); color: #ff9db3; }
+#purchaseOrderMonthDialog .purchase-order-month-values { display: grid; grid-template-columns: repeat(4, minmax(85px, 1fr)); gap: 7px; }
+#purchaseOrderMonthDialog .purchase-order-month-values > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: rgba(8, 29, 52, .38);
+}
+#purchaseOrderMonthDialog .purchase-order-month-values strong { font-size: 10px; }
+#purchaseOrderMonthDialog .purchase-order-month-values .balance { background: rgba(40, 120, 111, .18); }
+#purchaseOrderMonthDialog .purchase-order-month-values .balance strong { color: #72f5d1; }
+
+@media (max-width: 900px) {
+  #purchaseOrderMonthDialog .purchase-order-month-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #purchaseOrderMonthDialog .purchase-order-month-summary article:last-child { grid-column: span 2; }
+}

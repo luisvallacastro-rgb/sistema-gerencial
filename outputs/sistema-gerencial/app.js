@@ -764,6 +764,11 @@ const purchaseOrderDialogTitle = document.querySelector("#purchaseOrderDialogTit
 const purchaseOrderId = document.querySelector("#purchaseOrderId");
 const closePurchaseOrderDialog = document.querySelector("#closePurchaseOrderDialog");
 const cancelPurchaseOrder = document.querySelector("#cancelPurchaseOrder");
+const purchaseOrderMonthDialog = document.querySelector("#purchaseOrderMonthDialog");
+const purchaseOrderMonthTitle = document.querySelector("#purchaseOrderMonthTitle");
+const purchaseOrderMonthSummary = document.querySelector("#purchaseOrderMonthSummary");
+const purchaseOrderMonthList = document.querySelector("#purchaseOrderMonthList");
+const closePurchaseOrderMonthDialog = document.querySelector("#closePurchaseOrderMonthDialog");
 const opportunityDashboard = document.querySelector("#opportunityDashboard");
 const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
 const newRiskBtn = document.querySelector("#newRiskBtn");
@@ -2341,6 +2346,35 @@ function purchaseOrderMonthlyMatrix() {
   return months;
 }
 
+function purchaseOrdersForMonth(monthKey) {
+  return state.purchaseOrders
+    .filter((order) => purchaseOrderHasBalance(order) && /^\d{4}-\d{2}/.test(order.entryDate || "") && order.entryDate.slice(0, 7) <= monthKey)
+    .sort((a, b) => String(a.entryDate).localeCompare(String(b.entryDate)) || String(a.orderNumber).localeCompare(String(b.orderNumber), "es", { numeric: true }));
+}
+
+function openPurchaseOrderMonthDetail(monthKey) {
+  const rows = purchaseOrdersForMonth(monthKey);
+  const totals = purchaseOrderSummary(rows);
+  purchaseOrderMonthTitle.textContent = purchaseOrderMonthLabel(monthKey);
+  purchaseOrderMonthSummary.innerHTML = [
+    ["Ordenes", totals.count, "con saldo"],
+    ["Monto", formatMoney(totals.amount), "comprometido"],
+    ["Anticipo", formatMoney(totals.advances), "anticipado"],
+    ["Abono", formatMoney(totals.payments), "abonado"],
+    ["Saldo", formatMoney(totals.remaining), "pendiente"]
+  ].map(([label, value, detail]) => `<article><span>${label}</span><strong>${value}</strong><small>${detail}</small></article>`).join("");
+  purchaseOrderMonthList.innerHTML = rows.map((order) => {
+    const deadline = purchaseOrderDeadline(order);
+    return `<article class="purchase-order-month-row">
+      <div class="purchase-order-month-identity"><span>#${escapeHtml(order.orderNumber)}</span><strong>${escapeHtml(order.customerName)}</strong><small>${escapeHtml(order.description || "Sin descripcion")}</small></div>
+      <div class="purchase-order-month-dates"><small>Ingreso ${formatDate(order.entryDate)}</small><strong>${formatDate(order.dueDate) || "Sin fecha limite"}</strong><em class="${deadline.className}">${deadline.label}</em></div>
+      <div class="purchase-order-month-owner"><small>Produccion</small><strong>${escapeHtml(order.productionManager || "Sin asignar")}</strong><span>${escapeHtml(order.invoiceType || "Sin factura")}</span></div>
+      <div class="purchase-order-month-values"><span><small>Monto</small><strong>${formatMoney(order.amount)}</strong></span><span><small>Anticipo</small><strong>${formatMoney(order.advance)}</strong></span><span><small>Abono</small><strong>${formatMoney(order.payment)}</strong></span><span class="balance"><small>Saldo</small><strong>${formatMoney(order.remaining)}</strong></span></div>
+    </article>`;
+  }).join("") || `<div class="empty-state">No existen ordenes con saldo para este mes.</div>`;
+  purchaseOrderMonthDialog.showModal();
+}
+
 function renderPurchaseOrderMatrix() {
   const months = purchaseOrderMonthlyMatrix();
   const latest = months.at(-1);
@@ -2352,7 +2386,7 @@ function renderPurchaseOrderMatrix() {
     </div>
     <div class="purchase-orders-matrix-scroll">
       <div class="purchase-orders-matrix-row header"><span>Mes</span><span>Órdenes</span><span>Monto</span><span>Anticipo</span><span>Abono</span><span>Saldo</span></div>
-      ${months.map((month) => `<article class="purchase-orders-matrix-row">
+      ${months.map((month) => `<article class="purchase-orders-matrix-row is-interactive" data-purchase-order-month="${month.monthKey}" role="button" tabindex="0" aria-label="Ver ordenes con saldo de ${purchaseOrderMonthLabel(month.monthKey)}">
         <div><i style="--matrix-progress:${((month.remaining / maxBalance) * 100).toFixed(2)}%"></i><strong>${purchaseOrderMonthLabel(month.monthKey)}</strong></div>
         <span><b>${month.count}</b><small>con saldo</small></span>
         <span><b>${formatMoney(month.amount)}</b><small>monto</small></span>
@@ -2414,6 +2448,15 @@ function wirePurchaseOrders() {
   document.querySelectorAll("[data-purchase-order-edit]").forEach((button) => button.addEventListener("click", () => { const order = state.purchaseOrders.find((item) => item.id === button.dataset.purchaseOrderEdit); if (order) { resetPurchaseOrderForm(order); purchaseOrderDialog.showModal(); } }));
   document.querySelectorAll("[data-purchase-order-delete]").forEach((button) => button.addEventListener("click", async () => { const order = state.purchaseOrders.find((item) => item.id === button.dataset.purchaseOrderDelete); if (!order || !confirm(`¿Eliminar la orden #${order.orderNumber}?`)) return; try { await apiJson(`/api/purchase-orders/${encodeURIComponent(order.id)}`, { method:"DELETE" }); state.purchaseOrders = state.purchaseOrders.filter((item) => item.id !== order.id); renderCommercialSubmenu(areas.financiera); } catch { alert("No se pudo eliminar la orden."); } }));
   document.querySelectorAll("[data-purchase-order-page]").forEach((button) => button.addEventListener("click", () => { state.purchaseOrderPage += button.dataset.purchaseOrderPage === "next" ? 1 : -1; renderCommercialSubmenu(areas.financiera); }));
+  document.querySelectorAll("[data-purchase-order-month]").forEach((row) => {
+    const openDetail = () => openPurchaseOrderMonthDetail(row.dataset.purchaseOrderMonth);
+    row.addEventListener("click", openDetail);
+    row.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openDetail();
+    });
+  });
 }
 
 function loadAccountsReceivable() {
@@ -7718,6 +7761,7 @@ closeAccountsReceivableDialog.addEventListener("click", () => accountsReceivable
 cancelAccountsReceivable.addEventListener("click", () => accountsReceivableDialog.close());
 closePurchaseOrderDialog.addEventListener("click", () => purchaseOrderDialog.close());
 cancelPurchaseOrder.addEventListener("click", () => purchaseOrderDialog.close());
+closePurchaseOrderMonthDialog.addEventListener("click", () => purchaseOrderMonthDialog.close());
 financialOrdersViewTabs?.querySelectorAll("[data-financial-orders-view]").forEach((button) => {
   button.addEventListener("click", () => {
     state.financialOrdersView = button.dataset.financialOrdersView;
