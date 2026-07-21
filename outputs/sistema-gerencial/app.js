@@ -2304,7 +2304,7 @@ function renderPurchaseOrderList() {
         return `<article class="purchase-order-card">
           <div class="purchase-order-identity"><span>#${escapeHtml(order.orderNumber)}</span><strong>${escapeHtml(order.customerName)}</strong><small>${escapeHtml(order.description || "Sin descripción")}</small></div>
           <div class="purchase-order-dates"><small>Ingreso · ${formatDate(order.entryDate)}</small><strong>${formatDate(order.dueDate) || "Sin fecha límite"}</strong><em class="${deadline.className}">${deadline.label}</em></div>
-          <div class="purchase-order-finance"><small>Monto</small><strong>${formatMoney(order.amount)}</strong><span>Saldo ${formatMoney(order.remaining)}</span></div>
+          <div class="purchase-order-finance"><small>Saldo</small><strong>${formatMoney(order.remaining)}</strong><span>Monto original ${formatMoney(order.amount)}</span></div>
           <div class="purchase-order-owner"><small>Producción</small><strong>${escapeHtml(order.productionManager)}</strong><span>${escapeHtml(order.invoiceType || "Sin factura")}</span></div>
           <div class="purchase-order-actions"><button type="button" data-purchase-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-purchase-order-delete="${order.id}">Eliminar</button></div>
         </article>`;
@@ -2442,7 +2442,15 @@ function renderPurchaseOrders() {
 }
 
 function wirePurchaseOrders() {
-  document.querySelector("[data-purchase-order-search]")?.addEventListener("input", (event) => { state.purchaseOrderQuery = event.target.value.trim(); state.purchaseOrderPage = 1; renderCommercialSubmenu(areas.financiera); });
+  document.querySelector("[data-purchase-order-search]")?.addEventListener("input", (event) => {
+    state.purchaseOrderQuery = event.target.value.trim();
+    state.purchaseOrderPage = 1;
+    renderCommercialSubmenu(areas.financiera);
+    const searchInput = document.querySelector("[data-purchase-order-search]");
+    if (!searchInput) return;
+    searchInput.focus({ preventScroll: true });
+    searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+  });
   document.querySelectorAll("[data-purchase-order-status]").forEach((button) => button.addEventListener("click", () => { state.purchaseOrderStatus = button.dataset.purchaseOrderStatus; state.purchaseOrderPage = 1; renderCommercialSubmenu(areas.financiera); }));
   document.querySelector("[data-purchase-order-new]")?.addEventListener("click", () => { resetPurchaseOrderForm(); purchaseOrderDialog.showModal(); });
   document.querySelectorAll("[data-purchase-order-edit]").forEach((button) => button.addEventListener("click", () => { const order = state.purchaseOrders.find((item) => item.id === button.dataset.purchaseOrderEdit); if (order) { resetPurchaseOrderForm(order); purchaseOrderDialog.showModal(); } }));
