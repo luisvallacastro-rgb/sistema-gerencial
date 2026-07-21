@@ -2540,20 +2540,20 @@ function renderControlSales() {
       <label class="control-sales-control"><small>Vendedor</small><select data-control-sales-seller><option value="all">Todos los vendedores</option>${sellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.controlSalesSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label>
       <label class="control-sales-control"><small>Estado</small><select data-control-sales-status><option value="active" ${state.controlSalesStatus === "active" ? "selected" : ""}>Activas</option><option value="all" ${state.controlSalesStatus === "all" ? "selected" : ""}>Todas</option><option value="archived" ${state.controlSalesStatus === "archived" ? "selected" : ""}>Archivadas</option><option value="review" ${state.controlSalesStatus === "review" ? "selected" : ""}>Por revisar</option></select></label>
       <div class="control-sales-range" data-control-sales-range style="--range-start:${range.fromPercent.toFixed(2)}%;--range-end:${range.toPercent.toFixed(2)}%">
-        <div class="control-sales-range-head"><small>Rango de fechas</small><strong data-control-sales-range-label>${formatDate(controlSalesDayToIso(range.from))} — ${formatDate(controlSalesDayToIso(range.to))}</strong></div>
+        <div class="control-sales-range-head"><small>Periodo operativo</small><div class="control-sales-range-dates"><span><em>Desde</em><strong data-control-sales-range-from>${formatDate(controlSalesDayToIso(range.from))}</strong></span><i aria-hidden="true">→</i><span><em>Hasta</em><strong data-control-sales-range-to>${formatDate(controlSalesDayToIso(range.to))}</strong></span></div></div>
         <div class="control-sales-range-track"><input type="range" min="${range.min}" max="${range.max}" value="${range.from}" data-control-sales-from aria-label="Fecha inicial"><input type="range" min="${range.min}" max="${range.max}" value="${range.to}" data-control-sales-to aria-label="Fecha final"></div>
       </div>
       <label class="control-sales-control"><small>Ordenar</small><select data-control-sales-sort><option value="date-desc">Más recientes</option><option value="date-asc" ${state.controlSalesSort === "date-asc" ? "selected" : ""}>Más antiguas</option><option value="total-desc" ${state.controlSalesSort === "total-desc" ? "selected" : ""}>Mayor total</option><option value="number-asc" ${state.controlSalesSort === "number-asc" ? "selected" : ""}>Número de orden</option></select></label>
       <button type="button" class="primary-btn" data-control-sales-new>+ Nueva orden</button>
     </div>
     <div class="control-sales-table">
-      <div class="control-sales-row head"><span>Orden</span><span>Fecha</span><span>Vendedor</span><span>Cliente</span><span>Líneas</span><span>Total</span><span>Estado</span><span>Acciones</span></div>
+      <div class="control-sales-row head"><span>Orden</span><span>Fecha</span><span>Vendedor</span><span>Cliente</span><span>Total</span><span>Estado</span><span>Acciones</span></div>
       ${visible.map((order) => {
         const warning = order.anomalies?.length || order.details.some((detail) => detail.reviewRequired || detail.anomalies?.length);
         return `<article class="control-sales-row ${order.archived ? "archived" : ""}">
           <span><b>#${escapeHtml(order.number)}</b><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Manual"}</small></span>
           <span>${formatDate(order.date)}</span><span>${escapeHtml(order.seller)}</span><span title="${escapeHtml(order.client)}">${escapeHtml(order.client)}</span>
-          <span><b>${order.details.length}</b><small>productos</small></span><span class="money">${formatControlSalesMoney(order.totalCents)}</span>
+          <span class="money">${formatControlSalesMoney(order.totalCents)}</span>
           <span><em class="control-sales-status ${warning ? "warning" : ""}">${warning ? "⚠ Revisar" : escapeHtml(order.status)}</em></span>
           <span class="control-sales-actions"><button type="button" data-control-sales-view="${order.id}">Ver</button><button type="button" data-control-sales-edit="${order.id}">Editar</button><button type="button" class="${order.archived ? "restore" : "danger"}" data-control-sales-archive="${order.id}">${order.archived ? "Restaurar" : "Archivar"}</button></span>
         </article>`;
@@ -2690,8 +2690,10 @@ function wireControlSales() {
     const rangeElement = document.querySelector("[data-control-sales-range]");
     rangeElement?.style.setProperty("--range-start", `${((from - min) / span) * 100}%`);
     rangeElement?.style.setProperty("--range-end", `${((to - min) / span) * 100}%`);
-    const label = document.querySelector("[data-control-sales-range-label]");
-    if (label) label.textContent = `${formatDate(state.controlSalesDateFrom)} — ${formatDate(state.controlSalesDateTo)}`;
+    const fromLabel = document.querySelector("[data-control-sales-range-from]");
+    const toLabel = document.querySelector("[data-control-sales-range-to]");
+    if (fromLabel) fromLabel.textContent = formatDate(state.controlSalesDateFrom);
+    if (toLabel) toLabel.textContent = formatDate(state.controlSalesDateTo);
   };
   [fromRange, toRange].forEach((input) => {
     input?.addEventListener("input", () => syncRange(input));
