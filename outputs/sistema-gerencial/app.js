@@ -2982,6 +2982,15 @@ function renderFinancialOrderTopbarFilters(isVisible) {
   financialOrderMonthFilter.value = state.financialOrderMonthFilter;
 }
 
+function nextFinancialOrderNumber() {
+  const highestNumber = state.financialOrders.reduce((highest, order) => {
+    const rawNumber = String(order.number ?? "").trim();
+    if (!/^\d+$/.test(rawNumber)) return highest;
+    return Math.max(highest, Number(rawNumber));
+  }, 0);
+  return String(highestNumber + 1);
+}
+
 function resetFinancialOrderForm(order = null, sourceOpportunity = null) {
   financialOrderForm.reset();
   state.financialOrderSourceOpportunityId = order?.sourceOpportunityId || sourceOpportunity?.id || "";
@@ -2992,6 +3001,7 @@ function resetFinancialOrderForm(order = null, sourceOpportunity = null) {
     if (input) input.value = order?.[key] ?? "";
   });
   if (!order) {
+    document.querySelector("#financialOrderNumber").value = nextFinancialOrderNumber();
     document.querySelector("#financialOrderDate").value = todayISO();
     document.querySelector("#financialOrderYear").value = new Date().getFullYear();
     document.querySelector("#financialOrderMonth").value = monthLabel(new Date().getMonth() + 1);
@@ -8315,7 +8325,10 @@ financialOrderForm.addEventListener("submit", async (event) => {
     if (apiEnabled) {
       const response = await apiJson(
         existing ? `/api/financial-orders/${encodeURIComponent(existing.id)}` : "/api/financial-orders",
-        { method: existing ? "PUT" : "POST", body: JSON.stringify(pendingOrder) }
+        {
+          method: existing ? "PUT" : "POST",
+          body: JSON.stringify(existing ? pendingOrder : { ...pendingOrder, autoNumber: true })
+        }
       );
       savedOrder = response.item;
     }

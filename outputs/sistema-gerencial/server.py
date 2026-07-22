@@ -880,6 +880,15 @@ def financial_order_payload(row):
     }
 
 
+def next_financial_order_number(conn):
+    highest_number = 0
+    for row in conn.execute("SELECT number FROM financial_orders").fetchall():
+        raw_number = text(row["number"]).strip()
+        if raw_number.isdigit():
+            highest_number = max(highest_number, int(raw_number))
+    return str(highest_number + 1)
+
+
 def upsert_financial_order(conn, data, existing=None):
     item = normalize_financial_order(data, existing)
     conn.execute("""
@@ -1766,11 +1775,18 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if self.path == "/api/financial-orders":
             data = self.read_json()
-            required = ("number", "month", "year", "date", "seller", "client")
+            auto_number = bool(data.pop("autoNumber", False))
+            required = ("month", "year", "date", "seller", "client")
             if not all(text(data.get(key)) for key in required):
-                self.send_json({"error": "Numero, periodo, fecha, vendedor y cliente son requeridos"}, status=400)
+                self.send_json({"error": "Periodo, fecha, vendedor y cliente son requeridos"}, status=400)
                 return
             with connect() as conn:
+                if auto_number:
+                    conn.execute("BEGIN IMMEDIATE")
+                    data["number"] = next_financial_order_number(conn)
+                elif not text(data.get("number")):
+                    self.send_json({"error": "Numero de pedido requerido"}, status=400)
+                    return
                 item = upsert_financial_order(conn, data)
             self.send_json({"ok": True, "item": item}, status=201)
             return
@@ -1868,6 +1884,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 row = conn.execute("SELECT * FROM financial_orders WHERE id = ?", (item_id,)).fetchone()
                 existing = financial_order_payload(row) if row else None
                 data["id"] = item_id
+                if existing:
+                    data["number"] = existing["number"]
                 item = upsert_financial_order(conn, data, existing)
             self.send_json({"ok": True, "item": item})
             return

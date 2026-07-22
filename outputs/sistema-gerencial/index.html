@@ -428,7 +428,7 @@
         </div>
         <input id="financialOrderId" type="hidden">
         <div class="financial-order-grid">
-          <label>Número<input id="financialOrderNumber" required></label>
+          <label>Número (automático)<input id="financialOrderNumber" readonly required aria-readonly="true"></label>
           <label>Mes<input id="financialOrderMonth" required></label>
           <label>Año<input id="financialOrderYear" type="number" min="2000" max="2100" required></label>
           <label>Fecha de ingreso<input id="financialOrderDate" type="date" required></label>
@@ -756,6 +756,6 @@
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
     <script src="financial-orders-additions.js?v=20260720-pedidos-270-275-v1"></script>
-    <script src="app.js?v=20260721-windows-range-v73"></script>
+    <script src="app.js?v=20260722-pedidos-correlativo-v74"></script>
   </body>
 </html>
