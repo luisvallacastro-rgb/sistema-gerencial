@@ -269,6 +269,7 @@ const state = {
   financialOrders: [],
   financialOrderQuery: "",
   financialOrderPage: 1,
+  financialOrderSourceOpportunityId: "",
   financialOrdersView: "list",
   financialOrderYearFilter: "all",
   financialOrderMonthFilter: "all",
@@ -1172,6 +1173,13 @@ function visibleResultOpportunities(items = []) {
   return items.filter((item) => !isLostOpportunity(item));
 }
 
+function pendingWonOrderOpportunities() {
+  return getOpportunitySubmenu().items.filter((item) => {
+    const result = closureResult(item);
+    return result?.result === "ganado" && item.orderHandoff?.status === "pending";
+  });
+}
+
 function sumAmounts(items) {
   return items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 }
@@ -1264,7 +1272,7 @@ function nextPeriodStart() {
 function opportunityCycleRows(items) {
   const periodStart = activePeriodStart();
   const nextStart = nextPeriodStart();
-  const rows = visibleResultOpportunities(items).map((item) => {
+  const rows = items.map((item) => {
     const result = closureResult(item);
     const closureDate = result?.date || "";
     const isClosedBeforePeriod = Boolean(result && closureDate < periodStart);
@@ -1273,7 +1281,7 @@ function opportunityCycleRows(items) {
     return {
       item,
       result,
-      isHistory: isClosedBeforePeriod,
+      isHistory: Boolean(result),
       isInherited: item.date < periodStart && !isClosedBeforePeriod,
       isClosedInPeriod,
       isFuture
@@ -1297,7 +1305,7 @@ function opportunityCycleRows(items) {
   };
 
   return {
-    active: rows.filter((row) => !row.isHistory && !row.isFuture).sort(sortRows),
+    active: rows.filter((row) => !row.result && !row.isFuture).sort(sortRows),
     history: [
       ...rows.filter((row) => row.isHistory && !row.isFuture),
       ...importedHistoryRows
@@ -2941,8 +2949,9 @@ function renderFinancialOrderTopbarFilters(isVisible) {
   financialOrderMonthFilter.value = state.financialOrderMonthFilter;
 }
 
-function resetFinancialOrderForm(order = null) {
+function resetFinancialOrderForm(order = null, sourceOpportunity = null) {
   financialOrderForm.reset();
+  state.financialOrderSourceOpportunityId = order?.sourceOpportunityId || sourceOpportunity?.id || "";
   financialOrderId.value = order?.id || "";
   financialOrderDialogTitle.textContent = order ? "Editar pedido" : "Nuevo pedido";
   financialOrderFields.forEach(([key, id]) => {
@@ -2953,11 +2962,17 @@ function resetFinancialOrderForm(order = null) {
     document.querySelector("#financialOrderDate").value = todayISO();
     document.querySelector("#financialOrderYear").value = new Date().getFullYear();
     document.querySelector("#financialOrderMonth").value = monthLabel(new Date().getMonth() + 1);
+    if (sourceOpportunity) {
+      document.querySelector("#financialOrderClient").value = sourceOpportunity.company || "";
+      document.querySelector("#financialOrderSeller").value = sourceOpportunity.seller || "";
+      document.querySelector("#financialOrderSale").value = Number(sourceOpportunity.amount || 0).toFixed(2);
+    }
   }
 }
 
 function renderFinancialOrderList() {
   const rows = filteredFinancialOrders();
+  const pendingHandoffs = pendingWonOrderOpportunities();
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -2966,7 +2981,24 @@ function renderFinancialOrderList() {
   const pageEnd = pageStart + pageSize;
   const pagedRows = rows.slice(pageStart, pageEnd);
   return `
-    <section class="financial-orders-shell">
+    <section class="financial-orders-shell${pendingHandoffs.length ? " has-handoffs" : ""}">
+      ${pendingHandoffs.length ? `
+        <aside class="won-order-handoffs" aria-label="Oportunidades ganadas pendientes de pedido">
+          <div>
+            <span>Oportunidades ganadas</span>
+            <strong>${pendingHandoffs.length} ${pendingHandoffs.length === 1 ? "pedido pendiente" : "pedidos pendientes"}</strong>
+          </div>
+          <div class="won-order-handoff-list">
+            ${pendingHandoffs.map((item) => `
+              <button type="button" data-won-order-handoff="${escapeHtml(item.id)}">
+                <span>${escapeHtml(item.company)}</span>
+                <strong>${formatMoney(item.amount)}</strong>
+                <small>Crear pedido</small>
+              </button>
+            `).join("")}
+          </div>
+        </aside>
+      ` : ""}
       <div class="financial-orders-toolbar">
         <label><span>⌕</span><input data-financial-order-search type="search" value="${escapeHtml(state.financialOrderQuery)}" placeholder="Buscar pedido, cliente, vendedor..."></label>
         <strong>${formatMoney(total)}</strong>
@@ -3209,6 +3241,12 @@ function wireFinancialOrders() {
     resetFinancialOrderForm();
     financialOrderDialog.showModal();
   });
+  opportunityTable.querySelectorAll("[data-won-order-handoff]").forEach((button) => button.addEventListener("click", () => {
+    const opportunity = getOpportunitySubmenu().items.find((item) => item.id === button.dataset.wonOrderHandoff);
+    if (!opportunity) return;
+    resetFinancialOrderForm(null, opportunity);
+    financialOrderDialog.showModal();
+  }));
   opportunityTable.querySelector("[data-financial-order-search]")?.addEventListener("input", (event) => {
     state.financialOrderQuery = event.target.value;
     state.financialOrderPage = 1;
@@ -7975,6 +8013,7 @@ managementForm.addEventListener("submit", (event) => {
   const editing = managementEditId.value
     ? item.managements.find((record) => record.id === managementEditId.value)
     : null;
+  const savedManagementId = editing?.id || crypto.randomUUID();
   if (editing && canEditManagements() && !editing.canceled && !editing.notified) {
     Object.assign(editing, payload, {
       editedAt: new Date().toISOString(),
@@ -7982,13 +8021,25 @@ managementForm.addEventListener("submit", (event) => {
     });
   } else {
     item.managements.push({
-      id: crypto.randomUUID(),
+      id: savedManagementId,
       time: currentTimeValue(),
       ...payload
     });
   }
   const activeManagements = orderedManagements(item.managements).filter((record) => !record.notified && !record.canceled);
   item.stage = activeManagements.at(-1)?.stage || "Prospeccion";
+  const result = closureResult(item);
+  if (result?.result === "ganado") {
+    if (item.orderHandoff?.status !== "converted") {
+      item.orderHandoff = {
+        status: "pending",
+        managementId: result.id || savedManagementId,
+        createdAt: item.orderHandoff?.createdAt || new Date().toISOString()
+      };
+    }
+  } else if (item.orderHandoff?.status === "pending") {
+    delete item.orderHandoff;
+  }
   saveOpportunities();
   renderManagements(item);
   renderCommercialSubmenu(areas.comercializacion);
@@ -8169,11 +8220,15 @@ financialOrderMonthFilter?.addEventListener("change", () => {
 });
 financialOrderForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const sourceOpportunityId = state.financialOrderSourceOpportunityId;
   const payload = {};
   financialOrderFields.forEach(([key, id]) => {
     payload[key] = document.querySelector(`#${id}`).value.trim();
   });
   payload.sale = Number(payload.sale || 0);
+  if (sourceOpportunityId) {
+    payload.sourceOpportunityId = sourceOpportunityId;
+  }
   const existing = state.financialOrders.find((order) => order.id === financialOrderId.value);
   const now = new Date().toISOString();
   const pendingOrder = existing
@@ -8203,6 +8258,19 @@ financialOrderForm.addEventListener("submit", async (event) => {
     else state.financialOrders.unshift(savedOrder);
     state.financialOrderPage = 1;
     saveFinancialOrders();
+    if (sourceOpportunityId) {
+      const sourceOpportunity = getOpportunitySubmenu().items.find((item) => item.id === sourceOpportunityId);
+      if (sourceOpportunity) {
+        sourceOpportunity.orderHandoff = {
+          ...(sourceOpportunity.orderHandoff || {}),
+          status: "converted",
+          orderId: savedOrder.id,
+          convertedAt: new Date().toISOString()
+        };
+        saveOpportunities();
+      }
+    }
+    state.financialOrderSourceOpportunityId = "";
     financialOrderDialog.close();
     renderCommercialSubmenu(areas.financiera);
   } catch {

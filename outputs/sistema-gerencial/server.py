@@ -827,6 +827,7 @@ def normalize_financial_order(data, existing=None):
         "id": text(payload.get("id"), current.get("id") or f"pedido-{time.time_ns()}"),
         "sourceKey": text(payload.get("sourceKey"), current.get("sourceKey") or ""),
         "source": text(payload.get("source"), current.get("source") or "manual"),
+        "sourceOpportunityId": text(payload.get("sourceOpportunityId"), current.get("sourceOpportunityId") or ""),
         "number": text(payload.get("number"), current.get("number") or ""),
         "month": text(payload.get("month"), current.get("month") or ""),
         "year": text(payload.get("year"), current.get("year") or ""),
@@ -855,6 +856,7 @@ def financial_order_payload(row):
         "id": row["id"],
         "sourceKey": row["source_key"],
         "source": row["source"],
+        "sourceOpportunityId": row["source_opportunity_id"],
         "number": row["number"],
         "month": row["month"],
         "year": row["year"],
@@ -882,12 +884,12 @@ def upsert_financial_order(conn, data, existing=None):
     item = normalize_financial_order(data, existing)
     conn.execute("""
         INSERT INTO financial_orders (
-            id, source_key, source, number, month, year, date, seller, sale,
+            id, source_key, source, source_opportunity_id, number, month, year, date, seller, sale,
             order_number, invoice, conditions, client, client_type, strategy,
             management, country, department, deleted, created_by, updated_by,
             created_at, updated_at
         ) VALUES (
-            :id, :sourceKey, :source, :number, :month, :year, :date, :seller, :sale,
+            :id, :sourceKey, :source, :sourceOpportunityId, :number, :month, :year, :date, :seller, :sale,
             :orderNumber, :invoice, :conditions, :client, :clientType, :strategy,
             :management, :country, :department, :deleted, :createdBy, :updatedBy,
             :createdAt, :updatedAt
@@ -895,6 +897,7 @@ def upsert_financial_order(conn, data, existing=None):
         ON CONFLICT(id) DO UPDATE SET
             source_key = excluded.source_key,
             source = excluded.source,
+            source_opportunity_id = excluded.source_opportunity_id,
             number = excluded.number,
             month = excluded.month,
             year = excluded.year,
@@ -1370,6 +1373,7 @@ def init_db():
                 id TEXT PRIMARY KEY,
                 source_key TEXT DEFAULT '',
                 source TEXT DEFAULT 'manual',
+                source_opportunity_id TEXT DEFAULT '',
                 number TEXT NOT NULL,
                 month TEXT NOT NULL,
                 year TEXT NOT NULL,
@@ -1392,6 +1396,9 @@ def init_db():
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        financial_order_columns = {row["name"] for row in conn.execute("PRAGMA table_info(financial_orders)").fetchall()}
+        if "source_opportunity_id" not in financial_order_columns:
+            conn.execute("ALTER TABLE financial_orders ADD COLUMN source_opportunity_id TEXT DEFAULT ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_financial_orders_number ON financial_orders(number)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_financial_orders_date ON financial_orders(date)")
         conn.execute("""
