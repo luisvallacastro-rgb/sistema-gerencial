@@ -11440,9 +11440,12 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 }
 .control-sales-toolbar {
   display: grid;
-  grid-template-columns: minmax(300px, 2.1fr) repeat(5, minmax(135px, .72fr)) minmax(150px, .8fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: stretch;
   gap: 6px;
+}
+.control-sales-search {
+  grid-column: span 2;
 }
 .control-sales-search,
 .control-sales-control,
@@ -11498,9 +11501,9 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 8px 22px rgba(3, 12, 29, .15);
 }
 .control-sales-range-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(78px, auto) minmax(238px, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   min-width: 0;
 }
@@ -11520,9 +11523,11 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 }
 .control-sales-range-dates span {
   display: flex;
+  flex: 1 0 104px;
   align-items: baseline;
+  justify-content: center;
   gap: 5px;
-  min-width: 0;
+  min-width: 104px;
   padding: 3px 7px;
   border: 1px solid rgba(145, 190, 224, .14);
   border-radius: 8px;
@@ -11537,11 +11542,10 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   text-transform: uppercase;
 }
 .control-sales-range-dates strong {
-  overflow: hidden;
+  overflow: visible;
   color: #eff8ff;
   font-size: 9px;
   line-height: 1;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .control-sales-range-dates i {
@@ -11617,6 +11621,7 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   -webkit-appearance: none !important;
   background: transparent !important;
   box-shadow: none !important;
+  opacity: 0 !important;
   outline: 0;
 }
 .control-sales-range-track input[type="range"]::-webkit-slider-runnable-track {
@@ -11784,6 +11789,7 @@ dialog select:disabled {
   min-height: 38px;
 }
 .control-sales-toolbar > .primary-btn {
+  grid-column: 4;
   padding: 0 14px;
   white-space: nowrap;
 }
@@ -11892,6 +11898,23 @@ dialog select:disabled {
   .control-sales-range,
   .control-sales-toolbar > .primary-btn {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .control-sales-range-head {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+  .control-sales-range-dates {
+    justify-content: space-between;
+  }
+  .control-sales-range-dates span {
+    flex-basis: 0;
+    min-width: 0;
+  }
+  .control-sales-range-dates strong {
+    font-size: 8px;
   }
 }
 
