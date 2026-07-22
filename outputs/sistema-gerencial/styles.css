@@ -11814,6 +11814,101 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   outline: 0;
 }
 
+/* Periodo operativo sin controles nativos: consistente en Windows y macOS. */
+.control-sales-date-entry {
+  grid-template-columns: minmax(112px, .45fr) minmax(310px, 1.55fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 4px 14px;
+  min-height: 58px;
+  padding: 7px 12px;
+}
+.control-sales-date-heading {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.control-sales-date-heading small {
+  color: #8ff7dc;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.control-sales-date-heading span {
+  color: #8fa2bb;
+  font-size: 8px;
+  line-height: 1.2;
+}
+.control-sales-date-fields {
+  display: grid;
+  grid-template-columns: minmax(132px, 1fr) 16px minmax(132px, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.control-sales-date-fields label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px 9px;
+  border: 1px solid rgba(145, 190, 224, .18);
+  border-radius: 10px;
+  background: #102946;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.control-sales-date-fields label:focus-within {
+  border-color: rgba(114, 245, 209, .72);
+  background: #133251;
+  box-shadow: 0 0 0 3px rgba(114, 245, 209, .12);
+}
+.control-sales-date-fields span {
+  color: #91a6c0;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.control-sales-date-fields input {
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #f4f9ff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .02em;
+  text-align: center;
+  outline: 0;
+}
+.control-sales-date-fields input.invalid {
+  color: #ff9eb1;
+}
+.control-sales-date-fields i {
+  color: #65e7d0;
+  font-size: 14px;
+  font-style: normal;
+  text-align: center;
+}
+.control-sales-date-feedback {
+  grid-column: 2;
+  overflow: hidden;
+  color: #7f94ae;
+  font-size: 7px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Matriz estable y navegable en Windows/macOS: el desplazamiento queda dentro
    del panel y conserva visibles encabezados y usuarios. */
 .app-shell .admin-panel,
@@ -12051,6 +12146,9 @@ dialog select:disabled {
   .control-sales-toolbar > .primary-btn {
     grid-column: 1 / -1;
   }
+  .control-sales-date-entry {
+    grid-template-columns: minmax(110px, .35fr) minmax(300px, 1fr);
+  }
 }
 
 @media (max-width: 560px) {
@@ -12067,6 +12165,34 @@ dialog select:disabled {
   }
   .control-sales-range-dates strong {
     font-size: 8px;
+  }
+  .control-sales-date-entry {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .control-sales-date-heading {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+  }
+  .control-sales-date-heading span {
+    text-align: right;
+  }
+  .control-sales-date-fields {
+    grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
+  }
+  .control-sales-date-fields label {
+    grid-template-columns: 1fr;
+    gap: 1px;
+    padding-inline: 6px;
+  }
+  .control-sales-date-fields span {
+    text-align: center;
+  }
+  .control-sales-date-fields input {
+    font-size: 10px;
+  }
+  .control-sales-date-feedback {
+    grid-column: 1;
   }
 }
 

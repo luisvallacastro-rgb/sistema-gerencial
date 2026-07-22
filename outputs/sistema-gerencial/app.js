@@ -2506,12 +2506,20 @@ function formatControlSalesMoney(cents) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(cents || 0) / 100);
 }
 
-function controlSalesIsoToDay(value) {
-  return Math.floor(Date.parse(`${value}T00:00:00Z`) / 86400000);
+function formatControlSalesDateInput(value) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
-function controlSalesDayToIso(value) {
-  return new Date(Number(value) * 86400000).toISOString().slice(0, 10);
+function controlSalesDisplayDateToIso(value) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || "").trim());
+  if (!match) return "";
+  const [, day, month, year] = match;
+  const iso = `${year}-${month}-${day}`;
+  const parsed = new Date(`${iso}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== iso ? "" : iso;
 }
 
 function controlSalesRangeModel() {
@@ -2519,12 +2527,10 @@ function controlSalesRangeModel() {
   const today = new Date().toISOString().slice(0, 10);
   const minIso = dates[0] || today;
   const maxIso = dates[dates.length - 1] || minIso;
-  const min = controlSalesIsoToDay(minIso);
-  const max = Math.max(min + 1, controlSalesIsoToDay(maxIso));
-  const from = Math.min(max, Math.max(min, controlSalesIsoToDay(state.controlSalesDateFrom || minIso)));
-  const to = Math.min(max, Math.max(from, controlSalesIsoToDay(state.controlSalesDateTo || maxIso)));
-  const span = Math.max(1, max - min);
-  return { min, max, from, to, minIso, maxIso, fromPercent: ((from - min) / span) * 100, toPercent: ((to - min) / span) * 100 };
+  return {
+    fromIso: state.controlSalesDateFrom || minIso,
+    toIso: state.controlSalesDateTo || maxIso
+  };
 }
 
 function loadControlSales() {
@@ -2580,9 +2586,14 @@ function renderControlSales() {
       <label class="control-sales-search"><span>⌕</span><input type="search" data-control-sales-query value="${escapeHtml(state.controlSalesQuery)}" placeholder="Buscar orden, vendedor, cliente, producto o talla..."></label>
       <label class="control-sales-control"><small>Vendedor</small><select data-control-sales-seller><option value="all">Todos los vendedores</option>${sellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.controlSalesSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label>
       <label class="control-sales-control"><small>Estado</small><select data-control-sales-status><option value="active" ${state.controlSalesStatus === "active" ? "selected" : ""}>Activas</option><option value="all" ${state.controlSalesStatus === "all" ? "selected" : ""}>Todas</option><option value="archived" ${state.controlSalesStatus === "archived" ? "selected" : ""}>Archivadas</option><option value="review" ${state.controlSalesStatus === "review" ? "selected" : ""}>Por revisar</option></select></label>
-      <div class="control-sales-range" data-control-sales-range style="--range-start:${range.fromPercent.toFixed(2)}%;--range-end:${range.toPercent.toFixed(2)}%">
-        <div class="control-sales-range-head"><small>Periodo operativo</small><div class="control-sales-range-dates"><span><em>Desde</em><strong data-control-sales-range-from>${formatDate(controlSalesDayToIso(range.from))}</strong></span><i aria-hidden="true">→</i><span><em>Hasta</em><strong data-control-sales-range-to>${formatDate(controlSalesDayToIso(range.to))}</strong></span></div></div>
-        <div class="control-sales-range-track"><span class="control-sales-range-handle is-from" aria-hidden="true"></span><span class="control-sales-range-handle is-to" aria-hidden="true"></span><input type="range" min="${range.min}" max="${range.max}" value="${range.from}" data-control-sales-from aria-label="Fecha inicial"><input type="range" min="${range.min}" max="${range.max}" value="${range.to}" data-control-sales-to aria-label="Fecha final"></div>
+      <div class="control-sales-range control-sales-date-entry" data-control-sales-range>
+        <div class="control-sales-date-heading"><small>Periodo operativo</small><span>Escribe 8 dígitos por fecha</span></div>
+        <div class="control-sales-date-fields">
+          <label><span>Desde</span><input type="text" inputmode="numeric" autocomplete="off" maxlength="10" data-control-sales-date-from value="${formatDate(range.fromIso)}" placeholder="DD/MM/AAAA" aria-label="Fecha inicial en formato día, mes y año"></label>
+          <i aria-hidden="true">→</i>
+          <label><span>Hasta</span><input type="text" inputmode="numeric" autocomplete="off" maxlength="10" data-control-sales-date-to value="${formatDate(range.toIso)}" placeholder="DD/MM/AAAA" aria-label="Fecha final en formato día, mes y año"></label>
+        </div>
+        <small class="control-sales-date-feedback" data-control-sales-date-feedback aria-live="polite">Ejemplo: 01012026 se convierte en 01/01/2026</small>
       </div>
       <label class="control-sales-control"><small>Ordenar</small><select data-control-sales-sort><option value="date-desc">Más recientes</option><option value="date-asc" ${state.controlSalesSort === "date-asc" ? "selected" : ""}>Más antiguas</option><option value="total-desc" ${state.controlSalesSort === "total-desc" ? "selected" : ""}>Mayor total</option><option value="number-asc" ${state.controlSalesSort === "number-asc" ? "selected" : ""}>Número de orden</option></select></label>
       <button type="button" class="primary-btn" data-control-sales-new>+ Nueva orden</button>
@@ -2714,77 +2725,44 @@ function wireControlSales() {
   const rerender = () => { state.controlSalesPage = 1; renderCommercialSubmenu(areas.operaciones); };
   document.querySelector("[data-control-sales-query]")?.addEventListener("input", (event) => { state.controlSalesQuery = event.target.value; rerender(); const input = document.querySelector("[data-control-sales-query]"); input?.focus({ preventScroll: true }); input?.setSelectionRange(input.value.length, input.value.length); });
   [["seller","controlSalesSeller"],["status","controlSalesStatus"],["sort","controlSalesSort"]].forEach(([name,key]) => document.querySelector(`[data-control-sales-${name}]`)?.addEventListener("change", (event) => { state[key] = event.target.value; rerender(); }));
-  const fromRange = document.querySelector("[data-control-sales-from]");
-  const toRange = document.querySelector("[data-control-sales-to]");
-  const syncRange = (source) => {
-    if (!fromRange || !toRange) return;
-    let from = Number(fromRange.value);
-    let to = Number(toRange.value);
-    if (from > to && source === fromRange) to = from;
-    if (to < from && source === toRange) from = to;
-    fromRange.value = String(from);
-    toRange.value = String(to);
-    state.controlSalesDateFrom = controlSalesDayToIso(from);
-    state.controlSalesDateTo = controlSalesDayToIso(to);
-    const min = Number(fromRange.min);
-    const span = Math.max(1, Number(fromRange.max) - min);
-    const rangeElement = document.querySelector("[data-control-sales-range]");
-    rangeElement?.style.setProperty("--range-start", `${((from - min) / span) * 100}%`);
-    rangeElement?.style.setProperty("--range-end", `${((to - min) / span) * 100}%`);
-    const fromLabel = document.querySelector("[data-control-sales-range-from]");
-    const toLabel = document.querySelector("[data-control-sales-range-to]");
-    if (fromLabel) fromLabel.textContent = formatDate(state.controlSalesDateFrom);
-    if (toLabel) toLabel.textContent = formatDate(state.controlSalesDateTo);
+  const fromDate = document.querySelector("[data-control-sales-date-from]");
+  const toDate = document.querySelector("[data-control-sales-date-to]");
+  const feedback = document.querySelector("[data-control-sales-date-feedback]");
+  const commitDateRange = () => {
+    if (!fromDate || !toDate) return false;
+    const fromIso = controlSalesDisplayDateToIso(fromDate.value);
+    const toIso = controlSalesDisplayDateToIso(toDate.value);
+    fromDate.classList.toggle("invalid", !fromIso);
+    toDate.classList.toggle("invalid", !toIso);
+    if (!fromIso || !toIso) {
+      if (feedback) feedback.textContent = "Completa ambas fechas en formato DD/MM/AAAA.";
+      return false;
+    }
+    if (fromIso > toIso) {
+      fromDate.classList.add("invalid");
+      toDate.classList.add("invalid");
+      if (feedback) feedback.textContent = "La fecha Desde no puede ser posterior a la fecha Hasta.";
+      return false;
+    }
+    state.controlSalesDateFrom = fromIso;
+    state.controlSalesDateTo = toIso;
+    rerender();
+    return true;
   };
-  [fromRange, toRange].forEach((input) => {
-    input?.addEventListener("input", () => syncRange(input));
-    input?.addEventListener("change", () => { syncRange(input); rerender(); });
-  });
-  const rangeTrack = document.querySelector("[data-control-sales-range] .control-sales-range-track");
-  if (rangeTrack && fromRange && toRange) {
-    let activeRange = null;
-    const rangeValueAtPointer = (event) => {
-      const bounds = rangeTrack.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left) / Math.max(1, bounds.width)));
-      const min = Number(fromRange.min);
-      const max = Number(fromRange.max);
-      return Math.round(min + ratio * (max - min));
-    };
-    const updateRangeFromPointer = (event) => {
-      if (!activeRange) return;
-      const value = rangeValueAtPointer(event);
-      if (activeRange === fromRange) {
-        fromRange.value = String(Math.min(value, Number(toRange.value)));
-      } else {
-        toRange.value = String(Math.max(value, Number(fromRange.value)));
+  [fromDate, toDate].forEach((input) => {
+    input?.addEventListener("input", () => {
+      input.value = formatControlSalesDateInput(input.value);
+      input.classList.remove("invalid");
+      if (feedback) feedback.textContent = input.value.replace(/\D/g, "").length === 8 ? "Fecha lista. Presiona Enter o sal del campo para aplicar." : "Escribe 8 dígitos: día, mes y año.";
+    });
+    input?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        commitDateRange();
       }
-      syncRange(activeRange);
-    };
-    rangeTrack.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 && event.pointerType !== "touch") return;
-      event.preventDefault();
-      const value = rangeValueAtPointer(event);
-      activeRange = Math.abs(value - Number(fromRange.value)) <= Math.abs(value - Number(toRange.value)) ? fromRange : toRange;
-      rangeTrack.classList.add("is-dragging");
-      rangeTrack.setPointerCapture?.(event.pointerId);
-      updateRangeFromPointer(event);
     });
-    rangeTrack.addEventListener("pointermove", (event) => {
-      if (!activeRange) return;
-      event.preventDefault();
-      updateRangeFromPointer(event);
-    });
-    const finishRangeDrag = (event) => {
-      if (!activeRange) return;
-      updateRangeFromPointer(event);
-      rangeTrack.classList.remove("is-dragging");
-      if (rangeTrack.hasPointerCapture?.(event.pointerId)) rangeTrack.releasePointerCapture(event.pointerId);
-      activeRange = null;
-      rerender();
-    };
-    rangeTrack.addEventListener("pointerup", finishRangeDrag);
-    rangeTrack.addEventListener("pointercancel", finishRangeDrag);
-  }
+    input?.addEventListener("change", commitDateRange);
+  });
   document.querySelector("[data-control-sales-new]")?.addEventListener("click", () => openControlSalesForm());
   document.querySelectorAll("[data-control-sales-view]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.controlSalesView)));
   document.querySelectorAll("[data-control-sales-edit]").forEach((button) => button.addEventListener("click", () => openControlSalesForm(state.controlSales.find((order) => order.id === button.dataset.controlSalesEdit))));
