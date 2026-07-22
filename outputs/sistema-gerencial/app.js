@@ -744,6 +744,7 @@ const commercialPanel = document.querySelector("#commercialPanel");
 const commercialSubmenuTitle = document.querySelector("#commercialSubmenuTitle");
 const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus");
 const financialOrdersViewTabs = document.querySelector("#financialOrdersViewTabs");
+const financialOrdersNotificationCount = document.querySelector("#financialOrdersNotificationCount");
 const accountsReceivableViewTabs = document.querySelector("#accountsReceivableViewTabs");
 const purchaseOrdersViewTabs = document.querySelector("#purchaseOrdersViewTabs");
 const crmOpportunitiesViewTabs = document.querySelector("#crmOpportunitiesViewTabs");
@@ -1174,9 +1175,14 @@ function visibleResultOpportunities(items = []) {
 }
 
 function pendingWonOrderOpportunities() {
+  const convertedOpportunityIds = new Set(
+    state.financialOrders.map((order) => order.sourceOpportunityId).filter(Boolean)
+  );
   return getOpportunitySubmenu().items.filter((item) => {
     const result = closureResult(item);
-    return result?.result === "ganado" && item.orderHandoff?.status === "pending";
+    return result?.result === "ganado"
+      && item.orderHandoff?.status !== "converted"
+      && !convertedOpportunityIds.has(item.id);
   });
 }
 
@@ -2901,7 +2907,7 @@ function loadFinancialOrderFilters() {
     const saved = JSON.parse(localStorage.getItem(financialOrdersFiltersStorageKey) || "{}");
     state.financialOrderYearFilter = saved.year ? String(saved.year) : "all";
     state.financialOrderMonthFilter = saved.month ? String(saved.month) : "all";
-    state.financialOrdersView = ["list", "seller-kpi", "comparison-kpi"].includes(saved.view) ? saved.view : "list";
+    state.financialOrdersView = ["list", "notifications", "seller-kpi", "comparison-kpi"].includes(saved.view) ? saved.view : "list";
     state.financialComparisonYears = Array.isArray(saved.comparisonYears) ? saved.comparisonYears.map(String) : null;
     state.financialComparisonMonths = Array.isArray(saved.comparisonMonths) && saved.comparisonMonths.length ? saved.comparisonMonths.map(String) : ["Enero", "Febrero", "Marzo"];
   } catch {
@@ -2972,7 +2978,6 @@ function resetFinancialOrderForm(order = null, sourceOpportunity = null) {
 
 function renderFinancialOrderList() {
   const rows = filteredFinancialOrders();
-  const pendingHandoffs = pendingWonOrderOpportunities();
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -2981,24 +2986,7 @@ function renderFinancialOrderList() {
   const pageEnd = pageStart + pageSize;
   const pagedRows = rows.slice(pageStart, pageEnd);
   return `
-    <section class="financial-orders-shell${pendingHandoffs.length ? " has-handoffs" : ""}">
-      ${pendingHandoffs.length ? `
-        <aside class="won-order-handoffs" aria-label="Oportunidades ganadas pendientes de pedido">
-          <div>
-            <span>Oportunidades ganadas</span>
-            <strong>${pendingHandoffs.length} ${pendingHandoffs.length === 1 ? "pedido pendiente" : "pedidos pendientes"}</strong>
-          </div>
-          <div class="won-order-handoff-list">
-            ${pendingHandoffs.map((item) => `
-              <button type="button" data-won-order-handoff="${escapeHtml(item.id)}">
-                <span>${escapeHtml(item.company)}</span>
-                <strong>${formatMoney(item.amount)}</strong>
-                <small>Crear pedido</small>
-              </button>
-            `).join("")}
-          </div>
-        </aside>
-      ` : ""}
+    <section class="financial-orders-shell">
       <div class="financial-orders-toolbar">
         <label><span>⌕</span><input data-financial-order-search type="search" value="${escapeHtml(state.financialOrderQuery)}" placeholder="Buscar pedido, cliente, vendedor..."></label>
         <strong>${formatMoney(total)}</strong>
@@ -3026,6 +3014,49 @@ function renderFinancialOrderList() {
           <strong>Pagina ${state.financialOrderPage} de ${pageCount}</strong>
           <button class="ghost-btn compact-btn" type="button" data-financial-order-page="next" ${state.financialOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button>
         </div>
+      </div>
+    </section>`;
+}
+
+function renderFinancialOrderNotifications() {
+  const pendingHandoffs = pendingWonOrderOpportunities();
+  const pendingTotal = sumAmounts(pendingHandoffs);
+  return `
+    <section class="financial-order-notifications" aria-label="Notificaciones de pedidos pendientes">
+      <header class="financial-order-notifications-head">
+        <div>
+          <span>Oportunidades ganadas</span>
+          <h4>Pedidos por crear</h4>
+          <p>Cada cierre ganado en Oportunidades / Gerencia aparece aquí hasta convertirlo en pedido.</p>
+        </div>
+        <div class="financial-order-notifications-summary">
+          <small>${pendingHandoffs.length === 1 ? "1 pendiente" : `${pendingHandoffs.length} pendientes`}</small>
+          <strong>${formatMoney(pendingTotal)}</strong>
+        </div>
+      </header>
+      <div class="financial-order-notifications-list">
+        ${pendingHandoffs.map((item) => {
+          const result = closureResult(item);
+          return `
+            <article class="financial-order-notification-card">
+              <div class="financial-order-notification-icon" aria-hidden="true">✓</div>
+              <div class="financial-order-notification-copy">
+                <small>Oportunidad ganada · ${result?.date ? formatDate(result.date) : "Lista para pedido"}</small>
+                <strong>${escapeHtml(item.company)}</strong>
+                <span>${escapeHtml(item.seller || "Sin vendedor asignado")}</span>
+              </div>
+              <div class="financial-order-notification-amount">
+                <small>Monto heredado</small>
+                <strong>${formatMoney(item.amount)}</strong>
+              </div>
+              <button type="button" data-won-order-handoff="${escapeHtml(item.id)}">+ Crear pedido</button>
+            </article>`;
+        }).join("") || `
+          <div class="financial-order-notifications-empty">
+            <span aria-hidden="true">✓</span>
+            <strong>Todo está al día</strong>
+            <p>No hay oportunidades ganadas pendientes de convertir en pedido.</p>
+          </div>`}
       </div>
     </section>`;
 }
@@ -3206,6 +3237,7 @@ function renderFinancialOrdersComparisonKpi() {
 }
 
 function renderFinancialOrders() {
+  if (state.financialOrdersView === "notifications") return renderFinancialOrderNotifications();
   if (state.financialOrdersView === "seller-kpi") return renderFinancialOrdersSellerKpi();
   if (state.financialOrdersView === "comparison-kpi") return renderFinancialOrdersComparisonKpi();
   return renderFinancialOrderList();
@@ -5061,13 +5093,20 @@ function renderCommercialSubmenu(area) {
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
     financialOrdersViewTabs?.classList.remove("hidden");
+    const pendingNotifications = pendingWonOrderOpportunities();
+    if (financialOrdersNotificationCount) {
+      financialOrdersNotificationCount.textContent = String(pendingNotifications.length);
+      financialOrdersNotificationCount.classList.toggle("empty", pendingNotifications.length === 0);
+    }
     financialOrdersViewTabs?.querySelectorAll("[data-financial-orders-view]").forEach((button) => {
       const isActive = button.dataset.financialOrdersView === state.financialOrdersView;
       button.classList.toggle("active", isActive);
       button.setAttribute("aria-selected", String(isActive));
     });
     const visibleOrders = state.financialOrdersView === "list" ? filteredFinancialOrders().length : financialOrdersForSelectedPeriod().length;
-    commercialSubmenuStatus.textContent = `${visibleOrders} de ${state.financialOrders.length} pedidos`;
+    commercialSubmenuStatus.textContent = state.financialOrdersView === "notifications"
+      ? `${pendingNotifications.length} pedidos pendientes de crear`
+      : `${visibleOrders} de ${state.financialOrders.length} pedidos`;
     opportunityTable.innerHTML = renderFinancialOrders();
     wireFinancialOrders();
     return;

@@ -5400,6 +5400,82 @@ button:disabled {
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 8px 20px rgba(2,16,36,.2);
 }
 
+.app-shell .financial-orders-notification-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 5px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #72f5d1;
+  color: #092136;
+  font-size: 9px;
+  font-weight: 950;
+  box-shadow: 0 0 18px rgba(114,245,209,.28);
+}
+.app-shell .financial-orders-notification-count.empty { background: rgba(167,190,216,.16); color: rgba(222,234,247,.62); box-shadow: none; }
+
+.app-shell .financial-order-notifications {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+}
+.app-shell .financial-order-notifications-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(114,245,209,.28);
+  border-radius: 20px;
+  background: linear-gradient(120deg, rgba(43,91,124,.28), rgba(20,74,75,.22));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 16px 38px rgba(0,0,0,.12);
+}
+.app-shell .financial-order-notifications-head > div:first-child { display: grid; gap: 4px; min-width: 0; }
+.app-shell .financial-order-notifications-head span { color: #72f5d1; font-size: 10px; font-weight: 950; letter-spacing: .13em; text-transform: uppercase; }
+.app-shell .financial-order-notifications-head h4 { margin: 0; color: #f4f8ff; font-size: clamp(20px, 2vw, 28px); }
+.app-shell .financial-order-notifications-head p { margin: 0; color: rgba(205,220,238,.66); font-size: 12px; font-weight: 700; }
+.app-shell .financial-order-notifications-summary { display: grid; gap: 2px; min-width: 180px; text-align: right; }
+.app-shell .financial-order-notifications-summary small { color: rgba(205,220,238,.68); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.app-shell .financial-order-notifications-summary strong { color: #72f5d1; font-size: clamp(21px, 2.2vw, 30px); }
+.app-shell .financial-order-notifications-list { display: grid; align-content: start; gap: 9px; min-height: 0; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: rgba(114,245,209,.45) transparent; }
+.app-shell .financial-order-notification-card {
+  display: grid;
+  grid-template-columns: 42px minmax(220px, 1fr) minmax(130px, auto) auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 1px solid rgba(142,185,219,.17);
+  border-radius: 16px;
+  background: linear-gradient(105deg, rgba(57,83,128,.27), rgba(10,38,55,.22));
+}
+.app-shell .financial-order-notification-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: rgba(114,245,209,.14); color: #72f5d1; font-size: 18px; font-weight: 950; }
+.app-shell .financial-order-notification-copy { display: grid; gap: 2px; min-width: 0; }
+.app-shell .financial-order-notification-copy small { color: #72f5d1; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.app-shell .financial-order-notification-copy strong { overflow: hidden; color: #f4f8ff; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .financial-order-notification-copy span { color: rgba(205,220,238,.68); font-size: 11px; font-weight: 750; }
+.app-shell .financial-order-notification-amount { display: grid; gap: 2px; text-align: right; }
+.app-shell .financial-order-notification-amount small { color: rgba(205,220,238,.55); font-size: 8px; font-weight: 900; text-transform: uppercase; }
+.app-shell .financial-order-notification-amount strong { color: #72f5d1; font-size: 16px; white-space: nowrap; }
+.app-shell .financial-order-notification-card > button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 12px; background: linear-gradient(135deg, #16966e, #28ae84); color: #fff; font-size: 11px; font-weight: 950; cursor: pointer; box-shadow: 0 12px 26px rgba(7,91,66,.2); }
+.app-shell .financial-order-notification-card > button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.app-shell .financial-order-notifications-empty { display: grid; place-items: center; align-content: center; gap: 7px; min-height: 220px; border: 1px dashed rgba(142,185,219,.22); border-radius: 18px; color: rgba(205,220,238,.7); text-align: center; }
+.app-shell .financial-order-notifications-empty span { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: rgba(114,245,209,.12); color: #72f5d1; font-size: 22px; }
+.app-shell .financial-order-notifications-empty strong { color: #f4f8ff; font-size: 17px; }
+.app-shell .financial-order-notifications-empty p { margin: 0; font-size: 12px; }
+
+@media (max-width: 820px) {
+  .app-shell .financial-order-notifications-head { grid-template-columns: 1fr; }
+  .app-shell .financial-order-notifications-summary { text-align: left; }
+  .app-shell .financial-order-notification-card { grid-template-columns: 38px minmax(0, 1fr) auto; }
+  .app-shell .financial-order-notification-amount { grid-column: 2; text-align: left; }
+  .app-shell .financial-order-notification-card > button { grid-column: 3; grid-row: 1 / span 2; }
+}
+
 .app-shell .financial-seller-kpi { display: grid; gap: 14px; min-height: 0; }
 .app-shell .financial-seller-kpi-summary {
   display: grid;
