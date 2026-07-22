@@ -1174,6 +1174,32 @@ function visibleResultOpportunities(items = []) {
   return items.filter((item) => !isLostOpportunity(item));
 }
 
+function normalizeBusinessMatch(value) {
+  return normalizeKey(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function hasEquivalentFinancialOrder(item, result) {
+  const wonDate = Date.parse(`${result?.date || ""}T00:00:00Z`);
+  const company = normalizeBusinessMatch(item.company);
+  const seller = normalizeBusinessMatch(item.seller);
+  if (!company || !seller || !Number.isFinite(wonDate)) return false;
+
+  return state.financialOrders.some((order) => {
+    const orderDate = Date.parse(`${order.date || ""}T00:00:00Z`);
+    const daysApart = Math.abs(orderDate - wonDate) / 86400000;
+    return !order.deleted
+      && normalizeBusinessMatch(order.client) === company
+      && normalizeBusinessMatch(order.seller) === seller
+      && Number.isFinite(daysApart)
+      && daysApart <= 7;
+  });
+}
+
 function pendingWonOrderOpportunities() {
   const convertedOpportunityIds = new Set(
     state.financialOrders.map((order) => order.sourceOpportunityId).filter(Boolean)
@@ -1182,7 +1208,8 @@ function pendingWonOrderOpportunities() {
     const result = closureResult(item);
     return result?.result === "ganado"
       && item.orderHandoff?.status !== "converted"
-      && !convertedOpportunityIds.has(item.id);
+      && !convertedOpportunityIds.has(item.id)
+      && !hasEquivalentFinancialOrder(item, result);
   });
 }
 
