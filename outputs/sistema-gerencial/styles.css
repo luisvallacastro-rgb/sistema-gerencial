@@ -12462,31 +12462,107 @@ dialog select:disabled {
   font-weight: 750;
 }
 
+.control-sales-source-dropdown {
+  overflow: hidden;
+  border: 1px solid rgba(153,185,217,.24);
+  border-radius: 15px;
+  background: #172d49;
+}
+
+.control-sales-source-dropdown > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 0 16px;
+  color: #edf6ff;
+  cursor: pointer;
+  list-style: none;
+}
+
+.control-sales-source-dropdown > summary::-webkit-details-marker {
+  display: none;
+}
+
+.control-sales-source-dropdown > summary > span {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.control-sales-source-dropdown > summary b {
+  font-size: 14px;
+}
+
+.control-sales-source-dropdown > summary small {
+  color: #72f5d1;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.control-sales-source-dropdown > summary i {
+  color: #72f5d1;
+  font-size: 22px;
+  font-style: normal;
+  transition: transform .2s ease;
+}
+
+.control-sales-source-dropdown[open] > summary i {
+  transform: rotate(180deg);
+}
+
+.control-sales-source-dropdown[open] > summary {
+  border-bottom: 1px solid rgba(153,185,217,.16);
+  background: rgba(53,91,126,.2);
+}
+
+.control-sales-source-dropdown-panel {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.control-sales-source-row-head {
+  display: grid;
+  grid-template-columns: 92px 72px minmax(220px, 1fr) minmax(135px, .6fr) 110px 92px;
+  gap: 10px;
+  padding: 0 12px 3px;
+  color: #7f93ae;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 .control-sales-source-results {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
-  gap: 9px;
-  max-height: 210px;
+  gap: 2px;
+  max-height: 292px;
   overflow: auto;
+  scrollbar-color: #54b6d8 #10253e;
+  scrollbar-width: thin;
 }
 
 .control-sales-source-option {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 4px 10px;
-  padding: 11px 13px;
-  border: 1px solid rgba(153,185,217,.2);
-  border-radius: 14px;
-  background: #1b304e;
+  grid-template-columns: 92px 72px minmax(220px, 1fr) minmax(135px, .6fr) 110px 92px;
+  gap: 10px;
+  align-items: center;
+  min-height: 52px;
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 1px solid rgba(153,185,217,.13);
+  border-radius: 8px;
+  background: #1a304d;
   color: #edf6ff;
   text-align: left;
   cursor: pointer;
 }
 
 .control-sales-source-option b {
-  grid-row: 1 / span 2;
-  align-self: center;
   color: #72f5d1;
+  font-size: 13px;
 }
 
 .control-sales-source-option span {
@@ -12496,24 +12572,35 @@ dialog select:disabled {
   white-space: nowrap;
 }
 
+.control-sales-source-option time,
 .control-sales-source-option small {
   color: #9daec4;
+  overflow: hidden;
+  font-size: 11px;
   font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.control-sales-source-option strong {
+  color: #f3f8ff;
+  font-size: 12px;
+  text-align: right;
 }
 
 .control-sales-source-option i {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-  align-self: center;
   color: #9fc8ff;
+  font-size: 11px;
   font-style: normal;
   font-weight: 850;
+  text-align: right;
 }
 
 .control-sales-source-option:hover,
 .control-sales-source-option:focus-visible {
-  border-color: #72f5d1;
-  background: #214563;
+  outline: 1px solid #72f5d1;
+  outline-offset: -1px;
+  background: #214965;
 }
 
 .control-sales-source-selected {
@@ -12580,7 +12667,30 @@ dialog select:disabled {
     flex-direction: column;
   }
   .control-sales-source-results {
-    grid-template-columns: 1fr;
+    max-height: 340px;
+  }
+  .control-sales-source-row-head {
+    display: none;
+  }
+  .control-sales-source-option {
+    grid-template-columns: 76px 58px minmax(150px, 1fr) 92px;
+  }
+  .control-sales-source-option small {
+    grid-column: 3;
+    color: #8296b2;
+  }
+  .control-sales-source-option strong {
+    grid-column: 4;
+    grid-row: 1;
+  }
+  .control-sales-source-option i {
+    grid-column: 4;
+    grid-row: 2;
+  }
+  .control-sales-source-dropdown > summary > span {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
   }
   .control-sales-tax-options {
     grid-template-columns: 1fr;

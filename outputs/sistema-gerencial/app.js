@@ -2626,9 +2626,15 @@ function ensureControlSalesDialogs() {
       <input type="hidden" id="controlSalesId"><input type="hidden" id="controlSalesFinancialOrderId">
       <section class="control-sales-source-picker">
         <div class="control-sales-source-heading"><div><span>Pedido de origen</span><strong>Selecciona por correlativo o cliente</strong></div><small>Solo aparecen pedidos que todavía no han sido ingresados.</small></div>
-        <label class="control-sales-source-search"><span>⌕</span><input id="controlSalesFinancialOrderSearch" type="search" autocomplete="off" placeholder="Buscar #275, cliente o vendedor…"></label>
         <div id="controlSalesFinancialOrderSelected"></div>
-        <div id="controlSalesFinancialOrderResults" class="control-sales-source-results"></div>
+        <details id="controlSalesFinancialOrderPicker" class="control-sales-source-dropdown">
+          <summary><span><b>Elegir pedido pendiente</b><small id="controlSalesFinancialOrderCount">0 pedidos</small></span><i aria-hidden="true">⌄</i></summary>
+          <div class="control-sales-source-dropdown-panel">
+            <label class="control-sales-source-search"><span>⌕</span><input id="controlSalesFinancialOrderSearch" type="search" autocomplete="off" placeholder="Buscar #275, cliente o vendedor…"></label>
+            <div class="control-sales-source-row-head" aria-hidden="true"><span>Fecha</span><span>Pedido</span><span>Cliente</span><span>Vendedor</span><span>Venta</span><span></span></div>
+            <div id="controlSalesFinancialOrderResults" class="control-sales-source-results"></div>
+          </div>
+        </details>
       </section>
       <section class="control-sales-form-head"><label>Número de orden<input id="controlSalesNumber" required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
       <fieldset class="control-sales-tax-mode"><legend>Tipo de comprobante</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · sin IVA detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · agrega 13% de IVA</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
@@ -2659,6 +2665,7 @@ function ensureControlSalesDialogs() {
       setControlSalesFinancialOrderSelection(null);
       const search = document.querySelector("#controlSalesFinancialOrderSearch");
       search.value = "";
+      document.querySelector("#controlSalesFinancialOrderPicker").open = true;
       search.focus();
       renderControlSalesFinancialOrderResults("");
     }
@@ -2671,6 +2678,12 @@ function ensureControlSalesDialogs() {
   });
   formDialog.addEventListener("change", (event) => {
     if (event.target.matches('input[name="controlSalesDocumentType"]')) updateControlSalesFormTotal();
+  });
+  document.querySelector("#controlSalesFinancialOrderPicker").addEventListener("toggle", (event) => {
+    if (event.target.open) {
+      const search = document.querySelector("#controlSalesFinancialOrderSearch");
+      requestAnimationFrame(() => search?.focus({ preventScroll: true }));
+    }
   });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -2737,10 +2750,12 @@ function renderControlSalesFinancialOrderResults(query = "") {
       const haystack = normalizeKey([order.number, order.client, order.seller, order.orderNumber].join(" "));
       return terms.every((term) => haystack.includes(term));
     })
-    .sort((a, b) => Number(b.number || 0) - Number(a.number || 0))
-    .slice(0, 8);
+    .sort((a, b) => String(a.date || "9999-12-31").localeCompare(String(b.date || "9999-12-31"))
+      || Number(a.number || 0) - Number(b.number || 0));
+  const count = document.querySelector("#controlSalesFinancialOrderCount");
+  if (count) count.textContent = `${available.length} ${available.length === 1 ? "pedido" : "pedidos"}`;
   container.innerHTML = available.length
-    ? available.map((order) => `<button type="button" class="control-sales-source-option" data-control-sales-source-id="${escapeHtml(order.id)}"><b>#${escapeHtml(order.number || "—")}</b><span>${escapeHtml(order.client || "Sin cliente")}</span><small>${escapeHtml(order.seller || "Sin vendedor")} · ${formatMoney(order.sale || 0)}</small><i>Seleccionar</i></button>`).join("")
+    ? available.map((order) => `<button type="button" class="control-sales-source-option" data-control-sales-source-id="${escapeHtml(order.id)}"><time datetime="${escapeHtml(order.date || "")}">${formatDate(order.date) || "Sin fecha"}</time><b>#${escapeHtml(order.number || "—")}</b><span title="${escapeHtml(order.client || "Sin cliente")}">${escapeHtml(order.client || "Sin cliente")}</span><small title="${escapeHtml(order.seller || "Sin vendedor")}">${escapeHtml(order.seller || "Sin vendedor")}</small><strong>${formatMoney(order.sale || 0)}</strong><i>Seleccionar</i></button>`).join("")
     : `<p class="control-sales-source-empty">${terms.length ? "No hay pedidos pendientes que coincidan con la búsqueda." : "No hay pedidos pendientes por ingresar."}</p>`;
 }
 
@@ -2766,6 +2781,7 @@ function setControlSalesFinancialOrderSelection(order) {
   selected.innerHTML = `<article class="control-sales-source-selected"><div><span>Pedido seleccionado</span><strong>${escapeHtml(controlSalesFinancialOrderLabel(order))}</strong><small>Los datos de origen quedan vinculados y protegidos contra duplicados.</small></div><em>Listo para detalle</em><button type="button" data-control-sales-source-clear>Cambiar</button></article>`;
   document.querySelector("#controlSalesFinancialOrderResults").innerHTML = "";
   document.querySelector("#controlSalesFinancialOrderSearch").value = "";
+  document.querySelector("#controlSalesFinancialOrderPicker").open = false;
 }
 
 function selectControlSalesFinancialOrder(orderId) {
@@ -2813,6 +2829,7 @@ function openControlSalesForm(order = null) {
   document.querySelector(`input[name="controlSalesDocumentType"][value="${documentType}"]`).checked = true;
   document.querySelector("#controlSalesLines").innerHTML = (order?.details?.length ? order.details : [{}]).map(controlSalesLineTemplate).join("");
   document.querySelector("#controlSalesFinancialOrderSearch").value = "";
+  document.querySelector("#controlSalesFinancialOrderPicker").open = false;
   renderControlSalesFinancialOrderResults("");
   updateControlSalesFormTotal();
   document.querySelector("#controlSalesDialog").showModal();
