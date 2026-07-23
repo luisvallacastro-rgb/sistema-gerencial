@@ -19,6 +19,7 @@ CRM_SEED_PATH = ROOT / "crm-seed.json"
 ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
 PURCHASE_ORDERS_SEED_PATH = ROOT / "purchase-orders-seed.json"
 CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
+CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
 API_VERSION = "kmi-control-sales-v1"
@@ -1147,6 +1148,18 @@ def save_control_sales_order(conn, data, existing_row=None):
         ).fetchone()
         if not financial_order:
             raise ValueError("El pedido seleccionado ya no existe o fue eliminado")
+        financial_order_date = text(financial_order["date"])
+        previous_financial_order_id = (
+            text(existing.get("financialOrderId")) if existing else ""
+        )
+        is_new_financial_order_link = (
+            not existing_row or financial_order_id != previous_financial_order_id
+        )
+        if (
+            is_new_financial_order_link
+            and financial_order_date < CONTROL_SALES_FINANCIAL_ORDER_CUTOFF
+        ):
+            raise ValueError("Solo se pueden ingresar pedidos desde julio de 2026")
         linked = conn.execute("""
             SELECT id FROM control_sales_orders
             WHERE financial_order_id = ? AND id <> ?

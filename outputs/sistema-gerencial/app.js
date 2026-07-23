@@ -2625,7 +2625,7 @@ function ensureControlSalesDialogs() {
       <header><div><p class="eyebrow">Operaciones</p><h3 id="controlSalesDialogTitle">Nueva orden</h3></div><button type="button" data-control-sales-close>×</button></header>
       <input type="hidden" id="controlSalesId"><input type="hidden" id="controlSalesFinancialOrderId">
       <section class="control-sales-source-picker">
-        <div class="control-sales-source-heading"><div><span>Pedido de origen</span><strong>Selecciona por correlativo o cliente</strong></div><small>Solo aparecen pedidos que todavía no han sido ingresados.</small></div>
+        <div class="control-sales-source-heading"><div><span>Pedido de origen</span><strong>Selecciona por correlativo o cliente</strong></div><small>Pedidos desde julio de 2026 que todavía no han sido ingresados.</small></div>
         <div id="controlSalesFinancialOrderSelected"></div>
         <details id="controlSalesFinancialOrderPicker" class="control-sales-source-dropdown">
           <summary><span><b>Elegir pedido pendiente</b><small id="controlSalesFinancialOrderCount">0 pedidos</small></span><i aria-hidden="true">⌄</i></summary>
@@ -2732,6 +2732,14 @@ function controlSalesLinkedFinancialOrderIds(currentOrderId = "") {
     .filter(Boolean));
 }
 
+const CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01";
+
+function isControlSalesEligibleFinancialOrder(order) {
+  const orderDate = String(order?.date || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(orderDate)
+    && orderDate >= CONTROL_SALES_FINANCIAL_ORDER_CUTOFF;
+}
+
 function controlSalesFinancialOrderLabel(order) {
   return `#${order.number || "—"} · ${order.client || "Sin cliente"} · ${order.seller || "Sin vendedor"}`;
 }
@@ -2744,6 +2752,7 @@ function renderControlSalesFinancialOrderResults(query = "") {
   const linkedIds = controlSalesLinkedFinancialOrderIds(currentOrderId);
   const terms = normalizeKey(query).split(/\s+/).filter(Boolean);
   const available = state.financialOrders
+    .filter(isControlSalesEligibleFinancialOrder)
     .filter((order) => !linkedIds.has(String(order.id)) && String(order.id) !== selectedId)
     .filter((order) => {
       if (!terms.length) return true;
@@ -2756,7 +2765,7 @@ function renderControlSalesFinancialOrderResults(query = "") {
   if (count) count.textContent = `${available.length} ${available.length === 1 ? "pedido" : "pedidos"}`;
   container.innerHTML = available.length
     ? available.map((order) => `<button type="button" class="control-sales-source-option" data-control-sales-source-id="${escapeHtml(order.id)}"><time datetime="${escapeHtml(order.date || "")}">${formatDate(order.date) || "Sin fecha"}</time><b>#${escapeHtml(order.number || "—")}</b><span title="${escapeHtml(order.client || "Sin cliente")}">${escapeHtml(order.client || "Sin cliente")}</span><small title="${escapeHtml(order.seller || "Sin vendedor")}">${escapeHtml(order.seller || "Sin vendedor")}</small><strong>${formatMoney(order.sale || 0)}</strong><i>Seleccionar</i></button>`).join("")
-    : `<p class="control-sales-source-empty">${terms.length ? "No hay pedidos pendientes que coincidan con la búsqueda." : "No hay pedidos pendientes por ingresar."}</p>`;
+    : `<p class="control-sales-source-empty">${terms.length ? "No hay pedidos pendientes que coincidan con la búsqueda." : "No hay pedidos pendientes desde julio de 2026."}</p>`;
 }
 
 function setControlSalesFinancialOrderSelection(order) {
