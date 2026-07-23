@@ -1046,7 +1046,7 @@ def control_sales_cents(value, field="monto"):
 
 def control_sales_quantity(value):
     try:
-        quantity = Decimal(str(value))
+        quantity = Decimal(str(value).strip().replace(",", "."))
     except (InvalidOperation, ValueError):
         raise ValueError("Cantidad no valida")
     if quantity <= 0:

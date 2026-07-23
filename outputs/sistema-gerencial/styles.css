@@ -12258,6 +12258,27 @@ dialog select:disabled {
   font-variant-numeric: tabular-nums;
 }
 
+.control-sales-line .control-sales-quantity-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  padding-right: 14px;
+  border-color: rgba(153,185,217,.4);
+  background: #263956;
+  caret-color: #72f5d1;
+}
+
+.control-sales-line .control-sales-quantity-input:focus {
+  border-color: #72f5d1;
+  outline: 3px solid rgba(114,245,209,.14);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 1px rgba(114,245,209,.16);
+}
+
+.control-sales-line .control-sales-quantity-input::placeholder {
+  color: #70839e;
+}
+
 .control-sales-line output {
   justify-content: flex-end;
   min-height: 42px;

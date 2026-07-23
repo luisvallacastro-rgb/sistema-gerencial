@@ -2652,7 +2652,7 @@ function ensureControlSalesDialogs() {
     event.preventDefault();
     const details = [...document.querySelectorAll("#controlSalesLines .control-sales-line")].map((line) => ({
       id: line.dataset.lineId, product: line.querySelector("[data-line-product]").value.trim(),
-      size: line.querySelector("[data-line-size]").value.trim(), quantity: line.querySelector("[data-line-quantity]").value,
+      size: line.querySelector("[data-line-size]").value.trim(), quantity: normalizeControlSalesDecimal(line.querySelector("[data-line-quantity]").value),
       unitPrice: line.querySelector("[data-line-price]").value, vat: line.querySelector("[data-line-vat]").value || "0",
       notes: line.querySelector("[data-line-notes]").value.trim()
     }));
@@ -2679,17 +2679,26 @@ function ensureControlSalesDialogs() {
   });
 }
 
+function normalizeControlSalesDecimal(value) {
+  return String(value ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+}
+
+function parseControlSalesDecimal(value) {
+  const parsed = Number(normalizeControlSalesDecimal(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function controlSalesLineTemplate(detail = {}) {
   const id = detail.id || crypto.randomUUID();
   const price = detail.unitPriceCents == null ? "" : (detail.unitPriceCents / 100).toFixed(2);
-  return `<div class="control-sales-line" data-line-id="${escapeHtml(id)}"><label>Producto<input data-line-product required value="${escapeHtml(detail.product || "")}"></label><label>Talla<input data-line-size value="${escapeHtml(detail.size || "")}"></label><label>Cantidad<input data-line-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(detail.quantity || "1")}"></label><label>Precio unitario<input data-line-price required type="number" min="0" step="0.01" value="${price}"></label><label>IVA 13%<input data-line-vat type="number" readonly tabindex="-1" aria-readonly="true" value="${((detail.vatCents || 0) / 100).toFixed(2)}"></label><output data-line-total>${formatControlSalesMoney(detail.lineTotalCents || 0)}</output><label>Observaciones<input data-line-notes value="${escapeHtml(detail.notes || "")}"></label><button type="button" data-control-sales-remove-line aria-label="Quitar línea">×</button></div>`;
+  return `<div class="control-sales-line" data-line-id="${escapeHtml(id)}"><label>Producto<input data-line-product required value="${escapeHtml(detail.product || "")}"></label><label>Talla<input data-line-size value="${escapeHtml(detail.size || "")}"></label><label>Cantidad<input class="control-sales-quantity-input" data-line-quantity required type="text" inputmode="decimal" autocomplete="off" spellcheck="false" pattern="[0-9]+([.,][0-9]+)?" title="Ingresa una cantidad válida, por ejemplo 1.02" placeholder="0.00" aria-label="Cantidad decimal" value="${escapeHtml(detail.quantity || "1")}"></label><label>Precio unitario<input data-line-price required type="number" min="0" step="0.01" value="${price}"></label><label>IVA 13%<input data-line-vat type="number" readonly tabindex="-1" aria-readonly="true" value="${((detail.vatCents || 0) / 100).toFixed(2)}"></label><output data-line-total>${formatControlSalesMoney(detail.lineTotalCents || 0)}</output><label>Observaciones<input data-line-notes value="${escapeHtml(detail.notes || "")}"></label><button type="button" data-control-sales-remove-line aria-label="Quitar línea">×</button></div>`;
 }
 
 function updateControlSalesFormTotal() {
   let cents = 0;
   const documentType = document.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF";
   document.querySelectorAll("#controlSalesLines .control-sales-line").forEach((line) => {
-    const quantity = Number(line.querySelector("[data-line-quantity]").value || 0);
+    const quantity = parseControlSalesDecimal(line.querySelector("[data-line-quantity]").value);
     const price = Math.round(Number(line.querySelector("[data-line-price]").value || 0) * 100);
     const base = Math.round(quantity * price);
     const vat = documentType === "CCF" ? Math.round(base * 0.13) : 0;
