@@ -1062,6 +1062,7 @@ def control_sales_order_payload(conn, row, include_audit=False):
     """, (row["id"],)).fetchall()
     item = {
         "id": row["id"], "externalId": row["external_id"], "source": row["source"],
+        "financialOrderId": row["financial_order_id"] if "financial_order_id" in row.keys() else "",
         "number": row["order_number"], "date": row["order_date"], "seller": row["seller"],
         "client": row["client"], "status": row["status"], "documentType": row["document_type"],
         "totalCents": row["total_cents"],
@@ -1135,6 +1136,29 @@ def save_control_sales_order(conn, data, existing_row=None):
     existing = control_sales_order_payload(conn, existing_row) if existing_row else None
     item = control_sales_validate(data, existing)
     order_id = existing_row["id"] if existing_row else f"cv-{uuid.uuid4()}"
+    financial_order_id = text(
+        data.get("financialOrderId"),
+        existing.get("financialOrderId", "") if existing else "",
+    )
+    if financial_order_id:
+        financial_order = conn.execute(
+            "SELECT * FROM financial_orders WHERE id = ? AND deleted = 0",
+            (financial_order_id,),
+        ).fetchone()
+        if not financial_order:
+            raise ValueError("El pedido seleccionado ya no existe o fue eliminado")
+        linked = conn.execute("""
+            SELECT id FROM control_sales_orders
+            WHERE financial_order_id = ? AND id <> ?
+            LIMIT 1
+        """, (financial_order_id, order_id)).fetchone()
+        if linked:
+            raise ValueError("Este pedido ya fue ingresado en Control de Ventas")
+        item["number"] = text(financial_order["number"])
+        item["seller"] = text(financial_order["seller"])
+        item["client"] = text(financial_order["client"])
+    elif not existing_row:
+        raise ValueError("Selecciona un pedido pendiente antes de crear la orden")
     duplicate = conn.execute("""
         SELECT id FROM control_sales_orders
         WHERE lower(order_number) = lower(?) AND source = 'manual' AND id <> ?
@@ -1145,18 +1169,18 @@ def save_control_sales_order(conn, data, existing_row=None):
     actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
     if existing_row:
         conn.execute("""
-            UPDATE control_sales_orders SET order_number=?, order_date=?, seller=?, client=?, status=?,
+            UPDATE control_sales_orders SET financial_order_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
                 document_type=?, total_cents=?, updated_by=?, updated_at=? WHERE id=?
-        """, (item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], actor, now, order_id))
+        """, (financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
     else:
         conn.execute("""
             INSERT INTO control_sales_orders (
-                id, source, order_number, order_date, seller, client, status, document_type, total_cents,
+                id, source, financial_order_id, order_number, order_date, seller, client, status, document_type, total_cents,
                 created_by, updated_by, created_at, updated_at
-            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], actor, actor, now, now))
+            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (order_id, financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], actor, actor, now, now))
         action = "creacion"
     for detail in item["details"]:
         conn.execute("""
@@ -1449,6 +1473,7 @@ def init_db():
                 id TEXT PRIMARY KEY,
                 external_id TEXT UNIQUE,
                 source TEXT NOT NULL DEFAULT 'manual',
+                financial_order_id TEXT NOT NULL DEFAULT '',
                 order_number TEXT NOT NULL,
                 order_date TEXT NOT NULL,
                 seller TEXT NOT NULL,
@@ -1472,6 +1497,13 @@ def init_db():
         control_sales_order_columns = {row["name"] for row in conn.execute("PRAGMA table_info(control_sales_orders)").fetchall()}
         if "document_type" not in control_sales_order_columns:
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN document_type TEXT NOT NULL DEFAULT 'CF'")
+        if "financial_order_id" not in control_sales_order_columns:
+            conn.execute("ALTER TABLE control_sales_orders ADD COLUMN financial_order_id TEXT NOT NULL DEFAULT ''")
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_financial_order_id
+            ON control_sales_orders(financial_order_id)
+            WHERE financial_order_id <> ''
+        """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS control_sales_details (
                 id TEXT PRIMARY KEY,

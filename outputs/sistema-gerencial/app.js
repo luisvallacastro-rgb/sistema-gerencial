@@ -2534,12 +2534,15 @@ function controlSalesRangeModel() {
 }
 
 function loadControlSales() {
-  if (!apiEnabled) return;
-  apiJson("/api/control-sales")
+  if (!apiEnabled) return Promise.resolve();
+  return apiJson("/api/control-sales")
     .then((payload) => {
       state.controlSales = Array.isArray(payload.items) ? payload.items : [];
       state.controlSalesCounts = payload.counts || { orders: state.controlSales.length, details: 0 };
-      if (state.activeArea === "operaciones" && state.activeSubmenu === "resultados-control-ventas") renderDashboard();
+      if (
+        (state.activeArea === "operaciones" && state.activeSubmenu === "resultados-control-ventas")
+        || (state.activeArea === "financiera" && state.activeSubmenu === "resultados-pedidos")
+      ) renderDashboard();
     })
     .catch((error) => console.error("No se pudo cargar Control de Ventas.", error));
 }
@@ -2620,7 +2623,14 @@ function ensureControlSalesDialogs() {
   document.body.insertAdjacentHTML("beforeend", `
     <dialog id="controlSalesDialog" class="wide-dialog control-sales-dialog"><form id="controlSalesForm" method="dialog">
       <header><div><p class="eyebrow">Operaciones</p><h3 id="controlSalesDialogTitle">Nueva orden</h3></div><button type="button" data-control-sales-close>×</button></header>
-      <input type="hidden" id="controlSalesId"><section class="control-sales-form-head"><label>Número de orden<input id="controlSalesNumber" required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
+      <input type="hidden" id="controlSalesId"><input type="hidden" id="controlSalesFinancialOrderId">
+      <section class="control-sales-source-picker">
+        <div class="control-sales-source-heading"><div><span>Pedido de origen</span><strong>Selecciona por correlativo o cliente</strong></div><small>Solo aparecen pedidos que todavía no han sido ingresados.</small></div>
+        <label class="control-sales-source-search"><span>⌕</span><input id="controlSalesFinancialOrderSearch" type="search" autocomplete="off" placeholder="Buscar #275, cliente o vendedor…"></label>
+        <div id="controlSalesFinancialOrderSelected"></div>
+        <div id="controlSalesFinancialOrderResults" class="control-sales-source-results"></div>
+      </section>
+      <section class="control-sales-form-head"><label>Número de orden<input id="controlSalesNumber" required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
       <fieldset class="control-sales-tax-mode"><legend>Tipo de comprobante</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · sin IVA detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · agrega 13% de IVA</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
       <section class="control-sales-lines"><div class="control-sales-lines-title"><div><span>Detalle de productos</span><strong>Líneas dinámicas</strong></div><button type="button" data-control-sales-add-line>+ Agregar línea</button></div><div id="controlSalesLines"></div></section>
       <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
@@ -2641,9 +2651,23 @@ function ensureControlSalesDialogs() {
       event.target.closest(".control-sales-line").remove();
       updateControlSalesFormTotal();
     }
+    if (event.target.closest("[data-control-sales-source-id]")) {
+      const source = event.target.closest("[data-control-sales-source-id]");
+      selectControlSalesFinancialOrder(source.dataset.controlSalesSourceId);
+    }
+    if (event.target.matches("[data-control-sales-source-clear]")) {
+      setControlSalesFinancialOrderSelection(null);
+      const search = document.querySelector("#controlSalesFinancialOrderSearch");
+      search.value = "";
+      search.focus();
+      renderControlSalesFinancialOrderResults("");
+    }
   });
   formDialog.addEventListener("input", (event) => {
     if (event.target.closest(".control-sales-line")) updateControlSalesFormTotal();
+    if (event.target.matches("#controlSalesFinancialOrderSearch")) {
+      renderControlSalesFinancialOrderResults(event.target.value);
+    }
   });
   formDialog.addEventListener("change", (event) => {
     if (event.target.matches('input[name="controlSalesDocumentType"]')) updateControlSalesFormTotal();
@@ -2657,13 +2681,13 @@ function ensureControlSalesDialogs() {
       notes: line.querySelector("[data-line-notes]").value.trim()
     }));
     const id = document.querySelector("#controlSalesId").value;
-    const payload = { number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+    const payload = { financialOrderId:document.querySelector("#controlSalesFinancialOrderId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
     const submit = form.querySelector('button[type="submit"]');
     submit.disabled = true;
     try {
       await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
       formDialog.close();
-      loadControlSales();
+      await loadControlSales();
     } catch (error) {
       alert("No fue posible guardar la orden. Verifica los campos, precios y que el número no esté repetido.");
     } finally { submit.disabled = false; }
@@ -2686,6 +2710,67 @@ function normalizeControlSalesDecimal(value) {
 function parseControlSalesDecimal(value) {
   const parsed = Number(normalizeControlSalesDecimal(value));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function controlSalesLinkedFinancialOrderIds(currentOrderId = "") {
+  return new Set(state.controlSales
+    .filter((order) => order.id !== currentOrderId)
+    .map((order) => String(order.financialOrderId || ""))
+    .filter(Boolean));
+}
+
+function controlSalesFinancialOrderLabel(order) {
+  return `#${order.number || "—"} · ${order.client || "Sin cliente"} · ${order.seller || "Sin vendedor"}`;
+}
+
+function renderControlSalesFinancialOrderResults(query = "") {
+  const container = document.querySelector("#controlSalesFinancialOrderResults");
+  if (!container) return;
+  const currentOrderId = document.querySelector("#controlSalesId")?.value || "";
+  const selectedId = document.querySelector("#controlSalesFinancialOrderId")?.value || "";
+  const linkedIds = controlSalesLinkedFinancialOrderIds(currentOrderId);
+  const terms = normalizeKey(query).split(/\s+/).filter(Boolean);
+  const available = state.financialOrders
+    .filter((order) => !linkedIds.has(String(order.id)) && String(order.id) !== selectedId)
+    .filter((order) => {
+      if (!terms.length) return true;
+      const haystack = normalizeKey([order.number, order.client, order.seller, order.orderNumber].join(" "));
+      return terms.every((term) => haystack.includes(term));
+    })
+    .sort((a, b) => Number(b.number || 0) - Number(a.number || 0))
+    .slice(0, 8);
+  container.innerHTML = available.length
+    ? available.map((order) => `<button type="button" class="control-sales-source-option" data-control-sales-source-id="${escapeHtml(order.id)}"><b>#${escapeHtml(order.number || "—")}</b><span>${escapeHtml(order.client || "Sin cliente")}</span><small>${escapeHtml(order.seller || "Sin vendedor")} · ${formatMoney(order.sale || 0)}</small><i>Seleccionar</i></button>`).join("")
+    : `<p class="control-sales-source-empty">${terms.length ? "No hay pedidos pendientes que coincidan con la búsqueda." : "No hay pedidos pendientes por ingresar."}</p>`;
+}
+
+function setControlSalesFinancialOrderSelection(order) {
+  const hidden = document.querySelector("#controlSalesFinancialOrderId");
+  const selected = document.querySelector("#controlSalesFinancialOrderSelected");
+  const number = document.querySelector("#controlSalesNumber");
+  const seller = document.querySelector("#controlSalesSeller");
+  const client = document.querySelector("#controlSalesClient");
+  if (!hidden || !selected) return;
+  hidden.value = order?.id || "";
+  [number, seller, client].forEach((input) => { input.readOnly = Boolean(order); });
+  if (!order) {
+    number.value = "";
+    seller.value = "";
+    client.value = "";
+    selected.innerHTML = "";
+    return;
+  }
+  number.value = order.number || "";
+  seller.value = order.seller || "";
+  client.value = order.client || "";
+  selected.innerHTML = `<article class="control-sales-source-selected"><div><span>Pedido seleccionado</span><strong>${escapeHtml(controlSalesFinancialOrderLabel(order))}</strong><small>Los datos de origen quedan vinculados y protegidos contra duplicados.</small></div><em>Listo para detalle</em><button type="button" data-control-sales-source-clear>Cambiar</button></article>`;
+  document.querySelector("#controlSalesFinancialOrderResults").innerHTML = "";
+  document.querySelector("#controlSalesFinancialOrderSearch").value = "";
+}
+
+function selectControlSalesFinancialOrder(orderId) {
+  const order = state.financialOrders.find((item) => String(item.id) === String(orderId));
+  if (order) setControlSalesFinancialOrderSelection(order);
 }
 
 function controlSalesLineTemplate(detail = {}) {
@@ -2714,14 +2799,21 @@ function openControlSalesForm(order = null) {
   ensureControlSalesDialogs();
   document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar orden #${order.number}` : "Nueva orden";
   document.querySelector("#controlSalesId").value = order?.id || "";
-  document.querySelector("#controlSalesNumber").value = order?.number || "";
+  const sourceOrder = order?.financialOrderId
+    ? state.financialOrders.find((item) => String(item.id) === String(order.financialOrderId))
+    : null;
+  setControlSalesFinancialOrderSelection(sourceOrder);
+  document.querySelector("#controlSalesFinancialOrderId").value = order?.financialOrderId || sourceOrder?.id || "";
+  document.querySelector("#controlSalesNumber").value = sourceOrder?.number || order?.number || "";
   document.querySelector("#controlSalesDate").value = order?.date || todayISO();
-  document.querySelector("#controlSalesSeller").value = order?.seller || "";
-  document.querySelector("#controlSalesClient").value = order?.client || "";
+  document.querySelector("#controlSalesSeller").value = sourceOrder?.seller || order?.seller || "";
+  document.querySelector("#controlSalesClient").value = sourceOrder?.client || order?.client || "";
   document.querySelector("#controlSalesOrderStatus").value = order?.status === "Histórica" ? "Activa" : (order?.status || "Activa");
   const documentType = order?.documentType === "CCF" ? "CCF" : "CF";
   document.querySelector(`input[name="controlSalesDocumentType"][value="${documentType}"]`).checked = true;
   document.querySelector("#controlSalesLines").innerHTML = (order?.details?.length ? order.details : [{}]).map(controlSalesLineTemplate).join("");
+  document.querySelector("#controlSalesFinancialOrderSearch").value = "";
+  renderControlSalesFinancialOrderResults("");
   updateControlSalesFormTotal();
   document.querySelector("#controlSalesDialog").showModal();
 }
@@ -3011,6 +3103,11 @@ function resetFinancialOrderForm(order = null, sourceOpportunity = null) {
 
 function renderFinancialOrderList() {
   const rows = filteredFinancialOrders();
+  const linkedFinancialOrderIds = new Set(
+    state.controlSales
+      .map((order) => String(order.financialOrderId || ""))
+      .filter(Boolean)
+  );
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -3034,7 +3131,10 @@ function renderFinancialOrderList() {
             <strong>${escapeHtml(order.number)}</strong>
             <strong class="financial-order-sale">${formatMoney(order.sale)}</strong>
             <span>${escapeHtml(order.seller)}</span>
-            <span>${escapeHtml(order.client)}</span>
+            <span class="financial-order-client-cell">
+              <span>${escapeHtml(order.client)}</span>
+              ${linkedFinancialOrderIds.has(String(order.id)) ? `<em class="financial-order-entered-badge">Ingresado</em>` : ""}
+            </span>
             <span class="financial-order-actions"><button type="button" data-financial-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-financial-order-delete="${order.id}">Eliminar</button></span>
           </article>
         `).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
