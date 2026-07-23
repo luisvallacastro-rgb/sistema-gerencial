@@ -12271,7 +12271,105 @@ dialog select:disabled {
   height: 42px;
 }
 
+.control-sales-tax-mode {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.control-sales-tax-mode legend {
+  margin-bottom: 8px;
+  color: #9daec4;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.control-sales-tax-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 10px;
+  max-width: 720px;
+}
+
+.control-sales-tax-options label {
+  position: relative;
+  cursor: pointer;
+}
+
+.control-sales-tax-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.control-sales-tax-card {
+  display: grid;
+  grid-template-columns: auto 1fr 28px;
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid rgba(153,185,217,.25);
+  border-radius: 15px;
+  background: #1c3151;
+  color: #edf6ff;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.control-sales-tax-card b {
+  font-size: 18px;
+}
+
+.control-sales-tax-card small {
+  color: #9daec4;
+  font-weight: 700;
+}
+
+.control-sales-tax-card i {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(153,185,217,.35);
+  border-radius: 9px;
+  color: transparent;
+  font-style: normal;
+}
+
+.control-sales-tax-options input:checked + .control-sales-tax-card {
+  border-color: #72f5d1;
+  background: linear-gradient(120deg, rgba(48,118,116,.58), rgba(21,62,82,.92));
+  box-shadow: 0 12px 28px rgba(27,211,167,.12);
+}
+
+.control-sales-tax-options input:checked + .control-sales-tax-card i {
+  border-color: #72f5d1;
+  background: #72f5d1;
+  color: #0b3040;
+}
+
+.control-sales-tax-options input:focus-visible + .control-sales-tax-card {
+  outline: 3px solid rgba(91,166,255,.9);
+  outline-offset: 2px;
+}
+
+.control-sales-line [data-line-vat][readonly] {
+  border-style: dashed;
+  color: #72f5d1;
+  background: #172b48;
+  cursor: default;
+}
+
 @media (max-width: 760px) {
+  .control-sales-tax-options {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
   .control-sales-line {
     grid-template-columns: minmax(190px, 1.4fr) 95px 76px 108px 88px 105px minmax(170px, 1.2fr) 42px;
     min-width: 930px;

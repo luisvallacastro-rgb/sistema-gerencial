@@ -2621,6 +2621,7 @@ function ensureControlSalesDialogs() {
     <dialog id="controlSalesDialog" class="wide-dialog control-sales-dialog"><form id="controlSalesForm" method="dialog">
       <header><div><p class="eyebrow">Operaciones</p><h3 id="controlSalesDialogTitle">Nueva orden</h3></div><button type="button" data-control-sales-close>×</button></header>
       <input type="hidden" id="controlSalesId"><section class="control-sales-form-head"><label>Número de orden<input id="controlSalesNumber" required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
+      <fieldset class="control-sales-tax-mode"><legend>Tipo de comprobante</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · sin IVA detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · agrega 13% de IVA</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
       <section class="control-sales-lines"><div class="control-sales-lines-title"><div><span>Detalle de productos</span><strong>Líneas dinámicas</strong></div><button type="button" data-control-sales-add-line>+ Agregar línea</button></div><div id="controlSalesLines"></div></section>
       <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
     </form></dialog>
@@ -2644,6 +2645,9 @@ function ensureControlSalesDialogs() {
   formDialog.addEventListener("input", (event) => {
     if (event.target.closest(".control-sales-line")) updateControlSalesFormTotal();
   });
+  formDialog.addEventListener("change", (event) => {
+    if (event.target.matches('input[name="controlSalesDocumentType"]')) updateControlSalesFormTotal();
+  });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const details = [...document.querySelectorAll("#controlSalesLines .control-sales-line")].map((line) => ({
@@ -2653,7 +2657,7 @@ function ensureControlSalesDialogs() {
       notes: line.querySelector("[data-line-notes]").value.trim()
     }));
     const id = document.querySelector("#controlSalesId").value;
-    const payload = { number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+    const payload = { number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
     const submit = form.querySelector('button[type="submit"]');
     submit.disabled = true;
     try {
@@ -2678,17 +2682,20 @@ function ensureControlSalesDialogs() {
 function controlSalesLineTemplate(detail = {}) {
   const id = detail.id || crypto.randomUUID();
   const price = detail.unitPriceCents == null ? "" : (detail.unitPriceCents / 100).toFixed(2);
-  return `<div class="control-sales-line" data-line-id="${escapeHtml(id)}"><label>Producto<input data-line-product required value="${escapeHtml(detail.product || "")}"></label><label>Talla<input data-line-size value="${escapeHtml(detail.size || "")}"></label><label>Cantidad<input data-line-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(detail.quantity || "1")}"></label><label>Precio unitario<input data-line-price required type="number" min="0" step="0.01" value="${price}"></label><label>IVA<input data-line-vat type="number" min="0" step="0.01" value="${((detail.vatCents || 0) / 100).toFixed(2)}"></label><output data-line-total>${formatControlSalesMoney(detail.lineTotalCents || 0)}</output><label>Observaciones<input data-line-notes value="${escapeHtml(detail.notes || "")}"></label><button type="button" data-control-sales-remove-line aria-label="Quitar línea">×</button></div>`;
+  return `<div class="control-sales-line" data-line-id="${escapeHtml(id)}"><label>Producto<input data-line-product required value="${escapeHtml(detail.product || "")}"></label><label>Talla<input data-line-size value="${escapeHtml(detail.size || "")}"></label><label>Cantidad<input data-line-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(detail.quantity || "1")}"></label><label>Precio unitario<input data-line-price required type="number" min="0" step="0.01" value="${price}"></label><label>IVA 13%<input data-line-vat type="number" readonly tabindex="-1" aria-readonly="true" value="${((detail.vatCents || 0) / 100).toFixed(2)}"></label><output data-line-total>${formatControlSalesMoney(detail.lineTotalCents || 0)}</output><label>Observaciones<input data-line-notes value="${escapeHtml(detail.notes || "")}"></label><button type="button" data-control-sales-remove-line aria-label="Quitar línea">×</button></div>`;
 }
 
 function updateControlSalesFormTotal() {
   let cents = 0;
+  const documentType = document.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF";
   document.querySelectorAll("#controlSalesLines .control-sales-line").forEach((line) => {
     const quantity = Number(line.querySelector("[data-line-quantity]").value || 0);
     const price = Math.round(Number(line.querySelector("[data-line-price]").value || 0) * 100);
-    const vat = Math.round(Number(line.querySelector("[data-line-vat]").value || 0) * 100);
-    const lineTotal = Math.round(quantity * price) + vat;
+    const base = Math.round(quantity * price);
+    const vat = documentType === "CCF" ? Math.round(base * 0.13) : 0;
+    const lineTotal = base + vat;
     cents += lineTotal;
+    line.querySelector("[data-line-vat]").value = (vat / 100).toFixed(2);
     line.querySelector("[data-line-total]").textContent = formatControlSalesMoney(lineTotal);
   });
   document.querySelector("#controlSalesFormTotal").textContent = formatControlSalesMoney(cents);
@@ -2703,6 +2710,8 @@ function openControlSalesForm(order = null) {
   document.querySelector("#controlSalesSeller").value = order?.seller || "";
   document.querySelector("#controlSalesClient").value = order?.client || "";
   document.querySelector("#controlSalesOrderStatus").value = order?.status === "Histórica" ? "Activa" : (order?.status || "Activa");
+  const documentType = order?.documentType === "CCF" ? "CCF" : "CF";
+  document.querySelector(`input[name="controlSalesDocumentType"][value="${documentType}"]`).checked = true;
   document.querySelector("#controlSalesLines").innerHTML = (order?.details?.length ? order.details : [{}]).map(controlSalesLineTemplate).join("");
   updateControlSalesFormTotal();
   document.querySelector("#controlSalesDialog").showModal();

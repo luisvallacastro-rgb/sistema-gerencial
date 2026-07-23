@@ -1063,7 +1063,8 @@ def control_sales_order_payload(conn, row, include_audit=False):
     item = {
         "id": row["id"], "externalId": row["external_id"], "source": row["source"],
         "number": row["order_number"], "date": row["order_date"], "seller": row["seller"],
-        "client": row["client"], "status": row["status"], "totalCents": row["total_cents"],
+        "client": row["client"], "status": row["status"], "documentType": row["document_type"],
+        "totalCents": row["total_cents"],
         "declaredTotalCents": row["declared_total_cents"], "archived": bool(row["archived"]),
         "qualityStatus": row["quality_status"], "anomalies": json.loads(row["anomalies"] or "[]"),
         "sourceRowStart": row["source_row_start"], "sourceRowEnd": row["source_row_end"],
@@ -1096,6 +1097,9 @@ def control_sales_validate(data, existing=None):
     client = text(data.get("client"), current.get("client") or "")
     if not all((number, seller, order_date, client)):
         raise ValueError("Numero, vendedor, fecha y cliente son requeridos")
+    document_type = text(data.get("documentType"), current.get("documentType") or "CF").upper()
+    if document_type not in ("CF", "CCF"):
+        raise ValueError("Tipo de comprobante no valido")
     raw_details = data.get("details")
     if not isinstance(raw_details, list) or not raw_details:
         raise ValueError("La orden debe contener al menos una linea")
@@ -1108,10 +1112,11 @@ def control_sales_validate(data, existing=None):
         quantity_text = control_sales_quantity(raw.get("quantity"))
         quantity = Decimal(quantity_text)
         unit_price_cents = control_sales_cents(raw.get("unitPrice"), f"Precio unitario de la linea {index}")
-        vat_cents = control_sales_cents(raw.get("vat", 0), f"IVA de la linea {index}")
-        if unit_price_cents < 0 or vat_cents < 0:
-            raise ValueError("Precio unitario e IVA deben ser mayores o iguales a cero")
-        line_total_cents = int((quantity * Decimal(unit_price_cents)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) + vat_cents
+        if unit_price_cents < 0:
+            raise ValueError("El precio unitario debe ser mayor o igual a cero")
+        base_cents = int((quantity * Decimal(unit_price_cents)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        vat_cents = int((Decimal(base_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) if document_type == "CCF" else 0
+        line_total_cents = base_cents + vat_cents
         total_cents += line_total_cents
         details.append({
             "id": text(raw.get("id"), f"cvd-{uuid.uuid4()}"), "sequence": index,
@@ -1122,7 +1127,7 @@ def control_sales_validate(data, existing=None):
     return {
         "number": number, "seller": seller, "date": order_date, "client": client,
         "status": text(data.get("status"), current.get("status") or "Activa"),
-        "details": details, "totalCents": total_cents,
+        "documentType": document_type, "details": details, "totalCents": total_cents,
     }
 
 
@@ -1141,17 +1146,17 @@ def save_control_sales_order(conn, data, existing_row=None):
     if existing_row:
         conn.execute("""
             UPDATE control_sales_orders SET order_number=?, order_date=?, seller=?, client=?, status=?,
-                total_cents=?, updated_by=?, updated_at=? WHERE id=?
-        """, (item["number"], item["date"], item["seller"], item["client"], item["status"], item["totalCents"], actor, now, order_id))
+                document_type=?, total_cents=?, updated_by=?, updated_at=? WHERE id=?
+        """, (item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
     else:
         conn.execute("""
             INSERT INTO control_sales_orders (
-                id, source, order_number, order_date, seller, client, status, total_cents,
+                id, source, order_number, order_date, seller, client, status, document_type, total_cents,
                 created_by, updated_by, created_at, updated_at
-            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["totalCents"], actor, actor, now, now))
+            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], actor, actor, now, now))
         action = "creacion"
     for detail in item["details"]:
         conn.execute("""
@@ -1449,6 +1454,7 @@ def init_db():
                 seller TEXT NOT NULL,
                 client TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'Activa',
+                document_type TEXT NOT NULL DEFAULT 'CF',
                 total_cents INTEGER NOT NULL DEFAULT 0,
                 declared_total_cents INTEGER,
                 archived INTEGER NOT NULL DEFAULT 0,
@@ -1463,6 +1469,9 @@ def init_db():
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        control_sales_order_columns = {row["name"] for row in conn.execute("PRAGMA table_info(control_sales_orders)").fetchall()}
+        if "document_type" not in control_sales_order_columns:
+            conn.execute("ALTER TABLE control_sales_orders ADD COLUMN document_type TEXT NOT NULL DEFAULT 'CF'")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS control_sales_details (
                 id TEXT PRIMARY KEY,
