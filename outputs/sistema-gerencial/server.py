@@ -1036,6 +1036,37 @@ def seed_purchase_orders(conn):
     )
 
 
+def recover_purchase_orders_if_empty(conn):
+    """Restore the bundled snapshot once when a persisted database loses every order."""
+    recovery_key = "recovery_purchase_orders_empty_20260724_v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (recovery_key,)).fetchone():
+        return
+    current_count = conn.execute("SELECT COUNT(*) AS count FROM purchase_orders").fetchone()["count"]
+    if current_count:
+        return
+    try:
+        records = json.loads(PURCHASE_ORDERS_SEED_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"No se pudo recuperar el respaldo de ordenes de pedido: {error}")
+        return
+    if not isinstance(records, list) or not records:
+        return
+    for record in records:
+        upsert_purchase_order(conn, record)
+    conn.execute(
+        "INSERT INTO app_state (key, value) VALUES (?, ?)",
+        (
+            recovery_key,
+            json.dumps({
+                "count": len(records),
+                "source": PURCHASE_ORDERS_SEED_PATH.name,
+                "recoveredAt": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            }),
+        ),
+    )
+    print(f"Recuperadas {len(records)} ordenes de pedido desde {PURCHASE_ORDERS_SEED_PATH.name}")
+
+
 def control_sales_cents(value, field="monto"):
     if isinstance(value, bool) or value in (None, ""):
         raise ValueError(f"{field} es requerido")
@@ -1609,6 +1640,7 @@ def init_db():
         grant_johanna_minutes_permissions(conn)
         seed_accounts_receivable(conn)
         seed_purchase_orders(conn)
+        recover_purchase_orders_if_empty(conn)
         grant_purchase_order_permissions(conn)
         seed_control_sales(conn)
         grant_control_sales_permissions(conn)
