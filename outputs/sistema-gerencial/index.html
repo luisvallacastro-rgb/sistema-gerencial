@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>KMI</title>
-    <link rel="stylesheet" href="styles.css?v=20260724-permissions-bulk-label-v87">
+    <link rel="stylesheet" href="styles.css?v=20260724-purchase-history-crud-v88">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -457,6 +457,7 @@
           <div><p class="eyebrow">Financiera / Operaciones</p><h3 id="purchaseOrderDialogTitle">Nueva orden de pedido</h3></div>
           <button class="icon-btn" id="closePurchaseOrderDialog" type="button" aria-label="Cerrar">x</button>
         </div>
+        <p class="purchase-order-dialog-context hidden" id="purchaseOrderDialogContext" aria-live="polite"></p>
         <input id="purchaseOrderId" type="hidden">
         <div class="purchase-order-grid">
           <label>Número de orden<input id="purchaseOrderNumber" maxlength="40" required></label>
@@ -756,6 +757,6 @@
     <script src="historical-sales.js?v=20260706-admin-users-2"></script>
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
     <script src="financial-orders-additions.js?v=20260720-pedidos-270-275-v1"></script>
-    <script src="app.js?v=20260724-permissions-bulk-label-v87"></script>
+    <script src="app.js?v=20260724-purchase-history-crud-v88"></script>
   </body>
 </html>

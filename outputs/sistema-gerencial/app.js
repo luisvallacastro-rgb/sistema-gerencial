@@ -760,6 +760,7 @@ const cancelAccountsReceivable = document.querySelector("#cancelAccountsReceivab
 const purchaseOrderDialog = document.querySelector("#purchaseOrderDialog");
 const purchaseOrderForm = document.querySelector("#purchaseOrderForm");
 const purchaseOrderDialogTitle = document.querySelector("#purchaseOrderDialogTitle");
+const purchaseOrderDialogContext = document.querySelector("#purchaseOrderDialogContext");
 const purchaseOrderId = document.querySelector("#purchaseOrderId");
 const closePurchaseOrderDialog = document.querySelector("#closePurchaseOrderDialog");
 const cancelPurchaseOrder = document.querySelector("#cancelPurchaseOrder");
@@ -2255,7 +2256,14 @@ function loadPurchaseOrders() {
 function resetPurchaseOrderForm(order = null) {
   purchaseOrderForm.reset();
   purchaseOrderId.value = order?.id || "";
-  purchaseOrderDialogTitle.textContent = order ? "Editar orden de pedido" : "Nueva orden de pedido";
+  const isHistorical = Boolean(order && !purchaseOrderHasBalance(order));
+  purchaseOrderDialogTitle.textContent = isHistorical ? "Editar orden histórica" : order ? "Editar orden de pedido" : "Nueva orden de pedido";
+  if (purchaseOrderDialogContext) {
+    purchaseOrderDialogContext.classList.toggle("hidden", !isHistorical);
+    purchaseOrderDialogContext.innerHTML = isHistorical
+      ? `<strong>Registro liquidado.</strong> Si el saldo continúa en $0, permanecerá en Histórico. Si asignas un saldo mayor a $0, regresará automáticamente al listado activo.`
+      : "";
+  }
   purchaseOrderFields.forEach(([key, id]) => {
     const input = document.querySelector(`#${id}`);
     if (input) input.value = order?.[key] ?? "";
@@ -2447,7 +2455,11 @@ function renderPurchaseOrderHistory() {
         <div class="purchase-order-dates"><small>Ingreso · ${formatDate(order.entryDate)}</small><strong>${formatDate(order.balancePaymentDate || order.dueDate) || "Sin fecha de liquidación"}</strong><em class="delivered">Liquidada</em></div>
         <div class="purchase-order-finance"><small>Monto histórico</small><strong>${formatMoney(order.amount)}</strong><span>Saldo ${formatMoney(order.remaining)}</span></div>
         <div class="purchase-order-owner"><small>Producción</small><strong>${escapeHtml(order.productionManager)}</strong><span>${escapeHtml(order.invoiceType || "Sin factura")}</span></div>
-        <div class="purchase-order-history-badge">Histórico</div>
+        <div class="purchase-order-actions purchase-order-history-actions">
+          <span class="purchase-order-history-badge">Histórico</span>
+          <button type="button" data-purchase-order-edit="${order.id}">Editar</button>
+          <button class="danger" type="button" data-purchase-order-delete="${order.id}">Eliminar</button>
+        </div>
       </article>`).join("") || `<div class="empty-state">No hay órdenes liquidadas para esta búsqueda.</div>`}
     </div>
     <div class="opportunity-pagination financial-orders-pagination"><span>Mostrando ${rows.length ? start + 1 : 0}-${Math.min(start + pageSize, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" data-purchase-order-page="prev" ${state.purchaseOrderPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.purchaseOrderPage} de ${pageCount}</strong><button class="ghost-btn compact-btn" data-purchase-order-page="next" ${state.purchaseOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>
