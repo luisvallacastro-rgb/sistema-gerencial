@@ -13283,3 +13283,278 @@ dialog select:disabled {
     min-width: 930px;
   }
 }
+
+/* Tabla nativa de permisos: termina en el último módulo y evita artefactos
+   de composición al congelar encabezados y usuarios en macOS. */
+.app-shell .admin-permissions-shell .permission-matrix-shell {
+  overflow: auto;
+  background: #0b1d33;
+}
+
+.app-shell .permission-access-table {
+  width: max-content;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  background: #0d223a;
+}
+
+.app-shell .permission-access-user-column {
+  width: 300px;
+}
+
+.app-shell .permission-access-module-column {
+  width: 112px;
+}
+
+.app-shell .permission-access-table th,
+.app-shell .permission-access-table td {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid rgba(151, 185, 216, .12);
+  border-bottom: 1px solid rgba(151, 185, 216, .1);
+}
+
+.app-shell .permission-access-area-head {
+  position: sticky;
+  top: 0;
+  z-index: 34;
+  height: 42px;
+  background: #11324d;
+  color: #dffdf5;
+  text-align: center;
+}
+
+.app-shell .permission-access-area-head strong,
+.app-shell .permission-access-area-head small {
+  display: inline-block;
+}
+
+.app-shell .permission-access-area-head strong {
+  font-size: 9px;
+}
+
+.app-shell .permission-access-area-head small {
+  margin-left: 7px;
+  color: #7792aa;
+  font-size: 7px;
+}
+
+.app-shell .permission-access-user-head {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  width: 300px;
+  min-width: 300px;
+  height: 118px;
+  padding: 14px !important;
+  background: #102944;
+  color: #f4fbff;
+  text-align: left;
+  box-shadow: 12px 0 20px rgba(2, 10, 24, .24);
+}
+
+.app-shell .permission-access-user-head span,
+.app-shell .permission-access-user-head small {
+  display: block;
+}
+
+.app-shell .permission-access-user-head span {
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.app-shell .permission-access-user-head small {
+  margin-top: 4px;
+  color: #7792aa;
+  font-size: 8px;
+}
+
+.app-shell .permission-access-module-head {
+  position: sticky;
+  top: 42px;
+  z-index: 33;
+  width: 112px;
+  min-width: 112px;
+  height: 76px;
+  background: #0d223a;
+}
+
+.app-shell .permission-access-module-head > label,
+.app-shell .permission-access-cell > label {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.app-shell .permission-access-module-head strong {
+  max-width: 98px;
+  color: #b9cadb;
+  font-size: 8px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+}
+
+.app-shell .permission-access-module-head input,
+.app-shell .permission-access-cell input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-shell .permission-access-module-head label > span,
+.app-shell .permission-access-cell label > span {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid rgba(178, 205, 230, .34);
+  border-radius: 6px;
+  background: #16314e;
+}
+
+.app-shell .permission-access-module-head input:checked + span,
+.app-shell .permission-access-cell input:checked + span {
+  border-color: #72f5d1;
+  background: linear-gradient(135deg, #72f5d1, #37cda8);
+  box-shadow: 0 0 12px rgba(114, 245, 209, .28);
+}
+
+.app-shell .permission-access-module-head input:checked + span::after,
+.app-shell .permission-access-cell input:checked + span::after {
+  content: "✓";
+  color: #073633;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.app-shell .permission-access-user {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  width: 300px;
+  min-width: 300px;
+  height: 82px;
+  background: #102944;
+  box-shadow: 12px 0 20px rgba(2, 10, 24, .24);
+  text-align: left;
+}
+
+.app-shell .permission-access-user-inner {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 9px;
+  height: 82px;
+  padding: 8px 12px;
+}
+
+.app-shell .permission-access-user-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.app-shell .permission-access-user-copy strong,
+.app-shell .permission-access-user-copy span,
+.app-shell .permission-access-user-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell .permission-access-user-copy strong {
+  color: #f5faff;
+  font-size: 10px;
+}
+
+.app-shell .permission-access-user-copy span {
+  color: #9aafc5;
+  font-size: 8px;
+}
+
+.app-shell .permission-access-user-copy small {
+  color: #72f5d1;
+  font-size: 7px;
+}
+
+.app-shell .permission-access-user-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 5px;
+  margin-top: -7px;
+  padding-left: 49px;
+}
+
+.app-shell .permission-access-user-actions button {
+  border: 0;
+  background: transparent;
+  color: #7890aa;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.app-shell .permission-access-user-actions button.danger {
+  color: #dc7891;
+}
+
+.app-shell .permission-access-cell {
+  width: 112px;
+  min-width: 112px;
+  height: 82px;
+  background: #0d223a;
+}
+
+.app-shell .permission-access-row:hover .permission-access-cell {
+  background: #112b45;
+}
+
+.app-shell .permission-access-row:hover .permission-access-user {
+  background: #14314e;
+}
+
+.app-shell .permission-access-cell:hover {
+  background: #174257 !important;
+}
+
+.app-shell .permission-access-cell.locked {
+  opacity: .66;
+}
+
+.app-shell .permission-access-row.admin-owner .permission-access-user {
+  background: #123b3c;
+}
+
+html.macos-render-safe .app-shell .permission-access-area-head,
+html.macos-render-safe .app-shell .permission-access-module-head,
+html.macos-render-safe .app-shell .permission-access-user-head,
+html.macos-render-safe .app-shell .permission-access-user {
+  position: sticky !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+@media (max-width: 760px) {
+  .app-shell .permission-access-user-column,
+  .app-shell .permission-access-user-head,
+  .app-shell .permission-access-user {
+    width: 240px;
+    min-width: 240px;
+  }
+
+  .app-shell .permission-access-module-column,
+  .app-shell .permission-access-module-head,
+  .app-shell .permission-access-cell {
+    width: 104px;
+    min-width: 104px;
+  }
+}

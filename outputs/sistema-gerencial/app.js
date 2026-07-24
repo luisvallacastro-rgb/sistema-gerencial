@@ -6509,39 +6509,46 @@ function renderAdminPermissionsPanel() {
       </div>
 
       <div class="permission-matrix-shell" style="--permission-columns:${permissionColumns.length}">
-        ${filteredUsers.length ? `<div class="permission-matrix" role="table" aria-label="Matriz de permisos por usuario">
-          <div class="permission-matrix-head">
-            <div class="permission-matrix-area-row" role="row">
-              <div class="permission-matrix-user-head" role="columnheader"><span>Usuarios</span><small>Fijos al desplazar</small></div>
-              ${areaGroups.map((group) => `<div class="permission-matrix-area-head" role="columnheader" style="grid-column:span ${group.count}"><strong>${escapeHtml(group.label)}</strong><small>${group.count} ${group.count === 1 ? "acceso" : "accesos"}</small></div>`).join("")}
-            </div>
-            <div class="permission-matrix-section-row" role="row">
-              <div class="permission-matrix-user-tools" role="columnheader"><span>Usuario y perfil</span><small>El control lateral marca toda la fila</small></div>
+        ${filteredUsers.length ? `<table class="permission-access-table" aria-label="Matriz de permisos por usuario">
+          <colgroup>
+            <col class="permission-access-user-column">
+            ${permissionColumns.map(() => `<col class="permission-access-module-column">`).join("")}
+          </colgroup>
+          <thead>
+            <tr class="permission-access-area-row">
+              <th class="permission-access-user-head" rowspan="2" scope="col"><span>Usuario y perfil</span><small>Fijo al desplazar</small></th>
+              ${areaGroups.map((group) => `<th class="permission-access-area-head" colspan="${group.count}" scope="colgroup"><strong>${escapeHtml(group.label)}</strong><small>${group.count} ${group.count === 1 ? "acceso" : "accesos"}</small></th>`).join("")}
+            </tr>
+            <tr class="permission-access-module-row">
               ${permissionColumns.map((column) => {
                 const enabledCount = filteredUsers.filter((user) => userPermissions(user).has(column.key)).length;
-                return `<label class="permission-matrix-section-head" aria-label="${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}">
+                return `<th class="permission-access-module-head" scope="col"><label aria-label="${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}">
                   <input type="checkbox" data-admin-action="column-permission" data-permission="${column.key}" ${enabledCount === filteredUsers.length ? "checked" : ""}>
                   <span aria-hidden="true"></span><strong>${escapeHtml(column.label)}</strong>
-                </label>`;
+                </label></th>`;
               }).join("")}
-            </div>
-          </div>
+            </tr>
+          </thead>
+          <tbody>
           ${filteredUsers.map((user) => {
             const permissions = userPermissions(user);
             const activeCount = permissionColumns.filter((column) => permissions.has(column.key)).length;
             const isProtected = isAdminUser(user);
             const permissionsLocked = isProtected || user.role === "gerencias";
-            return `<div class="permission-matrix-row ${permissionsLocked ? "admin-owner" : ""}" role="row">
-              <div class="permission-matrix-user" role="rowheader">
-                <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
-                <div><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(roleDisplayName(user.role))}</span><small>${activeCount}/${permissionColumns.length} permisos</small></div>
-                <label class="permission-row-toggle" aria-label="Cambiar todos los permisos de ${escapeHtml(user.name)}"><input type="checkbox" data-admin-action="row-permission" data-user-id="${user.id}" ${activeCount === permissionColumns.length ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>
-                <div class="permission-matrix-user-actions"><button type="button" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button><button type="button" aria-label="Cambiar clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>${isProtected ? "" : `<button class="danger" type="button" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}</div>
-              </div>
-              ${permissionColumns.map((column) => `<label class="permission-matrix-cell ${permissionsLocked ? "locked" : ""}" aria-label="${escapeHtml(user.name)} · ${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}"><input type="checkbox" data-admin-action="cell-permission" data-user-id="${user.id}" data-permission="${column.key}" ${permissions.has(column.key) ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>`).join("")}
-            </div>`;
+            return `<tr class="permission-access-row ${permissionsLocked ? "admin-owner" : ""}">
+              <th class="permission-access-user" scope="row">
+                <div class="permission-access-user-inner">
+                  <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
+                  <div class="permission-access-user-copy"><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(roleDisplayName(user.role))}</span><small>${activeCount}/${permissionColumns.length} permisos</small></div>
+                  <label class="permission-row-toggle" aria-label="Cambiar todos los permisos de ${escapeHtml(user.name)}"><input type="checkbox" data-admin-action="row-permission" data-user-id="${user.id}" ${activeCount === permissionColumns.length ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>
+                  <div class="permission-access-user-actions"><button type="button" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button><button type="button" aria-label="Cambiar clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>${isProtected ? "" : `<button class="danger" type="button" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}</div>
+                </div>
+              </th>
+              ${permissionColumns.map((column) => `<td class="permission-access-cell ${permissionsLocked ? "locked" : ""}"><label aria-label="${escapeHtml(user.name)} · ${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}"><input type="checkbox" data-admin-action="cell-permission" data-user-id="${user.id}" data-permission="${column.key}" ${permissions.has(column.key) ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label></td>`).join("")}
+            </tr>`;
           }).join("")}
-        </div>` : `
+          </tbody>
+        </table>` : `
           <div class="admin-empty">
             <strong>No hay usuarios con ese criterio.</strong>
             <span>Prueba con otro nombre, correo o gerencia.</span>
