@@ -2615,8 +2615,35 @@ function ensureControlSalesDialogs() {
         </details>
       </section>
       <section class="control-sales-form-head"><label>Número de orden<input id="controlSalesNumber" required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
+      <details class="control-sales-proforma-block" open>
+        <summary><span><b>Datos para proforma</b><small>Información comercial, fiscal, entrega y pago</small></span><i aria-hidden="true">⌄</i></summary>
+        <div class="control-sales-proforma-grid">
+          <label>Nombre comercial<input id="controlSalesCommercialName" autocomplete="organization"></label>
+          <label>Razón social<input id="controlSalesLegalName"></label>
+          <label>Giro<input id="controlSalesBusinessActivity"></label>
+          <label>Encargado<input id="controlSalesContactName" autocomplete="name"></label>
+          <label class="span-2">Dirección<input id="controlSalesAddress" autocomplete="street-address"></label>
+          <label>Teléfono<input id="controlSalesPhone" type="tel" autocomplete="tel"></label>
+          <label>Email<input id="controlSalesEmail" type="email" autocomplete="email"></label>
+          <label>NIT<input id="controlSalesTaxId"></label>
+          <label>Número de registro<input id="controlSalesRegistrationNumber"></label>
+          <label>Tipo de contribuyente<input id="controlSalesTaxpayerType" list="controlSalesTaxpayerTypes"><datalist id="controlSalesTaxpayerTypes"><option value="Gran contribuyente"><option value="Mediano contribuyente"><option value="Pequeño contribuyente"><option value="No contribuyente"></datalist></label>
+          <label>Fecha de entrega<input id="controlSalesDeliveryDate" type="date"></label>
+          <label>Condición de pago<input id="controlSalesPaymentTerms" list="controlSalesPaymentOptions"><datalist id="controlSalesPaymentOptions"><option value="Contado"><option value="Crédito 15 días"><option value="Crédito 30 días"><option value="Crédito 60 días"></datalist></label>
+          <label>Estrategia<select id="controlSalesStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label>
+          <label>Código de cliente<input id="controlSalesCustomerCode"></label>
+          <label class="control-sales-perception-toggle"><input id="controlSalesPerceptionEnabled" type="checkbox"><span><b>Percepción 1%</b><small>Aplicar sobre el subtotal</small></span></label>
+          <label class="span-4">Observaciones generales<textarea id="controlSalesGeneralNotes" rows="3"></textarea></label>
+        </div>
+      </details>
       <fieldset class="control-sales-tax-mode"><legend>Tipo de comprobante</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · sin IVA detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · agrega 13% de IVA</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
       <section class="control-sales-lines"><div class="control-sales-lines-title"><div><span>Detalle de productos</span><strong>Líneas dinámicas</strong></div><button type="button" data-control-sales-add-line>+ Agregar línea</button></div><div id="controlSalesLines"></div></section>
+      <section class="control-sales-proforma-totals">
+        <article><span>Subtotal</span><strong id="controlSalesSubtotal">$0.00</strong></article>
+        <article><span>IVA 13%</span><strong id="controlSalesVatTotal">$0.00</strong></article>
+        <article><span>Percepción 1%</span><strong id="controlSalesPerceptionTotal">$0.00</strong></article>
+        <article><span>Total proforma</span><strong id="controlSalesProformaTotal">$0.00</strong></article>
+      </section>
       <section id="controlSalesReconciliation" class="control-sales-reconciliation" data-state="empty">
         <article><span>Monto del pedido</span><strong id="controlSalesExpectedTotal">$0.00</strong><small>Valor a liquidar</small></article>
         <article><span>Total detallado</span><strong id="controlSalesDetailedTotal">$0.00</strong><small>Según CF o CCF</small></article>
@@ -2659,7 +2686,7 @@ function ensureControlSalesDialogs() {
     }
   });
   formDialog.addEventListener("change", (event) => {
-    if (event.target.matches('input[name="controlSalesDocumentType"]')) updateControlSalesFormTotal();
+    if (event.target.matches('input[name="controlSalesDocumentType"], #controlSalesPerceptionEnabled')) updateControlSalesFormTotal();
   });
   document.querySelector("#controlSalesFinancialOrderPicker").addEventListener("toggle", (event) => {
     if (event.target.open) {
@@ -2676,7 +2703,7 @@ function ensureControlSalesDialogs() {
       notes: line.querySelector("[data-line-notes]").value.trim()
     }));
     const id = document.querySelector("#controlSalesId").value;
-    const payload = { financialOrderId:document.querySelector("#controlSalesFinancialOrderId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+    const payload = { financialOrderId:document.querySelector("#controlSalesFinancialOrderId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
     const submit = form.querySelector('button[type="submit"]');
     submit.disabled = true;
     try {
@@ -2690,6 +2717,11 @@ function ensureControlSalesDialogs() {
   const detailDialog = document.querySelector("#controlSalesDetailDialog");
   detailDialog.addEventListener("click", (event) => {
     if (event.target.matches("[data-control-sales-detail-close]")) detailDialog.close();
+    if (event.target.matches("[data-control-sales-detail-print]")) {
+      const order = detailDialog.controlSalesOrder
+        || state.controlSales.find((item) => item.id === event.target.dataset.controlSalesDetailPrint);
+      if (order) printControlSalesProforma(order);
+    }
     if (event.target.matches("[data-control-sales-detail-edit]")) {
       const order = state.controlSales.find((item) => item.id === event.target.dataset.controlSalesDetailEdit);
       detailDialog.close();
@@ -2705,6 +2737,42 @@ function normalizeControlSalesDecimal(value) {
 function parseControlSalesDecimal(value) {
   const parsed = Number(normalizeControlSalesDecimal(value));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+const CONTROL_SALES_PROFORMA_FIELDS = {
+  commercialName: "controlSalesCommercialName",
+  legalName: "controlSalesLegalName",
+  businessActivity: "controlSalesBusinessActivity",
+  contactName: "controlSalesContactName",
+  phone: "controlSalesPhone",
+  address: "controlSalesAddress",
+  email: "controlSalesEmail",
+  taxId: "controlSalesTaxId",
+  registrationNumber: "controlSalesRegistrationNumber",
+  taxpayerType: "controlSalesTaxpayerType",
+  deliveryDate: "controlSalesDeliveryDate",
+  paymentTerms: "controlSalesPaymentTerms",
+  strategy: "controlSalesStrategy",
+  customerCode: "controlSalesCustomerCode",
+  generalNotes: "controlSalesGeneralNotes"
+};
+
+function collectControlSalesProformaData() {
+  const data = Object.fromEntries(Object.entries(CONTROL_SALES_PROFORMA_FIELDS).map(([key, id]) => [
+    key,
+    document.querySelector(`#${id}`)?.value.trim() || ""
+  ]));
+  data.perceptionEnabled = Boolean(document.querySelector("#controlSalesPerceptionEnabled")?.checked);
+  return data;
+}
+
+function fillControlSalesProformaData(data = {}, order = null) {
+  Object.entries(CONTROL_SALES_PROFORMA_FIELDS).forEach(([key, id]) => {
+    const field = document.querySelector(`#${id}`);
+    if (field) field.value = data[key] || (key === "commercialName" ? order?.client || "" : "");
+  });
+  const perception = document.querySelector("#controlSalesPerceptionEnabled");
+  if (perception) perception.checked = Boolean(data.perceptionEnabled);
 }
 
 function controlSalesLinkedFinancialOrderIds(currentOrderId = "") {
@@ -2770,6 +2838,8 @@ function setControlSalesFinancialOrderSelection(order) {
   number.value = order.number || "";
   seller.value = order.seller || "";
   client.value = order.client || "";
+  const commercialName = document.querySelector("#controlSalesCommercialName");
+  if (commercialName && !commercialName.value.trim()) commercialName.value = order.client || "";
   selected.innerHTML = `<article class="control-sales-source-selected"><div><span>Pedido seleccionado</span><strong>${escapeHtml(controlSalesFinancialOrderLabel(order))}</strong><small>Los datos de origen quedan vinculados y protegidos contra duplicados.</small></div><em>Listo para detalle</em><button type="button" data-control-sales-source-clear>Cambiar</button></article>`;
   document.querySelector("#controlSalesFinancialOrderResults").innerHTML = "";
   document.querySelector("#controlSalesFinancialOrderSearch").value = "";
@@ -2820,18 +2890,28 @@ function updateControlSalesReconciliation(totalCents = null) {
 }
 
 function updateControlSalesFormTotal() {
-  let cents = 0;
+  let subtotalCents = 0;
+  let vatCents = 0;
   const documentType = document.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF";
   document.querySelectorAll("#controlSalesLines .control-sales-line").forEach((line) => {
     const quantity = parseControlSalesDecimal(line.querySelector("[data-line-quantity]").value);
     const price = Math.round(Number(line.querySelector("[data-line-price]").value || 0) * 100);
     const base = Math.round(quantity * price);
-    const vat = documentType === "CCF" ? Math.round(base * 0.13) : 0;
-    const lineTotal = base + vat;
-    cents += lineTotal;
-    line.querySelector("[data-line-vat]").value = (vat / 100).toFixed(2);
+    const lineVat = documentType === "CCF" ? Math.round(base * 0.13) : 0;
+    const lineTotal = base + lineVat;
+    subtotalCents += base;
+    vatCents += lineVat;
+    line.querySelector("[data-line-vat]").value = (lineVat / 100).toFixed(2);
     line.querySelector("[data-line-total]").textContent = formatControlSalesMoney(lineTotal);
   });
+  const perceptionCents = document.querySelector("#controlSalesPerceptionEnabled")?.checked
+    ? Math.round(subtotalCents * 0.01)
+    : 0;
+  const cents = subtotalCents + vatCents + perceptionCents;
+  document.querySelector("#controlSalesSubtotal").textContent = formatControlSalesMoney(subtotalCents);
+  document.querySelector("#controlSalesVatTotal").textContent = formatControlSalesMoney(vatCents);
+  document.querySelector("#controlSalesPerceptionTotal").textContent = formatControlSalesMoney(perceptionCents);
+  document.querySelector("#controlSalesProformaTotal").textContent = formatControlSalesMoney(cents);
   document.querySelector("#controlSalesFormTotal").textContent = formatControlSalesMoney(cents);
   updateControlSalesReconciliation(cents);
 }
@@ -2849,6 +2929,7 @@ function openControlSalesForm(order = null) {
   document.querySelector("#controlSalesDate").value = order?.date || todayISO();
   document.querySelector("#controlSalesSeller").value = sourceOrder?.seller || order?.seller || "";
   document.querySelector("#controlSalesClient").value = sourceOrder?.client || order?.client || "";
+  fillControlSalesProformaData(order?.proformaData || {}, order || sourceOrder);
   document.querySelector("#controlSalesOrderStatus").value = order?.status === "Histórica" ? "Activa" : (order?.status || "Activa");
   const documentType = order?.documentType === "CCF" ? "CCF" : "CF";
   document.querySelector(`input[name="controlSalesDocumentType"][value="${documentType}"]`).checked = true;
@@ -2860,16 +2941,64 @@ function openControlSalesForm(order = null) {
   document.querySelector("#controlSalesDialog").showModal();
 }
 
+function printControlSalesProforma(order) {
+  const popup = window.open("", "_blank", "width=980,height=900");
+  if (!popup) {
+    alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
+    return;
+  }
+  popup.opener = null;
+  const data = order.proformaData || {};
+  const subtotalCents = Number(order.subtotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0), 0));
+  const vatCents = Number(order.vatTotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.vatCents || 0), 0));
+  const perceptionCents = Number(order.perceptionCents ?? Math.max(0, Number(order.totalCents || 0) - subtotalCents - vatCents));
+  const logoUrl = new URL("assets/kmi-logo.png", window.location.href).href;
+  const value = (content, fallback = "-") => escapeHtml(String(content || fallback));
+  const strategy = ["Retención", "Expansión", "Atracción", "Recuperación"];
+  const lineRows = order.details.map((detail, index) => {
+    const baseCents = Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0);
+    const description = [detail.product, detail.size ? `Talla ${detail.size}` : "", detail.notes].filter(Boolean).join(" - ");
+    return `<tr><td>${index + 1}</td><td class="num">${value(detail.quantity)}</td><td>${value(description)}</td><td class="num">${formatControlSalesMoney(detail.unitPriceCents || 0)}</td><td class="num">${formatControlSalesMoney(baseCents)}</td></tr>`;
+  }).join("");
+  popup.document.open();
+  popup.document.write(`<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Proforma ${value(order.number)}</title>
+<style>
+@page{size:Letter;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#171717;font-family:Arial,Helvetica,sans-serif;font-size:10px}.sheet{width:100%;min-height:250mm;border:1px solid #333;padding:7mm;position:relative}.brand{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:5px}.brand img{width:88px;height:auto}.brand .secondary{text-align:right}.brand .secondary b{display:block;font-size:20px;font-style:italic;color:#23784d}.brand .secondary small{font-size:8px}.doc-title{text-align:center;margin:7px 0 5px;font-size:18px;letter-spacing:.08em}.meta{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #222;margin-bottom:6px}.meta div,.info div{padding:4px 6px;border-right:1px solid #aaa}.meta div:last-child{border:0}.label{display:block;font-size:7px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:2px}.meta strong,.info strong{font-size:10px}.info{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #222;margin-bottom:6px}.info .wide{grid-column:span 2}.info div:nth-child(3n){border-right:0}.info div{border-bottom:1px solid #aaa;min-height:33px}.info div:nth-last-child(-n+3){border-bottom:0}table{width:100%;border-collapse:collapse;margin-top:6px}th{background:#126c47;color:#fff;text-transform:uppercase;font-size:8px;padding:5px;border:1px solid #222}td{height:25px;padding:4px 6px;border:1px solid #777;vertical-align:top}.num{text-align:right;white-space:nowrap}.totals{width:42%;margin-left:auto;border-collapse:collapse}.totals th{background:#e5e5e5;color:#111;text-align:left}.totals td{height:auto;font-weight:700}.notes{border:1px solid #222;min-height:48px;padding:6px;margin-top:7px}.strategy{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;border:1px solid #222;padding:7px;margin-top:7px}.check{display:inline-block;width:12px;height:12px;border:1px solid #222;margin-right:5px;text-align:center;line-height:10px;font-weight:700}.customer{margin-top:7px;border:1px solid #222;padding:6px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:35mm;margin-top:17mm;text-align:center}.signature{border-top:1px solid #222;padding-top:4px}.footnote{text-align:center;margin-top:9px;font-size:7px;color:#555}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{border:0;padding:0}}
+</style></head><body><main class="sheet">
+  <header class="brand"><img src="${logoUrl}" alt="KMI"><div class="secondary"><b>Arte y Color</b><small>Soluciones textiles</small></div></header>
+  <h1 class="doc-title">PROFORMA</h1>
+  <section class="meta"><div><span class="label">Fecha</span><strong>${value(formatDate(order.date))}</strong></div><div><span class="label">Orden No.</span><strong>${value(order.number)}</strong></div><div><span class="label">Tipo de factura</span><strong>${value(order.documentType)}</strong></div></section>
+  <section class="info">
+    <div><span class="label">Vendedor</span><strong>${value(order.seller)}</strong></div><div><span class="label">Nombre comercial</span><strong>${value(data.commercialName || order.client)}</strong></div><div><span class="label">Razón social</span><strong>${value(data.legalName)}</strong></div>
+    <div><span class="label">Giro</span><strong>${value(data.businessActivity)}</strong></div><div><span class="label">Encargado</span><strong>${value(data.contactName)}</strong></div><div><span class="label">Teléfono</span><strong>${value(data.phone)}</strong></div>
+    <div class="wide"><span class="label">Dirección</span><strong>${value(data.address)}</strong></div><div><span class="label">Email</span><strong>${value(data.email)}</strong></div>
+    <div><span class="label">NIT</span><strong>${value(data.taxId)}</strong></div><div><span class="label">Registro No.</span><strong>${value(data.registrationNumber)}</strong></div><div><span class="label">Tipo de contribuyente</span><strong>${value(data.taxpayerType)}</strong></div>
+    <div><span class="label">Fecha de entrega</span><strong>${value(data.deliveryDate ? formatDate(data.deliveryDate) : "")}</strong></div><div><span class="label">Condición de pago</span><strong>${value(data.paymentTerms)}</strong></div><div><span class="label">Código de cliente</span><strong>${value(data.customerCode)}</strong></div>
+  </section>
+  <table><thead><tr><th style="width:7%">No.</th><th style="width:10%">Cantidad</th><th>Descripción</th><th style="width:18%">Precio unitario</th><th style="width:18%">Total</th></tr></thead><tbody>${lineRows}</tbody></table>
+  <table class="totals"><tbody><tr><th>Sumas</th><td class="num">${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>Percepción 1%</th><td class="num">${formatControlSalesMoney(perceptionCents)}</td></tr><tr><th>IVA 13%</th><td class="num">${formatControlSalesMoney(vatCents)}</td></tr><tr><th>Total</th><td class="num">${formatControlSalesMoney(order.totalCents || 0)}</td></tr></tbody></table>
+  <section class="notes"><span class="label">Observaciones generales</span>${value(data.generalNotes)}</section>
+  <section class="strategy">${strategy.map((item) => `<span><i class="check">${data.strategy === item ? "X" : ""}</i>${item}</span>`).join("")}</section>
+  <section class="customer"><span class="label">Código de cliente</span>${value(data.customerCode)}</section>
+  <section class="signatures"><div class="signature">Firma del cliente / responsable</div><div class="signature">Firma del representante</div></section>
+  <p class="footnote">Documento generado por KMI Sistema Gerencial</p>
+</main><script>window.addEventListener("load",()=>setTimeout(()=>window.print(),250));<\/script></body></html>`);
+  popup.document.close();
+}
+
 async function openControlSalesDetail(orderId) {
   ensureControlSalesDialogs();
   const order = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}`);
+  document.querySelector("#controlSalesDetailDialog").controlSalesOrder = order;
   const warnings = [...(order.anomalies || []), ...order.details.flatMap((detail) => detail.reviewRequired ? [{ description: `Precio faltante en ${detail.product}; requiere revisión.` }] : (detail.anomalies || []))];
   document.querySelector("#controlSalesDetailContent").innerHTML = `<header><div><p class="eyebrow">Control de Ventas · ${escapeHtml(order.source)}</p><h3>Orden #${escapeHtml(order.number)}</h3><span>${escapeHtml(order.client)} · ${escapeHtml(order.seller)}</span></div><button type="button" data-control-sales-detail-close>×</button></header>
     <div class="control-sales-detail-summary"><article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article><article><small>Líneas</small><strong>${order.details.length}</strong></article><article><small>Monto del pedido</small><strong>${formatControlSalesMoney(order.expectedTotalCents || 0)}</strong></article><article><small>Total detallado</small><strong>${formatControlSalesMoney(order.totalCents)}</strong></article><article class="${Number(order.varianceCents || 0) === 0 ? "balanced" : "mismatch"}"><small>Diferencia</small><strong>${formatControlSalesMoney(order.varianceCents || 0)}</strong></article><article><small>Estado</small><strong>${escapeHtml(order.status)}</strong></article></div>
     ${warnings.length ? `<aside class="control-sales-warnings"><strong>⚠ Advertencias históricas</strong>${warnings.map((warning) => `<p>${escapeHtml(warning.description || warning.type || "Dato por revisar")}</p>`).join("")}</aside>` : ""}
+    <section class="control-sales-detail-proforma"><h4>Datos de proforma</h4><div><article><small>Nombre comercial</small><strong>${escapeHtml(order.proformaData?.commercialName || order.client || "—")}</strong></article><article><small>Razón social</small><strong>${escapeHtml(order.proformaData?.legalName || "—")}</strong></article><article><small>Encargado</small><strong>${escapeHtml(order.proformaData?.contactName || "—")}</strong></article><article><small>Entrega</small><strong>${escapeHtml(order.proformaData?.deliveryDate ? formatDate(order.proformaData.deliveryDate) : "—")}</strong></article><article><small>Condición de pago</small><strong>${escapeHtml(order.proformaData?.paymentTerms || "—")}</strong></article><article><small>Estrategia</small><strong>${escapeHtml(order.proformaData?.strategy || "—")}</strong></article></div></section>
     <div class="control-sales-detail-lines"><div class="control-sales-detail-row head"><span>#</span><span>Producto</span><span>Talla</span><span>Cantidad</span><span>Precio</span><span>IVA</span><span>Total</span></div>${order.details.map((detail, index) => `<article class="control-sales-detail-row"><span>${index + 1}</span><strong>${escapeHtml(detail.product)}</strong><span>${escapeHtml(detail.size || "—")}</span><span>${escapeHtml(detail.quantity)}</span><span>${detail.unitPriceCents == null ? "Revisar" : formatControlSalesMoney(detail.unitPriceCents)}</span><span>${formatControlSalesMoney(detail.vatCents)}</span><strong>${formatControlSalesMoney(detail.lineTotalCents)}</strong></article>`).join("")}</div>
     <section class="control-sales-audit"><h4>Auditoría</h4>${order.audit.map((entry) => `<article><strong>${escapeHtml(entry.action)}</strong><span>${escapeHtml(entry.userName)} · ${escapeHtml(entry.createdAt)}</span><small>${escapeHtml(entry.summary)}</small></article>`).join("") || `<p>Historial importado desde Excel.</p>`}</section>
-    <footer><button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar orden</button></footer>`;
+    <footer><button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="control-sales-print-btn" data-control-sales-detail-print="${order.id}">Imprimir proforma</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar orden</button></footer>`;
   document.querySelector("#controlSalesDetailDialog").showModal();
 }
 

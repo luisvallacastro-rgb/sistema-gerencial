@@ -1106,6 +1106,22 @@ def control_sales_order_payload(conn, row, include_audit=False):
         WHERE order_id = ? AND active = 1
         ORDER BY sequence, created_at, id
     """, (row["id"],)).fetchall()
+    try:
+        proforma_data = json.loads(
+            row["proforma_data"] if "proforma_data" in row.keys() else "{}"
+        )
+        if not isinstance(proforma_data, dict):
+            proforma_data = {}
+    except (json.JSONDecodeError, TypeError):
+        proforma_data = {}
+    subtotal_cents = sum(
+        int(detail["line_total_cents"] or 0) - int(detail["vat_cents"] or 0)
+        for detail in detail_rows
+    )
+    vat_total_cents = sum(int(detail["vat_cents"] or 0) for detail in detail_rows)
+    perception_cents = max(
+        0, int(row["total_cents"] or 0) - subtotal_cents - vat_total_cents
+    )
     item = {
         "id": row["id"], "externalId": row["external_id"], "source": row["source"],
         "financialOrderId": row["financial_order_id"] if "financial_order_id" in row.keys() else "",
@@ -1113,7 +1129,9 @@ def control_sales_order_payload(conn, row, include_audit=False):
         "varianceCents": row["variance_cents"] if "variance_cents" in row.keys() else 0,
         "number": row["order_number"], "date": row["order_date"], "seller": row["seller"],
         "client": row["client"], "status": row["status"], "documentType": row["document_type"],
-        "totalCents": row["total_cents"],
+        "totalCents": row["total_cents"], "subtotalCents": subtotal_cents,
+        "vatTotalCents": vat_total_cents, "perceptionCents": perception_cents,
+        "proformaData": proforma_data,
         "declaredTotalCents": row["declared_total_cents"], "archived": bool(row["archived"]),
         "qualityStatus": row["quality_status"], "anomalies": json.loads(row["anomalies"] or "[]"),
         "sourceRowStart": row["source_row_start"], "sourceRowEnd": row["source_row_end"],
@@ -1149,11 +1167,43 @@ def control_sales_validate(data, existing=None):
     document_type = text(data.get("documentType"), current.get("documentType") or "CF").upper()
     if document_type not in ("CF", "CCF"):
         raise ValueError("Tipo de comprobante no valido")
+    current_proforma = current.get("proformaData") or {}
+    raw_proforma = data.get("proformaData")
+    if raw_proforma is None:
+        raw_proforma = current_proforma
+    if not isinstance(raw_proforma, dict):
+        raise ValueError("Los datos de proforma no son validos")
+    strategy = text(
+        raw_proforma.get("strategy"),
+        current_proforma.get("strategy") or "",
+    )
+    allowed_strategies = ("", "Retención", "Expansión", "Atracción", "Recuperación")
+    if strategy not in allowed_strategies:
+        raise ValueError("Estrategia de venta no valida")
+    proforma_data = {
+        "commercialName": text(raw_proforma.get("commercialName"), current_proforma.get("commercialName") or client),
+        "legalName": text(raw_proforma.get("legalName"), current_proforma.get("legalName") or ""),
+        "businessActivity": text(raw_proforma.get("businessActivity"), current_proforma.get("businessActivity") or ""),
+        "contactName": text(raw_proforma.get("contactName"), current_proforma.get("contactName") or ""),
+        "phone": text(raw_proforma.get("phone"), current_proforma.get("phone") or ""),
+        "address": text(raw_proforma.get("address"), current_proforma.get("address") or ""),
+        "email": text(raw_proforma.get("email"), current_proforma.get("email") or ""),
+        "taxId": text(raw_proforma.get("taxId"), current_proforma.get("taxId") or ""),
+        "registrationNumber": text(raw_proforma.get("registrationNumber"), current_proforma.get("registrationNumber") or ""),
+        "taxpayerType": text(raw_proforma.get("taxpayerType"), current_proforma.get("taxpayerType") or ""),
+        "deliveryDate": text(raw_proforma.get("deliveryDate"), current_proforma.get("deliveryDate") or ""),
+        "paymentTerms": text(raw_proforma.get("paymentTerms"), current_proforma.get("paymentTerms") or ""),
+        "perceptionEnabled": bool(raw_proforma.get("perceptionEnabled", current_proforma.get("perceptionEnabled", False))),
+        "strategy": strategy,
+        "customerCode": text(raw_proforma.get("customerCode"), current_proforma.get("customerCode") or ""),
+        "generalNotes": text(raw_proforma.get("generalNotes"), current_proforma.get("generalNotes") or ""),
+    }
     raw_details = data.get("details")
     if not isinstance(raw_details, list) or not raw_details:
         raise ValueError("La orden debe contener al menos una linea")
     details = []
-    total_cents = 0
+    subtotal_cents = 0
+    vat_total_cents = 0
     for index, raw in enumerate(raw_details, start=1):
         product = text(raw.get("product"))
         if not product:
@@ -1166,17 +1216,27 @@ def control_sales_validate(data, existing=None):
         base_cents = int((quantity * Decimal(unit_price_cents)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
         vat_cents = int((Decimal(base_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) if document_type == "CCF" else 0
         line_total_cents = base_cents + vat_cents
-        total_cents += line_total_cents
+        subtotal_cents += base_cents
+        vat_total_cents += vat_cents
         details.append({
             "id": text(raw.get("id"), f"cvd-{uuid.uuid4()}"), "sequence": index,
             "product": product, "size": text(raw.get("size")), "quantity": quantity_text,
             "unitPriceCents": unit_price_cents, "vatCents": vat_cents,
             "lineTotalCents": line_total_cents, "notes": text(raw.get("notes")),
         })
+    perception_cents = (
+        int((Decimal(subtotal_cents) * Decimal("0.01")).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        ))
+        if proforma_data["perceptionEnabled"] else 0
+    )
+    total_cents = subtotal_cents + vat_total_cents + perception_cents
     return {
         "number": number, "seller": seller, "date": order_date, "client": client,
         "status": text(data.get("status"), current.get("status") or "Activa"),
         "documentType": document_type, "details": details, "totalCents": total_cents,
+        "subtotalCents": subtotal_cents, "vatTotalCents": vat_total_cents,
+        "perceptionCents": perception_cents, "proformaData": proforma_data,
     }
 
 
@@ -1232,21 +1292,22 @@ def save_control_sales_order(conn, data, existing_row=None):
         raise sqlite3.IntegrityError("Numero de orden duplicado")
     now = time.strftime("%Y-%m-%dT%H:%M:%S")
     actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
+    proforma_json = json.dumps(item["proformaData"], ensure_ascii=False)
     if existing_row:
         conn.execute("""
             UPDATE control_sales_orders SET financial_order_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
                 document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
-                updated_by=?, updated_at=? WHERE id=?
-        """, (financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, actor, now, order_id))
+                proforma_data=?, updated_by=?, updated_at=? WHERE id=?
+        """, (financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
     else:
         conn.execute("""
             INSERT INTO control_sales_orders (
                 id, source, financial_order_id, order_number, order_date, seller, client, status, document_type, total_cents,
-                expected_total_cents, variance_cents, created_by, updated_by, created_at, updated_at
-            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (order_id, financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, actor, actor, now, now))
+                expected_total_cents, variance_cents, proforma_data, created_by, updated_by, created_at, updated_at
+            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (order_id, financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, actor, now, now))
         action = "creacion"
     for detail in item["details"]:
         conn.execute("""
@@ -1555,6 +1616,7 @@ def init_db():
                 total_cents INTEGER NOT NULL DEFAULT 0,
                 expected_total_cents INTEGER NOT NULL DEFAULT 0,
                 variance_cents INTEGER NOT NULL DEFAULT 0,
+                proforma_data TEXT NOT NULL DEFAULT '{}',
                 declared_total_cents INTEGER,
                 archived INTEGER NOT NULL DEFAULT 0,
                 quality_status TEXT DEFAULT '',
@@ -1577,6 +1639,8 @@ def init_db():
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN expected_total_cents INTEGER NOT NULL DEFAULT 0")
         if "variance_cents" not in control_sales_order_columns:
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN variance_cents INTEGER NOT NULL DEFAULT 0")
+        if "proforma_data" not in control_sales_order_columns:
+            conn.execute("ALTER TABLE control_sales_orders ADD COLUMN proforma_data TEXT NOT NULL DEFAULT '{}'")
         conn.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_financial_order_id
             ON control_sales_orders(financial_order_id)

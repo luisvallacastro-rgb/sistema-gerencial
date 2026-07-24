@@ -4952,6 +4952,232 @@ button:disabled {
   }
 }
 
+/* Control de Ventas - datos y salida de proforma */
+.control-sales-proforma-block {
+  margin: 18px 0;
+  overflow: hidden;
+  border: 1px solid rgba(113, 224, 197, .24);
+  border-radius: 22px;
+  background: rgba(8, 29, 50, .44);
+}
+
+.control-sales-proforma-block > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 22px;
+  cursor: pointer;
+  list-style: none;
+  color: #f4fbff;
+}
+
+.control-sales-proforma-block > summary::-webkit-details-marker {
+  display: none;
+}
+
+.control-sales-proforma-block > summary span {
+  display: grid;
+  gap: 4px;
+}
+
+.control-sales-proforma-block > summary b {
+  font-size: 18px;
+}
+
+.control-sales-proforma-block > summary small {
+  color: #9fb1c8;
+}
+
+.control-sales-proforma-block > summary i {
+  font-style: normal;
+  font-size: 24px;
+  transition: transform .2s ease;
+}
+
+.control-sales-proforma-block[open] > summary i {
+  transform: rotate(180deg);
+}
+
+.control-sales-proforma-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 15px;
+  padding: 4px 22px 22px;
+}
+
+.control-sales-proforma-grid label {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  color: #aebdd0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.control-sales-proforma-grid input,
+.control-sales-proforma-grid select,
+.control-sales-proforma-grid textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1px solid #49647f;
+  border-radius: 13px;
+  background: #203a5a;
+  color: #f5fbff;
+  font: inherit;
+  letter-spacing: normal;
+  resize: vertical;
+}
+
+.control-sales-proforma-grid input:focus,
+.control-sales-proforma-grid select:focus,
+.control-sales-proforma-grid textarea:focus {
+  outline: 2px solid rgba(91, 232, 199, .45);
+  border-color: #5be8c7;
+}
+
+.control-sales-proforma-grid .span-2 {
+  grid-column: span 2;
+}
+
+.control-sales-proforma-grid .span-4 {
+  grid-column: 1 / -1;
+}
+
+.control-sales-proforma-grid .control-sales-perception-toggle {
+  display: flex;
+  align-items: center;
+  align-self: end;
+  min-height: 48px;
+  padding: 9px 13px;
+  border: 1px solid rgba(91, 232, 199, .3);
+  border-radius: 13px;
+  background: rgba(20, 90, 83, .32);
+  cursor: pointer;
+}
+
+.control-sales-perception-toggle input {
+  width: 22px;
+  min-height: 22px;
+  margin: 0 11px 0 0;
+  accent-color: #57e3c1;
+}
+
+.control-sales-perception-toggle span {
+  display: grid;
+  gap: 2px;
+}
+
+.control-sales-perception-toggle b {
+  color: #f4fbff;
+}
+
+.control-sales-perception-toggle small {
+  color: #8db9b1;
+}
+
+.control-sales-proforma-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.control-sales-proforma-totals article {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid rgba(84, 116, 148, .55);
+  border-radius: 16px;
+  background: rgba(12, 39, 66, .78);
+}
+
+.control-sales-proforma-totals span {
+  color: #91a5bd;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.control-sales-proforma-totals strong {
+  color: #f4fbff;
+  font-size: 22px;
+}
+
+.control-sales-proforma-totals article:last-child {
+  border-color: rgba(83, 226, 191, .55);
+  background: rgba(17, 84, 76, .42);
+}
+
+.control-sales-proforma-totals article:last-child strong {
+  color: #62edca;
+}
+
+.control-sales-detail-proforma {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid rgba(93, 228, 196, .25);
+  border-radius: 18px;
+  background: rgba(9, 35, 59, .6);
+}
+
+.control-sales-detail-proforma h4 {
+  margin: 0 0 14px;
+  color: #64e7c8;
+}
+
+.control-sales-detail-proforma > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.control-sales-detail-proforma article {
+  display: grid;
+  gap: 4px;
+}
+
+.control-sales-detail-proforma small {
+  color: #91a5bd;
+}
+
+.control-sales-detail-proforma strong {
+  color: #eef8ff;
+}
+
+.control-sales-print-btn {
+  border: 1px solid rgba(94, 232, 199, .55) !important;
+  background: rgba(20, 112, 96, .52) !important;
+  color: #cafff2 !important;
+  font-weight: 800;
+}
+
+@media (max-width: 1100px) {
+  .control-sales-proforma-grid,
+  .control-sales-proforma-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .control-sales-proforma-grid .span-4 {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 680px) {
+  .control-sales-proforma-grid,
+  .control-sales-proforma-totals,
+  .control-sales-detail-proforma > div {
+    grid-template-columns: 1fr;
+  }
+
+  .control-sales-proforma-grid .span-2,
+  .control-sales-proforma-grid .span-4 {
+    grid-column: auto;
+  }
+}
+
 /* Permisos: consola compacta con matriz de dos ejes congelados. */
 .app-shell .admin-permissions-shell {
   gap: 12px;
