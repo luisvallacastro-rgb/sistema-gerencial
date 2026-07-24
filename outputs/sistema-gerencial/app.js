@@ -6516,13 +6516,17 @@ function renderAdminPermissionsPanel() {
           </colgroup>
           <thead>
             <tr class="permission-access-area-row">
-              <th class="permission-access-user-head" rowspan="2" scope="col"><span>Usuario y perfil</span><small>Fijo al desplazar</small></th>
+              <th class="permission-access-user-head" scope="col"><span>Usuarios</span><small>Fijos al desplazar</small></th>
               ${areaGroups.map((group) => `<th class="permission-access-area-head" colspan="${group.count}" scope="colgroup"><strong>${escapeHtml(group.label)}</strong><small>${group.count} ${group.count === 1 ? "acceso" : "accesos"}</small></th>`).join("")}
             </tr>
             <tr class="permission-access-module-row">
+              <th class="permission-access-bulk-head" scope="row">
+                <strong>Aplicar a todos</strong>
+                <small>Estas casillas modifican el módulo para todos los usuarios.</small>
+              </th>
               ${permissionColumns.map((column) => {
                 const enabledCount = filteredUsers.filter((user) => userPermissions(user).has(column.key)).length;
-                return `<th class="permission-access-module-head" scope="col"><label aria-label="${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}">
+                return `<th class="permission-access-module-head" scope="col"><label aria-label="Aplicar ${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)} a todos los usuarios" title="Aplicar este módulo a todos los usuarios">
                   <input type="checkbox" data-admin-action="column-permission" data-permission="${column.key}" ${enabledCount === filteredUsers.length ? "checked" : ""}>
                   <span aria-hidden="true"></span><strong>${escapeHtml(column.label)}</strong>
                 </label></th>`;

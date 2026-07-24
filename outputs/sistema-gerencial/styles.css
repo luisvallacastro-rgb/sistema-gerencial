@@ -13352,8 +13352,8 @@ dialog select:disabled {
   z-index: 60;
   width: 360px;
   min-width: 360px;
-  height: 118px;
-  padding: 14px !important;
+  height: 42px;
+  padding: 8px 14px !important;
   background: #102944;
   color: #f4fbff;
   text-align: left;
@@ -13366,14 +13366,49 @@ dialog select:disabled {
 }
 
 .app-shell .permission-access-user-head span {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 950;
 }
 
 .app-shell .permission-access-user-head small {
-  margin-top: 4px;
+  margin-top: 2px;
   color: #7792aa;
+  font-size: 7px;
+}
+
+.app-shell .permission-access-bulk-head {
+  position: sticky;
+  top: 42px;
+  left: 0;
+  z-index: 59;
+  width: 360px;
+  min-width: 360px;
+  height: 76px;
+  padding: 12px 14px !important;
+  border-top: 1px solid rgba(151, 185, 216, .12) !important;
+  background: linear-gradient(135deg, #173b55, #102944);
+  box-shadow: 12px 0 20px rgba(2, 10, 24, .24);
+  color: #eafff9;
+  text-align: left;
+}
+
+.app-shell .permission-access-bulk-head strong,
+.app-shell .permission-access-bulk-head small {
+  display: block;
+}
+
+.app-shell .permission-access-bulk-head strong {
+  color: #72f5d1;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.app-shell .permission-access-bulk-head small {
+  max-width: 290px;
+  margin-top: 5px;
+  color: #91a8bf;
   font-size: 8px;
+  line-height: 1.35;
 }
 
 .app-shell .permission-access-module-head {
@@ -13591,6 +13626,7 @@ dialog select:disabled {
 html.macos-render-safe .app-shell .permission-access-area-head,
 html.macos-render-safe .app-shell .permission-access-module-head,
 html.macos-render-safe .app-shell .permission-access-user-head,
+html.macos-render-safe .app-shell .permission-access-bulk-head,
 html.macos-render-safe .app-shell .permission-access-user {
   position: sticky !important;
   transform: none !important;
@@ -13600,6 +13636,7 @@ html.macos-render-safe .app-shell .permission-access-user {
 @media (max-width: 760px) {
   .app-shell .permission-access-user-column,
   .app-shell .permission-access-user-head,
+  .app-shell .permission-access-bulk-head,
   .app-shell .permission-access-user {
     width: 320px;
     min-width: 320px;
