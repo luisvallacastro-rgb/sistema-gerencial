@@ -2588,7 +2588,7 @@ function renderControlSales() {
           <span>${formatDate(order.date)}</span><span>${escapeHtml(order.seller)}</span><span title="${escapeHtml(order.client)}">${escapeHtml(order.client)}</span>
           <span class="money">${formatControlSalesMoney(order.totalCents)}</span>
           <span><em class="control-sales-status ${warning ? "warning" : ""}">${warning ? "⚠ Revisar" : escapeHtml(order.status)}</em></span>
-          <span class="control-sales-actions"><button type="button" data-control-sales-view="${order.id}">Ver</button><button type="button" data-control-sales-edit="${order.id}">Editar</button><button type="button" class="${order.archived ? "restore" : "danger"}" data-control-sales-archive="${order.id}">${order.archived ? "Restaurar" : "Archivar"}</button></span>
+          <span class="control-sales-actions"><button type="button" class="print" data-control-sales-print="${order.id}">Proforma</button><button type="button" data-control-sales-view="${order.id}">Ver</button><button type="button" data-control-sales-edit="${order.id}">Editar</button><button type="button" class="${order.archived ? "restore" : "danger"}" data-control-sales-archive="${order.id}">${order.archived ? "Restaurar" : "Archivar"}</button></span>
         </article>`;
       }).join("") || `<div class="empty-state">No hay órdenes para los filtros seleccionados.</div>`}
     </div>
@@ -2649,7 +2649,7 @@ function ensureControlSalesDialogs() {
         <article><span>Total detallado</span><strong id="controlSalesDetailedTotal">$0.00</strong><small>Según CF o CCF</small></article>
         <article><span>Diferencia</span><strong id="controlSalesVariance">$0.00</strong><small id="controlSalesReconciliationMessage">Selecciona un pedido para conciliar.</small></article>
       </section>
-      <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong><small id="controlSalesFooterReconciliation">Selecciona un pedido para conciliar.</small></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
+      <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong><small id="controlSalesFooterReconciliation">Selecciona un pedido para conciliar.</small></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="button" class="control-sales-print-btn" data-control-sales-print-draft>Vista previa / Imprimir</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
     </form></dialog>
     <dialog id="controlSalesDetailDialog" class="wide-dialog control-sales-detail-dialog"><section id="controlSalesDetailContent"></section></dialog>`);
   const formDialog = document.querySelector("#controlSalesDialog");
@@ -2659,6 +2659,9 @@ function ensureControlSalesDialogs() {
     if (event.target.matches("[data-control-sales-add-line]")) {
       document.querySelector("#controlSalesLines").insertAdjacentHTML("beforeend", controlSalesLineTemplate());
       updateControlSalesFormTotal();
+    }
+    if (event.target.matches("[data-control-sales-print-draft]")) {
+      printControlSalesProforma(controlSalesDraftFromForm());
     }
     if (event.target.matches("[data-control-sales-remove-line]")) {
       const lines = document.querySelectorAll("#controlSalesLines .control-sales-line");
@@ -2916,6 +2919,47 @@ function updateControlSalesFormTotal() {
   updateControlSalesReconciliation(cents);
 }
 
+function controlSalesDraftFromForm() {
+  const documentType = document.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF";
+  let subtotalCents = 0;
+  let vatTotalCents = 0;
+  const details = [...document.querySelectorAll("#controlSalesLines .control-sales-line")].map((line) => {
+    const quantity = normalizeControlSalesDecimal(line.querySelector("[data-line-quantity]").value) || "0";
+    const quantityValue = parseControlSalesDecimal(quantity);
+    const unitPriceCents = Math.round(Number(line.querySelector("[data-line-price]").value || 0) * 100);
+    const baseCents = Math.round(quantityValue * unitPriceCents);
+    const vatCents = documentType === "CCF" ? Math.round(baseCents * 0.13) : 0;
+    subtotalCents += baseCents;
+    vatTotalCents += vatCents;
+    return {
+      product: line.querySelector("[data-line-product]").value.trim() || "Producto pendiente",
+      size: line.querySelector("[data-line-size]").value.trim(),
+      quantity,
+      unitPriceCents,
+      vatCents,
+      lineTotalCents: baseCents + vatCents,
+      notes: line.querySelector("[data-line-notes]").value.trim()
+    };
+  });
+  const perceptionCents = document.querySelector("#controlSalesPerceptionEnabled")?.checked
+    ? Math.round(subtotalCents * 0.01)
+    : 0;
+  return {
+    number: document.querySelector("#controlSalesNumber").value.trim() || "BORRADOR",
+    date: document.querySelector("#controlSalesDate").value || todayISO(),
+    seller: document.querySelector("#controlSalesSeller").value.trim(),
+    client: document.querySelector("#controlSalesClient").value.trim(),
+    status: document.querySelector("#controlSalesOrderStatus").value,
+    documentType,
+    proformaData: collectControlSalesProformaData(),
+    subtotalCents,
+    vatTotalCents,
+    perceptionCents,
+    totalCents: subtotalCents + vatTotalCents + perceptionCents,
+    details
+  };
+}
+
 function openControlSalesForm(order = null) {
   ensureControlSalesDialogs();
   document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar orden #${order.number}` : "Nueva orden";
@@ -3045,6 +3089,10 @@ function wireControlSales() {
     input?.addEventListener("change", commitDateRange);
   });
   document.querySelector("[data-control-sales-new]")?.addEventListener("click", () => openControlSalesForm());
+  document.querySelectorAll("[data-control-sales-print]").forEach((button) => button.addEventListener("click", () => {
+    const order = state.controlSales.find((item) => item.id === button.dataset.controlSalesPrint);
+    if (order) printControlSalesProforma(order);
+  }));
   document.querySelectorAll("[data-control-sales-view]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.controlSalesView)));
   document.querySelectorAll("[data-control-sales-edit]").forEach((button) => button.addEventListener("click", () => openControlSalesForm(state.controlSales.find((order) => order.id === button.dataset.controlSalesEdit))));
   document.querySelectorAll("[data-control-sales-archive]").forEach((button) => button.addEventListener("click", async () => { const order = state.controlSales.find((item) => item.id === button.dataset.controlSalesArchive); if (!order) return; const reason = prompt(order.archived ? "Motivo de restauración:" : "Motivo de anulación o archivo:"); if (reason === null || !reason.trim()) return; await apiJson(`/api/control-sales/${encodeURIComponent(order.id)}`, { method:"PATCH", body:JSON.stringify({ archived:!order.archived, reason, updatedBy:state.currentUser?.name }) }); loadControlSales(); }));

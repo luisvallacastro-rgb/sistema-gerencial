@@ -5154,6 +5154,21 @@ button:disabled {
   font-weight: 800;
 }
 
+.control-sales-actions .print {
+  border-color: rgba(94, 232, 199, .5);
+  background: rgba(18, 106, 91, .55);
+  color: #baffef;
+}
+
+.control-sales-detail-dialog footer {
+  position: sticky;
+  z-index: 4;
+  bottom: -24px;
+  padding: 16px 0;
+  background: #142844;
+  box-shadow: 0 -14px 28px rgba(7, 22, 40, .38);
+}
+
 @media (max-width: 1100px) {
   .control-sales-proforma-grid,
   .control-sales-proforma-totals {
@@ -5175,6 +5190,15 @@ button:disabled {
   .control-sales-proforma-grid .span-2,
   .control-sales-proforma-grid .span-4 {
     grid-column: auto;
+  }
+
+  .control-sales-dialog footer {
+    flex-wrap: wrap;
+  }
+
+  .control-sales-dialog footer > div {
+    width: 100%;
+    margin-right: 0;
   }
 }
 
