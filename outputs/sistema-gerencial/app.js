@@ -2985,50 +2985,91 @@ function openControlSalesForm(order = null) {
   document.querySelector("#controlSalesDialog").showModal();
 }
 
-function printControlSalesProforma(order) {
+function printControlSalesProformaInline(order) {
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
     return;
   }
-  popup.opener = null;
   const data = order.proformaData || {};
   const subtotalCents = Number(order.subtotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0), 0));
   const vatCents = Number(order.vatTotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.vatCents || 0), 0));
   const perceptionCents = Number(order.perceptionCents ?? Math.max(0, Number(order.totalCents || 0) - subtotalCents - vatCents));
-  const logoUrl = new URL("assets/kmi-logo.png", window.location.href).href;
-  const value = (content, fallback = "-") => escapeHtml(String(content || fallback));
-  const strategy = ["Retención", "Expansión", "Atracción", "Recuperación"];
-  const lineRows = order.details.map((detail, index) => {
+  const brandUrl = new URL("assets/proforma-konfi-arte-color.png", window.location.href).href;
+  const value = (content) => escapeHtml(String(content || "")) || "&nbsp;";
+  const rawOrderNumber = String(order.number || "BORRADOR").trim();
+  const printableOrderNumber = /^\d+$/.test(rawOrderNumber)
+    ? `OP-${rawOrderNumber.padStart(4, "0")}`
+    : rawOrderNumber;
+  const invoiceType = order.documentType === "CCF" ? "Credito fiscal" : "Consumidor final";
+  const strategies = [
+    ["RETENCION", "Retención"],
+    ["EXPANSION", "Expansión"],
+    ["ATRACCION", "Atracción"],
+    ["RECUPERACION", "Recuperación"]
+  ];
+  const lineRows = order.details.map((detail) => {
     const baseCents = Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0);
     const description = [detail.product, detail.size ? `Talla ${detail.size}` : "", detail.notes].filter(Boolean).join(" - ");
-    return `<tr><td>${index + 1}</td><td class="num">${value(detail.quantity)}</td><td>${value(description)}</td><td class="num">${formatControlSalesMoney(detail.unitPriceCents || 0)}</td><td class="num">${formatControlSalesMoney(baseCents)}</td></tr>`;
+    return `<tr><td class="qty">${value(detail.quantity)}</td><td>${value(description)}</td><td class="money">${formatControlSalesMoney(detail.unitPriceCents || 0)}</td><td class="money">${formatControlSalesMoney(baseCents)}</td></tr>`;
   }).join("");
+  const blankRows = Array.from(
+    { length: Math.max(0, 12 - order.details.length) },
+    () => `<tr class="blank"><td>&nbsp;</td><td></td><td></td><td></td></tr>`
+  ).join("");
   popup.document.open();
   popup.document.write(`<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><title>Proforma ${value(order.number)}</title>
+<html lang="es"><head><meta charset="utf-8"><title>Orden de pedido ${value(printableOrderNumber)}</title>
 <style>
-@page{size:Letter;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#171717;font-family:Arial,Helvetica,sans-serif;font-size:10px}.sheet{width:100%;min-height:250mm;border:1px solid #333;padding:7mm;position:relative}.brand{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:5px}.brand img{width:88px;height:auto}.brand .secondary{text-align:right}.brand .secondary b{display:block;font-size:20px;font-style:italic;color:#23784d}.brand .secondary small{font-size:8px}.doc-title{text-align:center;margin:7px 0 5px;font-size:18px;letter-spacing:.08em}.meta{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #222;margin-bottom:6px}.meta div,.info div{padding:4px 6px;border-right:1px solid #aaa}.meta div:last-child{border:0}.label{display:block;font-size:7px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:2px}.meta strong,.info strong{font-size:10px}.info{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #222;margin-bottom:6px}.info .wide{grid-column:span 2}.info div:nth-child(3n){border-right:0}.info div{border-bottom:1px solid #aaa;min-height:33px}.info div:nth-last-child(-n+3){border-bottom:0}table{width:100%;border-collapse:collapse;margin-top:6px}th{background:#126c47;color:#fff;text-transform:uppercase;font-size:8px;padding:5px;border:1px solid #222}td{height:25px;padding:4px 6px;border:1px solid #777;vertical-align:top}.num{text-align:right;white-space:nowrap}.totals{width:42%;margin-left:auto;border-collapse:collapse}.totals th{background:#e5e5e5;color:#111;text-align:left}.totals td{height:auto;font-weight:700}.notes{border:1px solid #222;min-height:48px;padding:6px;margin-top:7px}.strategy{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;border:1px solid #222;padding:7px;margin-top:7px}.check{display:inline-block;width:12px;height:12px;border:1px solid #222;margin-right:5px;text-align:center;line-height:10px;font-weight:700}.customer{margin-top:7px;border:1px solid #222;padding:6px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:35mm;margin-top:17mm;text-align:center}.signature{border-top:1px solid #222;padding-top:4px}.footnote{text-align:center;margin-top:9px;font-size:7px;color:#555}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{border:0;padding:0}}
+@page{size:Letter portrait;margin:8mm 11mm 9mm}*{box-sizing:border-box}html,body{margin:0;background:#fff;color:#202b43;font-family:Arial,Helvetica,sans-serif;font-size:11px}.sheet{width:100%;min-height:250mm}.screen-actions{position:fixed;z-index:10;top:16px;right:18px;display:flex;gap:8px;padding:8px;border-radius:12px;background:rgba(25,38,60,.92);box-shadow:0 8px 24px rgba(0,0,0,.24)}.screen-actions button{border:0;border-radius:8px;padding:9px 14px;background:#2aa879;color:#fff;font-weight:800;cursor:pointer}.screen-actions button:last-child{background:#fff;color:#27344b}.top{display:grid;grid-template-columns:56% 44%;align-items:start;min-height:32mm}.brand-panel img{display:block;width:100%;max-width:360px;height:auto}.brand-panel time{display:block;margin:7px 0 0 10px;font-size:13px;font-weight:800}.order-panel{text-align:center;padding-top:2px}.order-panel h1{margin:0;font-size:19px;letter-spacing:.02em}.order-panel .order-number{display:block;margin:11px 0 17px;color:#b7271d;font-size:25px;font-weight:900}.order-panel p{margin:0;font-size:13px}.fields{margin-top:4px}.field{display:grid;grid-template-columns:178px 1fr;align-items:end;min-height:22px}.field label{padding:0 8px 3px 0;font-size:12px;font-weight:800}.field strong{min-height:20px;padding:0 0 3px;border-bottom:1px solid #202b43;font-size:12px;font-weight:800}.items{width:100%;margin-top:9px;border-collapse:collapse;table-layout:fixed;color:#18202c}.items th{height:42px;border:1px solid #202b43;padding:5px 8px;color:#39455a;font-size:10px;text-align:center}.items td{height:22px;border:1px solid #9ba6b7;padding:3px 6px;font-size:10px}.items .qty{width:13%;text-align:center}.items th:nth-child(1){width:13%}.items th:nth-child(2){width:52%}.items th:nth-child(3){width:15.5%}.items th:nth-child(4){width:19.5%}.items .money{text-align:right;white-space:nowrap}.items tr.blank td{height:22px}.closing{display:grid;grid-template-columns:65.5% 34.5%;margin-top:7px}.notes{min-height:73px;border:1px solid #202b43;padding:12px;font-size:13px;font-weight:800}.notes span{display:block;margin-top:6px;font-size:10px;font-weight:500;white-space:pre-wrap}.totals{width:100%;border-collapse:collapse;color:#263148}.totals th,.totals td{height:18px;border:1px solid #a9b2c0;padding:3px 7px;font-size:10px}.totals th{text-align:left;text-transform:uppercase}.totals td{text-align:right;font-weight:800}.totals tr:last-child th,.totals tr:last-child td{font-size:13px;font-weight:900}.strategy-row{display:grid;grid-template-columns:repeat(4,1fr) 1.85fr;gap:10px;margin-top:10px;color:#465166;font-size:11px;font-weight:800}.strategy-item{display:grid;gap:5px}.check{display:inline-flex;width:13px;height:13px;align-items:center;justify-content:center;margin-left:3px;border:1px solid #202b43;color:#202b43;font-size:9px;font-style:normal}.customer-code{display:grid;gap:5px}.customer-code span:last-child{display:block;width:50px;min-height:14px;border-bottom:1px solid #202b43}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:28mm;margin:24mm 8mm 0;text-align:center;font-size:11px;font-weight:800}.signature{border-top:1px solid #202b43;padding-top:7px}@media print{html,body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{min-height:0}.screen-actions{display:none}}
 </style></head><body><main class="sheet">
-  <header class="brand"><img src="${logoUrl}" alt="KMI"><div class="secondary"><b>Arte y Color</b><small>Soluciones textiles</small></div></header>
-  <h1 class="doc-title">PROFORMA</h1>
-  <section class="meta"><div><span class="label">Fecha</span><strong>${value(formatDate(order.date))}</strong></div><div><span class="label">Orden No.</span><strong>${value(order.number)}</strong></div><div><span class="label">Tipo de factura</span><strong>${value(order.documentType)}</strong></div></section>
-  <section class="info">
-    <div><span class="label">Vendedor</span><strong>${value(order.seller)}</strong></div><div><span class="label">Nombre comercial</span><strong>${value(data.commercialName || order.client)}</strong></div><div><span class="label">Razón social</span><strong>${value(data.legalName)}</strong></div>
-    <div><span class="label">Giro</span><strong>${value(data.businessActivity)}</strong></div><div><span class="label">Encargado</span><strong>${value(data.contactName)}</strong></div><div><span class="label">Teléfono</span><strong>${value(data.phone)}</strong></div>
-    <div class="wide"><span class="label">Dirección</span><strong>${value(data.address)}</strong></div><div><span class="label">Email</span><strong>${value(data.email)}</strong></div>
-    <div><span class="label">NIT</span><strong>${value(data.taxId)}</strong></div><div><span class="label">Registro No.</span><strong>${value(data.registrationNumber)}</strong></div><div><span class="label">Tipo de contribuyente</span><strong>${value(data.taxpayerType)}</strong></div>
-    <div><span class="label">Fecha de entrega</span><strong>${value(data.deliveryDate ? formatDate(data.deliveryDate) : "")}</strong></div><div><span class="label">Condición de pago</span><strong>${value(data.paymentTerms)}</strong></div><div><span class="label">Código de cliente</span><strong>${value(data.customerCode)}</strong></div>
+  <header class="top">
+    <div class="brand-panel"><img src="${brandUrl}" alt="Konfi y Arte y Color"><time>${value(formatDate(order.date))}</time></div>
+    <div class="order-panel"><h1>ORDEN DE PEDIDO</h1><strong class="order-number">No. ${value(printableOrderNumber)}</strong><p>Tipo de Factura: ${value(invoiceType)}</p></div>
+  </header>
+  <section class="fields">
+    <div class="field"><label>Vendedor:</label><strong>${value(order.seller)}</strong></div>
+    <div class="field"><label>Nombre Comercial:</label><strong>${value(data.commercialName || order.client)}</strong></div>
+    <div class="field"><label>Razon Social:</label><strong>${value(data.legalName)}</strong></div>
+    <div class="field"><label>Giro:</label><strong>${value(data.businessActivity)}</strong></div>
+    <div class="field"><label>Encargado/a:</label><strong>${value(data.contactName)}</strong></div>
+    <div class="field"><label>Telefono:</label><strong>${value(data.phone)}</strong></div>
+    <div class="field"><label>Direccion:</label><strong>${value(data.address)}</strong></div>
+    <div class="field"><label>Email:</label><strong>${value(data.email)}</strong></div>
+    <div class="field"><label>NIT No.:</label><strong>${value(data.taxId)}</strong></div>
+    <div class="field"><label>Registro No.:</label><strong>${value(data.registrationNumber)}</strong></div>
+    <div class="field"><label>Tipo de Contribuyente:</label><strong>${value(data.taxpayerType)}</strong></div>
+    <div class="field"><label>Fecha de Entrega:</label><strong>${value(data.deliveryDate ? formatDate(data.deliveryDate) : "")}</strong></div>
+    <div class="field"><label>Condiciones de Pago:</label><strong>${value(data.paymentTerms)}</strong></div>
   </section>
-  <table><thead><tr><th style="width:7%">No.</th><th style="width:10%">Cantidad</th><th>Descripción</th><th style="width:18%">Precio unitario</th><th style="width:18%">Total</th></tr></thead><tbody>${lineRows}</tbody></table>
-  <table class="totals"><tbody><tr><th>Sumas</th><td class="num">${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>Percepción 1%</th><td class="num">${formatControlSalesMoney(perceptionCents)}</td></tr><tr><th>IVA 13%</th><td class="num">${formatControlSalesMoney(vatCents)}</td></tr><tr><th>Total</th><td class="num">${formatControlSalesMoney(order.totalCents || 0)}</td></tr></tbody></table>
-  <section class="notes"><span class="label">Observaciones generales</span>${value(data.generalNotes)}</section>
-  <section class="strategy">${strategy.map((item) => `<span><i class="check">${data.strategy === item ? "X" : ""}</i>${item}</span>`).join("")}</section>
-  <section class="customer"><span class="label">Código de cliente</span>${value(data.customerCode)}</section>
-  <section class="signatures"><div class="signature">Firma del cliente / responsable</div><div class="signature">Firma del representante</div></section>
-  <p class="footnote">Documento generado por KMI Sistema Gerencial</p>
-</main><script>window.addEventListener("load",()=>setTimeout(()=>window.print(),250));<\/script></body></html>`);
+  <table class="items"><thead><tr><th>CANTIDAD</th><th>DESCRIPCION</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${lineRows}${blankRows}</tbody></table>
+  <section class="closing">
+    <div class="notes">Observaciones:<span>${value(data.generalNotes)}</span></div>
+    <table class="totals"><tbody><tr><th>SUMAS</th><td>${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>1% PERCEPCION</th><td>${formatControlSalesMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${formatControlSalesMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr></tbody></table>
+  </section>
+  <section class="strategy-row">
+    ${strategies.map(([label, stored]) => `<div class="strategy-item"><span>${label}</span><i class="check">${data.strategy === stored ? "X" : ""}</i></div>`).join("")}
+    <div class="customer-code"><span>CODIGO DE CLIENTE NO.:</span><span>${value(data.customerCode)}</span></div>
+  </section>
+  <section class="signatures"><div class="signature">CLIENTE O RESPONSABLE</div><div class="signature">REPRESENTANTE</div></section>
+</main><nav class="screen-actions" aria-label="Acciones de impresión"><button type="button" onclick="window.print()">Imprimir</button><button type="button" onclick="window.close()">Cerrar</button></nav></body></html>`);
   popup.document.close();
+}
+
+function printControlSalesProforma(order) {
+  const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem(printKey, JSON.stringify(order));
+  const popup = window.open(
+    `proforma-print.html?key=${encodeURIComponent(printKey)}`,
+    "_blank",
+    "width=980,height=900"
+  );
+  if (!popup) {
+    localStorage.removeItem(printKey);
+    alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
+    return;
+  }
+  window.setTimeout(() => localStorage.removeItem(printKey), 5 * 60 * 1000);
 }
 
 async function openControlSalesDetail(orderId) {
