@@ -13287,6 +13287,8 @@ dialog select:disabled {
 /* Tabla nativa de permisos: termina en el último módulo y evita artefactos
    de composición al congelar encabezados y usuarios en macOS. */
 .app-shell .admin-permissions-shell .permission-matrix-shell {
+  width: fit-content;
+  max-width: 100%;
   overflow: auto;
   background: #0b1d33;
 }
@@ -13301,7 +13303,7 @@ dialog select:disabled {
 }
 
 .app-shell .permission-access-user-column {
-  width: 300px;
+  width: 360px;
 }
 
 .app-shell .permission-access-module-column {
@@ -13348,8 +13350,8 @@ dialog select:disabled {
   top: 0;
   left: 0;
   z-index: 60;
-  width: 300px;
-  min-width: 300px;
+  width: 360px;
+  min-width: 360px;
   height: 118px;
   padding: 14px !important;
   background: #102944;
@@ -13441,9 +13443,9 @@ dialog select:disabled {
   position: sticky;
   left: 0;
   z-index: 20;
-  width: 300px;
-  min-width: 300px;
-  height: 82px;
+  width: 360px;
+  min-width: 360px;
+  height: 104px;
   background: #102944;
   box-shadow: 12px 0 20px rgba(2, 10, 24, .24);
   text-align: left;
@@ -13451,14 +13453,29 @@ dialog select:disabled {
 
 .app-shell .permission-access-user-inner {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 24px;
+  grid-template-columns: 48px minmax(0, 1fr) 30px;
+  grid-template-rows: minmax(42px, 1fr) 30px;
   align-items: center;
-  gap: 9px;
-  height: 82px;
-  padding: 8px 12px;
+  column-gap: 12px;
+  row-gap: 4px;
+  height: 104px;
+  padding: 10px 14px;
+}
+
+.app-shell .permission-access-user-inner > .admin-avatar {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  align-self: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  font-size: 14px;
 }
 
 .app-shell .permission-access-user-copy {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
   display: grid;
   min-width: 0;
   gap: 2px;
@@ -13474,43 +13491,80 @@ dialog select:disabled {
 
 .app-shell .permission-access-user-copy strong {
   color: #f5faff;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .app-shell .permission-access-user-copy span {
   color: #9aafc5;
-  font-size: 8px;
+  font-size: 9px;
 }
 
 .app-shell .permission-access-user-copy small {
   color: #72f5d1;
-  font-size: 7px;
+  font-size: 8px;
 }
 
 .app-shell .permission-access-user-actions {
-  grid-column: 1 / -1;
+  grid-column: 2;
+  grid-row: 2;
   display: flex;
-  gap: 5px;
-  margin-top: -7px;
-  padding-left: 49px;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
 }
 
 .app-shell .permission-access-user-actions button {
-  border: 0;
-  background: transparent;
-  color: #7890aa;
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 56px;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid rgba(151, 185, 216, .2);
+  border-radius: 8px;
+  background: rgba(31, 65, 96, .72);
+  color: #b9cce0;
+  font-size: 8px;
+  font-weight: 900;
   cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, color .16s ease, transform .16s ease;
+}
+
+.app-shell .permission-access-user-actions button b {
+  color: #72f5d1;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.app-shell .permission-access-user-actions button:hover {
+  border-color: rgba(114, 245, 209, .5);
+  background: rgba(42, 93, 112, .82);
+  color: #f4fbff;
+  transform: translateY(-1px);
 }
 
 .app-shell .permission-access-user-actions button.danger {
-  color: #dc7891;
+  border-color: rgba(255, 126, 151, .22);
+  background: rgba(99, 38, 59, .32);
+  color: #ffabc0;
+}
+
+.app-shell .permission-access-user-actions button.danger b {
+  color: #ff7e97;
+}
+
+.app-shell .permission-access-user-inner > .permission-row-toggle {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  align-self: center;
 }
 
 .app-shell .permission-access-cell {
   width: 112px;
   min-width: 112px;
-  height: 82px;
+  height: 104px;
   background: #0d223a;
 }
 
@@ -13547,8 +13601,8 @@ html.macos-render-safe .app-shell .permission-access-user {
   .app-shell .permission-access-user-column,
   .app-shell .permission-access-user-head,
   .app-shell .permission-access-user {
-    width: 240px;
-    min-width: 240px;
+    width: 320px;
+    min-width: 320px;
   }
 
   .app-shell .permission-access-module-column,

@@ -6541,7 +6541,11 @@ function renderAdminPermissionsPanel() {
                   <span class="admin-avatar" aria-hidden="true">${escapeHtml(adminUserInitials(user))}</span>
                   <div class="permission-access-user-copy"><strong>${escapeHtml(user.name)}</strong><span>${escapeHtml(roleDisplayName(user.role))}</span><small>${activeCount}/${permissionColumns.length} permisos</small></div>
                   <label class="permission-row-toggle" aria-label="Cambiar todos los permisos de ${escapeHtml(user.name)}"><input type="checkbox" data-admin-action="row-permission" data-user-id="${user.id}" ${activeCount === permissionColumns.length ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label>
-                  <div class="permission-access-user-actions"><button type="button" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}">✎</button><button type="button" aria-label="Cambiar clave" data-admin-action="password" data-user-id="${user.id}">⌁</button>${isProtected ? "" : `<button class="danger" type="button" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}">⌫</button>`}</div>
+                  <div class="permission-access-user-actions">
+                    <button type="button" aria-label="Editar usuario" data-admin-action="edit" data-user-id="${user.id}"><b aria-hidden="true">✎</b><span>Editar</span></button>
+                    <button type="button" aria-label="Cambiar clave" data-admin-action="password" data-user-id="${user.id}"><b aria-hidden="true">⌁</b><span>Clave</span></button>
+                    ${isProtected ? "" : `<button class="danger" type="button" aria-label="Eliminar usuario" data-admin-action="delete" data-user-id="${user.id}"><b aria-hidden="true">⌫</b><span>Eliminar</span></button>`}
+                  </div>
                 </div>
               </th>
               ${permissionColumns.map((column) => `<td class="permission-access-cell ${permissionsLocked ? "locked" : ""}"><label aria-label="${escapeHtml(user.name)} · ${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}"><input type="checkbox" data-admin-action="cell-permission" data-user-id="${user.id}" data-permission="${column.key}" ${permissions.has(column.key) ? "checked" : ""} ${permissionsLocked ? "disabled" : ""}><span aria-hidden="true"></span></label></td>`).join("")}
