@@ -42,11 +42,9 @@ const areas = {
     nav: "Financiera",
     status: "Controlado",
     submenus: [
-      { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "resultados-pedidos", label: "Pedidos", status: "Registro financiero de pedidos", items: [] },
       { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
       { key: "resultados-ordenes-de-pedido", label: "Órdenes de Pedido", status: "Control de producción y entregas", items: [] },
-      { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -80,12 +78,6 @@ const areas = {
     status: "Atencion",
     submenus: [
       {
-        key: "resultados",
-        label: "Resultados",
-        status: "Pipeline activo",
-        items: []
-      },
-      {
         key: "resultados-oportunidades",
         label: "Oportunidades / Gerencia",
         status: "Pipeline activo",
@@ -99,13 +91,13 @@ const areas = {
       },
       {
         key: "kpi",
-        label: "KPI",
+        label: "KPI de Comercialización",
         status: "Dashboard visual",
         items: []
       },
       {
         key: "crm",
-        label: "CRM",
+        label: "Oportunidades / Vendedores",
         status: "Operacion comercial",
         items: []
       },
@@ -175,9 +167,7 @@ const areas = {
     nav: "Operaciones",
     status: "Estable",
     submenus: [
-      { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
       { key: "resultados-control-ventas", label: "Control de Ventas", status: "Órdenes, productos y auditoría", items: [] },
-      { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -210,8 +200,6 @@ const areas = {
     nav: "Recursos humanos",
     status: "Controlado",
     submenus: [
-      { key: "resultados", label: "Resultados", status: "Sin datos cargados", items: [] },
-      { key: "kpi", label: "KPI", status: "Sin datos cargados", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -245,9 +233,8 @@ const state = {
   role: "gerencias",
   currentUser: null,
   activeArea: "comercializacion",
-  activeSubmenu: "resultados",
+  activeSubmenu: "resultados-oportunidades",
   openMenus: new Set(["comercializacion"]),
-  openSubmenuGroups: new Set(["resultados", "crm"]),
   onlineUsers: [],
   opportunityFilter: null,
   opportunityCycleView: "active",
@@ -965,7 +952,6 @@ function defaultPermissionsForRole(role) {
     return [
       ...areaPermissionSections("comercializacion")
         .map((section) => permissionKey("comercializacion", section.key)),
-      permissionKey("financiera", "resultados"),
       permissionKey("financiera", "resultados-pedidos"),
       permissionKey("financiera", "resultados-cuentas-por-cobrar"),
       permissionKey("financiera", "resultados-ordenes-de-pedido"),
@@ -984,6 +970,9 @@ function normalizePermissionList(value, role) {
   const legacyRequests = value.some((item) => item.endsWith(":solicitudes"));
   const migrated = [
     ...value,
+    ...(value.includes(permissionKey("comercializacion", "resultados"))
+      ? [permissionKey("comercializacion", "resultados-oportunidades")]
+      : []),
     ...(legacyRisks ? [permissionKey(adminAreaKey, "riesgos")] : []),
     ...(legacyRequests ? [permissionKey(adminAreaKey, "solicitudes")] : [])
   ];
@@ -1665,7 +1654,7 @@ function renderKpiDetailReport(seller, category) {
 }
 
 function getOpportunitySubmenu() {
-  return areas.comercializacion.submenus.find((item) => item.key === "resultados");
+  return areas.comercializacion.submenus.find((item) => item.key === "resultados-oportunidades");
 }
 
 function getAreaSubmenu(areaKey, submenuKey) {
@@ -2124,38 +2113,9 @@ function renderNav() {
 function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
   const submenu = document.createElement("div");
   submenu.className = `submenu-list ${state.openMenus.has(areaKey) ? "open" : ""}`;
-  const groupedPrefixes = ["resultados", "crm"];
-  const childKeys = new Set(items.filter((item) => groupedPrefixes.some((prefix) => item.key.startsWith(`${prefix}-`))).map((item) => item.key));
-  submenu.innerHTML = items.filter((item) => !childKeys.has(item.key)).map((item) => {
-    const isGroup = groupedPrefixes.includes(item.key);
-    if (!isGroup) {
-      return `<button class="submenu-item ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">${item.label}</button>`;
-    }
-    const children = [
-      ...(item.key === "crm" ? [{ ...item, label: "Oportunidades / Vendedores" }] : []),
-      ...items.filter((child) => child.key.startsWith(`${item.key}-`))
-    ];
-    const isOpen = state.openSubmenuGroups.has(item.key);
-    const hasActiveChild = children.some((child) => child.key === state.activeSubmenu);
-    return `
-      <section class="submenu-group ${isOpen ? "open" : ""} ${hasActiveChild ? "has-active" : ""}">
-        <button class="submenu-item submenu-group-toggle ${hasActiveChild ? "active-parent" : ""}" type="button" data-submenu-group="${item.key}" aria-expanded="${isOpen}">
-          <span class="submenu-group-label"><span class="submenu-group-caret" aria-hidden="true">${isOpen ? "−" : "+"}</span><span>${item.label}</span></span>
-        </button>
-        <div class="submenu-group-children">
-          ${children.map((child) => `<button class="submenu-item submenu-group-child ${state.activeArea === areaKey && state.activeSubmenu === child.key ? "active" : ""}" type="button" data-submenu="${child.key}">${child.label}</button>`).join("")}
-        </div>
-      </section>`;
-  }).join("");
-  submenu.querySelectorAll("[data-submenu-group]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const groupKey = button.dataset.submenuGroup;
-      if (state.openSubmenuGroups.has(groupKey)) state.openSubmenuGroups.delete(groupKey);
-      else state.openSubmenuGroups.add(groupKey);
-      persistNavigationState();
-      renderNav();
-    });
-  });
+  submenu.innerHTML = items.map((item) => (
+    `<button class="submenu-item ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">${item.label}</button>`
+  )).join("");
   submenu.querySelectorAll("[data-submenu]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeArea = areaKey;
@@ -7186,7 +7146,6 @@ function persistNavigationState() {
       activeArea: state.activeArea,
       activeSubmenu: state.activeSubmenu,
       openMenus: [...state.openMenus],
-      openSubmenuGroups: [...state.openSubmenuGroups],
       sidebarCollapsed: appShell.classList.contains("sidebar-collapsed")
     }));
   } catch {
@@ -7201,16 +7160,24 @@ function restoreNavigationState(user = state.currentUser) {
     const available = allowedAreas(user);
     if (available.includes(saved.activeArea)) state.activeArea = saved.activeArea;
     const submenus = visibleSubmenus(state.activeArea, user);
-    if (submenus.some((item) => item.key === saved.activeSubmenu)) {
-      state.activeSubmenu = saved.activeSubmenu;
-    }
+    const legacyDefaults = {
+      comercializacion: "resultados-oportunidades",
+      financiera: "resultados-pedidos",
+      operaciones: "resultados-control-ventas",
+      rrhh: "riesgos"
+    };
+    const savedSubmenu = ["resultados", "kpi"].includes(saved.activeSubmenu)
+      && state.activeArea !== "comercializacion"
+      ? legacyDefaults[state.activeArea]
+      : saved.activeSubmenu === "resultados"
+        ? legacyDefaults.comercializacion
+        : saved.activeSubmenu;
+    state.activeSubmenu = submenus.some((item) => item.key === savedSubmenu)
+      ? savedSubmenu
+      : submenus[0]?.key || "";
     state.openMenus = new Set(
       (Array.isArray(saved.openMenus) ? saved.openMenus : [])
         .filter((areaKey) => available.includes(areaKey))
-    );
-    state.openSubmenuGroups = new Set(
-      (Array.isArray(saved.openSubmenuGroups) ? saved.openSubmenuGroups : ["resultados", "crm"])
-        .filter((key) => ["resultados", "crm"].includes(key))
     );
     setSidebarCollapsed(Boolean(saved.sidebarCollapsed));
     return true;
