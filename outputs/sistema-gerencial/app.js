@@ -2232,6 +2232,10 @@ function purchaseOrderHasBalance(order) {
   return Number(order.remaining || 0) > 0.009;
 }
 
+function purchaseOrdersWithBalance() {
+  return state.purchaseOrders.filter(purchaseOrderHasBalance);
+}
+
 function purchaseOrderDeadline(order) {
   if (purchaseOrderIsDelivered(order)) return { label: "Entregada", className: "delivered", days: 0 };
   if (!order.dueDate) return { label: "Sin fecha", className: "neutral", days: 0 };
@@ -2275,7 +2279,7 @@ function resetPurchaseOrderForm(order = null) {
 }
 
 function filteredPurchaseOrders() {
-  let rows = state.purchaseOrders.filter(purchaseOrderHasBalance);
+  let rows = purchaseOrdersWithBalance();
   if (state.purchaseOrderStatus !== "all") {
     rows = rows.filter((order) => state.purchaseOrderStatus === "delivered" ? purchaseOrderIsDelivered(order) : !purchaseOrderIsDelivered(order));
   }
@@ -2334,9 +2338,11 @@ function renderPurchaseOrderList() {
 }
 
 function renderPurchaseOrderDelivery() {
-  const open = state.purchaseOrders.filter((order) => purchaseOrderHasBalance(order) && !purchaseOrderIsDelivered(order)).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
-  const totals = purchaseOrderSummary(open);
-  return `<section class="purchase-orders-insight"><div class="purchase-orders-hero"><article><span>Monto</span><strong>${formatMoney(totals.amount)}</strong><small>${open.length} órdenes en producción</small></article><article><span>Anticipo</span><strong>${formatMoney(totals.advances)}</strong><small>Total anticipado</small></article><article><span>Abono</span><strong>${formatMoney(totals.payments)}</strong><small>Total abonado</small></article><article><span>Saldo</span><strong>${formatMoney(totals.remaining)}</strong><small>${totals.overdue} entregas vencidas</small></article></div><div class="purchase-orders-insight-head"><div><span>Agenda operativa</span><h4>Próximas entregas</h4></div><small>Ordenado por fecha límite</small></div><div class="purchase-orders-timeline">${open.map((order) => { const deadline = purchaseOrderDeadline(order); return `<article><time>${formatDate(order.dueDate)}</time><i class="${deadline.className}"></i><div><strong>${escapeHtml(order.customerName)}</strong><small>#${escapeHtml(order.orderNumber)} · ${escapeHtml(order.description)}</small></div><span class="${deadline.className}">${deadline.label}</span><strong>${formatMoney(order.amount)}</strong></article>`; }).join("") || `<div class="empty-state">No hay entregas pendientes.</div>`}</div></section>`;
+  const rows = purchaseOrdersWithBalance()
+    .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)) || String(a.orderNumber).localeCompare(String(b.orderNumber), "es", { numeric: true }));
+  const totals = purchaseOrderSummary(rows);
+  const deliveredWithBalance = rows.filter(purchaseOrderIsDelivered).length;
+  return `<section class="purchase-orders-insight"><div class="purchase-orders-hero"><article><span>Monto</span><strong>${formatMoney(totals.amount)}</strong><small>${rows.length} órdenes con saldo · ${totals.inProcess} en producción</small></article><article><span>Anticipo</span><strong>${formatMoney(totals.advances)}</strong><small>Total anticipado</small></article><article><span>Abono</span><strong>${formatMoney(totals.payments)}</strong><small>Total abonado</small></article><article><span>Saldo</span><strong>${formatMoney(totals.remaining)}</strong><small>${totals.overdue} vencidas · ${deliveredWithBalance} entregadas con saldo</small></article></div><div class="purchase-orders-insight-head"><div><span>Agenda operativa</span><h4>Entregas con saldo</h4></div><small>Conciliado con Listado / Con saldo · ordenado por fecha límite</small></div><div class="purchase-orders-timeline">${rows.map((order) => { const deadline = purchaseOrderDeadline(order); const deliveryLabel = purchaseOrderIsDelivered(order) ? "Entregada con saldo" : deadline.label; return `<article><time>${formatDate(order.dueDate)}</time><i class="${deadline.className}"></i><div><strong>${escapeHtml(order.customerName)}</strong><small>#${escapeHtml(order.orderNumber)} · ${escapeHtml(order.description)}</small></div><span class="${deadline.className}">${deliveryLabel}</span><strong>${formatMoney(order.amount)}</strong></article>`; }).join("") || `<div class="empty-state">No hay órdenes con saldo pendiente.</div>`}</div></section>`;
 }
 
 function purchaseOrderMonthLabel(monthKey) {
