@@ -2639,7 +2639,12 @@ function ensureControlSalesDialogs() {
       <section class="control-sales-form-head"><label>Número de orden<input id="controlSalesNumber" required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
       <fieldset class="control-sales-tax-mode"><legend>Tipo de comprobante</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · sin IVA detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · agrega 13% de IVA</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
       <section class="control-sales-lines"><div class="control-sales-lines-title"><div><span>Detalle de productos</span><strong>Líneas dinámicas</strong></div><button type="button" data-control-sales-add-line>+ Agregar línea</button></div><div id="controlSalesLines"></div></section>
-      <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
+      <section id="controlSalesReconciliation" class="control-sales-reconciliation" data-state="empty">
+        <article><span>Monto del pedido</span><strong id="controlSalesExpectedTotal">$0.00</strong><small>Valor a liquidar</small></article>
+        <article><span>Total detallado</span><strong id="controlSalesDetailedTotal">$0.00</strong><small>Según CF o CCF</small></article>
+        <article><span>Diferencia</span><strong id="controlSalesVariance">$0.00</strong><small id="controlSalesReconciliationMessage">Selecciona un pedido para conciliar.</small></article>
+      </section>
+      <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong><small id="controlSalesFooterReconciliation">Selecciona un pedido para conciliar.</small></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
     </form></dialog>
     <dialog id="controlSalesDetailDialog" class="wide-dialog control-sales-detail-dialog"><section id="controlSalesDetailContent"></section></dialog>`);
   const formDialog = document.querySelector("#controlSalesDialog");
@@ -2782,6 +2787,7 @@ function setControlSalesFinancialOrderSelection(order) {
     seller.value = "";
     client.value = "";
     selected.innerHTML = "";
+    updateControlSalesReconciliation();
     return;
   }
   number.value = order.number || "";
@@ -2791,6 +2797,7 @@ function setControlSalesFinancialOrderSelection(order) {
   document.querySelector("#controlSalesFinancialOrderResults").innerHTML = "";
   document.querySelector("#controlSalesFinancialOrderSearch").value = "";
   document.querySelector("#controlSalesFinancialOrderPicker").open = false;
+  updateControlSalesReconciliation();
 }
 
 function selectControlSalesFinancialOrder(orderId) {
@@ -2802,6 +2809,37 @@ function controlSalesLineTemplate(detail = {}) {
   const id = detail.id || crypto.randomUUID();
   const price = detail.unitPriceCents == null ? "" : (detail.unitPriceCents / 100).toFixed(2);
   return `<div class="control-sales-line" data-line-id="${escapeHtml(id)}"><label>Producto<input data-line-product required value="${escapeHtml(detail.product || "")}"></label><label>Talla<input data-line-size value="${escapeHtml(detail.size || "")}"></label><label>Cantidad<input class="control-sales-quantity-input" data-line-quantity required type="text" inputmode="decimal" autocomplete="off" spellcheck="false" pattern="[0-9]+([.,][0-9]+)?" title="Ingresa una cantidad válida, por ejemplo 1.02" placeholder="0.00" aria-label="Cantidad decimal" value="${escapeHtml(detail.quantity || "1")}"></label><label>Precio unitario<input data-line-price required type="number" min="0" step="0.01" value="${price}"></label><label>IVA 13%<input data-line-vat type="number" readonly tabindex="-1" aria-readonly="true" value="${((detail.vatCents || 0) / 100).toFixed(2)}"></label><output data-line-total>${formatControlSalesMoney(detail.lineTotalCents || 0)}</output><label>Observaciones<input data-line-notes value="${escapeHtml(detail.notes || "")}"></label><button type="button" data-control-sales-remove-line aria-label="Quitar línea">×</button></div>`;
+}
+
+function updateControlSalesReconciliation(totalCents = null) {
+  const panel = document.querySelector("#controlSalesReconciliation");
+  if (!panel) return;
+  const sourceId = document.querySelector("#controlSalesFinancialOrderId")?.value || "";
+  const sourceOrder = state.financialOrders.find((order) => String(order.id) === String(sourceId));
+  const detailTotal = totalCents == null
+    ? [...document.querySelectorAll("#controlSalesLines [data-line-total]")]
+      .reduce((sum, output) => sum + Math.round(Number(String(output.textContent).replace(/[^0-9.-]/g, "")) * 100), 0)
+    : totalCents;
+  const expected = sourceOrder ? Math.round(Number(sourceOrder.sale || 0) * 100) : 0;
+  const variance = detailTotal - expected;
+  const stateName = !sourceOrder ? "empty" : Math.abs(variance) < 1 ? "balanced" : variance > 0 ? "over" : "under";
+  const message = !sourceOrder
+    ? "Selecciona un pedido para conciliar."
+    : stateName === "balanced"
+      ? "Conciliado: el detalle liquida completamente el pedido."
+      : variance > 0
+        ? "El detalle excede el monto del pedido. Se guardará con alerta."
+        : "El detalle no cubre el monto del pedido. Se guardará con alerta.";
+  panel.dataset.state = stateName;
+  document.querySelector("#controlSalesExpectedTotal").textContent = formatControlSalesMoney(expected);
+  document.querySelector("#controlSalesDetailedTotal").textContent = formatControlSalesMoney(detailTotal);
+  document.querySelector("#controlSalesVariance").textContent = formatControlSalesMoney(variance);
+  document.querySelector("#controlSalesReconciliationMessage").textContent = message;
+  document.querySelector("#controlSalesFooterReconciliation").textContent = !sourceOrder
+    ? "Selecciona un pedido para conciliar."
+    : stateName === "balanced"
+      ? `Pedido ${formatControlSalesMoney(expected)} · Conciliado`
+      : `Pedido ${formatControlSalesMoney(expected)} · Descuadre ${formatControlSalesMoney(variance)}`;
 }
 
 function updateControlSalesFormTotal() {
@@ -2818,6 +2856,7 @@ function updateControlSalesFormTotal() {
     line.querySelector("[data-line-total]").textContent = formatControlSalesMoney(lineTotal);
   });
   document.querySelector("#controlSalesFormTotal").textContent = formatControlSalesMoney(cents);
+  updateControlSalesReconciliation(cents);
 }
 
 function openControlSalesForm(order = null) {
@@ -2849,7 +2888,7 @@ async function openControlSalesDetail(orderId) {
   const order = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}`);
   const warnings = [...(order.anomalies || []), ...order.details.flatMap((detail) => detail.reviewRequired ? [{ description: `Precio faltante en ${detail.product}; requiere revisión.` }] : (detail.anomalies || []))];
   document.querySelector("#controlSalesDetailContent").innerHTML = `<header><div><p class="eyebrow">Control de Ventas · ${escapeHtml(order.source)}</p><h3>Orden #${escapeHtml(order.number)}</h3><span>${escapeHtml(order.client)} · ${escapeHtml(order.seller)}</span></div><button type="button" data-control-sales-detail-close>×</button></header>
-    <div class="control-sales-detail-summary"><article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article><article><small>Líneas</small><strong>${order.details.length}</strong></article><article><small>Total consolidado</small><strong>${formatControlSalesMoney(order.totalCents)}</strong></article><article><small>Estado</small><strong>${escapeHtml(order.status)}</strong></article></div>
+    <div class="control-sales-detail-summary"><article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article><article><small>Líneas</small><strong>${order.details.length}</strong></article><article><small>Monto del pedido</small><strong>${formatControlSalesMoney(order.expectedTotalCents || 0)}</strong></article><article><small>Total detallado</small><strong>${formatControlSalesMoney(order.totalCents)}</strong></article><article class="${Number(order.varianceCents || 0) === 0 ? "balanced" : "mismatch"}"><small>Diferencia</small><strong>${formatControlSalesMoney(order.varianceCents || 0)}</strong></article><article><small>Estado</small><strong>${escapeHtml(order.status)}</strong></article></div>
     ${warnings.length ? `<aside class="control-sales-warnings"><strong>⚠ Advertencias históricas</strong>${warnings.map((warning) => `<p>${escapeHtml(warning.description || warning.type || "Dato por revisar")}</p>`).join("")}</aside>` : ""}
     <div class="control-sales-detail-lines"><div class="control-sales-detail-row head"><span>#</span><span>Producto</span><span>Talla</span><span>Cantidad</span><span>Precio</span><span>IVA</span><span>Total</span></div>${order.details.map((detail, index) => `<article class="control-sales-detail-row"><span>${index + 1}</span><strong>${escapeHtml(detail.product)}</strong><span>${escapeHtml(detail.size || "—")}</span><span>${escapeHtml(detail.quantity)}</span><span>${detail.unitPriceCents == null ? "Revisar" : formatControlSalesMoney(detail.unitPriceCents)}</span><span>${formatControlSalesMoney(detail.vatCents)}</span><strong>${formatControlSalesMoney(detail.lineTotalCents)}</strong></article>`).join("")}</div>
     <section class="control-sales-audit"><h4>Auditoría</h4>${order.audit.map((entry) => `<article><strong>${escapeHtml(entry.action)}</strong><span>${escapeHtml(entry.userName)} · ${escapeHtml(entry.createdAt)}</span><small>${escapeHtml(entry.summary)}</small></article>`).join("") || `<p>Historial importado desde Excel.</p>`}</section>
@@ -3129,10 +3168,10 @@ function resetFinancialOrderForm(order = null, sourceOpportunity = null) {
 
 function renderFinancialOrderList() {
   const rows = filteredFinancialOrders();
-  const linkedFinancialOrderIds = new Set(
+  const linkedControlSalesByFinancialOrderId = new Map(
     state.controlSales
-      .map((order) => String(order.financialOrderId || ""))
-      .filter(Boolean)
+      .filter((order) => order.financialOrderId)
+      .map((order) => [String(order.financialOrderId), order])
   );
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   const pageSize = 10;
@@ -3151,7 +3190,10 @@ function renderFinancialOrderList() {
       <div class="financial-orders-table-wrap">
       <div class="financial-orders-table">
         <div class="financial-order-row header"><span>Fecha</span><span>#</span><span>Venta</span><span>Vendedor</span><span>Clientes</span><span>Acciones</span></div>
-        ${pagedRows.map((order) => `
+        ${pagedRows.map((order) => {
+          const linkedOrder = linkedControlSalesByFinancialOrderId.get(String(order.id));
+          const variance = Number(linkedOrder?.varianceCents || 0);
+          return `
           <article class="financial-order-row">
             <span>${formatDate(order.date)}</span>
             <strong>${escapeHtml(order.number)}</strong>
@@ -3159,11 +3201,13 @@ function renderFinancialOrderList() {
             <span>${escapeHtml(order.seller)}</span>
             <span class="financial-order-client-cell">
               <span>${escapeHtml(order.client)}</span>
-              ${linkedFinancialOrderIds.has(String(order.id)) ? `<em class="financial-order-entered-badge">Ingresado</em>` : ""}
+              ${linkedOrder ? `<em class="financial-order-entered-badge">Ingresado</em>` : ""}
+              ${linkedOrder && variance !== 0 ? `<em class="financial-order-variance-badge" data-tone="${variance > 0 ? "over" : "under"}">Descuadre ${formatControlSalesMoney(variance)}</em>` : ""}
+              ${linkedOrder && variance === 0 ? `<em class="financial-order-balanced-badge">Conciliado</em>` : ""}
             </span>
             <span class="financial-order-actions"><button type="button" data-financial-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-financial-order-delete="${order.id}">Eliminar</button></span>
           </article>
-        `).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
+        `; }).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
       </div>
       </div>
       <div class="opportunity-pagination financial-orders-pagination" aria-label="Paginacion de pedidos">
@@ -3180,7 +3224,28 @@ function renderFinancialOrderList() {
 function renderFinancialOrderNotifications() {
   const pendingHandoffs = pendingWonOrderOpportunities();
   const pendingTotal = sumAmounts(pendingHandoffs);
+  const reconciliationAlerts = state.controlSales
+    .filter((order) => order.financialOrderId && Number(order.varianceCents || 0) !== 0)
+    .sort((a, b) => Math.abs(Number(b.varianceCents || 0)) - Math.abs(Number(a.varianceCents || 0)));
+  const reconciliationDifference = reconciliationAlerts
+    .reduce((sum, order) => sum + Math.abs(Number(order.varianceCents || 0)), 0);
   return `
+    ${reconciliationAlerts.length ? `
+      <section class="financial-order-reconciliation-alerts" aria-label="Alertas de conciliación">
+        <header class="financial-order-reconciliation-alerts__summary">
+          <div><span>Control de Ventas</span><h4>Pedidos con descuadre</h4><p>Estas órdenes fueron guardadas, pero el detalle CF/CCF no coincide con el monto del pedido.</p></div>
+          <strong class="financial-order-reconciliation-alerts__amount">${formatControlSalesMoney(reconciliationDifference)}<small>${reconciliationAlerts.length === 1 ? "1 alerta" : `${reconciliationAlerts.length} alertas`}</small></strong>
+        </header>
+        <div class="financial-order-reconciliation-alerts__list">
+          ${reconciliationAlerts.map((order) => `
+            <article class="financial-order-reconciliation-alert">
+              <i aria-hidden="true">!</i>
+              <div class="financial-order-reconciliation-alert__head"><strong>Pedido #${escapeHtml(order.number)}</strong><span>${escapeHtml(order.documentType || "CF")} · ${formatDate(order.date)}</span></div>
+              <p class="financial-order-reconciliation-alert__client">${escapeHtml(order.client)}</p>
+              <dl class="financial-order-reconciliation-alert__amounts"><div><dt>Monto pedido</dt><dd>${formatControlSalesMoney(order.expectedTotalCents || 0)}</dd></div><div><dt>Detalle</dt><dd>${formatControlSalesMoney(order.totalCents || 0)}</dd></div><div><dt>Diferencia</dt><dd><strong>${formatControlSalesMoney(order.varianceCents || 0)}</strong></dd></div></dl>
+            </article>`).join("")}
+        </div>
+      </section>` : ""}
     <section class="financial-order-notifications" aria-label="Notificaciones de pedidos pendientes">
       <header class="financial-order-notifications-head">
         <div>

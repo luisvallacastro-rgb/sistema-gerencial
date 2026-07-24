@@ -12386,6 +12386,82 @@ dialog select:disabled {
   cursor: default;
 }
 
+.control-sales-reconciliation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.control-sales-reconciliation article {
+  display: grid;
+  gap: 4px;
+  min-height: 92px;
+  padding: 13px 15px;
+  border: 1px solid rgba(153,185,217,.22);
+  border-radius: 15px;
+  background: linear-gradient(135deg, rgba(31,56,87,.92), rgba(19,43,68,.94));
+}
+
+.control-sales-reconciliation span,
+.control-sales-reconciliation small {
+  color: #93a8c2;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.control-sales-reconciliation strong {
+  color: #f3f8ff;
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+}
+
+.control-sales-reconciliation[data-state="balanced"] article:last-child {
+  border-color: rgba(114,245,209,.55);
+  background: linear-gradient(135deg, rgba(37,111,99,.42), rgba(17,61,71,.94));
+}
+
+.control-sales-reconciliation[data-state="balanced"] article:last-child strong,
+.control-sales-reconciliation[data-state="balanced"] article:last-child small {
+  color: #72f5d1;
+}
+
+.control-sales-reconciliation[data-state="under"] article:last-child,
+.control-sales-reconciliation[data-state="over"] article:last-child {
+  border-color: rgba(255,181,85,.58);
+  background: linear-gradient(135deg, rgba(126,79,31,.38), rgba(67,42,35,.94));
+}
+
+.control-sales-reconciliation[data-state="under"] article:last-child strong,
+.control-sales-reconciliation[data-state="over"] article:last-child strong,
+.control-sales-reconciliation[data-state="under"] article:last-child small,
+.control-sales-reconciliation[data-state="over"] article:last-child small {
+  color: #ffc676;
+}
+
+.control-sales-dialog footer > div small {
+  max-width: 380px;
+  color: #9fb1c8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.control-sales-detail-summary article.balanced {
+  border-color: rgba(114,245,209,.4);
+}
+
+.control-sales-detail-summary article.balanced strong {
+  color: #72f5d1;
+}
+
+.control-sales-detail-summary article.mismatch {
+  border-color: rgba(255,181,85,.48);
+}
+
+.control-sales-detail-summary article.mismatch strong {
+  color: #ffc676;
+}
+
 .control-sales-source-picker {
   display: grid;
   gap: 12px;
@@ -12636,6 +12712,7 @@ dialog select:disabled {
 .financial-order-client-cell {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 9px;
   min-width: 0;
 }
@@ -12660,7 +12737,183 @@ dialog select:disabled {
   text-transform: uppercase;
 }
 
+.financial-order-variance-badge,
+.financial-order-balanced-badge {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 950;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.financial-order-variance-badge {
+  border: 1px solid rgba(255,181,85,.48);
+  background: rgba(139,84,31,.25);
+  color: #ffc676;
+}
+
+.financial-order-variance-badge[data-tone="over"] {
+  border-color: rgba(255,125,125,.45);
+  background: rgba(143,54,64,.24);
+  color: #ffaaaa;
+}
+
+.financial-order-balanced-badge {
+  border: 1px solid rgba(114,245,209,.28);
+  background: rgba(52,145,125,.12);
+  color: #9dffe5;
+}
+
+.financial-order-reconciliation-alerts {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.financial-order-reconciliation-alerts__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255,181,85,.48);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(126,79,31,.35), rgba(67,42,35,.92));
+  color: #ffd49a;
+}
+
+.financial-order-reconciliation-alerts__summary strong,
+.financial-order-reconciliation-alerts__summary span {
+  display: block;
+}
+
+.financial-order-reconciliation-alerts__summary span {
+  margin-top: 3px;
+  color: #d6b78b;
+  font-size: 11px;
+}
+
+.financial-order-reconciliation-alerts__summary h4,
+.financial-order-reconciliation-alerts__summary p {
+  margin: 3px 0 0;
+}
+
+.financial-order-reconciliation-alerts__summary p {
+  color: #d6b78b;
+  font-size: 11px;
+}
+
+.financial-order-reconciliation-alerts__amount {
+  display: grid !important;
+  gap: 2px;
+  flex: 0 0 auto;
+  text-align: right;
+  color: #ffc676;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.financial-order-reconciliation-alerts__amount small {
+  color: #d6b78b;
+  font-size: 9px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.financial-order-reconciliation-alerts__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.financial-order-reconciliation-alert {
+  position: relative;
+  padding: 13px 14px;
+  border: 1px solid rgba(255,181,85,.25);
+  border-left: 4px solid #e99a3d;
+  border-radius: 12px;
+  background: rgba(20,43,68,.8);
+}
+
+.financial-order-reconciliation-alert > i {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(233,154,61,.18);
+  color: #ffc676;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.financial-order-reconciliation-alert__head,
+.financial-order-reconciliation-alert__amounts {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.financial-order-reconciliation-alert__head strong {
+  color: #ffc676;
+}
+
+.financial-order-reconciliation-alert__head span,
+.financial-order-reconciliation-alert__meta {
+  color: #93a8c2;
+  font-size: 10px;
+}
+
+.financial-order-reconciliation-alert__client {
+  margin: 7px 0 4px;
+  color: #f3f8ff;
+  font-weight: 850;
+}
+
+.financial-order-reconciliation-alert__meta {
+  margin-bottom: 10px;
+}
+
+.financial-order-reconciliation-alert__amounts {
+  margin: 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255,181,85,.17);
+  font-size: 10px;
+}
+
+.financial-order-reconciliation-alert__amounts div {
+  display: grid;
+  gap: 3px;
+}
+
+.financial-order-reconciliation-alert__amounts dt,
+.financial-order-reconciliation-alert__amounts dd {
+  margin: 0;
+}
+
+.financial-order-reconciliation-alert__amounts span {
+  color: #afc0d4;
+}
+
+.financial-order-reconciliation-alert__amounts strong {
+  color: #ffc676;
+}
+
 @media (max-width: 760px) {
+  .financial-order-reconciliation-alerts__summary,
+  .financial-order-reconciliation-alert__amounts {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .control-sales-source-heading,
   .control-sales-source-selected {
     align-items: flex-start;
@@ -12695,6 +12948,9 @@ dialog select:disabled {
   .control-sales-tax-options {
     grid-template-columns: 1fr;
     max-width: none;
+  }
+  .control-sales-reconciliation {
+    grid-template-columns: 1fr;
   }
   .control-sales-line {
     grid-template-columns: minmax(190px, 1.4fr) 95px 76px 108px 88px 105px minmax(170px, 1.2fr) 42px;

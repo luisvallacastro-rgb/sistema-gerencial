@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import json
 import mimetypes
 import os
@@ -1045,6 +1046,19 @@ def control_sales_cents(value, field="monto"):
     return int((amount * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
+def control_sales_reconciliation_snapshot(financial_order, total_cents):
+    if not financial_order:
+        return 0, 0
+    try:
+        sale = Decimal(str(financial_order["sale"] or 0))
+    except (InvalidOperation, ValueError, TypeError, KeyError, IndexError):
+        sale = Decimal("0")
+    expected_total_cents = int(
+        (sale * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    )
+    return expected_total_cents, int(total_cents or 0) - expected_total_cents
+
+
 def control_sales_quantity(value):
     try:
         quantity = Decimal(str(value).strip().replace(",", "."))
@@ -1064,6 +1078,8 @@ def control_sales_order_payload(conn, row, include_audit=False):
     item = {
         "id": row["id"], "externalId": row["external_id"], "source": row["source"],
         "financialOrderId": row["financial_order_id"] if "financial_order_id" in row.keys() else "",
+        "expectedTotalCents": row["expected_total_cents"] if "expected_total_cents" in row.keys() else 0,
+        "varianceCents": row["variance_cents"] if "variance_cents" in row.keys() else 0,
         "number": row["order_number"], "date": row["order_date"], "seller": row["seller"],
         "client": row["client"], "status": row["status"], "documentType": row["document_type"],
         "totalCents": row["total_cents"],
@@ -1141,6 +1157,8 @@ def save_control_sales_order(conn, data, existing_row=None):
         data.get("financialOrderId"),
         existing.get("financialOrderId", "") if existing else "",
     )
+    expected_total_cents = int(existing.get("expectedTotalCents") or 0) if existing else 0
+    variance_cents = int(existing.get("varianceCents") or 0) if existing else 0
     if financial_order_id:
         financial_order = conn.execute(
             "SELECT * FROM financial_orders WHERE id = ? AND deleted = 0",
@@ -1170,6 +1188,9 @@ def save_control_sales_order(conn, data, existing_row=None):
         item["number"] = text(financial_order["number"])
         item["seller"] = text(financial_order["seller"])
         item["client"] = text(financial_order["client"])
+        expected_total_cents, variance_cents = control_sales_reconciliation_snapshot(
+            financial_order, item["totalCents"]
+        )
     elif not existing_row:
         raise ValueError("Selecciona un pedido pendiente antes de crear la orden")
     duplicate = conn.execute("""
@@ -1183,17 +1204,18 @@ def save_control_sales_order(conn, data, existing_row=None):
     if existing_row:
         conn.execute("""
             UPDATE control_sales_orders SET financial_order_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
-                document_type=?, total_cents=?, updated_by=?, updated_at=? WHERE id=?
-        """, (financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], actor, now, order_id))
+                document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
+                updated_by=?, updated_at=? WHERE id=?
+        """, (financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
     else:
         conn.execute("""
             INSERT INTO control_sales_orders (
                 id, source, financial_order_id, order_number, order_date, seller, client, status, document_type, total_cents,
-                created_by, updated_by, created_at, updated_at
-            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (order_id, financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], actor, actor, now, now))
+                expected_total_cents, variance_cents, created_by, updated_by, created_at, updated_at
+            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (order_id, financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, actor, actor, now, now))
         action = "creacion"
     for detail in item["details"]:
         conn.execute("""
@@ -1206,8 +1228,14 @@ def save_control_sales_order(conn, data, existing_row=None):
                 vat_cents=excluded.vat_cents, line_total_cents=excluded.line_total_cents,
                 notes=excluded.notes, active=1, updated_at=excluded.updated_at
         """, (detail["id"], order_id, detail["sequence"], detail["product"], detail["size"], detail["quantity"], detail["unitPriceCents"], detail["vatCents"], detail["lineTotalCents"], detail["notes"], now, now))
+    reconciliation_summary = (
+        f" · Pedido ${expected_total_cents / 100:,.2f}"
+        f" · Detalle ${item['totalCents'] / 100:,.2f}"
+        f" · Diferencia ${variance_cents / 100:,.2f}"
+        if financial_order_id else ""
+    )
     conn.execute("INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
-                 (order_id, action, actor, now, f"Orden {item['number']} · {len(item['details'])} lineas"))
+                 (order_id, action, actor, now, f"Orden {item['number']} · {len(item['details'])} lineas{reconciliation_summary}"))
     row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone()
     return control_sales_order_payload(conn, row, include_audit=True)
 
@@ -1494,6 +1522,8 @@ def init_db():
                 status TEXT NOT NULL DEFAULT 'Activa',
                 document_type TEXT NOT NULL DEFAULT 'CF',
                 total_cents INTEGER NOT NULL DEFAULT 0,
+                expected_total_cents INTEGER NOT NULL DEFAULT 0,
+                variance_cents INTEGER NOT NULL DEFAULT 0,
                 declared_total_cents INTEGER,
                 archived INTEGER NOT NULL DEFAULT 0,
                 quality_status TEXT DEFAULT '',
@@ -1512,6 +1542,10 @@ def init_db():
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN document_type TEXT NOT NULL DEFAULT 'CF'")
         if "financial_order_id" not in control_sales_order_columns:
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN financial_order_id TEXT NOT NULL DEFAULT ''")
+        if "expected_total_cents" not in control_sales_order_columns:
+            conn.execute("ALTER TABLE control_sales_orders ADD COLUMN expected_total_cents INTEGER NOT NULL DEFAULT 0")
+        if "variance_cents" not in control_sales_order_columns:
+            conn.execute("ALTER TABLE control_sales_orders ADD COLUMN variance_cents INTEGER NOT NULL DEFAULT 0")
         conn.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_financial_order_id
             ON control_sales_orders(financial_order_id)
