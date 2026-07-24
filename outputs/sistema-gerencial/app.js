@@ -6483,16 +6483,8 @@ function renderAdminPermissionsPanel() {
     ].join(" "));
     return !query || haystack.includes(query);
   });
-  const totalUsers = users.length;
-  const adminUsers = users.filter((user) => isAdminUser(user)).length;
-  const assignedModules = new Set(users.flatMap((user) =>
-    adminPermissionModules(user)
-      .filter((module) => !module.total)
-      .map((module) => module.label)
-  )).size;
   const permissionColumns = adminOperationalPermissionColumns();
-  const operationalKeys = new Set(permissionColumns.map((column) => column.key));
-  const totalPermissions = users.reduce((sum, user) => sum + [...userPermissions(user)].filter((key) => operationalKeys.has(key)).length, 0);
+  const permissionMatrixWidth = 300 + (permissionColumns.length * 112);
   const permissionAreaKeys = [...new Set(permissionColumns.map((column) => column.areaKey))];
   const areaGroups = permissionAreaKeys.map((areaKey) => ({
     areaKey,
@@ -6500,63 +6492,40 @@ function renderAdminPermissionsPanel() {
     count: permissionColumns.filter((column) => column.areaKey === areaKey).length
   }));
   return `
-    <div class="admin-shell">
-      <div class="admin-hero">
-        <div>
-          <p class="eyebrow">Administracion</p>
-          <h3>Permisos</h3>
-          <p class="muted-copy">Gestion de accesos por usuario, perfil y modulo operativo.</p>
+    <div class="admin-shell admin-permissions-shell">
+      <div class="admin-permissions-toolbar">
+        <div class="admin-permissions-heading">
+          <span>Control de accesos</span>
+          <strong>Asignación de permisos</strong>
         </div>
-        <button class="secondary-btn icon-text-btn" type="button" data-admin-action="new">
-          <span aria-hidden="true">+</span> Nuevo usuario
-        </button>
-      </div>
-
-      <div class="admin-summary-grid" aria-label="Resumen de usuarios">
-        <article class="admin-metric">
-          <span>Usuarios</span>
-          <strong>${totalUsers}</strong>
-        </article>
-        <article class="admin-metric">
-          <span>Administradores</span>
-          <strong>${adminUsers}</strong>
-        </article>
-        <article class="admin-metric">
-          <span>Modulos activos</span>
-          <strong>${assignedModules || areaKeys.length}</strong>
-        </article>
-        <article class="admin-metric">
-          <span>Permisos asignados</span>
-          <strong>${totalPermissions}</strong>
-        </article>
-      </div>
-
-      <div class="admin-toolbar">
         <label class="admin-search" for="adminSearchInput">
           <span>Buscar usuario</span>
           <input id="adminSearchInput" type="search" value="${escapeHtml(state.adminQuery)}" placeholder="Nombre, correo o perfil">
         </label>
-        <div class="admin-matrix-actions">
-          <span class="admin-toolbar-pill">${filteredUsers.length} visibles</span>
-          <button type="button" data-admin-action="grant-all-users"><span>✓</span> Acceso total a usuarios</button>
+        <div class="admin-permissions-actions">
+          <span class="admin-toolbar-pill"><i aria-hidden="true"></i>${filteredUsers.length} de ${users.length} usuarios</span>
+          <button class="admin-grant-all" type="button" data-admin-action="grant-all-users"><span>✓</span> Dar acceso total</button>
+          <button class="admin-new-user" type="button" data-admin-action="new"><span aria-hidden="true">+</span> Nuevo usuario</button>
         </div>
       </div>
 
-      <div class="permission-matrix-shell" style="--permission-columns:${permissionColumns.length}">
+      <div class="permission-matrix-shell" style="--permission-columns:${permissionColumns.length};--permission-matrix-width:${permissionMatrixWidth}px">
         ${filteredUsers.length ? `<div class="permission-matrix" role="table" aria-label="Matriz de permisos por usuario">
-          <div class="permission-matrix-area-row" role="row">
-            <div class="permission-matrix-user-head" role="columnheader">Usuarios activos</div>
-            ${areaGroups.map((group) => `<div class="permission-matrix-area-head" role="columnheader" style="grid-column:span ${group.count}"><strong>${escapeHtml(group.label)}</strong><small>${group.count} vistas</small></div>`).join("")}
-          </div>
-          <div class="permission-matrix-section-row" role="row">
-            <div class="permission-matrix-user-tools" role="columnheader"><span>Usuario y perfil</span><small>Marca la fila completa</small></div>
-            ${permissionColumns.map((column) => {
-              const enabledCount = filteredUsers.filter((user) => userPermissions(user).has(column.key)).length;
-              return `<label class="permission-matrix-section-head" aria-label="${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}">
-                <input type="checkbox" data-admin-action="column-permission" data-permission="${column.key}" ${enabledCount === filteredUsers.length ? "checked" : ""}>
-                <span aria-hidden="true"></span><strong>${escapeHtml(column.label)}</strong>
-              </label>`;
-            }).join("")}
+          <div class="permission-matrix-head">
+            <div class="permission-matrix-area-row" role="row">
+              <div class="permission-matrix-user-head" role="columnheader"><span>Usuarios</span><small>Fijos al desplazar</small></div>
+              ${areaGroups.map((group) => `<div class="permission-matrix-area-head" role="columnheader" style="grid-column:span ${group.count}"><strong>${escapeHtml(group.label)}</strong><small>${group.count} ${group.count === 1 ? "acceso" : "accesos"}</small></div>`).join("")}
+            </div>
+            <div class="permission-matrix-section-row" role="row">
+              <div class="permission-matrix-user-tools" role="columnheader"><span>Usuario y perfil</span><small>El control lateral marca toda la fila</small></div>
+              ${permissionColumns.map((column) => {
+                const enabledCount = filteredUsers.filter((user) => userPermissions(user).has(column.key)).length;
+                return `<label class="permission-matrix-section-head" aria-label="${escapeHtml(column.areaLabel)} · ${escapeHtml(column.label)}">
+                  <input type="checkbox" data-admin-action="column-permission" data-permission="${column.key}" ${enabledCount === filteredUsers.length ? "checked" : ""}>
+                  <span aria-hidden="true"></span><strong>${escapeHtml(column.label)}</strong>
+                </label>`;
+              }).join("")}
+            </div>
           </div>
           ${filteredUsers.map((user) => {
             const permissions = userPermissions(user);
@@ -7000,6 +6969,10 @@ function renderAdminPanel() {
   if (!adminPanel) return;
   adminPanel.classList.remove("hidden");
   const keepAdminSearchFocus = document.activeElement?.id === "adminSearchInput";
+  const currentMatrix = adminPanel.querySelector(".permission-matrix-shell");
+  const matrixScroll = currentMatrix
+    ? { top: currentMatrix.scrollTop, left: currentMatrix.scrollLeft }
+    : null;
   const activeAdminSubmenu = ["actas", "cambiar-contrasena"].includes(state.activeSubmenu)
     ? state.activeSubmenu
     : "permisos";
@@ -7012,11 +6985,18 @@ function renderAdminPanel() {
   else if (activeAdminSubmenu === "cambiar-contrasena") wireAccountPasswordPanel();
   else {
     wireAdminPermissionsPanel();
-    if (keepAdminSearchFocus) {
+    if (keepAdminSearchFocus || matrixScroll) {
       requestAnimationFrame(() => {
+        const nextMatrix = adminPanel.querySelector(".permission-matrix-shell");
+        if (nextMatrix && matrixScroll) {
+          nextMatrix.scrollTop = matrixScroll.top;
+          nextMatrix.scrollLeft = matrixScroll.left;
+        }
         const nextSearchInput = adminPanel.querySelector("#adminSearchInput");
-        nextSearchInput?.focus();
-        nextSearchInput?.setSelectionRange(nextSearchInput.value.length, nextSearchInput.value.length);
+        if (keepAdminSearchFocus) {
+          nextSearchInput?.focus();
+          nextSearchInput?.setSelectionRange(nextSearchInput.value.length, nextSearchInput.value.length);
+        }
       });
     }
   }
