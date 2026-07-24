@@ -2658,7 +2658,6 @@ function ensureControlSalesDialogs() {
     if (event.target.matches("[data-control-sales-remove-line]")) {
       const lines = document.querySelectorAll("#controlSalesLines .control-sales-line");
       if (lines.length <= 1) return alert("La orden debe conservar al menos una línea.");
-      if (!confirm("¿Quitar esta línea? El registro anterior se conservará en auditoría.")) return;
       event.target.closest(".control-sales-line").remove();
       updateControlSalesFormTotal();
     }
