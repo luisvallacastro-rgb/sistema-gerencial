@@ -6484,7 +6484,6 @@ function renderAdminPermissionsPanel() {
     return !query || haystack.includes(query);
   });
   const permissionColumns = adminOperationalPermissionColumns();
-  const permissionMatrixWidth = 300 + (permissionColumns.length * 112);
   const permissionAreaKeys = [...new Set(permissionColumns.map((column) => column.areaKey))];
   const areaGroups = permissionAreaKeys.map((areaKey) => ({
     areaKey,
@@ -6509,7 +6508,7 @@ function renderAdminPermissionsPanel() {
         </div>
       </div>
 
-      <div class="permission-matrix-shell" style="--permission-columns:${permissionColumns.length};--permission-matrix-width:${permissionMatrixWidth}px">
+      <div class="permission-matrix-shell" style="--permission-columns:${permissionColumns.length}">
         ${filteredUsers.length ? `<div class="permission-matrix" role="table" aria-label="Matriz de permisos por usuario">
           <div class="permission-matrix-head">
             <div class="permission-matrix-area-row" role="row">

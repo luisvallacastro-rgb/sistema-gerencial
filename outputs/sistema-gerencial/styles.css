@@ -5087,8 +5087,8 @@ button:disabled {
 }
 
 .app-shell .admin-permissions-shell .permission-matrix {
-  width: max(100%, var(--permission-matrix-width));
-  min-width: var(--permission-matrix-width);
+  width: max-content !important;
+  min-width: 0 !important;
   padding: 0;
 }
 
@@ -5107,8 +5107,8 @@ html.macos-render-safe .app-shell .permission-matrix-head {
 .app-shell .admin-permissions-shell .permission-matrix-row {
   display: grid;
   grid-template-columns: 300px repeat(var(--permission-columns), 112px);
-  width: 100%;
-  min-width: 0;
+  width: max-content !important;
+  min-width: 0 !important;
 }
 
 .app-shell .admin-permissions-shell .permission-matrix-area-row,
