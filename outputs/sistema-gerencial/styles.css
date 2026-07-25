@@ -212,9 +212,9 @@ button, select, input {
 
 .product-wordmark .kmi-logo-mark {
   display: block;
-  width: 1.58em;
+  width: 3.38em;
   height: 1em;
-  background: url("assets/kmi-logo.png") center / contain no-repeat;
+  background: url("assets/konfi-logo.png") center / contain no-repeat;
   filter: drop-shadow(0 0 8px rgba(114,245,209,.28));
 }
 
