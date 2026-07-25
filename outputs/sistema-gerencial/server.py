@@ -36,7 +36,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 }
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
-    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"],
+    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento"],
     "financiera": ["resultados", "resultados-pedidos", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido", "kpi"],
     "operaciones": ["resultados", "resultados-control-ventas", "kpi"],
     "rrhh": ["resultados", "kpi"],
@@ -589,7 +589,7 @@ def default_permissions_for_role(role):
     if role == "operativos":
         return [
             f"comercializacion:{section}"
-            for section in ["crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"]
+            for section in ["crm", "crm-seguimiento"]
         ]
     if role == "jefaturas":
         return [

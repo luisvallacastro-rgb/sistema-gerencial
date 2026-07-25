@@ -108,24 +108,6 @@ const areas = {
         items: []
       },
       {
-        key: "crm-agenda",
-        label: "Agenda",
-        status: "Visitas y acciones",
-        items: []
-      },
-      {
-        key: "crm-respuestas",
-        label: "Respuestas",
-        status: "Gestiones de campo",
-        items: []
-      },
-      {
-        key: "crm-clientes",
-        label: "Clientes",
-        status: "Ficha comercial",
-        items: []
-      },
-      {
         key: "riesgos",
         label: "Riesgos",
         status: "Riesgos futuros",
@@ -946,7 +928,7 @@ function operationalPermissionKeys() {
 
 function defaultPermissionsForRole(role) {
   if (role === "operativos") {
-    return ["crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes"]
+    return ["crm", "crm-seguimiento"]
       .map((sectionKey) => permissionKey("comercializacion", sectionKey));
   }
   if (role === "jefaturas") {
