@@ -14619,3 +14619,77 @@ html.macos-render-safe .app-shell .permission-access-user {
     min-width: 104px;
   }
 }
+
+/* Seguimiento denso: resumen de una línea y mayor cantidad de tarjetas visibles. */
+.app-shell .crm-original-module:has(.crm-tracking-overview) { gap: 10px; }
+.app-shell .crm-tracking-view-tabs { width: max-content; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.app-shell .crm-tracking-view-tabs button { min-height: 32px; padding: 0 12px; border-radius: 10px; }
+.app-shell .crm-tracking-search { min-height: 46px; border-radius: 15px !important; }
+.app-shell .crm-tracking-main { gap: 8px; }
+.app-shell .crm-tracking-grid { gap: 8px; max-height: calc(100vh - 205px); }
+.app-shell .crm-tracking-card { min-height: 78px; gap: 10px; padding: 8px 14px !important; border-radius: 17px !important; }
+.app-shell .crm-tracking-card > div,
+.app-shell .crm-tracking-card footer { min-height: 54px; }
+.app-shell .crm-tracking-card > div { gap: 2px; padding: 3px 8px; }
+.app-shell .crm-tracking-card footer { gap: 3px 8px; padding: 3px 0 3px 12px; }
+.app-shell .crm-tracking-sidebar { padding: 15px !important; }
+.app-shell .crm-tracking-sidebar > .eyebrow { margin-bottom: 10px; }
+.app-shell .crm-seller-chip-list { gap: 7px; }
+.app-shell .crm-tracking-sidebar .crm-seller-chip { min-height: 52px; padding: 9px 11px 9px 14px; border-radius: 13px !important; }
+
+@media (min-width: 821px) {
+  .app-shell .crm-tracking-overview {
+    display: grid;
+    grid-template-columns: minmax(255px, .9fr) minmax(620px, 3.6fr);
+    align-items: center;
+    gap: 14px;
+    min-height: 92px;
+    padding: 11px 15px !important;
+    border-radius: 22px !important;
+  }
+
+  .app-shell .crm-tracking-overview .crm-module-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+  }
+
+  .app-shell .crm-tracking-overview .crm-module-head > div { min-width: 0; }
+  .app-shell .crm-tracking-overview .eyebrow { margin-bottom: 2px; font-size: 8px; }
+  .app-shell .crm-tracking-overview .crm-module-head h3 {
+    overflow: hidden;
+    margin: 0;
+    font-size: clamp(17px, 1.35vw, 22px);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .app-shell .crm-tracking-overview .crm-module-head p { display: none; }
+  .app-shell .crm-tracking-overview .primary-btn {
+    width: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    overflow: hidden;
+    padding: 0;
+    color: transparent !important;
+    font-size: 0;
+  }
+  .app-shell .crm-tracking-overview .primary-btn::before { content: "+"; color: #fff; font-size: 21px; line-height: 1; }
+  .app-shell .crm-tracking-metrics-reconciled { grid-template-columns: .6fr 1fr 1.35fr .85fr .58fr; gap: 6px; }
+  .app-shell .crm-tracking-metrics-reconciled > div { min-height: 62px; padding: 8px 10px !important; border-radius: 13px !important; }
+  .app-shell .crm-tracking-metrics-reconciled span { font-size: 8px; }
+  .app-shell .crm-tracking-metrics-reconciled strong { font-size: clamp(15px, 1.2vw, 20px); }
+  .app-shell .crm-tracking-metrics-reconciled .crm-global-reconciliation {
+    padding-left: 13px !important;
+    box-shadow: inset 3px 0 0 var(--tracking-mint), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+  }
+  .app-shell .crm-global-reconciliation strong { font-size: clamp(18px, 1.55vw, 25px) !important; }
+  .app-shell .crm-global-reconciliation small { display: inline; margin-left: 5px; font-size: 8px; }
+}
+
+@media (min-width: 1500px) {
+  .app-shell .crm-tracking-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-shell .crm-tracking-card { grid-template-columns: minmax(0, 1fr) minmax(155px, 185px); }
+  .app-shell .crm-tracking-card > div > strong { font-size: 14px; }
+}

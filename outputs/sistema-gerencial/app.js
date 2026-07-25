@@ -5269,7 +5269,6 @@ function renderCrmTracking() {
     (!state.crmWonDateFrom || win.date >= state.crmWonDateFrom)
     && (!state.crmWonDateTo || win.date <= state.crmWonDateTo)
   ));
-  const latestWin = resultWins[0];
   const visibleOpportunities = sellerOpportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity));
   const sellerButtons = sellers.map((seller) => {
     const active = crmActiveOpportunitiesForSeller(seller.id);
@@ -5334,17 +5333,6 @@ function renderCrmTracking() {
           <div><span>Conversion</span><strong>${conversion}%</strong></div>
         </div>
       </section>
-      ${latestWin ? `
-        <section class="crm-win-notification" role="status" aria-live="polite">
-          <span class="crm-win-notification-icon" aria-hidden="true">✓</span>
-          <div>
-            <small>Nueva oportunidad cerrada · ganada</small>
-            <strong>${escapeHtml(latestWin.company)}</strong>
-            <p>${escapeHtml(latestWin.seller)} · ${formatMoney(latestWin.amount)} · ${formatDate(latestWin.date)}</p>
-          </div>
-          <button type="button" data-crm-tracking-view="won">Ver histórico</button>
-        </section>
-      ` : ""}
       <div class="crm-tracking-layout crm-tracking-layout-refined">
         <aside class="crm-panel crm-tracking-sidebar">
           <span class="eyebrow">Vendedores</span>
