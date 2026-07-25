@@ -13915,7 +13915,7 @@ html.macos-render-safe .app-shell .permission-access-user {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  padding: clamp(22px, 2.4vw, 34px) !important;
+  padding: clamp(18px, 1.8vw, 24px) !important;
   border-color: rgba(114, 245, 209, .24) !important;
   border-radius: 30px !important;
   background:
@@ -13942,7 +13942,7 @@ html.macos-render-safe .app-shell .permission-access-user {
 
 .app-shell .crm-tracking-overview .crm-module-head {
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 14px;
 }
 
 .app-shell .crm-tracking-overview .eyebrow {
@@ -13955,7 +13955,7 @@ html.macos-render-safe .app-shell .permission-access-user {
 .app-shell .crm-tracking-overview .crm-module-head h3 {
   margin: 0 0 5px;
   color: #fff;
-  font-size: clamp(25px, 2.4vw, 36px);
+  font-size: clamp(23px, 2vw, 30px);
   letter-spacing: -.035em;
 }
 
@@ -13965,8 +13965,8 @@ html.macos-render-safe .app-shell .permission-access-user {
 }
 
 .app-shell .crm-tracking-overview .primary-btn {
-  min-height: 50px;
-  padding: 0 24px;
+  min-height: 44px;
+  padding: 0 21px;
   border: 1px solid rgba(151, 255, 222, .24);
   border-radius: 16px;
   background: linear-gradient(135deg, #168a65, #32b98a) !important;
@@ -13980,13 +13980,13 @@ html.macos-render-safe .app-shell .permission-access-user {
 }
 
 .app-shell .crm-tracking-metrics-reconciled {
-  gap: 12px;
+  gap: 9px;
 }
 
 .app-shell .crm-tracking-metrics-reconciled > div {
   position: relative;
-  min-height: 106px;
-  padding: 18px !important;
+  min-height: 82px;
+  padding: 12px 14px !important;
   overflow: hidden;
   border: 1px solid rgba(188, 214, 239, .14) !important;
   border-radius: 20px !important;
@@ -14020,7 +14020,7 @@ html.macos-render-safe .app-shell .permission-access-user {
 
 .app-shell .crm-tracking-metrics-reconciled strong {
   color: #fff !important;
-  font-size: clamp(20px, 1.7vw, 28px);
+  font-size: clamp(18px, 1.45vw, 24px);
   letter-spacing: -.025em;
 }
 
@@ -14034,7 +14034,7 @@ html.macos-render-safe .app-shell .permission-access-user {
 }
 
 .app-shell .crm-global-reconciliation strong {
-  font-size: clamp(26px, 2.5vw, 38px) !important;
+  font-size: clamp(24px, 2.1vw, 32px) !important;
 }
 
 .app-shell .crm-global-reconciliation small {
