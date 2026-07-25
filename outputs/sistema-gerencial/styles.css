@@ -153,6 +153,17 @@ button, select, input {
   background: rgba(35, 122, 87, .34);
 }
 
+.login-brand {
+  width: min(430px, 100%);
+  margin: 0 0 24px;
+}
+
+.login-brand img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .brand-row {
   display: flex;
   align-items: center;
