@@ -267,6 +267,9 @@ const state = {
   crmSellerId: "",
   crmStatusFilter: "Vigente",
   crmSearch: "",
+  crmTrackingView: "active",
+  crmWonDateFrom: "",
+  crmWonDateTo: "",
   crmOpportunityPage: 1,
   crmOpportunitiesView: "list",
   period: "Julio 2026"
@@ -1136,6 +1139,22 @@ function normalizeStage(stage) {
 function closureResult(item) {
   const managements = Array.isArray(item.managements) ? item.managements : [];
   return [...managements].reverse().find((management) => !management.canceled && isClosureStage(management.stage) && management.result);
+}
+
+function syncTrackingWin(item) {
+  const result = closureResult(item || {});
+  if (result?.result !== "ganado") {
+    delete item.trackingWin;
+    return;
+  }
+  item.trackingWin = {
+    managementId: result.id || "",
+    closedDate: result.date || item.date || todayISO(),
+    closedTime: result.time || "",
+    createdAt: item.trackingWin?.managementId === result.id
+      ? item.trackingWin.createdAt
+      : new Date().toISOString()
+  };
 }
 
 function isLostOpportunity(item) {
@@ -5198,6 +5217,35 @@ function renderCrmSellers() {
   `;
 }
 
+function crmResultWinHistory(selectedSeller = null) {
+  const selectedSellerKey = crmIdentityKey(selectedSeller?.name || "");
+  const localWins = getOpportunitySubmenu().items.flatMap((item) => {
+    const result = closureResult(item);
+    if (result?.result !== "ganado") return [];
+    return [{
+      id: item.id,
+      managementId: result.id || "",
+      date: result.date || item.trackingWin?.closedDate || item.date || "",
+      time: result.time || item.trackingWin?.closedTime || "",
+      company: item.company || "Cliente sin nombre",
+      seller: item.seller || "Sin vendedor",
+      amount: Number(item.amount || 0),
+      segment: item.segment || "Sin producto registrado",
+      comment: result.comment || "Cierre ganado registrado.",
+      createdAt: item.trackingWin?.createdAt || `${result.date || item.date || ""}T${result.time || "00:00"}:00`
+    }];
+  });
+  const serverWins = Array.isArray(crmData().resultWins) ? crmData().resultWins : [];
+  const unique = new Map();
+  [...serverWins, ...localWins].forEach((win) => {
+    const key = `${win.id || win.opportunityId}:${win.managementId || win.date}`;
+    unique.set(key, { ...win, amount: Number(win.amount || 0) });
+  });
+  return [...unique.values()]
+    .filter((win) => !selectedSellerKey || crmIdentityKey(win.seller) === selectedSellerKey)
+    .sort((a, b) => `${b.date || ""} ${b.time || ""}`.localeCompare(`${a.date || ""} ${a.time || ""}`));
+}
+
 function renderCrmTracking() {
   const data = crmData();
   const linkedSellerId = crmLinkedSellerId();
@@ -5207,13 +5255,21 @@ function renderCrmTracking() {
   const sellerOpportunities = selectedSeller ? data.opportunities.filter((opp) => opp.ownerId === selectedSeller.id) : [];
   const activeOpportunities = crmActiveOpportunitiesForSeller(selectedSellerId);
   const globalActiveOpportunities = data.opportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity) && String(opportunity.status || "Vigente").toLowerCase() !== "ganada");
-  const wonOpportunities = sellerOpportunities.filter((opp) => opp.status === "Ganada");
-  const lostOpportunities = sellerOpportunities.filter((opp) => opp.status === "Perdida");
+  const resultWins = crmResultWinHistory(selectedSeller);
+  const resultClosures = getOpportunitySubmenu().items.filter((item) => (
+    !selectedSeller || crmIdentityKey(item.seller) === crmIdentityKey(selectedSeller.name)
+  ) && closureResult(item));
+  const lostOpportunities = resultClosures.filter((item) => closureResult(item)?.result === "perdida");
   const activeValue = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
   const globalActiveValue = globalActiveOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
-  const wonValue = wonOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
-  const conversionBase = wonOpportunities.length + lostOpportunities.length;
-  const conversion = conversionBase ? Math.round((wonOpportunities.length / conversionBase) * 100) : 0;
+  const wonValue = resultWins.reduce((sum, win) => sum + Number(win.amount || 0), 0);
+  const conversionBase = resultWins.length + lostOpportunities.length;
+  const conversion = conversionBase ? Math.round((resultWins.length / conversionBase) * 100) : 0;
+  const filteredWins = resultWins.filter((win) => (
+    (!state.crmWonDateFrom || win.date >= state.crmWonDateFrom)
+    && (!state.crmWonDateTo || win.date <= state.crmWonDateTo)
+  ));
+  const latestWin = resultWins[0];
   const visibleOpportunities = sellerOpportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity));
   const sellerButtons = sellers.map((seller) => {
     const active = crmActiveOpportunitiesForSeller(seller.id);
@@ -5241,6 +5297,24 @@ function renderCrmTracking() {
       </footer>
     </article>
   `).join("");
+  const wonHistoryCards = filteredWins.map((win) => `
+    <article class="crm-won-history-card">
+      <div class="crm-won-history-date">
+        <time>${formatDate(win.date)}</time>
+        <span>${formatTime(win.time)}</span>
+      </div>
+      <div class="crm-won-history-client">
+        <span>Cierre ganado</span>
+        <strong>${escapeHtml(win.company)}</strong>
+        <small>${escapeHtml(win.segment || "Sin producto registrado")}</small>
+      </div>
+      <div class="crm-won-history-result">
+        <strong>${formatMoney(win.amount)}</strong>
+        <span>${escapeHtml(win.seller || "Sin vendedor")}</span>
+      </div>
+      <p>${escapeHtml(win.comment || "Cierre ganado registrado.")}</p>
+    </article>
+  `).join("");
   return `
     <section class="crm-shell crm-original-module">
       <section class="crm-panel crm-tracking-overview">
@@ -5260,17 +5334,46 @@ function renderCrmTracking() {
           <div><span>Conversion</span><strong>${conversion}%</strong></div>
         </div>
       </section>
+      ${latestWin ? `
+        <section class="crm-win-notification" role="status" aria-live="polite">
+          <span class="crm-win-notification-icon" aria-hidden="true">✓</span>
+          <div>
+            <small>Nueva oportunidad cerrada · ganada</small>
+            <strong>${escapeHtml(latestWin.company)}</strong>
+            <p>${escapeHtml(latestWin.seller)} · ${formatMoney(latestWin.amount)} · ${formatDate(latestWin.date)}</p>
+          </div>
+          <button type="button" data-crm-tracking-view="won">Ver histórico</button>
+        </section>
+      ` : ""}
       <div class="crm-tracking-layout crm-tracking-layout-refined">
         <aside class="crm-panel crm-tracking-sidebar">
           <span class="eyebrow">Vendedores</span>
           <div class="crm-seller-chip-list">${sellerButtons}</div>
         </aside>
         <section class="crm-tracking-main">
-          <label class="opportunity-search crm-tracking-search">
-            <span aria-hidden="true">⌕</span>
-            <input type="search" data-crm-tracking-search value="${escapeHtml(state.crmSearch)}" placeholder="Buscar empresa, etapa, estatus o producto..." autocomplete="off">
-          </label>
-          <div class="crm-tracking-grid">${opportunityCards || `<div class="empty-state">No hay oportunidades para este filtro.</div>`}</div>
+          <div class="crm-tracking-view-tabs" role="tablist" aria-label="Vistas de seguimiento">
+            <button type="button" role="tab" data-crm-tracking-view="active" aria-selected="${state.crmTrackingView === "active"}" class="${state.crmTrackingView === "active" ? "is-active" : ""}">Vigentes <span>${visibleOpportunities.length}</span></button>
+            <button type="button" role="tab" data-crm-tracking-view="won" aria-selected="${state.crmTrackingView === "won"}" class="${state.crmTrackingView === "won" ? "is-active" : ""}">Histórico de ganadas <span>${resultWins.length}</span></button>
+          </div>
+          ${state.crmTrackingView === "won" ? `
+            <section class="crm-won-history-panel">
+              <div class="crm-won-history-toolbar">
+                <div><span class="eyebrow">Histórico comercial</span><strong>${filteredWins.length} cierres ganados · ${formatMoney(filteredWins.reduce((sum, win) => sum + win.amount, 0))}</strong></div>
+                <div class="crm-won-date-filters">
+                  <label>Desde<input type="date" data-crm-won-date-from value="${state.crmWonDateFrom}"></label>
+                  <label>Hasta<input type="date" data-crm-won-date-to value="${state.crmWonDateTo}"></label>
+                  <button type="button" data-crm-won-date-clear>Limpiar</button>
+                </div>
+              </div>
+              <div class="crm-won-history-list">${wonHistoryCards || `<div class="empty-state">No hay oportunidades ganadas en el rango seleccionado.</div>`}</div>
+            </section>
+          ` : `
+            <label class="opportunity-search crm-tracking-search">
+              <span aria-hidden="true">⌕</span>
+              <input type="search" data-crm-tracking-search value="${escapeHtml(state.crmSearch)}" placeholder="Buscar empresa, etapa, estatus o producto..." autocomplete="off">
+            </label>
+            <div class="crm-tracking-grid">${opportunityCards || `<div class="empty-state">No hay oportunidades para este filtro.</div>`}</div>
+          `}
         </section>
       </div>
     </section>
@@ -5650,6 +5753,25 @@ function renderCommercialSubmenu(area) {
       const input = opportunityTable.querySelector("[data-crm-tracking-search]");
       input?.focus();
       input?.setSelectionRange(input.value.length, input.value.length);
+    });
+    opportunityTable.querySelectorAll("[data-crm-tracking-view]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.crmTrackingView = button.dataset.crmTrackingView;
+        renderCommercialSubmenu(areas.comercializacion);
+      });
+    });
+    opportunityTable.querySelector("[data-crm-won-date-from]")?.addEventListener("change", (event) => {
+      state.crmWonDateFrom = event.target.value;
+      renderCommercialSubmenu(areas.comercializacion);
+    });
+    opportunityTable.querySelector("[data-crm-won-date-to]")?.addEventListener("change", (event) => {
+      state.crmWonDateTo = event.target.value;
+      renderCommercialSubmenu(areas.comercializacion);
+    });
+    opportunityTable.querySelector("[data-crm-won-date-clear]")?.addEventListener("click", () => {
+      state.crmWonDateFrom = "";
+      state.crmWonDateTo = "";
+      renderCommercialSubmenu(areas.comercializacion);
     });
     opportunityTable.querySelectorAll("[data-crm-seller]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -8313,6 +8435,7 @@ function cancelManagementRecord(item, managementId) {
 
   const activeManagements = orderedManagements(item.managements).filter((record) => !record.notified && !record.canceled);
   item.stage = activeManagements.at(-1)?.stage || "Prospeccion";
+  syncTrackingWin(item);
   saveOpportunities();
   renderManagements(item);
   renderCommercialSubmenu(areas.comercializacion);
@@ -8470,6 +8593,7 @@ managementForm.addEventListener("submit", (event) => {
   const activeManagements = orderedManagements(item.managements).filter((record) => !record.notified && !record.canceled);
   item.stage = activeManagements.at(-1)?.stage || "Prospeccion";
   const result = closureResult(item);
+  syncTrackingWin(item);
   if (result?.result === "ganado") {
     if (item.orderHandoff?.status !== "converted") {
       item.orderHandoff = {

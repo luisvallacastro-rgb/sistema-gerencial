@@ -171,10 +171,10 @@ def sync_crm_result_closures(conn, data):
         return data, False
 
     lost_crm_ids = set()
+    won_crm_ids = {}
+    result_wins = []
     for item in result_opportunities:
         crm_opportunity_id = text(item.get("crmOpportunityId"))
-        if not crm_opportunity_id:
-            continue
         managements = item.get("managements") if isinstance(item.get("managements"), list) else []
         latest_closure = next((
             management for management in reversed(managements)
@@ -182,11 +182,42 @@ def sync_crm_result_closures(conn, data):
             and text(management.get("stage")).lower() in {"cierre", "cierre de ventas"}
             and text(management.get("result"))
         ), None)
-        if text((latest_closure or {}).get("result")).lower() == "perdida":
+        closure_result = text((latest_closure or {}).get("result")).lower()
+        if closure_result == "ganado":
+            tracking_win = item.get("trackingWin") if isinstance(item.get("trackingWin"), dict) else {}
+            result_wins.append({
+                "id": text(item.get("id")),
+                "opportunityId": text(item.get("id")),
+                "crmOpportunityId": crm_opportunity_id,
+                "managementId": text((latest_closure or {}).get("id")),
+                "date": text((latest_closure or {}).get("date"), item.get("date")),
+                "time": text((latest_closure or {}).get("time")),
+                "company": text(item.get("company"), "Cliente sin nombre"),
+                "seller": text(item.get("seller"), "Sin vendedor"),
+                "amount": float(item.get("amount") or 0),
+                "segment": text(item.get("segment")),
+                "comment": text((latest_closure or {}).get("comment"), "Cierre ganado registrado."),
+                "createdAt": text(tracking_win.get("createdAt")),
+            })
+            if crm_opportunity_id:
+                won_crm_ids[crm_opportunity_id] = latest_closure
+        elif closure_result == "perdida" and crm_opportunity_id:
             lost_crm_ids.add(crm_opportunity_id)
 
-    changed = False
+    result_wins.sort(key=lambda item: f"{item.get('date', '')} {item.get('time', '')}", reverse=True)
+    changed = data.get("resultWins") != result_wins
+    if changed:
+        data["resultWins"] = result_wins
     for opportunity in data.get("opportunities", []):
+        won_closure = won_crm_ids.get(text(opportunity.get("id")))
+        if won_closure and (
+            text(opportunity.get("status")).lower() != "ganada"
+            or opportunity.get("wonManagementId") != won_closure.get("id")
+        ):
+            opportunity["status"] = "Ganada"
+            opportunity["wonAt"] = text(won_closure.get("date"))
+            opportunity["wonManagementId"] = text(won_closure.get("id"))
+            changed = True
         if opportunity.get("id") not in lost_crm_ids:
             continue
         if text(opportunity.get("status")).lower() != "perdida" or not opportunity.get("archived"):
@@ -569,6 +600,7 @@ def build_crm_view_model(data, include_private=False):
         "opportunities": opportunities,
         "agenda": agenda,
         "gestiones": gestiones,
+        "resultWins": data.get("resultWins", []),
         "pipeline": pipeline,
         "kpis": {
             "totalProspects": len(pipeline_opportunities),

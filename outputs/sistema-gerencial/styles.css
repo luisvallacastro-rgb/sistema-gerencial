@@ -14260,6 +14260,237 @@ html.macos-render-safe .app-shell .permission-access-user {
   background: rgba(44, 167, 125, .34) !important;
 }
 
+.app-shell .crm-win-notification {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 18px;
+  border: 1px solid rgba(114, 245, 209, .38);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(114, 245, 209, .14), transparent 28%),
+    linear-gradient(135deg, rgba(28, 119, 94, .34), rgba(20, 52, 81, .72));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .13), 0 18px 38px rgba(2, 12, 26, .22);
+}
+
+.app-shell .crm-win-notification-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #168a65, #41c393);
+  color: #fff;
+  font-size: 24px;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(28, 166, 122, .3);
+}
+
+.app-shell .crm-win-notification > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.app-shell .crm-win-notification small {
+  color: #93f6d3;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.app-shell .crm-win-notification strong {
+  color: #fff;
+  font-size: 17px;
+}
+
+.app-shell .crm-win-notification p {
+  margin: 0;
+  color: rgba(222, 238, 246, .7);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.app-shell .crm-win-notification button,
+.app-shell .crm-won-date-filters button {
+  min-height: 36px;
+  padding: 0 15px;
+  border: 1px solid rgba(114, 245, 209, .28);
+  border-radius: 12px;
+  background: rgba(114, 245, 209, .11);
+  color: #d5fff1;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.app-shell .crm-tracking-view-tabs {
+  display: flex;
+  gap: 7px;
+  padding: 5px;
+  border: 1px solid rgba(190, 213, 235, .16);
+  border-radius: 16px;
+  background: rgba(8, 22, 42, .4);
+}
+
+.app-shell .crm-tracking-view-tabs button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(222, 234, 244, .66);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.app-shell .crm-tracking-view-tabs button span {
+  min-width: 22px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: rgba(168, 190, 216, .16);
+  color: inherit;
+  font-size: 9px;
+}
+
+.app-shell .crm-tracking-view-tabs button.is-active {
+  border-color: rgba(114, 245, 209, .25);
+  background: linear-gradient(135deg, rgba(39, 139, 116, .36), rgba(31, 65, 99, .42));
+  color: #e9fff8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1);
+}
+
+.app-shell .crm-won-history-panel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(114, 245, 209, .18);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(46, 67, 105, .58), rgba(11, 30, 53, .64));
+}
+
+.app-shell .crm-won-history-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(190, 213, 235, .14);
+}
+
+.app-shell .crm-won-history-toolbar > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.app-shell .crm-won-history-toolbar .eyebrow {
+  margin: 0;
+  color: #72f5d1 !important;
+  font-size: 9px;
+  letter-spacing: .12em;
+}
+
+.app-shell .crm-won-history-toolbar strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.app-shell .crm-won-date-filters {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.app-shell .crm-won-date-filters label {
+  display: grid;
+  gap: 4px;
+  color: rgba(218, 232, 242, .62);
+  font-size: 9px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.app-shell .crm-won-date-filters input {
+  width: 138px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 11px;
+  font-size: 11px;
+}
+
+.app-shell .crm-won-history-list {
+  display: grid;
+  gap: 9px;
+  max-height: calc(100vh - 335px);
+  overflow-y: auto;
+  padding: 12px;
+  scrollbar-color: rgba(114, 245, 209, .28) transparent;
+}
+
+.app-shell .crm-won-history-card {
+  display: grid;
+  grid-template-columns: 110px minmax(190px, 1fr) 150px minmax(180px, .75fr);
+  align-items: center;
+  gap: 15px;
+  min-height: 82px;
+  padding: 12px 15px;
+  border: 1px solid rgba(188, 216, 235, .16);
+  border-left: 3px solid #72f5d1;
+  border-radius: 16px;
+  background: linear-gradient(105deg, rgba(52, 89, 112, .48), rgba(16, 38, 64, .66));
+}
+
+.app-shell .crm-won-history-date,
+.app-shell .crm-won-history-client,
+.app-shell .crm-won-history-result {
+  display: grid;
+  gap: 3px;
+}
+
+.app-shell .crm-won-history-date time,
+.app-shell .crm-won-history-client strong,
+.app-shell .crm-won-history-result strong {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.app-shell .crm-won-history-date span,
+.app-shell .crm-won-history-client span,
+.app-shell .crm-won-history-client small,
+.app-shell .crm-won-history-result span {
+  color: rgba(215, 231, 241, .62);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.app-shell .crm-won-history-client span {
+  color: #72f5d1;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.app-shell .crm-won-history-result strong {
+  color: #9effdc;
+  font-size: 15px;
+}
+
+.app-shell .crm-won-history-card > p {
+  margin: 0;
+  color: rgba(220, 233, 242, .7);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 @media (max-width: 1100px) {
   .app-shell .crm-tracking-layout-refined {
     grid-template-columns: 220px minmax(0, 1fr);
@@ -14292,6 +14523,10 @@ html.macos-render-safe .app-shell .permission-access-user {
     grid-template-columns: 1fr;
   }
 
+  .app-shell .crm-tracking-layout-refined:has(.crm-won-history-panel) .crm-tracking-main {
+    order: -1;
+  }
+
   .app-shell .crm-tracking-sidebar {
     position: static;
     max-height: none;
@@ -14299,6 +14534,37 @@ html.macos-render-safe .app-shell .permission-access-user {
 
   .app-shell .crm-seller-chip-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-shell .crm-win-notification {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .app-shell .crm-win-notification-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .app-shell .crm-win-notification button {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell .crm-won-history-toolbar,
+  .app-shell .crm-won-date-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-shell .crm-won-date-filters input {
+    width: 100%;
+  }
+
+  .app-shell .crm-won-history-card {
+    grid-template-columns: 100px minmax(0, 1fr) 130px;
+  }
+
+  .app-shell .crm-won-history-card > p {
+    grid-column: 1 / -1;
   }
 }
 
@@ -14325,6 +14591,15 @@ html.macos-render-safe .app-shell .permission-access-user {
     padding: 12px 5px 2px;
     border-top: 1px solid rgba(190, 213, 235, .18);
     border-left: 0;
+  }
+
+  .app-shell .crm-tracking-view-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell .crm-won-history-card {
+    grid-template-columns: 1fr;
   }
 }
 
