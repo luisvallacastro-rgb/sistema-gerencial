@@ -13900,6 +13900,434 @@ html.macos-render-safe .app-shell .permission-access-user {
   filter: none !important;
 }
 
+/* Seguimiento comercial: experiencia ejecutiva sin alterar su estructura. */
+.app-shell .crm-original-module:has(.crm-tracking-overview) {
+  --tracking-mint: #72f5d1;
+  --tracking-green: #2ca77d;
+  --tracking-blue: #69a7ff;
+  --tracking-amber: #ffc66d;
+  --tracking-rose: #ff8ca1;
+  gap: 20px;
+  overflow: visible;
+}
+
+.app-shell .crm-tracking-overview {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(22px, 2.4vw, 34px) !important;
+  border-color: rgba(114, 245, 209, .24) !important;
+  border-radius: 30px !important;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(44, 167, 125, .2), transparent 29%),
+    radial-gradient(circle at 8% 110%, rgba(105, 167, 255, .14), transparent 34%),
+    linear-gradient(135deg, rgba(37, 56, 91, .92), rgba(12, 36, 55, .86)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 28px 80px rgba(1, 9, 24, .3) !important;
+}
+
+.app-shell .crm-tracking-overview::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: .3;
+  background-image:
+    linear-gradient(rgba(114, 245, 209, .08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(114, 245, 209, .06) 1px, transparent 1px);
+  background-size: 34px 34px;
+  -webkit-mask-image: linear-gradient(115deg, #000, transparent 72%);
+  mask-image: linear-gradient(115deg, #000, transparent 72%);
+}
+
+.app-shell .crm-tracking-overview .crm-module-head {
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.app-shell .crm-tracking-overview .eyebrow {
+  margin-bottom: 6px;
+  color: var(--tracking-mint) !important;
+  font-size: 11px;
+  letter-spacing: .16em;
+}
+
+.app-shell .crm-tracking-overview .crm-module-head h3 {
+  margin: 0 0 5px;
+  color: #fff;
+  font-size: clamp(25px, 2.4vw, 36px);
+  letter-spacing: -.035em;
+}
+
+.app-shell .crm-tracking-overview .crm-module-head p {
+  color: rgba(220, 234, 243, .68);
+  font-size: 13px;
+}
+
+.app-shell .crm-tracking-overview .primary-btn {
+  min-height: 50px;
+  padding: 0 24px;
+  border: 1px solid rgba(151, 255, 222, .24);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #168a65, #32b98a) !important;
+  box-shadow: 0 16px 34px rgba(18, 137, 99, .28), inset 0 1px 0 rgba(255, 255, 255, .22) !important;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.app-shell .crm-tracking-overview .primary-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(18, 137, 99, .38), inset 0 1px 0 rgba(255, 255, 255, .28) !important;
+}
+
+.app-shell .crm-tracking-metrics-reconciled {
+  gap: 12px;
+}
+
+.app-shell .crm-tracking-metrics-reconciled > div {
+  position: relative;
+  min-height: 106px;
+  padding: 18px !important;
+  overflow: hidden;
+  border: 1px solid rgba(188, 214, 239, .14) !important;
+  border-radius: 20px !important;
+  background: linear-gradient(145deg, rgba(130, 151, 186, .18), rgba(20, 37, 65, .34)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .11), 0 16px 34px rgba(2, 10, 24, .18) !important;
+}
+
+.app-shell .crm-tracking-metrics-reconciled > div::after {
+  content: "";
+  position: absolute;
+  right: -18px;
+  bottom: -26px;
+  width: 76px;
+  height: 76px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: .1;
+}
+
+.app-shell .crm-tracking-metrics-reconciled > div:nth-child(1) { color: var(--tracking-blue) !important; }
+.app-shell .crm-tracking-metrics-reconciled > div:nth-child(2) { color: var(--tracking-mint) !important; }
+.app-shell .crm-tracking-metrics-reconciled > div:nth-child(4) { color: var(--tracking-amber) !important; }
+.app-shell .crm-tracking-metrics-reconciled > div:nth-child(5) { color: var(--tracking-rose) !important; }
+
+.app-shell .crm-tracking-metrics-reconciled span {
+  color: rgba(217, 229, 241, .68) !important;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.app-shell .crm-tracking-metrics-reconciled strong {
+  color: #fff !important;
+  font-size: clamp(20px, 1.7vw, 28px);
+  letter-spacing: -.025em;
+}
+
+.app-shell .crm-tracking-metrics-reconciled .crm-global-reconciliation {
+  padding-left: 21px !important;
+  border-color: rgba(114, 245, 209, .28) !important;
+  background:
+    radial-gradient(circle at 90% 16%, rgba(114, 245, 209, .16), transparent 34%),
+    linear-gradient(135deg, rgba(34, 128, 109, .32), rgba(29, 72, 111, .26)) !important;
+  box-shadow: inset 4px 0 0 var(--tracking-mint), inset 0 1px 0 rgba(255, 255, 255, .12), 0 18px 38px rgba(1, 18, 34, .22) !important;
+}
+
+.app-shell .crm-global-reconciliation strong {
+  font-size: clamp(26px, 2.5vw, 38px) !important;
+}
+
+.app-shell .crm-global-reconciliation small {
+  color: rgba(200, 255, 239, .64);
+  font-size: 10px;
+}
+
+.app-shell .crm-tracking-layout-refined {
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.app-shell .crm-tracking-sidebar {
+  position: sticky;
+  top: 18px;
+  max-height: calc(100vh - 110px);
+  padding: 20px !important;
+  border-radius: 26px !important;
+  background:
+    radial-gradient(circle at 12% 0, rgba(114, 245, 209, .1), transparent 30%),
+    linear-gradient(155deg, rgba(49, 67, 104, .76), rgba(14, 32, 56, .74)) !important;
+}
+
+.app-shell .crm-tracking-sidebar > .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 15px;
+  color: rgba(225, 237, 246, .72) !important;
+  letter-spacing: .13em;
+}
+
+.app-shell .crm-tracking-sidebar > .eyebrow::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tracking-mint);
+  box-shadow: 0 0 15px rgba(114, 245, 209, .7);
+}
+
+.app-shell .crm-seller-chip-list {
+  gap: 10px;
+  margin-top: 0;
+}
+
+.app-shell .crm-tracking-sidebar .crm-seller-chip {
+  position: relative;
+  min-height: 66px;
+  padding: 13px 14px 13px 17px;
+  overflow: hidden;
+  border-radius: 16px !important;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.app-shell .crm-tracking-sidebar .crm-seller-chip::before {
+  content: "";
+  position: absolute;
+  inset: 11px auto 11px 0;
+  width: 3px;
+  border-radius: 0 4px 4px 0;
+  background: transparent;
+}
+
+.app-shell .crm-tracking-sidebar .crm-seller-chip:hover {
+  transform: translateX(3px);
+  border-color: rgba(114, 245, 209, .32) !important;
+}
+
+.app-shell .crm-tracking-sidebar .crm-seller-chip.is-active {
+  background:
+    radial-gradient(circle at 90% 0, rgba(114, 245, 209, .12), transparent 40%),
+    linear-gradient(135deg, rgba(39, 139, 116, .36), rgba(27, 58, 90, .46)) !important;
+  border-color: rgba(114, 245, 209, .5) !important;
+  box-shadow: 0 14px 28px rgba(1, 12, 28, .22), inset 0 1px 0 rgba(255, 255, 255, .12) !important;
+}
+
+.app-shell .crm-tracking-sidebar .crm-seller-chip.is-active::before {
+  background: var(--tracking-mint);
+  box-shadow: 0 0 14px rgba(114, 245, 209, .66);
+}
+
+.app-shell .crm-tracking-sidebar .crm-seller-chip strong {
+  font-size: 13px;
+}
+
+.app-shell .crm-tracking-sidebar .crm-seller-chip span {
+  color: rgba(215, 229, 240, .62) !important;
+  font-size: 10px;
+}
+
+.app-shell .crm-tracking-main {
+  gap: 14px;
+}
+
+.app-shell .crm-tracking-search {
+  min-height: 62px;
+  margin: 0;
+  padding: 0 20px;
+  border: 1px solid rgba(114, 245, 209, .24) !important;
+  border-radius: 20px !important;
+  background:
+    radial-gradient(circle at 0 50%, rgba(114, 245, 209, .1), transparent 20%),
+    linear-gradient(135deg, rgba(52, 75, 116, .56), rgba(16, 39, 65, .66)) !important;
+  box-shadow: inset 3px 0 0 var(--tracking-mint), inset 0 1px 0 rgba(255, 255, 255, .08), 0 16px 36px rgba(2, 9, 22, .2) !important;
+}
+
+.app-shell .crm-tracking-search > span {
+  color: var(--tracking-mint);
+  font-size: 21px;
+  text-shadow: 0 0 12px rgba(114, 245, 209, .54);
+}
+
+.app-shell .crm-tracking-search input {
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 14px;
+}
+
+.app-shell .crm-tracking-grid {
+  gap: 12px;
+  max-height: calc(100vh - 260px);
+  padding: 2px 8px 20px 2px;
+  scrollbar-color: rgba(114, 245, 209, .32) transparent;
+}
+
+.app-shell .crm-tracking-card {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 285px);
+  min-height: 108px;
+  gap: 18px;
+  padding: 14px 18px !important;
+  overflow: hidden;
+  border-radius: 22px !important;
+  background:
+    linear-gradient(100deg, rgba(66, 87, 127, .5), rgba(14, 34, 59, .62)) !important;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+.app-shell .crm-tracking-card::before {
+  content: "";
+  position: absolute;
+  inset: 14px auto 14px 0;
+  width: 3px;
+  border-radius: 0 5px 5px 0;
+  background: var(--tracking-blue);
+  box-shadow: 0 0 16px rgba(105, 167, 255, .48);
+}
+
+.app-shell .crm-tracking-card:nth-child(3n + 2)::before { background: var(--tracking-mint); }
+.app-shell .crm-tracking-card:nth-child(3n)::before { background: var(--tracking-amber); }
+
+.app-shell .crm-tracking-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(114, 245, 209, .3) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 22px 46px rgba(2, 9, 23, .26) !important;
+}
+
+.app-shell .crm-tracking-card > div {
+  min-height: 76px;
+  justify-items: start;
+  gap: 5px;
+  padding: 7px 12px;
+  text-align: left;
+}
+
+.app-shell .crm-tracking-card > div > span,
+.app-shell .crm-tracking-card > div > strong,
+.app-shell .crm-tracking-card > div > p {
+  text-align: left;
+}
+
+.app-shell .crm-tracking-card > div > span {
+  color: var(--tracking-mint) !important;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.app-shell .crm-tracking-card > div > strong {
+  font-size: clamp(16px, 1.35vw, 20px);
+  letter-spacing: -.015em;
+}
+
+.app-shell .crm-tracking-card > div > p {
+  color: rgba(211, 226, 238, .64) !important;
+  font-size: 12px;
+}
+
+.app-shell .crm-tracking-card footer {
+  min-height: 76px;
+  gap: 7px 12px;
+  padding: 7px 0 7px 20px;
+  border-color: rgba(190, 213, 235, .18);
+}
+
+.app-shell .crm-tracking-card footer > strong {
+  color: #fff !important;
+  font-size: 18px;
+  text-align: left;
+}
+
+.app-shell .crm-tracking-card footer > span {
+  color: var(--tracking-mint) !important;
+  font-size: 10px;
+  text-align: right;
+}
+
+.app-shell .crm-tracking-card footer .crm-link-pill {
+  justify-self: stretch;
+  min-height: 30px;
+  border-color: rgba(114, 245, 209, .2) !important;
+  background: rgba(114, 245, 209, .1) !important;
+  color: #caffef !important;
+  font-size: 10px;
+  transition: background .18s ease, transform .18s ease;
+}
+
+.app-shell .crm-tracking-card footer .crm-link-pill:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(44, 167, 125, .34) !important;
+}
+
+@media (max-width: 1100px) {
+  .app-shell .crm-tracking-layout-refined {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .app-shell .crm-tracking-card {
+    grid-template-columns: minmax(0, 1fr) 220px;
+  }
+}
+
+@media (max-width: 820px) {
+  .app-shell .crm-tracking-overview .crm-module-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .app-shell .crm-tracking-overview .primary-btn {
+    width: 100%;
+  }
+
+  .app-shell .crm-tracking-metrics-reconciled {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-shell .crm-tracking-metrics-reconciled .crm-global-reconciliation {
+    grid-column: 1 / -1;
+  }
+
+  .app-shell .crm-tracking-layout-refined {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell .crm-tracking-sidebar {
+    position: static;
+    max-height: none;
+  }
+
+  .app-shell .crm-seller-chip-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell .crm-tracking-overview {
+    padding: 20px !important;
+  }
+
+  .app-shell .crm-tracking-metrics-reconciled,
+  .app-shell .crm-seller-chip-list {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell .crm-tracking-metrics-reconciled .crm-global-reconciliation {
+    grid-column: auto;
+  }
+
+  .app-shell .crm-tracking-card {
+    grid-template-columns: 1fr;
+    padding: 13px !important;
+  }
+
+  .app-shell .crm-tracking-card footer {
+    padding: 12px 5px 2px;
+    border-top: 1px solid rgba(190, 213, 235, .18);
+    border-left: 0;
+  }
+}
+
 @media (max-width: 760px) {
   .app-shell .permission-access-user-column,
   .app-shell .permission-access-user-head,
