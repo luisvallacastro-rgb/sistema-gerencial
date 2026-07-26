@@ -629,6 +629,124 @@ dialog textarea {
 #managementDialog #managementSubmitBtn { background: linear-gradient(135deg, #5652dc, #4338ca) !important; color: #fff !important; box-shadow: none !important; }
 #managementDialog .sample-custody-toggle { border-color: rgba(79, 70, 229, .2) !important; background: rgba(79, 70, 229, .08) !important; color: #4338ca !important; }
 
+/* Contraste final del tema claro. */
+.app-shell .opportunity-row .tag.danger {
+  border: 1px solid rgba(220, 67, 93, .16) !important;
+  background: #fff0f2 !important;
+  color: #c93651 !important;
+}
+.app-shell .opportunity-row .tag.warn {
+  border: 1px solid rgba(217, 119, 6, .16) !important;
+  background: #fff7e8 !important;
+  color: #a75d08 !important;
+}
+.app-shell .opportunity-row .tag.info,
+.app-shell .opportunity-row .tag:not(.danger):not(.warn):not(.info) {
+  border: 1px solid rgba(37, 99, 235, .14) !important;
+  background: #eef4ff !important;
+  color: #315cb7 !important;
+}
+
+.app-shell .accumulated-column-head,
+.app-shell .accumulated-column-head > span,
+.app-shell .accumulated-values-title,
+.app-shell .accumulated-kpi-titles,
+.app-shell .accumulated-kpi-titles span,
+.app-shell .accumulated-column-head .chart-legend { color: #68748a !important; opacity: 1 !important; }
+.app-shell .accumulated-column-head .chart-legend span { color: #566278 !important; }
+
+.app-shell #pageTitle.with-results-summary .results-title-metrics,
+.app-shell #pageTitle.with-results-summary .results-title-metrics span,
+.app-shell #pageTitle.with-results-summary .results-title-metrics strong {
+  color: #4f46e5 !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.app-shell .kpi-view-tabs,
+.app-shell .financial-orders-view-tabs,
+.app-shell .crm-tracking-view-tabs {
+  border-color: rgba(104, 121, 147, .16) !important;
+  background: #f1f4fa !important;
+  box-shadow: none !important;
+}
+.app-shell .kpi-view-tab,
+.app-shell .financial-orders-view-tabs button,
+.app-shell .crm-tracking-view-tabs button {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: #68748a !important;
+  opacity: 1 !important;
+}
+.app-shell .kpi-view-tab.active,
+.app-shell .financial-orders-view-tabs button.active,
+.app-shell .crm-tracking-view-tabs button.is-active {
+  border-color: rgba(79, 70, 229, .18) !important;
+  background: rgba(79, 70, 229, .1) !important;
+  color: #4338ca !important;
+  box-shadow: none !important;
+}
+.app-shell .financial-orders-view-tabs button span,
+.app-shell .crm-tracking-view-tabs button span { color: inherit !important; }
+.app-shell .financial-orders-notification-count {
+  background: rgba(79, 70, 229, .12) !important;
+  color: #4338ca !important;
+  box-shadow: none !important;
+}
+
+/* Seguimiento: todas las superficies y cifras recuperan contraste. */
+.app-shell .crm-original-module:has(.crm-tracking-overview) { --tracking-mint: #4f46e5; }
+.app-shell .crm-tracking-overview {
+  border-color: rgba(104, 121, 147, .17) !important;
+  background: linear-gradient(135deg, rgba(255,255,255,.92), rgba(242,245,251,.88)) !important;
+  box-shadow: 0 14px 34px rgba(43,56,82,.07), inset 0 0 0 1px rgba(104,121,147,.12) !important;
+}
+.app-shell .crm-tracking-overview::before { display: none !important; }
+.app-shell .crm-tracking-overview .eyebrow { color: #4f46e5 !important; }
+.app-shell .crm-tracking-overview .crm-module-head h3 { color: #182238 !important; }
+.app-shell .crm-tracking-overview .crm-module-head p { color: #68748a !important; }
+.app-shell .crm-tracking-overview .primary-btn {
+  border-color: #4f46e5 !important;
+  background: linear-gradient(135deg, #5652dc, #4338ca) !important;
+  box-shadow: none !important;
+}
+.app-shell .crm-tracking-metrics-reconciled > div,
+.app-shell .crm-tracking-metrics-reconciled .crm-global-reconciliation {
+  border-color: rgba(104,121,147,.16) !important;
+  background: rgba(255,255,255,.84) !important;
+  color: #4f46e5 !important;
+  box-shadow: none !important;
+}
+.app-shell .crm-tracking-metrics-reconciled .crm-global-reconciliation { box-shadow: inset 4px 0 0 #4f46e5 !important; }
+.app-shell .crm-tracking-metrics-reconciled span { color: #68748a !important; }
+.app-shell .crm-tracking-metrics-reconciled strong { color: #182238 !important; opacity: 1 !important; }
+.app-shell .crm-global-reconciliation small { color: #68748a !important; }
+.app-shell .crm-tracking-sidebar > .eyebrow { color: #4f46e5 !important; }
+.app-shell .crm-tracking-sidebar .crm-seller-chip,
+.app-shell .crm-tracking-card {
+  border-color: rgba(104,121,147,.16) !important;
+  background: rgba(255,255,255,.86) !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.app-shell .crm-tracking-sidebar .crm-seller-chip.is-active {
+  border-color: rgba(79,70,229,.25) !important;
+  background: rgba(79,70,229,.09) !important;
+}
+.app-shell .crm-tracking-sidebar .crm-seller-chip strong,
+.app-shell .crm-tracking-card > div > strong,
+.app-shell .crm-tracking-card footer > strong { color: #182238 !important; opacity: 1 !important; }
+.app-shell .crm-tracking-sidebar .crm-seller-chip span,
+.app-shell .crm-tracking-card > div > p,
+.app-shell .crm-tracking-card footer > span { color: #68748a !important; opacity: 1 !important; }
+.app-shell .crm-tracking-card > div > span { color: #4f46e5 !important; opacity: 1 !important; }
+.app-shell .crm-tracking-card footer .crm-link-pill {
+  border-color: rgba(79,70,229,.2) !important;
+  background: rgba(79,70,229,.07) !important;
+  color: #4338ca !important;
+  opacity: 1 !important;
+}
+
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }
