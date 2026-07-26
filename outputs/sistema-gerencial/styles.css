@@ -12666,10 +12666,22 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 }
 .control-sales-date-fields {
   display: grid;
-  grid-template-columns: minmax(132px, 1fr) 16px minmax(132px, 1fr);
+  grid-template-columns: minmax(132px, 1fr) 16px minmax(132px, 1fr) auto auto;
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+.control-sales-date-fields > button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(114, 245, 209, .32);
+  border-radius: 10px;
+  background: rgba(114, 245, 209, .1);
+  color: #8ff7dc;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
 }
 .control-sales-date-fields label {
   display: grid;

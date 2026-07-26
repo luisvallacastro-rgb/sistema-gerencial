@@ -1252,6 +1252,17 @@ dialog footer .ghost-btn {
   color: #182238 !important;
 }
 .app-shell .control-sales-date-fields i { color: #4f46e5 !important; }
+.app-shell .control-sales-date-fields > button {
+  border-color: #c9c7f5 !important;
+  background: #eef1ff !important;
+  color: #4338ca !important;
+  box-shadow: none !important;
+}
+.app-shell .control-sales-date-fields > button:last-child {
+  border-color: #d7dee8 !important;
+  background: #fff !important;
+  color: #526078 !important;
+}
 .app-shell .control-sales-toolbar > .primary-btn {
   align-self: start !important;
   width: 100% !important;

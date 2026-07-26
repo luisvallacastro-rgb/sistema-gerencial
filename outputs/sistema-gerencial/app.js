@@ -2512,6 +2512,7 @@ function formatControlSalesDateInput(value) {
 }
 
 function controlSalesDisplayDateToIso(value) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value || "").trim())) return String(value).trim();
   const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || "").trim());
   if (!match) return "";
   const [, day, month, year] = match;
@@ -2588,13 +2589,15 @@ function renderControlSales() {
       <label class="control-sales-control"><small>Vendedor</small><select data-control-sales-seller><option value="all">Todos los vendedores</option>${sellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.controlSalesSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label>
       <label class="control-sales-control"><small>Estado</small><select data-control-sales-status><option value="active" ${state.controlSalesStatus === "active" ? "selected" : ""}>Activas</option><option value="all" ${state.controlSalesStatus === "all" ? "selected" : ""}>Todas</option><option value="archived" ${state.controlSalesStatus === "archived" ? "selected" : ""}>Archivadas</option><option value="review" ${state.controlSalesStatus === "review" ? "selected" : ""}>Por revisar</option></select></label>
       <div class="control-sales-range control-sales-date-entry" data-control-sales-range>
-        <div class="control-sales-date-heading"><small>Periodo operativo</small><span>Escribe 8 dígitos por fecha</span></div>
+        <div class="control-sales-date-heading"><small>Periodo operativo</small><span>Selecciona el rango y aplícalo</span></div>
         <div class="control-sales-date-fields">
-          <label><span>Desde</span><input type="text" inputmode="numeric" autocomplete="off" maxlength="10" data-control-sales-date-from value="${formatDate(range.fromIso)}" placeholder="DD/MM/AAAA" aria-label="Fecha inicial en formato día, mes y año"></label>
+          <label><span>Desde</span><input type="date" data-control-sales-date-from value="${range.fromIso}" aria-label="Fecha inicial"></label>
           <i aria-hidden="true">→</i>
-          <label><span>Hasta</span><input type="text" inputmode="numeric" autocomplete="off" maxlength="10" data-control-sales-date-to value="${formatDate(range.toIso)}" placeholder="DD/MM/AAAA" aria-label="Fecha final en formato día, mes y año"></label>
+          <label><span>Hasta</span><input type="date" data-control-sales-date-to value="${range.toIso}" aria-label="Fecha final"></label>
+          <button type="button" data-control-sales-date-apply>Aplicar</button>
+          <button type="button" data-control-sales-date-clear>Limpiar</button>
         </div>
-        <small class="control-sales-date-feedback" data-control-sales-date-feedback aria-live="polite">Ejemplo: 01012026 se convierte en 01/01/2026</small>
+        <small class="control-sales-date-feedback" data-control-sales-date-feedback aria-live="polite">El filtro se aplica al confirmar el rango.</small>
       </div>
       <label class="control-sales-control"><small>Ordenar</small><select data-control-sales-sort><option value="date-desc">Más recientes</option><option value="date-asc" ${state.controlSalesSort === "date-asc" ? "selected" : ""}>Más antiguas</option><option value="total-desc" ${state.controlSalesSort === "total-desc" ? "selected" : ""}>Mayor total</option><option value="number-asc" ${state.controlSalesSort === "number-asc" ? "selected" : ""}>Número de orden</option></select></label>
       <button type="button" class="primary-btn" data-control-sales-new>+ Nueva orden</button>
@@ -3217,19 +3220,15 @@ function wireControlSales() {
     rerender();
     return true;
   };
-  [fromDate, toDate].forEach((input) => {
-    input?.addEventListener("input", () => {
-      input.value = formatControlSalesDateInput(input.value);
-      input.classList.remove("invalid");
-      if (feedback) feedback.textContent = input.value.replace(/\D/g, "").length === 8 ? "Fecha lista. Presiona Enter o sal del campo para aplicar." : "Escribe 8 dígitos: día, mes y año.";
-    });
-    input?.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        commitDateRange();
-      }
-    });
-    input?.addEventListener("change", commitDateRange);
+  [fromDate, toDate].forEach((input) => input?.addEventListener("change", () => {
+    input.classList.remove("invalid");
+    if (feedback) feedback.textContent = "Rango modificado. Presiona Aplicar para filtrar.";
+  }));
+  document.querySelector("[data-control-sales-date-apply]")?.addEventListener("click", commitDateRange);
+  document.querySelector("[data-control-sales-date-clear]")?.addEventListener("click", () => {
+    state.controlSalesDateFrom = "";
+    state.controlSalesDateTo = "";
+    rerender();
   });
   document.querySelector("[data-control-sales-new]")?.addEventListener("click", () => openControlSalesForm());
   document.querySelectorAll("[data-control-sales-print]").forEach((button) => button.addEventListener("click", () => {
