@@ -747,6 +747,106 @@ dialog textarea {
   opacity: 1 !important;
 }
 
+/* Regla global: en claro, todo acento decorativo es índigo; nunca verde neón. */
+.app-shell .opportunity-search > span,
+.app-shell .crm-tracking-search > span,
+.app-shell .financial-orders-toolbar label > span,
+.app-shell .control-sales-search > span,
+.app-shell .search-icon,
+.app-shell .nav-group > button > span:first-child,
+.app-shell .nav-caret,
+.app-shell .purchase-orders-toolbar > label > span,
+.app-shell .accounts-receivable-toolbar > label > span {
+  color: #4f46e5 !important;
+  text-shadow: none !important;
+}
+
+/* Cuentas por cobrar. */
+.app-shell .accounts-receivable-status-tabs {
+  border: 1px solid rgba(104,121,147,.16) !important;
+  background: #f1f4fa !important;
+}
+.app-shell .accounts-receivable-status-tabs button { background: transparent !important; color: #68748a !important; opacity: 1 !important; }
+.app-shell .accounts-receivable-status-tabs button.active { background: rgba(79,70,229,.1) !important; color: #4338ca !important; box-shadow: none !important; }
+.app-shell .accounts-receivable-row {
+  border: 1px solid rgba(104,121,147,.16) !important;
+  background: rgba(255,255,255,.86) !important;
+  color: #182238 !important;
+  box-shadow: 0 6px 16px rgba(43,56,82,.045) !important;
+}
+.app-shell .accounts-receivable-row.header { background: #e9eef5 !important; color: #566278 !important; }
+.app-shell .accounts-receivable-row > *,
+.app-shell .accounts-receivable-row strong,
+.app-shell .accounts-receivable-customer,
+.app-shell .accounts-receivable-invoice { color: #182238 !important; opacity: 1 !important; }
+.app-shell .accounts-receivable-row small { color: #68748a !important; opacity: 1 !important; }
+.app-shell .accounts-receivable-row .financial-order-sale { color: #4338ca !important; text-shadow: none !important; }
+.app-shell .accounts-receivable-status.pending {
+  background: rgba(79,70,229,.09) !important;
+  color: #4338ca !important;
+}
+.app-shell .accounts-receivable-kpi-summary article { border: 1px solid rgba(104,121,147,.16) !important; background: rgba(255,255,255,.84) !important; box-shadow: none !important; }
+.app-shell .accounts-receivable-kpi-summary span,
+.app-shell .accounts-receivable-kpi-summary small { color: #68748a !important; }
+.app-shell .accounts-receivable-kpi-summary strong { color: #4f46e5 !important; text-shadow: none !important; }
+.app-shell .accounts-receivable-toolbar > strong { color: #4f46e5 !important; text-shadow: none !important; }
+.app-shell .accounts-receivable-toolbar > button {
+  border-color: #4f46e5 !important;
+  background: linear-gradient(135deg,#5652dc,#4338ca) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+/* Órdenes de Pedido. */
+.app-shell .purchase-order-kpi,
+.app-shell .purchase-order-kpis > article { border-color: rgba(104,121,147,.16) !important; background: rgba(255,255,255,.84) !important; color: #182238 !important; box-shadow: none !important; }
+.app-shell .purchase-order-kpi span,
+.app-shell .purchase-order-kpi small,
+.app-shell .purchase-order-kpis span,
+.app-shell .purchase-order-kpis small { color: #68748a !important; opacity: 1 !important; }
+.app-shell .purchase-order-kpi strong,
+.app-shell .purchase-order-kpis strong { color: #4f46e5 !important; text-shadow: none !important; opacity: 1 !important; }
+.app-shell .purchase-orders-hero article {
+  border-color: rgba(104,121,147,.16) !important;
+  background: rgba(255,255,255,.86) !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.app-shell .purchase-orders-hero article:first-child { border-color: rgba(79,70,229,.24) !important; }
+.app-shell .purchase-orders-hero span,
+.app-shell .purchase-orders-hero small { color: #68748a !important; opacity: 1 !important; }
+.app-shell .purchase-orders-hero strong { color: #4f46e5 !important; text-shadow: none !important; opacity: 1 !important; }
+.app-shell .purchase-order-card,
+.app-shell .purchase-order-row:not(.header) { border-color: rgba(104,121,147,.16) !important; background: rgba(255,255,255,.86) !important; color: #182238 !important; box-shadow: 0 6px 16px rgba(43,56,82,.045) !important; }
+.app-shell .purchase-order-card > *,
+.app-shell .purchase-order-card strong,
+.app-shell .purchase-order-card span,
+.app-shell .purchase-order-row:not(.header) > *,
+.app-shell .purchase-order-row:not(.header) strong { color: #182238 !important; opacity: 1 !important; }
+.app-shell .purchase-order-card small,
+.app-shell .purchase-order-row:not(.header) small { color: #68748a !important; opacity: 1 !important; }
+.app-shell .purchase-order-identity > span {
+  background: rgba(79,70,229,.09) !important;
+  color: #4338ca !important;
+}
+.app-shell .purchase-order-status-tabs,
+.app-shell .purchase-orders-status-tabs { border-color: rgba(104,121,147,.16) !important; background: #f1f4fa !important; }
+.app-shell .purchase-order-status-tabs button,
+.app-shell .purchase-orders-status-tabs button { color: #68748a !important; background: transparent !important; opacity: 1 !important; }
+.app-shell .purchase-order-status-tabs button.active,
+.app-shell .purchase-orders-status-tabs button.active { color: #4338ca !important; background: rgba(79,70,229,.1) !important; }
+.app-shell .purchase-orders-toolbar > label { background: rgba(255,255,255,.84) !important; color: #4f46e5 !important; box-shadow: inset 0 0 0 1px rgba(104,121,147,.16) !important; }
+.app-shell .purchase-orders-toolbar input { color: #182238 !important; }
+.app-shell .purchase-orders-toolbar input::placeholder { color: #8a95a9 !important; }
+.app-shell .purchase-orders-toolbar > button {
+  border-color: #4f46e5 !important;
+  background: linear-gradient(135deg,#5652dc,#4338ca) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+.app-shell .purchase-orders-shell .primary-btn,
+.app-shell .accounts-receivable-shell .primary-btn { background: linear-gradient(135deg,#5652dc,#4338ca) !important; border-color:#4f46e5 !important; }
+
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }
