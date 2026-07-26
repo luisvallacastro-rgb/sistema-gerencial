@@ -4288,44 +4288,34 @@ function openRiskDetailDialog(item, submenu) {
 }
 
 function renderManagementRequests(items) {
+  const attendedCount = items.filter((item) => normalizeKey(item.status) === "atendida").length;
+  const reviewCount = items.filter((item) => normalizeKey(item.status).includes("revision")).length;
+  const pendingCount = Math.max(0, items.length - attendedCount - reviewCount);
   return `
     <section class="management-requests" aria-label="Solicitudes a Gerencia General">
+      <header class="management-requests-summary">
+        <div><span>Flujo gerencial</span><strong>Control de solicitudes</strong><p>Seguimiento, respuesta y resolución en una sola vista.</p></div>
+        <section><article><small>Pendientes</small><strong>${pendingCount}</strong></article><article><small>En revisión</small><strong>${reviewCount}</strong></article><article><small>Atendidas</small><strong>${attendedCount}</strong></article></section>
+      </header>
       <div class="management-request-body">
-        ${items.length ? items.map((item) => `
-          <article class="management-request-row">
-            <div class="request-date-block">
-              <span>Fecha</span>
-              <strong>${formatDate(item.date)}</strong>
+        ${items.length ? items.map((item) => {
+          const statusKey = normalizeKey(item.status);
+          const statusTone = statusKey === "atendida" ? "resolved" : statusKey.includes("revision") ? "review" : "pending";
+          return `<article class="management-request-row request-${statusTone}">
+            <header class="request-card-head"><div><span>Solicitud</span><strong>${item.subject}</strong></div><strong class="request-status-pill">${item.status}</strong></header>
+            <div class="request-card-content">
+              <div class="request-message-main"><p>${item.message}</p>${item.response ? `<div class="request-response"><span>Respuesta registrada</span><p>${item.response}</p></div>` : ""}</div>
+              <aside class="request-card-meta"><div><span>Fecha</span><strong>${formatDate(item.date)}</strong></div><div><span>Origen</span><strong>${item.owner}</strong></div><div><span>Destino</span><strong>${item.target}</strong></div></aside>
             </div>
-            <div class="request-message-main">
-              <span>Solicitud</span>
-              <strong>${item.subject}</strong>
-              <p>${item.message}</p>
-              ${item.response ? `<div class="request-response"><span>Respuesta</span><p>${item.response}</p></div>` : ""}
-            </div>
-            <div class="request-route-block">
-              <span>Origen</span>
-              <strong>${item.owner}</strong>
-              <span>Destino</span>
-              <strong>${item.target}</strong>
-            </div>
-            <div class="request-status-block">
-              <span>Estado</span>
-              <strong class="tag notice">${item.status}</strong>
-            </div>
-            <div class="row-actions request-actions">
-              <button class="ghost-btn compact-btn" type="button" data-request-action="response" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">Responder</button>
-              <button class="ghost-btn compact-btn" type="button" data-request-action="status" data-status="En revision" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">En revision</button>
-              <button class="ghost-btn compact-btn" type="button" data-request-action="status" data-status="Atendida" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">Atendida</button>
-              <button class="action-icon-btn" type="button" data-request-action="edit" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Editar solicitud">
-                <span aria-hidden="true">✎</span>
-              </button>
-              <button class="action-icon-btn danger" type="button" data-request-action="delete" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Borrar solicitud">
-                <span aria-hidden="true">⌫</span>
-              </button>
-            </div>
-          </article>
-        `).join("") : `
+            <footer class="row-actions request-actions">
+              <button class="request-action-primary" type="button" data-request-action="response" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">Responder</button>
+              <button type="button" data-request-action="status" data-status="En revision" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">En revisión</button>
+              <button type="button" data-request-action="status" data-status="Atendida" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">Atendida</button>
+              <button class="request-icon-action" type="button" data-request-action="edit" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Editar solicitud" title="Editar"><span aria-hidden="true">✎</span></button>
+              <button class="request-icon-action danger" type="button" data-request-action="delete" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Borrar solicitud" title="Eliminar"><span aria-hidden="true">⌫</span></button>
+            </footer>
+          </article>`;
+        }).join("") : `
           <div class="empty-state">
             No hay solicitudes enviadas. Usa Nueva solicitud para enviar un requerimiento a Gerencia General.
           </div>

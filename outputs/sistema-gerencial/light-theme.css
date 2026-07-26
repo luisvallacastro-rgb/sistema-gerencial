@@ -1432,6 +1432,43 @@ dialog footer .ghost-btn {
 .app-shell .minute-preview div,
 .app-shell .minute-preview li { color: #46536a !important; }
 
+/* Solicitudes 3.0 · variante clara. */
+.app-shell .management-requests { color: #182238 !important; }
+.app-shell .management-requests-summary {
+  border-color: #d9e0ea !important;
+  background: linear-gradient(125deg,#fff,#f5f7ff) !important;
+  box-shadow: none !important;
+}
+.app-shell .management-requests-summary > div > span { color: #4f46e5 !important; }
+.app-shell .management-requests-summary > div > strong { color: #182238 !important; }
+.app-shell .management-requests-summary > div > p { color: #68748a !important; }
+.app-shell .management-requests-summary article { border-color: #dce2eb !important; background: #f7f9fc !important; }
+.app-shell .management-requests-summary article small { color: #68748a !important; }
+.app-shell .management-requests-summary article strong { color: #27344c !important; }
+.app-shell .management-request-row {
+  border-color: #dce2eb !important;
+  background: #fff !important;
+  background-image: none !important;
+  color: #182238 !important;
+  box-shadow: 0 8px 22px rgba(51,65,85,.055) !important;
+}
+.app-shell .request-card-head span,
+.app-shell .request-card-meta span,
+.app-shell .request-response span { color: #68748a !important; }
+.app-shell .request-card-head > div > strong { color: #182238 !important; }
+.app-shell .request-message-main > p { color: #526078 !important; }
+.app-shell .request-card-meta { border: 1px solid #e1e6ee !important; background: #f7f9fc !important; }
+.app-shell .request-card-meta strong { color: #334155 !important; }
+.app-shell .request-status-pill { border-color: #bbd2ef !important; background: #edf5ff !important; color: #2c619c !important; }
+.app-shell .request-review .request-status-pill { border-color: #efc98f !important; background: #fff3df !important; color: #a85b0b !important; }
+.app-shell .request-resolved .request-status-pill { border-color: #abdccc !important; background: #e5f5ef !important; color: #157a5a !important; }
+.app-shell .request-response { background: #edf8f4 !important; }
+.app-shell .request-response p { color: #286c58 !important; }
+.app-shell .request-actions { border-top-color: #e2e7ef !important; }
+.app-shell .request-actions button { border-color: #d5dce7 !important; background: #f4f6fa !important; color: #46536a !important; box-shadow: none !important; }
+.app-shell .request-actions .request-action-primary { border-color: #c8c6f5 !important; background: #eef1ff !important; color: #4338ca !important; }
+.app-shell .request-actions .danger { border-color: #f0cbd3 !important; background: #fff1f4 !important; color: #c63e58 !important; }
+
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }

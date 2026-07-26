@@ -4751,6 +4751,80 @@ button:disabled {
   }
 }
 
+/* Solicitudes 3.0: flujo gerencial en tarjetas compactas. */
+.app-shell .management-requests {
+  display: grid;
+  gap: 14px;
+  color: #edf5ff;
+}
+.app-shell .management-requests-summary {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(122,247,219,.2);
+  border-radius: 20px;
+  background: linear-gradient(125deg,rgba(35,66,94,.78),rgba(13,39,58,.84));
+}
+.app-shell .management-requests-summary > div { display: grid; gap: 3px; }
+.app-shell .management-requests-summary > div > span { color: #72f5d1; font-size: 10px; font-weight: 950; letter-spacing: .14em; text-transform: uppercase; }
+.app-shell .management-requests-summary > div > strong { color: #f7fbff; font-size: 22px; }
+.app-shell .management-requests-summary > div > p { margin: 0; color: #9eb0c6; font-size: 12px; }
+.app-shell .management-requests-summary > section { display: grid; grid-template-columns: repeat(3,minmax(100px,1fr)); gap: 8px; }
+.app-shell .management-requests-summary article { display: grid; gap: 2px; min-width: 110px; padding: 10px 13px; border: 1px solid rgba(151,185,216,.18); border-radius: 14px; background: rgba(13,31,54,.56); }
+.app-shell .management-requests-summary article small { color: #8fa2bb; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.app-shell .management-requests-summary article strong { color: #fff; font-size: 22px; }
+.app-shell .management-request-body { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; max-height: min(66vh,780px); padding: 2px 5px 2px 2px; }
+.app-shell .management-request-row {
+  position: relative;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 13px !important;
+  min-width: 0;
+  padding: 17px !important;
+  overflow: hidden;
+  border: 1px solid rgba(158,188,219,.19) !important;
+  border-radius: 19px !important;
+  background: linear-gradient(145deg,rgba(45,65,96,.72),rgba(15,31,54,.78)) !important;
+  box-shadow: none !important;
+}
+.app-shell .management-request-row::before { position: absolute; inset: 0 auto 0 0; width: 4px; background: #62a6ff; content: ""; }
+.app-shell .management-request-row.request-review::before { background: #e9a13a; }
+.app-shell .management-request-row.request-resolved::before { background: #32b98b; }
+.app-shell .request-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.app-shell .request-card-head > div { display: grid; gap: 3px; min-width: 0; }
+.app-shell .request-card-head span,
+.app-shell .request-card-meta span,
+.app-shell .request-response span { color: #8fa2bb !important; font-size: 9px !important; font-weight: 950 !important; letter-spacing: .1em; text-transform: uppercase; }
+.app-shell .request-card-head > div > strong { color: #f7fbff !important; font-size: 17px; line-height: 1.2; overflow-wrap: anywhere; }
+.app-shell .request-status-pill { flex: 0 0 auto; padding: 6px 10px; border: 1px solid rgba(98,166,255,.3); border-radius: 999px; background: rgba(98,166,255,.12); color: #a9d0ff !important; font-size: 10px; white-space: nowrap; }
+.app-shell .request-review .request-status-pill { border-color: rgba(233,161,58,.34); background: rgba(233,161,58,.13); color: #ffd18c !important; }
+.app-shell .request-resolved .request-status-pill { border-color: rgba(50,185,139,.34); background: rgba(50,185,139,.13); color: #8ce5c5 !important; }
+.app-shell .request-card-content { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(155px,.7fr); gap: 14px; }
+.app-shell .request-message-main { display: grid; align-content: start; gap: 8px; }
+.app-shell .request-message-main > p { margin: 0; color: #c8d5e5 !important; font-size: 12px; line-height: 1.5; }
+.app-shell .request-card-meta { display: grid; gap: 8px; padding: 10px 12px; border-radius: 13px; background: rgba(8,20,38,.35); }
+.app-shell .request-card-meta > div { display: grid; gap: 2px; }
+.app-shell .request-card-meta strong { color: #e9f1fa !important; font-size: 11px; overflow-wrap: anywhere; }
+.app-shell .request-response { margin-top: 3px; padding: 9px 11px; border: 0; border-radius: 12px; background: rgba(50,185,139,.1); }
+.app-shell .request-response p { margin: 3px 0 0; color: #cce9df !important; font-size: 11px; }
+.app-shell .request-actions { justify-content: flex-end !important; gap: 6px !important; padding-top: 11px; border-top: 1px solid rgba(151,185,216,.13); }
+.app-shell .request-actions button { min-height: 32px; padding: 0 10px; border: 1px solid rgba(158,188,219,.2); border-radius: 9px; background: rgba(35,63,96,.72); color: #dce8f5; font: inherit; font-size: 10px; font-weight: 900; white-space: nowrap; }
+.app-shell .request-actions .request-action-primary { border-color: rgba(114,245,209,.28); background: rgba(45,157,126,.18); color: #8ff4d7; }
+.app-shell .request-actions .request-icon-action { width: 32px; padding: 0; }
+.app-shell .request-actions .danger { border-color: rgba(255,122,148,.22); background: rgba(180,65,91,.13); color: #ff9eb3; }
+@media (max-width: 1180px) {
+  .app-shell .management-request-body { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .app-shell .management-requests-summary { grid-template-columns: 1fr; }
+  .app-shell .management-requests-summary > section { grid-template-columns: repeat(3,1fr); }
+  .app-shell .management-requests-summary article { min-width: 0; }
+  .app-shell .request-card-content { grid-template-columns: 1fr; }
+  .app-shell .request-actions { justify-content: flex-start !important; }
+}
+
 .control-sales-save-status {
   position: fixed;
   z-index: 10050;
@@ -15058,4 +15132,37 @@ html.macos-render-safe .app-shell .permission-access-user {
     min-height: 58px !important;
     align-self: start !important;
   }
+}
+
+/* Cierre de precedencia: Solicitudes debe dominar las reglas heredadas. */
+.app-shell .management-request-body {
+  grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+}
+.app-shell .management-request-row {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 13px !important;
+  padding: 17px !important;
+  border: 1px solid rgba(158,188,219,.19) !important;
+  border-radius: 19px !important;
+  background: linear-gradient(145deg,rgba(45,65,96,.72),rgba(15,31,54,.78)) !important;
+  color: #edf5ff !important;
+  box-shadow: none !important;
+}
+.app-shell .request-card-head > div > strong { color: #f7fbff !important; }
+.app-shell .request-card-head span,
+.app-shell .request-card-meta span,
+.app-shell .request-response span { color: #8fa2bb !important; }
+.app-shell .request-message-main > p { color: #c8d5e5 !important; }
+.app-shell .request-card-meta { background: rgba(8,20,38,.35) !important; }
+.app-shell .request-card-meta strong { color: #e9f1fa !important; }
+.app-shell .request-status-pill { color: #a9d0ff !important; }
+.app-shell .request-review .request-status-pill { color: #ffd18c !important; }
+.app-shell .request-resolved .request-status-pill { color: #8ce5c5 !important; }
+.app-shell .request-response p { color: #cce9df !important; }
+.app-shell .request-actions button { background: rgba(35,63,96,.72) !important; color: #dce8f5 !important; }
+.app-shell .request-actions .request-action-primary { background: rgba(45,157,126,.18) !important; color: #8ff4d7 !important; }
+.app-shell .request-actions .danger { background: rgba(180,65,91,.13) !important; color: #ff9eb3 !important; }
+@media (max-width: 1180px) {
+  .app-shell .management-request-body { grid-template-columns: 1fr !important; }
 }
