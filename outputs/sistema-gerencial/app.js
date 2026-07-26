@@ -2630,7 +2630,7 @@ function ensureControlSalesDialogs() {
           <label>NIT<input id="controlSalesTaxId"></label>
           <label>Número de registro<input id="controlSalesRegistrationNumber"></label>
           <label>Tipo de contribuyente<input id="controlSalesTaxpayerType" list="controlSalesTaxpayerTypes"><datalist id="controlSalesTaxpayerTypes"><option value="Gran contribuyente"><option value="Mediano contribuyente"><option value="Pequeño contribuyente"><option value="No contribuyente"></datalist></label>
-          <label>Fecha de entrega <small>Opcional · la completa Operaciones</small><input id="controlSalesDeliveryDate" type="date"></label>
+          <label>Fecha de entrega <small>Opcional · Operaciones</small><input id="controlSalesDeliveryDate" type="date"></label>
           <label>Condición de pago<input id="controlSalesPaymentTerms" list="controlSalesPaymentOptions"><datalist id="controlSalesPaymentOptions"><option value="Contado"><option value="Crédito 15 días"><option value="Crédito 30 días"><option value="Crédito 60 días"></datalist></label>
           <label class="control-sales-strategy-field">Tipo de estrategia<select id="controlSalesStrategy"><option value="">Seleccionar estrategia</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label>
           <label>Código de cliente<input id="controlSalesCustomerCode"></label>
@@ -2725,10 +2725,10 @@ function ensureControlSalesDialogs() {
       if (formDialog.dataset.orderFormatOnly === "true" && state.activeSubmenu === "crm-seguimiento") {
         renderCommercialSubmenu(areas.comercializacion);
       }
-      saveStatus.textContent = `${id ? "Cambios guardados" : "Pedido guardado"} correctamente. Puedes continuar editando o imprimir el pedido.`;
+      saveStatus.innerHTML = `<span aria-hidden="true">✓</span><div><strong>${id ? "Cambios guardados" : "Pedido guardado"} correctamente</strong><small>Puedes continuar editando o imprimir el pedido.</small></div>`;
       saveStatus.classList.remove("hidden");
     } catch (error) {
-      saveStatus.textContent = "No se pudieron guardar los cambios. Revisa los campos e inténtalo nuevamente.";
+      saveStatus.innerHTML = `<span aria-hidden="true">!</span><div><strong>No se pudieron guardar los cambios</strong><small>Revisa los campos e inténtalo nuevamente.</small></div>`;
       saveStatus.classList.remove("hidden");
       saveStatus.dataset.tone = "error";
       alert("No fue posible guardar la orden. Verifica los campos, precios y que el número no esté repetido.");
