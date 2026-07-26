@@ -220,6 +220,36 @@ dialog textarea:focus {
   border-color: rgba(79, 70, 229, .52) !important;
   background: #edf1f6 !important;
 }
+
+/* Encabezados de formularios: contraste alto y jerarquía consistente en claro. */
+#financialOrderDialog .panel-head h3,
+#purchaseOrderDialog .panel-head h3,
+#accountsReceivableDialog .panel-head h3 { color: #111b30 !important; opacity: 1 !important; }
+#financialOrderDialog .panel-head .eyebrow,
+#purchaseOrderDialog .panel-head .eyebrow,
+#accountsReceivableDialog .panel-head .eyebrow {
+  color: #4338ca !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+#financialOrderDialog .financial-order-grid label,
+#purchaseOrderDialog .purchase-order-grid label,
+#accountsReceivableDialog .accounts-receivable-grid label {
+  color: #334155 !important;
+  font-weight: 900 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+#financialOrderDialog .financial-order-form,
+#accountsReceivableDialog .accounts-receivable-form { background: rgba(246, 248, 251, .96) !important; }
+#financialOrderDialog input,
+#accountsReceivableDialog input,
+#accountsReceivableDialog textarea {
+  border: 1px solid #c4cdd9 !important;
+  background: #e1e7ef !important;
+  color: #182238 !important;
+  opacity: 1 !important;
+}
 .control-sales-dialog section,
 .control-sales-detail-dialog section,
 .control-sales-line,
