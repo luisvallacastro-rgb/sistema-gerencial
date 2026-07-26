@@ -1157,6 +1157,7 @@ def control_sales_order_payload(conn, row, include_audit=False):
     item = {
         "id": row["id"], "externalId": row["external_id"], "source": row["source"],
         "financialOrderId": row["financial_order_id"] if "financial_order_id" in row.keys() else "",
+        "sourceOpportunityId": row["source_opportunity_id"] if "source_opportunity_id" in row.keys() else "",
         "expectedTotalCents": row["expected_total_cents"] if "expected_total_cents" in row.keys() else 0,
         "varianceCents": row["variance_cents"] if "variance_cents" in row.keys() else 0,
         "number": row["order_number"], "date": row["order_date"], "seller": row["seller"],
@@ -1280,6 +1281,10 @@ def save_control_sales_order(conn, data, existing_row=None):
         data.get("financialOrderId"),
         existing.get("financialOrderId", "") if existing else "",
     )
+    source_opportunity_id = text(
+        data.get("sourceOpportunityId"),
+        existing.get("sourceOpportunityId", "") if existing else "",
+    )
     expected_total_cents = int(existing.get("expectedTotalCents") or 0) if existing else 0
     variance_cents = int(existing.get("varianceCents") or 0) if existing else 0
     if financial_order_id:
@@ -1314,7 +1319,7 @@ def save_control_sales_order(conn, data, existing_row=None):
         expected_total_cents, variance_cents = control_sales_reconciliation_snapshot(
             financial_order, item["totalCents"]
         )
-    elif not existing_row:
+    elif not existing_row and not source_opportunity_id:
         raise ValueError("Selecciona un pedido pendiente antes de crear la orden")
     duplicate = conn.execute("""
         SELECT id FROM control_sales_orders
@@ -1327,19 +1332,19 @@ def save_control_sales_order(conn, data, existing_row=None):
     proforma_json = json.dumps(item["proformaData"], ensure_ascii=False)
     if existing_row:
         conn.execute("""
-            UPDATE control_sales_orders SET financial_order_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
+            UPDATE control_sales_orders SET financial_order_id=?, source_opportunity_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
                 document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
                 proforma_data=?, updated_by=?, updated_at=? WHERE id=?
-        """, (financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, now, order_id))
+        """, (financial_order_id, source_opportunity_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
     else:
         conn.execute("""
             INSERT INTO control_sales_orders (
-                id, source, financial_order_id, order_number, order_date, seller, client, status, document_type, total_cents,
+                id, source, financial_order_id, source_opportunity_id, order_number, order_date, seller, client, status, document_type, total_cents,
                 expected_total_cents, variance_cents, proforma_data, created_by, updated_by, created_at, updated_at
-            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (order_id, financial_order_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, actor, now, now))
+            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (order_id, financial_order_id, source_opportunity_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, actor, now, now))
         action = "creacion"
     for detail in item["details"]:
         conn.execute("""
@@ -1639,6 +1644,7 @@ def init_db():
                 external_id TEXT UNIQUE,
                 source TEXT NOT NULL DEFAULT 'manual',
                 financial_order_id TEXT NOT NULL DEFAULT '',
+                source_opportunity_id TEXT NOT NULL DEFAULT '',
                 order_number TEXT NOT NULL,
                 order_date TEXT NOT NULL,
                 seller TEXT NOT NULL,
@@ -1667,6 +1673,8 @@ def init_db():
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN document_type TEXT NOT NULL DEFAULT 'CF'")
         if "financial_order_id" not in control_sales_order_columns:
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN financial_order_id TEXT NOT NULL DEFAULT ''")
+        if "source_opportunity_id" not in control_sales_order_columns:
+            conn.execute("ALTER TABLE control_sales_orders ADD COLUMN source_opportunity_id TEXT NOT NULL DEFAULT ''")
         if "expected_total_cents" not in control_sales_order_columns:
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN expected_total_cents INTEGER NOT NULL DEFAULT 0")
         if "variance_cents" not in control_sales_order_columns:
@@ -1677,6 +1685,11 @@ def init_db():
             CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_financial_order_id
             ON control_sales_orders(financial_order_id)
             WHERE financial_order_id <> ''
+        """)
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_source_opportunity_id
+            ON control_sales_orders(source_opportunity_id)
+            WHERE source_opportunity_id <> ''
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS control_sales_details (

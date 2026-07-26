@@ -14693,3 +14693,48 @@ html.macos-render-safe .app-shell .permission-access-user {
   .app-shell .crm-tracking-card { grid-template-columns: minmax(0, 1fr) minmax(155px, 185px); }
   .app-shell .crm-tracking-card > div > strong { font-size: 14px; }
 }
+
+/* Pedido asociado a cierres ganados: CRUD y formato imprimible sin campos ajenos. */
+.app-shell .crm-won-history-card {
+  grid-template-columns: minmax(135px, .65fr) minmax(260px, 1.35fr) minmax(150px, .75fr) minmax(190px, 1fr) minmax(165px, .8fr);
+  gap: 14px;
+}
+
+.app-shell .crm-won-order-button {
+  display: grid;
+  align-content: center;
+  min-height: 54px;
+  padding: 8px 14px;
+  border: 1px solid rgba(107, 240, 207, .38);
+  border-radius: 14px;
+  background: rgba(23, 157, 122, .13);
+  color: #dffdf5;
+  text-align: left;
+}
+.app-shell .crm-won-order-button:hover { border-color: #6bf0cf; background: rgba(35, 194, 148, .2); transform: translateY(-1px); }
+.app-shell .crm-won-order-button span { color: #6bf0cf; font-size: 9px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.app-shell .crm-won-order-button strong { margin-top: 2px; font-size: 11px; }
+.app-shell .crm-won-order-button.is-ready { background: linear-gradient(135deg, rgba(23, 157, 122, .28), rgba(19, 76, 91, .34)); }
+
+.control-sales-dialog.control-sales-order-format-only .control-sales-source-picker,
+.control-sales-dialog.control-sales-order-format-only .control-sales-form-head label:has(#controlSalesOrderStatus),
+.control-sales-dialog.control-sales-order-format-only .control-sales-proforma-grid label:has(#controlSalesStrategy),
+.control-sales-dialog.control-sales-order-format-only .control-sales-proforma-grid label:has(#controlSalesCustomerCode),
+.control-sales-dialog.control-sales-order-format-only .control-sales-reconciliation { display: none; }
+.control-sales-dialog.control-sales-order-format-only .control-sales-form-head { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.control-sales-dialog.control-sales-order-format-only .control-sales-form-head::before {
+  content: "Campos de la orden de pedido";
+  grid-column: 1 / -1;
+  color: #6bf0cf;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.control-sales-detail-dialog.control-sales-order-format-only .control-sales-audit,
+.control-sales-detail-dialog.control-sales-order-format-only .control-sales-warnings { display: none; }
+
+@media (max-width: 1180px) {
+  .app-shell .crm-won-history-card { grid-template-columns: 120px minmax(220px, 1fr) 150px minmax(180px, 1fr); }
+  .app-shell .crm-won-order-button { grid-column: 2 / -1; }
+}

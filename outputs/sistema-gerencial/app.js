@@ -2602,7 +2602,7 @@ function ensureControlSalesDialogs() {
   document.body.insertAdjacentHTML("beforeend", `
     <dialog id="controlSalesDialog" class="wide-dialog control-sales-dialog"><form id="controlSalesForm" method="dialog">
       <header><div><p class="eyebrow">Operaciones</p><h3 id="controlSalesDialogTitle">Nueva orden</h3></div><button type="button" data-control-sales-close>×</button></header>
-      <input type="hidden" id="controlSalesId"><input type="hidden" id="controlSalesFinancialOrderId">
+      <input type="hidden" id="controlSalesId"><input type="hidden" id="controlSalesFinancialOrderId"><input type="hidden" id="controlSalesSourceOpportunityId">
       <section class="control-sales-source-picker">
         <div class="control-sales-source-heading"><div><span>Pedido de origen</span><strong>Selecciona por correlativo o cliente</strong></div><small>Pedidos desde julio de 2026 que todavía no han sido ingresados.</small></div>
         <div id="controlSalesFinancialOrderSelected"></div>
@@ -2707,13 +2707,16 @@ function ensureControlSalesDialogs() {
       notes: line.querySelector("[data-line-notes]").value.trim()
     }));
     const id = document.querySelector("#controlSalesId").value;
-    const payload = { financialOrderId:document.querySelector("#controlSalesFinancialOrderId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+    const payload = { financialOrderId:document.querySelector("#controlSalesFinancialOrderId").value, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
     const submit = form.querySelector('button[type="submit"]');
     submit.disabled = true;
     try {
       await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
       formDialog.close();
       await loadControlSales();
+      if (formDialog.dataset.orderFormatOnly === "true" && state.activeSubmenu === "crm-seguimiento") {
+        renderCommercialSubmenu(areas.comercializacion);
+      }
     } catch (error) {
       alert("No fue posible guardar la orden. Verifica los campos, precios y que el número no esté repetido.");
     } finally { submit.disabled = false; }
@@ -2728,8 +2731,25 @@ function ensureControlSalesDialogs() {
     }
     if (event.target.matches("[data-control-sales-detail-edit]")) {
       const order = state.controlSales.find((item) => item.id === event.target.dataset.controlSalesDetailEdit);
+      const formatOnly = detailDialog.dataset.orderFormatOnly === "true";
       detailDialog.close();
-      if (order) openControlSalesForm(order);
+      if (order) openControlSalesForm(order, null, null, formatOnly);
+    }
+    if (event.target.matches("[data-control-sales-detail-archive]")) {
+      const order = state.controlSales.find((item) => item.id === event.target.dataset.controlSalesDetailArchive);
+      if (!order || !confirm(`¿Anular el pedido #${order.number}? El cierre ganado se conservará.`)) return;
+      const button = event.target;
+      button.disabled = true;
+      apiJson(`/api/control-sales/${encodeURIComponent(order.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ archived: true, reason: "Anulado desde histórico de ganadas", updatedBy: state.currentUser?.name })
+      }).then(() => loadControlSales()).then(() => {
+        detailDialog.close();
+        if (state.activeSubmenu === "crm-seguimiento") renderCommercialSubmenu(areas.comercializacion);
+      }).catch(() => {
+        button.disabled = false;
+        alert("No se pudo anular el pedido.");
+      });
     }
   });
 }
@@ -2886,7 +2906,9 @@ function updateControlSalesReconciliation(totalCents = null) {
   document.querySelector("#controlSalesDetailedTotal").textContent = formatControlSalesMoney(detailTotal);
   document.querySelector("#controlSalesVariance").textContent = formatControlSalesMoney(variance);
   document.querySelector("#controlSalesReconciliationMessage").textContent = message;
-  document.querySelector("#controlSalesFooterReconciliation").textContent = !sourceOrder
+  document.querySelector("#controlSalesFooterReconciliation").textContent = document.querySelector("#controlSalesDialog")?.dataset.orderFormatOnly === "true"
+    ? "Detalle listo para guardar e imprimir."
+    : !sourceOrder
     ? "Selecciona un pedido para conciliar."
     : stateName === "balanced"
       ? `Pedido ${formatControlSalesMoney(expected)} · Conciliado`
@@ -2961,29 +2983,65 @@ function controlSalesDraftFromForm() {
   };
 }
 
-function openControlSalesForm(order = null) {
+function nextControlSalesOrderNumber() {
+  const highest = state.controlSales.reduce((current, order) => {
+    const value = String(order.number || "").trim();
+    return /^\d+$/.test(value) ? Math.max(current, Number(value)) : current;
+  }, 0);
+  return String(highest + 1);
+}
+
+function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false) {
   ensureControlSalesDialogs();
-  document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar orden #${order.number}` : "Nueva orden";
+  const dialog = document.querySelector("#controlSalesDialog");
+  dialog.classList.toggle("control-sales-order-format-only", formatOnly);
+  dialog.dataset.orderFormatOnly = formatOnly ? "true" : "false";
+  document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar pedido #${order.number}` : "Nuevo pedido";
   document.querySelector("#controlSalesId").value = order?.id || "";
-  const sourceOrder = order?.financialOrderId
+  document.querySelector("#controlSalesSourceOpportunityId").value = order?.sourceOpportunityId || sourceWin?.id || "";
+  const sourceOrder = sourceFinancialOrder || (order?.financialOrderId
     ? state.financialOrders.find((item) => String(item.id) === String(order.financialOrderId))
-    : null;
+    : null);
   setControlSalesFinancialOrderSelection(sourceOrder);
   document.querySelector("#controlSalesFinancialOrderId").value = order?.financialOrderId || sourceOrder?.id || "";
-  document.querySelector("#controlSalesNumber").value = sourceOrder?.number || order?.number || "";
-  document.querySelector("#controlSalesDate").value = order?.date || todayISO();
-  document.querySelector("#controlSalesSeller").value = sourceOrder?.seller || order?.seller || "";
-  document.querySelector("#controlSalesClient").value = sourceOrder?.client || order?.client || "";
+  document.querySelector("#controlSalesNumber").value = sourceOrder?.number || order?.number || nextControlSalesOrderNumber();
+  document.querySelector("#controlSalesDate").value = order?.date || sourceWin?.date || todayISO();
+  document.querySelector("#controlSalesSeller").value = sourceOrder?.seller || order?.seller || sourceWin?.seller || "";
+  document.querySelector("#controlSalesClient").value = sourceOrder?.client || order?.client || sourceWin?.company || "";
   fillControlSalesProformaData(order?.proformaData || {}, order || sourceOrder);
+  if (!order && sourceWin && !document.querySelector("#controlSalesCommercialName").value) {
+    document.querySelector("#controlSalesCommercialName").value = sourceWin.company || "";
+  }
   document.querySelector("#controlSalesOrderStatus").value = order?.status === "Histórica" ? "Activa" : (order?.status || "Activa");
   const documentType = order?.documentType === "CCF" ? "CCF" : "CF";
   document.querySelector(`input[name="controlSalesDocumentType"][value="${documentType}"]`).checked = true;
-  document.querySelector("#controlSalesLines").innerHTML = (order?.details?.length ? order.details : [{}]).map(controlSalesLineTemplate).join("");
+  const initialDetails = order?.details?.length
+    ? order.details
+    : sourceWin
+      ? [{ product: sourceWin.segment && sourceWin.segment !== "Sin producto registrado" ? sourceWin.segment : "", quantity: "1", unitPriceCents: Math.round(Number(sourceWin.amount || 0) * 100) }]
+      : [{}];
+  document.querySelector("#controlSalesLines").innerHTML = initialDetails.map(controlSalesLineTemplate).join("");
   document.querySelector("#controlSalesFinancialOrderSearch").value = "";
   document.querySelector("#controlSalesFinancialOrderPicker").open = false;
   renderControlSalesFinancialOrderResults("");
   updateControlSalesFormTotal();
-  document.querySelector("#controlSalesDialog").showModal();
+  if (formatOnly) document.querySelector("#controlSalesFooterReconciliation").textContent = "Detalle listo para guardar e imprimir.";
+  dialog.showModal();
+}
+
+function openCrmWonOrder(opportunityId) {
+  const win = crmResultWinHistory().find((item) => String(item.id) === String(opportunityId));
+  if (!win) return;
+  const financialOrder = state.financialOrders.find((order) => String(order.sourceOpportunityId || "") === String(opportunityId));
+  const detailOrder = (financialOrder
+    ? state.controlSales.find((order) => String(order.financialOrderId || "") === String(financialOrder.id) && !order.archived)
+    : null)
+    || state.controlSales.find((order) => String(order.sourceOpportunityId || "") === String(opportunityId) && !order.archived);
+  if (detailOrder) {
+    openControlSalesDetail(detailOrder.id, true);
+    return;
+  }
+  openControlSalesForm(null, financialOrder || null, win, true);
 }
 
 function printControlSalesProformaInline(order) {
@@ -3073,10 +3131,13 @@ function printControlSalesProforma(order) {
   window.setTimeout(() => localStorage.removeItem(printKey), 5 * 60 * 1000);
 }
 
-async function openControlSalesDetail(orderId) {
+async function openControlSalesDetail(orderId, formatOnly = false) {
   ensureControlSalesDialogs();
   const order = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}`);
-  document.querySelector("#controlSalesDetailDialog").controlSalesOrder = order;
+  const detailDialog = document.querySelector("#controlSalesDetailDialog");
+  detailDialog.controlSalesOrder = order;
+  detailDialog.classList.toggle("control-sales-order-format-only", formatOnly);
+  detailDialog.dataset.orderFormatOnly = formatOnly ? "true" : "false";
   const warnings = [...(order.anomalies || []), ...order.details.flatMap((detail) => detail.reviewRequired ? [{ description: `Precio faltante en ${detail.product}; requiere revisión.` }] : (detail.anomalies || []))];
   document.querySelector("#controlSalesDetailContent").innerHTML = `<header><div><p class="eyebrow">Control de Ventas · ${escapeHtml(order.source)}</p><h3>Orden #${escapeHtml(order.number)}</h3><span>${escapeHtml(order.client)} · ${escapeHtml(order.seller)}</span></div><button type="button" data-control-sales-detail-close>×</button></header>
     <div class="control-sales-detail-summary"><article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article><article><small>Líneas</small><strong>${order.details.length}</strong></article><article><small>Monto del pedido</small><strong>${formatControlSalesMoney(order.expectedTotalCents || 0)}</strong></article><article><small>Total detallado</small><strong>${formatControlSalesMoney(order.totalCents)}</strong></article><article class="${Number(order.varianceCents || 0) === 0 ? "balanced" : "mismatch"}"><small>Diferencia</small><strong>${formatControlSalesMoney(order.varianceCents || 0)}</strong></article><article><small>Estado</small><strong>${escapeHtml(order.status)}</strong></article></div>
@@ -3084,8 +3145,8 @@ async function openControlSalesDetail(orderId) {
     <section class="control-sales-detail-proforma"><h4>Datos de proforma</h4><div><article><small>Nombre comercial</small><strong>${escapeHtml(order.proformaData?.commercialName || order.client || "—")}</strong></article><article><small>Razón social</small><strong>${escapeHtml(order.proformaData?.legalName || "—")}</strong></article><article><small>Encargado</small><strong>${escapeHtml(order.proformaData?.contactName || "—")}</strong></article><article><small>Entrega</small><strong>${escapeHtml(order.proformaData?.deliveryDate ? formatDate(order.proformaData.deliveryDate) : "—")}</strong></article><article><small>Condición de pago</small><strong>${escapeHtml(order.proformaData?.paymentTerms || "—")}</strong></article><article><small>Estrategia</small><strong>${escapeHtml(order.proformaData?.strategy || "—")}</strong></article></div></section>
     <div class="control-sales-detail-lines"><div class="control-sales-detail-row head"><span>#</span><span>Producto</span><span>Talla</span><span>Cantidad</span><span>Precio</span><span>IVA</span><span>Total</span></div>${order.details.map((detail, index) => `<article class="control-sales-detail-row"><span>${index + 1}</span><strong>${escapeHtml(detail.product)}</strong><span>${escapeHtml(detail.size || "—")}</span><span>${escapeHtml(detail.quantity)}</span><span>${detail.unitPriceCents == null ? "Revisar" : formatControlSalesMoney(detail.unitPriceCents)}</span><span>${formatControlSalesMoney(detail.vatCents)}</span><strong>${formatControlSalesMoney(detail.lineTotalCents)}</strong></article>`).join("")}</div>
     <section class="control-sales-audit"><h4>Auditoría</h4>${order.audit.map((entry) => `<article><strong>${escapeHtml(entry.action)}</strong><span>${escapeHtml(entry.userName)} · ${escapeHtml(entry.createdAt)}</span><small>${escapeHtml(entry.summary)}</small></article>`).join("") || `<p>Historial importado desde Excel.</p>`}</section>
-    <footer><button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="control-sales-print-btn" data-control-sales-detail-print="${order.id}">Imprimir proforma</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar orden</button></footer>`;
-  document.querySelector("#controlSalesDetailDialog").showModal();
+    <footer><button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="danger-btn" data-control-sales-detail-archive="${order.id}">Anular pedido</button><button type="button" class="control-sales-print-btn" data-control-sales-detail-print="${order.id}">Imprimir pedido</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar pedido</button></footer>`;
+  detailDialog.showModal();
 }
 
 function wireControlSales() {
@@ -5269,6 +5330,15 @@ function renderCrmTracking() {
     (!state.crmWonDateFrom || win.date >= state.crmWonDateFrom)
     && (!state.crmWonDateTo || win.date <= state.crmWonDateTo)
   ));
+  const financialOrderByOpportunityId = new Map(state.financialOrders
+    .filter((order) => order.sourceOpportunityId)
+    .map((order) => [String(order.sourceOpportunityId), order]));
+  const controlSalesByFinancialOrderId = new Map(state.controlSales
+    .filter((order) => order.financialOrderId && !order.archived)
+    .map((order) => [String(order.financialOrderId), order]));
+  const controlSalesByOpportunityId = new Map(state.controlSales
+    .filter((order) => order.sourceOpportunityId && !order.archived)
+    .map((order) => [String(order.sourceOpportunityId), order]));
   const visibleOpportunities = sellerOpportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity));
   const sellerButtons = sellers.map((seller) => {
     const active = crmActiveOpportunitiesForSeller(seller.id);
@@ -5296,7 +5366,11 @@ function renderCrmTracking() {
       </footer>
     </article>
   `).join("");
-  const wonHistoryCards = filteredWins.map((win) => `
+  const wonHistoryCards = filteredWins.map((win) => {
+    const financialOrder = financialOrderByOpportunityId.get(String(win.id));
+    const detailOrder = (financialOrder ? controlSalesByFinancialOrderId.get(String(financialOrder.id)) : null)
+      || controlSalesByOpportunityId.get(String(win.id));
+    return `
     <article class="crm-won-history-card">
       <div class="crm-won-history-date">
         <time>${formatDate(win.date)}</time>
@@ -5312,8 +5386,13 @@ function renderCrmTracking() {
         <span>${escapeHtml(win.seller || "Sin vendedor")}</span>
       </div>
       <p>${escapeHtml(win.comment || "Cierre ganado registrado.")}</p>
+      <button type="button" class="crm-won-order-button ${detailOrder ? "is-ready" : ""}" data-crm-won-order="${escapeHtml(win.id)}">
+        <span>${detailOrder ? "Pedido listo" : "Pedido"}</span>
+        <strong>${detailOrder ? "Ver / editar / imprimir" : "Crear detalle"}</strong>
+      </button>
     </article>
-  `).join("");
+  `;
+  }).join("");
   return `
     <section class="crm-shell crm-original-module">
       <section class="crm-panel crm-tracking-overview">
@@ -5760,6 +5839,9 @@ function renderCommercialSubmenu(area) {
       state.crmWonDateFrom = "";
       state.crmWonDateTo = "";
       renderCommercialSubmenu(areas.comercializacion);
+    });
+    opportunityTable.querySelectorAll("[data-crm-won-order]").forEach((button) => {
+      button.addEventListener("click", () => openCrmWonOrder(button.dataset.crmWonOrder));
     });
     opportunityTable.querySelectorAll("[data-crm-seller]").forEach((button) => {
       button.addEventListener("click", () => {
