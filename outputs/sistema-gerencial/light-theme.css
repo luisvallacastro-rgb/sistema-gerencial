@@ -906,6 +906,234 @@ dialog textarea:focus {
 .app-shell .purchase-orders-shell .primary-btn,
 .app-shell .accounts-receivable-shell .primary-btn { background: linear-gradient(135deg,#5652dc,#4338ca) !important; border-color:#4f46e5 !important; }
 
+/* ================================================================
+   RAÍZ DEL TEMA CLARO · FORMULARIOS
+   El lienzo y sus agrupaciones son blancos. El gris pertenece solo
+   a controles editables: input, select y textarea.
+   ================================================================ */
+dialog,
+dialog .dialog-card,
+dialog form.dialog-card,
+dialog section.dialog-card,
+dialog form > .crm-form-section,
+dialog form > .control-sales-source-picker,
+dialog form > .control-sales-proforma-block,
+dialog form > .control-sales-lines,
+dialog form > .control-sales-reconciliation,
+dialog .control-sales-line,
+dialog .management-form-panel,
+dialog .sample-custody-card,
+dialog .permission-group {
+  background: #fff !important;
+  background-image: none !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+dialog .dialog-card,
+dialog form.dialog-card,
+dialog section.dialog-card {
+  border: 1px solid #d7dee8 !important;
+  box-shadow: 0 28px 72px rgba(35,47,72,.16) !important;
+}
+dialog form > .crm-form-section,
+dialog form > .control-sales-source-picker,
+dialog form > .control-sales-proforma-block,
+dialog form > .control-sales-lines,
+dialog form > .control-sales-reconciliation,
+dialog .control-sales-line,
+dialog .management-form-panel,
+dialog .sample-custody-card,
+dialog .permission-group {
+  border-color: #e0e5ed !important;
+}
+dialog .panel-head,
+dialog header,
+dialog menu,
+dialog footer {
+  background: #fff !important;
+  background-image: none !important;
+  border-color: #e0e5ed !important;
+  box-shadow: none !important;
+}
+dialog label,
+dialog legend,
+dialog .control-sales-form-head label,
+dialog .control-sales-line label,
+dialog .control-sales-proforma-grid label,
+dialog .management-form-grid label,
+dialog .sample-custody-grid label {
+  color: #334155 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+dialog select,
+dialog textarea {
+  border: 1px solid #c5ceda !important;
+  background: #e5eaf1 !important;
+  background-image: none !important;
+  color: #172238 !important;
+  box-shadow: inset 0 1px 2px rgba(51,65,85,.035) !important;
+  opacity: 1 !important;
+}
+dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus,
+dialog select:focus,
+dialog textarea:focus {
+  border-color: #6366f1 !important;
+  background: #edf1f6 !important;
+  box-shadow: 0 0 0 3px rgba(79,70,229,.1) !important;
+  outline: 0 !important;
+}
+dialog input:disabled,
+dialog input[readonly],
+dialog select:disabled,
+dialog textarea:disabled {
+  background: #dce3ec !important;
+  color: #46536a !important;
+  opacity: 1 !important;
+}
+dialog .icon-btn,
+dialog header > button,
+dialog .panel-head > button {
+  border: 1px solid #cbd3df !important;
+  background: #fff !important;
+  color: #27344c !important;
+  box-shadow: none !important;
+}
+dialog .primary-btn,
+dialog menu .primary-btn,
+dialog footer .primary-btn {
+  border-color: #4f46e5 !important;
+  background: linear-gradient(135deg,#5652dc,#4338ca) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+dialog .ghost-btn,
+dialog menu .ghost-btn,
+dialog footer .ghost-btn {
+  border-color: #d1d8e2 !important;
+  background: #fff !important;
+  color: #526078 !important;
+}
+
+/* ================================================================
+   PERMISOS · MATRIZ CLARA
+   ================================================================ */
+.app-shell .admin-permissions-shell,
+.app-shell .admin-permissions-toolbar,
+.app-shell .admin-permissions-shell .permission-matrix-shell,
+.app-shell .permission-access-table {
+  background: #fff !important;
+  background-image: none !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.app-shell .admin-permissions-toolbar {
+  border-bottom: 1px solid #dce2eb !important;
+}
+.app-shell .admin-permissions-heading span { color: #4f46e5 !important; text-shadow: none !important; }
+.app-shell .admin-permissions-heading strong { color: #182238 !important; opacity: 1 !important; }
+.app-shell .admin-permissions-toolbar .admin-search {
+  border: 1px solid #cbd4e0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+.app-shell .admin-permissions-toolbar .admin-search > span { color: #4f46e5 !important; }
+.app-shell .admin-permissions-toolbar .admin-search input { color: #182238 !important; }
+.app-shell .admin-permissions-actions .admin-toolbar-pill {
+  border: 1px solid #d7ddea !important;
+  background: #f3f5fa !important;
+  color: #526078 !important;
+}
+.app-shell .admin-permissions-actions .admin-grant-all,
+.app-shell .admin-permissions-actions .admin-new-user {
+  border-color: #4f46e5 !important;
+  background: linear-gradient(135deg,#5652dc,#4338ca) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+.app-shell .admin-permissions-shell .permission-matrix-shell {
+  border: 1px solid #cbd4e0 !important;
+  scrollbar-color: #a9b4c5 #eef2f7 !important;
+}
+.app-shell .permission-access-table th,
+.app-shell .permission-access-table td {
+  border-right-color: #dce2eb !important;
+  border-bottom-color: #dce2eb !important;
+}
+.app-shell .permission-access-area-head,
+.app-shell .permission-access-user-head {
+  background: #eef1ff !important;
+  color: #293453 !important;
+  box-shadow: none !important;
+}
+.app-shell .permission-access-area-head strong,
+.app-shell .permission-access-user-head span { color: #293453 !important; }
+.app-shell .permission-access-area-head small,
+.app-shell .permission-access-user-head small { color: #68748a !important; }
+.app-shell .permission-access-bulk-head {
+  border-top-color: #dce2eb !important;
+  background: #f3f5f9 !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.app-shell .permission-access-bulk-head strong { color: #4338ca !important; }
+.app-shell .permission-access-bulk-head small { color: #68748a !important; }
+.app-shell .permission-access-module-head {
+  background: #f8fafc !important;
+  color: #46536a !important;
+}
+.app-shell .permission-access-module-head strong { color: #46536a !important; opacity: 1 !important; }
+.app-shell .permission-access-user,
+.app-shell .permission-access-row.admin-owner .permission-access-user {
+  background: #fff !important;
+  color: #182238 !important;
+  box-shadow: 8px 0 16px rgba(51,65,85,.055) !important;
+}
+.app-shell .permission-access-user-copy strong { color: #182238 !important; }
+.app-shell .permission-access-user-copy span { color: #68748a !important; }
+.app-shell .permission-access-user-copy small { color: #4f46e5 !important; }
+.app-shell .permission-access-user-inner > .admin-avatar {
+  background: #eef1ff !important;
+  color: #4338ca !important;
+}
+.app-shell .permission-access-user-actions button {
+  border-color: #d5ddea !important;
+  background: #f3f5fa !important;
+  color: #46536a !important;
+}
+.app-shell .permission-access-user-actions button b { color: #4f46e5 !important; }
+.app-shell .permission-access-user-actions button.danger {
+  border-color: #f2cbd3 !important;
+  background: #fff1f3 !important;
+  color: #c63e58 !important;
+}
+.app-shell .permission-access-cell {
+  background: #fff !important;
+  color: #182238 !important;
+}
+.app-shell .permission-access-row:hover .permission-access-cell,
+.app-shell .permission-access-cell:hover { background: #f4f5ff !important; }
+.app-shell .permission-access-row:hover .permission-access-user { background: #fafbff !important; }
+.app-shell .permission-access-module-head label > span,
+.app-shell .permission-access-cell label > span,
+.app-shell .permission-row-toggle > span {
+  border-color: #9eabc0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+.app-shell .permission-access-module-head input:checked + span,
+.app-shell .permission-access-cell input:checked + span,
+.app-shell .permission-row-toggle input:checked + span {
+  border-color: #4f46e5 !important;
+  background: linear-gradient(135deg,#6366f1,#4338ca) !important;
+  box-shadow: none !important;
+}
+.app-shell .permission-access-module-head input:checked + span::after,
+.app-shell .permission-access-cell input:checked + span::after,
+.app-shell .permission-row-toggle input:checked + span::after { color: #fff !important; }
+.app-shell .permission-access-cell.locked { opacity: .72 !important; }
+
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }
