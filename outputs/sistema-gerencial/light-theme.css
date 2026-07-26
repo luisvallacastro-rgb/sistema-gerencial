@@ -1329,6 +1329,109 @@ dialog footer .ghost-btn {
   background: #e89220;
 }
 
+/* Actas: proporciones compactas y superficies realmente claras. */
+.app-shell .minutes-topbar-tabs,
+.app-shell .minutes-view-tabs {
+  gap: 4px !important;
+  padding: 4px !important;
+  border-color: #d9deea !important;
+  border-radius: 14px !important;
+  background: #f1f3f8 !important;
+  box-shadow: none !important;
+}
+.app-shell .minutes-topbar-tabs button,
+.app-shell .minutes-view-tabs button {
+  min-height: 38px !important;
+  padding: 0 15px !important;
+  border-radius: 11px !important;
+  color: #647087 !important;
+  font-size: 12px !important;
+  box-shadow: none !important;
+}
+.app-shell .minutes-topbar-tabs button.active,
+.app-shell .minutes-topbar-tabs button:hover,
+.app-shell .minutes-view-tabs button.active,
+.app-shell .minutes-view-tabs button:hover {
+  border-color: #c8c6f5 !important;
+  background: #fff !important;
+  color: #4338ca !important;
+  box-shadow: 0 3px 10px rgba(51,65,85,.07) !important;
+}
+.app-shell .minutes-topbar-tabs button span,
+.app-shell .minutes-view-tabs button span { color: #4f46e5 !important; }
+.app-shell .minutes-hero {
+  border: 1px solid #dbe1ea !important;
+  background: #fff !important;
+  background-image: none !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.app-shell .minutes-hero h2,
+.app-shell .minutes-hero h3,
+.app-shell .minutes-hero strong { color: #182238 !important; }
+.app-shell .minutes-hero p { color: #68748a !important; }
+.app-shell .minutes-counter {
+  min-width: 126px !important;
+  padding: 10px 14px !important;
+  border-color: #c8c6f5 !important;
+  border-radius: 17px !important;
+  background: #eef1ff !important;
+}
+.app-shell .minutes-counter span { color: #59657b !important; }
+.app-shell .minutes-counter strong { color: #4338ca !important; font-size: 28px !important; }
+.app-shell .minutes-editor-card,
+.app-shell .minutes-history-card {
+  padding: 20px !important;
+  border: 1px solid #dbe1ea !important;
+  border-radius: 22px !important;
+  background: #fff !important;
+  background-image: none !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.app-shell .minutes-editor-head h4,
+.app-shell .minutes-history-head h4,
+.app-shell .minute-history-item strong { color: #182238 !important; }
+.app-shell .minute-editor-subtitle,
+.app-shell .minute-history-item span { color: #68748a !important; }
+.app-shell .minutes-toolbar {
+  border-color: #d7dee8 !important;
+  background: #f3f5f9 !important;
+  box-shadow: none !important;
+}
+.app-shell .minutes-toolbar button,
+.app-shell .minute-action-icon {
+  border-color: #d2d9e4 !important;
+  background: #fff !important;
+  background-image: none !important;
+  color: #46536a !important;
+  box-shadow: none !important;
+}
+.app-shell .minutes-fields span,
+.app-shell .compact-search span { color: #46536a !important; }
+.app-shell .minutes-editor {
+  border-color: #d7dee8 !important;
+  background: #fff !important;
+  background-image: none !important;
+  color: #182238 !important;
+  box-shadow: inset 0 0 0 1px rgba(51,65,85,.02) !important;
+}
+.app-shell .minutes-editor:empty::before { color: #929cab !important; }
+.app-shell .minute-history-item {
+  border-color: #dce2eb !important;
+  background: #fff !important;
+  color: #182238 !important;
+}
+.app-shell .minute-history-item time { color: #4338ca !important; }
+.app-shell .minute-preview {
+  border-color: #dce2eb !important;
+  background: #f6f8fb !important;
+  color: #46536a !important;
+}
+.app-shell .minute-preview p,
+.app-shell .minute-preview div,
+.app-shell .minute-preview li { color: #46536a !important; }
+
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }

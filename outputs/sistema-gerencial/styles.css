@@ -4718,6 +4718,39 @@ button:disabled {
   #managementDialog .management-form-grid { grid-template-columns: 1fr !important; }
 }
 
+/* Control de Ventas: dos filas proporcionadas en escritorio. */
+@media (min-width: 1051px) {
+  .control-sales-toolbar {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .control-sales-search {
+    grid-column: 1 / 4;
+    grid-row: 1;
+  }
+  .control-sales-control:has([data-control-sales-seller]) {
+    grid-column: 4;
+    grid-row: 1;
+  }
+  .control-sales-control:has([data-control-sales-status]) {
+    grid-column: 5;
+    grid-row: 1;
+  }
+  .control-sales-date-entry {
+    grid-column: 1 / 4;
+    grid-row: 2;
+  }
+  .control-sales-control:has([data-control-sales-sort]) {
+    grid-column: 4;
+    grid-row: 2;
+  }
+  .control-sales-toolbar > .primary-btn {
+    grid-column: 5 !important;
+    grid-row: 2;
+    height: 58px !important;
+    min-height: 58px !important;
+  }
+}
+
 .control-sales-save-status {
   position: fixed;
   z-index: 10050;
@@ -14990,4 +15023,39 @@ html.macos-render-safe .app-shell .permission-access-user {
 @media (max-width: 1180px) {
   .app-shell .crm-won-history-card { grid-template-columns: 120px minmax(220px, 1fr) 150px minmax(180px, 1fr); }
   .app-shell .crm-won-order-button { grid-column: 2 / -1; }
+}
+
+/* Debe permanecer al final: prevalece sobre la cuadrícula histórica del toolbar. */
+@media (min-width: 1051px) {
+  .control-sales-toolbar {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+  .control-sales-search {
+    grid-column: 1 / 4 !important;
+    grid-row: 1 !important;
+  }
+  .control-sales-control:has([data-control-sales-seller]) {
+    grid-column: 4 !important;
+    grid-row: 1 !important;
+  }
+  .control-sales-control:has([data-control-sales-status]) {
+    grid-column: 5 !important;
+    grid-row: 1 !important;
+  }
+  .control-sales-date-entry {
+    grid-column: 1 / 4 !important;
+    grid-row: 2 !important;
+  }
+  .control-sales-control:has([data-control-sales-sort]) {
+    grid-column: 4 !important;
+    grid-row: 2 !important;
+  }
+  .control-sales-toolbar > .primary-btn {
+    grid-column: 5 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    height: 58px !important;
+    min-height: 58px !important;
+    align-self: start !important;
+  }
 }
