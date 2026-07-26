@@ -4361,6 +4361,18 @@ function openManagementRequestReader(item) {
     </article>`;
   document.body.appendChild(dialog);
   dialog.querySelectorAll("[data-request-reader-close]").forEach((button) => button.addEventListener("click", closeManagementRequestReader));
+  dialog.querySelectorAll("button[data-request-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const proxy = document.createElement("button");
+      proxy.type = "button";
+      Object.entries(button.dataset).forEach(([key, value]) => { proxy.dataset[key] = value; });
+      proxy.hidden = true;
+      opportunityTable.appendChild(proxy);
+      closeManagementRequestReader();
+      proxy.click();
+      proxy.remove();
+    });
+  });
   dialog.addEventListener("click", (event) => { if (event.target === dialog) closeManagementRequestReader(); });
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); closeManagementRequestReader(); });
   dialog.showModal();
