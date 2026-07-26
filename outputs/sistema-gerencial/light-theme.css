@@ -376,6 +376,150 @@ dialog textarea {
 .control-sales-dialog .control-sales-perception-toggle b { color: #182238 !important; }
 .control-sales-dialog .control-sales-perception-toggle small { color: #68748a !important; }
 
+/* Segunda pasada: encabezados y contenido comercial con contraste consistente. */
+.app-shell .opportunity-header,
+.app-shell .crm-table-head {
+  border-color: rgba(35, 55, 88, .12) !important;
+  background: #edf1f7 !important;
+  color: #4c586f !important;
+  box-shadow: none !important;
+}
+.app-shell .opportunity-header > *,
+.app-shell .crm-table-head > * { color: #4c586f !important; }
+.app-shell .opportunity-row .company-cell,
+.app-shell .opportunity-row .company-cell *,
+.app-shell .opportunity-row > span,
+.app-shell .opportunity-row > span * { color: var(--light-ink) !important; opacity: 1 !important; }
+.app-shell .opportunity-row .closure-badge,
+.app-shell .opportunity-row .tag { color: inherit !important; }
+.app-shell .opportunity-search { background: rgba(248, 250, 253, .92) !important; }
+
+/* Nueva oportunidad: cristal blanco en lugar de reutilizar el modal oscuro. */
+#opportunityDialog { background: transparent !important; }
+#opportunityDialog::backdrop { background: rgba(220, 227, 238, .68) !important; backdrop-filter: blur(14px) !important; }
+#opportunityDialog .opportunity-form {
+  border-color: rgba(255, 255, 255, .92) !important;
+  background: rgba(248, 250, 253, .94) !important;
+  color: #182238 !important;
+  box-shadow: 0 28px 80px rgba(35, 47, 72, .2), inset 0 0 0 1px rgba(104, 121, 147, .15) !important;
+  backdrop-filter: blur(28px) saturate(135%) !important;
+}
+#opportunityDialog .panel-head h3,
+#opportunityDialog .opportunity-form strong { color: #182238 !important; }
+#opportunityDialog .icon-btn {
+  border-color: rgba(104, 121, 147, .2) !important;
+  background: #203958 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+#opportunityDialog .opportunity-form label { color: #68748a !important; }
+#opportunityDialog .opportunity-form input,
+#opportunityDialog .opportunity-form select,
+#opportunityDialog .opportunity-form textarea {
+  border-color: rgba(104, 121, 147, .22) !important;
+  background: rgba(255, 255, 255, .9) !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+#opportunityDialog .opportunity-form input::placeholder,
+#opportunityDialog .opportunity-form textarea::placeholder { color: #9aa4b5 !important; }
+#opportunityDialog .crm-form-section {
+  border-color: rgba(104, 121, 147, .16) !important;
+  background: rgba(240, 244, 249, .78) !important;
+}
+#opportunityDialog menu { border-color: rgba(104, 121, 147, .14) !important; background: rgba(248, 250, 253, .94) !important; }
+
+/* KPI comercial: reemplaza las bandas grises por tarjetas blancas legibles. */
+.app-shell .won-kpi-summary,
+.app-shell .kpi-selection-bar,
+.app-shell .won-kpi-caption,
+.app-shell .kpi-compliance-head,
+.app-shell .kpi-tabs {
+  border-color: var(--light-line) !important;
+  background: rgba(244, 247, 251, .9) !important;
+  color: var(--light-ink) !important;
+  box-shadow: none !important;
+}
+.app-shell .kpi-selection-bar *,
+.app-shell .won-kpi-caption *,
+.app-shell .kpi-compliance-head * { color: #566278 !important; opacity: 1 !important; }
+.app-shell .won-kpi-header,
+.app-shell .kpi-compliance-header {
+  border-color: var(--light-line) !important;
+  background: #e9eef5 !important;
+  color: #566278 !important;
+}
+.app-shell .won-kpi-header *,
+.app-shell .kpi-compliance-header * { color: #566278 !important; }
+.app-shell .won-kpi-row,
+.app-shell .kpi-compliance-row {
+  border-color: rgba(104, 121, 147, .17) !important;
+  background: rgba(255, 255, 255, .82) !important;
+  color: var(--light-ink) !important;
+  box-shadow: 0 7px 18px rgba(43, 56, 82, .05) !important;
+}
+.app-shell .won-kpi-row > *,
+.app-shell .won-kpi-row strong,
+.app-shell .kpi-compliance-row > *,
+.app-shell .kpi-compliance-row strong { color: var(--light-ink) !important; }
+.app-shell .won-kpi-row > span:not(.count-chip),
+.app-shell .won-kpi-row .semaphore,
+.app-shell .won-kpi-row .semaphore *,
+.app-shell .kpi-compliance-row > span { color: #344057 !important; opacity: 1 !important; }
+.app-shell .won-kpi-row.vacancy {
+  border-color: rgba(217, 119, 6, .2) !important;
+  background: rgba(255, 249, 238, .9) !important;
+  color: var(--light-ink) !important;
+}
+.app-shell .count-chip {
+  border-color: rgba(104, 121, 147, .14) !important;
+  background: rgba(235, 240, 247, .9) !important;
+  box-shadow: none !important;
+}
+.app-shell .won-kpi-row small,
+.app-shell .kpi-compliance-row small { color: var(--light-muted) !important; }
+.app-shell .kpi-view-tab,
+.app-shell .kpi-tab { background: transparent !important; color: #68748a !important; }
+.app-shell .kpi-view-tab.active,
+.app-shell .kpi-tab.active { background: var(--light-primary-soft) !important; color: #5148d7 !important; }
+
+/* Pedidos financieros: listado, filtros y paginación claros. */
+.app-shell .financial-orders-topbar-filters,
+.app-shell .financial-orders-view-tabs {
+  border-color: var(--light-line) !important;
+  background: rgba(244, 247, 251, .88) !important;
+  color: var(--light-ink) !important;
+  box-shadow: none !important;
+}
+.app-shell .financial-orders-topbar-filters label,
+.app-shell .financial-orders-toolbar,
+.app-shell .financial-orders-table-wrap {
+  border-color: var(--light-line) !important;
+  background: rgba(255, 255, 255, .76) !important;
+  color: var(--light-ink) !important;
+}
+.app-shell .financial-orders-toolbar input { color: var(--light-ink) !important; }
+.app-shell .financial-orders-toolbar input::placeholder { color: #9aa4b5 !important; }
+.app-shell .financial-order-row.header {
+  border-color: var(--light-line) !important;
+  background: #e9eef5 !important;
+  color: #566278 !important;
+}
+.app-shell .financial-order-row.header > * { color: #566278 !important; }
+.app-shell .financial-order-row:not(.header) {
+  border-color: rgba(104, 121, 147, .16) !important;
+  background: rgba(255, 255, 255, .84) !important;
+  color: var(--light-ink) !important;
+  box-shadow: 0 6px 16px rgba(43, 56, 82, .045) !important;
+}
+.app-shell .financial-order-row:not(.header) > span,
+.app-shell .financial-order-row:not(.header) > strong { color: var(--light-ink) !important; opacity: 1 !important; }
+.app-shell .financial-order-client-cell,
+.app-shell .financial-order-client-cell > span { color: var(--light-ink) !important; opacity: 1 !important; }
+.app-shell .financial-order-sale { color: #15965a !important; }
+.app-shell .financial-order-actions button { background: rgba(98, 88, 232, .09) !important; color: #5148d7 !important; }
+.app-shell .financial-order-actions button.danger { background: rgba(220, 67, 93, .1) !important; color: #c93651 !important; }
+
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }
