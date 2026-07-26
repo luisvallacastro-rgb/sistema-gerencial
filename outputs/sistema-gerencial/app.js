@@ -2651,6 +2651,7 @@ function ensureControlSalesDialogs() {
         <article><span>Total detallado</span><strong id="controlSalesDetailedTotal">$0.00</strong><small>Según CF o CCF</small></article>
         <article><span>Diferencia</span><strong id="controlSalesVariance">$0.00</strong><small id="controlSalesReconciliationMessage">Selecciona un pedido para conciliar.</small></article>
       </section>
+      <p id="controlSalesSaveStatus" class="control-sales-save-status hidden" role="status" aria-live="polite"></p>
       <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong><small id="controlSalesFooterReconciliation">Selecciona un pedido para conciliar.</small></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="button" class="control-sales-print-btn" data-control-sales-print-draft>Vista previa / Imprimir</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
     </form></dialog>
     <dialog id="controlSalesDetailDialog" class="wide-dialog control-sales-detail-dialog"><section id="controlSalesDetailContent"></section></dialog>`);
@@ -2710,15 +2711,26 @@ function ensureControlSalesDialogs() {
     const id = document.querySelector("#controlSalesId").value;
     const payload = { financialOrderId:document.querySelector("#controlSalesFinancialOrderId").value, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
     const submit = form.querySelector('button[type="submit"]');
+    const saveStatus = document.querySelector("#controlSalesSaveStatus");
     submit.disabled = true;
+    saveStatus.classList.add("hidden");
+    saveStatus.dataset.tone = "success";
     try {
-      await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
-      formDialog.close();
+      const response = await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
+      const savedOrder = response.item;
+      document.querySelector("#controlSalesId").value = savedOrder.id;
+      document.querySelector("#controlSalesDialogTitle").textContent = `Editar pedido #${savedOrder.number}`;
+      submit.textContent = "Guardar cambios";
       await loadControlSales();
       if (formDialog.dataset.orderFormatOnly === "true" && state.activeSubmenu === "crm-seguimiento") {
         renderCommercialSubmenu(areas.comercializacion);
       }
+      saveStatus.textContent = `${id ? "Cambios guardados" : "Pedido guardado"} correctamente. Puedes continuar editando o imprimir el pedido.`;
+      saveStatus.classList.remove("hidden");
     } catch (error) {
+      saveStatus.textContent = "No se pudieron guardar los cambios. Revisa los campos e inténtalo nuevamente.";
+      saveStatus.classList.remove("hidden");
+      saveStatus.dataset.tone = "error";
       alert("No fue posible guardar la orden. Verifica los campos, precios y que el número no esté repetido.");
     } finally { submit.disabled = false; }
   });
@@ -2998,6 +3010,11 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   dialog.classList.toggle("control-sales-order-format-only", formatOnly);
   dialog.dataset.orderFormatOnly = formatOnly ? "true" : "false";
   document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar pedido #${order.number}` : "Nuevo pedido";
+  const saveStatus = document.querySelector("#controlSalesSaveStatus");
+  saveStatus.classList.add("hidden");
+  saveStatus.textContent = "";
+  saveStatus.dataset.tone = "success";
+  dialog.querySelector('button[type="submit"]').textContent = order ? "Guardar cambios" : "Guardar orden";
   document.querySelector("#controlSalesId").value = order?.id || "";
   document.querySelector("#controlSalesSourceOpportunityId").value = order?.sourceOpportunityId || sourceWin?.id || "";
   const sourceOrder = sourceFinancialOrder || (order?.financialOrderId

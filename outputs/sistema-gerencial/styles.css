@@ -4717,6 +4717,19 @@ button:disabled {
   #managementDialog .management-row,
   #managementDialog .management-form-grid { grid-template-columns: 1fr !important; }
 }
+
+.control-sales-save-status {
+  margin: 14px 0 0;
+  padding: 12px 16px;
+  border: 1px solid rgba(107, 240, 207, .5);
+  border-radius: 13px;
+  background: rgba(31, 170, 128, .16);
+  color: #bff9e8;
+  font-size: 12px;
+  font-weight: 800;
+}
+.control-sales-save-status.hidden { display: none; }
+.control-sales-save-status[data-tone="error"] { border-color: rgba(255, 133, 154, .55); background: rgba(155, 53, 78, .18); color: #ffb5c2; }
 @media (prefers-reduced-motion: reduce) { #managementDialog[open] .management-card { animation: none !important; } }
 
 /* Opportunity toolbar aligned with search, amount and action table columns. */
