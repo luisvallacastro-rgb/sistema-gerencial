@@ -4748,6 +4748,131 @@ button:disabled {
 .control-sales-save-status[data-tone="error"] { border-color: rgba(255, 133, 154, .55); background: rgba(100, 31, 52, .97); color: #ffb5c2; }
 .control-sales-save-status[data-tone="error"] > span { background: #ff8fa5; color: #501326; }
 @keyframes control-sales-save-in { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Motion System 2026: movimiento premium, profundidad y respuesta visual global. */
+:root {
+  --motion-spring: cubic-bezier(.2, .85, .22, 1.08);
+  --motion-smooth: cubic-bezier(.22, .61, .36, 1);
+  --motion-fast: 180ms;
+  --motion-base: 360ms;
+}
+
+.app-shell::before,
+.app-shell::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  width: 42vw;
+  height: 42vw;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: .1;
+  pointer-events: none;
+  animation: system-aurora 16s ease-in-out infinite alternate;
+}
+.app-shell::before { top: -18vw; right: -8vw; background: #35e0b1; }
+.app-shell::after { bottom: -22vw; left: 18vw; background: #3d79e8; animation-delay: -8s; }
+
+.app-shell .sidebar { animation: system-sidebar-in 620ms var(--motion-spring) both; }
+.app-shell .topbar { animation: system-drop-in 520ms var(--motion-smooth) both; }
+.app-shell #opportunityTable,
+.app-shell #opportunityDashboard,
+.app-shell .dashboard-grid,
+.app-shell .commercial-panel { animation: system-content-in 520ms var(--motion-smooth) both; }
+
+.app-shell .nav-item,
+.app-shell .submenu-item,
+.app-shell .side-nav button {
+  position: relative;
+  overflow: hidden;
+  transition: color var(--motion-fast) ease, background var(--motion-fast) ease, border-color var(--motion-fast) ease, transform var(--motion-fast) var(--motion-spring), box-shadow var(--motion-fast) ease;
+}
+.app-shell .nav-item::after,
+.app-shell .submenu-item::after,
+.app-shell .side-nav button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 20%, rgba(107, 240, 207, .15) 48%, transparent 76%);
+  transform: translateX(-120%);
+  transition: transform 520ms ease;
+  pointer-events: none;
+}
+.app-shell .nav-item:hover::after,
+.app-shell .submenu-item:hover::after,
+.app-shell .side-nav button:hover::after { transform: translateX(120%); }
+.app-shell .nav-item:hover,
+.app-shell .submenu-item:hover,
+.app-shell .side-nav button:hover { transform: translateX(4px); }
+
+.app-shell button,
+.app-shell .primary-btn,
+.app-shell .ghost-btn {
+  transition: transform var(--motion-fast) var(--motion-spring), box-shadow var(--motion-fast) ease, filter var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+.app-shell button:not(:disabled):hover { filter: brightness(1.08); }
+.app-shell button:not(:disabled):active { transform: translateY(1px) scale(.975); transition-duration: 80ms; }
+.app-shell .primary-btn:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(22, 177, 130, .28), inset 0 1px 0 rgba(255,255,255,.2); }
+
+.app-shell .crm-panel,
+.app-shell .metric-card,
+.app-shell .dashboard-card,
+.app-shell .crm-tracking-card,
+.app-shell .crm-won-history-card,
+.app-shell .financial-order-card,
+.app-shell .purchase-order-card,
+.app-shell .control-sales-row:not(.head) {
+  transform: translateZ(0);
+  transition: transform 260ms var(--motion-spring), border-color 260ms ease, box-shadow 260ms ease, background 260ms ease;
+}
+.app-shell .crm-tracking-card:hover,
+.app-shell .crm-won-history-card:hover,
+.app-shell .financial-order-card:hover,
+.app-shell .purchase-order-card:hover,
+.app-shell .control-sales-row:not(.head):hover {
+  z-index: 2;
+  transform: translateY(-3px) scale(1.006);
+  border-color: rgba(107, 240, 207, .42) !important;
+  box-shadow: 0 16px 34px rgba(2, 12, 29, .25), inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.app-shell .crm-tracking-grid > *,
+.app-shell .crm-won-history-list > *,
+.app-shell .dashboard-grid > *,
+.app-shell .crm-seller-chip-list > * {
+  animation: system-card-in 480ms var(--motion-spring) both;
+}
+.app-shell .crm-tracking-grid > *:nth-child(2), .app-shell .crm-won-history-list > *:nth-child(2), .app-shell .dashboard-grid > *:nth-child(2), .app-shell .crm-seller-chip-list > *:nth-child(2) { animation-delay: 45ms; }
+.app-shell .crm-tracking-grid > *:nth-child(3), .app-shell .crm-won-history-list > *:nth-child(3), .app-shell .dashboard-grid > *:nth-child(3), .app-shell .crm-seller-chip-list > *:nth-child(3) { animation-delay: 90ms; }
+.app-shell .crm-tracking-grid > *:nth-child(4), .app-shell .crm-won-history-list > *:nth-child(4), .app-shell .dashboard-grid > *:nth-child(4), .app-shell .crm-seller-chip-list > *:nth-child(4) { animation-delay: 135ms; }
+.app-shell .crm-tracking-grid > *:nth-child(n+5), .app-shell .crm-won-history-list > *:nth-child(n+5), .app-shell .dashboard-grid > *:nth-child(n+5), .app-shell .crm-seller-chip-list > *:nth-child(n+5) { animation-delay: 170ms; }
+
+.app-shell input,
+.app-shell select,
+.app-shell textarea {
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+.app-shell input:focus,
+.app-shell select:focus,
+.app-shell textarea:focus { transform: translateY(-1px); box-shadow: 0 0 0 3px rgba(107, 240, 207, .1), 0 10px 24px rgba(2, 12, 29, .16); }
+
+dialog[open] { animation: system-dialog-in 360ms var(--motion-spring) both; }
+dialog[open]::backdrop { animation: system-backdrop-in 300ms ease both; backdrop-filter: blur(9px); }
+.app-shell .online-dot,
+.app-shell .presence-dot { animation: system-presence 2.2s ease-in-out infinite; }
+
+@keyframes system-aurora { from { transform: translate3d(-4%, -2%, 0) scale(.92); } to { transform: translate3d(8%, 9%, 0) scale(1.12); } }
+@keyframes system-sidebar-in { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes system-drop-in { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes system-content-in { from { opacity: 0; transform: translateY(14px) scale(.992); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes system-card-in { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes system-dialog-in { from { opacity: 0; transform: translateY(22px) scale(.965); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes system-backdrop-in { from { background: rgba(2, 9, 22, 0); } to { background: rgba(2, 9, 22, .72); } }
+@keyframes system-presence { 0%, 100% { box-shadow: 0 0 0 0 rgba(66, 238, 174, .32); } 50% { box-shadow: 0 0 0 7px rgba(66, 238, 174, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell *, .app-shell *::before, .app-shell *::after, dialog[open], dialog[open]::backdrop { animation: none !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
 @media (prefers-reduced-motion: reduce) { #managementDialog[open] .management-card { animation: none !important; } }
 
 /* Opportunity toolbar aligned with search, amount and action table columns. */
