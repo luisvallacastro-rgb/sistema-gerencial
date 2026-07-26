@@ -4330,6 +4330,51 @@ function closeManagementRequestReader() {
   dialog.remove();
 }
 
+function handleManagementRequestAction(actionButton) {
+  const submenu = findManagementRequestSubmenu(actionButton.dataset.area || state.activeArea);
+  const item = submenu?.items.find((record) => record.id === actionButton.dataset.id);
+  if (!item) return false;
+  const action = actionButton.dataset.requestAction;
+
+  if (action === "delete") {
+    submenu.items = submenu.items.filter((record) => record.id !== item.id);
+    saveManagementRequests();
+    renderCommercialSubmenu(areas[state.activeArea]);
+    return true;
+  }
+
+  if (action === "response") {
+    const response = prompt("Respuesta de la gerencia:", item.response || "");
+    if (response === null) return false;
+    item.response = response.trim();
+    item.status = item.response ? "Respondida" : item.status;
+    saveManagementRequests();
+    renderCommercialSubmenu(areas[state.activeArea]);
+    return true;
+  }
+
+  if (action === "status") {
+    item.status = actionButton.dataset.status || item.status;
+    saveManagementRequests();
+    renderCommercialSubmenu(areas[state.activeArea]);
+    return true;
+  }
+
+  if (action === "edit") {
+    managementRequestId.value = item.id;
+    state.managementRequestAreaKey = actionButton.dataset.area || state.activeArea;
+    managementRequestDate.value = item.date;
+    managementRequestSubject.value = item.subject;
+    managementRequestMessage.value = item.message;
+    managementRequestTitle.textContent = "Editar solicitud";
+    saveManagementRequestBtn.textContent = "Actualizar solicitud";
+    managementRequestDialog.showModal();
+    return true;
+  }
+
+  return false;
+}
+
 function openManagementRequestReader(item) {
   closeManagementRequestReader();
   const areaKey = item.areaKey || state.activeArea;
@@ -4363,14 +4408,8 @@ function openManagementRequestReader(item) {
   dialog.querySelectorAll("[data-request-reader-close]").forEach((button) => button.addEventListener("click", closeManagementRequestReader));
   dialog.querySelectorAll("button[data-request-action]").forEach((button) => {
     button.addEventListener("click", () => {
-      const proxy = document.createElement("button");
-      proxy.type = "button";
-      Object.entries(button.dataset).forEach(([key, value]) => { proxy.dataset[key] = value; });
-      proxy.hidden = true;
-      opportunityTable.appendChild(proxy);
       closeManagementRequestReader();
-      proxy.click();
-      proxy.remove();
+      handleManagementRequestAction(button);
     });
   });
   dialog.addEventListener("click", (event) => { if (event.target === dialog) closeManagementRequestReader(); });
@@ -8304,49 +8343,15 @@ opportunityTable.addEventListener("click", (event) => {
 
   const requestButton = event.target.closest("button[data-request-action]");
   if (requestButton) {
-    const submenu = findManagementRequestSubmenu(requestButton.dataset.area || state.activeArea);
-    const item = submenu.items.find((record) => record.id === requestButton.dataset.id);
-    if (!item) return;
-
     if (requestButton.dataset.requestAction === "read") {
+      const submenu = findManagementRequestSubmenu(requestButton.dataset.area || state.activeArea);
+      const item = submenu?.items.find((record) => record.id === requestButton.dataset.id);
+      if (!item) return;
       openManagementRequestReader(item);
       return;
     }
-
     closeManagementRequestReader();
-
-    if (requestButton.dataset.requestAction === "delete") {
-      submenu.items = submenu.items.filter((record) => record.id !== item.id);
-      saveManagementRequests();
-      renderCommercialSubmenu(areas[state.activeArea]);
-      return;
-    }
-
-    if (requestButton.dataset.requestAction === "response") {
-      const response = prompt("Respuesta de la gerencia:", item.response || "");
-      if (response === null) return;
-      item.response = response.trim();
-      item.status = item.response ? "Respondida" : item.status;
-      saveManagementRequests();
-      renderCommercialSubmenu(areas[state.activeArea]);
-      return;
-    }
-
-    if (requestButton.dataset.requestAction === "status") {
-      item.status = requestButton.dataset.status || item.status;
-      saveManagementRequests();
-      renderCommercialSubmenu(areas[state.activeArea]);
-      return;
-    }
-
-    managementRequestId.value = item.id;
-    state.managementRequestAreaKey = requestButton.dataset.area || state.activeArea;
-    managementRequestDate.value = item.date;
-    managementRequestSubject.value = item.subject;
-    managementRequestMessage.value = item.message;
-    managementRequestTitle.textContent = "Editar solicitud";
-    saveManagementRequestBtn.textContent = "Actualizar solicitud";
-    managementRequestDialog.showModal();
+    handleManagementRequestAction(requestButton);
     return;
   }
 
