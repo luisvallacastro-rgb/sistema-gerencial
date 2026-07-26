@@ -1134,6 +1134,38 @@ dialog footer .ghost-btn {
 .app-shell .permission-row-toggle input:checked + span::after { color: #fff !important; }
 .app-shell .permission-access-cell.locked { opacity: .72 !important; }
 
+/* Usuarios conectados: contraste completo dentro de la barra lateral clara. */
+.app-shell .presence-panel[open] {
+  border-color: #d7deea !important;
+  background: #fff !important;
+  box-shadow: 0 8px 20px rgba(51,65,85,.07) !important;
+}
+.app-shell .presence-panel[open] .presence-head {
+  background: #eef1ff !important;
+}
+.app-shell .presence-list {
+  background: #fff !important;
+  color: #334155 !important;
+}
+.app-shell .presence-user {
+  border-bottom: 1px solid #edf0f5 !important;
+  background: transparent !important;
+  color: #334155 !important;
+  opacity: 1 !important;
+}
+.app-shell .presence-user:last-child { border-bottom: 0 !important; }
+.app-shell .presence-user span {
+  color: #334155 !important;
+  font-weight: 850 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+.app-shell .presence-user i {
+  background: #6366f1 !important;
+  box-shadow: 0 0 0 4px rgba(99,102,241,.12) !important;
+}
+.app-shell .presence-empty { color: #68748a !important; opacity: 1 !important; }
+
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }
