@@ -1271,6 +1271,13 @@ dialog footer .ghost-btn {
   background: #eef1ff !important;
   color: #46536a !important;
 }
+.app-shell .control-sales-row.head > *,
+.app-shell .control-sales-row.head > * * {
+  color: #334155 !important;
+  opacity: 1 !important;
+  font-weight: 850 !important;
+  text-shadow: none !important;
+}
 
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
