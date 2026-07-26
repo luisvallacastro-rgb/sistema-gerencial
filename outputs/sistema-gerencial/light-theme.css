@@ -1473,3 +1473,45 @@ dialog footer .ghost-btn {
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }
 .app-shell [data-tone="success"], .app-shell .success, .app-shell .won, .app-shell .money { color: #15965a !important; }
+
+/* Solicitudes 4.0 · bandeja clara, sin tarjetas de contenido expandido. */
+.app-shell .management-request-inbox-head { color: #68748a !important; }
+.app-shell .management-request-mail {
+  border-color: #dce2eb !important;
+  background: #fff !important;
+  box-shadow: 0 5px 15px rgba(51,65,85,.045) !important;
+}
+.app-shell .management-request-mail:hover { border-color: #b9c5d5 !important; background: #f8fafc !important; }
+.app-shell .request-mail-avatar { background: #eef1ff !important; color: #4338ca !important; }
+.app-shell .request-mail-sender strong,
+.app-shell .request-mail-copy strong { color: #182238 !important; }
+.app-shell .request-mail-sender small,
+.app-shell .request-mail-copy small,
+.app-shell .request-mail-open time { color: #68748a !important; }
+.app-shell .request-mail-copy em { color: #157a5a !important; }
+.app-shell .request-mail-read { color: #4338ca !important; }
+
+dialog.management-request-reader { color: #182238 !important; }
+dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !important; }
+.management-request-reader-card {
+  border-color: #d8dfe9 !important;
+  background: #fff !important;
+  background-image: none !important;
+  box-shadow: 0 28px 80px rgba(51,65,85,.2) !important;
+}
+.management-request-reader-card > header { border-bottom-color: #e1e6ee !important; }
+.management-request-reader-card .request-mail-avatar { background: #eef1ff !important; color: #4338ca !important; }
+.management-request-reader-card header small,
+.management-request-reader-card header p { color: #68748a !important; }
+.management-request-reader-card header h3 { color: #182238 !important; }
+.management-request-reader-card header > button { border-color: #d8dfe9 !important; background: #f6f8fb !important; color: #334155 !important; }
+.management-request-letter { border-color: #dce2eb !important; background: #f7f9fc !important; }
+.management-request-reply { border-color: #b8ddcf !important; background: #edf8f4 !important; }
+.management-request-letter span { color: #4f46e5 !important; }
+.management-request-reply span { color: #157a5a !important; }
+.management-request-letter p { color: #3f4d63 !important; }
+.management-request-reply p { color: #286c58 !important; }
+.management-request-reader-card > footer { border-top-color: #e2e7ef !important; }
+.management-request-reader-card > footer button { border-color: #d5dce7 !important; background: #f4f6fa !important; color: #46536a !important; }
+.management-request-reader-card > footer .request-action-primary { border-color: #c8c6f5 !important; background: #4f46e5 !important; color: #fff !important; }
+.management-request-reader-card > footer .danger { border-color: #f0cbd3 !important; background: #fff1f4 !important; color: #c63e58 !important; }

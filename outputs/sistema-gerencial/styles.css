@@ -15166,3 +15166,134 @@ html.macos-render-safe .app-shell .permission-access-user {
 @media (max-width: 1180px) {
   .app-shell .management-request-body { grid-template-columns: 1fr !important; }
 }
+
+/* Solicitudes 4.0 · bandeja de correspondencia. */
+.app-shell .management-request-inbox-head,
+.app-shell .request-mail-open {
+  display: grid;
+  grid-template-columns: 44px minmax(150px,.65fr) minmax(260px,1.6fr) 118px 100px 64px;
+  gap: 14px;
+  align-items: center;
+}
+.app-shell .management-request-inbox-head {
+  margin-top: 14px;
+  padding: 0 18px 8px;
+  color: #8798ae;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.app-shell .management-request-inbox-head span:first-child { grid-column: 2; }
+.app-shell .management-request-body.management-request-inbox {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 7px !important;
+  max-height: min(66vh,760px);
+}
+.app-shell .management-request-mail {
+  overflow: hidden;
+  border: 1px solid rgba(151,178,211,.18);
+  border-radius: 14px;
+  background: rgba(17,35,59,.78);
+}
+.app-shell .management-request-mail:hover {
+  border-color: rgba(111,205,185,.5);
+  background: rgba(25,48,76,.92);
+  transform: translateY(-1px);
+}
+.app-shell .request-mail-open {
+  width: 100%;
+  min-height: 78px;
+  padding: 12px 18px;
+  border: 0;
+  background: transparent;
+  color: #edf5ff;
+  text-align: left;
+}
+.app-shell .request-mail-avatar,
+.management-request-reader .request-mail-avatar {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(145deg,#355078,#223954);
+  color: #a8d8ff;
+  font-size: 12px;
+  font-weight: 900;
+}
+.app-shell .request-mail-sender,
+.app-shell .request-mail-copy { min-width: 0; display: grid; gap: 3px; }
+.app-shell .request-mail-sender strong,
+.app-shell .request-mail-copy strong { overflow: hidden; color: #f4f8fd; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .request-mail-sender small,
+.app-shell .request-mail-copy small { overflow: hidden; color: #91a3ba; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .request-mail-copy em { color: #76d9bc; font-size: 8px; font-style: normal; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.app-shell .request-mail-open time { color: #aebdd0; font-size: 10px; font-weight: 800; }
+.app-shell .request-mail-read { color: #8fdcc8; font-size: 10px; font-weight: 900; text-align: right; }
+.app-shell .request-mail-read b { font-size: 18px; vertical-align: -1px; }
+
+dialog.management-request-reader {
+  width: min(840px,94vw);
+  max-height: 90vh;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #edf5ff;
+}
+dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); backdrop-filter: blur(8px); }
+.management-request-reader-card {
+  overflow: hidden;
+  border: 1px solid rgba(139,177,212,.28);
+  border-radius: 24px;
+  background: linear-gradient(145deg,#1e3453,#0e2138);
+  box-shadow: 0 28px 80px rgba(2,9,19,.48);
+}
+.management-request-reader-card > header {
+  display: grid;
+  grid-template-columns: 44px minmax(0,1fr) auto 42px;
+  gap: 14px;
+  align-items: center;
+  padding: 20px 22px;
+  border-bottom: 1px solid rgba(145,175,208,.17);
+}
+.management-request-reader-card header small,
+.management-request-reader-card header p { margin: 0; color: #91a3ba; font-size: 10px; }
+.management-request-reader-card header h3 { margin: 4px 0; color: #fff; font-size: 21px; }
+.management-request-reader-card header > button {
+  width: 40px; height: 40px; border: 1px solid rgba(150,181,214,.25); border-radius: 12px;
+  background: rgba(35,57,84,.78); color: #eaf2fb; font-size: 22px;
+}
+.management-request-letter,
+.management-request-reply { margin: 18px 22px; padding: 22px; border-radius: 17px; }
+.management-request-letter { border: 1px solid rgba(153,182,213,.17); background: rgba(8,20,37,.35); }
+.management-request-reply { border: 1px solid rgba(88,207,174,.25); background: rgba(39,150,119,.11); }
+.management-request-letter span,
+.management-request-reply span { color: #83d9c3; font-size: 9px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.management-request-letter p,
+.management-request-reply p { margin: 12px 0 0; color: #d7e2ef; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+.management-request-reader-card > footer {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px;
+  padding: 16px 22px 22px; border-top: 1px solid rgba(145,175,208,.14);
+}
+.management-request-reader-card > footer button {
+  min-height: 40px; padding: 0 14px; border: 1px solid rgba(149,180,212,.22); border-radius: 11px;
+  background: rgba(39,61,89,.74); color: #dce8f5; font-size: 10px; font-weight: 900;
+}
+.management-request-reader-card > footer .request-action-primary { border-color: rgba(91,218,184,.42); background: #168d6c; color: #fff; }
+.management-request-reader-card > footer .danger { border-color: rgba(238,104,131,.3); background: rgba(172,48,75,.18); color: #ff9db1; }
+
+@media (max-width: 900px) {
+  .app-shell .management-request-inbox-head { display: none; }
+  .app-shell .request-mail-open { grid-template-columns: 40px minmax(110px,.7fr) minmax(160px,1.5fr) 100px 58px; }
+  .app-shell .request-mail-open time { display: none; }
+}
+@media (max-width: 650px) {
+  .app-shell .request-mail-open { grid-template-columns: 40px minmax(0,1fr) 84px; gap: 10px; }
+  .app-shell .request-mail-copy { grid-column: 2 / -1; grid-row: 2; }
+  .app-shell .request-mail-open .request-status-pill { grid-column: 3; grid-row: 1; }
+  .app-shell .request-mail-read { display: none; }
+  .management-request-reader-card > header { grid-template-columns: 40px minmax(0,1fr) 40px; }
+  .management-request-reader-card > header .request-status-pill { grid-column: 2; width: max-content; }
+}

@@ -4294,26 +4294,24 @@ function renderManagementRequests(items) {
   return `
     <section class="management-requests" aria-label="Solicitudes a Gerencia General">
       <header class="management-requests-summary">
-        <div><span>Flujo gerencial</span><strong>Control de solicitudes</strong><p>Seguimiento, respuesta y resolución en una sola vista.</p></div>
+        <div><span>Correspondencia gerencial</span><strong>Bandeja de solicitudes</strong><p>Lee, responde y da seguimiento a cada solicitud desde una sola bandeja.</p></div>
         <section><article><small>Pendientes</small><strong>${pendingCount}</strong></article><article><small>En revisión</small><strong>${reviewCount}</strong></article><article><small>Atendidas</small><strong>${attendedCount}</strong></article></section>
       </header>
-      <div class="management-request-body">
+      <div class="management-request-inbox-head" aria-hidden="true"><span>Remitente</span><span>Asunto</span><span>Estado</span><span>Fecha</span><span></span></div>
+      <div class="management-request-body management-request-inbox">
         ${items.length ? items.map((item) => {
           const statusKey = normalizeKey(item.status);
           const statusTone = statusKey === "atendida" ? "resolved" : statusKey.includes("revision") ? "review" : "pending";
-          return `<article class="management-request-row request-${statusTone}">
-            <header class="request-card-head"><div><span>Solicitud</span><strong>${item.subject}</strong></div><strong class="request-status-pill">${item.status}</strong></header>
-            <div class="request-card-content">
-              <div class="request-message-main"><p>${item.message}</p>${item.response ? `<div class="request-response"><span>Respuesta registrada</span><p>${item.response}</p></div>` : ""}</div>
-              <aside class="request-card-meta"><div><span>Fecha</span><strong>${formatDate(item.date)}</strong></div><div><span>Origen</span><strong>${item.owner}</strong></div><div><span>Destino</span><strong>${item.target}</strong></div></aside>
-            </div>
-            <footer class="row-actions request-actions">
-              <button class="request-action-primary" type="button" data-request-action="response" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">Responder</button>
-              <button type="button" data-request-action="status" data-status="En revision" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">En revisión</button>
-              <button type="button" data-request-action="status" data-status="Atendida" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}">Atendida</button>
-              <button class="request-icon-action" type="button" data-request-action="edit" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Editar solicitud" title="Editar"><span aria-hidden="true">✎</span></button>
-              <button class="request-icon-action danger" type="button" data-request-action="delete" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Borrar solicitud" title="Eliminar"><span aria-hidden="true">⌫</span></button>
-            </footer>
+          const initials = String(item.owner || "GG").split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase();
+          return `<article class="management-request-mail request-${statusTone}">
+            <button class="request-mail-open" type="button" data-request-action="read" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Leer solicitud: ${escapeHtml(item.subject)}">
+              <span class="request-mail-avatar">${escapeHtml(initials)}</span>
+              <span class="request-mail-sender"><strong>${escapeHtml(item.owner)}</strong><small>Para ${escapeHtml(item.target)}</small></span>
+              <span class="request-mail-copy"><strong>${escapeHtml(item.subject)}</strong><small>${escapeHtml(item.message)}</small>${item.response ? `<em>Respondida</em>` : ""}</span>
+              <strong class="request-status-pill">${escapeHtml(item.status)}</strong>
+              <time datetime="${escapeHtml(item.date)}">${formatDate(item.date)}</time>
+              <span class="request-mail-read">Leer <b aria-hidden="true">›</b></span>
+            </button>
           </article>`;
         }).join("") : `
           <div class="empty-state">
@@ -4323,6 +4321,49 @@ function renderManagementRequests(items) {
       </div>
     </section>
   `;
+}
+
+function closeManagementRequestReader() {
+  const dialog = document.querySelector("#managementRequestReaderDialog");
+  if (!dialog) return;
+  if (dialog.open) dialog.close();
+  dialog.remove();
+}
+
+function openManagementRequestReader(item) {
+  closeManagementRequestReader();
+  const areaKey = item.areaKey || state.activeArea;
+  const initials = String(item.owner || "GG").split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase();
+  const dialog = document.createElement("dialog");
+  dialog.id = "managementRequestReaderDialog";
+  dialog.className = "management-request-reader";
+  dialog.innerHTML = `
+    <article class="management-request-reader-card">
+      <header>
+        <span class="request-mail-avatar">${escapeHtml(initials)}</span>
+        <div><small>De ${escapeHtml(item.owner)} · Para ${escapeHtml(item.target)}</small><h3>${escapeHtml(item.subject)}</h3><p>${formatDate(item.date)}</p></div>
+        <strong class="request-status-pill">${escapeHtml(item.status)}</strong>
+        <button type="button" data-request-reader-close aria-label="Cerrar lectura">×</button>
+      </header>
+      <section class="management-request-letter">
+        <span>Solicitud</span>
+        <p>${escapeHtml(item.message)}</p>
+      </section>
+      ${item.response ? `<section class="management-request-reply"><span>Respuesta de Gerencia</span><p>${escapeHtml(item.response)}</p></section>` : ""}
+      <footer>
+        <button type="button" data-request-reader-close>Cerrar</button>
+        <button type="button" data-request-action="status" data-status="En revision" data-area="${areaKey}" data-id="${item.id}">En revisión</button>
+        <button type="button" data-request-action="status" data-status="Atendida" data-area="${areaKey}" data-id="${item.id}">Marcar atendida</button>
+        <button type="button" data-request-action="edit" data-area="${areaKey}" data-id="${item.id}">Editar</button>
+        <button class="request-action-primary" type="button" data-request-action="response" data-area="${areaKey}" data-id="${item.id}">Responder</button>
+        <button class="danger" type="button" data-request-action="delete" data-area="${areaKey}" data-id="${item.id}">Eliminar</button>
+      </footer>
+    </article>`;
+  document.body.appendChild(dialog);
+  dialog.querySelectorAll("[data-request-reader-close]").forEach((button) => button.addEventListener("click", closeManagementRequestReader));
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) closeManagementRequestReader(); });
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); closeManagementRequestReader(); });
+  dialog.showModal();
 }
 
 function renderCleanManagementSection(area, submenu) {
@@ -8254,6 +8295,13 @@ opportunityTable.addEventListener("click", (event) => {
     const submenu = findManagementRequestSubmenu(requestButton.dataset.area || state.activeArea);
     const item = submenu.items.find((record) => record.id === requestButton.dataset.id);
     if (!item) return;
+
+    if (requestButton.dataset.requestAction === "read") {
+      openManagementRequestReader(item);
+      return;
+    }
+
+    closeManagementRequestReader();
 
     if (requestButton.dataset.requestAction === "delete") {
       submenu.items = submenu.items.filter((record) => record.id !== item.id);
