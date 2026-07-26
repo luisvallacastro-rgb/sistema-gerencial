@@ -10058,6 +10058,22 @@ body.operations-fullscreen-open {
   }
 }
 
+.control-sales-strategy-options { grid-column: 1 / -1; margin: 2px 0 0; padding: 0; border: 0; }
+.control-sales-strategy-options legend { margin-bottom: 7px; color: #9fb1ca; font-size: 10px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.control-sales-strategy-options > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.control-sales-strategy-options label { position: relative; min-width: 0; }
+.control-sales-strategy-options input { position: absolute; opacity: 0; pointer-events: none; }
+.control-sales-strategy-options span { display: flex; align-items: center; min-height: 48px; padding: 0 42px 0 14px; border: 1px solid rgba(122, 156, 195, .4); border-radius: 13px; background: rgba(20, 48, 82, .6); color: #c5d1e2; font-size: 11px; font-weight: 850; }
+.control-sales-strategy-options i { position: absolute; top: 50%; right: 12px; display: grid; width: 23px; height: 23px; place-items: center; border: 1px solid rgba(122, 156, 195, .55); border-radius: 7px; color: transparent; font-style: normal; transform: translateY(-50%); }
+.control-sales-strategy-options input:checked + span { border-color: #6bf0cf; background: linear-gradient(135deg, rgba(30, 140, 118, .33), rgba(27, 72, 96, .72)); color: #fff; box-shadow: inset 3px 0 0 #6bf0cf; }
+.control-sales-strategy-options input:checked ~ i { border-color: #6bf0cf; background: #6bf0cf; color: #123346; }
+.control-sales-strategy-options input:focus-visible + span { outline: 2px solid #6bf0cf; outline-offset: 2px; }
+
+@media (max-width: 760px) {
+  .control-sales-strategy-options > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .control-sales-proforma-grid label:has(#controlSalesDeliveryDate) small { position: static; display: block; margin: 2px 0 5px; white-space: normal; }
+}
+
 .control-sales-opportunity-reference {
   display: grid;
   grid-template-columns: minmax(210px, .7fr) minmax(0, 2fr);
@@ -10074,7 +10090,9 @@ body.operations-fullscreen-open {
 .control-sales-opportunity-reference span { color: #9fb1ca; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .control-sales-opportunity-reference strong { color: #6bf0cf; font-size: 22px; }
 .control-sales-opportunity-reference p { margin: 0; color: #c0ccdc; font-size: 12px; line-height: 1.45; }
-.control-sales-proforma-grid label:has(#controlSalesDeliveryDate) small { display: block; margin: 3px 0 6px; color: #6bf0cf; font-size: 9px; font-weight: 700; }
+.control-sales-proforma-grid label:has(#controlSalesDeliveryDate) { position: relative; }
+.control-sales-proforma-grid label:has(#controlSalesDeliveryDate) small { position: absolute; top: 1px; right: 0; margin: 0; color: #6bf0cf; font-size: 8px; font-weight: 700; white-space: nowrap; }
+.control-sales-proforma-grid #controlSalesDeliveryDate { width: 100%; }
 
 /* Unified hierarchy: centered period filters and one navigation rhythm. */
 .app-shell .topbar.financial-orders-filter-mode {
@@ -14736,7 +14754,6 @@ html.macos-render-safe .app-shell .permission-access-user {
 
 .control-sales-dialog.control-sales-order-format-only .control-sales-source-picker,
 .control-sales-dialog.control-sales-order-format-only .control-sales-form-head label:has(#controlSalesOrderStatus),
-.control-sales-dialog.control-sales-order-format-only .control-sales-proforma-grid label:has(#controlSalesStrategy),
 .control-sales-dialog.control-sales-order-format-only .control-sales-proforma-grid label:has(#controlSalesCustomerCode),
 .control-sales-dialog.control-sales-order-format-only .control-sales-reconciliation { display: none; }
 .control-sales-dialog.control-sales-order-format-only .control-sales-form-head { grid-template-columns: repeat(4, minmax(0, 1fr)); }

@@ -2632,7 +2632,9 @@ function ensureControlSalesDialogs() {
           <label>Tipo de contribuyente<input id="controlSalesTaxpayerType" list="controlSalesTaxpayerTypes"><datalist id="controlSalesTaxpayerTypes"><option value="Gran contribuyente"><option value="Mediano contribuyente"><option value="Pequeño contribuyente"><option value="No contribuyente"></datalist></label>
           <label>Fecha de entrega <small>Opcional · la completa Operaciones</small><input id="controlSalesDeliveryDate" type="date"></label>
           <label>Condición de pago<input id="controlSalesPaymentTerms" list="controlSalesPaymentOptions"><datalist id="controlSalesPaymentOptions"><option value="Contado"><option value="Crédito 15 días"><option value="Crédito 30 días"><option value="Crédito 60 días"></datalist></label>
-          <label>Estrategia<select id="controlSalesStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label>
+          <fieldset class="control-sales-strategy-options"><legend>Tipo de estrategia</legend><div>
+            ${["Retención", "Expansión", "Atracción", "Recuperación"].map((strategy) => `<label><input type="radio" name="controlSalesStrategyOption" value="${strategy}"><span>${strategy}</span><i aria-hidden="true">✓</i></label>`).join("")}
+          </div><select id="controlSalesStrategy" class="hidden" aria-hidden="true" tabindex="-1"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></fieldset>
           <label>Código de cliente<input id="controlSalesCustomerCode"></label>
           <label class="control-sales-perception-toggle"><input id="controlSalesPerceptionEnabled" type="checkbox"><span><b>Percepción 1%</b><small>Aplicar sobre el subtotal</small></span></label>
           <label class="span-4">Observaciones generales<textarea id="controlSalesGeneralNotes" rows="3"></textarea></label>
@@ -2692,6 +2694,9 @@ function ensureControlSalesDialogs() {
   });
   formDialog.addEventListener("change", (event) => {
     if (event.target.matches('input[name="controlSalesDocumentType"], #controlSalesPerceptionEnabled')) updateControlSalesFormTotal();
+    if (event.target.matches('input[name="controlSalesStrategyOption"]')) {
+      document.querySelector("#controlSalesStrategy").value = event.target.value;
+    }
   });
   document.querySelector("#controlSalesFinancialOrderPicker").addEventListener("toggle", (event) => {
     if (event.target.open) {
@@ -2798,6 +2803,9 @@ function fillControlSalesProformaData(data = {}, order = null) {
   });
   const perception = document.querySelector("#controlSalesPerceptionEnabled");
   if (perception) perception.checked = Boolean(data.perceptionEnabled);
+  document.querySelectorAll('input[name="controlSalesStrategyOption"]').forEach((input) => {
+    input.checked = input.value === (data.strategy || "");
+  });
 }
 
 function controlSalesLinkedFinancialOrderIds(currentOrderId = "") {
