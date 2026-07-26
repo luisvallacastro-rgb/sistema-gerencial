@@ -520,6 +520,115 @@ dialog textarea {
 .app-shell .financial-order-actions button { background: rgba(98, 88, 232, .09) !important; color: #5148d7 !important; }
 .app-shell .financial-order-actions button.danger { background: rgba(220, 67, 93, .1) !important; color: #c93651 !important; }
 
+/* Acento luminoso del tema claro: índigo mineral, sin verde neón decorativo. */
+.app-shell .opportunity-total strong,
+.app-shell .financial-orders-toolbar > strong,
+.app-shell .topbar .status-pill,
+.app-shell .crm-total-pill {
+  color: #4f46e5 !important;
+  text-shadow: none !important;
+}
+.app-shell .opportunity-total small { color: #7a8497 !important; }
+.app-shell .presence-head {
+  border-color: rgba(79, 70, 229, .2) !important;
+  background: rgba(79, 70, 229, .08) !important;
+  color: #4338ca !important;
+}
+.app-shell .presence-head strong,
+.app-shell .presence-head span { color: #4338ca !important; opacity: 1 !important; }
+.app-shell .online-pill {
+  border-color: rgba(79, 70, 229, .2) !important;
+  background: rgba(79, 70, 229, .08) !important;
+  color: #4338ca !important;
+  box-shadow: none !important;
+}
+.app-shell .online-pill i {
+  background: #6366f1 !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, .12) !important;
+}
+.app-shell .presence-head i,
+.app-shell .presence-dot {
+  background: #6366f1 !important;
+  box-shadow: 0 0 0 5px rgba(99, 102, 241, .12) !important;
+  animation: none !important;
+}
+.app-shell .financial-orders-toolbar > button,
+.app-shell .control-sales-toolbar > .primary-btn { background: linear-gradient(135deg, #5652dc, #4338ca) !important; }
+
+/* Gestiones: adaptación completa de la ventana heredada al tema claro. */
+#managementDialog { background: transparent !important; }
+#managementDialog::backdrop { background: rgba(220, 227, 238, .68) !important; backdrop-filter: blur(14px) !important; }
+#managementDialog .management-card {
+  border-color: rgba(255, 255, 255, .92) !important;
+  background: rgba(248, 250, 253, .95) !important;
+  color: #182238 !important;
+  box-shadow: 0 30px 85px rgba(35, 47, 72, .2), inset 0 0 0 1px rgba(104, 121, 147, .15) !important;
+  backdrop-filter: blur(28px) saturate(135%) !important;
+}
+#managementDialog .panel-head h3,
+#managementDialog .management-section-head strong { color: #182238 !important; }
+#managementDialog .panel-head .eyebrow,
+#managementDialog .management-section-head span { color: #4f46e5 !important; }
+#managementDialog .icon-btn {
+  border-color: rgba(104, 121, 147, .2) !important;
+  background: #203958 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+#managementDialog .management-section,
+#managementDialog .management-section.entry {
+  border-color: rgba(104, 121, 147, .17) !important;
+  background: rgba(242, 245, 250, .82) !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+#managementDialog .management-row {
+  border-color: rgba(104, 121, 147, .16) !important;
+  background: rgba(255, 255, 255, .88) !important;
+  color: #182238 !important;
+  box-shadow: 0 6px 16px rgba(43, 56, 82, .045) !important;
+}
+#managementDialog .management-row > *,
+#managementDialog .management-row strong,
+#managementDialog .management-row time { color: #182238 !important; }
+#managementDialog .management-row small { color: #68748a !important; }
+#managementDialog .management-row p { color: #4c586f !important; opacity: 1 !important; }
+#managementDialog .management-row-actions .compact-btn {
+  background: rgba(79, 70, 229, .08) !important;
+  color: #4338ca !important;
+}
+#managementDialog .management-row-actions .compact-btn.danger {
+  background: rgba(220, 67, 93, .09) !important;
+  color: #c93651 !important;
+}
+#managementDialog .management-stage-chip .tag {
+  border: 1px solid rgba(79, 70, 229, .16) !important;
+  background: rgba(79, 70, 229, .09) !important;
+  color: #4338ca !important;
+}
+#managementDialog .management-form-grid label { color: #68748a !important; }
+#managementDialog input,
+#managementDialog select,
+#managementDialog textarea {
+  border-color: rgba(104, 121, 147, .22) !important;
+  background: rgba(255, 255, 255, .9) !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+#managementDialog input::placeholder,
+#managementDialog textarea::placeholder { color: #9aa4b5 !important; }
+#managementDialog > .management-card > menu {
+  border-top: 1px solid rgba(104, 121, 147, .14) !important;
+  background: rgba(248, 250, 253, .95) !important;
+}
+#managementDialog > .management-card > menu .ghost-btn,
+#managementDialog > .management-card > menu .secondary-btn {
+  background: rgba(235, 240, 247, .95) !important;
+  color: #4c586f !important;
+}
+#managementDialog #managementSubmitBtn { background: linear-gradient(135deg, #5652dc, #4338ca) !important; color: #fff !important; box-shadow: none !important; }
+#managementDialog .sample-custody-toggle { border-color: rgba(79, 70, 229, .2) !important; background: rgba(79, 70, 229, .08) !important; color: #4338ca !important; }
+
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }
