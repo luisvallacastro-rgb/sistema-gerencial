@@ -10058,6 +10058,24 @@ body.operations-fullscreen-open {
   }
 }
 
+.control-sales-opportunity-reference {
+  display: grid;
+  grid-template-columns: minmax(210px, .7fr) minmax(0, 2fr);
+  align-items: center;
+  gap: 18px;
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border: 1px solid rgba(107, 240, 207, .28);
+  border-radius: 15px;
+  background: linear-gradient(135deg, rgba(23, 157, 122, .14), rgba(23, 55, 91, .35));
+}
+.control-sales-opportunity-reference.hidden { display: none; }
+.control-sales-opportunity-reference div { display: grid; gap: 2px; }
+.control-sales-opportunity-reference span { color: #9fb1ca; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.control-sales-opportunity-reference strong { color: #6bf0cf; font-size: 22px; }
+.control-sales-opportunity-reference p { margin: 0; color: #c0ccdc; font-size: 12px; line-height: 1.45; }
+.control-sales-proforma-grid label:has(#controlSalesDeliveryDate) small { display: block; margin: 3px 0 6px; color: #6bf0cf; font-size: 9px; font-weight: 700; }
+
 /* Unified hierarchy: centered period filters and one navigation rhythm. */
 .app-shell .topbar.financial-orders-filter-mode {
   display: grid;

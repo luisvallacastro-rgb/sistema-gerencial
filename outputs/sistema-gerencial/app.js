@@ -2615,6 +2615,7 @@ function ensureControlSalesDialogs() {
           </div>
         </details>
       </section>
+      <aside id="controlSalesOpportunityReference" class="control-sales-opportunity-reference hidden" aria-live="polite"></aside>
       <section class="control-sales-form-head"><label>Número de orden<input id="controlSalesNumber" required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
       <details class="control-sales-proforma-block" open>
         <summary><span><b>Datos para proforma</b><small>Información comercial, fiscal, entrega y pago</small></span><i aria-hidden="true">⌄</i></summary>
@@ -2629,7 +2630,7 @@ function ensureControlSalesDialogs() {
           <label>NIT<input id="controlSalesTaxId"></label>
           <label>Número de registro<input id="controlSalesRegistrationNumber"></label>
           <label>Tipo de contribuyente<input id="controlSalesTaxpayerType" list="controlSalesTaxpayerTypes"><datalist id="controlSalesTaxpayerTypes"><option value="Gran contribuyente"><option value="Mediano contribuyente"><option value="Pequeño contribuyente"><option value="No contribuyente"></datalist></label>
-          <label>Fecha de entrega<input id="controlSalesDeliveryDate" type="date"></label>
+          <label>Fecha de entrega <small>Opcional · la completa Operaciones</small><input id="controlSalesDeliveryDate" type="date"></label>
           <label>Condición de pago<input id="controlSalesPaymentTerms" list="controlSalesPaymentOptions"><datalist id="controlSalesPaymentOptions"><option value="Contado"><option value="Crédito 15 días"><option value="Crédito 30 días"><option value="Crédito 60 días"></datalist></label>
           <label>Estrategia<select id="controlSalesStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label>
           <label>Código de cliente<input id="controlSalesCustomerCode"></label>
@@ -3002,6 +3003,9 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   const sourceOrder = sourceFinancialOrder || (order?.financialOrderId
     ? state.financialOrders.find((item) => String(item.id) === String(order.financialOrderId))
     : null);
+  const opportunityReference = document.querySelector("#controlSalesOpportunityReference");
+  opportunityReference.classList.toggle("hidden", !sourceWin);
+  opportunityReference.innerHTML = sourceWin ? `<div><span>Valor estimado de la oportunidad</span><strong>${formatMoney(sourceWin.amount || 0)}</strong></div><p>Solo referencia comercial. No se suma al pedido; el total confirmado se calcula con las cantidades y precios unitarios ingresados abajo.</p>` : "";
   setControlSalesFinancialOrderSelection(sourceOrder);
   document.querySelector("#controlSalesFinancialOrderId").value = order?.financialOrderId || sourceOrder?.id || "";
   document.querySelector("#controlSalesNumber").value = sourceOrder?.number || order?.number || nextControlSalesOrderNumber();
@@ -3018,7 +3022,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   const initialDetails = order?.details?.length
     ? order.details
     : sourceWin
-      ? [{ product: sourceWin.segment && sourceWin.segment !== "Sin producto registrado" ? sourceWin.segment : "", quantity: "1", unitPriceCents: Math.round(Number(sourceWin.amount || 0) * 100) }]
+      ? [{ product: sourceWin.segment && sourceWin.segment !== "Sin producto registrado" ? sourceWin.segment : "", quantity: "1" }]
       : [{}];
   document.querySelector("#controlSalesLines").innerHTML = initialDetails.map(controlSalesLineTemplate).join("");
   document.querySelector("#controlSalesFinancialOrderSearch").value = "";
