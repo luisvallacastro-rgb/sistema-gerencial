@@ -238,6 +238,144 @@ dialog textarea {
 .app-shell .appearance-note strong { color: #14804a !important; }
 .app-shell .appearance-note span { color: var(--light-muted) !important; }
 
+/* Tablas comerciales: superficies claras con tipografía de alto contraste. */
+.app-shell .opportunity-table-body .opportunity-row,
+.app-shell .crm-opportunity-row,
+.app-shell .crm-table-row:not(.crm-table-head) {
+  border-color: var(--light-line) !important;
+  background: rgba(255, 255, 255, .76) !important;
+  color: var(--light-ink) !important;
+  box-shadow: 0 7px 18px rgba(43, 56, 82, .055) !important;
+}
+.app-shell .opportunity-row > span,
+.app-shell .opportunity-row strong,
+.app-shell .opportunity-row .company-cell,
+.app-shell .crm-opportunity-row > *,
+.app-shell .crm-table-row:not(.crm-table-head) > * { color: var(--light-ink) !important; }
+.app-shell .opportunity-row small,
+.app-shell .crm-opportunity-row small { color: var(--light-muted) !important; }
+.app-shell .opportunity-table-body .opportunity-row:hover {
+  border-color: rgba(98, 88, 232, .26) !important;
+  background: rgba(255, 255, 255, .94) !important;
+  box-shadow: 0 12px 26px rgba(43, 56, 82, .09) !important;
+}
+.app-shell .opportunity-pagination,
+.app-shell .control-sales-pagination {
+  border-color: var(--light-line) !important;
+  background: rgba(244, 247, 251, .86) !important;
+  color: var(--light-muted) !important;
+}
+.app-shell .opportunity-pagination strong,
+.app-shell .control-sales-pagination strong { color: var(--light-ink) !important; }
+.app-shell .opportunity-pagination button,
+.app-shell .control-sales-pagination button {
+  border-color: var(--light-line) !important;
+  background: #fff !important;
+  color: #4c586f !important;
+}
+
+/* Dashboard acumulado: gráfico completamente adaptado al tema claro. */
+.app-shell .global-accumulated-card,
+.app-shell .accumulated-month-card {
+  border-color: var(--light-line) !important;
+  background: rgba(255, 255, 255, .76) !important;
+  color: var(--light-ink) !important;
+  box-shadow: none !important;
+}
+.app-shell .accumulated-chart-top h3,
+.app-shell .accumulated-month-row > strong,
+.app-shell .accumulated-values strong { color: var(--light-ink) !important; }
+.app-shell .chart-legend,
+.app-shell .accumulated-values span,
+.app-shell .accumulated-values em { color: var(--light-muted) !important; }
+.app-shell .accumulated-month-row {
+  border-color: rgba(104, 121, 147, .16) !important;
+  background: rgba(248, 250, 253, .88) !important;
+  color: var(--light-ink) !important;
+}
+.app-shell .accumulated-track { background: #e3e8f0 !important; }
+.app-shell .accumulated-percent { background: rgba(36, 184, 107, .1) !important; color: #14804a !important; }
+.app-shell .accumulated-percent.annual { background: rgba(217, 119, 6, .1) !important; color: #a75d08 !important; }
+.app-shell .accumulated-difference.positive { color: #15965a !important; }
+
+/* Control de Ventas: resumen, filtros y registros claros. */
+.app-shell .control-sales-hero {
+  border-color: var(--light-line) !important;
+  background: linear-gradient(125deg, rgba(245, 248, 252, .94), rgba(238, 246, 244, .86)) !important;
+  color: var(--light-ink) !important;
+  box-shadow: none !important;
+}
+.app-shell .control-sales-hero h3,
+.app-shell .control-sales-kpis strong { color: var(--light-ink) !important; }
+.app-shell .control-sales-hero p,
+.app-shell .control-sales-kpis small,
+.app-shell .control-sales-kpis span { color: var(--light-muted) !important; }
+.app-shell .control-sales-toolbar,
+.app-shell .control-sales-search,
+.app-shell .control-sales-table {
+  border-color: var(--light-line) !important;
+  background: rgba(255, 255, 255, .72) !important;
+  color: var(--light-ink) !important;
+}
+.app-shell .control-sales-row:not(.head),
+.app-shell .control-sales-row:not(.head) > span,
+.app-shell .control-sales-row:not(.head) b { color: var(--light-ink) !important; }
+.app-shell .control-sales-row:not(.head) small { color: var(--light-muted) !important; }
+.app-shell .control-sales-actions button {
+  border-color: var(--light-line) !important;
+  background: rgba(98, 88, 232, .09) !important;
+  color: #5148d7 !important;
+}
+.app-shell .control-sales-actions .danger { background: rgba(220, 67, 93, .1) !important; color: #c93651 !important; }
+
+/* Formularios flotantes: elimina los bloques grises y corrige textos heredados. */
+.control-sales-dialog .control-sales-source-picker,
+.control-sales-dialog .control-sales-proforma-block,
+.control-sales-dialog .control-sales-line,
+.control-sales-detail-dialog .control-sales-detail-proforma {
+  border-color: rgba(104, 121, 147, .18) !important;
+  background: rgba(248, 250, 253, .82) !important;
+  color: #182238 !important;
+}
+.control-sales-dialog .control-sales-source-heading strong,
+.control-sales-dialog .control-sales-source-selected strong { color: #182238 !important; }
+.control-sales-dialog .control-sales-source-heading small,
+.control-sales-dialog .control-sales-source-selected small { color: #68748a !important; }
+.control-sales-dialog .control-sales-source-dropdown,
+.control-sales-dialog .control-sales-source-dropdown > summary {
+  border-color: rgba(104, 121, 147, .22) !important;
+  background: rgba(255, 255, 255, .86) !important;
+  color: #182238 !important;
+}
+.control-sales-dialog .control-sales-source-dropdown > summary b { color: #182238 !important; }
+.control-sales-dialog .control-sales-source-dropdown > summary small { color: #15965a !important; }
+.control-sales-dialog .control-sales-source-dropdown-panel,
+.control-sales-dialog .control-sales-source-option,
+.control-sales-dialog .control-sales-source-selected {
+  border-color: rgba(104, 121, 147, .18) !important;
+  background: rgba(255, 255, 255, .94) !important;
+  color: #182238 !important;
+}
+.control-sales-dialog .control-sales-proforma-block > summary,
+.control-sales-dialog .control-sales-proforma-block > summary b,
+.control-sales-dialog .control-sales-proforma-grid label,
+.control-sales-dialog .control-sales-lines-title strong,
+.control-sales-dialog .control-sales-line label { color: #4c586f !important; }
+.control-sales-dialog .control-sales-proforma-block > summary small,
+.control-sales-dialog .control-sales-source-picker p,
+.control-sales-dialog .control-sales-source-picker small { color: #68748a !important; }
+.control-sales-dialog footer {
+  border-top: 1px solid rgba(104, 121, 147, .16) !important;
+  background: rgba(248, 250, 253, .94) !important;
+}
+.control-sales-dialog footer > div strong { color: #15965a !important; }
+.control-sales-dialog .control-sales-perception-toggle {
+  border-color: rgba(36, 184, 107, .24) !important;
+  background: rgba(36, 184, 107, .08) !important;
+}
+.control-sales-dialog .control-sales-perception-toggle b { color: #182238 !important; }
+.control-sales-dialog .control-sales-perception-toggle small { color: #68748a !important; }
+
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
 .app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }
