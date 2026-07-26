@@ -1,0 +1,244 @@
+/* Frosted Light 2026: superficie blanca, cristal esmerilado y acentos funcionales. */
+.app-shell {
+  --light-ink: #182238;
+  --light-muted: #68748a;
+  --light-line: rgba(103, 119, 145, .2);
+  --light-glass: rgba(255, 255, 255, .72);
+  --light-glass-strong: rgba(255, 255, 255, .9);
+  --light-soft: rgba(245, 247, 252, .82);
+  --light-primary: #6258e8;
+  --light-primary-soft: rgba(98, 88, 232, .11);
+  --light-success: #24b86b;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(98, 88, 232, .08), transparent 27%),
+    radial-gradient(circle at 88% 88%, rgba(36, 184, 107, .07), transparent 28%),
+    linear-gradient(145deg, #f8fafc 0%, #edf2f8 48%, #f7f9fc 100%) !important;
+  color: var(--light-ink) !important;
+}
+.app-shell::before,
+.app-shell::after,
+.app-shell .nav-item::after,
+.app-shell .submenu-item::after,
+.app-shell .side-nav button::after { display: none !important; animation: none !important; }
+
+.app-shell .sidebar {
+  border: 1px solid rgba(255, 255, 255, .8) !important;
+  border-right-color: var(--light-line) !important;
+  background: rgba(255, 255, 255, .68) !important;
+  color: var(--light-ink) !important;
+  box-shadow: 12px 0 34px rgba(38, 53, 79, .07) !important;
+  backdrop-filter: blur(24px) saturate(130%);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+}
+.app-shell .sidebar-head,
+.app-shell .presence-panel { border-color: var(--light-line) !important; }
+.app-shell .sidebar small,
+.app-shell .presence-empty { color: var(--light-muted) !important; }
+.app-shell .sidebar-toggle,
+.app-shell .sidebar-restore,
+.app-shell .ghost-btn.logout { border-color: var(--light-line) !important; background: rgba(246, 248, 252, .88) !important; color: #445069 !important; box-shadow: none !important; }
+
+.app-shell .nav-group > button,
+.app-shell .nav-item,
+.app-shell .submenu-item,
+.app-shell .side-nav button { color: #4c586f !important; background: transparent !important; box-shadow: none !important; }
+.app-shell .nav-group > button:hover,
+.app-shell .nav-item:hover,
+.app-shell .submenu-item:hover,
+.app-shell .side-nav button:hover { color: var(--light-primary) !important; background: rgba(98, 88, 232, .07) !important; }
+.app-shell .nav-group.active > button,
+.app-shell .nav-item.active,
+.app-shell .submenu-item.active,
+.app-shell .side-nav button.active { border-color: rgba(98, 88, 232, .16) !important; background: linear-gradient(135deg, rgba(98, 88, 232, .13), rgba(98, 88, 232, .06)) !important; color: #5148d7 !important; box-shadow: inset 3px 0 0 var(--light-primary) !important; }
+
+.app-shell .dashboard { background: transparent !important; }
+.app-shell .topbar {
+  border: 1px solid rgba(255, 255, 255, .9) !important;
+  border-bottom-color: var(--light-line) !important;
+  background: rgba(255, 255, 255, .7) !important;
+  box-shadow: 0 10px 30px rgba(39, 54, 83, .06) !important;
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+}
+.app-shell .topbar h2,
+.app-shell .panel h3,
+.app-shell .crm-shell h3,
+.app-shell .crm-shell h4 { color: var(--light-ink) !important; }
+.app-shell .eyebrow { color: #5f55db !important; }
+
+.app-shell .panel,
+.app-shell .crm-panel,
+.app-shell .dashboard-card,
+.app-shell .metric-card,
+.app-shell .commercial-panel,
+.app-shell .control-sales-shell,
+.app-shell .financial-orders-shell,
+.app-shell .purchase-orders-shell {
+  border-color: rgba(255, 255, 255, .9) !important;
+  background: var(--light-glass) !important;
+  color: var(--light-ink) !important;
+  box-shadow: 0 14px 38px rgba(37, 51, 78, .08), inset 0 0 0 1px var(--light-line) !important;
+  backdrop-filter: blur(22px) saturate(130%);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+}
+.app-shell .crm-tracking-overview,
+.app-shell .crm-tracking-sidebar,
+.app-shell .crm-won-history-panel { background: rgba(255, 255, 255, .66) !important; }
+.app-shell .crm-tracking-metrics > div,
+.app-shell .summary-grid > *,
+.app-shell .control-sales-kpis article,
+.app-shell .control-sales-detail-summary article,
+.app-shell .financial-order-kpi,
+.app-shell .purchase-order-kpi {
+  border-color: var(--light-line) !important;
+  background: rgba(249, 250, 253, .82) !important;
+  color: var(--light-ink) !important;
+  box-shadow: none !important;
+}
+.app-shell .crm-tracking-metrics span,
+.app-shell .crm-tracking-metrics small,
+.app-shell .crm-tracking-card p,
+.app-shell .crm-seller-chip span,
+.app-shell .crm-won-history-card p,
+.app-shell .crm-won-history-card small { color: var(--light-muted) !important; }
+.app-shell .crm-tracking-metrics strong,
+.app-shell .crm-tracking-card strong,
+.app-shell .crm-seller-chip strong,
+.app-shell .crm-won-history-card strong { color: var(--light-ink); }
+
+.app-shell .crm-seller-chip,
+.app-shell .crm-tracking-card,
+.app-shell .crm-won-history-card,
+.app-shell .financial-order-card,
+.app-shell .purchase-order-card,
+.app-shell .control-sales-row:not(.head),
+.app-shell .management-row {
+  border-color: var(--light-line) !important;
+  background: rgba(255, 255, 255, .64) !important;
+  color: var(--light-ink) !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.app-shell .crm-seller-chip.is-active,
+.app-shell .crm-tracking-view-tabs button.is-active,
+.app-shell .financial-orders-view-tabs button.active {
+  border-color: rgba(98, 88, 232, .3) !important;
+  background: var(--light-primary-soft) !important;
+  color: #5148d7 !important;
+  box-shadow: none !important;
+}
+.app-shell .crm-tracking-card:hover,
+.app-shell .crm-won-history-card:hover,
+.app-shell .financial-order-card:hover,
+.app-shell .purchase-order-card:hover,
+.app-shell .control-sales-row:not(.head):hover { box-shadow: 0 12px 28px rgba(46, 59, 85, .1) !important; }
+
+.app-shell input,
+.app-shell select,
+.app-shell textarea,
+.app-shell .opportunity-search,
+.app-shell .crm-tracking-search {
+  border-color: var(--light-line) !important;
+  background: rgba(255, 255, 255, .8) !important;
+  color: var(--light-ink) !important;
+  box-shadow: none !important;
+}
+.app-shell input::placeholder,
+.app-shell textarea::placeholder { color: #9aa4b5 !important; }
+.app-shell input:focus,
+.app-shell select:focus,
+.app-shell textarea:focus { border-color: rgba(98, 88, 232, .48) !important; box-shadow: 0 0 0 3px rgba(98, 88, 232, .09) !important; }
+
+.app-shell table,
+.app-shell .crm-data-table,
+.app-shell .control-sales-table { color: var(--light-ink) !important; }
+.app-shell th,
+.app-shell .control-sales-row.head { border-color: var(--light-line) !important; background: rgba(239, 243, 249, .84) !important; color: #657188 !important; }
+.app-shell td { border-color: rgba(111, 127, 151, .16) !important; }
+
+.app-shell .primary-btn { border-color: #6258e8 !important; background: #6258e8 !important; color: #fff !important; box-shadow: none !important; }
+.app-shell .secondary-btn,
+.app-shell .ghost-btn { border-color: var(--light-line) !important; background: rgba(255, 255, 255, .75) !important; color: #4c586f !important; box-shadow: none !important; }
+.app-shell button:not(:disabled):hover { filter: none !important; }
+.app-shell .primary-btn:not(:disabled):hover { background: #574dce !important; box-shadow: 0 8px 18px rgba(74, 65, 190, .16) !important; }
+
+dialog,
+dialog .dialog-card,
+.control-sales-dialog form,
+.control-sales-detail-dialog > section {
+  border-color: rgba(255, 255, 255, .9) !important;
+  background: rgba(248, 250, 253, .9) !important;
+  color: #182238 !important;
+  box-shadow: 0 28px 80px rgba(35, 47, 72, .18), inset 0 0 0 1px rgba(104, 121, 147, .16) !important;
+  backdrop-filter: blur(28px) saturate(135%);
+  -webkit-backdrop-filter: blur(28px) saturate(135%);
+}
+dialog[open]::backdrop { background: rgba(223, 229, 238, .62) !important; backdrop-filter: blur(12px) !important; }
+dialog header,
+dialog footer { border-color: rgba(104, 121, 147, .18) !important; background: rgba(255, 255, 255, .58) !important; }
+dialog h3,
+dialog h4,
+dialog strong { color: #182238; }
+dialog p,
+dialog small,
+dialog label { color: #68748a; }
+dialog input,
+dialog select,
+dialog textarea {
+  border-color: rgba(104, 121, 147, .24) !important;
+  background: rgba(255, 255, 255, .84) !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.control-sales-dialog section,
+.control-sales-detail-dialog section,
+.control-sales-line,
+.control-sales-detail-row,
+.control-sales-proforma-totals article {
+  border-color: rgba(104, 121, 147, .18) !important;
+  background: rgba(255, 255, 255, .62) !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.control-sales-dialog .primary-btn,
+.control-sales-detail-dialog .primary-btn { background: #6258e8 !important; color: #fff !important; box-shadow: none !important; }
+.control-sales-print-btn { border-color: rgba(36, 184, 107, .36) !important; background: rgba(36, 184, 107, .11) !important; color: #14804a !important; box-shadow: none !important; }
+
+/* Apariencia: el selector también adopta el lenguaje claro y esmerilado. */
+.app-shell .appearance-head p { color: var(--light-muted) !important; }
+.app-shell .appearance-current {
+  border-color: rgba(98, 88, 232, .22) !important;
+  background: rgba(98, 88, 232, .08) !important;
+  color: #564dcc !important;
+}
+.app-shell .appearance-option {
+  border-color: rgba(104, 121, 147, .2) !important;
+  background: rgba(255, 255, 255, .66) !important;
+  color: var(--light-ink) !important;
+  box-shadow: 0 12px 30px rgba(43, 56, 82, .07) !important;
+}
+.app-shell .appearance-option:hover { border-color: rgba(98, 88, 232, .38) !important; }
+.app-shell .appearance-option.is-selected {
+  border-color: rgba(98, 88, 232, .58) !important;
+  box-shadow: inset 0 0 0 1px rgba(98, 88, 232, .16), 0 14px 34px rgba(43, 56, 82, .08) !important;
+}
+.app-shell .appearance-option strong { color: var(--light-ink) !important; }
+.app-shell .appearance-option small { color: var(--light-muted) !important; }
+.app-shell .appearance-option.is-selected .appearance-check {
+  border-color: #6258e8 !important;
+  background: #6258e8 !important;
+  color: #fff !important;
+}
+.app-shell .appearance-note {
+  border-color: rgba(36, 184, 107, .2) !important;
+  background: rgba(36, 184, 107, .07) !important;
+  color: var(--light-muted) !important;
+}
+.app-shell .appearance-note strong { color: #14804a !important; }
+.app-shell .appearance-note span { color: var(--light-muted) !important; }
+
+/* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
+.app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
+.app-shell [data-tone="danger"], .app-shell .danger, .app-shell .risk-high { color: #dc435d !important; }
+.app-shell [data-tone="success"], .app-shell .success, .app-shell .won, .app-shell .money { color: #15965a !important; }

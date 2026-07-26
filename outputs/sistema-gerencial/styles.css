@@ -10214,6 +10214,54 @@ body.operations-fullscreen-open {
   }
 }
 
+/* Administración · selector persistente de tema. */
+.appearance-shell { display: grid; gap: 22px; padding: 26px; }
+.appearance-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.appearance-head h3 { margin: 4px 0 6px; font-size: 25px; }
+.appearance-head p { max-width: 680px; margin: 0; color: #9aa9bd; line-height: 1.5; }
+.appearance-current { flex: 0 0 auto; padding: 9px 13px; border: 1px solid rgba(107, 240, 207, .28); border-radius: 999px; background: rgba(107, 240, 207, .08); color: #76efd1; font-size: 11px; font-weight: 850; }
+.appearance-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.appearance-option { position: relative; display: grid; grid-template-columns: 180px minmax(0, 1fr) 34px; align-items: center; gap: 18px; min-height: 168px; padding: 18px; border: 1px solid rgba(126, 153, 190, .24); border-radius: 22px; background: rgba(17, 40, 69, .62); color: #fff; text-align: left; box-shadow: none; }
+.appearance-option:hover { border-color: rgba(107, 240, 207, .42); transform: translateY(-2px); }
+.appearance-option.is-selected { border-color: #6bf0cf; box-shadow: inset 0 0 0 1px rgba(107, 240, 207, .35); }
+.appearance-option > span:nth-child(2) { display: grid; gap: 6px; }
+.appearance-option strong { font-size: 17px; }
+.appearance-option small { color: #9fb0c6; font-size: 11px; line-height: 1.45; }
+.appearance-preview { position: relative; display: block; width: 180px; height: 116px; overflow: hidden; border: 1px solid rgba(139, 158, 185, .28); border-radius: 15px; }
+.appearance-preview::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 34px; }
+.appearance-preview::after { content: ""; position: absolute; top: 11px; right: 10px; width: 124px; height: 22px; border-radius: 7px; }
+.appearance-preview i, .appearance-preview b, .appearance-preview em { position: absolute; top: 43px; width: 35px; height: 54px; border-radius: 8px; }
+.appearance-preview i { left: 46px; }
+.appearance-preview b { left: 87px; }
+.appearance-preview em { left: 128px; }
+.appearance-option-dark .appearance-preview { background: #0d1d34; }
+.appearance-option-dark .appearance-preview::before { background: #142643; }
+.appearance-option-dark .appearance-preview::after,
+.appearance-option-dark .appearance-preview i,
+.appearance-option-dark .appearance-preview b,
+.appearance-option-dark .appearance-preview em { background: #203858; border: 1px solid #315173; }
+.appearance-option-light .appearance-preview { background: linear-gradient(145deg, #fff, #edf2f8); }
+.appearance-option-light .appearance-preview::before { background: rgba(255,255,255,.78); border-right: 1px solid #dce4ef; }
+.appearance-option-light .appearance-preview::after,
+.appearance-option-light .appearance-preview i,
+.appearance-option-light .appearance-preview b,
+.appearance-option-light .appearance-preview em { background: rgba(255,255,255,.78); border: 1px solid #dce4ef; box-shadow: 0 5px 12px rgba(57,74,102,.08); }
+.appearance-check { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid rgba(134, 155, 185, .38); border-radius: 50%; color: transparent; font-style: normal; }
+.appearance-option.is-selected .appearance-check { border-color: #6bf0cf; background: #6bf0cf; color: #123b3d; }
+.appearance-note { display: flex; align-items: center; gap: 14px; padding: 15px 17px; border: 1px solid rgba(118, 146, 181, .18); border-radius: 15px; background: rgba(15, 36, 63, .42); }
+.appearance-note strong { color: #f3f7fc; }
+.appearance-note span { color: #9eacc0; font-size: 11px; }
+
+@media (max-width: 980px) {
+  .appearance-options { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .appearance-head { display: grid; }
+  .appearance-option { grid-template-columns: 1fr 34px; }
+  .appearance-preview { grid-column: 1 / -1; width: 100%; }
+  .appearance-note { display: grid; }
+}
++
 .control-sales-proforma-grid .control-sales-strategy-field { grid-column: span 2; }
 
 @media (max-width: 760px) {

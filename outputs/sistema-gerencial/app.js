@@ -1,6 +1,23 @@
 const macOSRenderSafe = /Macintosh|MacIntel|Mac OS X/i.test(`${navigator.platform || ""} ${navigator.userAgent || ""}`);
 document.documentElement.classList.toggle("macos-render-safe", macOSRenderSafe);
 
+const systemThemeStorageKey = "kmi-system-theme-v1";
+
+function currentSystemTheme() {
+  return localStorage.getItem(systemThemeStorageKey) === "light" ? "light" : "dark";
+}
+
+function applySystemTheme(theme) {
+  const normalized = theme === "light" ? "light" : "dark";
+  localStorage.setItem(systemThemeStorageKey, normalized);
+  document.body.classList.toggle("theme-light-active", normalized === "light");
+  document.querySelector("#appShell")?.classList.toggle("theme-light", normalized === "light");
+  const lightStylesheet = document.querySelector("#lightThemeStylesheet");
+  if (lightStylesheet) lightStylesheet.disabled = normalized !== "light";
+}
+
+applySystemTheme(currentSystemTheme());
+
 const areas = {
   general: {
     label: "Vista ejecutiva",
@@ -292,6 +309,7 @@ areas[adminAreaKey] = {
   nav: "Administracion",
   status: "Usuarios",
   submenus: [
+    { key: "apariencia", label: "Apariencia" },
     { key: "permisos", label: "Permisos" },
     { key: "actas", label: "Actas" },
     { key: "riesgos", label: "Riesgos", status: "Consolidado de todas las gerencias" },
@@ -1003,6 +1021,7 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
   if (areaKey === adminAreaKey) {
     return area.submenus.filter((item) => {
       if (item.key === "cambiar-contrasena") return Boolean(user);
+      if (item.key === "apariencia") return isAdminUser(user);
       if (item.key === "permisos") return canOpenAdminPermissions(user);
       if (item.key === "actas") return canOpenAdminMinutes(user);
       if (["riesgos", "solicitudes"].includes(item.key)) {
@@ -7410,6 +7429,39 @@ function wireAccountPasswordPanel() {
   adminPanel?.querySelector("[data-account-password-open]")?.addEventListener("click", openAccountPasswordDialog);
 }
 
+function renderAdminAppearancePanel() {
+  const selectedTheme = currentSystemTheme();
+  return `
+    <section class="appearance-shell">
+      <header class="appearance-head">
+        <div><span class="eyebrow">Personalización del sistema</span><h3>Apariencia</h3><p>Selecciona la experiencia visual. El cambio es inmediato y se conservará en este navegador.</p></div>
+        <span class="appearance-current">Tema actual · ${selectedTheme === "light" ? "Claro esmerilado" : "Oscuro ejecutivo"}</span>
+      </header>
+      <div class="appearance-options" role="radiogroup" aria-label="Tema visual del sistema">
+        <button type="button" class="appearance-option appearance-option-dark ${selectedTheme === "dark" ? "is-selected" : ""}" data-system-theme="dark" role="radio" aria-checked="${selectedTheme === "dark"}">
+          <span class="appearance-preview"><i></i><b></b><em></em></span>
+          <span><strong>Oscuro ejecutivo</strong><small>Azul profundo, contraste alto y paneles de vidrio oscuro.</small></span>
+          <i class="appearance-check" aria-hidden="true">✓</i>
+        </button>
+        <button type="button" class="appearance-option appearance-option-light ${selectedTheme === "light" ? "is-selected" : ""}" data-system-theme="light" role="radio" aria-checked="${selectedTheme === "light"}">
+          <span class="appearance-preview"><i></i><b></b><em></em></span>
+          <span><strong>Claro esmerilado</strong><small>Fondo blanco, transparencias suaves y sombras naturales.</small></span>
+          <i class="appearance-check" aria-hidden="true">✓</i>
+        </button>
+      </div>
+      <aside class="appearance-note"><strong>Colores funcionales preservados</strong><span>Los estados Tibio, Caliente, Frío, riesgos, alertas y resultados mantienen sus colores en ambos temas.</span></aside>
+    </section>`;
+}
+
+function wireAdminAppearancePanel() {
+  adminPanel?.querySelectorAll("[data-system-theme]").forEach((button) => {
+    button.addEventListener("click", () => {
+      applySystemTheme(button.dataset.systemTheme);
+      renderAdminPanel();
+    });
+  });
+}
+
 function renderAdminPanel() {
   if (!adminPanel) return;
   adminPanel.classList.remove("hidden");
@@ -7418,15 +7470,18 @@ function renderAdminPanel() {
   const matrixScroll = currentMatrix
     ? { top: currentMatrix.scrollTop, left: currentMatrix.scrollLeft }
     : null;
-  const activeAdminSubmenu = ["actas", "cambiar-contrasena"].includes(state.activeSubmenu)
+  const activeAdminSubmenu = ["apariencia", "actas", "cambiar-contrasena"].includes(state.activeSubmenu)
     ? state.activeSubmenu
     : "permisos";
-  adminPanel.innerHTML = activeAdminSubmenu === "actas"
+  adminPanel.innerHTML = activeAdminSubmenu === "apariencia"
+    ? renderAdminAppearancePanel()
+    : activeAdminSubmenu === "actas"
     ? renderAdminMinutesPanel()
     : activeAdminSubmenu === "cambiar-contrasena"
       ? renderAccountPasswordPanel()
       : renderAdminPermissionsPanel();
-  if (activeAdminSubmenu === "actas") wireAdminMinutesPanel();
+  if (activeAdminSubmenu === "apariencia") wireAdminAppearancePanel();
+  else if (activeAdminSubmenu === "actas") wireAdminMinutesPanel();
   else if (activeAdminSubmenu === "cambiar-contrasena") wireAccountPasswordPanel();
   else {
     wireAdminPermissionsPanel();
@@ -7506,6 +7561,8 @@ function renderDashboard() {
     else minutesTopbarTabs?.classList.add("hidden");
     periodLabel.textContent = state.activeSubmenu === "actas"
       ? (state.adminMinuteView === "history" ? "Historial de actas" : "Nueva acta")
+      : state.activeSubmenu === "apariencia"
+        ? "Tema visual"
       : state.activeSubmenu === "cambiar-contrasena"
         ? "Seguridad de la cuenta"
       : ["riesgos", "solicitudes"].includes(state.activeSubmenu)
@@ -7514,6 +7571,8 @@ function renderDashboard() {
     topbarActions?.classList.add("hidden");
     overallStatus.textContent = state.activeSubmenu === "actas"
       ? `${state.minutes.length} actas`
+      : state.activeSubmenu === "apariencia"
+        ? (currentSystemTheme() === "light" ? "Claro" : "Oscuro")
       : state.activeSubmenu === "cambiar-contrasena"
         ? "Cuenta personal"
       : state.activeSubmenu === "riesgos"
