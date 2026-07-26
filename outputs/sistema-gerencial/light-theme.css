@@ -1289,6 +1289,45 @@ dialog footer .ghost-btn {
   font-weight: 850 !important;
   text-shadow: none !important;
 }
+.app-shell .control-sales-row:not(.head) > span:nth-child(6) {
+  overflow: visible !important;
+}
+.app-shell .control-sales-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  min-width: 88px !important;
+  min-height: 28px !important;
+  padding: 5px 11px !important;
+  border: 1px solid #abdccc !important;
+  border-radius: 999px !important;
+  background: #e5f5ef !important;
+  color: #157a5a !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  letter-spacing: .01em !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+  white-space: nowrap !important;
+}
+.app-shell .control-sales-status::before {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #219b72;
+  content: "";
+}
+.app-shell .control-sales-status.warning {
+  border-color: #efc98f !important;
+  background: #fff3df !important;
+  color: #a85b0b !important;
+}
+.app-shell .control-sales-status.warning::before {
+  background: #e89220;
+}
 
 /* Los colores semánticos se conservan: temperatura, riesgo, alertas y resultados. */
 .app-shell [data-tone="warm"], .app-shell .warm, .app-shell .hot { color: #d97706 !important; }
