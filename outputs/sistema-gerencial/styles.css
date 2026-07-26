@@ -12640,6 +12640,7 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 
 /* Periodo operativo sin controles nativos: consistente en Windows y macOS. */
 .control-sales-date-entry {
+  grid-column: span 3;
   grid-template-columns: minmax(112px, .45fr) minmax(310px, 1.55fr);
   grid-template-rows: auto auto;
   align-items: center;
@@ -12948,6 +12949,9 @@ dialog select:disabled {
   .control-sales-search {
     grid-column: span 2;
   }
+  .control-sales-date-entry {
+    grid-column: 1 / 4;
+  }
   .control-sales-toolbar > .primary-btn {
     grid-column: 4;
   }
@@ -12983,6 +12987,7 @@ dialog select:disabled {
     grid-column: 1 / -1;
   }
   .control-sales-date-entry {
+    grid-column: 1 / -1;
     grid-template-columns: minmax(110px, .35fr) minmax(300px, 1fr);
   }
 }
@@ -13015,6 +13020,12 @@ dialog select:disabled {
   }
   .control-sales-date-fields {
     grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
+  }
+  .control-sales-date-fields > button:first-of-type {
+    grid-column: 1 / 2;
+  }
+  .control-sales-date-fields > button:last-of-type {
+    grid-column: 3 / 4;
   }
   .control-sales-date-fields label {
     grid-template-columns: 1fr;
