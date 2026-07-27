@@ -2884,6 +2884,7 @@ function ensureQuotationDialog() {
   if (document.querySelector("#quotationDialog")) return;
   document.body.insertAdjacentHTML("beforeend", `<dialog id="quotationDialog" class="wide-dialog quotation-dialog"><form id="quotationForm">
     <header><div><p class="eyebrow">Comercialización · Cotizaciones</p><h3 id="quotationDialogTitle">Nueva cotización</h3><span id="quotationDialogSubtitle"></span></div><button type="button" data-quotation-close>×</button></header>
+    <div class="quotation-dialog-body">
     <input type="hidden" id="quotationId"><input type="hidden" id="quotationOpportunityId">
     <section id="quotationHistory" class="quotation-history"></section>
     <section class="quotation-form-grid quotation-main-fields"><label>Correlativo<input id="quotationNumber" readonly placeholder="Automático al guardar"></label><label>Fecha<input id="quotationDate" type="date" required></label><label>Vigencia<input id="quotationValidDays" type="number" min="1" max="365" value="30" required><small>días</small></label><label>Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option>Convertida</option></select></label></section>
@@ -2892,6 +2893,7 @@ function ensureQuotationDialog() {
     <section class="quotation-terms"><label>Forma de pago<input id="quotationPaymentTerms"></label><label>Tiempo de entrega<input id="quotationDeliveryTerms"></label><label>Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label>Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2">Tallas especiales<input id="quotationSpecialSizesNote"></label></section>
     <section class="quotation-totals"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article><span>Total cotización</span><strong id="quotationTotal">$0.00</strong></article></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
+    </div>
     <footer><button type="button" class="danger-btn" data-quotation-delete>Eliminar</button><span></span><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-convert-btn" data-quotation-convert>Convertir a pedido</button><button type="button" class="quotation-send-btn" data-quotation-send>Guardar y enviar</button><button type="submit" class="primary-btn">Guardar borrador</button></footer>
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");

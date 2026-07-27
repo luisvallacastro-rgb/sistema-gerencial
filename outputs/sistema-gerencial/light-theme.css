@@ -1707,3 +1707,19 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
 #quotationDialog .quotation-convert-btn{background:#eeefff!important;border-color:#c5c3f6!important;color:#4338ca!important}
 #quotationDialog .quotation-send-btn,#quotationDialog .quotation-section-title button{background:#176f52!important;color:#fff!important}
 .app-shell .crm-quotation-button{background:#f1f0ff!important;border-color:#c9c6f6!important;color:#182238!important;box-shadow:none!important}.app-shell .crm-quotation-button span{color:#4f46d9!important}
+
+/* Cotizaciones claras: encabezado y pie visibles, cuerpo desplazable. */
+#quotationDialog.quotation-dialog > #quotationForm > footer {
+  border-top-color: #dde4ee !important;
+  background: rgba(251, 252, 255, .98) !important;
+  box-shadow: 0 -10px 24px rgba(31, 45, 72, .06) !important;
+}
+#quotationDialog.quotation-dialog [data-quotation-close] {
+  border-color: #cfd8e6 !important;
+  background: #fff !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+#quotationDialog .quotation-dialog-body {
+  background: #fbfcff !important;
+}
