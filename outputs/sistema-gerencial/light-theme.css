@@ -1613,3 +1613,73 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   background: #eef2f7 !important;
   color: #334155 !important;
 }
+
+/* Formulario de pedido/proforma: elimina tarjetas oscuras y verde neón heredado. */
+#controlSalesDialog,
+#controlSalesDialog form { background: #fff !important; background-image: none !important; color: #182238 !important; }
+#controlSalesDialog .eyebrow,
+#controlSalesDialog .control-sales-lines-title span,
+#controlSalesDialog .control-sales-form-head::before { color: #4f46e5 !important; }
+#controlSalesDialog .control-sales-tax-mode legend,
+#controlSalesDialog .control-sales-lines-title strong,
+#controlSalesDialog .control-sales-line label { color: #334155 !important; opacity: 1 !important; }
+#controlSalesDialog .control-sales-tax-card {
+  border-color: #cbd4e0 !important;
+  background: #eef2f7 !important;
+  background-image: none !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+#controlSalesDialog .control-sales-tax-card b { color: #182238 !important; }
+#controlSalesDialog .control-sales-tax-card small { color: #647087 !important; opacity: 1 !important; }
+#controlSalesDialog .control-sales-tax-card i { border-color: #aebaca !important; background: #fff !important; }
+#controlSalesDialog .control-sales-tax-options input:checked + .control-sales-tax-card {
+  border-color: #8178ec !important;
+  background: #e9eaff !important;
+  background-image: none !important;
+  color: #302a9b !important;
+  box-shadow: 0 7px 18px rgba(79,70,229,.1) !important;
+}
+#controlSalesDialog .control-sales-tax-options input:checked + .control-sales-tax-card b { color: #3730a3 !important; }
+#controlSalesDialog .control-sales-tax-options input:checked + .control-sales-tax-card small { color: #565f75 !important; }
+#controlSalesDialog .control-sales-tax-options input:checked + .control-sales-tax-card i {
+  border-color: #6258e8 !important;
+  background: #6258e8 !important;
+  color: #fff !important;
+}
+#controlSalesDialog .control-sales-line {
+  border-color: #d7dee8 !important;
+  background: #f8fafc !important;
+  background-image: none !important;
+}
+#controlSalesDialog .control-sales-line input,
+#controlSalesDialog .control-sales-line select,
+#controlSalesDialog .control-sales-line [data-line-vat][readonly] {
+  border-color: #c4cdd9 !important;
+  background: #e7ecf3 !important;
+  color: #182238 !important;
+  opacity: 1 !important;
+}
+#controlSalesDialog .control-sales-line output { color: #176f52 !important; text-shadow: none !important; }
+#controlSalesDialog .control-sales-line > button { background: #fae8ed !important; color: #c83e58 !important; }
+#controlSalesDialog .control-sales-lines-title button { background: #4f46e5 !important; color: #fff !important; box-shadow: none !important; }
+#controlSalesDialog .control-sales-proforma-totals article {
+  border-color: #d7dee8 !important;
+  background: #f7f9fc !important;
+  background-image: none !important;
+}
+#controlSalesDialog .control-sales-proforma-totals span { color: #647087 !important; opacity: 1 !important; }
+#controlSalesDialog .control-sales-proforma-totals strong { color: #26344b !important; opacity: 1 !important; }
+#controlSalesDialog .control-sales-proforma-totals article:last-child {
+  border-color: #a9d6c5 !important;
+  background: #eaf6f1 !important;
+}
+#controlSalesDialog .control-sales-proforma-totals article:last-child strong,
+#controlSalesDialog footer > div strong { color: #157a5a !important; text-shadow: none !important; }
+#controlSalesDialog .control-sales-proforma-grid label > small,
+#controlSalesDialog .control-sales-optional-note { color: #59667c !important; opacity: 1 !important; }
+#controlSalesDialog .control-sales-print-btn {
+  border-color: #c8c6f5 !important;
+  background: #eef1ff !important;
+  color: #4338ca !important;
+}
