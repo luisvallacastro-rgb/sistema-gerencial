@@ -14,6 +14,14 @@ function applySystemTheme(theme) {
   document.querySelector("#appShell")?.classList.toggle("theme-light", normalized === "light");
   const lightStylesheet = document.querySelector("#lightThemeStylesheet");
   if (lightStylesheet) lightStylesheet.disabled = normalized !== "light";
+  const themeSwitch = document.querySelector("#systemThemeSwitch");
+  if (themeSwitch) {
+    const isLight = normalized === "light";
+    themeSwitch.classList.toggle("is-light", isLight);
+    themeSwitch.setAttribute("aria-checked", String(isLight));
+    themeSwitch.setAttribute("aria-label", isLight ? "Cambiar a tema oscuro" : "Cambiar a tema claro");
+    themeSwitch.title = isLight ? "Usar tema oscuro" : "Usar tema claro";
+  }
 }
 
 applySystemTheme(currentSystemTheme());
@@ -309,7 +317,6 @@ areas[adminAreaKey] = {
   nav: "Administracion",
   status: "Usuarios",
   submenus: [
-    { key: "apariencia", label: "Apariencia" },
     { key: "permisos", label: "Permisos" },
     { key: "actas", label: "Actas" },
     { key: "riesgos", label: "Riesgos", status: "Consolidado de todas las gerencias" },
@@ -715,6 +722,7 @@ const onlineCount = document.querySelector("#onlineCount");
 const presenceList = document.querySelector("#presenceList");
 const sidebarToggleBtn = document.querySelector("#sidebarToggleBtn");
 const sidebarRestoreBtn = document.querySelector("#sidebarRestoreBtn");
+const systemThemeSwitch = document.querySelector("#systemThemeSwitch");
 const navList = document.querySelector("#navList");
 const dashboard = document.querySelector(".dashboard");
 const pageTitle = document.querySelector("#pageTitle");
@@ -8129,6 +8137,10 @@ sidebarToggleBtn.addEventListener("click", () => {
 
 sidebarRestoreBtn.addEventListener("click", () => {
   setSidebarCollapsed(false);
+});
+
+systemThemeSwitch?.addEventListener("click", () => {
+  applySystemTheme(currentSystemTheme() === "light" ? "dark" : "light");
 });
 
 minutesTopbarTabs?.addEventListener("click", (event) => {
