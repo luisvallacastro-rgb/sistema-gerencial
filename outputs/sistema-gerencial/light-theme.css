@@ -1723,3 +1723,8 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
 #quotationDialog .quotation-dialog-body {
   background: #fbfcff !important;
 }
+#quotationDialog .quotation-edit-btn {
+  border-color: #cfd8e6 !important;
+  background: #fff !important;
+  color: #334155 !important;
+}

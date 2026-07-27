@@ -2894,7 +2894,7 @@ function ensureQuotationDialog() {
     <section class="quotation-totals"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article><span>Total cotización</span><strong id="quotationTotal">$0.00</strong></article></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
-    <footer><button type="button" class="danger-btn" data-quotation-delete>Eliminar</button><span></span><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-convert-btn" data-quotation-convert>Convertir a pedido</button><button type="button" class="quotation-send-btn" data-quotation-send>Guardar y enviar</button><button type="submit" class="primary-btn">Guardar borrador</button></footer>
+    <footer><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="primary-btn">Guardar</button><button type="button" class="quotation-convert-btn" data-quotation-convert>Convertir a pedido</button></footer>
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");
   dialog.addEventListener("click", async (event) => {
@@ -2903,9 +2903,16 @@ function ensureQuotationDialog() {
     if (event.target.matches("[data-quotation-remove-line]")) { if (document.querySelectorAll(".quotation-line").length <= 1) return alert("La cotización debe conservar al menos una línea."); event.target.closest(".quotation-line").remove(); updateQuotationTotals(); }
     const history = event.target.closest("[data-quotation-history-id]"); if (history) populateQuotationForm(state.quotations.find((item) => item.id === history.dataset.quotationHistoryId), crmOpportunityForQuotation(document.querySelector("#quotationOpportunityId").value));
     if (event.target.matches("[data-quotation-preview]")) printQuotation(quotationDraftFromForm());
-    if (event.target.matches("[data-quotation-send]")) await saveQuotationFromForm("Enviada", true);
+    if (event.target.matches("[data-quotation-edit]")) {
+      const status = document.querySelector("#quotationSaveStatus");
+      status.textContent = "Edición activa. Realiza los cambios y presiona Guardar.";
+      status.dataset.tone = "success";
+      status.classList.remove("hidden");
+      const firstField = document.querySelector("#quotationCommercialName");
+      firstField?.focus();
+      firstField?.select();
+    }
     if (event.target.matches("[data-quotation-convert]")) await convertQuotationToOrder();
-    if (event.target.matches("[data-quotation-delete]")) await deleteQuotationFromForm();
   });
   dialog.addEventListener("input", (event) => { if (event.target.closest(".quotation-line")) updateQuotationTotals(); });
   document.querySelector("#quotationForm").addEventListener("submit", async (event) => { event.preventDefault(); await saveQuotationFromForm(); });
@@ -2950,7 +2957,6 @@ function populateQuotationForm(quote, opportunity = null) {
   document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:baseDescription, quantity:"1" }]).map(quotationLineTemplate).join("");
   const converted = Boolean(quote?.convertedOrderId);
   const convert = document.querySelector("[data-quotation-convert]"); convert.disabled = converted; convert.textContent = converted ? "Pedido creado" : "Convertir a pedido";
-  document.querySelector("[data-quotation-delete]").disabled = !quote?.id || converted;
   document.querySelector("#quotationDialogTitle").textContent = quote ? `Cotización ${quote.number}` : "Nueva cotización";
   updateQuotationTotals();
 }
