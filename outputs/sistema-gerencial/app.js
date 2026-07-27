@@ -288,6 +288,7 @@ const state = {
   controlSalesDateTo: "",
   controlSalesSort: "date-desc",
   controlSalesPage: 1,
+  quotations: [],
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -2632,7 +2633,7 @@ function ensureControlSalesDialogs() {
   document.body.insertAdjacentHTML("beforeend", `
     <dialog id="controlSalesDialog" class="wide-dialog control-sales-dialog"><form id="controlSalesForm" method="dialog">
       <header><div><p class="eyebrow">Operaciones</p><h3 id="controlSalesDialogTitle">Nueva orden</h3></div><button type="button" data-control-sales-close>×</button></header>
-      <input type="hidden" id="controlSalesId"><input type="hidden" id="controlSalesFinancialOrderId"><input type="hidden" id="controlSalesSourceOpportunityId">
+      <input type="hidden" id="controlSalesId"><input type="hidden" id="controlSalesFinancialOrderId"><input type="hidden" id="controlSalesSourceOpportunityId"><input type="hidden" id="controlSalesSourceQuotationId">
       <section class="control-sales-source-picker">
         <div class="control-sales-source-heading"><div><span>Pedido de origen</span><strong>Selecciona por correlativo o cliente</strong></div><small>Pedidos desde julio de 2026 que todavía no han sido ingresados.</small></div>
         <div id="controlSalesFinancialOrderSelected"></div>
@@ -2739,7 +2740,7 @@ function ensureControlSalesDialogs() {
       notes: line.querySelector("[data-line-notes]").value.trim()
     }));
     const id = document.querySelector("#controlSalesId").value;
-    const payload = { financialOrderId:document.querySelector("#controlSalesFinancialOrderId").value, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+    const payload = { financialOrderId:document.querySelector("#controlSalesFinancialOrderId").value, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
     const submit = form.querySelector('button[type="submit"]');
     const saveStatus = document.querySelector("#controlSalesSaveStatus");
     submit.disabled = true;
@@ -2752,6 +2753,7 @@ function ensureControlSalesDialogs() {
       document.querySelector("#controlSalesDialogTitle").textContent = `Editar pedido #${savedOrder.number}`;
       submit.textContent = "Guardar cambios";
       await loadControlSales();
+      await loadQuotations();
       if (formDialog.dataset.orderFormatOnly === "true" && state.activeSubmenu === "crm-seguimiento") {
         renderCommercialSubmenu(areas.comercializacion);
       }
@@ -2847,6 +2849,162 @@ function controlSalesLinkedFinancialOrderIds(currentOrderId = "") {
     .filter((order) => order.id !== currentOrderId)
     .map((order) => String(order.financialOrderId || ""))
     .filter(Boolean));
+}
+
+const QUOTATIONS_STORAGE_KEY = "sistemaGerencial.cotizaciones.v1";
+
+async function loadQuotations() {
+  if (apiEnabled) {
+    try {
+      const items = await apiJson("/api/quotations");
+      state.quotations = Array.isArray(items) ? items : [];
+      return state.quotations;
+    } catch (error) { console.warn("No fue posible cargar las cotizaciones", error); }
+  }
+  try { state.quotations = JSON.parse(localStorage.getItem(QUOTATIONS_STORAGE_KEY) || "[]"); }
+  catch { state.quotations = []; }
+  return state.quotations;
+}
+
+function persistLocalQuotations() { localStorage.setItem(QUOTATIONS_STORAGE_KEY, JSON.stringify(state.quotations)); }
+function crmOpportunityForQuotation(id) { return crmData().opportunities.find((item) => String(item.id) === String(id)); }
+function crmCustomerForQuotation(opportunity) {
+  const customers = crmData().customers || [];
+  return customers.find((item) => String(item.id) === String(opportunity?.customerId))
+    || customers.find((item) => normalizeKey(item.commercialName || item.name) === normalizeKey(opportunity?.company)) || {};
+}
+
+function quotationLineTemplate(line = {}) {
+  const id = line.id || crypto.randomUUID();
+  const price = line.unitPriceCents == null ? "" : (Number(line.unitPriceCents) / 100).toFixed(2);
+  return `<div class="quotation-line" data-quotation-line-id="${escapeHtml(id)}"><label class="quotation-product">Descripción<input data-quotation-description required value="${escapeHtml(line.description || line.product || "")}" placeholder="Producto, confección o servicio"></label><label>Talla<input data-quotation-size value="${escapeHtml(line.size || "")}" placeholder="Opcional"></label><label>Cantidad<input data-quotation-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(line.quantity || "1")}"></label><label>Precio unitario<input data-quotation-price required type="number" min="0" step="0.01" value="${price}"></label><output data-quotation-line-total>${formatControlSalesMoney(line.lineTotalCents || 0)}</output><label class="quotation-notes">Detalle<input data-quotation-notes value="${escapeHtml(line.notes || "")}" placeholder="Color, tela, bordado…"></label><button type="button" data-quotation-remove-line aria-label="Quitar línea">×</button></div>`;
+}
+
+function ensureQuotationDialog() {
+  if (document.querySelector("#quotationDialog")) return;
+  document.body.insertAdjacentHTML("beforeend", `<dialog id="quotationDialog" class="wide-dialog quotation-dialog"><form id="quotationForm">
+    <header><div><p class="eyebrow">Comercialización · Cotizaciones</p><h3 id="quotationDialogTitle">Nueva cotización</h3><span id="quotationDialogSubtitle"></span></div><button type="button" data-quotation-close>×</button></header>
+    <input type="hidden" id="quotationId"><input type="hidden" id="quotationOpportunityId">
+    <section id="quotationHistory" class="quotation-history"></section>
+    <section class="quotation-form-grid quotation-main-fields"><label>Correlativo<input id="quotationNumber" readonly placeholder="Automático al guardar"></label><label>Fecha<input id="quotationDate" type="date" required></label><label>Vigencia<input id="quotationValidDays" type="number" min="1" max="365" value="30" required><small>días</small></label><label>Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option>Convertida</option></select></label></section>
+    <details class="quotation-customer" open><summary><span><b>Cliente y responsable comercial</b><small>La cotización conserva estos datos para reutilizarlos al crear el pedido.</small></span><i>⌃</i></summary><div class="quotation-form-grid"><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></details>
+    <section class="quotation-lines"><div class="quotation-section-title"><div><span>Detalle económico</span><h4>Productos y servicios</h4></div><button type="button" data-quotation-add-line>+ Agregar línea</button></div><div id="quotationLines"></div></section>
+    <section class="quotation-terms"><label>Forma de pago<input id="quotationPaymentTerms"></label><label>Tiempo de entrega<input id="quotationDeliveryTerms"></label><label>Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label>Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2">Tallas especiales<input id="quotationSpecialSizesNote"></label></section>
+    <section class="quotation-totals"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article><span>Total cotización</span><strong id="quotationTotal">$0.00</strong></article></section>
+    <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
+    <footer><button type="button" class="danger-btn" data-quotation-delete>Eliminar</button><span></span><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-convert-btn" data-quotation-convert>Convertir a pedido</button><button type="button" class="quotation-send-btn" data-quotation-send>Guardar y enviar</button><button type="submit" class="primary-btn">Guardar borrador</button></footer>
+  </form></dialog>`);
+  const dialog = document.querySelector("#quotationDialog");
+  dialog.addEventListener("click", async (event) => {
+    if (event.target.matches("[data-quotation-close]")) dialog.close();
+    if (event.target.matches("[data-quotation-add-line]")) { document.querySelector("#quotationLines").insertAdjacentHTML("beforeend", quotationLineTemplate()); updateQuotationTotals(); }
+    if (event.target.matches("[data-quotation-remove-line]")) { if (document.querySelectorAll(".quotation-line").length <= 1) return alert("La cotización debe conservar al menos una línea."); event.target.closest(".quotation-line").remove(); updateQuotationTotals(); }
+    const history = event.target.closest("[data-quotation-history-id]"); if (history) populateQuotationForm(state.quotations.find((item) => item.id === history.dataset.quotationHistoryId), crmOpportunityForQuotation(document.querySelector("#quotationOpportunityId").value));
+    if (event.target.matches("[data-quotation-preview]")) printQuotation(quotationDraftFromForm());
+    if (event.target.matches("[data-quotation-send]")) await saveQuotationFromForm("Enviada", true);
+    if (event.target.matches("[data-quotation-convert]")) await convertQuotationToOrder();
+    if (event.target.matches("[data-quotation-delete]")) await deleteQuotationFromForm();
+  });
+  dialog.addEventListener("input", (event) => { if (event.target.closest(".quotation-line")) updateQuotationTotals(); });
+  document.querySelector("#quotationForm").addEventListener("submit", async (event) => { event.preventDefault(); await saveQuotationFromForm(); });
+}
+
+function quotationDraftFromForm() {
+  const lines = [...document.querySelectorAll("#quotationLines .quotation-line")].map((line) => {
+    const quantity = Number(line.querySelector("[data-quotation-quantity]").value || 0);
+    const unitPrice = Number(line.querySelector("[data-quotation-price]").value || 0);
+    return { id:line.dataset.quotationLineId, description:line.querySelector("[data-quotation-description]").value.trim(), size:line.querySelector("[data-quotation-size]").value.trim(), quantity:String(quantity), unitPrice, unitPriceCents:Math.round(unitPrice * 100), lineTotalCents:Math.round(quantity * unitPrice * 100), notes:line.querySelector("[data-quotation-notes]").value.trim() };
+  });
+  const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
+  const vatCents = Math.round(subtotalCents * .13);
+  return { id:document.querySelector("#quotationId").value, opportunityId:document.querySelector("#quotationOpportunityId").value, number:document.querySelector("#quotationNumber").value, date:document.querySelector("#quotationDate").value, validDays:Number(document.querySelector("#quotationValidDays").value || 30), seller:document.querySelector("#quotationSeller").value.trim(), client:document.querySelector("#quotationCommercialName").value.trim(), status:document.querySelector("#quotationStatus").value,
+    customerData:{ commercialName:document.querySelector("#quotationCommercialName").value.trim(), legalName:document.querySelector("#quotationLegalName").value.trim(), contactName:document.querySelector("#quotationContactName").value.trim(), phone:document.querySelector("#quotationPhone").value.trim(), email:document.querySelector("#quotationEmail").value.trim(), address:document.querySelector("#quotationAddress").value.trim(), businessActivity:document.querySelector("#quotationBusinessActivity").value.trim(), taxId:document.querySelector("#quotationTaxId").value.trim(), registrationNumber:document.querySelector("#quotationRegistrationNumber").value.trim(), taxpayerType:document.querySelector("#quotationTaxpayerType").value.trim(), customerCode:document.querySelector("#quotationCustomerCode").value.trim(), strategy:document.querySelector("#quotationStrategy").value, sellerPhone:document.querySelector("#quotationSellerPhone").value.trim(), sellerEmail:document.querySelector("#quotationSellerEmail").value.trim(), sellerRole:"Ejecutivo/a de ventas" },
+    paymentTerms:document.querySelector("#quotationPaymentTerms").value.trim(), deliveryTerms:document.querySelector("#quotationDeliveryTerms").value.trim(), warrantyNote:document.querySelector("#quotationWarrantyNote").value.trim(), commercialNotes:document.querySelector("#quotationCommercialNotes").value.trim(), specialSizesNote:document.querySelector("#quotationSpecialSizesNote").value.trim(), subtotalCents, vatCents, totalCents:subtotalCents + vatCents, lines, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+}
+
+function updateQuotationTotals() {
+  const draft = quotationDraftFromForm();
+  draft.lines.forEach((line, index) => { const output = document.querySelectorAll("[data-quotation-line-total]")[index]; if (output) output.textContent = formatControlSalesMoney(line.lineTotalCents); });
+  document.querySelector("#quotationSubtotal").textContent = formatControlSalesMoney(draft.subtotalCents);
+  document.querySelector("#quotationVat").textContent = formatControlSalesMoney(draft.vatCents);
+  document.querySelector("#quotationTotal").textContent = formatControlSalesMoney(draft.totalCents);
+}
+
+function renderQuotationHistory(opportunityId) {
+  const quotes = state.quotations.filter((item) => String(item.opportunityId) === String(opportunityId)).sort((a,b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)));
+  document.querySelector("#quotationHistory").innerHTML = `<div><span>Historial de la oportunidad</span><strong>${quotes.length} ${quotes.length === 1 ? "cotización" : "cotizaciones"}</strong></div>${quotes.length ? `<nav>${quotes.map((quote) => `<button type="button" data-quotation-history-id="${escapeHtml(quote.id)}"><b>${escapeHtml(quote.number)}</b><span>${formatDate(quote.date)} · ${formatControlSalesMoney(quote.totalCents)}</span><em data-status="${escapeHtml(quote.status)}">${escapeHtml(quote.status)}</em></button>`).join("")}</nav>` : `<p>Aún no hay cotizaciones guardadas.</p>`}`;
+}
+
+function populateQuotationForm(quote, opportunity = null) {
+  const customer = quote?.customerData || crmCustomerForQuotation(opportunity);
+  const seller = (crmData().sellers || []).find((item) => item.id === opportunity?.ownerId) || {};
+  const values = {
+    quotationId:quote?.id || "", quotationNumber:quote?.number || "", quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
+    quotationCommercialName:customer.commercialName || customer.name || quote?.client || opportunity?.company || "", quotationLegalName:customer.legalName || "", quotationContactName:customer.contactName || customer.manager || opportunity?.contact || "", quotationPhone:customer.phone || opportunity?.phone || "", quotationEmail:customer.email || "", quotationAddress:customer.address || opportunity?.location || "", quotationBusinessActivity:customer.businessActivity || customer.businessLine || opportunity?.segment || "", quotationTaxId:customer.taxId || customer.nit || "", quotationRegistrationNumber:customer.registrationNumber || customer.nrc || "", quotationTaxpayerType:customer.taxpayerType || "", quotationCustomerCode:customer.customerCode || customer.code || "", quotationStrategy:customer.strategy || opportunity?.strategy || "", quotationSeller:quote?.seller || seller.name || opportunity?.seller || state.currentUser?.name || "", quotationSellerPhone:customer.sellerPhone || seller.phone || "", quotationSellerEmail:customer.sellerEmail || seller.email || state.currentUser?.email || "",
+    quotationPaymentTerms:quote?.paymentTerms || "50% de anticipo - 50% contra entrega", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:quote?.commercialNotes || "Precios unitarios no incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
+  };
+  Object.entries(values).forEach(([id,value]) => { const field = document.querySelector(`#${id}`); if (field) field.value = value; });
+  const baseDescription = opportunity?.product || opportunity?.segment || "";
+  document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:baseDescription, quantity:"1" }]).map(quotationLineTemplate).join("");
+  const converted = Boolean(quote?.convertedOrderId);
+  const convert = document.querySelector("[data-quotation-convert]"); convert.disabled = converted; convert.textContent = converted ? "Pedido creado" : "Convertir a pedido";
+  document.querySelector("[data-quotation-delete]").disabled = !quote?.id || converted;
+  document.querySelector("#quotationDialogTitle").textContent = quote ? `Cotización ${quote.number}` : "Nueva cotización";
+  updateQuotationTotals();
+}
+
+async function openQuotationDialog(opportunityId, quoteId = "") {
+  ensureQuotationDialog(); await loadQuotations();
+  let opportunity = crmOpportunityForQuotation(opportunityId);
+  if (!opportunity) {
+    const win = crmResultWinHistory().find((item) => String(item.id) === String(opportunityId));
+    if (win) opportunity = { id:win.id, company:win.company, seller:win.seller, estimatedAmount:win.amount, segment:win.segment || "", product:win.product || "", stageId:"Cierre ganado" };
+  }
+  if (!opportunity) return alert("No se encontró la oportunidad comercial.");
+  const quote = quoteId ? state.quotations.find((item) => item.id === quoteId) : null;
+  document.querySelector("#quotationOpportunityId").value = opportunity.id;
+  document.querySelector("#quotationDialogSubtitle").textContent = `${opportunity.company} · ${opportunity.stage?.name || opportunity.stageId || "Oportunidad"}`;
+  renderQuotationHistory(opportunity.id); populateQuotationForm(quote, opportunity);
+  const status = document.querySelector("#quotationSaveStatus"); status.classList.add("hidden"); status.textContent = ""; status.dataset.tone = "success";
+  document.querySelector("#quotationDialog").showModal();
+}
+
+async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
+  const form = document.querySelector("#quotationForm"); if (!form.reportValidity()) return null;
+  const draft = quotationDraftFromForm(); if (forcedStatus) draft.status = forcedStatus;
+  const status = document.querySelector("#quotationSaveStatus");
+  try {
+    let saved;
+    if (apiEnabled) { const response = await apiJson(draft.id ? `/api/quotations/${encodeURIComponent(draft.id)}` : "/api/quotations", { method:draft.id ? "PUT" : "POST", body:JSON.stringify(draft) }); saved = response.item; await loadQuotations(); }
+    else { const now = new Date().toISOString(); const year = draft.date.slice(0,4); const sequence = state.quotations.filter((item) => String(item.number || "").startsWith(`COT-${year}-`)).length + 1; saved = { ...draft, id:draft.id || crypto.randomUUID(), number:draft.number || `COT-${year}-${String(sequence).padStart(4,"0")}`, status:draft.status, updatedAt:now, createdAt:draft.createdAt || now }; const index = state.quotations.findIndex((item) => item.id === saved.id); if (index >= 0) state.quotations[index] = saved; else state.quotations.unshift(saved); persistLocalQuotations(); }
+    renderQuotationHistory(saved.opportunityId); populateQuotationForm(saved, crmOpportunityForQuotation(saved.opportunityId));
+    status.textContent = forcedStatus === "Enviada" ? "Cotización guardada como enviada. Ya puedes imprimirla o preparar el correo." : "Cambios guardados. Puedes continuar editando, imprimir o convertir a pedido."; status.classList.remove("hidden");
+    if (openPreview) printQuotation(saved); return saved;
+  } catch (error) { status.textContent = error.message || "No se pudo guardar la cotización."; status.classList.remove("hidden"); status.dataset.tone = "error"; return null; }
+}
+
+async function deleteQuotationFromForm() {
+  const id = document.querySelector("#quotationId").value; if (!id || !confirm("¿Eliminar esta cotización?")) return;
+  try { if (apiEnabled) await apiJson(`/api/quotations/${encodeURIComponent(id)}`, { method:"DELETE" }); state.quotations = state.quotations.filter((item) => item.id !== id); persistLocalQuotations(); document.querySelector("#quotationDialog").close(); renderCommercialSubmenu(areas.comercializacion); }
+  catch (error) { alert(error.message || "No se pudo eliminar la cotización."); }
+}
+
+async function convertQuotationToOrder() {
+  let quote = state.quotations.find((item) => item.id === document.querySelector("#quotationId").value); if (!quote) quote = await saveQuotationFromForm();
+  if (!quote || quote.convertedOrderId) return;
+  const opportunity = crmOpportunityForQuotation(quote.opportunityId); document.querySelector("#quotationDialog").close();
+  openControlSalesForm(null, null, { id:quote.opportunityId, company:quote.client, seller:quote.seller, amount:Number(opportunity?.estimatedAmount || 0), date:quote.date, segment:opportunity?.segment || opportunity?.product || "" }, true, quote);
+}
+
+function printQuotation(quote) {
+  if (!quote.lines?.length) return alert("Agrega al menos una línea a la cotización.");
+  const popup = window.open("", "_blank", "width=980,height=900");
+  if (!popup) return alert("Habilita las ventanas emergentes para ver la cotización.");
+  const data = quote.customerData || {}; const value = (item) => escapeHtml(String(item || ""));
+  const rows = quote.lines.map((line) => `<tr><td>${value(line.quantity)}</td><td><b>${value(line.description)}</b>${line.size ? `<small>Talla ${value(line.size)}</small>` : ""}${line.notes ? `<small>${value(line.notes)}</small>` : ""}</td><td>${formatControlSalesMoney(line.unitPriceCents)}</td><td>${formatControlSalesMoney(line.lineTotalCents)}</td></tr>`).join("");
+  const emailHref = `mailto:${encodeURIComponent(data.email || "")}?subject=${encodeURIComponent(`Cotización ${quote.number || ""} - Arte y Color Uniformes`)}&body=${encodeURIComponent(`Estimado/a ${data.contactName || quote.client}:\n\nAdjuntamos la cotización ${quote.number || ""}. La oferta tiene una vigencia de ${quote.validDays || 30} días.\n\nSaludos,\n${quote.seller}`)}`;
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${value(quote.number || "Cotización")}</title><style>@page{size:Letter;margin:12mm}*{box-sizing:border-box}body{margin:0;color:#18233d;font:12px Arial,sans-serif}.sheet{max-width:850px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;align-items:start;border-bottom:4px solid #32b82d;padding-bottom:18px}.brand{color:#2db328;font-size:28px;font-weight:900}.brand small{display:block;color:#6f7b8f;font-size:11px;letter-spacing:.35em}.quote{text-align:right}.quote h1{margin:0;font-size:25px}.quote strong{display:block;color:#5148db;font-size:20px;margin-top:8px}.client{margin:28px 0 22px}.client h2{margin:5px 0}.intro{font-size:13px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:20px}th{background:#182d4e;color:#fff;text-align:left;padding:11px}td{padding:11px;border-bottom:1px solid #d8dfeb}td:nth-child(1){width:10%;text-align:center}td:nth-child(3),td:nth-child(4){text-align:right}td small{display:block;color:#657188;margin-top:3px}.closing{display:grid;grid-template-columns:1fr 280px;gap:24px;margin-top:22px}.terms{line-height:1.55}.totals{margin:0}.totals td{font-size:13px}.totals tr:last-child{background:#edf8f1;font-size:17px;font-weight:900}.seller{margin-top:55px;width:310px;border-top:1px solid #18233d;padding-top:8px}.actions{position:fixed;top:14px;right:14px;display:flex;gap:8px;background:#182d4e;padding:8px;border-radius:12px}.actions button,.actions a{border:0;border-radius:8px;padding:10px 13px;background:#2aa879;color:white;text-decoration:none;font-weight:800;cursor:pointer}.actions button:last-child{background:white;color:#18233d}@media print{.actions{display:none}.sheet{padding:0}}</style></head><body><main class="sheet"><header class="top"><div class="brand">ARTE Y COLOR<small>UNIFORMES</small></div><div class="quote"><h1>COTIZACIÓN</h1><strong>${value(quote.number || "BORRADOR")}</strong><span>${formatDate(quote.date)} · Vigencia ${quote.validDays || 30} días</span></div></header><section class="client"><span>Señores</span><h2>${value(quote.client)}</h2><p>${value(data.contactName)}${data.address ? ` · ${value(data.address)}` : ""}</p></section><p class="intro">Reciba un cordial saludo. Presentamos nuestra oferta para los productos y servicios detallados a continuación:</p><table><thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th>PRECIO UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${rows}</tbody></table><section class="closing"><div class="terms"><p><b>Garantía:</b> ${value(quote.warrantyNote)}</p><p><b>Forma de pago:</b> ${value(quote.paymentTerms)}</p><p><b>Tiempo de entrega:</b> ${value(quote.deliveryTerms)}</p><p><b>Condiciones:</b> ${value(quote.commercialNotes)}. ${value(quote.specialSizesNote)}.</p></div><table class="totals"><tr><td>Subtotal</td><td>${formatControlSalesMoney(quote.subtotalCents)}</td></tr><tr><td>IVA 13%</td><td>${formatControlSalesMoney(quote.vatCents)}</td></tr><tr><td>TOTAL</td><td>${formatControlSalesMoney(quote.totalCents)}</td></tr></table></section><div class="seller"><b>${value(quote.seller)}</b><br>${value(data.sellerRole || "Ejecutivo/a de ventas")}<br>${value(data.sellerPhone)} · ${value(data.sellerEmail)}</div></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><a href="${emailHref}">Preparar correo</a><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  popup.document.close();
 }
 
 const CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01";
@@ -3034,7 +3192,7 @@ function nextControlSalesOrderNumber() {
   return String(highest + 1);
 }
 
-function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false) {
+function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false, sourceQuotation = null) {
   ensureControlSalesDialogs();
   const dialog = document.querySelector("#controlSalesDialog");
   dialog.classList.toggle("control-sales-order-format-only", formatOnly);
@@ -3047,6 +3205,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   dialog.querySelector('button[type="submit"]').textContent = order ? "Guardar cambios" : "Guardar orden";
   document.querySelector("#controlSalesId").value = order?.id || "";
   document.querySelector("#controlSalesSourceOpportunityId").value = order?.sourceOpportunityId || sourceWin?.id || "";
+  document.querySelector("#controlSalesSourceQuotationId").value = order?.sourceQuotationId || sourceQuotation?.id || "";
   const sourceOrder = sourceFinancialOrder || (order?.financialOrderId
     ? state.financialOrders.find((item) => String(item.id) === String(order.financialOrderId))
     : null);
@@ -3056,18 +3215,25 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   setControlSalesFinancialOrderSelection(sourceOrder);
   document.querySelector("#controlSalesFinancialOrderId").value = order?.financialOrderId || sourceOrder?.id || "";
   document.querySelector("#controlSalesNumber").value = sourceOrder?.number || order?.number || nextControlSalesOrderNumber();
-  document.querySelector("#controlSalesDate").value = order?.date || sourceWin?.date || todayISO();
-  document.querySelector("#controlSalesSeller").value = sourceOrder?.seller || order?.seller || sourceWin?.seller || "";
-  document.querySelector("#controlSalesClient").value = sourceOrder?.client || order?.client || sourceWin?.company || "";
-  fillControlSalesProformaData(order?.proformaData || {}, order || sourceOrder);
+  document.querySelector("#controlSalesDate").value = order?.date || sourceQuotation?.date || sourceWin?.date || todayISO();
+  document.querySelector("#controlSalesSeller").value = sourceOrder?.seller || order?.seller || sourceQuotation?.seller || sourceWin?.seller || "";
+  document.querySelector("#controlSalesClient").value = sourceOrder?.client || order?.client || sourceQuotation?.client || sourceWin?.company || "";
+  const quotationData = sourceQuotation ? {
+    ...(sourceQuotation.customerData || {}),
+    paymentTerms: sourceQuotation.paymentTerms || "",
+    generalNotes: sourceQuotation.commercialNotes || ""
+  } : {};
+  fillControlSalesProformaData(order?.proformaData || quotationData, order || sourceOrder);
   if (!order && sourceWin && !document.querySelector("#controlSalesCommercialName").value) {
     document.querySelector("#controlSalesCommercialName").value = sourceWin.company || "";
   }
   document.querySelector("#controlSalesOrderStatus").value = order?.status === "Histórica" ? "Activa" : (order?.status || "Activa");
-  const documentType = order?.documentType === "CCF" ? "CCF" : "CF";
+  const documentType = sourceQuotation ? "CCF" : (order?.documentType === "CCF" ? "CCF" : "CF");
   document.querySelector(`input[name="controlSalesDocumentType"][value="${documentType}"]`).checked = true;
   const initialDetails = order?.details?.length
     ? order.details
+    : sourceQuotation?.lines?.length
+      ? sourceQuotation.lines.map((line) => ({ id: line.id, product: line.description, size: line.size, quantity: line.quantity, unitPriceCents: line.unitPriceCents, notes: line.notes }))
     : sourceWin
       ? [{ product: sourceWin.segment && sourceWin.segment !== "Sin producto registrado" ? sourceWin.segment : "", quantity: "1" }]
       : [{}];
@@ -3092,7 +3258,10 @@ function openCrmWonOrder(opportunityId) {
     openControlSalesDetail(detailOrder.id, true);
     return;
   }
-  openControlSalesForm(null, financialOrder || null, win, true);
+  const quotation = state.quotations
+    .filter((item) => String(item.opportunityId) === String(opportunityId))
+    .sort((a, b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)))[0];
+  openQuotationDialog(opportunityId, quotation?.id || "");
 }
 
 function printControlSalesProformaInline(order) {
@@ -5489,9 +5658,7 @@ function renderCrmTracking() {
       <footer>
         <strong>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</strong>
         <span>${opp.closePercent || 0}% cierre</span>
-        <button class="crm-link-pill" type="button" data-crm-migrate="${opp.id}" ${opportunityMigratedFromCrm(opp.id) ? "disabled" : ""}>
-          ${opportunityMigratedFromCrm(opp.id) ? "Migrada" : "Migrar a resultados"}
-        </button>
+        <div class="crm-tracking-card-actions"><button class="crm-quotation-button" type="button" data-crm-quotation="${opp.id}"><span>Cotización</span><strong>${state.quotations.filter((item) => String(item.opportunityId) === String(opp.id)).length ? `Ver / editar (${state.quotations.filter((item) => String(item.opportunityId) === String(opp.id)).length})` : "Crear cotización"}</strong></button><button class="crm-link-pill" type="button" data-crm-migrate="${opp.id}" ${opportunityMigratedFromCrm(opp.id) ? "disabled" : ""}>${opportunityMigratedFromCrm(opp.id) ? "Migrada" : "Migrar a resultados"}</button></div>
       </footer>
     </article>
   `).join("");
@@ -5499,6 +5666,9 @@ function renderCrmTracking() {
     const financialOrder = financialOrderByOpportunityId.get(String(win.id));
     const detailOrder = (financialOrder ? controlSalesByFinancialOrderId.get(String(financialOrder.id)) : null)
       || controlSalesByOpportunityId.get(String(win.id));
+    const quotation = state.quotations
+      .filter((item) => String(item.opportunityId) === String(win.id))
+      .sort((a, b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)))[0];
     return `
     <article class="crm-won-history-card">
       <div class="crm-won-history-date">
@@ -5516,8 +5686,8 @@ function renderCrmTracking() {
       </div>
       <p>${escapeHtml(win.comment || "Cierre ganado registrado.")}</p>
       <button type="button" class="crm-won-order-button ${detailOrder ? "is-ready" : ""}" data-crm-won-order="${escapeHtml(win.id)}">
-        <span>${detailOrder ? "Pedido listo" : "Pedido"}</span>
-        <strong>${detailOrder ? "Ver / editar / imprimir" : "Crear detalle"}</strong>
+        <span>${detailOrder ? "Pedido listo" : "Cotización"}</span>
+        <strong>${detailOrder ? "Ver / editar / imprimir" : quotation ? `Ver / editar ${escapeHtml(quotation.number)}` : "Crear cotización"}</strong>
       </button>
     </article>
   `;
@@ -5996,6 +6166,9 @@ function renderCommercialSubmenu(area) {
         event.stopPropagation();
         migrateCrmOpportunityToResults(button.dataset.crmMigrate, button);
       });
+    });
+    opportunityTable.querySelectorAll("[data-crm-quotation]").forEach((button) => {
+      button.addEventListener("click", (event) => { event.stopPropagation(); openQuotationDialog(button.dataset.crmQuotation); });
     });
     opportunityTable.querySelectorAll("[data-crm-opportunity]").forEach((item) => {
       item.addEventListener("click", () => openCrmOpportunityById(item.dataset.crmOpportunity));
@@ -9128,6 +9301,7 @@ syncFinancialOrdersWithApi();
 loadAccountsReceivable();
 loadPurchaseOrders();
 loadControlSales();
+loadQuotations();
 loadOpportunities();
 loadStrategicRisks();
 loadManagementRequests();

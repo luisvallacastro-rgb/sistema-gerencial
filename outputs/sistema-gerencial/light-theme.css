@@ -1691,3 +1691,19 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   background: #eef1ff !important;
   color: #4338ca !important;
 }
+
+/* Cotizaciones en modo claro: sin herencia de tarjetas oscuras. */
+#quotationDialog{background:#fbfcff!important;color:#182238!important;border-color:#cfd8e6!important;box-shadow:0 28px 80px rgba(31,45,72,.22)!important}
+#quotationDialog form>header{background:rgba(251,252,255,.96)!important;border-bottom:1px solid #e0e6ef!important}
+#quotationDialog .quotation-history,#quotationDialog .quotation-customer,#quotationDialog .quotation-line,#quotationDialog .quotation-totals article{background:#f4f6fa!important;background-image:none!important;border-color:#d6deea!important;box-shadow:none!important}
+#quotationDialog .quotation-history nav button{background:#fff!important;border-color:#d7dfeb!important;color:#182238!important}
+#quotationDialog .quotation-history>div span,#quotationDialog .quotation-section-title span{color:#4f46d9!important;text-shadow:none!important}
+#quotationDialog .quotation-form-grid label,#quotationDialog .quotation-terms label,#quotationDialog .quotation-line label,#quotationDialog .quotation-history nav button span,#quotationDialog .quotation-customer summary small,#quotationDialog .quotation-totals span{color:#56647a!important;opacity:1!important}
+#quotationDialog input,#quotationDialog select,#quotationDialog textarea{background:#e4e9f1!important;border-color:#bdc8d8!important;color:#182238!important;box-shadow:none!important;opacity:1!important}
+#quotationDialog input::placeholder,#quotationDialog textarea::placeholder{color:#7b8799!important;opacity:1!important}
+#quotationDialog .quotation-line output,#quotationDialog .quotation-totals strong{color:#176f52!important;text-shadow:none!important}
+#quotationDialog .quotation-totals article:last-child{background:#e8f3ef!important;border-color:#9fcdbd!important}
+#quotationDialog .quotation-save-status{background:#e9f5f1!important;border-color:#a8d6c6!important;color:#176f52!important}
+#quotationDialog .quotation-convert-btn{background:#eeefff!important;border-color:#c5c3f6!important;color:#4338ca!important}
+#quotationDialog .quotation-send-btn,#quotationDialog .quotation-section-title button{background:#176f52!important;color:#fff!important}
+.app-shell .crm-quotation-button{background:#f1f0ff!important;border-color:#c9c6f6!important;color:#182238!important;box-shadow:none!important}.app-shell .crm-quotation-button span{color:#4f46d9!important}

@@ -23,7 +23,7 @@ CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-control-sales-v1"
+API_VERSION = "kmi-quotations-v1"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -1158,6 +1158,7 @@ def control_sales_order_payload(conn, row, include_audit=False):
         "id": row["id"], "externalId": row["external_id"], "source": row["source"],
         "financialOrderId": row["financial_order_id"] if "financial_order_id" in row.keys() else "",
         "sourceOpportunityId": row["source_opportunity_id"] if "source_opportunity_id" in row.keys() else "",
+        "sourceQuotationId": row["source_quotation_id"] if "source_quotation_id" in row.keys() else "",
         "expectedTotalCents": row["expected_total_cents"] if "expected_total_cents" in row.keys() else 0,
         "varianceCents": row["variance_cents"] if "variance_cents" in row.keys() else 0,
         "number": row["order_number"], "date": row["order_date"], "seller": row["seller"],
@@ -1243,7 +1244,13 @@ def control_sales_validate(data, existing=None):
             raise ValueError(f"Producto requerido en la linea {index}")
         quantity_text = control_sales_quantity(raw.get("quantity"))
         quantity = Decimal(quantity_text)
-        unit_price_cents = control_sales_cents(raw.get("unitPrice"), f"Precio unitario de la linea {index}")
+        if raw.get("unitPrice") is None and raw.get("unitPriceCents") is not None:
+            try:
+                unit_price_cents = int(raw.get("unitPriceCents"))
+            except (TypeError, ValueError):
+                raise ValueError(f"Precio unitario de la linea {index} no es valido")
+        else:
+            unit_price_cents = control_sales_cents(raw.get("unitPrice"), f"Precio unitario de la linea {index}")
         if unit_price_cents < 0:
             raise ValueError("El precio unitario debe ser mayor o igual a cero")
         base_cents = int((quantity * Decimal(unit_price_cents)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
@@ -1285,8 +1292,22 @@ def save_control_sales_order(conn, data, existing_row=None):
         data.get("sourceOpportunityId"),
         existing.get("sourceOpportunityId", "") if existing else "",
     )
+    source_quotation_id = text(
+        data.get("sourceQuotationId"),
+        existing.get("sourceQuotationId", "") if existing else "",
+    )
     expected_total_cents = int(existing.get("expectedTotalCents") or 0) if existing else 0
     variance_cents = int(existing.get("varianceCents") or 0) if existing else 0
+    if source_quotation_id:
+        quotation = conn.execute(
+            "SELECT id, opportunity_id, converted_order_id FROM quotations WHERE id = ?",
+            (source_quotation_id,),
+        ).fetchone()
+        if not quotation:
+            raise ValueError("La cotizacion seleccionada ya no existe")
+        if quotation["converted_order_id"] and quotation["converted_order_id"] != order_id:
+            raise ValueError("Esta cotizacion ya fue convertida a pedido")
+        source_opportunity_id = source_opportunity_id or text(quotation["opportunity_id"])
     if financial_order_id:
         financial_order = conn.execute(
             "SELECT * FROM financial_orders WHERE id = ? AND deleted = 0",
@@ -1332,19 +1353,19 @@ def save_control_sales_order(conn, data, existing_row=None):
     proforma_json = json.dumps(item["proformaData"], ensure_ascii=False)
     if existing_row:
         conn.execute("""
-            UPDATE control_sales_orders SET financial_order_id=?, source_opportunity_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
+            UPDATE control_sales_orders SET financial_order_id=?, source_opportunity_id=?, source_quotation_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
                 document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
                 proforma_data=?, updated_by=?, updated_at=? WHERE id=?
-        """, (financial_order_id, source_opportunity_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, now, order_id))
+        """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
     else:
         conn.execute("""
             INSERT INTO control_sales_orders (
-                id, source, financial_order_id, source_opportunity_id, order_number, order_date, seller, client, status, document_type, total_cents,
+                id, source, financial_order_id, source_opportunity_id, source_quotation_id, order_number, order_date, seller, client, status, document_type, total_cents,
                 expected_total_cents, variance_cents, proforma_data, created_by, updated_by, created_at, updated_at
-            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (order_id, financial_order_id, source_opportunity_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, actor, now, now))
+            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (order_id, financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, actor, now, now))
         action = "creacion"
     for detail in item["details"]:
         conn.execute("""
@@ -1365,8 +1386,170 @@ def save_control_sales_order(conn, data, existing_row=None):
     )
     conn.execute("INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
                  (order_id, action, actor, now, f"Orden {item['number']} · {len(item['details'])} lineas{reconciliation_summary}"))
+    if source_quotation_id:
+        conn.execute("""
+            UPDATE quotations
+            SET status='Convertida', converted_order_id=?, converted_at=?, updated_by=?, updated_at=?
+            WHERE id=?
+        """, (order_id, now, actor, now, source_quotation_id))
     row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone()
     return control_sales_order_payload(conn, row, include_audit=True)
+
+
+def next_quotation_number(conn, year):
+    prefix = f"COT-{year}-"
+    highest = 0
+    for row in conn.execute(
+        "SELECT quotation_number FROM quotations WHERE quotation_number LIKE ?",
+        (f"{prefix}%",),
+    ).fetchall():
+        suffix = text(row["quotation_number"]).replace(prefix, "", 1)
+        if suffix.isdigit():
+            highest = max(highest, int(suffix))
+    return f"{prefix}{highest + 1:04d}"
+
+
+def quotation_payload(row):
+    try:
+        customer = json.loads(row["customer_data"] or "{}")
+        if not isinstance(customer, dict):
+            customer = {}
+    except (json.JSONDecodeError, TypeError):
+        customer = {}
+    try:
+        lines = json.loads(row["lines"] or "[]")
+        if not isinstance(lines, list):
+            lines = []
+    except (json.JSONDecodeError, TypeError):
+        lines = []
+    return {
+        "id": row["id"], "opportunityId": row["opportunity_id"],
+        "number": row["quotation_number"], "date": row["quotation_date"],
+        "validDays": row["valid_days"], "seller": row["seller"],
+        "client": row["client"], "status": row["status"],
+        "customerData": customer, "paymentTerms": row["payment_terms"],
+        "deliveryTerms": row["delivery_terms"], "warrantyNote": row["warranty_note"],
+        "commercialNotes": row["commercial_notes"], "specialSizesNote": row["special_sizes_note"],
+        "subtotalCents": row["subtotal_cents"], "vatCents": row["vat_cents"],
+        "totalCents": row["total_cents"], "lines": lines,
+        "convertedOrderId": row["converted_order_id"], "convertedAt": row["converted_at"],
+        "createdBy": row["created_by"], "updatedBy": row["updated_by"],
+        "createdAt": row["created_at"], "updatedAt": row["updated_at"],
+    }
+
+
+def quotation_validate(data, existing=None):
+    current = dict(existing or {})
+    opportunity_id = text(data.get("opportunityId"), current.get("opportunityId") or "")
+    quote_date = text(data.get("date"), current.get("date") or time.strftime("%Y-%m-%d"))
+    seller = text(data.get("seller"), current.get("seller") or "")
+    client = text(data.get("client"), current.get("client") or "")
+    if not all((opportunity_id, quote_date, seller, client)):
+        raise ValueError("Oportunidad, fecha, vendedor y cliente son requeridos")
+    try:
+        valid_days = max(1, min(365, int(data.get("validDays", current.get("validDays", 30)) or 30)))
+    except (TypeError, ValueError):
+        raise ValueError("La vigencia de la oferta no es valida")
+    raw_customer = data.get("customerData", current.get("customerData") or {})
+    if not isinstance(raw_customer, dict):
+        raise ValueError("Los datos del cliente no son validos")
+    customer = {
+        "commercialName": text(raw_customer.get("commercialName"), client),
+        "legalName": text(raw_customer.get("legalName")),
+        "contactName": text(raw_customer.get("contactName")),
+        "phone": text(raw_customer.get("phone")),
+        "email": text(raw_customer.get("email")),
+        "address": text(raw_customer.get("address")),
+        "businessActivity": text(raw_customer.get("businessActivity")),
+        "taxId": text(raw_customer.get("taxId")),
+        "registrationNumber": text(raw_customer.get("registrationNumber")),
+        "taxpayerType": text(raw_customer.get("taxpayerType")),
+        "strategy": text(raw_customer.get("strategy")),
+        "customerCode": text(raw_customer.get("customerCode")),
+        "sellerPhone": text(raw_customer.get("sellerPhone")),
+        "sellerEmail": text(raw_customer.get("sellerEmail")),
+        "sellerRole": text(raw_customer.get("sellerRole"), "Ejecutivo/a de ventas"),
+    }
+    raw_lines = data.get("lines")
+    if not isinstance(raw_lines, list) or not raw_lines:
+        raise ValueError("La cotizacion debe contener al menos una linea")
+    lines = []
+    subtotal_cents = 0
+    for index, raw in enumerate(raw_lines, start=1):
+        description = text(raw.get("description") or raw.get("product"))
+        if not description:
+            raise ValueError(f"Descripcion requerida en la linea {index}")
+        quantity_text = control_sales_quantity(raw.get("quantity"))
+        quantity = Decimal(quantity_text)
+        unit_price_cents = control_sales_cents(raw.get("unitPrice"), f"Precio unitario de la linea {index}")
+        if unit_price_cents < 0:
+            raise ValueError("El precio unitario debe ser mayor o igual a cero")
+        line_total_cents = int((quantity * Decimal(unit_price_cents)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        subtotal_cents += line_total_cents
+        lines.append({
+            "id": text(raw.get("id"), f"quote-line-{uuid.uuid4()}"),
+            "sequence": index, "description": description,
+            "size": text(raw.get("size")), "quantity": quantity_text,
+            "unitPriceCents": unit_price_cents, "lineTotalCents": line_total_cents,
+            "notes": text(raw.get("notes")),
+        })
+    vat_cents = int((Decimal(subtotal_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    allowed_statuses = {"Borrador", "Enviada", "Aprobada", "Rechazada", "Vencida", "Convertida"}
+    status = text(data.get("status"), current.get("status") or "Borrador")
+    if status not in allowed_statuses:
+        raise ValueError("Estado de cotizacion no valido")
+    return {
+        "opportunityId": opportunity_id, "date": quote_date, "validDays": valid_days,
+        "seller": seller, "client": client, "status": status, "customerData": customer,
+        "paymentTerms": text(data.get("paymentTerms"), current.get("paymentTerms") or "50% de anticipo - 50% contra entrega"),
+        "deliveryTerms": text(data.get("deliveryTerms"), current.get("deliveryTerms") or "30 dias habiles posterior a la orden de compra"),
+        "warrantyNote": text(data.get("warrantyNote"), current.get("warrantyNote") or "Todos nuestros productos estan garantizados y elaborados con altos estandares de calidad."),
+        "commercialNotes": text(data.get("commercialNotes"), current.get("commercialNotes") or "Precios unitarios no incluyen IVA"),
+        "specialSizesNote": text(data.get("specialSizesNote"), current.get("specialSizesNote") or "Tallas especiales arriba de XXL tienen costo adicional"),
+        "subtotalCents": subtotal_cents, "vatCents": vat_cents,
+        "totalCents": subtotal_cents + vat_cents, "lines": lines,
+    }
+
+
+def save_quotation(conn, data, existing_row=None):
+    existing = quotation_payload(existing_row) if existing_row else None
+    item = quotation_validate(data, existing)
+    quote_id = existing_row["id"] if existing_row else f"quote-{uuid.uuid4()}"
+    number = existing["number"] if existing else text(data.get("number"))
+    if not number:
+        number = next_quotation_number(conn, item["date"][:4] or time.strftime("%Y"))
+    actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    converted_order_id = existing.get("convertedOrderId", "") if existing else ""
+    converted_at = existing.get("convertedAt", "") if existing else ""
+    conn.execute("""
+        INSERT INTO quotations (
+            id, opportunity_id, quotation_number, quotation_date, valid_days, seller, client, status,
+            customer_data, payment_terms, delivery_terms, warranty_note, commercial_notes,
+            special_sizes_note, subtotal_cents, vat_cents, total_cents, lines,
+            converted_order_id, converted_at, created_by, updated_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            opportunity_id=excluded.opportunity_id, quotation_date=excluded.quotation_date,
+            valid_days=excluded.valid_days, seller=excluded.seller, client=excluded.client,
+            status=excluded.status, customer_data=excluded.customer_data,
+            payment_terms=excluded.payment_terms, delivery_terms=excluded.delivery_terms,
+            warranty_note=excluded.warranty_note, commercial_notes=excluded.commercial_notes,
+            special_sizes_note=excluded.special_sizes_note, subtotal_cents=excluded.subtotal_cents,
+            vat_cents=excluded.vat_cents, total_cents=excluded.total_cents, lines=excluded.lines,
+            updated_by=excluded.updated_by, updated_at=excluded.updated_at
+    """, (
+        quote_id, item["opportunityId"], number, item["date"], item["validDays"],
+        item["seller"], item["client"], item["status"],
+        json.dumps(item["customerData"], ensure_ascii=False), item["paymentTerms"],
+        item["deliveryTerms"], item["warrantyNote"], item["commercialNotes"],
+        item["specialSizesNote"], item["subtotalCents"], item["vatCents"], item["totalCents"],
+        json.dumps(item["lines"], ensure_ascii=False), converted_order_id, converted_at,
+        existing.get("createdBy", actor) if existing else actor, actor,
+        existing.get("createdAt", now) if existing else now, now,
+    ))
+    row = conn.execute("SELECT * FROM quotations WHERE id=?", (quote_id,)).fetchone()
+    return quotation_payload(row)
 
 
 def seed_control_sales(conn):
@@ -1639,12 +1822,44 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_purchase_orders_due_date ON purchase_orders(due_date)")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS quotations (
+                id TEXT PRIMARY KEY,
+                opportunity_id TEXT NOT NULL,
+                quotation_number TEXT NOT NULL UNIQUE,
+                quotation_date TEXT NOT NULL,
+                valid_days INTEGER NOT NULL DEFAULT 30,
+                seller TEXT NOT NULL,
+                client TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'Borrador',
+                customer_data TEXT NOT NULL DEFAULT '{}',
+                payment_terms TEXT DEFAULT '',
+                delivery_terms TEXT DEFAULT '',
+                warranty_note TEXT DEFAULT '',
+                commercial_notes TEXT DEFAULT '',
+                special_sizes_note TEXT DEFAULT '',
+                subtotal_cents INTEGER NOT NULL DEFAULT 0,
+                vat_cents INTEGER NOT NULL DEFAULT 0,
+                total_cents INTEGER NOT NULL DEFAULT 0,
+                lines TEXT NOT NULL DEFAULT '[]',
+                converted_order_id TEXT DEFAULT '',
+                converted_at TEXT DEFAULT '',
+                created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                updated_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_quotations_opportunity ON quotations(opportunity_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_quotations_status ON quotations(status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_quotations_date ON quotations(quotation_date)")
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS control_sales_orders (
                 id TEXT PRIMARY KEY,
                 external_id TEXT UNIQUE,
                 source TEXT NOT NULL DEFAULT 'manual',
                 financial_order_id TEXT NOT NULL DEFAULT '',
                 source_opportunity_id TEXT NOT NULL DEFAULT '',
+                source_quotation_id TEXT NOT NULL DEFAULT '',
                 order_number TEXT NOT NULL,
                 order_date TEXT NOT NULL,
                 seller TEXT NOT NULL,
@@ -1675,6 +1890,8 @@ def init_db():
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN financial_order_id TEXT NOT NULL DEFAULT ''")
         if "source_opportunity_id" not in control_sales_order_columns:
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN source_opportunity_id TEXT NOT NULL DEFAULT ''")
+        if "source_quotation_id" not in control_sales_order_columns:
+            conn.execute("ALTER TABLE control_sales_orders ADD COLUMN source_quotation_id TEXT NOT NULL DEFAULT ''")
         if "expected_total_cents" not in control_sales_order_columns:
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN expected_total_cents INTEGER NOT NULL DEFAULT 0")
         if "variance_cents" not in control_sales_order_columns:
@@ -1690,6 +1907,11 @@ def init_db():
             CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_source_opportunity_id
             ON control_sales_orders(source_opportunity_id)
             WHERE source_opportunity_id <> ''
+        """)
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_source_quotation_id
+            ON control_sales_orders(source_quotation_id)
+            WHERE source_quotation_id <> ''
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS control_sales_details (
@@ -1878,6 +2100,25 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([purchase_order_payload(row) for row in rows])
             return
 
+        if self.path == "/api/quotations":
+            with connect() as conn:
+                rows = conn.execute("""
+                    SELECT * FROM quotations
+                    ORDER BY quotation_date DESC, updated_at DESC, quotation_number DESC
+                """).fetchall()
+            self.send_json([quotation_payload(row) for row in rows])
+            return
+
+        if self.path.startswith("/api/quotations/"):
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM quotations WHERE id = ?", (item_id,)).fetchone()
+            if not row:
+                self.send_json({"error": "Cotizacion no encontrada"}, status=404)
+                return
+            self.send_json(quotation_payload(row))
+            return
+
         if self.path == "/api/control-sales":
             with connect() as conn:
                 rows = conn.execute("""
@@ -1999,6 +2240,20 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             with connect() as conn:
                 item = upsert_receivable(conn, data)
+            self.send_json({"ok": True, "item": item}, status=201)
+            return
+
+        if self.path == "/api/quotations":
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    item = save_quotation(conn, data)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "El numero de cotizacion ya existe"}, status=409)
+                return
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
@@ -2151,6 +2406,25 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "item": item})
             return
 
+        if self.path.startswith("/api/quotations/"):
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    row = conn.execute("SELECT * FROM quotations WHERE id = ?", (item_id,)).fetchone()
+                    if not row:
+                        self.send_json({"error": "Cotizacion no encontrada"}, status=404)
+                        return
+                    item = save_quotation(conn, data, row)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "El numero de cotizacion ya existe"}, status=409)
+                return
+            self.send_json({"ok": True, "item": item})
+            return
+
         if self.path == "/api/opportunities":
             data = self.read_json()
             if not isinstance(data, list):
@@ -2271,6 +2545,25 @@ class AppHandler(BaseHTTPRequestHandler):
                 item = control_sales_order_payload(conn, row, include_audit=True)
             self.send_json({"ok": True, "item": item})
             return
+        if self.path.startswith("/api/quotations/"):
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            changes = self.read_json()
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM quotations WHERE id = ?", (item_id,)).fetchone()
+                if not row:
+                    self.send_json({"error": "Cotizacion no encontrada"}, status=404)
+                    return
+                current = quotation_payload(row)
+                merged = {**current, **changes}
+                merged["customerData"] = {**current.get("customerData", {}), **changes.get("customerData", {})}
+                merged["updatedBy"] = text(changes.get("updatedBy"), "Sistema Gerencial")
+                try:
+                    item = save_quotation(conn, merged, row)
+                except ValueError as error:
+                    self.send_json({"error": str(error)}, status=400)
+                    return
+            self.send_json({"ok": True, "item": item})
+            return
         self.send_error(404)
 
     def handle_api_delete(self):
@@ -2304,6 +2597,19 @@ class AppHandler(BaseHTTPRequestHandler):
             if not result.rowcount:
                 self.send_json({"error": "Orden de pedido no encontrada"}, status=404)
                 return
+            self.send_json({"ok": True})
+            return
+        if self.path.startswith("/api/quotations/"):
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            with connect() as conn:
+                row = conn.execute("SELECT converted_order_id FROM quotations WHERE id = ?", (item_id,)).fetchone()
+                if not row:
+                    self.send_json({"error": "Cotizacion no encontrada"}, status=404)
+                    return
+                if text(row["converted_order_id"]):
+                    self.send_json({"error": "No se puede eliminar una cotizacion convertida a pedido"}, status=409)
+                    return
+                conn.execute("DELETE FROM quotations WHERE id = ?", (item_id,))
             self.send_json({"ok": True})
             return
         if self.path.startswith("/api/minutes/"):
