@@ -5164,6 +5164,13 @@ function crmSortedSellers() {
   });
 }
 
+function crmSellersWithOpportunityMovement() {
+  const opportunityOwnerIds = new Set(
+    crmData().opportunities.map((opportunity) => String(opportunity.ownerId || ""))
+  );
+  return crmSortedSellers().filter((seller) => opportunityOwnerIds.has(String(seller.id)));
+}
+
 function updateCrmModel(payload) {
   state.crmData = payload;
   renderCommercialSubmenu(areas.comercializacion);
@@ -5316,8 +5323,7 @@ function openCrmOpportunityById(opportunityId) {
   if (opportunity) openCrmOpportunityDialog(opportunity);
 }
 
-function crmEnsureSellerId() {
-  const sellers = crmSortedSellers();
+function crmEnsureSellerId(sellers = crmSortedSellers()) {
   if (!sellers.length) return "";
   if (!state.crmSellerId || !sellers.some((seller) => seller.id === state.crmSellerId)) {
     state.crmSellerId = sellers[0].id;
@@ -5546,7 +5552,7 @@ function renderCrmDashboard() {
 }
 
 function renderCrmSellers() {
-  const sellers = crmSortedSellers().filter((seller) => {
+  const sellers = crmSellersWithOpportunityMovement().filter((seller) => {
     const active = crmActiveOpportunitiesForSeller(seller.id);
     return !crmSearchText() || active.length || crmMatchesSearch({}, seller);
   });
@@ -5627,8 +5633,8 @@ function crmResultWinHistory(selectedSeller = null) {
 function renderCrmTracking() {
   const data = crmData();
   const linkedSellerId = crmLinkedSellerId();
-  const sellers = crmSortedSellers();
-  const selectedSellerId = crmEnsureSellerId();
+  const sellers = crmSellersWithOpportunityMovement();
+  const selectedSellerId = crmEnsureSellerId(sellers);
   const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
   const sellerOpportunities = selectedSeller ? data.opportunities.filter((opp) => opp.ownerId === selectedSeller.id) : [];
   const activeOpportunities = crmActiveOpportunitiesForSeller(selectedSellerId);
@@ -5733,7 +5739,7 @@ function renderCrmTracking() {
       <div class="crm-tracking-layout crm-tracking-layout-refined">
         <aside class="crm-panel crm-tracking-sidebar">
           <span class="eyebrow">Vendedores</span>
-          <div class="crm-seller-chip-list">${sellerButtons}</div>
+          <div class="crm-seller-chip-list">${sellerButtons || `<div class="empty-state">No hay vendedores con oportunidades registradas.</div>`}</div>
         </aside>
         <section class="crm-tracking-main">
           <div class="crm-tracking-view-tabs" role="tablist" aria-label="Vistas de seguimiento">
@@ -5767,7 +5773,7 @@ function renderCrmTracking() {
 
 function renderCrmAgenda() {
   const data = crmData();
-  const sellers = crmSortedSellers();
+  const sellers = crmSellersWithOpportunityMovement();
   const linkedSellerId = crmLinkedSellerId();
   const agenda = data.agenda.slice(0, 80);
   const slots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
