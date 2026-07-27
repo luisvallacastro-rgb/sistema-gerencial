@@ -1515,3 +1515,101 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
 .management-request-reader-card > footer button { border-color: #d5dce7 !important; background: #f4f6fa !important; color: #46536a !important; }
 .management-request-reader-card > footer .request-action-primary { border-color: #c8c6f5 !important; background: #4f46e5 !important; color: #fff !important; }
 .management-request-reader-card > footer .danger { border-color: #f0cbd3 !important; background: #fff1f4 !important; color: #c63e58 !important; }
+
+/* Contraste final del histórico comercial en modo claro. */
+.app-shell .crm-won-history-panel {
+  border-color: #d8e0ea !important;
+  background: #fff !important;
+  background-image: none !important;
+  box-shadow: 0 8px 24px rgba(51,65,85,.055) !important;
+}
+.app-shell .crm-won-history-toolbar { border-bottom-color: #e0e6ee !important; background: #f8fafc !important; }
+.app-shell .crm-won-history-toolbar .eyebrow { color: #4f46e5 !important; }
+.app-shell .crm-won-history-toolbar > div:first-child > strong { color: #182238 !important; }
+.app-shell .crm-won-date-filters label { color: #59667c !important; opacity: 1 !important; }
+.app-shell .crm-won-date-filters input {
+  border-color: #cbd4e0 !important;
+  background: #fff !important;
+  color: #182238 !important;
+}
+.app-shell .crm-won-date-filters button {
+  border-color: #c8c6f5 !important;
+  background: #eef1ff !important;
+  color: #4338ca !important;
+}
+.app-shell .crm-won-history-list { background: #fff !important; scrollbar-color: #aab4c3 transparent !important; }
+.app-shell .crm-won-history-card {
+  border-color: #d8e0ea !important;
+  border-left-color: #6258e8 !important;
+  background: #f7f9fc !important;
+  background-image: none !important;
+  color: #182238 !important;
+}
+.app-shell .crm-won-history-date time,
+.app-shell .crm-won-history-client strong,
+.app-shell .crm-won-history-result strong { color: #182238 !important; opacity: 1 !important; }
+.app-shell .crm-won-history-date span,
+.app-shell .crm-won-history-client small,
+.app-shell .crm-won-history-result span,
+.app-shell .crm-won-history-card > p { color: #647087 !important; opacity: 1 !important; }
+.app-shell .crm-won-history-client span { color: #4f46e5 !important; opacity: 1 !important; }
+.app-shell .crm-won-history-result strong { color: #176f52 !important; }
+.app-shell .crm-won-order-button,
+.app-shell .crm-won-order-button.is-ready {
+  border-color: #b8c4d4 !important;
+  background: #eef2f7 !important;
+  background-image: none !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.app-shell .crm-won-order-button:hover { border-color: #8e88e8 !important; background: #e9eaff !important; }
+.app-shell .crm-won-order-button span { color: #4f46e5 !important; }
+.app-shell .crm-won-order-button strong { color: #182238 !important; }
+
+/* El diálogo vive fuera de .app-shell: se neutraliza aquí toda herencia oscura. */
+#controlSalesDetailDialog,
+#controlSalesDetailDialog > section {
+  border-color: #d6dee9 !important;
+  background: #fff !important;
+  background-image: none !important;
+  color: #182238 !important;
+}
+#controlSalesDetailDialog header { border-bottom-color: #e0e6ee !important; background: #fff !important; }
+#controlSalesDetailDialog header h3,
+#controlSalesDetailDialog header span { color: #182238 !important; opacity: 1 !important; }
+#controlSalesDetailDialog header .eyebrow { color: #176f52 !important; }
+#controlSalesDetailDialog header button { border-color: #cbd4e0 !important; background: #f7f9fc !important; color: #334155 !important; }
+#controlSalesDetailDialog .control-sales-detail-summary article {
+  border-color: #d6dee9 !important;
+  background: #eef2f7 !important;
+  background-image: none !important;
+  color: #182238 !important;
+}
+#controlSalesDetailDialog .control-sales-detail-summary small { color: #647087 !important; opacity: 1 !important; }
+#controlSalesDetailDialog .control-sales-detail-summary strong { color: #182238 !important; opacity: 1 !important; }
+#controlSalesDetailDialog .control-sales-detail-summary article.balanced {
+  border-color: #a9d6c5 !important;
+  background: #eaf6f1 !important;
+}
+#controlSalesDetailDialog .control-sales-detail-summary article.balanced strong { color: #157a5a !important; }
+#controlSalesDetailDialog .control-sales-detail-proforma {
+  border-color: #d8e0ea !important;
+  background: #f8fafc !important;
+  background-image: none !important;
+}
+#controlSalesDetailDialog .control-sales-detail-proforma h4 { color: #182238 !important; }
+#controlSalesDetailDialog .control-sales-detail-proforma article { background: transparent !important; color: #182238 !important; }
+#controlSalesDetailDialog .control-sales-detail-proforma small { color: #647087 !important; opacity: 1 !important; }
+#controlSalesDetailDialog .control-sales-detail-proforma strong { color: #26344b !important; opacity: 1 !important; }
+#controlSalesDetailDialog .control-sales-detail-lines { border-color: #d8e0ea !important; background: #fff !important; }
+#controlSalesDetailDialog .control-sales-detail-row { border-bottom-color: #e1e6ee !important; background: #fff !important; color: #182238 !important; }
+#controlSalesDetailDialog .control-sales-detail-row.head { background: #e9edf5 !important; color: #334155 !important; }
+#controlSalesDetailDialog .control-sales-detail-row span,
+#controlSalesDetailDialog .control-sales-detail-row strong { color: #182238 !important; opacity: 1 !important; }
+#controlSalesDetailDialog .control-sales-audit article { border-color: #dce2eb !important; background: #f5f7fa !important; color: #334155 !important; }
+#controlSalesDetailDialog footer { border-top-color: #e0e6ee !important; background: #fff !important; }
+#controlSalesDetailDialog footer button:not(.primary-btn):not(.control-sales-print-btn) {
+  border-color: #ccd5e1 !important;
+  background: #eef2f7 !important;
+  color: #334155 !important;
+}
