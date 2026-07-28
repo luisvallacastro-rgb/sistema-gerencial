@@ -6380,6 +6380,244 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .app-shell .financial-order-notification-card > button { grid-column: 3; grid-row: 1 / span 2; }
 }
 
+/* Cotizaciones 2.0: captura simple por bloques, con datos secundarios plegables. */
+#quotationDialog .quotation-dialog-body {
+  gap: 12px;
+}
+
+#quotationDialog .quotation-step-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: -4px;
+}
+
+#quotationDialog .quotation-step-heading > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(104, 89, 232, .2);
+  color: #c7c2ff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+#quotationDialog .quotation-step-heading > div {
+  display: grid;
+  gap: 1px;
+}
+
+#quotationDialog .quotation-step-heading b {
+  color: var(--text);
+  font-size: 13px;
+}
+
+#quotationDialog .quotation-step-heading small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+#quotationDialog .quotation-main-fields {
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(137, 157, 190, .2);
+  border-radius: 18px;
+  background: rgba(18, 39, 67, .42);
+}
+
+#quotationDialog .quotation-main-fields input,
+#quotationDialog .quotation-main-fields select {
+  min-height: 44px;
+}
+
+#quotationDialog .quotation-history.is-empty {
+  min-height: 0;
+  padding: 9px 13px;
+  border-radius: 14px;
+}
+
+#quotationDialog .quotation-history.is-empty > div {
+  min-width: 138px;
+}
+
+#quotationDialog .quotation-history.is-empty > div span {
+  display: none;
+}
+
+#quotationDialog .quotation-history.is-empty > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#quotationDialog .quotation-customer,
+#quotationDialog .quotation-terms-panel {
+  overflow: hidden;
+  border: 1px solid rgba(137, 157, 190, .22);
+  border-radius: 17px;
+  background: rgba(13, 32, 57, .32);
+}
+
+#quotationDialog .quotation-customer summary,
+#quotationDialog .quotation-terms-panel summary {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 15px;
+  cursor: pointer;
+  list-style: none;
+}
+
+#quotationDialog .quotation-customer summary::-webkit-details-marker,
+#quotationDialog .quotation-terms-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+#quotationDialog .quotation-customer summary > span,
+#quotationDialog .quotation-terms-panel summary > span {
+  display: grid;
+  gap: 2px;
+}
+
+#quotationDialog .quotation-customer summary b,
+#quotationDialog .quotation-terms-panel summary b {
+  color: var(--text);
+  font-size: 12px;
+}
+
+#quotationDialog .quotation-customer summary small,
+#quotationDialog .quotation-terms-panel summary small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+#quotationDialog .quotation-customer summary i,
+#quotationDialog .quotation-terms-panel summary i {
+  color: var(--muted);
+  font-size: 16px;
+  font-style: normal;
+  transition: transform .2s ease;
+}
+
+#quotationDialog .quotation-customer[open] summary i,
+#quotationDialog .quotation-terms-panel[open] summary i {
+  transform: rotate(180deg);
+}
+
+#quotationDialog .quotation-customer .quotation-form-grid,
+#quotationDialog .quotation-terms-panel .quotation-terms {
+  padding: 0 15px 15px;
+}
+
+#quotationDialog .quotation-lines {
+  gap: 9px;
+  padding-top: 2px;
+}
+
+#quotationDialog .quotation-section-title {
+  align-items: center;
+}
+
+#quotationDialog .quotation-section-title h4 {
+  font-size: 17px;
+}
+
+#quotationDialog .quotation-section-title button {
+  padding: 10px 14px;
+}
+
+#quotationDialog .quotation-line {
+  padding: 11px;
+  border-radius: 15px;
+}
+
+#quotationDialog .quotation-line output::before {
+  content: "Total";
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#quotationDialog .quotation-totals {
+  gap: 9px;
+}
+
+#quotationDialog .quotation-totals article {
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+#quotationDialog .quotation-totals strong {
+  font-size: 1.2rem;
+}
+
+#quotationDialog.quotation-dialog > #quotationForm > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#quotationDialog.quotation-dialog > #quotationForm > footer button {
+  min-height: 42px;
+  padding: 10px 14px;
+}
+
+@media (max-width: 1050px) {
+  #quotationDialog .quotation-line {
+    grid-template-columns: minmax(220px, 2fr) minmax(90px, .6fr) minmax(95px, .6fr) minmax(120px, .8fr) minmax(120px, .8fr) 42px;
+  }
+  #quotationDialog .quotation-notes {
+    grid-row: 2;
+    grid-column: 1 / -2;
+  }
+  #quotationDialog .quotation-line > button {
+    grid-row: 1;
+    grid-column: 6;
+  }
+}
+
+@media (max-width: 720px) {
+  #quotationDialog .quotation-step-heading small,
+  #quotationDialog .quotation-customer summary small,
+  #quotationDialog .quotation-terms-panel summary small {
+    display: none;
+  }
+  #quotationDialog .quotation-main-fields,
+  #quotationDialog .quotation-form-grid,
+  #quotationDialog .quotation-terms,
+  #quotationDialog .quotation-totals {
+    grid-template-columns: 1fr;
+  }
+  #quotationDialog .quotation-line {
+    grid-template-columns: 1fr 1fr;
+  }
+  #quotationDialog .quotation-product,
+  #quotationDialog .quotation-notes {
+    grid-row: auto;
+    grid-column: 1 / -1;
+  }
+  #quotationDialog .quotation-line > button {
+    grid-row: auto;
+    grid-column: auto;
+  }
+  #quotationDialog.quotation-dialog > #quotationForm > footer {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+  #quotationDialog.quotation-dialog > #quotationForm > footer button {
+    flex: 0 0 auto;
+  }
+}
+
 .app-shell .financial-seller-kpi { display: grid; gap: 14px; min-height: 0; }
 .app-shell .financial-seller-kpi-summary {
   display: grid;

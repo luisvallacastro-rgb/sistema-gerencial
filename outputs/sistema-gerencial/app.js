@@ -2895,11 +2895,12 @@ function ensureQuotationDialog() {
     <div class="quotation-dialog-body">
     <input type="hidden" id="quotationId"><input type="hidden" id="quotationOpportunityId">
     <section id="quotationHistory" class="quotation-history"></section>
+    <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
     <section class="quotation-form-grid quotation-main-fields"><label>Correlativo<input id="quotationNumber" readonly placeholder="Automático al guardar"></label><label>Fecha<input id="quotationDate" type="date" required></label><label>Vigencia<input id="quotationValidDays" type="number" min="1" max="365" value="30" required><small>días</small></label><label>Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option>Convertida</option></select></label></section>
-    <details class="quotation-customer" open><summary><span><b>Cliente y responsable comercial</b><small>La cotización conserva estos datos para reutilizarlos al crear el pedido.</small></span><i>⌃</i></summary><div class="quotation-form-grid"><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></details>
-    <section class="quotation-lines"><div class="quotation-section-title"><div><span>Detalle económico</span><h4>Productos y servicios</h4></div><button type="button" data-quotation-add-line>+ Agregar línea</button></div><div id="quotationLines"></div></section>
-    <section class="quotation-terms"><label>Forma de pago<input id="quotationPaymentTerms"></label><label>Tiempo de entrega<input id="quotationDeliveryTerms"></label><label>Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label>Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2">Tallas especiales<input id="quotationSpecialSizesNote"></label></section>
+    <details class="quotation-customer"><summary><span><b>Datos del cliente y vendedor</b><small>Información heredada de la oportunidad. Ábrela solo si necesitas corregirla.</small></span><i>⌄</i></summary><div class="quotation-form-grid"><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></details>
+    <section class="quotation-lines"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><button type="button" data-quotation-add-line>+ Agregar línea</button></div><div id="quotationLines"></div></section>
     <section class="quotation-totals"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article><span>Total cotización</span><strong id="quotationTotal">$0.00</strong></article></section>
+    <details class="quotation-terms-panel"><summary><span><b>3 · Condiciones de la oferta</b><small>Pago, entrega, garantía y observaciones especiales.</small></span><i>⌄</i></summary><section class="quotation-terms"><label>Forma de pago<input id="quotationPaymentTerms"></label><label>Tiempo de entrega<input id="quotationDeliveryTerms"></label><label>Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label>Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></details>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
     <footer><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="primary-btn">Guardar</button><button type="button" class="quotation-convert-btn" data-quotation-convert>Convertir a pedido</button></footer>
@@ -2949,7 +2950,9 @@ function updateQuotationTotals() {
 
 function renderQuotationHistory(opportunityId) {
   const quotes = state.quotations.filter((item) => String(item.opportunityId) === String(opportunityId)).sort((a,b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)));
-  document.querySelector("#quotationHistory").innerHTML = `<div><span>Historial de la oportunidad</span><strong>${quotes.length} ${quotes.length === 1 ? "cotización" : "cotizaciones"}</strong></div>${quotes.length ? `<nav>${quotes.map((quote) => `<button type="button" data-quotation-history-id="${escapeHtml(quote.id)}"><b>${escapeHtml(quote.number)}</b><span>${formatDate(quote.date)} · ${formatControlSalesMoney(quote.totalCents)}</span><em data-status="${escapeHtml(quote.status)}">${escapeHtml(quote.status)}</em></button>`).join("")}</nav>` : `<p>Aún no hay cotizaciones guardadas.</p>`}`;
+  const history = document.querySelector("#quotationHistory");
+  history.classList.toggle("is-empty", !quotes.length);
+  history.innerHTML = `<div><span>Historial</span><strong>${quotes.length} ${quotes.length === 1 ? "cotización" : "cotizaciones"}</strong></div>${quotes.length ? `<nav>${quotes.map((quote) => `<button type="button" data-quotation-history-id="${escapeHtml(quote.id)}"><b>${escapeHtml(quote.number)}</b><span>${formatDate(quote.date)} · ${formatControlSalesMoney(quote.totalCents)}</span><em data-status="${escapeHtml(quote.status)}">${escapeHtml(quote.status)}</em></button>`).join("")}</nav>` : `<p>La primera cotización se agregará aquí al guardar.</p>`}`;
 }
 
 function populateQuotationForm(quote, opportunity = null) {
@@ -2966,6 +2969,8 @@ function populateQuotationForm(quote, opportunity = null) {
   const converted = Boolean(quote?.convertedOrderId);
   const convert = document.querySelector("[data-quotation-convert]"); convert.disabled = converted; convert.textContent = converted ? "Pedido creado" : "Convertir a pedido";
   document.querySelector("#quotationDialogTitle").textContent = quote ? `Cotización ${quote.number}` : "Nueva cotización";
+  document.querySelector(".quotation-customer")?.removeAttribute("open");
+  document.querySelector(".quotation-terms-panel")?.removeAttribute("open");
   updateQuotationTotals();
 }
 
@@ -2986,7 +2991,13 @@ async function openQuotationDialog(opportunityId, quoteId = "") {
 }
 
 async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
-  const form = document.querySelector("#quotationForm"); if (!form.reportValidity()) return null;
+  const form = document.querySelector("#quotationForm");
+  const customerPanel = form?.querySelector(".quotation-customer");
+  const missingInheritedField = customerPanel
+    ? Array.from(customerPanel.querySelectorAll("[required]")).some((field) => !String(field.value || "").trim())
+    : false;
+  if (missingInheritedField) customerPanel.open = true;
+  if (!form.reportValidity()) return null;
   const draft = quotationDraftFromForm(); if (forcedStatus) draft.status = forcedStatus;
   const status = document.querySelector("#quotationSaveStatus");
   try {

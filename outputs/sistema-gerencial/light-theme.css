@@ -1729,6 +1729,39 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   color: #334155 !important;
 }
 
+/* Cotizaciones: jerarquía limpia y superficies secundarias plegables. */
+#quotationDialog .quotation-step-heading > span {
+  background: #eceaff !important;
+  color: #4338ca !important;
+}
+#quotationDialog .quotation-step-heading b,
+#quotationDialog .quotation-customer summary b,
+#quotationDialog .quotation-terms-panel summary b {
+  color: #182238 !important;
+}
+#quotationDialog .quotation-step-heading small,
+#quotationDialog .quotation-customer summary small,
+#quotationDialog .quotation-terms-panel summary small,
+#quotationDialog .quotation-history.is-empty > p,
+#quotationDialog .quotation-line output::before {
+  color: #66748a !important;
+}
+#quotationDialog .quotation-main-fields,
+#quotationDialog .quotation-customer,
+#quotationDialog .quotation-terms-panel {
+  background: #f7f9fc !important;
+  border-color: #d6deea !important;
+  box-shadow: none !important;
+}
+#quotationDialog .quotation-customer[open] summary,
+#quotationDialog .quotation-terms-panel[open] summary {
+  border-bottom: 1px solid #dfe5ee !important;
+}
+#quotationDialog .quotation-customer summary i,
+#quotationDialog .quotation-terms-panel summary i {
+  color: #56647a !important;
+}
+
 /* Acciones de oportunidad en modo claro. */
 .app-shell .crm-card-icon-action {
   border-color: #c8c5f4 !important;
