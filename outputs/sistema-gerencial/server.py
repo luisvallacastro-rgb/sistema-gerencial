@@ -1334,6 +1334,29 @@ def save_control_sales_order(conn, data, existing_row=None):
         if quotation["converted_order_id"] and quotation["converted_order_id"] != order_id:
             raise ValueError("Esta cotizacion ya fue convertida a pedido")
         source_opportunity_id = source_opportunity_id or text(quotation["opportunity_id"])
+        if not existing_row:
+            source_ids = {
+                value for value in (
+                    text(source_opportunity_id),
+                    text(quotation["opportunity_id"]),
+                ) if value
+            }
+            crm_data = read_crm_data(conn)
+            is_won_opportunity = any(
+                source_ids.intersection({
+                    value for value in (
+                        text(win.get("id")),
+                        text(win.get("opportunityId")),
+                        text(win.get("crmOpportunityId")),
+                    ) if value
+                })
+                for win in crm_data.get("resultWins", [])
+            )
+            if not is_won_opportunity:
+                raise ValueError(
+                    "La cotizacion solo puede convertirse en pedido desde Seguimiento, "
+                    "despues de confirmar la oportunidad como ganada"
+                )
     if financial_order_id:
         financial_order = conn.execute(
             "SELECT * FROM financial_orders WHERE id = ? AND deleted = 0",
@@ -1543,9 +1566,11 @@ def save_quotation(conn, data, existing_row=None):
     existing = quotation_payload(existing_row) if existing_row else None
     item = quotation_validate(data, existing)
     quote_id = existing_row["id"] if existing_row else f"quote-{uuid.uuid4()}"
-    number = existing["number"] if existing else text(data.get("number"))
-    if not number:
-        number = next_quotation_number(conn, item["date"][:4] or time.strftime("%Y"))
+    # La interfaz anticipa el siguiente correlativo, pero el servidor confirma
+    # siempre el consecutivo definitivo para impedir duplicados entre usuarios.
+    number = existing["number"] if existing else next_quotation_number(
+        conn, item["date"][:4] or time.strftime("%Y")
+    )
     actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
     now = time.strftime("%Y-%m-%dT%H:%M:%S")
     converted_order_id = existing.get("convertedOrderId", "") if existing else ""

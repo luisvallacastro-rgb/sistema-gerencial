@@ -2875,6 +2875,17 @@ async function loadQuotations() {
 }
 
 function persistLocalQuotations() { localStorage.setItem(QUOTATIONS_STORAGE_KEY, JSON.stringify(state.quotations)); }
+function nextQuotationNumberPreview(date = todayISO()) {
+  const year = String(date || todayISO()).slice(0, 4) || String(new Date().getFullYear());
+  const prefix = `COT-${year}-`;
+  const highest = state.quotations.reduce((current, item) => {
+    const number = String(item.number || "");
+    if (!number.startsWith(prefix)) return current;
+    const suffix = Number(number.slice(prefix.length));
+    return Number.isInteger(suffix) ? Math.max(current, suffix) : current;
+  }, 0);
+  return `${prefix}${String(highest + 1).padStart(4, "0")}`;
+}
 function crmOpportunityForQuotation(id) { return crmData().opportunities.find((item) => String(item.id) === String(id)); }
 function crmCustomerForQuotation(opportunity) {
   const customers = crmData().customers || [];
@@ -2907,14 +2918,14 @@ function ensureQuotationDialog() {
     <input type="hidden" id="quotationId"><input type="hidden" id="quotationOpportunityId">
     <section id="quotationHistory" class="quotation-history"></section>
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
-    <section class="quotation-form-grid quotation-main-fields"><label>Correlativo<input id="quotationNumber" readonly placeholder="Automático al guardar"></label><label>Fecha<input id="quotationDate" type="date" required></label><label>Vigencia<input id="quotationValidDays" type="number" min="1" max="365" value="30" required><small>días</small></label><label>Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option>Convertida</option></select></label></section>
+    <section class="quotation-form-grid quotation-main-fields"><label>Número de cotización<input id="quotationNumber" readonly></label><label>Fecha<input id="quotationDate" type="date" required></label><label>Vigencia<input id="quotationValidDays" type="number" min="1" max="365" value="30" required><small>días</small></label><label>Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label></section>
     <section class="quotation-customer quotation-collapsible"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationCustomerFields"><span><b>Datos del cliente y vendedor</b><small>Información heredada de la oportunidad. Ábrela solo si necesitas corregirla.</small></span><i aria-hidden="true">⌄</i></button><div id="quotationCustomerFields" class="quotation-form-grid quotation-collapsible-content" hidden><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></section>
     <section class="quotation-lines"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><button type="button" data-quotation-add-line>+ Agregar línea</button></div><div id="quotationLines"></div></section>
     <section class="quotation-totals"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article><span>Total cotización</span><strong id="quotationTotal">$0.00</strong></article></section>
     <section class="quotation-terms-panel quotation-collapsible"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Pago, entrega, garantía y observaciones especiales.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content" hidden><label>Forma de pago<input id="quotationPaymentTerms"></label><label>Tiempo de entrega<input id="quotationDeliveryTerms"></label><label>Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label>Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
-    <footer><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="primary-btn">Guardar</button><button type="button" class="quotation-convert-btn" data-quotation-convert>Convertir a pedido</button></footer>
+    <footer><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="primary-btn">Guardar</button></footer>
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");
 
@@ -2945,9 +2956,12 @@ function ensureQuotationDialog() {
       firstField?.focus();
       firstField?.select();
     }
-    if (event.target.matches("[data-quotation-convert]")) await convertQuotationToOrder();
   });
   dialog.addEventListener("input", (event) => { if (event.target.closest(".quotation-line")) updateQuotationTotals(); });
+  dialog.querySelector("#quotationDate").addEventListener("change", (event) => {
+    if (document.querySelector("#quotationId").value) return;
+    document.querySelector("#quotationNumber").value = nextQuotationNumberPreview(event.target.value);
+  });
   document.querySelector("#quotationForm").addEventListener("submit", async (event) => { event.preventDefault(); await saveQuotationFromForm(); });
 }
 
@@ -2999,16 +3013,14 @@ function populateQuotationForm(quote, opportunity = null) {
   const customer = quote?.customerData || crmCustomerForQuotation(opportunity);
   const seller = (crmData().sellers || []).find((item) => item.id === opportunity?.ownerId) || {};
   const values = {
-    quotationId:quote?.id || "", quotationNumber:quote?.number || "", quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
+    quotationId:quote?.id || "", quotationNumber:quote?.number || nextQuotationNumberPreview(quote?.date || todayISO()), quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
     quotationCommercialName:customer.commercialName || customer.name || quote?.client || opportunity?.company || "", quotationLegalName:customer.legalName || "", quotationContactName:customer.contactName || customer.manager || opportunity?.contact || "", quotationPhone:customer.phone || opportunity?.phone || "", quotationEmail:customer.email || "", quotationAddress:customer.address || opportunity?.location || "", quotationBusinessActivity:customer.businessActivity || customer.businessLine || opportunity?.segment || "", quotationTaxId:customer.taxId || customer.nit || "", quotationRegistrationNumber:customer.registrationNumber || customer.nrc || "", quotationTaxpayerType:customer.taxpayerType || "", quotationCustomerCode:customer.customerCode || customer.code || "", quotationStrategy:customer.strategy || opportunity?.strategy || "", quotationSeller:quote?.seller || seller.name || opportunity?.seller || state.currentUser?.name || "", quotationSellerPhone:customer.sellerPhone || seller.phone || "", quotationSellerEmail:customer.sellerEmail || seller.email || state.currentUser?.email || "",
     quotationPaymentTerms:quote?.paymentTerms || "50% de anticipo - 50% contra entrega", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:quote?.commercialNotes || "Precios unitarios no incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
   };
   Object.entries(values).forEach(([id,value]) => { const field = document.querySelector(`#${id}`); if (field) field.value = value; });
   const baseDescription = opportunity?.product || opportunity?.segment || "";
   document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:baseDescription, quantity:"1" }]).map(quotationLineTemplate).join("");
-  const converted = Boolean(quote?.convertedOrderId);
-  const convert = document.querySelector("[data-quotation-convert]"); convert.disabled = converted; convert.textContent = converted ? "Pedido creado" : "Convertir a pedido";
-  document.querySelector("#quotationDialogTitle").textContent = quote ? `Cotización ${quote.number}` : "Nueva cotización";
+  document.querySelector("#quotationDialogTitle").textContent = quote ? `Cotización ${quote.number}` : `Nueva cotización · ${values.quotationNumber}`;
   setQuotationPanelExpanded(document.querySelector(".quotation-customer"), false);
   setQuotationPanelExpanded(document.querySelector(".quotation-terms-panel"), true);
   updateQuotationTotals();
@@ -3060,17 +3072,9 @@ async function deleteQuotationFromForm() {
   catch (error) { alert(error.message || "No se pudo eliminar la cotización."); }
 }
 
-async function convertQuotationToOrder() {
-  const draft = quotationDraftFromForm();
-  if (!validateQuotationPricesForFinalAction(draft, "convertirla en pedido")) return;
-  const quote = await saveQuotationFromForm();
-  if (!quote || quote.convertedOrderId) return;
-  const opportunity = crmOpportunityForQuotation(quote.opportunityId); document.querySelector("#quotationDialog").close();
-  openControlSalesForm(null, null, { id:quote.opportunityId, company:quote.client, seller:quote.seller, amount:Number(opportunity?.estimatedAmount || 0), date:quote.date, segment:opportunity?.segment || opportunity?.product || "" }, true, quote);
-}
-
 function printQuotation(quote) {
   if (!quote.lines?.length) return alert("Agrega al menos una línea a la cotización.");
+  if (!quote.number) quote = { ...quote, number: nextQuotationNumberPreview(quote.date) };
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) return alert("Habilita las ventanas emergentes para ver la cotización.");
   const data = quote.customerData || {}; const value = (item) => escapeHtml(String(item || ""));
@@ -3338,19 +3342,18 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
 function openCrmWonOrder(opportunityId) {
   const win = crmResultWinHistory().find((item) => String(item.id) === String(opportunityId));
   if (!win) return;
-  const financialOrder = state.financialOrders.find((order) => String(order.sourceOpportunityId || "") === String(opportunityId));
+  const identityKeys = crmWonIdentityKeys(win);
+  const financialOrder = state.financialOrders.find((order) => identityKeys.has(String(order.sourceOpportunityId || "")));
   const detailOrder = (financialOrder
     ? state.controlSales.find((order) => String(order.financialOrderId || "") === String(financialOrder.id) && !order.archived)
     : null)
-    || state.controlSales.find((order) => String(order.sourceOpportunityId || "") === String(opportunityId) && !order.archived);
+    || state.controlSales.find((order) => identityKeys.has(String(order.sourceOpportunityId || "")) && !order.archived);
   if (detailOrder) {
     openControlSalesDetail(detailOrder.id, true);
     return;
   }
-  const quotation = state.quotations
-    .filter((item) => String(item.opportunityId) === String(opportunityId))
-    .sort((a, b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)))[0];
-  openQuotationDialog(opportunityId, quotation?.id || "");
+  const quotation = latestQuotationForWonOpportunity(win);
+  openControlSalesForm(null, null, win, true, quotation || null);
 }
 
 function printControlSalesProformaInline(order) {
@@ -5770,6 +5773,8 @@ function crmResultWinHistory(selectedSeller = null) {
     if (result?.result !== "ganado") return [];
     return [{
       id: item.id,
+      opportunityId: item.id,
+      crmOpportunityId: item.crmOpportunityId || "",
       managementId: result.id || "",
       date: result.date || item.trackingWin?.closedDate || item.date || "",
       time: result.time || item.trackingWin?.closedTime || "",
@@ -5790,6 +5795,19 @@ function crmResultWinHistory(selectedSeller = null) {
   return [...unique.values()]
     .filter((win) => !selectedSellerKey || crmIdentityKey(win.seller) === selectedSellerKey)
     .sort((a, b) => `${b.date || ""} ${b.time || ""}`.localeCompare(`${a.date || ""} ${a.time || ""}`));
+}
+
+function crmWonIdentityKeys(win) {
+  return new Set([win?.id, win?.opportunityId, win?.crmOpportunityId]
+    .filter(Boolean)
+    .map((value) => String(value)));
+}
+
+function latestQuotationForWonOpportunity(win) {
+  const identityKeys = crmWonIdentityKeys(win);
+  return state.quotations
+    .filter((item) => identityKeys.has(String(item.opportunityId || "")))
+    .sort((a, b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)))[0] || null;
 }
 
 function renderCrmTracking() {
@@ -5864,12 +5882,11 @@ function renderCrmTracking() {
     `;
   }).join("");
   const wonHistoryCards = filteredWins.map((win) => {
-    const financialOrder = financialOrderByOpportunityId.get(String(win.id));
+    const identityKeys = crmWonIdentityKeys(win);
+    const financialOrder = [...identityKeys].map((key) => financialOrderByOpportunityId.get(key)).find(Boolean);
     const detailOrder = (financialOrder ? controlSalesByFinancialOrderId.get(String(financialOrder.id)) : null)
-      || controlSalesByOpportunityId.get(String(win.id));
-    const quotation = state.quotations
-      .filter((item) => String(item.opportunityId) === String(win.id))
-      .sort((a, b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)))[0];
+      || [...identityKeys].map((key) => controlSalesByOpportunityId.get(key)).find(Boolean);
+    const quotation = latestQuotationForWonOpportunity(win);
     return `
     <article class="crm-won-history-card">
       <div class="crm-won-history-date">
@@ -5887,8 +5904,8 @@ function renderCrmTracking() {
       </div>
       <p>${escapeHtml(win.comment || "Cierre ganado registrado.")}</p>
       <button type="button" class="crm-won-order-button ${detailOrder ? "is-ready" : ""}" data-crm-won-order="${escapeHtml(win.id)}">
-        <span>${detailOrder ? "Pedido listo" : "Cotización"}</span>
-        <strong>${detailOrder ? "Ver / editar / imprimir" : quotation ? `Ver / editar ${escapeHtml(quotation.number)}` : "Crear cotización"}</strong>
+        <span>${detailOrder ? "Pedido listo" : "Pedido"}</span>
+        <strong>${detailOrder ? "Ver / editar / imprimir" : quotation ? `Crear desde ${escapeHtml(quotation.number)}` : "Crear detalle"}</strong>
       </button>
     </article>
   `;
