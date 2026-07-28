@@ -1197,6 +1197,14 @@ def control_sales_order_payload(conn, row, include_audit=False):
         "sourceRowStart": row["source_row_start"], "sourceRowEnd": row["source_row_end"],
         "notes": row["notes"], "createdBy": row["created_by"], "updatedBy": row["updated_by"],
         "createdAt": row["created_at"], "updatedAt": row["updated_at"],
+        "commercialApprovalStatus": row["commercial_approval_status"] if "commercial_approval_status" in row.keys() else "Pendiente",
+        "commercialApprovedBy": row["commercial_approved_by"] if "commercial_approved_by" in row.keys() else "",
+        "commercialApprovedAt": row["commercial_approved_at"] if "commercial_approved_at" in row.keys() else "",
+        "commercialApprovalNote": row["commercial_approval_note"] if "commercial_approval_note" in row.keys() else "",
+        "financeApprovalStatus": row["finance_approval_status"] if "finance_approval_status" in row.keys() else "Pendiente",
+        "financeApprovedBy": row["finance_approved_by"] if "finance_approved_by" in row.keys() else "",
+        "financeApprovedAt": row["finance_approved_at"] if "finance_approved_at" in row.keys() else "",
+        "financeApprovalNote": row["finance_approval_note"] if "finance_approval_note" in row.keys() else "",
         "details": [{
             "id": detail["id"], "externalId": detail["external_id"],
             "groupExternalId": detail["group_external_id"], "sequence": detail["sequence"],
@@ -1404,7 +1412,8 @@ def save_control_sales_order(conn, data, existing_row=None):
         conn.execute("""
             UPDATE control_sales_orders SET financial_order_id=?, source_opportunity_id=?, source_quotation_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
                 document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
-                proforma_data=?, updated_by=?, updated_at=? WHERE id=?
+                proforma_data=?, commercial_approval_status='Pendiente', commercial_approved_by='', commercial_approved_at='', commercial_approval_note='',
+                finance_approval_status='Pendiente', finance_approved_by='', finance_approved_at='', finance_approval_note='', updated_by=?, updated_at=? WHERE id=?
         """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
@@ -1652,14 +1661,14 @@ def seed_control_sales(conn):
 
 
 def grant_control_sales_permissions(conn):
-    permission = "operaciones:resultados-control-ventas"
+    permissions_to_grant = ["operaciones:resultados-control-ventas", "comercializacion:autorizacion-pedidos"]
     for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
         try:
             permissions = json.loads(row["permissions"] or "[]")
         except json.JSONDecodeError:
             permissions = []
-        if row["role"] in {"gerencias", "jefaturas"} and permission not in permissions:
-            permissions.append(permission)
+        if row["role"] in {"gerencias", "jefaturas"}:
+            permissions.extend(item for item in permissions_to_grant if item not in permissions)
             conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions, ensure_ascii=True), row["id"]))
 
 
@@ -1930,6 +1939,14 @@ def init_db():
                 source_row_start TEXT DEFAULT '',
                 source_row_end TEXT DEFAULT '',
                 notes TEXT DEFAULT '',
+                commercial_approval_status TEXT NOT NULL DEFAULT 'Pendiente',
+                commercial_approved_by TEXT NOT NULL DEFAULT '',
+                commercial_approved_at TEXT NOT NULL DEFAULT '',
+                commercial_approval_note TEXT NOT NULL DEFAULT '',
+                finance_approval_status TEXT NOT NULL DEFAULT 'Pendiente',
+                finance_approved_by TEXT NOT NULL DEFAULT '',
+                finance_approved_at TEXT NOT NULL DEFAULT '',
+                finance_approval_note TEXT NOT NULL DEFAULT '',
                 created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
                 updated_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1951,6 +1968,19 @@ def init_db():
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN variance_cents INTEGER NOT NULL DEFAULT 0")
         if "proforma_data" not in control_sales_order_columns:
             conn.execute("ALTER TABLE control_sales_orders ADD COLUMN proforma_data TEXT NOT NULL DEFAULT '{}'")
+        approval_columns = {
+            "commercial_approval_status": "TEXT NOT NULL DEFAULT 'Pendiente'",
+            "commercial_approved_by": "TEXT NOT NULL DEFAULT ''",
+            "commercial_approved_at": "TEXT NOT NULL DEFAULT ''",
+            "commercial_approval_note": "TEXT NOT NULL DEFAULT ''",
+            "finance_approval_status": "TEXT NOT NULL DEFAULT 'Pendiente'",
+            "finance_approved_by": "TEXT NOT NULL DEFAULT ''",
+            "finance_approved_at": "TEXT NOT NULL DEFAULT ''",
+            "finance_approval_note": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column, definition in approval_columns.items():
+            if column not in control_sales_order_columns:
+                conn.execute(f"ALTER TABLE control_sales_orders ADD COLUMN {column} {definition}")
         conn.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_financial_order_id
             ON control_sales_orders(financial_order_id)
@@ -2642,6 +2672,79 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "Usuario no encontrado"}, status=404)
                     return
             self.send_json({"ok": True, "user": user})
+            return
+        control_sales_parts = self.path.split("?", 1)[0].strip("/").split("/")
+        if (
+            len(control_sales_parts) == 4
+            and control_sales_parts[:2] == ["api", "control-sales"]
+            and control_sales_parts[3] in {"commercial-approval", "finance-approval"}
+        ):
+            item_id = unquote(control_sales_parts[2])
+            stage = control_sales_parts[3]
+            changes = self.read_json()
+            status = text(changes.get("status"))
+            allowed = {
+                "commercial-approval": {"Autorizada", "Devuelta"},
+                "finance-approval": {"Aprobada", "Observada"},
+            }
+            if status not in allowed[stage]:
+                self.send_json({"error": "Estado de autorización no válido"}, status=400)
+                return
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            note = text(changes.get("note"))
+            with connect() as conn:
+                actor_row = conn.execute(
+                    "SELECT name, role, admin, permissions FROM users WHERE id = ? LIMIT 1", (actor_id,)
+                ).fetchone() if actor_id else None
+                required_permission = (
+                    "comercializacion:autorizacion-pedidos"
+                    if stage == "commercial-approval"
+                    else "financiera:resultados-pedidos"
+                )
+                try:
+                    actor_permissions = json.loads(actor_row["permissions"] or "[]") if actor_row else []
+                except json.JSONDecodeError:
+                    actor_permissions = []
+                authorized_role = actor_row and text(actor_row["role"]) in {"gerencias", "jefaturas"}
+                authorized_permission = required_permission in actor_permissions
+                if not actor_row or (not actor_row["admin"] and not (authorized_role and authorized_permission)):
+                    self.send_json({"error": "Tu usuario no tiene permiso para registrar este visto bueno"}, status=403)
+                    return
+                row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (item_id,)).fetchone()
+                if not row:
+                    self.send_json({"error": "Orden no encontrada"}, status=404)
+                    return
+                if row["archived"]:
+                    self.send_json({"error": "Una orden archivada no puede autorizarse"}, status=409)
+                    return
+                actor = text(actor_row["name"], "Sistema Gerencial")
+                if stage == "finance-approval" and text(row["commercial_approval_status"]) != "Autorizada":
+                    self.send_json({"error": "La orden requiere primero el visto bueno comercial"}, status=409)
+                    return
+                if stage == "commercial-approval":
+                    conn.execute("""
+                        UPDATE control_sales_orders
+                        SET commercial_approval_status=?, commercial_approved_by=?, commercial_approved_at=?,
+                            commercial_approval_note=?, finance_approval_status='Pendiente', finance_approved_by='',
+                            finance_approved_at='', finance_approval_note='', updated_by=?, updated_at=?
+                        WHERE id=?
+                    """, (status, actor, now, note, actor, now, item_id))
+                    action = "autorizacion_comercial" if status == "Autorizada" else "devolucion_comercial"
+                else:
+                    conn.execute("""
+                        UPDATE control_sales_orders
+                        SET finance_approval_status=?, finance_approved_by=?, finance_approved_at=?,
+                            finance_approval_note=?, updated_by=?, updated_at=? WHERE id=?
+                    """, (status, actor, now, note, actor, now, item_id))
+                    action = "aprobacion_financiera" if status == "Aprobada" else "observacion_financiera"
+                conn.execute(
+                    "INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
+                    (item_id, action, actor, now, note),
+                )
+                updated = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (item_id,)).fetchone()
+                item = control_sales_order_payload(conn, updated, include_audit=True)
+            self.send_json({"ok": True, "item": item})
             return
         if self.path.startswith("/api/control-sales/"):
             item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])

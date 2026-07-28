@@ -1805,3 +1805,54 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   -webkit-text-fill-color: #7b8799 !important;
   opacity: 1 !important;
 }
+
+/* Autorización comercial y segundo visto bueno en modo claro. */
+.app-shell .commercial-approval__hero,
+.app-shell .commercial-approval__row,
+.app-shell .commercial-approval__row.quotation,
+.app-shell .financial-order-notifications-head,
+.app-shell .financial-order-notification-card {
+  border-color: #d5deea !important;
+  background: rgba(255,255,255,.82) !important;
+  background-image: none !important;
+  box-shadow: 0 8px 24px rgba(39,54,83,.055) !important;
+}
+.app-shell .commercial-approval__hero h3,
+.app-shell .commercial-approval__identity strong,
+.app-shell .commercial-approval__client strong,
+.app-shell .financial-order-notifications-head h4,
+.app-shell .financial-order-notification-copy strong { color: #182238 !important; }
+.app-shell .commercial-approval__hero p,
+.app-shell .commercial-approval__identity span,
+.app-shell .commercial-approval__client span,
+.app-shell .financial-order-notifications-head p,
+.app-shell .financial-order-notification-copy span { color: #66748a !important; opacity: 1 !important; }
+.app-shell .commercial-approval__hero span,
+.app-shell .commercial-approval__identity small,
+.app-shell .commercial-approval__amount small,
+.app-shell .financial-order-notifications-head span,
+.app-shell .financial-order-notification-copy small { color: #4f46d9 !important; }
+.app-shell .commercial-approval__metrics article { border-color: #d7dfeb !important; background: #f3f6fa !important; }
+.app-shell .commercial-approval__metrics small { color: #66748a !important; }
+.app-shell .commercial-approval__metrics strong { color: #182238 !important; }
+.app-shell .commercial-approval__tabs { border-color: #d9e1ec !important; background: #f2f4fa !important; }
+.app-shell .commercial-approval__tabs button { color: #59667c !important; }
+.app-shell .commercial-approval__tabs button.active { border-color: #c5c2f7 !important; background: #e9e8ff !important; color: #4338ca !important; }
+.app-shell .commercial-approval__tabs button b { background: rgba(79,70,229,.08) !important; }
+.app-shell .commercial-approval__search { border-color: #cfd8e6 !important; background: #fff !important; color: #4f46d9 !important; }
+.app-shell .commercial-approval__search input { color: #182238 !important; -webkit-text-fill-color: #182238 !important; }
+.app-shell .commercial-approval__search input::placeholder { color: #7b8799 !important; -webkit-text-fill-color: #7b8799 !important; opacity: 1 !important; }
+.app-shell .commercial-approval__notice { border-left-color: #4f46d9 !important; background: #f1f0ff !important; color: #59667c !important; }
+.app-shell .commercial-approval__notice strong { color: #4338ca !important; }
+.app-shell .commercial-approval__amount strong,
+.app-shell .financial-order-notification-amount strong { color: #176f52 !important; text-shadow: none !important; }
+.app-shell .commercial-approval__status { border-color: #a9d6c5 !important; background: #e8f4ef !important; color: #176f52 !important; }
+.app-shell .commercial-approval__status[data-status="devuelta"] { border-color: #efc3cc !important; background: #fff0f3 !important; color: #b52f49 !important; }
+.app-shell .commercial-approval__status[data-status="borrador"] { border-color: #ead2a6 !important; background: #fff7e8 !important; color: #9a5b08 !important; }
+.app-shell .commercial-approval__actions button,
+.app-shell .financial-order-notification-actions button { border-color: #cfd8e6 !important; background: #fff !important; color: #334155 !important; box-shadow: none !important; }
+.app-shell .commercial-approval__actions .primary,
+.app-shell .financial-order-notification-actions .primary { border-color: #4f46d9 !important; background: #4f46d9 !important; color: #fff !important; }
+.app-shell .commercial-approval__actions .secondary,
+.app-shell .financial-order-notification-actions .secondary { border-color: #e7c891 !important; background: #fff8eb !important; color: #955a0d !important; }
+.app-shell .financial-order-notification-icon { background: #e8f4ef !important; color: #176f52 !important; }

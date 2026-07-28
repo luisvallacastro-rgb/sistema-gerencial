@@ -6380,6 +6380,144 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .app-shell .financial-order-notification-card > button { grid-column: 3; grid-row: 1 / span 2; }
 }
 
+/* Autorización de pedidos: primer visto bueno y control de correlativos. */
+.app-shell .commercial-approval {
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+}
+.app-shell .commercial-approval__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  padding: 18px 20px;
+  border: 1px solid rgba(114,245,209,.24);
+  border-radius: 22px;
+  background: linear-gradient(120deg, rgba(53,81,128,.34), rgba(12,62,70,.28));
+}
+.app-shell .commercial-approval__hero > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.app-shell .commercial-approval__hero span,
+.app-shell .commercial-approval__identity small,
+.app-shell .commercial-approval__amount small {
+  color: #72f5d1;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.app-shell .commercial-approval__hero h3 { margin: 0; color: #f5f8ff; font-size: clamp(21px, 2vw, 29px); }
+.app-shell .commercial-approval__hero p { margin: 0; color: rgba(211,224,240,.7); font-size: 12px; font-weight: 700; }
+.app-shell .commercial-approval__metrics { display: grid; grid-template-columns: repeat(3, minmax(105px, 1fr)); gap: 8px; }
+.app-shell .commercial-approval__metrics article {
+  display: grid;
+  gap: 2px;
+  min-width: 105px;
+  padding: 11px 14px;
+  border: 1px solid rgba(148,183,216,.17);
+  border-radius: 15px;
+  background: rgba(9,31,58,.34);
+}
+.app-shell .commercial-approval__metrics small { color: rgba(205,220,238,.64); font-size: 8px; font-weight: 900; text-transform: uppercase; }
+.app-shell .commercial-approval__metrics strong { color: #fff; font-size: 23px; }
+.app-shell .commercial-approval__tabs { display: flex; gap: 7px; padding: 5px; border: 1px solid rgba(142,185,219,.15); border-radius: 15px; background: rgba(7,28,53,.35); }
+.app-shell .commercial-approval__tabs button {
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: rgba(205,220,238,.68);
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.app-shell .commercial-approval__tabs button b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 6px; border-radius: 999px; background: rgba(255,255,255,.08); }
+.app-shell .commercial-approval__tabs button.active { border-color: rgba(114,245,209,.3); background: rgba(114,245,209,.11); color: #baffed; }
+.app-shell .commercial-approval__search {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 15px;
+  border: 1px solid rgba(142,185,219,.2);
+  border-radius: 15px;
+  background: rgba(12,35,65,.35);
+  color: #72f5d1;
+}
+.app-shell .commercial-approval__search input { width: 100%; border: 0; outline: 0; background: transparent; color: #f4f8ff; font: inherit; font-size: 12px; font-weight: 750; }
+.app-shell .commercial-approval__search input::placeholder { color: rgba(205,220,238,.52); }
+.app-shell .commercial-approval__notice { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-left: 3px solid #72f5d1; border-radius: 11px; background: rgba(114,245,209,.07); color: rgba(211,224,240,.72); font-size: 11px; }
+.app-shell .commercial-approval__notice strong { color: #baffed; white-space: nowrap; }
+.app-shell .commercial-approval__list { display: grid; align-content: start; gap: 9px; min-height: 0; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: rgba(114,245,209,.45) transparent; }
+.app-shell .commercial-approval__row {
+  display: grid;
+  grid-template-columns: minmax(145px,.75fr) minmax(220px,1.35fr) minmax(120px,.55fr) minmax(92px,.45fr) minmax(300px,auto);
+  align-items: center;
+  gap: 14px;
+  min-height: 78px;
+  padding: 12px 14px;
+  border: 1px solid rgba(142,185,219,.18);
+  border-radius: 17px;
+  background: linear-gradient(105deg, rgba(57,83,128,.27), rgba(10,38,55,.22));
+}
+.app-shell .commercial-approval__row.quotation { grid-template-columns: minmax(155px,.75fr) minmax(260px,1.5fr) minmax(120px,.55fr) minmax(92px,.45fr) auto; }
+.app-shell .commercial-approval__identity,
+.app-shell .commercial-approval__client,
+.app-shell .commercial-approval__amount { display: grid; gap: 2px; min-width: 0; }
+.app-shell .commercial-approval__identity strong,
+.app-shell .commercial-approval__client strong { overflow: hidden; color: #f4f8ff; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .commercial-approval__identity span,
+.app-shell .commercial-approval__client span { color: rgba(205,220,238,.64); font-size: 10px; font-weight: 750; }
+.app-shell .commercial-approval__amount strong { color: #72f5d1; font-size: 16px; white-space: nowrap; }
+.app-shell .commercial-approval__status { justify-self: start; padding: 7px 10px; border: 1px solid rgba(114,245,209,.2); border-radius: 999px; background: rgba(114,245,209,.09); color: #aaf5df; font-size: 9px; font-weight: 950; text-transform: uppercase; }
+.app-shell .commercial-approval__status[data-status="devuelta"] { border-color: rgba(255,155,175,.24); background: rgba(255,104,135,.1); color: #ff9faf; }
+.app-shell .commercial-approval__status[data-status="borrador"] { border-color: rgba(255,190,95,.22); background: rgba(255,176,62,.1); color: #ffd08a; }
+.app-shell .commercial-approval__actions { display: flex; justify-content: flex-end; gap: 6px; min-width: 0; }
+.app-shell .commercial-approval__actions button,
+.app-shell .financial-order-notification-actions button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(142,185,219,.22);
+  border-radius: 11px;
+  background: rgba(43,70,111,.45);
+  color: #eaf2ff;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.app-shell .commercial-approval__actions button:hover,
+.app-shell .financial-order-notification-actions button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.app-shell .commercial-approval__actions .primary,
+.app-shell .financial-order-notification-actions .primary { border-color: rgba(114,245,209,.32); background: linear-gradient(135deg, #147e60, #24a77c); color: #fff; }
+.app-shell .commercial-approval__actions .secondary,
+.app-shell .financial-order-notification-actions .secondary { border-color: rgba(255,190,95,.24); color: #ffd18d; }
+.app-shell .financial-order-notification-actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+@media (max-width: 1220px) {
+  .app-shell .commercial-approval__row,
+  .app-shell .commercial-approval__row.quotation { grid-template-columns: minmax(130px,.8fr) minmax(190px,1.25fr) auto auto; }
+  .app-shell .commercial-approval__actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .app-shell .financial-order-notification-card { grid-template-columns: 42px minmax(190px,1fr) auto; }
+  .app-shell .financial-order-notification-actions { grid-column: 2 / -1; }
+}
+@media (max-width: 760px) {
+  .app-shell .commercial-approval { height: auto; }
+  .app-shell .commercial-approval__hero { grid-template-columns: 1fr; }
+  .app-shell .commercial-approval__metrics { grid-template-columns: repeat(3, 1fr); }
+  .app-shell .commercial-approval__tabs { flex-direction: column; }
+  .app-shell .commercial-approval__row,
+  .app-shell .commercial-approval__row.quotation { grid-template-columns: 1fr 1fr; }
+  .app-shell .commercial-approval__client,
+  .app-shell .commercial-approval__actions { grid-column: 1 / -1; }
+  .app-shell .commercial-approval__actions { flex-wrap: wrap; justify-content: stretch; }
+  .app-shell .commercial-approval__actions button { flex: 1 1 120px; }
+  .app-shell .financial-order-notification-actions { grid-column: 1 / -1; flex-wrap: wrap; }
+}
+
 /* Cotizaciones 2.0: captura simple por bloques, con datos secundarios plegables. */
 #quotationDialog .quotation-dialog-body {
   gap: 12px;

@@ -109,6 +109,12 @@ const areas = {
         items: []
       },
       {
+        key: "autorizacion-pedidos",
+        label: "Autorización de pedidos",
+        status: "Primer visto bueno",
+        items: []
+      },
+      {
         key: "resultados-dashboard",
         label: "Dashboard",
         status: "Acumulado comercial",
@@ -288,6 +294,8 @@ const state = {
   controlSalesDateTo: "",
   controlSalesSort: "date-desc",
   controlSalesPage: 1,
+  commercialApprovalView: "pending",
+  commercialApprovalQuery: "",
   quotations: [],
   crmData: null,
   crmSellerId: "",
@@ -674,12 +682,14 @@ let presenceTimer = null;
 const apiEnabled = window.location.protocol !== "file:";
 
 async function apiJson(path, options = {}) {
+  const { headers: optionHeaders = {}, ...requestOptions } = options;
   const response = await fetch(path, {
+    ...requestOptions,
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {})
-    },
-    ...options
+      "X-System-User-Id": state.currentUser?.id || "",
+      ...optionHeaders
+    }
   });
   if (!response.ok) {
     let message = `API ${response.status}`;
@@ -2558,6 +2568,7 @@ function loadControlSales() {
       if (
         (state.activeArea === "operaciones" && state.activeSubmenu === "resultados-control-ventas")
         || (state.activeArea === "financiera" && state.activeSubmenu === "resultados-pedidos")
+        || (state.activeArea === "comercializacion" && state.activeSubmenu === "autorizacion-pedidos")
       ) renderDashboard();
     })
     .catch((error) => console.error("No se pudo cargar Control de Ventas.", error));
@@ -2872,6 +2883,133 @@ async function loadQuotations() {
   try { state.quotations = JSON.parse(localStorage.getItem(QUOTATIONS_STORAGE_KEY) || "[]"); }
   catch { state.quotations = []; }
   return state.quotations;
+}
+
+function approvalControlSalesOrders() {
+  return state.controlSales
+    .filter((order) => !order.archived && order.sourceOpportunityId)
+    .sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date)));
+}
+
+function commercialPendingApprovalOrders() {
+  return approvalControlSalesOrders().filter((order) => order.commercialApprovalStatus !== "Autorizada");
+}
+
+function financePendingApprovalOrders() {
+  return approvalControlSalesOrders().filter((order) => (
+    order.commercialApprovalStatus === "Autorizada" && order.financeApprovalStatus !== "Aprobada"
+  ));
+}
+
+function savedQuotationRows() {
+  return [...state.quotations]
+    .filter((quotation) => quotation.number)
+    .sort((a, b) => String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
+}
+
+function formatOrderCorrelative(number) {
+  const raw = String(number || "").trim();
+  if (!raw) return "OP-PENDIENTE";
+  if (/^OP-/i.test(raw)) return raw.toUpperCase();
+  if (/^\d+$/.test(raw)) return `OP-${raw.padStart(4, "0")}`;
+  return raw;
+}
+
+async function updateControlSalesApproval(orderId, stage, status, note = "") {
+  const result = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}/${stage}-approval`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, note, updatedBy: state.currentUser?.name || "Sistema Gerencial" })
+  });
+  const updated = result.item;
+  const index = state.controlSales.findIndex((order) => order.id === updated.id);
+  if (index >= 0) state.controlSales[index] = updated;
+  else state.controlSales.push(updated);
+  return updated;
+}
+
+function renderCommercialOrderAuthorization() {
+  const allOrders = approvalControlSalesOrders();
+  const pending = commercialPendingApprovalOrders();
+  const authorized = allOrders.filter((order) => order.commercialApprovalStatus === "Autorizada");
+  const quotations = savedQuotationRows();
+  const query = normalizeKey(state.commercialApprovalQuery);
+  const pendingRows = pending.filter((order) => !query || normalizeKey(`${order.number} ${order.client} ${order.seller}`).includes(query));
+  const quotationRows = quotations.filter((quotation) => !query || normalizeKey(`${quotation.number} ${quotation.customerData?.commercialName || ""} ${quotation.seller || ""} ${quotation.status || ""}`).includes(query));
+  const isPending = state.commercialApprovalView === "pending";
+  return `
+    <section class="commercial-approval" aria-label="Autorización comercial de pedidos">
+      <header class="commercial-approval__hero">
+        <div><span>Flujo comercial</span><h3>Control de documentos</h3><p>Primer visto bueno de pedidos y trazabilidad de correlativos de cotización.</p></div>
+        <div class="commercial-approval__metrics">
+          <article><small>Pendientes</small><strong>${pending.length}</strong></article>
+          <article><small>Autorizados</small><strong>${authorized.length}</strong></article>
+          <article><small>Cotizaciones</small><strong>${quotations.length}</strong></article>
+        </div>
+      </header>
+      <nav class="commercial-approval__tabs" aria-label="Vistas de autorización">
+        <button type="button" data-commercial-approval-view="pending" class="${isPending ? "active" : ""}">Pedidos pendientes de autorizar <b>${pending.length}</b></button>
+        <button type="button" data-commercial-approval-view="quotations" class="${!isPending ? "active" : ""}">Cotizaciones enviadas <b>${quotations.length}</b></button>
+      </nav>
+      <label class="commercial-approval__search"><span>⌕</span><input type="search" data-commercial-approval-search value="${escapeHtml(state.commercialApprovalQuery)}" placeholder="Buscar correlativo, cliente o vendedor..."></label>
+      ${isPending ? `
+        <div class="commercial-approval__notice"><strong>Primer visto bueno</strong><span>Al autorizar, la orden se notificará a Financiera / Pedidos para su segundo visto bueno.</span></div>
+        <div class="commercial-approval__list">
+          ${pendingRows.map((order) => `
+            <article class="commercial-approval__row">
+              <div class="commercial-approval__identity"><small>ORDEN DE PEDIDO</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><span>${formatDate(order.date)}</span></div>
+              <div class="commercial-approval__client"><strong>${escapeHtml(order.client)}</strong><span>${escapeHtml(order.seller || "Sin vendedor")}</span></div>
+              <div class="commercial-approval__amount"><small>Total</small><strong>${formatControlSalesMoney(order.totalCents || 0)}</strong></div>
+              <span class="commercial-approval__status" data-status="${normalizeKey(order.commercialApprovalStatus || "Pendiente")}">${escapeHtml(order.commercialApprovalStatus || "Pendiente")}</span>
+              <div class="commercial-approval__actions">
+                <button type="button" data-commercial-order-view="${escapeHtml(order.id)}">Ver</button>
+                <button type="button" data-commercial-order-edit="${escapeHtml(order.id)}">Editar</button>
+                <button type="button" class="secondary" data-commercial-order-return="${escapeHtml(order.id)}">Devolver</button>
+                <button type="button" class="primary" data-commercial-order-approve="${escapeHtml(order.id)}">✓ Firmar y autorizar</button>
+              </div>
+            </article>`).join("") || `<div class="empty-state">No hay pedidos pendientes de autorización comercial.</div>`}
+        </div>` : `
+        <div class="commercial-approval__notice"><strong>Control de correlativos</strong><span>El número se fija en el primer guardado. La vista previa solo anticipa el siguiente y no lo consume. Aquí aparecen todas las cotizaciones guardadas, con su estado.</span></div>
+        <div class="commercial-approval__list">
+          ${quotationRows.map((quotation) => `
+            <article class="commercial-approval__row quotation">
+              <div class="commercial-approval__identity"><small>COTIZACIÓN</small><strong>${escapeHtml(quotation.number)}</strong><span>${formatDate(quotation.date)}</span></div>
+              <div class="commercial-approval__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.company || "Sin cliente")}</strong><span>${escapeHtml(quotation.seller || "Sin vendedor")}</span></div>
+              <div class="commercial-approval__amount"><small>Total</small><strong>${formatControlSalesMoney(quotation.totalCents || 0)}</strong></div>
+              <span class="commercial-approval__status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span>
+              <div class="commercial-approval__actions"><button type="button" class="primary" data-commercial-quotation-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}">Ver / editar</button></div>
+            </article>`).join("") || `<div class="empty-state">Aún no existen cotizaciones guardadas con correlativo fijo.</div>`}
+        </div>`}
+    </section>`;
+}
+
+function wireCommercialOrderAuthorization() {
+  opportunityTable.querySelectorAll("[data-commercial-approval-view]").forEach((button) => button.addEventListener("click", () => {
+    state.commercialApprovalView = button.dataset.commercialApprovalView;
+    renderCommercialSubmenu(areas.comercializacion);
+  }));
+  opportunityTable.querySelector("[data-commercial-approval-search]")?.addEventListener("input", (event) => {
+    state.commercialApprovalQuery = event.target.value;
+    renderCommercialSubmenu(areas.comercializacion);
+    const input = opportunityTable.querySelector("[data-commercial-approval-search]");
+    input?.focus(); input?.setSelectionRange(input.value.length, input.value.length);
+  });
+  opportunityTable.querySelectorAll("[data-commercial-order-view]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.commercialOrderView)));
+  opportunityTable.querySelectorAll("[data-commercial-order-edit]").forEach((button) => button.addEventListener("click", () => {
+    const order = state.controlSales.find((item) => item.id === button.dataset.commercialOrderEdit);
+    if (order) openControlSalesForm(order);
+  }));
+  opportunityTable.querySelectorAll("[data-commercial-order-approve]").forEach((button) => button.addEventListener("click", async () => {
+    if (!confirm("¿Confirmas el primer visto bueno y la autorización comercial de esta orden?")) return;
+    try { await updateControlSalesApproval(button.dataset.commercialOrderApprove, "commercial", "Autorizada"); renderCommercialSubmenu(areas.comercializacion); }
+    catch (error) { alert(error.message || "No se pudo autorizar la orden."); }
+  }));
+  opportunityTable.querySelectorAll("[data-commercial-order-return]").forEach((button) => button.addEventListener("click", async () => {
+    const note = prompt("Indica qué debe corregirse antes de autorizar:");
+    if (note === null || !note.trim()) return;
+    try { await updateControlSalesApproval(button.dataset.commercialOrderReturn, "commercial", "Devuelta", note.trim()); renderCommercialSubmenu(areas.comercializacion); }
+    catch (error) { alert(error.message || "No se pudo devolver la orden."); }
+  }));
+  opportunityTable.querySelectorAll("[data-commercial-quotation-open]").forEach((button) => button.addEventListener("click", () => openQuotationDialog(button.dataset.opportunityId, button.dataset.commercialQuotationOpen)));
 }
 
 function persistLocalQuotations() { localStorage.setItem(QUOTATIONS_STORAGE_KEY, JSON.stringify(state.quotations)); }
@@ -3787,8 +3925,8 @@ function renderFinancialOrderList() {
 }
 
 function renderFinancialOrderNotifications() {
-  const pendingHandoffs = pendingWonOrderOpportunities();
-  const pendingTotal = sumAmounts(pendingHandoffs);
+  const pendingHandoffs = financePendingApprovalOrders();
+  const pendingTotalCents = pendingHandoffs.reduce((sum, order) => sum + Number(order.totalCents || 0), 0);
   const reconciliationAlerts = state.controlSales
     .filter((order) => order.financialOrderId && Number(order.varianceCents || 0) !== 0)
     .sort((a, b) => Math.abs(Number(b.varianceCents || 0)) - Math.abs(Number(a.varianceCents || 0)));
@@ -3814,37 +3952,38 @@ function renderFinancialOrderNotifications() {
     <section class="financial-order-notifications" aria-label="Notificaciones de pedidos pendientes">
       <header class="financial-order-notifications-head">
         <div>
-          <span>Oportunidades ganadas</span>
-          <h4>Pedidos por crear</h4>
-          <p>Cada cierre ganado en Oportunidades / Gerencia aparece aquí hasta convertirlo en pedido.</p>
+          <span>Segundo visto bueno</span>
+          <h4>Órdenes autorizadas por Comercialización</h4>
+          <p>Solo aparecen órdenes firmadas por Gerencia Comercial. Revisa el detalle antes de dar el segundo visto bueno.</p>
         </div>
         <div class="financial-order-notifications-summary">
           <small>${pendingHandoffs.length === 1 ? "1 pendiente" : `${pendingHandoffs.length} pendientes`}</small>
-          <strong>${formatMoney(pendingTotal)}</strong>
+          <strong>${formatControlSalesMoney(pendingTotalCents)}</strong>
         </div>
       </header>
       <div class="financial-order-notifications-list">
-        ${pendingHandoffs.map((item) => {
-          const result = closureResult(item);
-          return `
+        ${pendingHandoffs.map((order) => `
             <article class="financial-order-notification-card">
               <div class="financial-order-notification-icon" aria-hidden="true">✓</div>
               <div class="financial-order-notification-copy">
-                <small>Oportunidad ganada · ${result?.date ? formatDate(result.date) : "Lista para pedido"}</small>
-                <strong>${escapeHtml(item.company)}</strong>
-                <span>${escapeHtml(item.seller || "Sin vendedor asignado")}</span>
+                <small>Orden ${escapeHtml(formatOrderCorrelative(order.number))} · Autorizada ${formatDate(order.commercialApprovedAt || order.updatedAt)}</small>
+                <strong>${escapeHtml(order.client || "Cliente sin nombre")}</strong>
+                <span>${escapeHtml(order.seller || "Sin vendedor")} · Primer visto bueno: ${escapeHtml(order.commercialApprovedBy || "Gerencia Comercial")}</span>
               </div>
               <div class="financial-order-notification-amount">
-                <small>Monto heredado</small>
-                <strong>${formatMoney(item.amount)}</strong>
+                <small>Total confirmado</small>
+                <strong>${formatControlSalesMoney(order.totalCents || 0)}</strong>
               </div>
-              <button type="button" data-won-order-handoff="${escapeHtml(item.id)}">+ Crear pedido</button>
-            </article>`;
-        }).join("") || `
+              <div class="financial-order-notification-actions">
+                <button type="button" data-finance-order-view="${escapeHtml(order.id)}">Ver orden</button>
+                <button type="button" class="secondary" data-finance-order-observe="${escapeHtml(order.id)}">Observar</button>
+                <button type="button" class="primary" data-finance-order-approve="${escapeHtml(order.id)}">✓ Segundo visto bueno</button>
+              </div>
+            </article>`).join("") || `
           <div class="financial-order-notifications-empty">
             <span aria-hidden="true">✓</span>
             <strong>Todo está al día</strong>
-            <p>No hay oportunidades ganadas pendientes de convertir en pedido.</p>
+            <p>No hay órdenes con autorización comercial pendientes de revisión financiera.</p>
           </div>`}
       </div>
     </section>`;
@@ -4033,6 +4172,28 @@ function renderFinancialOrders() {
 }
 
 function wireFinancialOrders() {
+  opportunityTable.querySelectorAll("[data-finance-order-view]").forEach((button) => button.addEventListener("click", () => {
+    openControlSalesDetail(button.dataset.financeOrderView);
+  }));
+  opportunityTable.querySelectorAll("[data-finance-order-approve]").forEach((button) => button.addEventListener("click", async () => {
+    if (!confirm("¿Confirmas el segundo visto bueno de esta orden de pedido?")) return;
+    try {
+      await updateControlSalesApproval(button.dataset.financeOrderApprove, "finance", "Aprobada");
+      renderCommercialSubmenu(areas.financiera);
+    } catch (error) {
+      alert(error.message || "No se pudo aprobar la orden.");
+    }
+  }));
+  opportunityTable.querySelectorAll("[data-finance-order-observe]").forEach((button) => button.addEventListener("click", async () => {
+    const note = prompt("Indica la observación que debe atender Comercialización:");
+    if (note === null || !note.trim()) return;
+    try {
+      await updateControlSalesApproval(button.dataset.financeOrderObserve, "finance", "Observada", note.trim());
+      renderCommercialSubmenu(areas.financiera);
+    } catch (error) {
+      alert(error.message || "No se pudo registrar la observación.");
+    }
+  }));
   opportunityTable.querySelectorAll("[data-financial-seller-detail]").forEach((button) => button.addEventListener("click", () => {
     renderFinancialSellerPortfolio(button.dataset.financialSellerDetail);
   }));
@@ -6173,6 +6334,20 @@ function renderCommercialSubmenu(area) {
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
 
+  if (state.activeArea === "comercializacion" && submenu.key === "autorizacion-pedidos") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    const pendingOrders = commercialPendingApprovalOrders();
+    commercialSubmenuStatus.textContent = `${pendingOrders.length} pendientes · ${savedQuotationRows().length} cotizaciones con correlativo`;
+    opportunityTable.innerHTML = renderCommercialOrderAuthorization();
+    wireCommercialOrderAuthorization();
+    return;
+  }
+
   if (state.activeArea === "financiera" && submenu.key === "resultados-pedidos") {
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
@@ -6181,7 +6356,7 @@ function renderCommercialSubmenu(area) {
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
     financialOrdersViewTabs?.classList.remove("hidden");
-    const pendingNotifications = pendingWonOrderOpportunities();
+    const pendingNotifications = financePendingApprovalOrders();
     if (financialOrdersNotificationCount) {
       financialOrdersNotificationCount.textContent = String(pendingNotifications.length);
       financialOrdersNotificationCount.classList.toggle("empty", pendingNotifications.length === 0);
@@ -6193,7 +6368,7 @@ function renderCommercialSubmenu(area) {
     });
     const visibleOrders = state.financialOrdersView === "list" ? filteredFinancialOrders().length : financialOrdersForSelectedPeriod().length;
     commercialSubmenuStatus.textContent = state.financialOrdersView === "notifications"
-      ? `${pendingNotifications.length} pedidos pendientes de crear`
+      ? `${pendingNotifications.length} pedidos pendientes del segundo visto bueno`
       : `${visibleOrders} de ${state.financialOrders.length} pedidos`;
     opportunityTable.innerHTML = renderFinancialOrders();
     wireFinancialOrders();
