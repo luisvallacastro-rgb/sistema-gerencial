@@ -1760,3 +1760,19 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   color: #be3049 !important;
   box-shadow: none !important;
 }
+
+/* Buscador de Oportunidades / Gerencia: contraste legible sobre fondo claro. */
+.app-shell .opportunity-search input,
+.app-shell .commercial-panel.opportunity-mode .opportunity-search input {
+  color: #182238 !important;
+  caret-color: #4f46e5 !important;
+  -webkit-text-fill-color: #182238 !important;
+  opacity: 1 !important;
+}
+
+.app-shell .opportunity-search input::placeholder,
+.app-shell .commercial-panel.opportunity-mode .opportunity-search input::placeholder {
+  color: #7b8799 !important;
+  -webkit-text-fill-color: #7b8799 !important;
+  opacity: 1 !important;
+}
