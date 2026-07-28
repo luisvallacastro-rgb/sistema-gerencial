@@ -2894,7 +2894,9 @@ function setQuotationPanelExpanded(panel, expanded) {
   const content = panel.querySelector(".quotation-collapsible-content");
   if (!trigger || !content) return;
   trigger.setAttribute("aria-expanded", String(expanded));
-  content.hidden = !expanded;
+  panel.classList.toggle("is-expanded", expanded);
+  if (expanded) content.removeAttribute("hidden");
+  else content.setAttribute("hidden", "");
 }
 
 function ensureQuotationDialog() {
@@ -2992,7 +2994,7 @@ function populateQuotationForm(quote, opportunity = null) {
   const convert = document.querySelector("[data-quotation-convert]"); convert.disabled = converted; convert.textContent = converted ? "Pedido creado" : "Convertir a pedido";
   document.querySelector("#quotationDialogTitle").textContent = quote ? `Cotización ${quote.number}` : "Nueva cotización";
   setQuotationPanelExpanded(document.querySelector(".quotation-customer"), false);
-  setQuotationPanelExpanded(document.querySelector(".quotation-terms-panel"), false);
+  setQuotationPanelExpanded(document.querySelector(".quotation-terms-panel"), true);
   updateQuotationTotals();
 }
 

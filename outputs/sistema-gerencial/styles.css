@@ -6454,6 +6454,8 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 
 #quotationDialog .quotation-customer,
 #quotationDialog .quotation-terms-panel {
+  min-height: 58px;
+  align-self: start;
   overflow: hidden;
   border: 1px solid rgba(137, 157, 190, .22);
   border-radius: 17px;
@@ -6518,6 +6520,10 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 
 #quotationDialog .quotation-collapsible-content[hidden] {
   display: none !important;
+}
+
+#quotationDialog .quotation-collapsible.is-expanded > .quotation-collapsible-content {
+  display: grid !important;
 }
 
 #quotationDialog .quotation-customer .quotation-form-grid,
@@ -15705,6 +15711,8 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 
 #quotationDialog .quotation-dialog-body {
   display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 18px;
   min-height: 0;
   padding: 18px 24px 26px;
