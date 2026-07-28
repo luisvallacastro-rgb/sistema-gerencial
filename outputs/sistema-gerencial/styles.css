@@ -15672,3 +15672,128 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   color: #be3049 !important;
   box-shadow: none !important;
 }
+
+/* Seguimiento: el buscador y las tarjetas ocupan filas propias; solo las tarjetas se desplazan. */
+.app-shell .crm-tracking-layout-refined {
+  height: min(780px, calc(100dvh - 335px));
+  min-height: 390px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.app-shell .crm-tracking-layout-refined .crm-tracking-sidebar {
+  align-self: stretch;
+  max-height: 100%;
+}
+
+.app-shell .crm-tracking-main:has(.crm-tracking-grid) {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-shell .crm-tracking-main:has(.crm-won-history-panel) {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-shell .crm-tracking-grid {
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-shell .crm-won-history-panel,
+.app-shell .crm-won-history-list {
+  min-height: 0;
+}
+
+/* Oportunidades / Gerencia: cuatro acciones compactas, alineadas y siempre visibles. */
+.app-shell .opportunity-header,
+.app-shell .opportunity-table-body .opportunity-row,
+.app-shell:not(.sidebar-collapsed) .opportunity-header,
+.app-shell:not(.sidebar-collapsed) .opportunity-table-body .opportunity-row {
+  grid-template-columns: minmax(88px, .62fr) minmax(170px, 1.2fr) minmax(145px, .92fr) minmax(118px, .8fr) minmax(145px, .95fr) minmax(108px, .7fr) 164px !important;
+}
+
+.app-shell .opportunity-row .row-actions,
+.app-shell:not(.sidebar-collapsed) .opportunity-row .row-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 34px);
+  grid-auto-flow: column;
+  justify-content: end;
+  align-items: center;
+  gap: 5px !important;
+  width: 151px;
+  min-width: 151px;
+  max-width: 151px;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+.app-shell .opportunity-row .action-icon-btn,
+.app-shell:not(.sidebar-collapsed) .opportunity-row .action-icon-btn {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+}
+
+@media (max-width: 1280px) {
+  .app-shell .opportunity-header,
+  .app-shell .opportunity-table-body .opportunity-row,
+  .app-shell:not(.sidebar-collapsed) .opportunity-header,
+  .app-shell:not(.sidebar-collapsed) .opportunity-table-body .opportunity-row {
+    grid-template-columns: 82px minmax(146px, 1.12fr) minmax(126px, .88fr) minmax(108px, .76fr) minmax(126px, .88fr) minmax(100px, .68fr) 145px !important;
+    column-gap: 7px !important;
+    padding-inline: 10px !important;
+  }
+
+  .app-shell .opportunity-row .row-actions,
+  .app-shell:not(.sidebar-collapsed) .opportunity-row .row-actions {
+    grid-template-columns: repeat(4, 32px);
+    gap: 4px !important;
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
+  }
+
+  .app-shell .opportunity-row .action-icon-btn,
+  .app-shell:not(.sidebar-collapsed) .opportunity-row .action-icon-btn {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+  }
+}
+
+@media (max-width: 820px) {
+  .app-shell .crm-tracking-layout-refined {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .app-shell .crm-tracking-main:has(.crm-tracking-grid),
+  .app-shell .crm-tracking-main:has(.crm-won-history-panel) {
+    display: block;
+    overflow: visible;
+  }
+
+  .app-shell .crm-tracking-main > * + * {
+    margin-top: 10px;
+  }
+
+  .app-shell .crm-tracking-grid {
+    height: auto;
+    max-height: min(70dvh, 680px);
+  }
+}
