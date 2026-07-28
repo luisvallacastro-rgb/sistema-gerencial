@@ -2885,7 +2885,7 @@ function crmCustomerForQuotation(opportunity) {
 function quotationLineTemplate(line = {}) {
   const id = line.id || crypto.randomUUID();
   const price = line.unitPriceCents == null ? "" : (Number(line.unitPriceCents) / 100).toFixed(2);
-  return `<div class="quotation-line" data-quotation-line-id="${escapeHtml(id)}"><label class="quotation-product">Descripción<input data-quotation-description required value="${escapeHtml(line.description || line.product || "")}" placeholder="Producto, confección o servicio"></label><label>Talla<input data-quotation-size value="${escapeHtml(line.size || "")}" placeholder="Opcional"></label><label>Cantidad<input data-quotation-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(line.quantity || "1")}"></label><label>Precio unitario<input data-quotation-price required type="number" min="0" step="0.01" value="${price}"></label><output data-quotation-line-total>${formatControlSalesMoney(line.lineTotalCents || 0)}</output><label class="quotation-notes">Detalle<input data-quotation-notes value="${escapeHtml(line.notes || "")}" placeholder="Color, tela, bordado…"></label><button type="button" data-quotation-remove-line aria-label="Quitar línea">×</button></div>`;
+  return `<div class="quotation-line" data-quotation-line-id="${escapeHtml(id)}"><label class="quotation-product">Descripción<input data-quotation-description required value="${escapeHtml(line.description || line.product || "")}" placeholder="Producto, confección o servicio"></label><label>Talla<input data-quotation-size value="${escapeHtml(line.size || "")}" placeholder="Opcional"></label><label>Cantidad<input data-quotation-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(line.quantity || "1")}"></label><label>Precio unitario<input data-quotation-price type="number" min="0" step="0.01" value="${price}" placeholder="Pendiente"></label><output data-quotation-line-total>${formatControlSalesMoney(line.lineTotalCents || 0)}</output><label class="quotation-notes">Detalle<input data-quotation-notes value="${escapeHtml(line.notes || "")}" placeholder="Color, tela, bordado…"></label><button type="button" data-quotation-remove-line aria-label="Quitar línea">×</button></div>`;
 }
 
 function setQuotationPanelExpanded(panel, expanded) {
@@ -2972,6 +2972,22 @@ function updateQuotationTotals() {
   document.querySelector("#quotationTotal").textContent = formatControlSalesMoney(draft.totalCents);
 }
 
+function validateQuotationPricesForFinalAction(draft, action = "continuar") {
+  const pendingIndex = draft.lines.findIndex((line) => Number(line.unitPriceCents || 0) <= 0);
+  if (pendingIndex < 0) return true;
+  const status = document.querySelector("#quotationSaveStatus");
+  const message = `Completa el precio unitario de la línea ${pendingIndex + 1} antes de ${action}. Puedes conservarla sin precio mientras esté en Borrador.`;
+  if (status) {
+    status.textContent = message;
+    status.dataset.tone = "error";
+    status.classList.remove("hidden");
+  }
+  const field = document.querySelectorAll("[data-quotation-price]")[pendingIndex];
+  field?.focus();
+  alert(message);
+  return false;
+}
+
 function renderQuotationHistory(opportunityId) {
   const quotes = state.quotations.filter((item) => String(item.opportunityId) === String(opportunityId)).sort((a,b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)));
   const history = document.querySelector("#quotationHistory");
@@ -3023,13 +3039,17 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
   if (missingInheritedField) setQuotationPanelExpanded(customerPanel, true);
   if (!form.reportValidity()) return null;
   const draft = quotationDraftFromForm(); if (forcedStatus) draft.status = forcedStatus;
+  if (["Enviada", "Aprobada", "Convertida"].includes(draft.status)
+    && !validateQuotationPricesForFinalAction(draft, "cambiar el estado de la cotización")) return null;
   const status = document.querySelector("#quotationSaveStatus");
   try {
     let saved;
     if (apiEnabled) { const response = await apiJson(draft.id ? `/api/quotations/${encodeURIComponent(draft.id)}` : "/api/quotations", { method:draft.id ? "PUT" : "POST", body:JSON.stringify(draft) }); saved = response.item; await loadQuotations(); }
     else { const now = new Date().toISOString(); const year = draft.date.slice(0,4); const sequence = state.quotations.filter((item) => String(item.number || "").startsWith(`COT-${year}-`)).length + 1; saved = { ...draft, id:draft.id || crypto.randomUUID(), number:draft.number || `COT-${year}-${String(sequence).padStart(4,"0")}`, status:draft.status, updatedAt:now, createdAt:draft.createdAt || now }; const index = state.quotations.findIndex((item) => item.id === saved.id); if (index >= 0) state.quotations[index] = saved; else state.quotations.unshift(saved); persistLocalQuotations(); }
     renderQuotationHistory(saved.opportunityId); populateQuotationForm(saved, crmOpportunityForQuotation(saved.opportunityId));
-    status.textContent = forcedStatus === "Enviada" ? "Cotización guardada como enviada. Ya puedes imprimirla o preparar el correo." : "Cambios guardados. Puedes continuar editando, imprimir o convertir a pedido."; status.classList.remove("hidden");
+    status.textContent = forcedStatus === "Enviada" ? "Cotización guardada como enviada. Ya puedes imprimirla o preparar el correo." : "Cambios guardados. El precio puede quedar pendiente mientras la cotización sea un borrador.";
+    status.dataset.tone = "success";
+    status.classList.remove("hidden");
     if (openPreview) printQuotation(saved); return saved;
   } catch (error) { status.textContent = error.message || "No se pudo guardar la cotización."; status.classList.remove("hidden"); status.dataset.tone = "error"; return null; }
 }
@@ -3041,7 +3061,9 @@ async function deleteQuotationFromForm() {
 }
 
 async function convertQuotationToOrder() {
-  let quote = state.quotations.find((item) => item.id === document.querySelector("#quotationId").value); if (!quote) quote = await saveQuotationFromForm();
+  const draft = quotationDraftFromForm();
+  if (!validateQuotationPricesForFinalAction(draft, "convertirla en pedido")) return;
+  const quote = await saveQuotationFromForm();
   if (!quote || quote.convertedOrderId) return;
   const opportunity = crmOpportunityForQuotation(quote.opportunityId); document.querySelector("#quotationDialog").close();
   openControlSalesForm(null, null, { id:quote.opportunityId, company:quote.client, seller:quote.seller, amount:Number(opportunity?.estimatedAmount || 0), date:quote.date, segment:opportunity?.segment || opportunity?.product || "" }, true, quote);

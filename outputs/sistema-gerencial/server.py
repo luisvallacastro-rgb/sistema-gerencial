@@ -1499,6 +1499,10 @@ def quotation_validate(data, existing=None):
     raw_lines = data.get("lines")
     if not isinstance(raw_lines, list) or not raw_lines:
         raise ValueError("La cotizacion debe contener al menos una linea")
+    allowed_statuses = {"Borrador", "Enviada", "Aprobada", "Rechazada", "Vencida", "Convertida"}
+    status = text(data.get("status"), current.get("status") or "Borrador")
+    if status not in allowed_statuses:
+        raise ValueError("Estado de cotizacion no valido")
     lines = []
     subtotal_cents = 0
     for index, raw in enumerate(raw_lines, start=1):
@@ -1510,6 +1514,8 @@ def quotation_validate(data, existing=None):
         unit_price_cents = control_sales_cents(raw.get("unitPrice"), f"Precio unitario de la linea {index}")
         if unit_price_cents < 0:
             raise ValueError("El precio unitario debe ser mayor o igual a cero")
+        if status in {"Enviada", "Aprobada", "Convertida"} and unit_price_cents <= 0:
+            raise ValueError(f"Precio unitario requerido en la linea {index} para completar la cotizacion")
         line_total_cents = int((quantity * Decimal(unit_price_cents)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
         subtotal_cents += line_total_cents
         lines.append({
@@ -1520,10 +1526,6 @@ def quotation_validate(data, existing=None):
             "notes": text(raw.get("notes")),
         })
     vat_cents = int((Decimal(subtotal_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    allowed_statuses = {"Borrador", "Enviada", "Aprobada", "Rechazada", "Vencida", "Convertida"}
-    status = text(data.get("status"), current.get("status") or "Borrador")
-    if status not in allowed_statuses:
-        raise ValueError("Estado de cotizacion no valido")
     return {
         "opportunityId": opportunity_id, "date": quote_date, "validDays": valid_days,
         "seller": seller, "client": client, "status": status, "customerData": customer,
