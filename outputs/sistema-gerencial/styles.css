@@ -6460,53 +6460,56 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   background: rgba(13, 32, 57, .32);
 }
 
-#quotationDialog .quotation-customer summary,
-#quotationDialog .quotation-terms-panel summary {
+#quotationDialog .quotation-collapsible-trigger {
   display: flex;
+  width: 100%;
   min-height: 58px;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   padding: 11px 15px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  list-style: none;
 }
 
-#quotationDialog .quotation-customer summary::-webkit-details-marker,
-#quotationDialog .quotation-terms-panel summary::-webkit-details-marker {
-  display: none;
-}
-
-#quotationDialog .quotation-customer summary > span,
-#quotationDialog .quotation-terms-panel summary > span {
+#quotationDialog .quotation-collapsible-trigger > span {
   display: grid;
   gap: 2px;
 }
 
-#quotationDialog .quotation-customer summary b,
-#quotationDialog .quotation-terms-panel summary b {
+#quotationDialog .quotation-collapsible-trigger b {
   color: var(--text);
   font-size: 12px;
 }
 
-#quotationDialog .quotation-customer summary small,
-#quotationDialog .quotation-terms-panel summary small {
+#quotationDialog .quotation-collapsible-trigger small {
   color: var(--muted);
   font-size: 10px;
   font-weight: 600;
 }
 
-#quotationDialog .quotation-customer summary i,
-#quotationDialog .quotation-terms-panel summary i {
+#quotationDialog .quotation-collapsible-trigger i {
   color: var(--muted);
   font-size: 16px;
   font-style: normal;
   transition: transform .2s ease;
 }
 
-#quotationDialog .quotation-customer[open] summary i,
-#quotationDialog .quotation-terms-panel[open] summary i {
+#quotationDialog .quotation-collapsible-trigger[aria-expanded="true"] i {
   transform: rotate(180deg);
+}
+
+#quotationDialog .quotation-collapsible-trigger[aria-expanded="true"] {
+  border-bottom: 1px solid rgba(137, 157, 190, .18);
+}
+
+#quotationDialog .quotation-collapsible-content[hidden] {
+  display: none !important;
 }
 
 #quotationDialog .quotation-customer .quotation-form-grid,

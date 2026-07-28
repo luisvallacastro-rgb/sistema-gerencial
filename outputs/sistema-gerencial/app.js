@@ -2888,6 +2888,15 @@ function quotationLineTemplate(line = {}) {
   return `<div class="quotation-line" data-quotation-line-id="${escapeHtml(id)}"><label class="quotation-product">Descripción<input data-quotation-description required value="${escapeHtml(line.description || line.product || "")}" placeholder="Producto, confección o servicio"></label><label>Talla<input data-quotation-size value="${escapeHtml(line.size || "")}" placeholder="Opcional"></label><label>Cantidad<input data-quotation-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(line.quantity || "1")}"></label><label>Precio unitario<input data-quotation-price required type="number" min="0" step="0.01" value="${price}"></label><output data-quotation-line-total>${formatControlSalesMoney(line.lineTotalCents || 0)}</output><label class="quotation-notes">Detalle<input data-quotation-notes value="${escapeHtml(line.notes || "")}" placeholder="Color, tela, bordado…"></label><button type="button" data-quotation-remove-line aria-label="Quitar línea">×</button></div>`;
 }
 
+function setQuotationPanelExpanded(panel, expanded) {
+  if (!panel) return;
+  const trigger = panel.querySelector("[data-quotation-panel-toggle]");
+  const content = panel.querySelector(".quotation-collapsible-content");
+  if (!trigger || !content) return;
+  trigger.setAttribute("aria-expanded", String(expanded));
+  content.hidden = !expanded;
+}
+
 function ensureQuotationDialog() {
   if (document.querySelector("#quotationDialog")) return;
   document.body.insertAdjacentHTML("beforeend", `<dialog id="quotationDialog" class="wide-dialog quotation-dialog"><form id="quotationForm">
@@ -2897,16 +2906,22 @@ function ensureQuotationDialog() {
     <section id="quotationHistory" class="quotation-history"></section>
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
     <section class="quotation-form-grid quotation-main-fields"><label>Correlativo<input id="quotationNumber" readonly placeholder="Automático al guardar"></label><label>Fecha<input id="quotationDate" type="date" required></label><label>Vigencia<input id="quotationValidDays" type="number" min="1" max="365" value="30" required><small>días</small></label><label>Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option>Convertida</option></select></label></section>
-    <details class="quotation-customer"><summary><span><b>Datos del cliente y vendedor</b><small>Información heredada de la oportunidad. Ábrela solo si necesitas corregirla.</small></span><i>⌄</i></summary><div class="quotation-form-grid"><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></details>
+    <section class="quotation-customer quotation-collapsible"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationCustomerFields"><span><b>Datos del cliente y vendedor</b><small>Información heredada de la oportunidad. Ábrela solo si necesitas corregirla.</small></span><i aria-hidden="true">⌄</i></button><div id="quotationCustomerFields" class="quotation-form-grid quotation-collapsible-content" hidden><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></section>
     <section class="quotation-lines"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><button type="button" data-quotation-add-line>+ Agregar línea</button></div><div id="quotationLines"></div></section>
     <section class="quotation-totals"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article><span>Total cotización</span><strong id="quotationTotal">$0.00</strong></article></section>
-    <details class="quotation-terms-panel"><summary><span><b>3 · Condiciones de la oferta</b><small>Pago, entrega, garantía y observaciones especiales.</small></span><i>⌄</i></summary><section class="quotation-terms"><label>Forma de pago<input id="quotationPaymentTerms"></label><label>Tiempo de entrega<input id="quotationDeliveryTerms"></label><label>Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label>Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></details>
+    <section class="quotation-terms-panel quotation-collapsible"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Pago, entrega, garantía y observaciones especiales.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content" hidden><label>Forma de pago<input id="quotationPaymentTerms"></label><label>Tiempo de entrega<input id="quotationDeliveryTerms"></label><label>Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label>Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
     <footer><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="primary-btn">Guardar</button><button type="button" class="quotation-convert-btn" data-quotation-convert>Convertir a pedido</button></footer>
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");
   dialog.addEventListener("click", async (event) => {
+    const panelToggle = event.target.closest("[data-quotation-panel-toggle]");
+    if (panelToggle) {
+      const panel = panelToggle.closest(".quotation-collapsible");
+      setQuotationPanelExpanded(panel, panelToggle.getAttribute("aria-expanded") !== "true");
+      return;
+    }
     if (event.target.matches("[data-quotation-close]")) dialog.close();
     if (event.target.matches("[data-quotation-add-line]")) { document.querySelector("#quotationLines").insertAdjacentHTML("beforeend", quotationLineTemplate()); updateQuotationTotals(); }
     if (event.target.matches("[data-quotation-remove-line]")) { if (document.querySelectorAll(".quotation-line").length <= 1) return alert("La cotización debe conservar al menos una línea."); event.target.closest(".quotation-line").remove(); updateQuotationTotals(); }
@@ -2969,8 +2984,8 @@ function populateQuotationForm(quote, opportunity = null) {
   const converted = Boolean(quote?.convertedOrderId);
   const convert = document.querySelector("[data-quotation-convert]"); convert.disabled = converted; convert.textContent = converted ? "Pedido creado" : "Convertir a pedido";
   document.querySelector("#quotationDialogTitle").textContent = quote ? `Cotización ${quote.number}` : "Nueva cotización";
-  document.querySelector(".quotation-customer")?.removeAttribute("open");
-  document.querySelector(".quotation-terms-panel")?.removeAttribute("open");
+  setQuotationPanelExpanded(document.querySelector(".quotation-customer"), false);
+  setQuotationPanelExpanded(document.querySelector(".quotation-terms-panel"), false);
   updateQuotationTotals();
 }
 
@@ -2996,7 +3011,7 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
   const missingInheritedField = customerPanel
     ? Array.from(customerPanel.querySelectorAll("[required]")).some((field) => !String(field.value || "").trim())
     : false;
-  if (missingInheritedField) customerPanel.open = true;
+  if (missingInheritedField) setQuotationPanelExpanded(customerPanel, true);
   if (!form.reportValidity()) return null;
   const draft = quotationDraftFromForm(); if (forcedStatus) draft.status = forcedStatus;
   const status = document.querySelector("#quotationSaveStatus");

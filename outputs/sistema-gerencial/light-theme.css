@@ -1698,7 +1698,7 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
 #quotationDialog .quotation-history,#quotationDialog .quotation-customer,#quotationDialog .quotation-line,#quotationDialog .quotation-totals article{background:#f4f6fa!important;background-image:none!important;border-color:#d6deea!important;box-shadow:none!important}
 #quotationDialog .quotation-history nav button{background:#fff!important;border-color:#d7dfeb!important;color:#182238!important}
 #quotationDialog .quotation-history>div span,#quotationDialog .quotation-section-title span{color:#4f46d9!important;text-shadow:none!important}
-#quotationDialog .quotation-form-grid label,#quotationDialog .quotation-terms label,#quotationDialog .quotation-line label,#quotationDialog .quotation-history nav button span,#quotationDialog .quotation-customer summary small,#quotationDialog .quotation-totals span{color:#56647a!important;opacity:1!important}
+#quotationDialog .quotation-form-grid label,#quotationDialog .quotation-terms label,#quotationDialog .quotation-line label,#quotationDialog .quotation-history nav button span,#quotationDialog .quotation-collapsible-trigger small,#quotationDialog .quotation-totals span{color:#56647a!important;opacity:1!important}
 #quotationDialog input,#quotationDialog select,#quotationDialog textarea{background:#e4e9f1!important;border-color:#bdc8d8!important;color:#182238!important;box-shadow:none!important;opacity:1!important}
 #quotationDialog input::placeholder,#quotationDialog textarea::placeholder{color:#7b8799!important;opacity:1!important}
 #quotationDialog .quotation-line output,#quotationDialog .quotation-totals strong{color:#176f52!important;text-shadow:none!important}
@@ -1735,13 +1735,11 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   color: #4338ca !important;
 }
 #quotationDialog .quotation-step-heading b,
-#quotationDialog .quotation-customer summary b,
-#quotationDialog .quotation-terms-panel summary b {
+#quotationDialog .quotation-collapsible-trigger b {
   color: #182238 !important;
 }
 #quotationDialog .quotation-step-heading small,
-#quotationDialog .quotation-customer summary small,
-#quotationDialog .quotation-terms-panel summary small,
+#quotationDialog .quotation-collapsible-trigger small,
 #quotationDialog .quotation-history.is-empty > p,
 #quotationDialog .quotation-line output::before {
   color: #66748a !important;
@@ -1753,12 +1751,10 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   border-color: #d6deea !important;
   box-shadow: none !important;
 }
-#quotationDialog .quotation-customer[open] summary,
-#quotationDialog .quotation-terms-panel[open] summary {
+#quotationDialog .quotation-collapsible-trigger[aria-expanded="true"] {
   border-bottom: 1px solid #dfe5ee !important;
 }
-#quotationDialog .quotation-customer summary i,
-#quotationDialog .quotation-terms-panel summary i {
+#quotationDialog .quotation-collapsible-trigger i {
   color: #56647a !important;
 }
 
