@@ -250,6 +250,32 @@ def write_result_opportunities(conn, items):
     """, (json.dumps(items, ensure_ascii=True),))
 
 
+def result_opportunity_dependencies(conn, opportunity_id):
+    """Return human-readable dependencies that make a lifecycle change unsafe."""
+    dependencies = []
+    if conn.execute(
+        "SELECT 1 FROM quotations WHERE opportunity_id = ? LIMIT 1",
+        (opportunity_id,),
+    ).fetchone():
+        dependencies.append("cotizaciones")
+    if conn.execute(
+        "SELECT 1 FROM control_sales_orders WHERE source_opportunity_id = ? LIMIT 1",
+        (opportunity_id,),
+    ).fetchone():
+        dependencies.append("pedidos")
+    return dependencies
+
+
+def result_opportunity_has_closure(opportunity):
+    managements = opportunity.get("managements") if isinstance(opportunity.get("managements"), list) else []
+    return any(
+        not management.get("canceled")
+        and text(management.get("stage")).lower() in {"cierre", "cierre de ventas"}
+        and text(management.get("result"))
+        for management in managements
+    )
+
+
 def sync_crm_result_migrations(conn, data):
     migrated = {
         text(item.get("crmOpportunityId")): item
@@ -2173,6 +2199,71 @@ class AppHandler(BaseHTTPRequestHandler):
             self.handle_crm_api()
             return
 
+        path = self.path.split("?", 1)[0]
+        opportunity_parts = path.strip("/").split("/")
+        if (
+            len(opportunity_parts) == 4
+            and opportunity_parts[:2] == ["api", "opportunities"]
+            and opportunity_parts[3] == "cancel"
+        ):
+            opportunity_id = unquote(opportunity_parts[2])
+            payload = self.read_json()
+            with connect() as conn:
+                opportunities = read_result_opportunities(conn)
+                index = next((i for i, item in enumerate(opportunities) if text(item.get("id")) == opportunity_id), -1)
+                if index == -1:
+                    self.send_json({"error": "Oportunidad no encontrada"}, status=404)
+                    return
+                opportunity = opportunities[index]
+                if result_opportunity_has_closure(opportunity):
+                    self.send_json({"error": "La oportunidad ya tiene un cierre registrado y no se puede anular desde este panel"}, status=409)
+                    return
+                dependencies = result_opportunity_dependencies(conn, opportunity_id)
+                if dependencies:
+                    self.send_json({
+                        "error": f"No se puede anular porque tiene {' y '.join(dependencies)} vinculados"
+                    }, status=409)
+                    return
+                now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                actor_id = text(self.headers.get("X-System-User-Id"))
+                actor_row = conn.execute("SELECT name, role, admin FROM users WHERE id = ? LIMIT 1", (actor_id,)).fetchone() if actor_id else None
+                if not actor_row or (text(actor_row["role"]) != "gerencias" and not actor_row["admin"]):
+                    self.send_json({"error": "Solo una gerencia autorizada puede anular oportunidades"}, status=403)
+                    return
+                actor = text(actor_row["name"] if actor_row else payload.get("updatedBy"), "Sistema Gerencial")
+                reason = text(payload.get("reason"), "Anulada desde Oportunidades / Gerencia")
+                managements = opportunity.get("managements") if isinstance(opportunity.get("managements"), list) else []
+                managements.append({
+                    "id": f"cancel-{int(time.time() * 1000)}",
+                    "date": time.strftime("%Y-%m-%d"),
+                    "time": time.strftime("%H:%M"),
+                    "stage": "Cierre de ventas",
+                    "result": "anulada",
+                    "comment": reason,
+                    "canceled": False,
+                    "createdBy": actor,
+                    "createdAt": now,
+                })
+                opportunity["managements"] = managements
+                opportunity["stage"] = "Cierre de ventas"
+                opportunity["status"] = "Anulada"
+                opportunity["archived"] = True
+                opportunity["archiveType"] = "manager_cancellation"
+                opportunity["archivedReason"] = reason
+                opportunity["archivedAt"] = now
+                opportunity["archivedBy"] = actor
+                opportunity.setdefault("auditLog", []).append({
+                    "id": f"audit-{int(time.time() * 1000)}",
+                    "type": "manager_cancellation",
+                    "date": now,
+                    "reason": reason,
+                    "userId": actor_id,
+                    "userName": actor,
+                })
+                write_result_opportunities(conn, opportunities)
+            self.send_json({"ok": True, "opportunities": opportunities})
+            return
+
         if self.path == "/api/presence":
             data = self.read_json()
             user_id = text(data.get("userId"))
@@ -2800,6 +2891,75 @@ class AppHandler(BaseHTTPRequestHandler):
                         data["agenda"] = [item for item in data.get("agenda", []) if item.get("opportunityId") != item_id]
                         write_crm_data(conn, data)
                         self.send_json(build_crm_view_model(data))
+                        return
+                    if action == "return-to-followup" and self.command == "POST":
+                        if not request_user or text(request_user.get("role")) != "gerencias":
+                            self.send_json({"error": "Solo una gerencia autorizada puede devolver oportunidades a Seguimiento"}, status=403)
+                            return
+                        opportunity = data["opportunities"][index]
+                        result_opportunities = read_result_opportunities(conn)
+                        result_index = next((
+                            i for i, item in enumerate(result_opportunities)
+                            if text(item.get("crmOpportunityId")) == item_id
+                        ), -1)
+                        if result_index == -1 or not opportunity.get("migratedToResults"):
+                            self.send_json({"error": "La oportunidad no tiene una migracion activa a Gerencia"}, status=409)
+                            return
+                        result = result_opportunities[result_index]
+                        dependencies = result_opportunity_dependencies(conn, text(result.get("id")))
+                        managements = result.get("managements") if isinstance(result.get("managements"), list) else []
+                        active_managements = [item for item in managements if not item.get("canceled") and not item.get("notified")]
+                        if result_opportunity_has_closure(result):
+                            dependencies.append("un cierre comercial")
+                        if len(active_managements) > 1:
+                            dependencies.append("gestiones posteriores a la migracion")
+                        if dependencies:
+                            self.send_json({
+                                "error": f"No se puede devolver porque tiene {' y '.join(dict.fromkeys(dependencies))}"
+                            }, status=409)
+                            return
+
+                        migration_audit = next((
+                            audit for audit in reversed(opportunity.get("auditLog", []))
+                            if audit.get("type") == "migration"
+                        ), {})
+                        previous_status = text(migration_audit.get("previousStatus"), "Vigente")
+                        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        audit = crm_audit_event(
+                            "migration_reversal",
+                            opportunity,
+                            request_user,
+                            "Devuelta a Seguimiento desde Oportunidades / Gerencia",
+                            result.get("id"),
+                        )
+                        opportunity["status"] = previous_status if previous_status.lower() not in {"migrada", "anulada", "cancelada"} else "Vigente"
+                        opportunity["archived"] = False
+                        for key in [
+                            "migratedToResults", "migratedAt", "migratedBy", "resultOpportunityId",
+                            "archiveType", "archivedReason", "archivedAt", "archivedBy",
+                        ]:
+                            opportunity.pop(key, None)
+                        opportunity.setdefault("auditLog", []).append(audit)
+                        data["agenda"] = [item for item in data.get("agenda", []) if item.get("opportunityId") != item_id]
+                        data.setdefault("agenda", []).append({
+                            "id": f"ag-{int(time.time() * 1000)}",
+                            "date": text(opportunity.get("nextDate"), opportunity.get("deadline") or time.strftime("%Y-%m-%d")),
+                            "time": "09:00",
+                            "type": "Seguimiento",
+                            "opportunityId": item_id,
+                            "ownerId": opportunity.get("ownerId"),
+                            "status": "Programada",
+                            "place": text(opportunity.get("location"), "Por definir"),
+                            "restoredAt": now,
+                        })
+                        result_opportunities.pop(result_index)
+                        write_result_opportunities(conn, result_opportunities)
+                        write_crm_data(conn, data)
+                        self.send_json({
+                            "crm": build_crm_view_model(data),
+                            "opportunities": result_opportunities,
+                            "returnedOpportunityId": item_id,
+                        })
                         return
                     if action == "migrate" and self.command == "POST":
                         opportunity = data["opportunities"][index]

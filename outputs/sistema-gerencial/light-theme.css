@@ -1746,3 +1746,17 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   background: #5147d9 !important;
   color: #fff !important;
 }
+
+.app-shell .opportunity-row .action-icon-btn[data-action="return-followup"] {
+  border: 1px solid rgba(79, 70, 229, .22) !important;
+  background: #eeecff !important;
+  color: #4338ca !important;
+  box-shadow: none !important;
+}
+
+.app-shell .opportunity-row .action-icon-btn[data-action="cancel"] {
+  border: 1px solid rgba(190, 48, 73, .2) !important;
+  background: #fff0f3 !important;
+  color: #be3049 !important;
+  box-shadow: none !important;
+}

@@ -681,7 +681,14 @@ async function apiJson(path, options = {}) {
     },
     ...options
   });
-  if (!response.ok) throw new Error(`API ${response.status}`);
+  if (!response.ok) {
+    let message = `API ${response.status}`;
+    try {
+      const payload = await response.json();
+      message = payload?.error || message;
+    } catch {}
+    throw new Error(message);
+  }
   return response.json();
 }
 
@@ -1546,7 +1553,8 @@ function managementResultTag(management) {
   if (management.canceled) return `<span class="tag danger">Anulada</span>`;
   if (management.notified) return `<span class="tag notice">Notificado</span>`;
   if (!management.result) return "<span></span>";
-  return `<span class="tag ${management.result === "ganado" ? "" : "danger"}">${management.result === "ganado" ? "Ganado" : "Perdida"}</span>`;
+  const label = management.result === "ganado" ? "Ganado" : management.result === "anulada" ? "Anulada" : "Perdida";
+  return `<span class="tag ${management.result === "ganado" ? "" : "danger"}">${label}</span>`;
 }
 
 function renderKpiDetailReport(seller, category) {
@@ -4314,7 +4322,7 @@ function renderCycleDashboard(items) {
 }
 
 function renderHistoryList(rows) {
-  const totalAmount = sumAmounts(rows.map(({ item }) => item));
+  const totalAmount = sumAmounts(rows.filter(({ result }) => result?.result !== "anulada").map(({ item }) => item));
   return `
     <section class="history-inbox" aria-label="Historial de cierres reales">
       <div class="history-summary">
@@ -4328,7 +4336,10 @@ function renderHistoryList(rows) {
         </div>
       </div>
       <div class="history-list">
-        ${rows.length ? rows.map(({ item, result }) => `
+        ${rows.length ? rows.map(({ item, result }) => {
+          const resultLabel = result?.result === "perdida" ? "Perdida" : result?.result === "anulada" ? "Anulada" : "Ganado";
+          const resultClass = result?.result === "ganado" ? "won" : "lost";
+          return `
           <article class="history-mail-row">
             <time datetime="${item.date}">
               <strong>${formatDate(item.date)}</strong>
@@ -4340,10 +4351,10 @@ function renderHistoryList(rows) {
             </div>
             <div class="history-mail-meta">
               <strong>${formatMoney(item.amount)}</strong>
-              <span class="closure-badge ${result?.result === "perdida" ? "lost" : "won"}">${result?.result === "perdida" ? "Perdida" : "Ganado"}</span>
+              <span class="closure-badge ${resultClass}">${resultLabel}</span>
             </div>
           </article>
-        `).join("") : `
+        `}).join("") : `
           <div class="empty-state">
             No hay oportunidades cerradas en historial para este corte.
           </div>
@@ -5113,6 +5124,95 @@ async function migrateCrmOpportunityToResults(opportunityId, trigger = null) {
       trigger.textContent = originalText;
     }
     alert("No fue posible migrar la oportunidad. Recargue e intente nuevamente.");
+  }
+}
+
+async function returnOpportunityToFollowup(item, trigger = null) {
+  if (!item?.crmOpportunityId) return;
+  const confirmed = confirm(
+    `¿Volver “${item.company}” a Seguimiento?\n\n` +
+    "Se retirará de Oportunidades / Gerencia y volverá a quedar activa en Seguimiento. " +
+    "La bitácora se conservará."
+  );
+  if (!confirmed) return;
+
+  const originalHtml = trigger?.innerHTML;
+  if (trigger) {
+    trigger.disabled = true;
+    trigger.textContent = "…";
+  }
+  try {
+    const payload = await apiJson(
+      `/api/crm/opportunities/${encodeURIComponent(item.crmOpportunityId)}/return-to-followup`,
+      {
+        method: "POST",
+        headers: { "X-System-User-Id": state.currentUser?.id || "" },
+        body: "{}"
+      }
+    );
+    state.crmData = payload.crm;
+    getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(payload.opportunities || []));
+    localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+    renderCommercialSubmenu(areas.comercializacion);
+    alert(`“${item.company}” volvió a Seguimiento. La bitácora quedó conservada.`);
+  } catch (error) {
+    if (trigger) {
+      trigger.disabled = false;
+      trigger.innerHTML = originalHtml;
+    }
+    alert(error.message || "No fue posible devolver la oportunidad a Seguimiento.");
+  }
+}
+
+async function cancelResultOpportunity(item, trigger = null) {
+  const confirmed = confirm(
+    `¿Está seguro de anular la oportunidad “${item.company}”?\n\n` +
+    "El registro no se borrará: quedará conservado en el historial como Anulado."
+  );
+  if (!confirmed) return;
+
+  const originalHtml = trigger?.innerHTML;
+  if (trigger) {
+    trigger.disabled = true;
+    trigger.textContent = "…";
+  }
+  try {
+    if (apiEnabled) {
+      const payload = await apiJson(`/api/opportunities/${encodeURIComponent(item.id)}/cancel`, {
+        method: "POST",
+        headers: { "X-System-User-Id": state.currentUser?.id || "" },
+        body: JSON.stringify({
+          reason: "Anulada desde Oportunidades / Gerencia",
+          updatedBy: state.currentUser?.name || "Sistema Gerencial"
+        })
+      });
+      getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(payload.opportunities || []));
+    } else {
+      item.managements = normalizeManagements(item);
+      item.managements.push({
+        id: crypto.randomUUID(),
+        date: todayISO(),
+        time: currentTimeValue(),
+        stage: closureStage,
+        result: "anulada",
+        comment: "Anulada desde Oportunidades / Gerencia",
+        createdBy: state.currentUser?.name || roleDisplayName()
+      });
+      item.status = "Anulada";
+      item.archived = true;
+      item.archivedAt = new Date().toISOString();
+      item.archivedBy = state.currentUser?.name || roleDisplayName();
+    }
+    localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+    renderCommercialSubmenu(areas.comercializacion);
+    resetOpportunityForm();
+    alert(`“${item.company}” fue anulada y se conserva en el historial.`);
+  } catch (error) {
+    if (trigger) {
+      trigger.disabled = false;
+      trigger.innerHTML = originalHtml;
+    }
+    alert(error.message || "No fue posible anular la oportunidad.");
   }
 }
 
@@ -6356,8 +6456,13 @@ function renderCommercialSubmenu(area) {
               <span aria-hidden="true">📋</span>
             </button>
           `}
+          ${canDeleteOpportunities() && item.crmOpportunityId && !isHistory ? `
+            <button class="action-icon-btn return-followup" type="button" data-action="return-followup" data-id="${item.id}" aria-label="Volver a Seguimiento" title="Volver a Seguimiento">
+              <span aria-hidden="true">↩️</span>
+            </button>
+          ` : ""}
           ${canDeleteOpportunities() && !isHistory ? `
-            <button class="action-icon-btn danger" type="button" data-action="delete" data-id="${item.id}" aria-label="Borrar">
+            <button class="action-icon-btn danger" type="button" data-action="cancel" data-id="${item.id}" aria-label="Anular oportunidad" title="Anular oportunidad">
               <span aria-hidden="true">🗑️</span>
             </button>
           ` : ""}
@@ -8586,12 +8691,14 @@ opportunityTable.addEventListener("click", (event) => {
   const item = submenu.items.find((record) => record.id === button.dataset.id);
   if (!item) return;
 
-  if (button.dataset.action === "delete") {
+  if (button.dataset.action === "cancel") {
     if (!canDeleteOpportunities()) return;
-    submenu.items = submenu.items.filter((record) => record.id !== item.id);
-    saveOpportunities();
-    renderCommercialSubmenu(areas.comercializacion);
-    resetOpportunityForm();
+    cancelResultOpportunity(item, button);
+    return;
+  }
+
+  if (button.dataset.action === "return-followup") {
+    returnOpportunityToFollowup(item, button);
     return;
   }
 
@@ -9179,6 +9286,12 @@ crmCancellationForm?.addEventListener("submit", async (event) => {
     return;
   }
   crmCancellationReason.setCustomValidity("");
+  const opportunity = crmData().opportunities.find((item) => item.id === opportunityId);
+  const confirmed = confirm(
+    `¿Está seguro de anular la oportunidad “${opportunity?.company || "seleccionada"}”?\n\n` +
+    "La oportunidad saldrá del seguimiento activo, pero su registro y bitácora se conservarán."
+  );
+  if (!confirmed) return;
   const submit = event.submitter;
   if (submit) {
     submit.disabled = true;

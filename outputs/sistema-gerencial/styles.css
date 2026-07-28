@@ -7218,6 +7218,16 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   color: #ffe0e6 !important;
 }
 
+.app-shell .opportunity-row .action-icon-btn[data-action="cancel"] {
+  background: linear-gradient(135deg, rgba(255, 91, 116, .3), rgba(158, 48, 77, .2)) !important;
+  color: #ffe0e6 !important;
+}
+
+.app-shell .opportunity-row .action-icon-btn[data-action="return-followup"] {
+  background: linear-gradient(135deg, rgba(116, 104, 255, .32), rgba(70, 72, 178, .22)) !important;
+  color: #eceaff !important;
+}
+
 .app-shell .opportunity-row .action-icon-btn:hover {
   opacity: 1;
   transform: translateY(-3px) scale(1.08) !important;
@@ -15636,4 +15646,29 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   .app-shell .crm-tracking-card .crm-tracking-card-actions {
     justify-content: flex-start;
   }
+}
+
+/* Lifecycle safeguards need room for edit, management, return and cancellation. */
+.app-shell .opportunity-table-body .opportunity-row,
+.app-shell .opportunity-header {
+  grid-template-columns: 108px minmax(180px, 1.32fr) minmax(150px, .9fr) minmax(120px, .82fr) minmax(150px, 1fr) minmax(112px, .75fr) minmax(176px, .9fr) !important;
+}
+
+.app-shell .opportunity-row .row-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.app-shell.theme-light .opportunity-row .action-icon-btn[data-action="return-followup"] {
+  border: 1px solid rgba(79, 70, 229, .22) !important;
+  background: #eeecff !important;
+  color: #4338ca !important;
+  box-shadow: none !important;
+}
+
+.app-shell.theme-light .opportunity-row .action-icon-btn[data-action="cancel"] {
+  border: 1px solid rgba(190, 48, 73, .2) !important;
+  background: #fff0f3 !important;
+  color: #be3049 !important;
+  box-shadow: none !important;
 }
