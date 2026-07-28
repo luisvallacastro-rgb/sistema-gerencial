@@ -6461,6 +6461,8 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 }
 
 #quotationDialog .quotation-collapsible-trigger {
+  position: relative;
+  z-index: 2;
   display: flex;
   width: 100%;
   min-height: 58px;
@@ -6475,6 +6477,12 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   font: inherit;
   text-align: left;
   cursor: pointer;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+
+#quotationDialog .quotation-collapsible-trigger > * {
+  pointer-events: none;
 }
 
 #quotationDialog .quotation-collapsible-trigger > span {

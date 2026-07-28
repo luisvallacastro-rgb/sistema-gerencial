@@ -2915,19 +2915,26 @@ function ensureQuotationDialog() {
     <footer><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="primary-btn">Guardar</button><button type="button" class="quotation-convert-btn" data-quotation-convert>Convertir a pedido</button></footer>
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");
+
+  // Los paneles editables usan listeners propios para no depender del
+  // manejador general del modal (que también procesa acciones asíncronas).
+  dialog.querySelectorAll("[data-quotation-panel-toggle]").forEach((trigger) => {
+    trigger.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const panel = trigger.closest(".quotation-collapsible");
+      setQuotationPanelExpanded(panel, trigger.getAttribute("aria-expanded") !== "true");
+    });
+  });
+
   dialog.addEventListener("click", async (event) => {
-    const panelToggle = event.target.closest("[data-quotation-panel-toggle]");
-    if (panelToggle) {
-      const panel = panelToggle.closest(".quotation-collapsible");
-      setQuotationPanelExpanded(panel, panelToggle.getAttribute("aria-expanded") !== "true");
-      return;
-    }
     if (event.target.matches("[data-quotation-close]")) dialog.close();
     if (event.target.matches("[data-quotation-add-line]")) { document.querySelector("#quotationLines").insertAdjacentHTML("beforeend", quotationLineTemplate()); updateQuotationTotals(); }
     if (event.target.matches("[data-quotation-remove-line]")) { if (document.querySelectorAll(".quotation-line").length <= 1) return alert("La cotización debe conservar al menos una línea."); event.target.closest(".quotation-line").remove(); updateQuotationTotals(); }
     const history = event.target.closest("[data-quotation-history-id]"); if (history) populateQuotationForm(state.quotations.find((item) => item.id === history.dataset.quotationHistoryId), crmOpportunityForQuotation(document.querySelector("#quotationOpportunityId").value));
     if (event.target.matches("[data-quotation-preview]")) printQuotation(quotationDraftFromForm());
     if (event.target.matches("[data-quotation-edit]")) {
+      setQuotationPanelExpanded(dialog.querySelector(".quotation-customer"), true);
       const status = document.querySelector("#quotationSaveStatus");
       status.textContent = "Edición activa. Realiza los cambios y presiona Guardar.";
       status.dataset.tone = "success";
