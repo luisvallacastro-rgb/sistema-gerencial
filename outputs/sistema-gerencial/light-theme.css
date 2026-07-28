@@ -1728,3 +1728,21 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   background: #fff !important;
   color: #334155 !important;
 }
+
+/* Acciones de oportunidad en modo claro. */
+.app-shell .crm-card-icon-action {
+  border-color: #c8c5f4 !important;
+  background: #eeefff !important;
+  color: #4b43ca !important;
+  box-shadow: 0 6px 14px rgba(61, 54, 170, .08) !important;
+}
+.app-shell .crm-card-icon-action.is-result {
+  border-color: #a9d6c5 !important;
+  background: #e8f4ef !important;
+  color: #176f52 !important;
+}
+.app-shell .crm-card-action-badge {
+  border-color: #fff !important;
+  background: #5147d9 !important;
+  color: #fff !important;
+}

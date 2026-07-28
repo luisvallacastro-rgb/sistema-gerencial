@@ -5673,20 +5673,34 @@ function renderCrmTracking() {
       </button>
     `;
   }).join("");
-  const opportunityCards = visibleOpportunities.filter((opp) => crmMatchesSearch(opp, selectedSeller)).sort((a, b) => String(a.deadline || a.nextDate || "").localeCompare(String(b.deadline || b.nextDate || ""))).map((opp) => `
-    <article class="crm-tracking-card" data-crm-opportunity="${opp.id}">
-      <div>
-        <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)} - ${escapeHtml(opp.status || "Vigente")}</span>
-        <strong>${escapeHtml(opp.company)}</strong>
-        <p>${escapeHtml(opp.product || "Producto pendiente")}</p>
-      </div>
-      <footer>
-        <strong>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</strong>
-        <span>${opp.closePercent || 0}% cierre</span>
-        <div class="crm-tracking-card-actions"><button class="crm-quotation-button" type="button" data-crm-quotation="${opp.id}"><span>Cotización</span><strong>${state.quotations.filter((item) => String(item.opportunityId) === String(opp.id)).length ? `Ver / editar (${state.quotations.filter((item) => String(item.opportunityId) === String(opp.id)).length})` : "Crear cotización"}</strong></button><button class="crm-link-pill" type="button" data-crm-migrate="${opp.id}" ${opportunityMigratedFromCrm(opp.id) ? "disabled" : ""}>${opportunityMigratedFromCrm(opp.id) ? "Migrada" : "Migrar a resultados"}</button></div>
-      </footer>
-    </article>
-  `).join("");
+  const opportunityCards = visibleOpportunities.filter((opp) => crmMatchesSearch(opp, selectedSeller)).sort((a, b) => String(a.deadline || a.nextDate || "").localeCompare(String(b.deadline || b.nextDate || ""))).map((opp) => {
+    const quotationCount = state.quotations.filter((item) => String(item.opportunityId) === String(opp.id)).length;
+    const migrated = opportunityMigratedFromCrm(opp.id);
+    const quotationAction = quotationCount ? `Ver o editar cotización (${quotationCount})` : "Crear cotización";
+    const resultAction = migrated ? "Oportunidad migrada a resultados" : "Migrar a resultados";
+    return `
+      <article class="crm-tracking-card" data-crm-opportunity="${opp.id}">
+        <div>
+          <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)} - ${escapeHtml(opp.status || "Vigente")}</span>
+          <strong>${escapeHtml(opp.company)}</strong>
+          <p>${escapeHtml(opp.product || "Producto pendiente")}</p>
+        </div>
+        <footer>
+          <strong>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</strong>
+          <span>${opp.closePercent || 0}% cierre</span>
+          <div class="crm-tracking-card-actions" aria-label="Acciones de la oportunidad">
+            <button class="crm-card-icon-action is-quotation" type="button" data-crm-quotation="${opp.id}" aria-label="${quotationAction}" title="${quotationAction}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4V20.5H7z"></path><path d="M14 3.5v4h4M9.5 11h6M9.5 14h6M9.5 17h3.5"></path></svg>
+              <span class="crm-card-action-badge">${quotationCount || "+"}</span>
+            </button>
+            <button class="crm-card-icon-action is-result ${migrated ? "is-complete" : ""}" type="button" data-crm-migrate="${opp.id}" aria-label="${resultAction}" title="${resultAction}" ${migrated ? "disabled" : ""}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">${migrated ? `<path d="M5 12.5l4.2 4.2L19 7"></path>` : `<path d="M4 12h14M13 6l6 6-6 6"></path>`}</svg>
+            </button>
+          </div>
+        </footer>
+      </article>
+    `;
+  }).join("");
   const wonHistoryCards = filteredWins.map((win) => {
     const financialOrder = financialOrderByOpportunityId.get(String(win.id));
     const detailOrder = (financialOrder ? controlSalesByFinancialOrderId.get(String(financialOrder.id)) : null)
