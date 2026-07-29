@@ -871,5 +871,95 @@
   };
 })();
 </script>
+<script id="konfi-quotation-footer-brand">
+(() => {
+  const konfiLogoUrl = new URL("assets/konfi-quote-logo.png", window.location.href).href;
+  const normalizeText = (value = "") => value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  function enhanceQuotationFooter(doc) {
+    if (!doc?.body || doc.querySelector(".quote-konfi-qr-pair")) return;
+
+    const webLabel = [...doc.querySelectorAll("body *")].find((element) =>
+      element.children.length === 0 &&
+      normalizeText(element.textContent) === "pagina web"
+    );
+    if (!webLabel) return;
+
+    let scope = webLabel.parentElement;
+    let qrImage = null;
+
+    for (let level = 0; scope && level < 6; level += 1, scope = scope.parentElement) {
+      const images = [...scope.querySelectorAll("img")];
+      qrImage = images.find((image) => /qr|biolink/i.test(image.src)) || images.find((image) => {
+        const rect = image.getBoundingClientRect();
+        return rect.width >= 50 && rect.height >= 50 && Math.abs(rect.width - rect.height) <= 32;
+      });
+      if (qrImage) break;
+    }
+
+    if (!qrImage || qrImage.closest(".quote-konfi-qr-pair")) return;
+
+    const qrHeight = Math.max(72, Math.min(100, qrImage.getBoundingClientRect().height || 88));
+    const pair = doc.createElement("span");
+    pair.className = "quote-konfi-qr-pair";
+    pair.style.cssText = [
+      "display:inline-flex",
+      "align-items:center",
+      "justify-content:center",
+      "gap:18px",
+      "vertical-align:middle",
+      "white-space:nowrap"
+    ].join(";");
+
+    const logo = doc.createElement("img");
+    logo.className = "quote-konfi-footer-logo";
+    logo.src = konfiLogoUrl;
+    logo.alt = "KONFI";
+    logo.style.cssText = [
+      "display:block",
+      `height:${qrHeight}px`,
+      "width:auto",
+      "max-width:220px",
+      "object-fit:contain"
+    ].join(";");
+
+    qrImage.parentNode.insertBefore(pair, qrImage);
+    pair.append(logo, qrImage);
+  }
+
+  const scheduleEnhancement = (doc) => {
+    [0, 100, 300, 700, 1400].forEach((delay) => {
+      window.setTimeout(() => enhanceQuotationFooter(doc), delay);
+    });
+  };
+
+  scheduleEnhancement(document);
+  new MutationObserver(() => enhanceQuotationFooter(document)).observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+
+  const nativeWindowOpen = window.open;
+  window.open = function (...args) {
+    const childWindow = nativeWindowOpen.apply(this, args);
+    if (childWindow) {
+      [100, 300, 700, 1400].forEach((delay) => {
+        window.setTimeout(() => {
+          try {
+            enhanceQuotationFooter(childWindow.document);
+          } catch (_) {
+            // La vista previa puede seguir cargando; los siguientes intentos la procesarán.
+          }
+        }, delay);
+      });
+    }
+    return childWindow;
+  };
+})();
+</script>
 </body>
 </html>
