@@ -374,6 +374,23 @@ const opportunitySegments = [
   "ONG / Fundaciones",
   "Otro"
 ];
+
+const opportunityLocationsByDepartment = {
+  "Ahuachapán": ["Ahuachapán Norte", "Ahuachapán Centro", "Ahuachapán Sur"],
+  "Santa Ana": ["Santa Ana Norte", "Santa Ana Centro", "Santa Ana Este", "Santa Ana Oeste"],
+  "Sonsonate": ["Sonsonate Norte", "Sonsonate Centro", "Sonsonate Este", "Sonsonate Oeste"],
+  "Chalatenango": ["Chalatenango Norte", "Chalatenango Centro", "Chalatenango Sur"],
+  "La Libertad": ["La Libertad Norte", "La Libertad Centro", "La Libertad Oeste", "La Libertad Este", "La Libertad Costa", "La Libertad Sur"],
+  "San Salvador": ["San Salvador Norte", "San Salvador Oeste", "San Salvador Este", "San Salvador Centro", "San Salvador Sur"],
+  "Cuscatlán": ["Cuscatlán Norte", "Cuscatlán Sur"],
+  "La Paz": ["La Paz Oeste", "La Paz Centro", "La Paz Este"],
+  "Cabañas": ["Cabañas Este", "Cabañas Oeste"],
+  "San Vicente": ["San Vicente Norte", "San Vicente Sur"],
+  "Usulután": ["Usulután Norte", "Usulután Este", "Usulután Oeste"],
+  "San Miguel": ["San Miguel Norte", "San Miguel Centro", "San Miguel Oeste"],
+  "Morazán": ["Morazán Norte", "Morazán Sur"],
+  "La Unión": ["La Unión Norte", "La Unión Sur"]
+};
 const commercialSellers = [
   "Gabriela Amador",
   "Jose Amadeo",
@@ -2137,9 +2154,22 @@ function fillOpportunityOptions() {
     '<option value="">Seleccionar rubro</option>',
     ...opportunitySegments.map((segment) => `<option value="${escapeHtml(segment)}">${escapeHtml(segment)}</option>`)
   ].join("");
+  opportunityLocation.innerHTML = elSalvadorLocationOptions();
   opportunityProbability.innerHTML = opportunityProbabilities.map(([key, label, range]) => (
     `<option value="${key}">${label} - ${range}</option>`
   )).join("");
+}
+
+function elSalvadorLocationOptions() {
+  return [
+    '<option value="">Seleccionar departamento y municipio</option>',
+    ...Object.entries(opportunityLocationsByDepartment).map(([department, municipalities]) => (
+      `<optgroup label="${escapeHtml(department)}">${municipalities.map((municipality) => {
+        const value = `${department} — ${municipality}`;
+        return `<option value="${escapeHtml(value)}">${escapeHtml(municipality)}</option>`;
+      }).join("")}</optgroup>`
+    ))
+  ].join("");
 }
 
 function ensureSelectOption(select, value, label = value) {
@@ -5313,7 +5343,7 @@ function fillOpportunityForm(item, context = "results") {
   opportunityContact.value = item?.contact || "";
   opportunityPhone.value = item?.phone || "";
   ensureSelectOption(opportunitySegment, item?.segment || "");
-  opportunityLocation.value = item?.location || "";
+  ensureSelectOption(opportunityLocation, item?.location || "");
   opportunityStage.value = item?.stage || opportunityStages[0];
   opportunityPriority.value = item?.priority || "Media";
   opportunityProbability.value = item?.probability || "tibio";
@@ -5623,7 +5653,7 @@ function ensureCrmOpportunityDialog() {
           <option value="">Seleccionar rubro</option>
           ${opportunitySegments.map((segment) => `<option value="${escapeHtml(segment)}">${escapeHtml(segment)}</option>`).join("")}
         </select></label>
-        <label>Ubicacion<input id="crmLocation" maxlength="90" placeholder="San Salvador"></label>
+        <label>Ubicación<select id="crmLocation">${elSalvadorLocationOptions()}</select></label>
         <label>Etapa<select id="crmStageId" required></select></label>
         <label>Prioridad<select id="crmPriority"><option>Alta</option><option selected>Media</option><option>Baja</option></select></label>
         <label>Temperatura<select id="crmTemperature"><option>Caliente</option><option selected>Tibio</option><option>Frio</option><option>Congelado</option></select></label>
@@ -9183,7 +9213,7 @@ opportunityTable.addEventListener("click", (event) => {
   opportunityContact.value = item.contact || "";
   opportunityPhone.value = item.phone || "";
   ensureSelectOption(opportunitySegment, item.segment || "");
-  opportunityLocation.value = item.location || "";
+  ensureSelectOption(opportunityLocation, item.location || "");
   opportunityStage.value = item.stage;
   opportunityPriority.value = item.priority || "Media";
   opportunityProbability.value = item.probability;
