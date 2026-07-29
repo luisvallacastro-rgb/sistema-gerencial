@@ -3145,7 +3145,10 @@ function ensureQuotationDialog() {
       const expanded = detailToggle.getAttribute("aria-expanded") === "true";
       detailToggle.setAttribute("aria-expanded", String(!expanded));
       detailToggle.classList.toggle("is-open", !expanded);
-      panel?.classList.toggle("hidden", expanded);
+      if (panel) {
+        panel.hidden = expanded;
+        panel.classList.toggle("hidden", expanded);
+      }
       if (!expanded) line?.querySelector("[data-quotation-notes]")?.focus();
       return;
     }
