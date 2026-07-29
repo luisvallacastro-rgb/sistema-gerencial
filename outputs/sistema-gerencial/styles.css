@@ -6380,6 +6380,175 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .app-shell .financial-order-notification-card > button { grid-column: 3; grid-row: 1 / span 2; }
 }
 
+/* Cotizaciones: contraste y jerarquía visual propios para el modo oscuro. */
+#quotationDialog {
+  background: #0d1c31;
+  border-color: #385174;
+  color: #f5f8ff;
+}
+
+#quotationDialog.quotation-dialog > #quotationForm > header {
+  background: #132641;
+  border-bottom-color: #304866;
+}
+
+#quotationDialog.quotation-dialog > #quotationForm > header .eyebrow {
+  color: #72c7b9;
+}
+
+#quotationDialog.quotation-dialog > #quotationForm > header h3 {
+  color: #f7f9fc;
+}
+
+#quotationDialog.quotation-dialog > #quotationForm > header span {
+  color: #aab8cc;
+}
+
+#quotationDialog .quotation-dialog-body {
+  background: linear-gradient(180deg, #142743 0%, #0e1f36 100%);
+}
+
+#quotationDialog .quotation-history,
+#quotationDialog .quotation-main-fields,
+#quotationDialog .quotation-customer,
+#quotationDialog .quotation-terms-panel {
+  background: #132844;
+  border-color: #314b6d;
+  box-shadow: none;
+}
+
+#quotationDialog .quotation-step-heading b,
+#quotationDialog .quotation-collapsible-trigger b,
+#quotationDialog .quotation-section-title h4 {
+  color: #f5f8ff;
+}
+
+#quotationDialog .quotation-step-heading small,
+#quotationDialog .quotation-collapsible-trigger small,
+#quotationDialog .quotation-history.is-empty > p {
+  color: #9fb0c7;
+}
+
+#quotationDialog .quotation-form-grid label,
+#quotationDialog .quotation-terms label,
+#quotationDialog .quotation-line label {
+  color: #c6d1e0;
+}
+
+#quotationDialog input,
+#quotationDialog select,
+#quotationDialog textarea {
+  background: #263f61;
+  border-color: #506a8e;
+  color: #f7f9fc;
+  box-shadow: none;
+}
+
+#quotationDialog input::placeholder,
+#quotationDialog textarea::placeholder {
+  color: #94a5bb;
+  opacity: 1;
+}
+
+#quotationDialog input:focus,
+#quotationDialog select:focus,
+#quotationDialog textarea:focus {
+  border-color: #8d83ff;
+  box-shadow: 0 0 0 3px rgba(141, 131, 255, .2);
+  outline: none;
+}
+
+#quotationDialog input[readonly] {
+  background: #1d3452;
+  color: #ccd6e4;
+}
+
+#quotationDialog .quotation-validity-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+#quotationDialog .quotation-validity-field input {
+  width: 100%;
+  min-width: 0;
+}
+
+#quotationDialog .quotation-validity-field > span {
+  display: flex;
+  min-width: 58px;
+  padding: 0 12px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #506a8e;
+  border-radius: 12px;
+  background: #1b3352;
+  color: #c5d1e0;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+#quotationDialog .quotation-line {
+  background: #132a47;
+  border-color: #314d70;
+}
+
+#quotationDialog .quotation-line output,
+#quotationDialog .quotation-totals article:last-child strong {
+  color: #67d3bd;
+  text-shadow: none;
+}
+
+#quotationDialog .quotation-line output::before,
+#quotationDialog .quotation-totals span {
+  color: #9fb0c7;
+}
+
+#quotationDialog .quotation-totals article {
+  background: #142a47;
+  border-color: #314d70;
+  box-shadow: none;
+}
+
+#quotationDialog .quotation-totals strong {
+  color: #f7f9fc;
+  text-shadow: none;
+}
+
+#quotationDialog .quotation-totals article:last-child {
+  background: #17374a;
+  border-color: #3e7f79;
+}
+
+#quotationDialog .quotation-section-title span {
+  color: #9a91ff;
+}
+
+#quotationDialog .quotation-section-title button {
+  background: #1c7567;
+  color: #fff;
+}
+
+#quotationDialog .quotation-collapsible-trigger i {
+  color: #aebbd0;
+}
+
+#quotationDialog .quotation-collapsible-trigger[aria-expanded="true"] {
+  border-bottom-color: #314b6d;
+}
+
+#quotationDialog .quotation-save-status {
+  background: #143a35;
+  border-color: #36786d;
+  color: #9be0d1;
+}
+
+#quotationDialog.quotation-dialog > #quotationForm > footer {
+  background: #10223b;
+  border-top-color: #304866;
+}
+
 /* Catálogo maestro de vendedores */
 .seller-admin-shell { display: grid; gap: 16px; }
 .seller-admin-hero { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; border: 1px solid rgba(110,231,211,.26); border-radius: 24px; background: linear-gradient(135deg, rgba(48,68,108,.92), rgba(9,40,48,.86)); }
@@ -16232,3 +16401,45 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
     max-height: min(70dvh, 680px);
   }
 }
+
+/* Cierre de cascada: evita que estilos históricos apaguen la cotización oscura. */
+#quotationDialog.quotation-dialog {
+  background: #0d1c31;
+  border-color: #385174;
+  color: #f5f8ff;
+}
+#quotationDialog.quotation-dialog > #quotationForm > header {
+  background: #132641;
+  border-bottom-color: #304866;
+}
+#quotationDialog.quotation-dialog > #quotationForm > header h3 { color: #f7f9fc; }
+#quotationDialog.quotation-dialog > #quotationForm > header span { color: #aab8cc; }
+#quotationDialog .quotation-dialog-body { background: linear-gradient(180deg, #142743 0%, #0e1f36 100%); }
+#quotationDialog .quotation-history,
+#quotationDialog .quotation-main-fields,
+#quotationDialog .quotation-customer,
+#quotationDialog .quotation-terms-panel { background: #132844; border-color: #314b6d; box-shadow: none; }
+#quotationDialog .quotation-step-heading b,
+#quotationDialog .quotation-collapsible-trigger b,
+#quotationDialog .quotation-section-title h4 { color: #f5f8ff; }
+#quotationDialog .quotation-step-heading small,
+#quotationDialog .quotation-collapsible-trigger small,
+#quotationDialog .quotation-history.is-empty > p { color: #9fb0c7; }
+#quotationDialog .quotation-form-grid label,
+#quotationDialog .quotation-terms label,
+#quotationDialog .quotation-line label { color: #c6d1e0; }
+#quotationDialog input,
+#quotationDialog select,
+#quotationDialog textarea { background: #263f61; border-color: #506a8e; color: #f7f9fc; box-shadow: none; }
+#quotationDialog input::placeholder,
+#quotationDialog textarea::placeholder { color: #94a5bb; opacity: 1; }
+#quotationDialog input[readonly] { background: #1d3452; color: #ccd6e4; }
+#quotationDialog .quotation-line { background: #132a47; border-color: #314d70; }
+#quotationDialog .quotation-totals article { background: #142a47; border-color: #314d70; box-shadow: none; }
+#quotationDialog .quotation-totals span,
+#quotationDialog .quotation-line output::before { color: #9fb0c7; }
+#quotationDialog .quotation-totals strong { color: #f7f9fc; text-shadow: none; }
+#quotationDialog .quotation-totals article:last-child { background: #17374a; border-color: #3e7f79; }
+#quotationDialog .quotation-line output,
+#quotationDialog .quotation-totals article:last-child strong { color: #67d3bd; text-shadow: none; }
+#quotationDialog.quotation-dialog > #quotationForm > footer { background: #10223b; border-top-color: #304866; }

@@ -1954,3 +1954,30 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   color: #b52f49 !important;
 }
 .app-shell .seller-admin-empty { color: #66748a !important; }
+
+/* La unidad de vigencia queda separada del control numérico también en claro. */
+#quotationDialog .quotation-validity-field {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+}
+
+#quotationDialog .quotation-validity-field input {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+#quotationDialog .quotation-validity-field > span {
+  display: flex !important;
+  min-width: 58px !important;
+  padding: 0 12px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 1px solid #bdc8d8 !important;
+  border-radius: 12px !important;
+  background: #eef2f7 !important;
+  color: #56647a !important;
+  font-size: 12px !important;
+  font-weight: 850 !important;
+}
