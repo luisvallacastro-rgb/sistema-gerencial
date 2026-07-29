@@ -764,5 +764,112 @@
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
     <script src="financial-orders-additions.js?v=20260720-pedidos-270-275-v1"></script>
     <script src="app.js?v=20260729-quotation-detail-v138"></script>
-  </body>
+  <script src="quotation-print-guard.js?v=1"></script>
+  <script src="quotation-print-layout-fix.js?v=1"></script>
+<script>
+(() => {
+  if (window.__quotationPrintCellGuardV2) return;
+  window.__quotationPrintCellGuardV2 = true;
+
+  const nativeOpen = window.open.bind(window);
+  const observedDocuments = new WeakSet();
+
+  const normalize = (value) => String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+
+  const protectQuotationTables = (doc) => {
+    if (!doc || !doc.head) return;
+
+    if (!doc.getElementById("quotation-print-cell-guard-v2")) {
+      const style = doc.createElement("style");
+      style.id = "quotation-print-cell-guard-v2";
+      style.textContent = `
+        table.quotation-print-protected {
+          width: 100% !important;
+          table-layout: fixed !important;
+          border-collapse: collapse !important;
+        }
+        table.quotation-print-protected th,
+        table.quotation-print-protected td {
+          box-sizing: border-box !important;
+          min-width: 0 !important;
+        }
+        table.quotation-print-protected th:nth-child(1),
+        table.quotation-print-protected td:nth-child(1) { width: 9% !important; }
+        table.quotation-print-protected th:nth-child(2),
+        table.quotation-print-protected td:nth-child(2) { width: 58% !important; }
+        table.quotation-print-protected th:nth-child(3),
+        table.quotation-print-protected td:nth-child(3) { width: 17% !important; }
+        table.quotation-print-protected th:nth-child(4),
+        table.quotation-print-protected td:nth-child(4) { width: 16% !important; }
+        table.quotation-print-protected td:nth-child(2),
+        table.quotation-print-protected td:nth-child(2) * {
+          white-space: pre-wrap !important;
+          overflow-wrap: anywhere !important;
+          word-break: break-word !important;
+          max-width: 100% !important;
+        }
+        table.quotation-print-protected td:nth-child(2) {
+          height: auto !important;
+          overflow: hidden !important;
+          vertical-align: top !important;
+        }
+        table.quotation-print-protected td:nth-child(3),
+        table.quotation-print-protected td:nth-child(4),
+        table.quotation-print-protected td:nth-child(3) *,
+        table.quotation-print-protected td:nth-child(4) * {
+          white-space: nowrap !important;
+        }
+      `;
+      doc.head.appendChild(style);
+    }
+
+    doc.querySelectorAll("table").forEach((table) => {
+      const headers = Array.from(table.querySelectorAll("thead th, tr:first-child th"))
+        .map((cell) => normalize(cell.textContent));
+      const isQuotationTable = headers.some((text) => text.includes("DESCRIPCION"))
+        && headers.some((text) => text.includes("PRECIO"))
+        && headers.some((text) => text === "TOTAL" || text.includes("TOTAL"));
+      if (isQuotationTable) table.classList.add("quotation-print-protected");
+    });
+  };
+
+  const watchPopup = (popup) => {
+    let attempts = 0;
+    const apply = () => {
+      if (!popup || popup.closed) return true;
+      try {
+        const doc = popup.document;
+        protectQuotationTables(doc);
+        if (doc?.documentElement && !observedDocuments.has(doc)) {
+          observedDocuments.add(doc);
+          new MutationObserver(() => protectQuotationTables(doc)).observe(doc.documentElement, {
+            childList: true,
+            subtree: true
+          });
+        }
+        return doc?.readyState === "complete" && !!doc.querySelector("table");
+      } catch (_) {
+        return false;
+      }
+    };
+
+    try { popup.addEventListener("load", apply); } catch (_) {}
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      if (apply() || attempts >= 100) window.clearInterval(timer);
+    }, 50);
+  };
+
+  window.open = (...args) => {
+    const popup = nativeOpen(...args);
+    watchPopup(popup);
+    return popup;
+  };
+})();
+</script>
+</body>
 </html>
