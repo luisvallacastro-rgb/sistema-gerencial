@@ -8260,7 +8260,21 @@ function renderDashboard() {
     state.activeSubmenu = visibleItems[0].key;
   }
   const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
-  dashboard.classList.toggle("opportunity-focus", hasSubmenus && (["kpi", "crm", "crm-seguimiento", "crm-agenda", "crm-respuestas", "crm-clientes", "riesgos", "solicitudes"].includes(state.activeSubmenu) || state.activeSubmenu.startsWith("resultados")));
+  const isExclusiveWorkspace = hasSubmenus && (
+    [
+      "kpi",
+      "crm",
+      "crm-seguimiento",
+      "crm-agenda",
+      "crm-respuestas",
+      "crm-clientes",
+      "riesgos",
+      "solicitudes",
+      "autorizacion-pedidos"
+    ].includes(state.activeSubmenu)
+    || state.activeSubmenu.startsWith("resultados")
+  );
+  dashboard.classList.toggle("opportunity-focus", isExclusiveWorkspace);
   renderPageTitle(area, activeSubmenu);
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;
