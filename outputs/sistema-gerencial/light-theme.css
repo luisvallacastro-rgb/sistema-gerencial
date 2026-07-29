@@ -1981,3 +1981,92 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   font-size: 12px !important;
   font-weight: 850 !important;
 }
+
+/* Cotizaciones claras: solo los campos de captura reclaman atención. */
+.app-shell #quotationDialog .quotation-main-fields {
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 1px solid #dfe5ee !important;
+  border-bottom: 1px solid #dfe5ee !important;
+  box-shadow: none !important;
+}
+
+.app-shell #quotationDialog .quotation-customer,
+.app-shell #quotationDialog .quotation-terms-panel {
+  background: #f8fafc !important;
+  border: 0 !important;
+  border-left: 3px solid #6258e8 !important;
+  box-shadow: none !important;
+}
+
+.app-shell #quotationDialog .quotation-collapsible-trigger {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.app-shell #quotationDialog .quotation-inherited-fields {
+  background: #f3f6fa !important;
+  border-top: 1px solid #e1e7f0 !important;
+}
+
+.app-shell #quotationDialog .quotation-inherited-fields input,
+.app-shell #quotationDialog .quotation-inherited-fields select,
+.app-shell #quotationDialog .quotation-field-inherited input {
+  background: #edf1f6 !important;
+  border-color: transparent !important;
+  color: #58677d !important;
+  box-shadow: none !important;
+}
+
+.app-shell #quotationDialog .quotation-inherited-fields input:focus,
+.app-shell #quotationDialog .quotation-inherited-fields select:focus {
+  background: #fff !important;
+  border-color: #6258e8 !important;
+  color: #17233b !important;
+}
+
+.app-shell #quotationDialog .quotation-field-editable input,
+.app-shell #quotationDialog .quotation-field-editable select,
+.app-shell #quotationDialog .quotation-editable-fields input,
+.app-shell #quotationDialog .quotation-editable-fields select,
+.app-shell #quotationDialog .quotation-editable-fields textarea {
+  background: #fff !important;
+  border-color: #aebbd0 !important;
+  color: #17233b !important;
+  box-shadow: 0 2px 8px rgba(31, 46, 78, 0.04) !important;
+}
+
+.app-shell #quotationDialog .quotation-lines {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.app-shell #quotationDialog .quotation-line {
+  background: #fff !important;
+  border: 0 !important;
+  border-left: 3px solid #6258e8 !important;
+  box-shadow: 0 7px 20px rgba(31, 46, 78, 0.06) !important;
+}
+
+.app-shell #quotationDialog .quotation-totals article {
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 1px solid #dfe5ee !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.app-shell #quotationDialog .quotation-totals article:last-child {
+  background: #eef8f3 !important;
+  border: 1px solid #b7ddcc !important;
+  border-radius: 14px !important;
+}
+
+.app-shell #quotationDialog .quotation-field-secondary textarea,
+.app-shell #quotationDialog .quotation-field-secondary input {
+  background: #f7f9fc !important;
+  border-color: #d9e1ec !important;
+  box-shadow: none !important;
+}

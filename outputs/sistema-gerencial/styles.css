@@ -16443,3 +16443,97 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 #quotationDialog .quotation-line output,
 #quotationDialog .quotation-totals article:last-child strong { color: #67d3bd; text-shadow: none; }
 #quotationDialog.quotation-dialog > #quotationForm > footer { background: #10223b; border-top-color: #304866; }
+
+/* Cotizaciones: jerarquía limpia entre captura, referencia y resultados. */
+#quotationDialog .quotation-clean-section {
+  box-shadow: none !important;
+}
+
+#quotationDialog .quotation-main-fields {
+  padding: 14px 16px;
+  background: rgba(13, 30, 52, 0.44) !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(104, 132, 170, 0.22) !important;
+  border-bottom: 1px solid rgba(104, 132, 170, 0.22) !important;
+  border-radius: 14px;
+}
+
+#quotationDialog .quotation-customer,
+#quotationDialog .quotation-terms-panel {
+  background: rgba(16, 36, 62, 0.58) !important;
+  border: 0 !important;
+  border-left: 3px solid rgba(108, 91, 242, 0.55) !important;
+  border-radius: 14px;
+  box-shadow: none !important;
+}
+
+#quotationDialog .quotation-collapsible-trigger {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#quotationDialog .quotation-inherited-fields {
+  background: rgba(8, 24, 44, 0.35);
+  border-top: 1px solid rgba(122, 146, 179, 0.15);
+}
+
+#quotationDialog .quotation-inherited-fields input,
+#quotationDialog .quotation-inherited-fields select,
+#quotationDialog .quotation-field-inherited input {
+  background: rgba(72, 96, 128, 0.18) !important;
+  border-color: transparent !important;
+  color: #b9c6d8 !important;
+  box-shadow: none !important;
+}
+
+#quotationDialog .quotation-inherited-fields input:focus,
+#quotationDialog .quotation-inherited-fields select:focus {
+  background: #263f61 !important;
+  border-color: #756cf1 !important;
+  color: #f7f9fc !important;
+}
+
+#quotationDialog .quotation-field-editable input,
+#quotationDialog .quotation-field-editable select,
+#quotationDialog .quotation-editable-fields input,
+#quotationDialog .quotation-editable-fields select,
+#quotationDialog .quotation-editable-fields textarea {
+  background: #263f61 !important;
+  border: 1px solid #55739b !important;
+  color: #f7f9fc !important;
+}
+
+#quotationDialog .quotation-lines {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#quotationDialog .quotation-line {
+  background: rgba(18, 41, 70, 0.72) !important;
+  border: 0 !important;
+  border-left: 3px solid rgba(103, 92, 246, 0.68) !important;
+  box-shadow: none !important;
+}
+
+#quotationDialog .quotation-totals article {
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(112, 139, 175, 0.28) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+#quotationDialog .quotation-totals article:last-child {
+  background: rgba(29, 78, 75, 0.22) !important;
+  border: 1px solid rgba(91, 185, 164, 0.45) !important;
+  border-radius: 14px !important;
+}
+
+#quotationDialog .quotation-field-secondary textarea,
+#quotationDialog .quotation-field-secondary input {
+  background: rgba(58, 82, 114, 0.22) !important;
+  border-color: rgba(96, 124, 160, 0.32) !important;
+  box-shadow: none !important;
+}
