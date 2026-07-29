@@ -257,6 +257,9 @@ const state = {
   kpiView: "dashboard",
   kpiSeller: "all",
   adminQuery: "",
+  adminSellerQuery: "",
+  adminSellerEditingId: "",
+  adminSellerNotice: "",
   adminMinuteQuery: "",
   adminMinuteView: "new",
   adminMinuteEditId: "",
@@ -327,6 +330,7 @@ areas[adminAreaKey] = {
   status: "Usuarios",
   submenus: [
     { key: "permisos", label: "Permisos" },
+    { key: "vendedores", label: "Vendedores" },
     { key: "actas", label: "Actas" },
     { key: "riesgos", label: "Riesgos", status: "Consolidado de todas las gerencias" },
     { key: "solicitudes", label: "Solicitudes", status: "Consolidado de todas las gerencias" },
@@ -708,9 +712,9 @@ function loadCrmData() {
     .then((data) => {
       state.crmData = data;
       syncLostCrmOpportunities();
-      if (state.activeArea === "comercializacion" && state.activeSubmenu?.startsWith("crm")) {
-        renderDashboard();
-      }
+      fillOpportunityOptions();
+      if (state.activeArea === adminAreaKey && state.activeSubmenu === "vendedores") renderAdminPanel();
+      else if (state.activeArea === "comercializacion" && state.activeSubmenu?.startsWith("crm")) renderDashboard();
     })
     .catch(() => {
       state.crmData = null;
@@ -1049,6 +1053,7 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
       if (item.key === "cambiar-contrasena") return Boolean(user);
       if (item.key === "apariencia") return isAdminUser(user);
       if (item.key === "permisos") return canOpenAdminPermissions(user);
+      if (item.key === "vendedores") return canOpenAdminPermissions(user);
       if (item.key === "actas") return canOpenAdminMinutes(user);
       if (["riesgos", "solicitudes"].includes(item.key)) {
         return userPermissions(user).has(permissionKey(adminAreaKey, item.key));
@@ -1502,7 +1507,7 @@ function wonSalesFulfillmentRows(items) {
   const wonBySeller = groupBy(wonItems, "seller");
   const lostBySeller = groupBy(lostItems, "seller");
 
-  return commercialSellers.map((seller) => {
+  return commercialSellerNames({ includeInactive: true }).map((seller) => {
     const sellerItems = allBySeller[seller] || [];
     const sellerWonItems = wonBySeller[seller] || [];
     const sellerLostItems = lostBySeller[seller] || [];
@@ -1901,10 +1906,11 @@ function loadOpportunities() {
 }
 
 function normalizeOpportunities(items) {
+  const sellers = commercialSellerNames({ includeInactive: true });
   return items.map((item, index) => ({
     ...item,
     time: item.time || seededTime(index),
-    seller: normalizeSeller(item.seller || commercialSellers[index % commercialSellers.length]),
+    seller: normalizeSeller(item.seller || sellers[index % sellers.length]),
     stage: normalizeStage(item.stage || "Prospeccion"),
     contact: item.contact || "",
     phone: item.phone || "",
@@ -1931,7 +1937,7 @@ function normalizeOpportunities(items) {
 }
 
 function normalizeSeller(name) {
-  return sellerNameMap[name] || name || commercialSellers[0];
+  return sellerNameMap[name] || name || commercialSellerNames()[0] || "Sin vendedor";
 }
 
 function normalizeManagements(item) {
@@ -2112,7 +2118,7 @@ function closeOpportunityForm() {
 function fillOpportunityOptions() {
   opportunityStage.innerHTML = opportunityStages.map((stage) => `<option value="${stage}">${stage}</option>`).join("");
   managementStage.innerHTML = opportunityStages.map((stage) => `<option value="${stage}">${stage}</option>`).join("");
-  opportunitySeller.innerHTML = commercialSellers.map((seller) => `<option value="${seller}">${seller}</option>`).join("");
+  opportunitySeller.innerHTML = commercialSellerNames().map((seller) => `<option value="${escapeHtml(seller)}">${escapeHtml(seller)}</option>`).join("");
   opportunityProbability.innerHTML = opportunityProbabilities.map(([key, label, range]) => (
     `<option value="${key}">${label} - ${range}</option>`
   )).join("");
@@ -5206,12 +5212,31 @@ function crmData() {
   };
 }
 
-function crmSalesUsers() {
-  return crmData().users.filter((user) => user.roleId === "sales_exec");
+function isActiveCrmSeller(user) {
+  return normalizeKey(user?.status || "Activo") !== "inactivo";
+}
+
+function crmMasterSalesUsers({ includeInactive = false } = {}) {
+  const users = (state.crmData?.users || []).filter((user) => user.roleId === "sales_exec");
+  return includeInactive ? users : users.filter(isActiveCrmSeller);
+}
+
+function crmSalesUsers({ includeInactive = false } = {}) {
+  const users = crmData().users.filter((user) => user.roleId === "sales_exec");
+  return includeInactive ? users : users.filter(isActiveCrmSeller);
+}
+
+function commercialSellerNames({ includeInactive = false } = {}) {
+  const names = crmMasterSalesUsers({ includeInactive })
+    .map((user) => String(user.name || "").trim())
+    .filter(Boolean);
+  return names.length ? [...new Set(names)] : [...commercialSellers];
 }
 
 function crmOwnerName(ownerId) {
-  return crmData().users.find((user) => user.id === ownerId)?.name || "Sin vendedor";
+  return crmMasterSalesUsers({ includeInactive: true }).find((user) => user.id === ownerId)?.name
+    || crmData().users.find((user) => user.id === ownerId)?.name
+    || "Sin vendedor";
 }
 
 function crmTemperatureToProbability(temperature = "Tibio") {
@@ -5266,7 +5291,7 @@ function fillOpportunityForm(item, context = "results") {
       `<option value="${escapeHtml(seller.name)}">${escapeHtml(seller.name)}</option>`
     )).join("");
   }
-  ensureSelectOption(opportunitySeller, item?.seller || crmSortedSellers()[0]?.name || commercialSellers[0]);
+  ensureSelectOption(opportunitySeller, item?.seller || crmSortedSellers()[0]?.name || commercialSellerNames()[0]);
   opportunityContact.value = item?.contact || "";
   opportunityPhone.value = item?.phone || "";
   opportunitySegment.value = item?.segment || "";
@@ -5499,7 +5524,12 @@ function crmSellersWithOpportunityMovement() {
 
 function updateCrmModel(payload) {
   state.crmData = payload;
-  renderCommercialSubmenu(areas.comercializacion);
+  fillOpportunityOptions();
+  if (state.activeArea === adminAreaKey && state.activeSubmenu === "vendedores") {
+    renderAdminPanel();
+  } else if (state.activeArea === "comercializacion") {
+    renderCommercialSubmenu(areas.comercializacion);
+  }
 }
 
 function crmApi(path, options = {}) {
@@ -6747,7 +6777,7 @@ function renderOpportunityDashboard(items) {
   state.opportunityFilter = null;
   state.kpiView = "dashboard";
   const fulfillmentRows = wonSalesFulfillmentRows(items);
-  const selectedSeller = commercialSellers.includes(state.kpiSeller) ? state.kpiSeller : "all";
+  const selectedSeller = commercialSellerNames({ includeInactive: true }).includes(state.kpiSeller) ? state.kpiSeller : "all";
   const summaryRows = selectedSeller === "all"
     ? fulfillmentRows
     : fulfillmentRows.filter((row) => row.seller === selectedSeller);
@@ -7705,6 +7735,150 @@ function wireAdminPermissionsPanel() {
   adminPanel.querySelectorAll("[data-admin-action='row-permission']").forEach((input) => input.addEventListener("change", () => setUserAllOperationalPermissions(input.dataset.userId, input.checked)));
 }
 
+function crmSellerReferenceCount(sellerId) {
+  const data = state.crmData || {};
+  return (data.opportunities || []).filter((item) => item.ownerId === sellerId).length
+    + (data.agenda || []).filter((item) => item.ownerId === sellerId).length;
+}
+
+function crmSellerLinkedSystemUser(seller = {}) {
+  if (!seller?.id || !Array.isArray(systemUsers)) return null;
+  const sellerIdentities = [seller.name, seller.email, seller.username]
+    .map(crmIdentityKey)
+    .filter(Boolean);
+  return systemUsers.find((user) => {
+    const userIdentities = [user.name, user.email, user.username, String(user.email || "").split("@")[0]]
+      .map(crmIdentityKey)
+      .filter(Boolean);
+    return userIdentities.some((identity) => {
+      return sellerIdentities.includes(identity) || crmSellerAccountLinks.get(identity) === seller.id;
+    });
+  }) || null;
+}
+
+function crmDuplicateSeller(values = {}, excludedId = "") {
+  const identityFields = ["name", "email", "username"];
+  return crmMasterSalesUsers({ includeInactive: true }).find((seller) => {
+    if (seller.id === excludedId) return false;
+    return identityFields.some((field) => {
+      const incoming = crmIdentityKey(values[field]);
+      return incoming && incoming === crmIdentityKey(seller[field]);
+    });
+  }) || null;
+}
+
+function adminSellerInitials(name = "") {
+  return String(name).split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "V";
+}
+
+function renderAdminSellersPanel() {
+  const sellers = [...crmMasterSalesUsers({ includeInactive: true })].sort((a, b) => {
+    return Number(isActiveCrmSeller(b)) - Number(isActiveCrmSeller(a)) || String(a.name).localeCompare(String(b.name));
+  });
+  const query = normalizeKey(state.adminSellerQuery);
+  const filtered = sellers.filter((seller) => !query || normalizeKey([seller.name, seller.email, seller.username, seller.phone, seller.territory].join(" ")).includes(query));
+  const editing = sellers.find((seller) => seller.id === state.adminSellerEditingId) || null;
+  const activeCount = sellers.filter(isActiveCrmSeller).length;
+  const references = editing ? crmSellerReferenceCount(editing.id) : 0;
+  const linkedSystemUser = editing ? crmSellerLinkedSystemUser(editing) : null;
+  return `<section class="seller-admin-shell">
+    <header class="seller-admin-hero">
+      <div><span>Catálogo maestro</span><h2>Vendedores</h2><p>Una sola fuente para oportunidades, seguimiento, cotizaciones, pedidos y filtros.</p></div>
+      <div class="seller-admin-stats"><span><strong>${activeCount}</strong>Activos</span><span><strong>${sellers.length - activeCount}</strong>Inactivos</span><span><strong>${sellers.length}</strong>Total</span></div>
+    </header>
+    <div class="seller-admin-layout">
+      <aside class="seller-admin-directory">
+        <div class="seller-admin-tools"><label><span>⌕</span><input id="adminSellerSearch" type="search" value="${escapeHtml(state.adminSellerQuery)}" placeholder="Buscar vendedor..."></label><button type="button" data-seller-action="new">+ Nuevo</button></div>
+        <div class="seller-admin-list">${filtered.length ? filtered.map((seller) => {
+          const linked = crmSellerReferenceCount(seller.id);
+          return `<button type="button" class="seller-admin-item ${editing?.id === seller.id ? "is-selected" : ""} ${isActiveCrmSeller(seller) ? "" : "is-inactive"}" data-seller-action="edit" data-seller-id="${escapeHtml(seller.id)}">
+            <i>${escapeHtml(adminSellerInitials(seller.name))}</i><span><strong>${escapeHtml(seller.name)}</strong><small>${escapeHtml(seller.email || seller.phone || "Sin contacto")}</small></span>
+            <em>${linked ? `${linked} vínculos` : isActiveCrmSeller(seller) ? "Activo" : "Inactivo"}</em>
+          </button>`;
+        }).join("") : `<div class="seller-admin-empty">No hay vendedores con ese criterio.</div>`}</div>
+      </aside>
+      <form class="seller-admin-form" id="adminSellerForm" data-seller-id="${escapeHtml(editing?.id || "")}">
+        <div class="seller-admin-form-head"><div><span>${editing ? "Mantenimiento" : "Nuevo registro"}</span><h3>${editing ? escapeHtml(editing.name) : "Agregar vendedor"}</h3></div>${editing && references ? `<b>Vinculado a ${references} movimientos</b>` : ""}</div>
+        ${state.adminSellerNotice ? `<div class="seller-admin-notice">${escapeHtml(state.adminSellerNotice)}</div>` : ""}
+        ${linkedSystemUser ? `<div class="seller-admin-notice">Usuario operativo vinculado: <strong>${escapeHtml(linkedSystemUser.name || linkedSystemUser.email || linkedSystemUser.username)}</strong>. Se conserva el mismo vendedor, identificador e historial.</div>` : ""}
+        <div class="seller-admin-fields">
+          <label class="wide"><span>Nombre completo</span><input name="name" required value="${escapeHtml(editing?.name || "")}" placeholder="Nombre y apellido"></label>
+          <label><span>Teléfono</span><input name="phone" value="${escapeHtml(editing?.phone || "")}" placeholder="+503 ..."></label>
+          <label><span>Correo</span><input name="email" type="email" value="${escapeHtml(editing?.email || "")}" placeholder="correo@empresa.com"></label>
+          <label><span>Usuario CRM</span><input name="username" value="${escapeHtml(editing?.username || "")}" placeholder="usuario"></label>
+          <label><span>Territorio / zona</span><input name="territory" value="${escapeHtml(editing?.territory || "")}" placeholder="Zona asignada"></label>
+          <label><span>Estado</span><select name="status"><option value="Activo" ${isActiveCrmSeller(editing || {}) ? "selected" : ""}>Activo</option><option value="Inactivo" ${editing && !isActiveCrmSeller(editing) ? "selected" : ""}>Inactivo</option></select></label>
+        </div>
+        <p class="seller-admin-rule">Los vendedores con movimientos no se eliminan: se desactivan para conservar oportunidades, cotizaciones y pedidos. Marjorie y Gabriela mantienen sus registros e identificadores actuales.</p>
+        <div class="seller-admin-actions">
+          ${editing ? `<button class="seller-danger" type="button" data-seller-action="delete" ${references ? "disabled title=\"Tiene movimientos vinculados\"" : ""}>Eliminar</button>` : ""}
+          <span></span><button type="button" data-seller-action="cancel">Cancelar</button><button class="seller-primary" type="submit">${editing ? "Guardar cambios" : "Crear vendedor"}</button>
+        </div>
+      </form>
+    </div>
+  </section>`;
+}
+
+function wireAdminSellersPanel() {
+  adminPanel.querySelector("#adminSellerSearch")?.addEventListener("input", (event) => {
+    state.adminSellerQuery = event.target.value;
+    renderAdminPanel();
+  });
+  adminPanel.querySelectorAll("[data-seller-action='edit']").forEach((button) => button.addEventListener("click", () => {
+    state.adminSellerEditingId = button.dataset.sellerId;
+    state.adminSellerNotice = "";
+    renderAdminPanel();
+  }));
+  adminPanel.querySelector("[data-seller-action='new']")?.addEventListener("click", () => {
+    state.adminSellerEditingId = "";
+    state.adminSellerNotice = "";
+    renderAdminPanel();
+  });
+  adminPanel.querySelector("[data-seller-action='cancel']")?.addEventListener("click", () => {
+    state.adminSellerEditingId = "";
+    state.adminSellerNotice = "";
+    renderAdminPanel();
+  });
+  adminPanel.querySelector("#adminSellerForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = Object.fromEntries(new FormData(form));
+    const sellerId = form.dataset.sellerId;
+    const duplicate = crmDuplicateSeller(values, sellerId);
+    if (duplicate) {
+      state.adminSellerEditingId = duplicate.id;
+      state.adminSellerNotice = "Ya existe un vendedor con ese nombre, correo o usuario. Se abrió su registro actual para evitar duplicados.";
+      renderAdminPanel();
+      return;
+    }
+    const payload = { ...values, roleId: "sales_exec", initials: adminSellerInitials(values.name) };
+    try {
+      await crmApi(sellerId ? `/users/${encodeURIComponent(sellerId)}` : "/users", { method: sellerId ? "PATCH" : "POST", body: JSON.stringify(payload) });
+      state.adminSellerEditingId = sellerId || crmMasterSalesUsers({ includeInactive: true }).find((seller) => normalizeKey(seller.name) === normalizeKey(values.name))?.id || "";
+      state.adminSellerNotice = "Vendedor guardado. Los paneles ya utilizan este catálogo centralizado.";
+      renderAdminPanel();
+    } catch (error) {
+      state.adminSellerNotice = error.message || "No fue posible guardar el vendedor.";
+      renderAdminPanel();
+    }
+  });
+  adminPanel.querySelector("[data-seller-action='delete']")?.addEventListener("click", async () => {
+    const sellerId = state.adminSellerEditingId;
+    const seller = crmMasterSalesUsers({ includeInactive: true }).find((item) => item.id === sellerId);
+    if (!seller || crmSellerReferenceCount(sellerId)) return;
+    if (!confirm(`¿Eliminar definitivamente a ${seller.name}? Esta acción solo está disponible porque no tiene movimientos.`)) return;
+    try {
+      state.adminSellerEditingId = "";
+      await crmApi(`/users/${encodeURIComponent(sellerId)}`, { method: "DELETE" });
+      state.adminSellerNotice = "Vendedor eliminado.";
+      renderAdminPanel();
+    } catch (error) {
+      state.adminSellerNotice = `${error.message}. Puedes cambiar su estado a Inactivo.`;
+      renderAdminPanel();
+    }
+  });
+}
+
 function sanitizeMinuteBody(html = "") {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -8130,17 +8304,20 @@ function renderAdminPanel() {
   const matrixScroll = currentMatrix
     ? { top: currentMatrix.scrollTop, left: currentMatrix.scrollLeft }
     : null;
-  const activeAdminSubmenu = ["apariencia", "actas", "cambiar-contrasena"].includes(state.activeSubmenu)
+  const activeAdminSubmenu = ["apariencia", "vendedores", "actas", "cambiar-contrasena"].includes(state.activeSubmenu)
     ? state.activeSubmenu
     : "permisos";
   adminPanel.innerHTML = activeAdminSubmenu === "apariencia"
     ? renderAdminAppearancePanel()
+    : activeAdminSubmenu === "vendedores"
+      ? renderAdminSellersPanel()
     : activeAdminSubmenu === "actas"
     ? renderAdminMinutesPanel()
     : activeAdminSubmenu === "cambiar-contrasena"
       ? renderAccountPasswordPanel()
       : renderAdminPermissionsPanel();
   if (activeAdminSubmenu === "apariencia") wireAdminAppearancePanel();
+  else if (activeAdminSubmenu === "vendedores") wireAdminSellersPanel();
   else if (activeAdminSubmenu === "actas") wireAdminMinutesPanel();
   else if (activeAdminSubmenu === "cambiar-contrasena") wireAccountPasswordPanel();
   else {

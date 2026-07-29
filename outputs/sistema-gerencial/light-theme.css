@@ -1856,3 +1856,101 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
 .app-shell .commercial-approval__actions .secondary,
 .app-shell .financial-order-notification-actions .secondary { border-color: #e7c891 !important; background: #fff8eb !important; color: #955a0d !important; }
 .app-shell .financial-order-notification-icon { background: #e8f4ef !important; color: #176f52 !important; }
+
+/* Catálogo maestro de vendedores: contraste y jerarquía del modo claro. */
+.app-shell .seller-admin-hero {
+  border-color: #d8e0eb !important;
+  background: linear-gradient(135deg, #ffffff, #f1f4fa) !important;
+  box-shadow: 0 10px 26px rgba(39, 54, 83, .06) !important;
+}
+.app-shell .seller-admin-hero span,
+.app-shell .seller-admin-form-head span { color: #4f46d9 !important; }
+.app-shell .seller-admin-hero h2,
+.app-shell .seller-admin-form-head h3,
+.app-shell .seller-admin-stats strong { color: #182238 !important; }
+.app-shell .seller-admin-hero p,
+.app-shell .seller-admin-item small,
+.app-shell .seller-admin-rule { color: #66748a !important; }
+.app-shell .seller-admin-stats span {
+  border-color: #d7dfeb !important;
+  background: #f3f6fa !important;
+  color: #66748a !important;
+}
+.app-shell .seller-admin-directory,
+.app-shell .seller-admin-form {
+  border-color: #d5deea !important;
+  background: rgba(255, 255, 255, .9) !important;
+  box-shadow: 0 10px 28px rgba(39, 54, 83, .055) !important;
+}
+.app-shell .seller-admin-tools label {
+  border-color: #ccd6e4 !important;
+  background: #fff !important;
+  color: #4f46d9 !important;
+}
+.app-shell .seller-admin-tools input {
+  color: #182238 !important;
+  -webkit-text-fill-color: #182238 !important;
+}
+.app-shell .seller-admin-tools input::placeholder {
+  color: #7b8799 !important;
+  -webkit-text-fill-color: #7b8799 !important;
+  opacity: 1 !important;
+}
+.app-shell .seller-admin-tools button,
+.app-shell .seller-primary {
+  border-color: #4f46d9 !important;
+  background: #4f46d9 !important;
+  color: #fff !important;
+}
+.app-shell .seller-admin-item {
+  border-color: #d9e1ec !important;
+  background: #f7f9fc !important;
+  color: #182238 !important;
+  box-shadow: none !important;
+}
+.app-shell .seller-admin-item:hover,
+.app-shell .seller-admin-item.is-selected {
+  border-color: #8d85ef !important;
+  background: #eeecff !important;
+}
+.app-shell .seller-admin-item i {
+  background: #e8e7ff !important;
+  color: #4338ca !important;
+}
+.app-shell .seller-admin-item em { color: #176f52 !important; }
+.app-shell .seller-admin-form-head b,
+.app-shell .seller-admin-notice {
+  border-color: #91cbb6 !important;
+  background: #e8f4ef !important;
+  color: #176f52 !important;
+}
+.app-shell .seller-admin-fields label { color: #526078 !important; }
+.app-shell .seller-admin-fields input,
+.app-shell .seller-admin-fields select {
+  border-color: #c8d3e2 !important;
+  background: #eef2f7 !important;
+  color: #182238 !important;
+  -webkit-text-fill-color: #182238 !important;
+}
+.app-shell .seller-admin-fields input:focus,
+.app-shell .seller-admin-fields select:focus {
+  border-color: #7168e8 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 217, .12) !important;
+}
+.app-shell .seller-admin-actions button {
+  border-color: #cbd6e4 !important;
+  background: #fff !important;
+  color: #334155 !important;
+  box-shadow: none !important;
+}
+.app-shell .seller-admin-actions .seller-primary {
+  border-color: #4f46d9 !important;
+  background: #4f46d9 !important;
+  color: #fff !important;
+}
+.app-shell .seller-admin-actions .seller-danger {
+  border-color: #efc3cc !important;
+  background: #fff0f3 !important;
+  color: #b52f49 !important;
+}
+.app-shell .seller-admin-empty { color: #66748a !important; }

@@ -6380,6 +6380,46 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .app-shell .financial-order-notification-card > button { grid-column: 3; grid-row: 1 / span 2; }
 }
 
+/* Catálogo maestro de vendedores */
+.seller-admin-shell { display: grid; gap: 16px; }
+.seller-admin-hero { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; border: 1px solid rgba(110,231,211,.26); border-radius: 24px; background: linear-gradient(135deg, rgba(48,68,108,.92), rgba(9,40,48,.86)); }
+.seller-admin-hero span, .seller-admin-form-head span { color: #6ee7d3; font-size: 12px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.seller-admin-hero h2, .seller-admin-form-head h3 { margin: 4px 0; color: #fff; }
+.seller-admin-hero p { margin: 0; color: #aebbd0; }
+.seller-admin-stats { display: flex; gap: 10px; }
+.seller-admin-stats span { display: grid; min-width: 92px; padding: 12px 16px; border: 1px solid rgba(255,255,255,.12); border-radius: 16px; background: rgba(6,21,39,.32); color: #aebbd0; letter-spacing: 0; text-align: center; text-transform: none; }
+.seller-admin-stats strong { color: #fff; font-size: 24px; }
+.seller-admin-layout { display: grid; grid-template-columns: minmax(300px,.72fr) minmax(0,1.28fr); gap: 16px; }
+.seller-admin-directory, .seller-admin-form { min-width: 0; padding: 18px; border: 1px solid rgba(119,144,184,.28); border-radius: 22px; background: rgba(12,31,58,.72); }
+.seller-admin-tools { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 9px; margin-bottom: 12px; }
+.seller-admin-tools label { display: flex; align-items: center; gap: 8px; padding: 0 13px; border: 1px solid rgba(119,144,184,.3); border-radius: 14px; background: rgba(30,52,87,.72); }
+.seller-admin-tools input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #fff; }
+.seller-admin-tools button, .seller-primary { border: 1px solid #6d5df4; border-radius: 14px; background: #5b4ce6; color: #fff; font-weight: 800; }
+.seller-admin-list { display: grid; gap: 8px; max-height: 520px; overflow: auto; }
+.seller-admin-item { display: grid; grid-template-columns: 42px minmax(0,1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 10px; border: 1px solid rgba(119,144,184,.24); border-radius: 15px; background: rgba(29,51,84,.62); color: #fff; text-align: left; }
+.seller-admin-item:hover, .seller-admin-item.is-selected { border-color: #6ee7d3; background: rgba(42,74,103,.9); transform: translateY(-1px); }
+.seller-admin-item.is-inactive { opacity: .62; }
+.seller-admin-item i { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px; background: rgba(109,93,244,.2); color: #b8b0ff; font-style: normal; font-weight: 900; }
+.seller-admin-item span, .seller-admin-item strong, .seller-admin-item small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seller-admin-item small { margin-top: 3px; color: #9cabc0; }
+.seller-admin-item em { color: #6ee7d3; font-size: 11px; font-style: normal; font-weight: 800; }
+.seller-admin-form-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.seller-admin-form-head b { padding: 7px 10px; border-radius: 999px; background: rgba(110,231,211,.12); color: #6ee7d3; font-size: 12px; }
+.seller-admin-notice { margin-bottom: 14px; padding: 11px 13px; border-left: 3px solid #6ee7d3; border-radius: 10px; background: rgba(110,231,211,.1); color: #c7f8ef; }
+.seller-admin-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.seller-admin-fields label { display: grid; gap: 6px; color: #aebbd0; font-size: 12px; font-weight: 800; }
+.seller-admin-fields label.wide { grid-column: 1 / -1; }
+.seller-admin-fields input, .seller-admin-fields select { width: 100%; min-width: 0; min-height: 48px; padding: 0 13px; border: 1px solid rgba(119,144,184,.34); border-radius: 13px; outline: 0; background: rgba(31,54,88,.76); color: #fff; }
+.seller-admin-fields input:focus, .seller-admin-fields select:focus { border-color: #6ee7d3; box-shadow: 0 0 0 3px rgba(110,231,211,.12); }
+.seller-admin-rule { margin: 14px 0; color: #9cabc0; font-size: 12px; line-height: 1.5; }
+.seller-admin-actions { display: grid; grid-template-columns: auto 1fr auto auto; gap: 9px; }
+.seller-admin-actions button { min-height: 42px; padding: 0 16px; border: 1px solid rgba(119,144,184,.34); border-radius: 12px; background: rgba(31,54,88,.76); color: #eaf0f8; font-weight: 800; }
+.seller-admin-actions .seller-danger { border-color: rgba(255,119,143,.34); background: rgba(151,44,66,.18); color: #ff9db0; }
+.seller-admin-actions button:disabled { cursor: not-allowed; opacity: .42; }
+.seller-admin-empty { padding: 28px 12px; color: #9cabc0; text-align: center; }
+@media (max-width: 900px) { .seller-admin-hero { align-items: flex-start; flex-direction: column; } .seller-admin-layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .seller-admin-stats { width: 100%; } .seller-admin-stats span { flex: 1; min-width: 0; } .seller-admin-fields { grid-template-columns: 1fr; } .seller-admin-fields label.wide { grid-column: auto; } .seller-admin-actions { grid-template-columns: 1fr 1fr; } .seller-admin-actions span { display: none; } }
+
 /* Autorización de pedidos: primer visto bueno y control de correlativos. */
 .app-shell .commercial-approval {
   display: grid;

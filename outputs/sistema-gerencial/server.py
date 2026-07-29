@@ -409,12 +409,15 @@ def normalize_crm_user(payload, existing=None):
 
 
 def duplicate_crm_user(data, payload, current_id=""):
+    name = crm_identity_key(payload.get("name"))
     email = text(payload.get("email")).lower()
     username = text(payload.get("username") or payload.get("email")).lower()
     dui = text(payload.get("dui"))
     for user in data.get("users", []):
         if user.get("id") == current_id:
             continue
+        if name and crm_identity_key(user.get("name")) == name:
+            return True
         if email and text(user.get("email")).lower() == email:
             return True
         if username and text(user.get("username") or user.get("email")).lower() == username:
