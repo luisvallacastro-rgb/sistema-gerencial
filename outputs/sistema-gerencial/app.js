@@ -360,6 +360,20 @@ const opportunityProbabilities = [
   ["frio", "❄️ Frio", "20% a 49%"],
   ["congelado", "🧊 Congelado", "Menos de 20%"]
 ];
+const opportunitySegments = [
+  "Salud",
+  "Industria",
+  "Educacion / Colegios",
+  "Gobierno",
+  "Comercio",
+  "Servicios",
+  "Financiero",
+  "Construccion",
+  "Hoteleria y restaurantes",
+  "Tecnologia",
+  "ONG / Fundaciones",
+  "Otro"
+];
 const commercialSellers = [
   "Gabriela Amador",
   "Jose Amadeo",
@@ -2119,6 +2133,10 @@ function fillOpportunityOptions() {
   opportunityStage.innerHTML = opportunityStages.map((stage) => `<option value="${stage}">${stage}</option>`).join("");
   managementStage.innerHTML = opportunityStages.map((stage) => `<option value="${stage}">${stage}</option>`).join("");
   opportunitySeller.innerHTML = commercialSellerNames().map((seller) => `<option value="${escapeHtml(seller)}">${escapeHtml(seller)}</option>`).join("");
+  opportunitySegment.innerHTML = [
+    '<option value="">Seleccionar rubro</option>',
+    ...opportunitySegments.map((segment) => `<option value="${escapeHtml(segment)}">${escapeHtml(segment)}</option>`)
+  ].join("");
   opportunityProbability.innerHTML = opportunityProbabilities.map(([key, label, range]) => (
     `<option value="${key}">${label} - ${range}</option>`
   )).join("");
@@ -5294,7 +5312,7 @@ function fillOpportunityForm(item, context = "results") {
   ensureSelectOption(opportunitySeller, item?.seller || crmSortedSellers()[0]?.name || commercialSellerNames()[0]);
   opportunityContact.value = item?.contact || "";
   opportunityPhone.value = item?.phone || "";
-  opportunitySegment.value = item?.segment || "";
+  ensureSelectOption(opportunitySegment, item?.segment || "");
   opportunityLocation.value = item?.location || "";
   opportunityStage.value = item?.stage || opportunityStages[0];
   opportunityPriority.value = item?.priority || "Media";
@@ -5601,7 +5619,10 @@ function ensureCrmOpportunityDialog() {
         <label>Vendedor<select id="crmOwnerId" required></select></label>
         <label>Contacto<input id="crmContact" maxlength="90" placeholder="Nombre del contacto"></label>
         <label>Telefono<input id="crmPhone" maxlength="28" placeholder="+503 ..."></label>
-        <label>Segmento<input id="crmSegment" maxlength="80" placeholder="Industria, comercio, salud..."></label>
+        <label>Segmento<select id="crmSegment">
+          <option value="">Seleccionar rubro</option>
+          ${opportunitySegments.map((segment) => `<option value="${escapeHtml(segment)}">${escapeHtml(segment)}</option>`).join("")}
+        </select></label>
         <label>Ubicacion<input id="crmLocation" maxlength="90" placeholder="San Salvador"></label>
         <label>Etapa<select id="crmStageId" required></select></label>
         <label>Prioridad<select id="crmPriority"><option>Alta</option><option selected>Media</option><option>Baja</option></select></label>
@@ -9161,7 +9182,7 @@ opportunityTable.addEventListener("click", (event) => {
   ensureSelectOption(opportunitySeller, item.seller);
   opportunityContact.value = item.contact || "";
   opportunityPhone.value = item.phone || "";
-  opportunitySegment.value = item.segment || "";
+  ensureSelectOption(opportunitySegment, item.segment || "");
   opportunityLocation.value = item.location || "";
   opportunityStage.value = item.stage;
   opportunityPriority.value = item.priority || "Media";
