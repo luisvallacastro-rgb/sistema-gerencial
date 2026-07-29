@@ -2070,3 +2070,38 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   border-color: #d9e1ec !important;
   box-shadow: none !important;
 }
+/* Cotizaciones: editor de detalle limpio en modo claro. */
+.app-shell #quotationDialog .quotation-field-label {
+  color: #4b5870 !important;
+}
+
+.app-shell #quotationDialog .quotation-detail-toggle {
+  background: #fff !important;
+  border-color: #c8d3e2 !important;
+  color: #1a2740 !important;
+  box-shadow: none !important;
+}
+
+.app-shell #quotationDialog .quotation-detail-toggle:hover,
+.app-shell #quotationDialog .quotation-detail-toggle.is-open {
+  background: #f4f3ff !important;
+  border-color: #7067ec !important;
+  color: #443bd0 !important;
+}
+
+.app-shell #quotationDialog .quotation-line.has-detail .quotation-detail-toggle {
+  background: #f0efff !important;
+  border-color: #7067ec !important;
+  color: #443bd0 !important;
+}
+
+.app-shell #quotationDialog .quotation-detail-panel {
+  background: #f7f8fc !important;
+  border-left-color: #6258e8 !important;
+}
+
+.app-shell #quotationDialog .quotation-detail-panel textarea {
+  background: #fff !important;
+  border-color: #c8d3e2 !important;
+  color: #18243d !important;
+}

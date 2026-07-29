@@ -16537,3 +16537,110 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   border-color: rgba(96, 124, 160, 0.32) !important;
   box-shadow: none !important;
 }
+/* Cotizaciones: comentario extenso desplegable por línea. */
+#quotationDialog .quotation-line {
+  grid-template-columns: minmax(220px, 2.2fr) minmax(90px, .65fr) minmax(100px, .7fr) minmax(130px, .9fr) minmax(100px, .7fr) minmax(150px, 1fr) 48px;
+}
+
+#quotationDialog .quotation-notes {
+  display: grid;
+  gap: 6px;
+  align-self: end;
+  min-width: 0;
+}
+
+#quotationDialog .quotation-field-label {
+  color: #c6d1e0;
+  font-size: .76rem;
+  font-weight: 800;
+}
+
+#quotationDialog .quotation-detail-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #506a8e;
+  border-radius: 12px;
+  background: #263f61;
+  color: #f7f9fc;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+#quotationDialog .quotation-detail-toggle:hover,
+#quotationDialog .quotation-detail-toggle.is-open {
+  border-color: #8178f3;
+  background: #2b4568;
+}
+
+#quotationDialog .quotation-line.has-detail .quotation-detail-toggle {
+  border-color: #7067ec;
+  color: #c8c4ff;
+}
+
+#quotationDialog .quotation-detail-chevron {
+  font-size: 1.2rem;
+  transition: transform .18s ease;
+}
+
+#quotationDialog .quotation-detail-toggle.is-open .quotation-detail-chevron {
+  transform: rotate(180deg);
+}
+
+#quotationDialog .quotation-detail-panel {
+  grid-column: 1 / -1;
+  padding: 14px 16px;
+  border-left: 3px solid #756cf1;
+  border-radius: 12px;
+  background: #10243e;
+}
+
+#quotationDialog .quotation-detail-panel label {
+  display: grid;
+  gap: 8px;
+}
+
+#quotationDialog .quotation-detail-panel textarea {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+#quotationDialog .quotation-remove-line {
+  align-self: end;
+}
+
+@media (max-width: 1100px) {
+  #quotationDialog .quotation-line {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #quotationDialog .quotation-product,
+  #quotationDialog .quotation-detail-panel {
+    grid-column: 1 / -1;
+  }
+
+  #quotationDialog .quotation-line > output {
+    align-self: end;
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 650px) {
+  #quotationDialog .quotation-line {
+    grid-template-columns: 1fr;
+  }
+
+  #quotationDialog .quotation-line > *,
+  #quotationDialog .quotation-product,
+  #quotationDialog .quotation-detail-panel {
+    grid-column: 1;
+  }
+}
