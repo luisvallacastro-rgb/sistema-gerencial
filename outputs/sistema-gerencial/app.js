@@ -6048,6 +6048,7 @@ function renderCrmHistory() {
                 <small>${escapeHtml(opportunity.archivedBy || opportunity.migratedBy || audit.userName || "Sistema")}${date ? ` · ${formatDate(date)}` : ""}</small>
               </div>
               <div class="crm-history-amount"><span>Monto historico</span><strong>${formatMoney(opportunity.estimatedAmount || 0)}</strong></div>
+              ${canDeleteOpportunities() ? `<button type="button" class="crm-history-purge" data-crm-history-purge="${escapeHtml(opportunity.id)}" aria-label="Eliminar definitivamente ${escapeHtml(opportunity.company || "oportunidad")}">Eliminar definitivamente</button>` : ""}
             </article>`;
         }).join("") || `<div class="empty-state">No hay movimientos en la bitacora para este filtro.</div>`}
       </div>
@@ -6818,6 +6819,31 @@ function renderCommercialSubmenu(area) {
     opportunityTable.querySelectorAll("[data-crm-delete]").forEach((button) => {
       button.addEventListener("click", () => {
         openCrmCancellationDialog(button.dataset.crmDelete);
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-history-purge]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const opportunity = crmData().opportunities.find((item) => item.id === button.dataset.crmHistoryPurge);
+        if (!opportunity) return;
+        const confirmed = confirm(
+          `¿Eliminar definitivamente “${opportunity.company || "esta oportunidad"}”?\n\n` +
+          "Se borrará del Historial, Vendedores, Seguimiento y Gerencia. También se eliminarán sus cotizaciones no convertidas. Esta acción no se puede deshacer."
+        );
+        if (!confirmed) return;
+        button.disabled = true;
+        button.textContent = "Eliminando...";
+        try {
+          await crmApi(`/opportunities/${encodeURIComponent(opportunity.id)}/purge`, { method: "POST", body: "{}" });
+          getOpportunitySubmenu().items = getOpportunitySubmenu().items.filter((item) => item.crmOpportunityId !== opportunity.id && item.id !== opportunity.resultOpportunityId);
+          state.quotations = state.quotations.filter((item) => item.opportunityId !== opportunity.id);
+          localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+          persistLocalQuotations();
+          renderCommercialSubmenu(areas.comercializacion);
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = "Eliminar definitivamente";
+          alert(error.message || "No se pudo eliminar completamente la oportunidad.");
+        }
       });
     });
     opportunityTable.querySelectorAll("[data-crm-page]").forEach((button) => {

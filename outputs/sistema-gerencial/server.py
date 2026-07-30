@@ -2960,7 +2960,7 @@ class AppHandler(BaseHTTPRequestHandler):
             data = read_crm_data(conn)
             request_user_id = text(self.headers.get("X-System-User-Id"))
             request_user_row = conn.execute("""
-                SELECT id, name, username, email, role
+                SELECT id, name, username, email, role, admin
                 FROM users
                 WHERE id = ?
                 LIMIT 1
@@ -3123,6 +3123,41 @@ class AppHandler(BaseHTTPRequestHandler):
                         data["agenda"] = [item for item in data.get("agenda", []) if item.get("opportunityId") != item_id]
                         write_crm_data(conn, data)
                         self.send_json(build_crm_view_model(data))
+                        return
+                    if action == "purge" and self.command == "POST":
+                        if not request_user or (text(request_user.get("role")) != "gerencias" and not request_user.get("admin")):
+                            self.send_json({"error": "Solo administracion o gerencia puede eliminar definitivamente"}, status=403)
+                            return
+                        opportunity = data["opportunities"][index]
+                        crm_id = text(opportunity.get("id"))
+                        result_id = text(opportunity.get("resultOpportunityId"))
+                        linked_order = conn.execute(
+                            "SELECT 1 FROM control_sales_orders WHERE source_opportunity_id = ? LIMIT 1",
+                            (crm_id,),
+                        ).fetchone()
+                        converted_quotation = conn.execute(
+                            "SELECT 1 FROM quotations WHERE opportunity_id = ? AND converted_order_id <> '' LIMIT 1",
+                            (crm_id,),
+                        ).fetchone()
+                        if linked_order or converted_quotation:
+                            self.send_json({"error": "No se puede eliminar porque la oportunidad tiene un pedido o una cotizacion convertida"}, status=409)
+                            return
+
+                        result_opportunities = read_result_opportunities(conn)
+                        result_opportunities = [
+                            item for item in result_opportunities
+                            if text(item.get("crmOpportunityId")) != crm_id
+                            and (not result_id or text(item.get("id")) != result_id)
+                        ]
+                        data["opportunities"].pop(index)
+                        data["agenda"] = [item for item in data.get("agenda", []) if text(item.get("opportunityId")) != crm_id]
+                        data["gestiones"] = [item for item in data.get("gestiones", []) if text(item.get("opportunityId")) != crm_id]
+                        conn.execute("DELETE FROM quotations WHERE opportunity_id = ?", (crm_id,))
+                        write_result_opportunities(conn, result_opportunities)
+                        write_crm_data(conn, data)
+                        response = build_crm_view_model(data)
+                        response["purgedOpportunityId"] = crm_id
+                        self.send_json(response)
                         return
                     if action == "return-to-followup" and self.command == "POST":
                         if not request_user or text(request_user.get("role")) != "gerencias":

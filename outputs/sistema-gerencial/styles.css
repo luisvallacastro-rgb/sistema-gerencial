@@ -12924,7 +12924,7 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 
 .app-shell .crm-history-card {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(300px, 1.8fr) minmax(160px, .6fr);
+  grid-template-columns: minmax(220px, 1fr) minmax(300px, 1.8fr) minmax(160px, .6fr) 150px;
   align-items: center;
   gap: 24px;
   padding: 18px 24px;
@@ -12953,6 +12953,18 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 .app-shell .crm-history-card small { color: #aebbd2; font-weight: 700; }
 .app-shell .crm-history-amount { text-align: right; }
 .app-shell .crm-history-amount strong { color: #72f5d1; font-size: 1.35rem; }
+.app-shell .crm-history-purge {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 117, 151, .55);
+  border-radius: 13px;
+  background: rgba(91, 39, 59, .72);
+  color: #ff9ab2;
+  font-weight: 900;
+  cursor: pointer;
+}
+.app-shell .crm-history-purge:hover:not(:disabled) { border-color: #ff9ab2; background: rgba(117, 45, 70, .86); }
+.app-shell .crm-history-purge:disabled { opacity: .5; cursor: wait; }
 
 .crm-cancellation-card { width: min(620px, calc(100vw - 32px)); }
 .crm-cancellation-copy {
