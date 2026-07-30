@@ -768,7 +768,7 @@ const demoManagementRequestIds = new Set(["req-001", "req-002"]);
 const defaultOpportunities = [];
 const opportunityPageSize = 10;
 const opportunityManagementPageSize = 6;
-const quotationModulePageSize = 6;
+const quotationModulePageSize = 8;
 
 const loginView = document.querySelector("#loginView");
 const appShell = document.querySelector("#appShell");
@@ -3014,6 +3014,7 @@ function renderQuotationsModule() {
   const pageEnd = pageStart + quotationModulePageSize;
   const visibleStart = rows.length ? pageStart + 1 : 0;
   const pagedRows = rows.slice(pageStart, pageEnd);
+  const emptyRowCount = quotationModulePageSize - pagedRows.length;
   return `
     <section class="quotations-module" aria-label="Módulo de cotizaciones">
       <header class="quotations-module__toolbar">
@@ -3040,7 +3041,8 @@ function renderQuotationsModule() {
               <button type="button" class="quotation-action print" data-quotation-module-print="${escapeHtml(quotation.id)}" aria-label="Imprimir cotización" title="Imprimir"><span aria-hidden="true">📋</span></button>
               <button type="button" class="quotation-action danger" data-quotation-module-delete="${escapeHtml(quotation.id)}" aria-label="Eliminar cotización" ${quotation.status === "Convertida" ? "disabled title=\"Una cotización convertida no se puede eliminar\"" : "title=\"Eliminar\""}><span aria-hidden="true">🗑️</span></button>
             </div>
-          </article>`).join("") || `<div class="empty-state">No hay cotizaciones que coincidan con esta vista.</div>`}
+          </article>`).join("")}
+        ${Array.from({ length: emptyRowCount }, (_, index) => `<div class="quotation-table-row quotation-table-row--placeholder${!rows.length && index === 0 ? " has-message" : ""}" aria-hidden="true">${!rows.length && index === 0 ? `<span>No hay cotizaciones que coincidan con esta vista.</span>` : ""}</div>`).join("")}
       </div>
       <div class="opportunity-pagination quotation-pagination" aria-label="Paginación de cotizaciones"><span>Mostrando ${visibleStart}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="prev" ${state.quotationModulePage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.quotationModulePage} de ${pageCount}</strong><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="next" ${state.quotationModulePage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>
     </section>`;
