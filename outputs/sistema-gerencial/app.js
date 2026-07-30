@@ -8053,7 +8053,7 @@ function renderAdminSellersPanel() {
         </div>
         <p class="seller-admin-rule">Los vendedores con movimientos no se eliminan: se desactivan para conservar oportunidades, cotizaciones y pedidos. Marjorie y Gabriela mantienen sus registros e identificadores actuales.</p>
         <div class="seller-admin-actions">
-          ${editing ? `<button class="seller-danger" type="button" data-seller-action="delete" ${references ? "disabled title=\"Tiene movimientos vinculados\"" : ""}>Eliminar</button>` : ""}
+          ${editing ? `<button class="seller-danger" type="button" data-seller-action="delete">${references ? "Eliminar vendedor y vínculos" : "Eliminar"}</button>` : ""}
           <span></span><button type="button" data-seller-action="cancel">Cancelar</button><button class="seller-primary" type="submit">${editing ? "Guardar cambios" : "Crear vendedor"}</button>
         </div>
       </form>
@@ -8107,12 +8107,20 @@ function wireAdminSellersPanel() {
   adminPanel.querySelector("[data-seller-action='delete']")?.addEventListener("click", async () => {
     const sellerId = state.adminSellerEditingId;
     const seller = crmMasterSalesUsers({ includeInactive: true }).find((item) => item.id === sellerId);
-    if (!seller || crmSellerReferenceCount(sellerId)) return;
-    if (!confirm(`¿Eliminar definitivamente a ${seller.name}? Esta acción solo está disponible porque no tiene movimientos.`)) return;
+    if (!seller) return;
+    const references = crmSellerReferenceCount(sellerId);
+    const warning = references
+      ? `¿Eliminar definitivamente a ${seller.name} y sus ${references} vínculos?\n\nSe borrarán sus oportunidades, historial, seguimiento, agenda y cotizaciones no convertidas. La cuenta de acceso al sistema no será eliminada.`
+      : `¿Eliminar definitivamente a ${seller.name}? No tiene movimientos vinculados.`;
+    if (!confirm(warning)) return;
     try {
       state.adminSellerEditingId = "";
-      await crmApi(`/users/${encodeURIComponent(sellerId)}`, { method: "DELETE" });
-      state.adminSellerNotice = "Vendedor eliminado.";
+      await crmApi(references ? `/users/${encodeURIComponent(sellerId)}/purge` : `/users/${encodeURIComponent(sellerId)}`, { method: references ? "POST" : "DELETE", body: references ? "{}" : undefined });
+      getOpportunitySubmenu().items = getOpportunitySubmenu().items.filter((item) => normalizeKey(item.seller) !== normalizeKey(seller.name));
+      state.quotations = state.quotations.filter((item) => normalizeKey(item.seller) !== normalizeKey(seller.name));
+      localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+      persistLocalQuotations();
+      state.adminSellerNotice = "Vendedor y vínculos comerciales eliminados. La cuenta de acceso se conservó.";
       renderAdminPanel();
     } catch (error) {
       state.adminSellerNotice = `${error.message}. Puedes cambiar su estado a Inactivo.`;

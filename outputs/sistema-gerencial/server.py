@@ -3062,6 +3062,65 @@ class AppHandler(BaseHTTPRequestHandler):
                         model["activeUserId"] = item_id
                         self.send_json(model)
                         return
+                    if action == "purge" and self.command == "POST":
+                        if not request_user or (text(request_user.get("role")) != "gerencias" and not request_user.get("admin")):
+                            self.send_json({"error": "Solo administracion o gerencia puede ejecutar esta limpieza"}, status=403)
+                            return
+                        seller = data["users"][index]
+                        seller_name = text(seller.get("name"))
+                        owned_opportunities = [item for item in data.get("opportunities", []) if text(item.get("ownerId")) == item_id]
+                        crm_ids = {text(item.get("id")) for item in owned_opportunities if text(item.get("id"))}
+                        result_ids = {text(item.get("resultOpportunityId")) for item in owned_opportunities if text(item.get("resultOpportunityId"))}
+                        linked_order = conn.execute(
+                            "SELECT 1 FROM control_sales_orders WHERE lower(seller) = lower(?) LIMIT 1",
+                            (seller_name,),
+                        ).fetchone()
+                        converted_quotation = conn.execute(
+                            "SELECT 1 FROM quotations WHERE lower(seller) = lower(?) AND converted_order_id <> '' LIMIT 1",
+                            (seller_name,),
+                        ).fetchone()
+                        if crm_ids:
+                            placeholders = ",".join("?" for _ in crm_ids)
+                            linked_order = linked_order or conn.execute(
+                                f"SELECT 1 FROM control_sales_orders WHERE source_opportunity_id IN ({placeholders}) LIMIT 1",
+                                tuple(crm_ids),
+                            ).fetchone()
+                            converted_quotation = converted_quotation or conn.execute(
+                                f"SELECT 1 FROM quotations WHERE opportunity_id IN ({placeholders}) AND converted_order_id <> '' LIMIT 1",
+                                tuple(crm_ids),
+                            ).fetchone()
+                        if linked_order or converted_quotation:
+                            self.send_json({"error": "No se puede limpiar porque existen pedidos o cotizaciones convertidas"}, status=409)
+                            return
+
+                        result_opportunities = read_result_opportunities(conn)
+                        result_opportunities = [
+                            item for item in result_opportunities
+                            if text(item.get("crmOpportunityId")) not in crm_ids
+                            and text(item.get("id")) not in result_ids
+                            and crm_identity_key(text(item.get("seller"))) != crm_identity_key(seller_name)
+                        ]
+                        data["opportunities"] = [item for item in data.get("opportunities", []) if text(item.get("ownerId")) != item_id]
+                        data["agenda"] = [
+                            item for item in data.get("agenda", [])
+                            if text(item.get("ownerId")) != item_id and text(item.get("opportunityId")) not in crm_ids
+                        ]
+                        data["gestiones"] = [
+                            item for item in data.get("gestiones", [])
+                            if text(item.get("ownerId")) != item_id and text(item.get("opportunityId")) not in crm_ids
+                        ]
+                        if crm_ids:
+                            placeholders = ",".join("?" for _ in crm_ids)
+                            conn.execute(f"DELETE FROM quotations WHERE opportunity_id IN ({placeholders})", tuple(crm_ids))
+                        conn.execute("DELETE FROM quotations WHERE lower(seller) = lower(?)", (seller_name,))
+                        data["users"].pop(index)
+                        write_result_opportunities(conn, result_opportunities)
+                        write_crm_data(conn, data)
+                        response = build_crm_view_model(data)
+                        response["purgedSellerId"] = item_id
+                        response["purgedOpportunityIds"] = list(crm_ids)
+                        self.send_json(response)
+                        return
                     if self.command == "DELETE":
                         has_work = any(item.get("ownerId") == item_id for item in data.get("opportunities", [])) or any(item.get("ownerId") == item_id for item in data.get("agenda", []))
                         if has_work:
