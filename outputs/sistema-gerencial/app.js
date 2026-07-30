@@ -768,8 +768,8 @@ const demoStrategicRiskIds = new Set(["risk-001", "risk-002", "risk-003"]);
 const demoManagementRequestIds = new Set(["req-001", "req-002"]);
 const defaultOpportunities = [];
 const opportunityPageSize = 10;
-const opportunityManagementPageSize = 5;
-const quotationModulePageSize = 5;
+const opportunityManagementPageSize = 6;
+const quotationModulePageSize = 6;
 
 const loginView = document.querySelector("#loginView");
 const appShell = document.querySelector("#appShell");
