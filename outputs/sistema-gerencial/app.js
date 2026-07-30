@@ -2987,7 +2987,7 @@ function renderCommercialOrderAuthorization() {
   const quotations = savedQuotationRows();
   const query = normalizeKey(state.commercialApprovalQuery);
   const pendingRows = pending.filter((order) => !query || normalizeKey(`${order.number} ${order.client} ${order.seller}`).includes(query));
-  const quotationRows = quotations.filter((quotation) => !query || normalizeKey(`${quotation.number} ${quotation.customerData?.commercialName || ""} ${quotation.seller || ""} ${quotation.status || ""}`).includes(query));
+  const quotationRows = quotations.filter((quotation) => !query || normalizeKey(`${quotation.customerData?.commercialName || ""} ${quotation.seller || ""} ${quotation.status || ""}`).includes(query));
   const isPending = state.commercialApprovalView === "pending";
   return `
     <section class="commercial-approval" aria-label="Autorización comercial de pedidos">
