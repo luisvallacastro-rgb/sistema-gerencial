@@ -3355,8 +3355,7 @@ function populateQuotationForm(quote, opportunity = null) {
     }
     field.value = normalizedValue ?? "";
   });
-  const baseDescription = opportunity?.product || opportunity?.segment || "";
-  document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:baseDescription, quantity:"1" }]).map(quotationLineTemplate).join("");
+  document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:"", quantity:"1" }]).map(quotationLineTemplate).join("");
   const referenceAmount = Number(opportunity?.quotationReferenceAmount ?? opportunity?.estimatedAmount ?? 0);
   document.querySelector("#quotationReference").textContent = formatMoney(referenceAmount);
   document.querySelector("#quotationDialogTitle").textContent = quote ? "Editar cotización" : "Nueva cotización";
