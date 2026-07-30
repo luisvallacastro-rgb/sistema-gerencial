@@ -16104,6 +16104,23 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 }
 
 /* Módulo independiente de cotizaciones */
+.app-shell #quotationDialog .quotation-totals {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.app-shell #quotationDialog .quotation-totals .quotation-reference {
+  border-color: rgba(111, 167, 255, .42);
+  background: linear-gradient(135deg, rgba(49, 99, 169, .22), rgba(40, 61, 104, .18));
+}
+
+.app-shell #quotationDialog .quotation-totals .quotation-reference strong {
+  color: #9fc5ff;
+}
+
+@media (max-width: 850px) {
+  .app-shell #quotationDialog .quotation-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .quotations-module {
   display: grid;
   gap: 16px;

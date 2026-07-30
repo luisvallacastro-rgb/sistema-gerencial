@@ -1674,6 +1674,46 @@ def quotation_validate(data, existing=None):
     }
 
 
+def sync_opportunity_amount_from_latest_quotation(conn, opportunity_id):
+    opportunity_id = text(opportunity_id)
+    if not opportunity_id:
+        return None
+    data = read_crm_data(conn)
+    opportunity = next((item for item in data.get("opportunities", []) if text(item.get("id")) == opportunity_id), None)
+    if not opportunity:
+        return None
+    quotation = conn.execute("""
+        SELECT id, total_cents
+        FROM quotations
+        WHERE opportunity_id = ? AND total_cents > 0
+        ORDER BY datetime(updated_at) DESC, rowid DESC
+        LIMIT 1
+    """, (opportunity_id,)).fetchone()
+    if quotation:
+        if opportunity.get("quotationReferenceAmount") is None:
+            opportunity["quotationReferenceAmount"] = float(opportunity.get("estimatedAmount") or 0)
+        next_amount = round(int(quotation["total_cents"] or 0) / 100, 2)
+        opportunity["latestQuotationId"] = text(quotation["id"])
+    elif opportunity.get("quotationReferenceAmount") is not None:
+        next_amount = float(opportunity.get("quotationReferenceAmount") or 0)
+        opportunity.pop("latestQuotationId", None)
+    else:
+        return None
+    opportunity["estimatedAmount"] = next_amount
+    opportunity["quotationAmountUpdatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    write_crm_data(conn, data)
+
+    results = read_result_opportunities(conn)
+    changed = False
+    for result in results:
+        if text(result.get("crmOpportunityId")) == opportunity_id and float(result.get("amount") or 0) != next_amount:
+            result["amount"] = next_amount
+            changed = True
+    if changed:
+        write_result_opportunities(conn, results)
+    return next_amount
+
+
 def save_quotation(conn, data, existing_row=None):
     existing = quotation_payload(existing_row) if existing_row else None
     item = quotation_validate(data, existing)
@@ -1710,6 +1750,7 @@ def save_quotation(conn, data, existing_row=None):
         existing.get("createdBy", actor) if existing else actor, actor,
         existing.get("createdAt", now) if existing else now, now,
     ))
+    sync_opportunity_amount_from_latest_quotation(conn, item["opportunityId"])
     row = conn.execute("SELECT * FROM quotations WHERE id=?", (quote_id,)).fetchone()
     return quotation_payload(row)
 
@@ -2925,7 +2966,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/api/quotations/"):
             item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
             with connect() as conn:
-                row = conn.execute("SELECT converted_order_id FROM quotations WHERE id = ?", (item_id,)).fetchone()
+                row = conn.execute("SELECT opportunity_id, converted_order_id FROM quotations WHERE id = ?", (item_id,)).fetchone()
                 if not row:
                     self.send_json({"error": "Cotizacion no encontrada"}, status=404)
                     return
@@ -2933,6 +2974,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "No se puede eliminar una cotizacion convertida a pedido"}, status=409)
                     return
                 conn.execute("DELETE FROM quotations WHERE id = ?", (item_id,))
+                sync_opportunity_amount_from_latest_quotation(conn, row["opportunity_id"])
             self.send_json({"ok": True})
             return
         if self.path.startswith("/api/minutes/"):
