@@ -5356,7 +5356,7 @@ function crmIdentityKey(value) {
 }
 
 function crmLinkedSellerId(data = state.crmData, user = state.currentUser) {
-  if (!data || !user || user.role !== "operativos") return "";
+  if (!data || !user || user.role !== "operativos" || isAdminUser(user)) return "";
   const identities = [user.name, user.username, String(user.email || "").split("@")[0]]
     .map(crmIdentityKey)
     .filter(Boolean);
@@ -5775,7 +5775,7 @@ async function syncLostCrmOpportunities() {
 }
 
 function canManageCrmOpportunity(opportunity = {}) {
-  if (state.currentUser?.role !== "operativos") return true;
+  if (state.currentUser?.role !== "operativos" || isAdminUser()) return true;
   const linkedSellerId = crmLinkedSellerId();
   return Boolean(linkedSellerId && opportunity.ownerId === linkedSellerId);
 }

@@ -2966,7 +2966,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 LIMIT 1
             """, (request_user_id,)).fetchone() if request_user_id else None
             request_user = dict(request_user_row) if request_user_row else None
-            request_linked_seller = linked_crm_seller(data, request_user) if request_user and request_user.get("role") == "operativos" else None
+            is_restricted_operator = bool(request_user and request_user.get("role") == "operativos" and not request_user.get("admin"))
+            request_linked_seller = linked_crm_seller(data, request_user) if is_restricted_operator else None
 
             if resource == "bootstrap" and self.command == "GET":
                 self.send_json(build_crm_view_model(data))
@@ -3137,7 +3138,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     return
                 if self.command == "POST" and not item_id:
                     payload = self.read_json()
-                    if request_user and request_user.get("role") == "operativos":
+                    if is_restricted_operator:
                         if not request_linked_seller:
                             self.send_json({"error": "Usuario sin vendedor CRM vinculado"}, status=403)
                             return
@@ -3156,7 +3157,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     if index == -1:
                         self.send_json({"error": "Oportunidad no encontrada"}, status=404)
                         return
-                    if request_user and request_user.get("role") == "operativos":
+                    if is_restricted_operator:
                         if not request_linked_seller or data["opportunities"][index].get("ownerId") != request_linked_seller.get("id"):
                             self.send_json({"error": "Solo puede administrar sus propias oportunidades"}, status=403)
                             return
