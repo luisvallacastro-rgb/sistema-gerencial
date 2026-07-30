@@ -557,6 +557,84 @@ def result_opportunity_from_crm(data, opportunity):
     }
 
 
+def sync_result_with_latest_quotation(conn, result):
+    crm_id = text(result.get("crmOpportunityId"))
+    if not crm_id:
+        return False
+    quotation = conn.execute("""
+        SELECT client, seller, total_cents
+        FROM quotations
+        WHERE opportunity_id = ?
+        ORDER BY datetime(updated_at) DESC, rowid DESC
+        LIMIT 1
+    """, (crm_id,)).fetchone()
+    if not quotation:
+        return False
+    changed = False
+    linked_values = {
+        "company": text(quotation["client"], result.get("company")),
+        "seller": text(quotation["seller"], result.get("seller")),
+        "amount": round(int(quotation["total_cents"] or 0) / 100, 2),
+    }
+    for key, value in linked_values.items():
+        if result.get(key) != value:
+            result[key] = value
+            changed = True
+    return changed
+
+
+def repair_missing_result_migrations(conn):
+    """Rebuild Gerencia rows for CRM opportunities already marked as migrated."""
+    crm_row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
+    if not crm_row:
+        return 0
+    try:
+        data = json.loads(crm_row["value"] or "{}")
+    except json.JSONDecodeError:
+        return 0
+    if not isinstance(data, dict):
+        return 0
+
+    result_items = read_result_opportunities(conn)
+    repaired = 0
+    changed = False
+    for opportunity in data.get("opportunities", []):
+        crm_id = text(opportunity.get("id"))
+        is_migrated = bool(opportunity.get("migratedToResults")) or text(opportunity.get("archiveType")).lower() == "migration"
+        if not crm_id or not is_migrated:
+            continue
+        related_id = text(opportunity.get("resultOpportunityId"))
+        existing = next((
+            item for item in result_items
+            if text(item.get("crmOpportunityId")) == crm_id
+            or (related_id and text(item.get("id")) == related_id)
+        ), None)
+        if existing:
+            if text(existing.get("crmOpportunityId")) != crm_id:
+                existing["crmOpportunityId"] = crm_id
+                changed = True
+            if sync_result_with_latest_quotation(conn, existing):
+                changed = True
+            continue
+
+        result = result_opportunity_from_crm(data, opportunity)
+        migration_at = text(opportunity.get("migratedAt"), opportunity.get("archivedAt"))
+        migration_date = migration_at.split("T", 1)[0] if migration_at else time.strftime("%Y-%m-%d")
+        result["id"] = related_id or result["id"]
+        result["migratedAt"] = migration_at or result["migratedAt"]
+        result["date"] = migration_date
+        for management in result.get("managements", []):
+            management["date"] = migration_date
+        sync_result_with_latest_quotation(conn, result)
+        result_items.insert(0, result)
+        repaired += 1
+        changed = True
+
+    if changed:
+        write_result_opportunities(conn, result_items)
+    return repaired
+
+
 def upsert_crm_agenda(data, opportunity, payload):
     has_agenda = any(payload.get(key) for key in ["agendaDate", "agendaTime", "agendaType", "agendaPlace"])
     existing = next((item for item in data.get("agenda", []) if item.get("opportunityId") == opportunity.get("id")), None)
@@ -2060,6 +2138,7 @@ def init_db():
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
+        repair_missing_result_migrations(conn)
         repair_future_dated_result_migrations(conn)
         conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
@@ -3123,6 +3202,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         result = next((item for item in result_opportunities if item.get("crmOpportunityId") == item_id), None)
                         if not result:
                             result = result_opportunity_from_crm(data, opportunity)
+                            sync_result_with_latest_quotation(conn, result)
                             result_opportunities.insert(0, result)
                             write_result_opportunities(conn, result_opportunities)
                         if not opportunity.get("migratedToResults"):
