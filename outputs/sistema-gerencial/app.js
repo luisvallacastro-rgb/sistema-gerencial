@@ -3015,44 +3015,42 @@ function renderQuotationsModule() {
     })
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
   const opportunityOptions = quotationOpportunityOptions();
+  const visibleTotal = rows.reduce((sum, quotation) => sum + Number(quotation.totalCents || 0), 0);
   const tabs = [
     ["all", "Todas"],
     ...quotationModuleStatuses.map((status) => [status, status])
   ];
   return `
     <section class="quotations-module" aria-label="Módulo de cotizaciones">
-      <header class="quotations-module__hero">
-        <div><span>COMERCIALIZACIÓN</span><h3>Cotizaciones</h3><p>Administra el ciclo completo de cada propuesta comercial.</p></div>
-        <div class="quotations-module__create">
-          <label><span>Oportunidad de origen</span><select data-quotation-module-opportunity>${opportunityOptions || `<option value="">No hay oportunidades disponibles</option>`}</select></label>
-          <button type="button" class="primary-btn" data-quotation-module-create ${opportunityOptions ? "" : "disabled"}>+ Nueva cotización</button>
-        </div>
+      <header class="quotations-module__toolbar">
+        <label class="quotations-module__search"><span aria-hidden="true">⌕</span><input type="search" data-quotation-module-search value="${escapeHtml(state.quotationModuleQuery)}" placeholder="Buscar cliente, vendedor, estado, fecha o producto..."></label>
+        <div class="quotations-module__total"><small>TOTAL</small><strong>${formatControlSalesMoney(visibleTotal)}</strong></div>
+        <label class="quotations-module__origin"><span>Oportunidad de origen</span><select data-quotation-module-opportunity>${opportunityOptions || `<option value="">No hay oportunidades disponibles</option>`}</select></label>
+        <button type="button" class="quotations-module__new" data-quotation-module-create ${opportunityOptions ? "" : "disabled"}><span aria-hidden="true">＋</span>Nuevo registro</button>
       </header>
       <nav class="quotations-module__tabs" aria-label="Estados de cotización">
         ${tabs.map(([value, label]) => `<button type="button" data-quotation-module-status="${escapeHtml(value)}" class="${selectedStatus === value ? "active" : ""}"><span>${escapeHtml(label)}</span><b>${quotationStatusCount(value)}</b></button>`).join("")}
       </nav>
-      <div class="quotations-module__toolbar">
-        <label class="quotations-module__search"><span>⌕</span><input type="search" data-quotation-module-search value="${escapeHtml(state.quotationModuleQuery)}" placeholder="Buscar por cliente, vendedor, fecha o producto..."></label>
-        <span>${rows.length} ${rows.length === 1 ? "resultado" : "resultados"}</span>
+      <div class="quotation-table-head" aria-hidden="true">
+        <strong>Fecha</strong><strong>Cliente</strong><strong>Vendedor</strong><strong>Detalle</strong><strong>Estado</strong><strong>Total</strong><strong>Acciones</strong>
       </div>
-      <div class="quotations-module__list">
+      <div class="quotation-table-body">
         ${rows.map((quotation) => `
-          <article class="quotation-record">
-            <div class="quotation-record__main">
-              <small>COTIZACIÓN</small>
-              <strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong>
-              <span>${formatDate(quotation.date)} · ${escapeHtml(quotation.seller || "Sin vendedor")}</span>
-            </div>
-            <div class="quotation-record__products"><small>DETALLE</small><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><span>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</span></div>
-            <div class="quotation-record__amount"><small>TOTAL</small><strong>${formatControlSalesMoney(quotation.totalCents || 0)}</strong></div>
+          <article class="quotation-table-row">
+            <span>${formatDate(quotation.date)}</span>
+            <strong class="quotation-table-row__client">${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong>
+            <span>${escapeHtml(quotation.seller || "Sin vendedor")}</span>
+            <span class="quotation-table-row__detail"><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><small>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</small></span>
             <span class="quotation-record__status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span>
+            <strong class="quotation-table-row__amount">${formatControlSalesMoney(quotation.totalCents || 0)}</strong>
             <div class="quotation-record__actions">
-              <button type="button" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}">Ver / editar</button>
-              <button type="button" data-quotation-module-print="${escapeHtml(quotation.id)}">Imprimir</button>
-              <button type="button" class="danger" data-quotation-module-delete="${escapeHtml(quotation.id)}" ${quotation.status === "Convertida" ? "disabled title=\"Una cotización convertida no se puede eliminar\"" : ""}>Eliminar</button>
+              <button type="button" class="quotation-action edit" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Ver o editar cotización" title="Ver / editar"><span aria-hidden="true">✏️</span></button>
+              <button type="button" class="quotation-action print" data-quotation-module-print="${escapeHtml(quotation.id)}" aria-label="Imprimir cotización" title="Imprimir"><span aria-hidden="true">📋</span></button>
+              <button type="button" class="quotation-action danger" data-quotation-module-delete="${escapeHtml(quotation.id)}" aria-label="Eliminar cotización" ${quotation.status === "Convertida" ? "disabled title=\"Una cotización convertida no se puede eliminar\"" : "title=\"Eliminar\""}><span aria-hidden="true">🗑️</span></button>
             </div>
           </article>`).join("") || `<div class="empty-state">No hay cotizaciones que coincidan con esta vista.</div>`}
       </div>
+      <footer class="quotations-module__results">${rows.length} ${rows.length === 1 ? "resultado" : "resultados"}</footer>
     </section>`;
 }
 
@@ -6876,12 +6874,12 @@ function renderCommercialSubmenu(area) {
 
   const resultView = resultViews[submenu.key] || "active";
   state.opportunityCycleView = resultView;
-  commercialSubmenuTitle.classList.remove("hidden");
-  commercialPanel.classList.remove("opportunity-mode");
-  opportunityTotalAmount.classList.add("hidden");
-  opportunitySearchField.classList.add("hidden");
+  commercialSubmenuTitle.classList.toggle("hidden", resultView === "active");
+  commercialPanel.classList.toggle("opportunity-mode", resultView === "active");
+  opportunityTotalAmount.classList.toggle("hidden", resultView !== "active");
+  opportunitySearchField.classList.toggle("hidden", resultView !== "active");
   opportunitySearchInput.value = state.opportunitySearch;
-  newOpportunityBtn.classList.add("hidden");
+  newOpportunityBtn.classList.toggle("hidden", resultView !== "active");
   newRiskBtn.classList.add("hidden");
   newManagementRequestBtn.classList.add("hidden");
   goalsMatrixBtn.classList.add("hidden");
@@ -6916,53 +6914,70 @@ function renderCommercialSubmenu(area) {
   const pagedRows = displayRows.slice(pageStart, pageEnd);
   commercialSubmenuStatus.textContent = "";
 
+  if (!opportunitySubmenu.items.length) {
+    opportunityTable.innerHTML = `
+      <div class="empty-state">
+        No hay oportunidades ingresadas. Usa el formulario para crear el primer registro.
+      </div>
+    `;
+    return;
+  }
+
   opportunityTable.innerHTML = `
     ${resultView === "dashboard" ? renderCycleDashboard(opportunitySubmenu.items) : resultView === "history" ? renderHistoryList(historyRows) : `
-    <section class="opportunities-module" aria-label="Módulo de oportunidades">
-      <header class="opportunities-module__hero">
-        <div><span>COMERCIALIZACIÓN</span><h3>Oportunidades</h3><p>Gestiona el pipeline comercial y sus próximas acciones.</p></div>
-        <div class="opportunities-module__metrics">
-          <article><small>OPORTUNIDADES ACTIVAS</small><strong>${filteredActiveRows.length}</strong></article>
-          <article><small>MONTO TOTAL</small><strong>${formatMoney(filteredActiveRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0))}</strong></article>
-          <button type="button" class="primary-btn" data-opportunities-new>+ Nueva oportunidad</button>
-        </div>
-      </header>
-      <div class="opportunities-module__toolbar">
-        <label class="opportunities-module__search"><span>⌕</span><input type="search" data-opportunities-search value="${escapeHtml(state.opportunitySearch)}" placeholder="Buscar empresa, vendedor, etapa o temperatura..."></label>
-        <span>${displayRows.length} ${displayRows.length === 1 ? "resultado" : "resultados"}</span>
-      </div>
-      <div class="opportunity-table-body opportunities-module__list">
+    <div class="opportunity-row opportunity-header">
+      <strong>Fecha</strong>
+      <strong>Empresa</strong>
+      <strong>Vendedor</strong>
+      <strong>Etapa</strong>
+      <strong>Temperatura</strong>
+      <strong>Monto</strong>
+      <strong>Acciones</strong>
+    </div>
+    <div class="opportunity-table-body">
       ${displayRows.length ? pagedRows.map(({ item, result, isInherited, isHistory, isImportedHistory }) => `
-        <article class="opportunity-record ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
-          <div class="opportunity-record__main"><small>OPORTUNIDAD</small><strong>${escapeHtml(item.company)}</strong><span>${formatDate(item.date)} · ${escapeHtml(item.seller || "Sin vendedor")}</span>
+        <div class="opportunity-row ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
+          <span>${formatDate(item.date)}</span>
+          <strong class="company-cell">
+            <span class="company-name">${item.company}</span>
             ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
             ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
             ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}">${result.result === "ganado" ? "Ganado" : "Perdida"}</span>` : ""}
             ${hasOutstandingSamples(item) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}
-          </div>
-          <div class="opportunity-record__stage"><small>ETAPA</small><strong>${escapeHtml(item.stage || "Sin etapa")}</strong><span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span></div>
-          <div class="opportunity-record__amount"><small>MONTO</small><strong>${formatMoney(item.amount)}</strong></div>
-          <div class="opportunity-record__actions">
+          </strong>
+          <span>${item.seller}</span>
+          <span>${item.stage}</span>
+          <span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span>
+          <strong>${formatMoney(item.amount)}</strong>
+          <span class="row-actions">
           ${!isHistory ? `
-            <button type="button" data-action="edit" data-id="${item.id}">Ver / editar</button>
+            <button class="action-icon-btn" type="button" data-action="edit" data-id="${item.id}" aria-label="Editar">
+              <span aria-hidden="true">✏️</span>
+            </button>
           ` : ""}
           ${isImportedHistory ? `<span class="history-lock">Cierre real</span>` : `
-            <button type="button" data-action="manage" data-id="${item.id}">Gestiones</button>
+            <button class="action-icon-btn" type="button" data-action="manage" data-id="${item.id}" aria-label="Gestiones">
+              <span aria-hidden="true">📋</span>
+            </button>
           `}
           ${canDeleteOpportunities() && item.crmOpportunityId && !isHistory ? `
-            <button type="button" data-action="return-followup" data-id="${item.id}">Seguimiento</button>
+            <button class="action-icon-btn return-followup" type="button" data-action="return-followup" data-id="${item.id}" aria-label="Volver a Seguimiento" title="Volver a Seguimiento">
+              <span aria-hidden="true">↩️</span>
+            </button>
           ` : ""}
           ${canDeleteOpportunities() && !isHistory ? `
-            <button class="danger" type="button" data-action="cancel" data-id="${item.id}">Anular</button>
+            <button class="action-icon-btn danger" type="button" data-action="cancel" data-id="${item.id}" aria-label="Anular oportunidad" title="Anular oportunidad">
+              <span aria-hidden="true">🗑️</span>
+            </button>
           ` : ""}
-          </div>
-        </article>
+          </span>
+        </div>
       `).join("") : `
         <div class="empty-state">
           No hay oportunidades vigentes para este periodo.
         </div>
       `}
-      </div>
+    </div>
     ${displayRows.length > opportunityPageSize ? `
       <div class="opportunity-pagination" aria-label="Paginacion de oportunidades">
         <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, displayRows.length)} de ${displayRows.length}</span>
@@ -6973,24 +6988,8 @@ function renderCommercialSubmenu(area) {
         </div>
       </div>
     ` : ""}
-    </section>
     `}
   `;
-
-  if (resultView === "active") {
-    opportunityTable.querySelector("[data-opportunities-new]")?.addEventListener("click", () => {
-      resetOpportunityForm();
-      opportunityDialog.showModal();
-    });
-    opportunityTable.querySelector("[data-opportunities-search]")?.addEventListener("input", (event) => {
-      state.opportunitySearch = event.target.value;
-      state.opportunityPage = 1;
-      renderCommercialSubmenu(areas.comercializacion);
-      const input = opportunityTable.querySelector("[data-opportunities-search]");
-      input?.focus();
-      input?.setSelectionRange(input.value.length, input.value.length);
-    });
-  }
 }
 
 function renderOpportunityDashboard(items) {

@@ -2106,47 +2106,32 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   color: #18243d !important;
 }
 
-.app-shell .quotations-module__hero,
 .app-shell .quotations-module__tabs,
-.app-shell .quotation-record {
+.app-shell .quotation-table-head,
+.app-shell .quotation-table-row {
   background: #ffffff !important;
   border-color: #d7e0ec !important;
   box-shadow: 0 10px 28px rgba(39, 55, 82, .07);
 }
 
-.app-shell .quotations-module__hero h3,
-.app-shell .quotation-record strong { color: #17233b !important; }
-.app-shell .quotations-module__hero p,
-.app-shell .quotation-record span,
-.app-shell .quotations-module__toolbar > span { color: #68778e !important; }
-.app-shell .quotations-module__create label { color: #33445f !important; }
-.app-shell .quotations-module__create select,
+.app-shell .quotation-table-head,
+.app-shell .quotation-table-row strong { color: #17233b !important; }
+.app-shell .quotation-table-row > span,
+.app-shell .quotations-module__results { color: #68778e !important; }
+.app-shell .quotations-module__origin > span { color: #52627a !important; }
+.app-shell .quotations-module__origin select,
 .app-shell .quotations-module__search input {
   background: #fff !important;
   border-color: #c7d3e2 !important;
   color: #17233b !important;
 }
+.app-shell .quotations-module__new { background: #fff !important; border-color: #b9c8da !important; color: #243550 !important; }
+.app-shell .quotations-module__total strong,
+.app-shell .quotation-table-row__amount { color: #13816f !important; }
 .app-shell .quotations-module__tabs button { color: #52627a !important; }
 .app-shell .quotations-module__tabs button b { background: #edf1f7 !important; color: #52627a !important; }
 .app-shell .quotations-module__tabs button.active { background: #6258e8 !important; color: #fff !important; }
 .app-shell .quotations-module__tabs button.active b { background: rgba(255,255,255,.2) !important; color: #fff !important; }
-.app-shell .quotation-record__actions button { background: #f5f7fb !important; border-color: #cbd6e4 !important; color: #33445f !important; }
-.app-shell .quotation-record__amount strong { color: #13816f !important; }
-
-.app-shell .opportunities-module__hero,
-.app-shell .opportunity-record,
-.app-shell .opportunities-module .opportunity-pagination {
-  background: #ffffff !important;
-  border-color: #d7e0ec !important;
-  box-shadow: 0 10px 28px rgba(39, 55, 82, .07);
-}
-.app-shell .opportunities-module__metrics article { background: #f6f8fc !important; border-color: #d6dfeb !important; }
-.app-shell .opportunities-module__hero h3,
-.app-shell .opportunity-record strong { color: #17233b !important; }
-.app-shell .opportunities-module__hero p,
-.app-shell .opportunity-record span,
-.app-shell .opportunities-module__toolbar > span { color: #68778e !important; }
-.app-shell .opportunities-module__search input { background: #fff !important; border-color: #c7d3e2 !important; color: #17233b !important; }
-.app-shell .opportunity-record__actions button { background: #f5f7fb !important; border-color: #cbd6e4 !important; color: #33445f !important; }
-.app-shell .opportunity-record__amount strong,
-.app-shell .opportunities-module__metrics strong { color: #13816f !important; }
+.app-shell .quotation-record__actions .quotation-action.edit { background: #dceaff !important; border-color: #bad2f2 !important; }
+.app-shell .quotation-record__actions .quotation-action.print { background: #d9f1eb !important; border-color: #b7dfd5 !important; }
+.app-shell .quotation-record__actions .quotation-action.danger { background: #f5dfe7 !important; border-color: #e7bdcc !important; }
