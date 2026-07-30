@@ -15970,6 +15970,20 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   .management-request-reader-card > header .request-status-pill { grid-column: 2; width: max-content; }
 }
 
+/* Cotizaciones: consolidado económico en dos niveles. */
+#quotationDialog .quotation-totals-comparison > .quotation-variation {
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(112, 139, 175, 0.28) !important;
+  border-radius: 0 !important;
+}
+
+#quotationDialog .quotation-totals-breakdown > .quotation-grand-total {
+  background: rgba(29, 78, 75, 0.22) !important;
+  border: 1px solid rgba(91, 185, 164, 0.45) !important;
+  border-radius: 14px !important;
+}
+
 /* Cotizaciones: composición estable para tarjetas y modal, sin recortes. */
 .app-shell .crm-tracking-card {
   min-height: 132px;
@@ -16105,7 +16119,22 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 
 /* Módulo independiente de cotizaciones */
 .app-shell #quotationDialog .quotation-totals {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.app-shell #quotationDialog .quotation-totals-comparison,
+.app-shell #quotationDialog .quotation-totals-breakdown {
+  display: grid;
+  gap: 12px;
+}
+
+.app-shell #quotationDialog .quotation-totals-comparison {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.app-shell #quotationDialog .quotation-totals-breakdown {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .app-shell #quotationDialog .quotation-totals .quotation-reference {
@@ -16117,8 +16146,33 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   color: #9fc5ff;
 }
 
+.app-shell #quotationDialog .quotation-variation small {
+  color: var(--muted);
+  font-size: .7rem;
+}
+
+.app-shell #quotationDialog .quotation-variation[data-variation="positive"] strong {
+  color: #69e7c4;
+}
+
+.app-shell #quotationDialog .quotation-variation[data-variation="negative"] strong {
+  color: #ff91a8;
+}
+
+.app-shell #quotationDialog .quotation-grand-total {
+  background: rgba(29, 78, 75, .22) !important;
+  border: 1px solid rgba(91, 185, 164, .45) !important;
+  border-radius: 14px !important;
+}
+
+.app-shell #quotationDialog .quotation-grand-total strong {
+  color: #67d3bd !important;
+  font-size: 1.55rem;
+}
+
 @media (max-width: 850px) {
-  .app-shell #quotationDialog .quotation-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-shell #quotationDialog .quotation-totals-comparison,
+  .app-shell #quotationDialog .quotation-totals-breakdown { grid-template-columns: 1fr; }
 }
 
 .quotations-module {

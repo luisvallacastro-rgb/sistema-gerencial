@@ -3227,7 +3227,10 @@ function ensureQuotationDialog() {
     <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label></section>
     <section class="quotation-customer quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationCustomerFields"><span><b>Datos heredados del cliente y vendedor</b><small>Se cargan desde la oportunidad. Ábrelos únicamente si necesitas corregirlos.</small></span><i aria-hidden="true">⌄</i></button><div id="quotationCustomerFields" class="quotation-form-grid quotation-collapsible-content quotation-inherited-fields" hidden><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></section>
     <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><button type="button" data-quotation-add-line>+ Agregar línea</button></div><div id="quotationLines"></div></section>
-    <section class="quotation-totals"><article class="quotation-reference"><span>Valor oportunidad · referencia</span><strong id="quotationReference">$0.00</strong></article><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article><span>Total cotización</span><strong id="quotationTotal">$0.00</strong></article></section>
+    <section class="quotation-totals">
+      <div class="quotation-totals-comparison"><article class="quotation-reference"><span>Monto original de la oportunidad</span><strong id="quotationReference" data-reference-cents="0">$0.00</strong></article><article class="quotation-variation" id="quotationVariationCard" data-variation="neutral"><span id="quotationVariationLabel">Diferencia contra la oportunidad</span><strong id="quotationVariation">$0.00</strong><small>Calculada con el total final de la cotización</small></article></div>
+      <div class="quotation-totals-breakdown"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article class="quotation-grand-total"><span>Total cotización · nuevo valor oportunidad</span><strong id="quotationTotal">$0.00</strong></article></div>
+    </section>
     <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Selecciona pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label><label class="quotation-field-editable">Tiempo de entrega<select id="quotationDeliveryTerms" required><option>30 días hábiles posterior a la orden de compra</option><option>60 días hábiles posterior a la orden de compra</option><option>90 días hábiles posterior a la orden de compra</option></select></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
@@ -3310,6 +3313,15 @@ function updateQuotationTotals() {
   document.querySelector("#quotationSubtotal").textContent = formatControlSalesMoney(draft.subtotalCents);
   document.querySelector("#quotationVat").textContent = formatControlSalesMoney(draft.vatCents);
   document.querySelector("#quotationTotal").textContent = formatControlSalesMoney(draft.totalCents);
+  const referenceCents = Number(document.querySelector("#quotationReference")?.dataset.referenceCents || 0);
+  const differenceCents = draft.totalCents - referenceCents;
+  const variationCard = document.querySelector("#quotationVariationCard");
+  const variationLabel = document.querySelector("#quotationVariationLabel");
+  const variationValue = document.querySelector("#quotationVariation");
+  const variation = draft.totalCents <= 0 ? "neutral" : differenceCents > 0 ? "positive" : differenceCents < 0 ? "negative" : "neutral";
+  if (variationCard) variationCard.dataset.variation = variation;
+  if (variationLabel) variationLabel.textContent = draft.totalCents <= 0 ? "Cotización pendiente de valor" : variation === "positive" ? "Aumento de la oportunidad" : variation === "negative" ? "Disminución de la oportunidad" : "Sin cambio en la oportunidad";
+  if (variationValue) variationValue.textContent = draft.totalCents <= 0 ? formatControlSalesMoney(0) : `${differenceCents > 0 ? "+" : differenceCents < 0 ? "−" : ""}${formatControlSalesMoney(Math.abs(differenceCents))}`;
 }
 
 function validateQuotationPricesForFinalAction(draft, action = "continuar") {
@@ -3357,7 +3369,9 @@ function populateQuotationForm(quote, opportunity = null) {
   });
   document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:"", quantity:"1" }]).map(quotationLineTemplate).join("");
   const referenceAmount = Number(opportunity?.quotationReferenceAmount ?? opportunity?.estimatedAmount ?? 0);
-  document.querySelector("#quotationReference").textContent = formatMoney(referenceAmount);
+  const referenceOutput = document.querySelector("#quotationReference");
+  referenceOutput.textContent = formatMoney(referenceAmount);
+  referenceOutput.dataset.referenceCents = String(Math.round(referenceAmount * 100));
   document.querySelector("#quotationDialogTitle").textContent = quote ? "Editar cotización" : "Nueva cotización";
   setQuotationPanelExpanded(document.querySelector(".quotation-customer"), false);
   setQuotationPanelExpanded(document.querySelector(".quotation-terms-panel"), true);
@@ -3389,6 +3403,8 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
   if (missingInheritedField) setQuotationPanelExpanded(customerPanel, true);
   if (!form.reportValidity()) return null;
   const draft = quotationDraftFromForm(); if (forcedStatus) draft.status = forcedStatus;
+  const referenceCents = Number(document.querySelector("#quotationReference")?.dataset.referenceCents || 0);
+  const amountDifferenceCents = draft.totalCents - referenceCents;
   if (["Enviada", "Aprobada", "Convertida"].includes(draft.status)
     && !validateQuotationPricesForFinalAction(draft, "cambiar el estado de la cotización")) return null;
   const status = document.querySelector("#quotationSaveStatus");
@@ -3404,12 +3420,19 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
     const resultOpportunity = getOpportunitySubmenu().items.find((item) => String(item.crmOpportunityId) === String(saved.opportunityId));
     if (resultOpportunity && Number(saved.totalCents || 0) > 0) resultOpportunity.amount = Number(saved.totalCents) / 100;
     renderQuotationHistory(saved.opportunityId); populateQuotationForm(saved, linkedOpportunity || crmOpportunityForQuotation(saved.opportunityId));
-    status.textContent = forcedStatus === "Enviada" ? "Cotización guardada como enviada. Ya puedes imprimirla o preparar el correo." : "Cambios guardados. El precio puede quedar pendiente mientras la cotización sea un borrador.";
+    const changeDirection = amountDifferenceCents > 0 ? "aumentó" : amountDifferenceCents < 0 ? "disminuyó" : "se mantuvo";
+    const changeDetail = draft.totalCents <= 0
+      ? `El borrador quedó sin valor; la oportunidad conserva su monto original de ${formatControlSalesMoney(referenceCents)}.`
+      : amountDifferenceCents === 0
+      ? `El monto de la oportunidad ${changeDirection} en ${formatControlSalesMoney(draft.totalCents)}.`
+      : `El monto de la oportunidad ${changeDirection} ${formatControlSalesMoney(Math.abs(amountDifferenceCents))}: de ${formatControlSalesMoney(referenceCents)} a ${formatControlSalesMoney(draft.totalCents)}.`;
+    status.textContent = `Cotización guardada. ${changeDetail}`;
     status.dataset.tone = "success";
     status.classList.remove("hidden");
     if (state.activeArea === "comercializacion" && state.activeSubmenu === "cotizaciones") {
       renderCommercialSubmenu(areas.comercializacion);
     }
+    alert(changeDetail);
     if (openPreview) printQuotation(saved); return saved;
   } catch (error) { status.textContent = error.message || "No se pudo guardar la cotización."; status.classList.remove("hidden"); status.dataset.tone = "error"; return null; }
 }
