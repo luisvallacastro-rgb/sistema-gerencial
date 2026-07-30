@@ -16119,8 +16119,9 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 
 /* Módulo independiente de cotizaciones */
 .app-shell #quotationDialog .quotation-totals {
-  grid-template-columns: 1fr;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, .78fr);
+  align-items: start;
+  gap: clamp(28px, 5vw, 90px);
 }
 
 .app-shell #quotationDialog .quotation-totals-comparison,
@@ -16130,11 +16131,13 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 }
 
 .app-shell #quotationDialog .quotation-totals-comparison {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .app-shell #quotationDialog .quotation-totals-breakdown {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+  width: 100%;
+  justify-self: end;
 }
 
 .app-shell #quotationDialog .quotation-totals .quotation-reference {
@@ -16171,6 +16174,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 }
 
 @media (max-width: 850px) {
+  .app-shell #quotationDialog .quotation-totals { grid-template-columns: 1fr; gap: 12px; }
   .app-shell #quotationDialog .quotation-totals-comparison,
   .app-shell #quotationDialog .quotation-totals-breakdown { grid-template-columns: 1fr; }
 }
