@@ -115,6 +115,12 @@ const areas = {
         items: []
       },
       {
+        key: "cotizaciones",
+        label: "Cotizaciones",
+        status: "Gestión comercial por estado",
+        items: []
+      },
+      {
         key: "resultados-dashboard",
         label: "Dashboard",
         status: "Acumulado comercial",
@@ -300,6 +306,8 @@ const state = {
   commercialApprovalView: "pending",
   commercialApprovalQuery: "",
   quotations: [],
+  quotationModuleStatus: "all",
+  quotationModuleQuery: "",
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -745,7 +753,9 @@ function loadCrmData() {
       syncLostCrmOpportunities();
       fillOpportunityOptions();
       if (state.activeArea === adminAreaKey && state.activeSubmenu === "vendedores") renderAdminPanel();
-      else if (state.activeArea === "comercializacion" && state.activeSubmenu?.startsWith("crm")) renderDashboard();
+      else if (state.activeArea === "comercializacion" && (
+        state.activeSubmenu?.startsWith("crm") || state.activeSubmenu === "cotizaciones"
+      )) renderDashboard();
     })
     .catch(() => {
       state.crmData = null;
@@ -1010,7 +1020,7 @@ function operationalPermissionKeys() {
 
 function defaultPermissionsForRole(role) {
   if (role === "operativos") {
-    return ["crm", "crm-seguimiento"]
+    return ["crm", "crm-seguimiento", "cotizaciones"]
       .map((sectionKey) => permissionKey("comercializacion", sectionKey));
   }
   if (role === "jefaturas") {
@@ -1037,6 +1047,13 @@ function normalizePermissionList(value, role) {
     ...value,
     ...(value.includes(permissionKey("comercializacion", "resultados"))
       ? [permissionKey("comercializacion", "resultados-oportunidades")]
+      : []),
+    ...(value.some((item) => [
+      permissionKey("comercializacion", "crm"),
+      permissionKey("comercializacion", "crm-seguimiento"),
+      permissionKey("comercializacion", "autorizacion-pedidos")
+    ].includes(item))
+      ? [permissionKey("comercializacion", "cotizaciones")]
       : []),
     ...(legacyRisks ? [permissionKey(adminAreaKey, "riesgos")] : []),
     ...(legacyRequests ? [permissionKey(adminAreaKey, "solicitudes")] : [])
@@ -2960,6 +2977,120 @@ function savedQuotationRows() {
     .sort((a, b) => String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
 }
 
+const quotationModuleStatuses = ["Borrador", "Enviada", "Aprobada", "Rechazada", "Vencida", "Convertida"];
+
+function canManageQuotation(quotation) {
+  if (state.currentUser?.role !== "operativos") return true;
+  const opportunity = crmOpportunityForQuotation(quotation.opportunityId);
+  return Boolean(opportunity && canManageCrmOpportunity(opportunity));
+}
+
+function quotationStatusCount(status) {
+  return state.quotations.filter(canManageQuotation).filter((quotation) => (
+    status === "all" || normalizeKey(quotation.status || "Borrador") === normalizeKey(status)
+  )).length;
+}
+
+function quotationOpportunityOptions() {
+  const opportunities = state.crmData?.opportunities || [];
+  return opportunities
+    .filter((opportunity) => !opportunity.cancelledAt && !opportunity.cancellationReason)
+    .filter((opportunity) => canManageCrmOpportunity(opportunity))
+    .sort((a, b) => String(a.company || "").localeCompare(String(b.company || ""), "es"))
+    .map((opportunity) => `<option value="${escapeHtml(opportunity.id)}">${escapeHtml(opportunity.company || "Sin cliente")} · ${escapeHtml(opportunity.seller || "Sin vendedor")}</option>`)
+    .join("");
+}
+
+function renderQuotationsModule() {
+  const selectedStatus = state.quotationModuleStatus;
+  const query = normalizeKey(state.quotationModuleQuery);
+  const rows = [...state.quotations]
+    .filter(canManageQuotation)
+    .filter((quotation) => selectedStatus === "all"
+      || normalizeKey(quotation.status || "Borrador") === normalizeKey(selectedStatus))
+    .filter((quotation) => {
+      if (!query) return true;
+      const productText = (quotation.lines || []).map((line) => `${line.description || ""} ${line.size || ""} ${line.notes || ""}`).join(" ");
+      return normalizeKey(`${quotation.client || ""} ${quotation.customerData?.commercialName || ""} ${quotation.seller || ""} ${quotation.status || ""} ${quotation.date || ""} ${productText}`).includes(query);
+    })
+    .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
+  const opportunityOptions = quotationOpportunityOptions();
+  const tabs = [
+    ["all", "Todas"],
+    ...quotationModuleStatuses.map((status) => [status, status])
+  ];
+  return `
+    <section class="quotations-module" aria-label="Módulo de cotizaciones">
+      <header class="quotations-module__hero">
+        <div><span>COMERCIALIZACIÓN</span><h3>Cotizaciones</h3><p>Administra el ciclo completo de cada propuesta comercial.</p></div>
+        <div class="quotations-module__create">
+          <label><span>Oportunidad de origen</span><select data-quotation-module-opportunity>${opportunityOptions || `<option value="">No hay oportunidades disponibles</option>`}</select></label>
+          <button type="button" class="primary-btn" data-quotation-module-create ${opportunityOptions ? "" : "disabled"}>+ Nueva cotización</button>
+        </div>
+      </header>
+      <nav class="quotations-module__tabs" aria-label="Estados de cotización">
+        ${tabs.map(([value, label]) => `<button type="button" data-quotation-module-status="${escapeHtml(value)}" class="${selectedStatus === value ? "active" : ""}"><span>${escapeHtml(label)}</span><b>${quotationStatusCount(value)}</b></button>`).join("")}
+      </nav>
+      <div class="quotations-module__toolbar">
+        <label class="quotations-module__search"><span>⌕</span><input type="search" data-quotation-module-search value="${escapeHtml(state.quotationModuleQuery)}" placeholder="Buscar por cliente, vendedor, fecha o producto..."></label>
+        <span>${rows.length} ${rows.length === 1 ? "resultado" : "resultados"}</span>
+      </div>
+      <div class="quotations-module__list">
+        ${rows.map((quotation) => `
+          <article class="quotation-record">
+            <div class="quotation-record__main">
+              <small>COTIZACIÓN</small>
+              <strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong>
+              <span>${formatDate(quotation.date)} · ${escapeHtml(quotation.seller || "Sin vendedor")}</span>
+            </div>
+            <div class="quotation-record__products"><small>DETALLE</small><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><span>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</span></div>
+            <div class="quotation-record__amount"><small>TOTAL</small><strong>${formatControlSalesMoney(quotation.totalCents || 0)}</strong></div>
+            <span class="quotation-record__status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span>
+            <div class="quotation-record__actions">
+              <button type="button" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}">Ver / editar</button>
+              <button type="button" data-quotation-module-print="${escapeHtml(quotation.id)}">Imprimir</button>
+              <button type="button" class="danger" data-quotation-module-delete="${escapeHtml(quotation.id)}" ${quotation.status === "Convertida" ? "disabled title=\"Una cotización convertida no se puede eliminar\"" : ""}>Eliminar</button>
+            </div>
+          </article>`).join("") || `<div class="empty-state">No hay cotizaciones que coincidan con esta vista.</div>`}
+      </div>
+    </section>`;
+}
+
+function wireQuotationsModule() {
+  opportunityTable.querySelectorAll("[data-quotation-module-status]").forEach((button) => button.addEventListener("click", () => {
+    state.quotationModuleStatus = button.dataset.quotationModuleStatus;
+    renderCommercialSubmenu(areas.comercializacion);
+  }));
+  opportunityTable.querySelector("[data-quotation-module-search]")?.addEventListener("input", (event) => {
+    state.quotationModuleQuery = event.target.value;
+    renderCommercialSubmenu(areas.comercializacion);
+    const input = opportunityTable.querySelector("[data-quotation-module-search]");
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  });
+  opportunityTable.querySelector("[data-quotation-module-create]")?.addEventListener("click", () => {
+    const opportunityId = opportunityTable.querySelector("[data-quotation-module-opportunity]")?.value;
+    if (opportunityId) openQuotationDialog(opportunityId);
+  });
+  opportunityTable.querySelectorAll("[data-quotation-module-open]").forEach((button) => button.addEventListener("click", () => (
+    openQuotationDialog(button.dataset.opportunityId, button.dataset.quotationModuleOpen)
+  )));
+  opportunityTable.querySelectorAll("[data-quotation-module-print]").forEach((button) => button.addEventListener("click", () => {
+    const quotation = state.quotations.find((item) => item.id === button.dataset.quotationModulePrint);
+    if (quotation) printQuotation(quotation);
+  }));
+  opportunityTable.querySelectorAll("[data-quotation-module-delete]").forEach((button) => button.addEventListener("click", async () => {
+    const quotation = state.quotations.find((item) => item.id === button.dataset.quotationModuleDelete);
+    if (!quotation || !confirm(`¿Eliminar la cotización de ${quotation.client || "este cliente"}?`)) return;
+    try {
+      if (apiEnabled) await apiJson(`/api/quotations/${encodeURIComponent(quotation.id)}`, { method:"DELETE" });
+      state.quotations = state.quotations.filter((item) => item.id !== quotation.id);
+      persistLocalQuotations();
+      renderCommercialSubmenu(areas.comercializacion);
+    } catch (error) { alert(error.message || "No se pudo eliminar la cotización."); }
+  }));
+}
+
 function formatOrderCorrelative(number) {
   const raw = String(number || "").trim();
   if (!raw) return "OP-PENDIENTE";
@@ -3275,6 +3406,9 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
     status.textContent = forcedStatus === "Enviada" ? "Cotización guardada como enviada. Ya puedes imprimirla o preparar el correo." : "Cambios guardados. El precio puede quedar pendiente mientras la cotización sea un borrador.";
     status.dataset.tone = "success";
     status.classList.remove("hidden");
+    if (state.activeArea === "comercializacion" && state.activeSubmenu === "cotizaciones") {
+      renderCommercialSubmenu(areas.comercializacion);
+    }
     if (openPreview) printQuotation(saved); return saved;
   } catch (error) { status.textContent = error.message || "No se pudo guardar la cotización."; status.classList.remove("hidden"); status.dataset.tone = "error"; return null; }
 }
@@ -6439,6 +6573,19 @@ function renderCommercialSubmenu(area) {
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
 
+  if (state.activeArea === "comercializacion" && submenu.key === "cotizaciones") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = `${state.quotations.length} ${state.quotations.length === 1 ? "cotización" : "cotizaciones"}`;
+    opportunityTable.innerHTML = renderQuotationsModule();
+    wireQuotationsModule();
+    return;
+  }
+
   if (state.activeArea === "comercializacion" && submenu.key === "autorizacion-pedidos") {
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
@@ -8522,7 +8669,8 @@ function renderDashboard() {
       "crm-clientes",
       "riesgos",
       "solicitudes",
-      "autorizacion-pedidos"
+      "autorizacion-pedidos",
+      "cotizaciones"
     ].includes(state.activeSubmenu)
     || state.activeSubmenu.startsWith("resultados")
   );

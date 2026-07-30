@@ -2105,3 +2105,30 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   border-color: #c8d3e2 !important;
   color: #18243d !important;
 }
+
+.app-shell .quotations-module__hero,
+.app-shell .quotations-module__tabs,
+.app-shell .quotation-record {
+  background: #ffffff !important;
+  border-color: #d7e0ec !important;
+  box-shadow: 0 10px 28px rgba(39, 55, 82, .07);
+}
+
+.app-shell .quotations-module__hero h3,
+.app-shell .quotation-record strong { color: #17233b !important; }
+.app-shell .quotations-module__hero p,
+.app-shell .quotation-record span,
+.app-shell .quotations-module__toolbar > span { color: #68778e !important; }
+.app-shell .quotations-module__create label { color: #33445f !important; }
+.app-shell .quotations-module__create select,
+.app-shell .quotations-module__search input {
+  background: #fff !important;
+  border-color: #c7d3e2 !important;
+  color: #17233b !important;
+}
+.app-shell .quotations-module__tabs button { color: #52627a !important; }
+.app-shell .quotations-module__tabs button b { background: #edf1f7 !important; color: #52627a !important; }
+.app-shell .quotations-module__tabs button.active { background: #6258e8 !important; color: #fff !important; }
+.app-shell .quotations-module__tabs button.active b { background: rgba(255,255,255,.2) !important; color: #fff !important; }
+.app-shell .quotation-record__actions button { background: #f5f7fb !important; border-color: #cbd6e4 !important; color: #33445f !important; }
+.app-shell .quotation-record__amount strong { color: #13816f !important; }
