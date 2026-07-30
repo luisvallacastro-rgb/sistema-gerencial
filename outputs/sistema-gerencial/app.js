@@ -306,7 +306,6 @@ const state = {
   commercialApprovalView: "pending",
   commercialApprovalQuery: "",
   quotations: [],
-  quotationModuleStatus: "all",
   quotationModuleQuery: "",
   quotationModulePage: 1,
   crmData: null,
@@ -2980,18 +2979,10 @@ function savedQuotationRows() {
     .sort((a, b) => String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
 }
 
-const quotationModuleStatuses = ["Borrador", "Enviada", "Aprobada", "Rechazada", "Vencida", "Convertida"];
-
 function canManageQuotation(quotation) {
   if (state.currentUser?.role !== "operativos") return true;
   const opportunity = crmOpportunityForQuotation(quotation.opportunityId);
   return Boolean(opportunity && canManageCrmOpportunity(opportunity));
-}
-
-function quotationStatusCount(status) {
-  return state.quotations.filter(canManageQuotation).filter((quotation) => (
-    status === "all" || normalizeKey(quotation.status || "Borrador") === normalizeKey(status)
-  )).length;
 }
 
 function quotationOpportunityOptions() {
@@ -3005,12 +2996,9 @@ function quotationOpportunityOptions() {
 }
 
 function renderQuotationsModule() {
-  const selectedStatus = state.quotationModuleStatus;
   const queryTokens = normalizeKey(state.quotationModuleQuery).split(/\s+/).filter(Boolean);
   const rows = [...state.quotations]
     .filter(canManageQuotation)
-    .filter((quotation) => selectedStatus === "all"
-      || normalizeKey(quotation.status || "Borrador") === normalizeKey(selectedStatus))
     .filter((quotation) => {
       if (!queryTokens.length) return true;
       const productText = (quotation.lines || []).map((line) => `${line.description || ""} ${line.size || ""} ${line.notes || ""} ${line.quantity || ""} ${line.unitPriceCents || ""}`).join(" ");
@@ -3024,6 +3012,7 @@ function renderQuotationsModule() {
   state.quotationModulePage = Math.min(Math.max(Number(state.quotationModulePage) || 1, 1), pageCount);
   const pageStart = (state.quotationModulePage - 1) * quotationModulePageSize;
   const pageEnd = pageStart + quotationModulePageSize;
+  const visibleStart = rows.length ? pageStart + 1 : 0;
   const pagedRows = rows.slice(pageStart, pageEnd);
   return `
     <section class="quotations-module" aria-label="Módulo de cotizaciones">
@@ -3035,7 +3024,7 @@ function renderQuotationsModule() {
       </header>
       <div class="quotation-table-head">
         <strong>Fecha</strong>
-        <label class="quotation-status-filter"><span>Cliente</span><select data-quotation-module-status aria-label="Filtrar cotizaciones por estado"><option value="all" ${selectedStatus === "all" ? "selected" : ""}>Todos los estados (${quotationStatusCount("all")})</option>${quotationModuleStatuses.map((status) => `<option value="${escapeHtml(status)}" ${selectedStatus === status ? "selected" : ""}>${escapeHtml(status)} (${quotationStatusCount(status)})</option>`).join("")}</select></label>
+        <strong>Cliente</strong>
         <strong>Vendedor</strong><strong>Detalle</strong><strong>Total</strong><strong>Acciones</strong>
       </div>
       <div class="quotation-table-body">
@@ -3053,16 +3042,11 @@ function renderQuotationsModule() {
             </div>
           </article>`).join("") || `<div class="empty-state">No hay cotizaciones que coincidan con esta vista.</div>`}
       </div>
-      ${rows.length > quotationModulePageSize ? `<div class="opportunity-pagination quotation-pagination" aria-label="Paginación de cotizaciones"><span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="prev" ${state.quotationModulePage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.quotationModulePage} de ${pageCount}</strong><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="next" ${state.quotationModulePage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>` : `<footer class="quotations-module__results">${rows.length} ${rows.length === 1 ? "resultado" : "resultados"}</footer>`}
+      <div class="opportunity-pagination quotation-pagination" aria-label="Paginación de cotizaciones"><span>Mostrando ${visibleStart}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="prev" ${state.quotationModulePage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.quotationModulePage} de ${pageCount}</strong><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="next" ${state.quotationModulePage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>
     </section>`;
 }
 
 function wireQuotationsModule() {
-  opportunityTable.querySelector("[data-quotation-module-status]")?.addEventListener("change", (event) => {
-    state.quotationModuleStatus = event.target.value;
-    state.quotationModulePage = 1;
-    renderCommercialSubmenu(areas.comercializacion);
-  });
   opportunityTable.querySelector("[data-quotation-module-search]")?.addEventListener("input", (event) => {
     state.quotationModuleQuery = event.target.value;
     state.quotationModulePage = 1;

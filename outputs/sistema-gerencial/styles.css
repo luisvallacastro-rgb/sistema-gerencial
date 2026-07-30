@@ -16323,32 +16323,6 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-record__actions .quotation-action:disabled { opacity: .35; cursor: not-allowed; }
 .quotations-module__results { color: #91a4bd; font-weight: 800; text-align: right; }
 
-.quotation-status-filter {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.quotation-status-filter > span {
-  color: inherit;
-  font: inherit;
-  font-weight: 800;
-}
-
-.quotation-status-filter select {
-  width: 100%;
-  min-width: 0;
-  height: 28px;
-  padding: 0 26px 0 8px;
-  border: 1px solid rgba(126, 159, 205, .45);
-  border-radius: 8px;
-  background: rgba(15, 34, 62, .82);
-  color: #dce7f6;
-  font-size: .68rem;
-  font-weight: 800;
-  text-transform: none;
-}
-
 .quotation-pagination { margin-top: 2px; }
 
 @media (max-width: 1250px) {
