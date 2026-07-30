@@ -250,6 +250,40 @@ def write_result_opportunities(conn, items):
     """, (json.dumps(items, ensure_ascii=True),))
 
 
+def repair_future_dated_result_migrations(conn):
+    """Restore migrated opportunities hidden by a future follow-up date."""
+    row = conn.execute("SELECT value FROM app_state WHERE key = 'opportunities'").fetchone()
+    if not row:
+        return 0
+    try:
+        items = json.loads(row["value"] or "[]")
+    except json.JSONDecodeError:
+        return 0
+    if not isinstance(items, list):
+        return 0
+
+    repaired = 0
+    for item in items:
+        migration_date = text(item.get("migratedAt")).split("T", 1)[0]
+        result_date = text(item.get("date"))
+        if not text(item.get("crmOpportunityId")) or len(migration_date) != 10:
+            continue
+        if len(result_date) != 10 or result_date <= migration_date:
+            continue
+        item["agendaDate"] = text(item.get("agendaDate"), result_date)
+        item["date"] = migration_date
+        managements = item.get("managements") if isinstance(item.get("managements"), list) else []
+        for management in managements:
+            comment = text(management.get("comment")).lower()
+            if "migrada desde crm" in comment and text(management.get("date")) > migration_date:
+                management["date"] = migration_date
+        repaired += 1
+
+    if repaired:
+        write_result_opportunities(conn, items)
+    return repaired
+
+
 def result_opportunity_dependencies(conn, opportunity_id):
     """Return human-readable dependencies that make a lifecycle change unsafe."""
     dependencies = []
@@ -490,7 +524,8 @@ def result_opportunity_from_crm(data, opportunity):
     result_id = f"result-{text(opportunity.get('id'))}"
     owner = next((item for item in data.get("users", []) if item.get("id") == opportunity.get("ownerId")), {})
     stage = next((item for item in data.get("stages", []) if item.get("id") == opportunity.get("stageId")), {})
-    date = text(opportunity.get("nextDate"), opportunity.get("deadline") or opportunity.get("startDate") or today)
+    agenda_date = text(opportunity.get("nextDate"), opportunity.get("deadline") or opportunity.get("startDate") or today)
+    date = today
     stage_name = text(stage.get("name"), "Prospeccion")
     note = text(opportunity.get("lastNote"), opportunity.get("comment"))
     return {
@@ -508,7 +543,7 @@ def result_opportunity_from_crm(data, opportunity):
         "probability": text(opportunity.get("temperature"), "Tibio").lower(),
         "amount": float(opportunity.get("estimatedAmount") or 0),
         "nextAction": text(opportunity.get("nextAction"), "Primer seguimiento"),
-        "agendaDate": date,
+        "agendaDate": agenda_date,
         "note": note,
         "crmOpportunityId": opportunity.get("id"),
         "migratedAt": now,
@@ -2025,6 +2060,7 @@ def init_db():
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
+        repair_future_dated_result_migrations(conn)
         conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('strategic_risks', '{}')

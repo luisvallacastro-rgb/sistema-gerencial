@@ -5517,7 +5517,8 @@ function opportunityMigratedFromCrm(crmOpportunityId) {
 
 function resultOpportunityFromCrm(opportunity) {
   const id = crypto.randomUUID();
-  const date = opportunity.nextDate || opportunity.deadline || opportunity.startDate || todayISO();
+  const agendaDate = opportunity.nextDate || opportunity.deadline || opportunity.startDate || todayISO();
+  const date = todayISO();
   const stage = crmStageToOpportunityStage(opportunity);
   return {
     id,
@@ -5534,7 +5535,7 @@ function resultOpportunityFromCrm(opportunity) {
     probability: crmTemperatureToProbability(opportunity.temperature),
     amount: Number(opportunity.estimatedAmount || 0),
     nextAction: opportunity.nextAction || "Primer seguimiento",
-    agendaDate: opportunity.agendaDate || date,
+    agendaDate: opportunity.agendaDate || agendaDate,
     agendaTime: opportunity.agendaTime || "",
     agendaType: opportunity.agendaType || "Seguimiento",
     agendaPlace: opportunity.agendaPlace || "Por definir",
