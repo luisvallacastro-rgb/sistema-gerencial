@@ -2957,7 +2957,6 @@ function financePendingApprovalOrders() {
 
 function savedQuotationRows() {
   return [...state.quotations]
-    .filter((quotation) => quotation.number)
     .sort((a, b) => String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
 }
 
@@ -2993,7 +2992,7 @@ function renderCommercialOrderAuthorization() {
   return `
     <section class="commercial-approval" aria-label="Autorización comercial de pedidos">
       <header class="commercial-approval__hero">
-        <div><span>Flujo comercial</span><h3>Control de documentos</h3><p>Primer visto bueno de pedidos y trazabilidad de correlativos de cotización.</p></div>
+        <div><span>Flujo comercial</span><h3>Control de documentos</h3><p>Primer visto bueno de pedidos y trazabilidad de cotizaciones.</p></div>
         <div class="commercial-approval__metrics">
           <article><small>Pendientes</small><strong>${pending.length}</strong></article>
           <article><small>Autorizados</small><strong>${authorized.length}</strong></article>
@@ -3004,7 +3003,7 @@ function renderCommercialOrderAuthorization() {
         <button type="button" data-commercial-approval-view="pending" class="${isPending ? "active" : ""}">Pedidos pendientes de autorizar <b>${pending.length}</b></button>
         <button type="button" data-commercial-approval-view="quotations" class="${!isPending ? "active" : ""}">Cotizaciones enviadas <b>${quotations.length}</b></button>
       </nav>
-      <label class="commercial-approval__search"><span>⌕</span><input type="search" data-commercial-approval-search value="${escapeHtml(state.commercialApprovalQuery)}" placeholder="Buscar correlativo, cliente o vendedor..."></label>
+      <label class="commercial-approval__search"><span>⌕</span><input type="search" data-commercial-approval-search value="${escapeHtml(state.commercialApprovalQuery)}" placeholder="Buscar cliente, vendedor o estado..."></label>
       ${isPending ? `
         <div class="commercial-approval__notice"><strong>Primer visto bueno</strong><span>Al autorizar, la orden se notificará a Financiera / Pedidos para su segundo visto bueno.</span></div>
         <div class="commercial-approval__list">
@@ -3022,16 +3021,16 @@ function renderCommercialOrderAuthorization() {
               </div>
             </article>`).join("") || `<div class="empty-state">No hay pedidos pendientes de autorización comercial.</div>`}
         </div>` : `
-        <div class="commercial-approval__notice"><strong>Control de correlativos</strong><span>El número se fija en el primer guardado. La vista previa solo anticipa el siguiente y no lo consume. Aquí aparecen todas las cotizaciones guardadas, con su estado.</span></div>
+        <div class="commercial-approval__notice"><strong>Control de cotizaciones</strong><span>Aquí aparecen todas las cotizaciones guardadas, con su estado.</span></div>
         <div class="commercial-approval__list">
           ${quotationRows.map((quotation) => `
             <article class="commercial-approval__row quotation">
-              <div class="commercial-approval__identity"><small>COTIZACIÓN</small><strong>${escapeHtml(quotation.number)}</strong><span>${formatDate(quotation.date)}</span></div>
+              <div class="commercial-approval__identity"><small>COTIZACIÓN</small><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.company || "Sin cliente")}</strong><span>${formatDate(quotation.date)}</span></div>
               <div class="commercial-approval__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.company || "Sin cliente")}</strong><span>${escapeHtml(quotation.seller || "Sin vendedor")}</span></div>
               <div class="commercial-approval__amount"><small>Total</small><strong>${formatControlSalesMoney(quotation.totalCents || 0)}</strong></div>
               <span class="commercial-approval__status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span>
               <div class="commercial-approval__actions"><button type="button" class="primary" data-commercial-quotation-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}">Ver / editar</button></div>
-            </article>`).join("") || `<div class="empty-state">Aún no existen cotizaciones guardadas con correlativo fijo.</div>`}
+            </article>`).join("") || `<div class="empty-state">Aún no existen cotizaciones guardadas.</div>`}
         </div>`}
     </section>`;
 }
@@ -3067,17 +3066,6 @@ function wireCommercialOrderAuthorization() {
 }
 
 function persistLocalQuotations() { localStorage.setItem(QUOTATIONS_STORAGE_KEY, JSON.stringify(state.quotations)); }
-function nextQuotationNumberPreview(date = todayISO()) {
-  const year = String(date || todayISO()).slice(0, 4) || String(new Date().getFullYear());
-  const prefix = `COT-${year}-`;
-  const highest = state.quotations.reduce((current, item) => {
-    const number = String(item.number || "");
-    if (!number.startsWith(prefix)) return current;
-    const suffix = Number(number.slice(prefix.length));
-    return Number.isInteger(suffix) ? Math.max(current, suffix) : current;
-  }, 0);
-  return `${prefix}${String(highest + 1).padStart(4, "0")}`;
-}
 function crmOpportunityForQuotation(id) { return crmData().opportunities.find((item) => String(item.id) === String(id)); }
 function crmCustomerForQuotation(opportunity) {
   const customers = crmData().customers || [];
@@ -3112,7 +3100,7 @@ function ensureQuotationDialog() {
     <input type="hidden" id="quotationId"><input type="hidden" id="quotationOpportunityId">
     <section id="quotationHistory" class="quotation-history"></section>
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
-    <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><label class="quotation-field-inherited">Número de cotización<input id="quotationNumber" readonly></label><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label></section>
+    <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label></section>
     <section class="quotation-customer quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationCustomerFields"><span><b>Datos heredados del cliente y vendedor</b><small>Se cargan desde la oportunidad. Ábrelos únicamente si necesitas corregirlos.</small></span><i aria-hidden="true">⌄</i></button><div id="quotationCustomerFields" class="quotation-form-grid quotation-collapsible-content quotation-inherited-fields" hidden><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></section>
     <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><button type="button" data-quotation-add-line>+ Agregar línea</button></div><div id="quotationLines"></div></section>
     <section class="quotation-totals"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article><span>Total cotización</span><strong id="quotationTotal">$0.00</strong></article></section>
@@ -3176,10 +3164,6 @@ function ensureQuotationDialog() {
     }
     updateQuotationTotals();
   });
-  dialog.querySelector("#quotationDate").addEventListener("change", (event) => {
-    if (document.querySelector("#quotationId").value) return;
-    document.querySelector("#quotationNumber").value = nextQuotationNumberPreview(event.target.value);
-  });
   document.querySelector("#quotationForm").addEventListener("submit", async (event) => { event.preventDefault(); await saveQuotationFromForm(); });
 }
 
@@ -3224,14 +3208,14 @@ function renderQuotationHistory(opportunityId) {
   const quotes = state.quotations.filter((item) => String(item.opportunityId) === String(opportunityId)).sort((a,b) => String(b.updatedAt || b.date).localeCompare(String(a.updatedAt || a.date)));
   const history = document.querySelector("#quotationHistory");
   history.classList.toggle("is-empty", !quotes.length);
-  history.innerHTML = `<div><span>Historial</span><strong>${quotes.length} ${quotes.length === 1 ? "cotización" : "cotizaciones"}</strong></div>${quotes.length ? `<nav>${quotes.map((quote) => `<button type="button" data-quotation-history-id="${escapeHtml(quote.id)}"><b>${escapeHtml(quote.number)}</b><span>${formatDate(quote.date)} · ${formatControlSalesMoney(quote.totalCents)}</span><em data-status="${escapeHtml(quote.status)}">${escapeHtml(quote.status)}</em></button>`).join("")}</nav>` : `<p>La primera cotización se agregará aquí al guardar.</p>`}`;
+  history.innerHTML = `<div><span>Historial</span><strong>${quotes.length} ${quotes.length === 1 ? "cotización" : "cotizaciones"}</strong></div>${quotes.length ? `<nav>${quotes.map((quote) => `<button type="button" data-quotation-history-id="${escapeHtml(quote.id)}"><b>Cotización</b><span>${formatDate(quote.date)} · ${formatControlSalesMoney(quote.totalCents)}</span><em data-status="${escapeHtml(quote.status)}">${escapeHtml(quote.status)}</em></button>`).join("")}</nav>` : `<p>La primera cotización se agregará aquí al guardar.</p>`}`;
 }
 
 function populateQuotationForm(quote, opportunity = null) {
   const customer = quote?.customerData || crmCustomerForQuotation(opportunity);
   const seller = (crmData().sellers || []).find((item) => item.id === opportunity?.ownerId) || {};
   const values = {
-    quotationId:quote?.id || "", quotationNumber:quote?.number || nextQuotationNumberPreview(quote?.date || todayISO()), quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
+    quotationId:quote?.id || "", quotationNumber:quote?.number || "", quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
     quotationCommercialName:customer.commercialName || customer.name || quote?.client || opportunity?.company || "", quotationLegalName:customer.legalName || "", quotationContactName:customer.contactName || customer.manager || opportunity?.contact || "", quotationPhone:customer.phone || opportunity?.phone || "", quotationEmail:customer.email || "", quotationAddress:customer.address || opportunity?.location || "", quotationBusinessActivity:customer.businessActivity || customer.businessLine || opportunity?.segment || "", quotationTaxId:customer.taxId || customer.nit || "", quotationRegistrationNumber:customer.registrationNumber || customer.nrc || "", quotationTaxpayerType:customer.taxpayerType || "", quotationCustomerCode:customer.customerCode || customer.code || "", quotationStrategy:customer.strategy || opportunity?.strategy || "", quotationSeller:quote?.seller || seller.name || opportunity?.seller || state.currentUser?.name || "", quotationSellerPhone:customer.sellerPhone || seller.phone || "", quotationSellerEmail:customer.sellerEmail || seller.email || state.currentUser?.email || "",
     quotationPaymentTerms:quote?.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:quote?.commercialNotes || "Precios unitarios no incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
   };
@@ -3249,7 +3233,7 @@ function populateQuotationForm(quote, opportunity = null) {
   });
   const baseDescription = opportunity?.product || opportunity?.segment || "";
   document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:baseDescription, quantity:"1" }]).map(quotationLineTemplate).join("");
-  document.querySelector("#quotationDialogTitle").textContent = quote ? `Cotización ${quote.number}` : `Nueva cotización · ${values.quotationNumber}`;
+  document.querySelector("#quotationDialogTitle").textContent = quote ? "Editar cotización" : "Nueva cotización";
   setQuotationPanelExpanded(document.querySelector(".quotation-customer"), false);
   setQuotationPanelExpanded(document.querySelector(".quotation-terms-panel"), true);
   updateQuotationTotals();
@@ -3286,7 +3270,7 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
   try {
     let saved;
     if (apiEnabled) { const response = await apiJson(draft.id ? `/api/quotations/${encodeURIComponent(draft.id)}` : "/api/quotations", { method:draft.id ? "PUT" : "POST", body:JSON.stringify(draft) }); saved = response.item; await loadQuotations(); }
-    else { const now = new Date().toISOString(); const year = draft.date.slice(0,4); const sequence = state.quotations.filter((item) => String(item.number || "").startsWith(`COT-${year}-`)).length + 1; saved = { ...draft, id:draft.id || crypto.randomUUID(), number:draft.number || `COT-${year}-${String(sequence).padStart(4,"0")}`, status:draft.status, updatedAt:now, createdAt:draft.createdAt || now }; const index = state.quotations.findIndex((item) => item.id === saved.id); if (index >= 0) state.quotations[index] = saved; else state.quotations.unshift(saved); persistLocalQuotations(); }
+    else { const now = new Date().toISOString(); saved = { ...draft, id:draft.id || crypto.randomUUID(), number:draft.number || `Q-${crypto.randomUUID()}`, status:draft.status, updatedAt:now, createdAt:draft.createdAt || now }; const index = state.quotations.findIndex((item) => item.id === saved.id); if (index >= 0) state.quotations[index] = saved; else state.quotations.unshift(saved); persistLocalQuotations(); }
     renderQuotationHistory(saved.opportunityId); populateQuotationForm(saved, crmOpportunityForQuotation(saved.opportunityId));
     status.textContent = forcedStatus === "Enviada" ? "Cotización guardada como enviada. Ya puedes imprimirla o preparar el correo." : "Cambios guardados. El precio puede quedar pendiente mientras la cotización sea un borrador.";
     status.dataset.tone = "success";
@@ -3303,7 +3287,6 @@ async function deleteQuotationFromForm() {
 
 function printQuotation(quote) {
   if (!quote.lines?.length) return alert("Agrega al menos una línea a la cotización.");
-  if (!quote.number) quote = { ...quote, number: nextQuotationNumberPreview(quote.date) };
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) return alert("Habilita las ventanas emergentes para ver la cotización.");
   const data = quote.customerData || {}; const value = (item) => escapeHtml(String(item || ""));
@@ -3322,12 +3305,12 @@ function printQuotation(quote) {
     return `<tr><td class="qty">${value(line.quantity)}</td><td>${printableDescription}</td><td class="money">${formatControlSalesMoney(line.unitPriceCents)}</td><td class="money">${formatControlSalesMoney(line.lineTotalCents)}</td></tr>`;
   }).join("");
   const fillerRows = Array.from({ length:Math.max(0, 7 - quote.lines.length) }, () => '<tr class="filler"><td></td><td></td><td></td><td></td></tr>').join("");
-  const emailHref = `mailto:${encodeURIComponent(data.email || "")}?subject=${encodeURIComponent(`Cotización ${quote.number || ""} - Arte y Color Uniformes`)}&body=${encodeURIComponent(`Estimado/a ${data.contactName || quote.client}:\n\nAdjuntamos la cotización ${quote.number || ""}. La oferta tiene una vigencia de ${quote.validDays || 30} días.\n\nSaludos,\n${quote.seller}`)}`;
-  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${value(quote.number || "Cotización")}</title><style>
+  const emailHref = `mailto:${encodeURIComponent(data.email || "")}?subject=${encodeURIComponent("Cotización - Arte y Color Uniformes")}&body=${encodeURIComponent(`Estimado/a ${data.contactName || quote.client}:\n\nAdjuntamos la cotización. La oferta tiene una vigencia de ${quote.validDays || 30} días.\n\nSaludos,\n${quote.seller}`)}`;
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cotización</title><style>
     @page{size:Letter;margin:0}*{box-sizing:border-box}html{background:#dfe5ec}body{margin:0;color:#111;font:12px Arial,Helvetica,sans-serif}.sheet{position:relative;width:216mm;min-height:279mm;margin:12px auto;background:#fff;padding:12mm 17mm 10mm;overflow:hidden}.letterhead{height:33mm;display:flex;justify-content:flex-end;align-items:flex-start}.brand-logo{display:block;width:78mm;height:30mm;object-fit:contain;object-position:right center}.city-date{text-align:right;margin:-3mm 8mm 10mm 0;font-size:13px}.recipient{margin:0 0 8mm}.recipient strong{display:block;font-size:14px;margin-bottom:3px}.recipient span{display:block;font-size:13px}.intro{font-size:13px;margin:0 0 2mm}.quote-number{position:absolute;left:17mm;top:13mm;color:#17794f;font-weight:800;letter-spacing:.08em}.quote-number small{display:block;color:#667085;font-size:9px;text-transform:uppercase;letter-spacing:.14em;margin-bottom:3px}.quote-table{width:100%;border-collapse:collapse;table-layout:fixed}.quote-table th,.quote-table td{border:1px solid #111}.quote-table th{padding:6px 5px;background:#bdbdbd;text-align:center;font-weight:800}.quote-table th:nth-child(1){width:9%}.quote-table th:nth-child(3){width:17%}.quote-table th:nth-child(4){width:16%}.quote-table td{padding:4px 7px;vertical-align:middle;line-height:1.22}.quote-table .qty{text-align:center;font-weight:700}.quote-table .money{text-align:right;white-space:nowrap}.quote-line-detail,.quote-line-product{display:block}.quote-line-detail{white-space:pre-wrap;margin-bottom:3px}.quote-line-product{color:#3d4652;font-weight:700}.quote-table .filler td{height:7mm}.quote-table tfoot td{height:8mm;font-weight:700}.quote-table tfoot .totals-spacer{border:0;background:transparent}.quote-table tfoot .total-label{text-align:left}.quote-table tfoot tr:last-child .total-label,.quote-table tfoot tr:last-child .money{font-size:13px;font-weight:900}.guarantee{clear:both;display:block;padding-top:2mm;font-size:12px;font-weight:800;margin:0 0 8mm}.terms{font-size:12px;line-height:1.55}.terms p{margin:2px 0}.terms strong{font-weight:800}.signature{margin-top:12mm;line-height:1.45}.signature .closing-word{margin-bottom:7mm}.signature strong,.signature span,.signature a{display:block}.signature a{color:#0645d6}.footer-brand{position:absolute;left:17mm;right:17mm;bottom:5mm;display:grid;grid-template-columns:1fr auto;grid-template-areas:"contact qr" "motto motto";align-items:end;column-gap:10mm;row-gap:2mm;color:#626b77;font-size:9px}.footer-contact{grid-area:contact;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}.footer-contact span{white-space:nowrap}.footer-qr{grid-area:qr;display:flex;align-items:center;gap:3mm;color:#17794f;font-weight:800;white-space:nowrap}.footer-qr img{display:block;width:16mm;height:16mm;object-fit:contain}.motto{grid-area:motto;width:100%;text-align:center;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}.actions{position:fixed;z-index:10;top:14px;right:14px;display:flex;gap:8px;background:#182d4e;padding:8px;border-radius:12px;box-shadow:0 12px 30px #182d4e44}.actions button,.actions a{border:0;border-radius:8px;padding:10px 13px;background:#238760;color:white;text-decoration:none;font-weight:800;cursor:pointer}.actions button:last-child{background:white;color:#18233d}@media(max-width:850px){.sheet{margin:0;transform-origin:top left}.actions{position:sticky;justify-content:center;border-radius:0}}@media print{html,body{background:#fff}.actions{display:none}.sheet{margin:0;width:216mm;height:279mm;min-height:279mm;box-shadow:none}.brand-logo,.footer-qr img{print-color-adjust:exact;-webkit-print-color-adjust:exact}.quote-table thead{display:table-header-group}.quote-table tr{break-inside:avoid}.footer-brand{position:absolute}}
     .footer-contact{grid-template-columns:max-content max-content;column-gap:8mm;justify-content:start}
     .footer-brand{row-gap:4mm}
-  </style></head><body><main class="sheet"><div class="quote-number"><small>Cotización</small>${value(quote.number || "BORRADOR")}</div><header class="letterhead"><img class="brand-logo" src="${value(logoUrl)}" alt="Arte y Color Uniformes"></header><p class="city-date">San Salvador, ${value(longDate)}</p><section class="recipient"><strong>${value(String(quote.client || "Cliente").toUpperCase())}</strong><span>${data.contactName ? `Atención: ${value(data.contactName)}` : "Presente"}</span></section><p class="intro">En atención a su solicitud y de la manera más atenta le presentamos la siguiente cotización:</p><table class="quote-table"><thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${rows}${fillerRows}</tbody><tfoot><tr><td class="totals-spacer" colspan="2" rowspan="3"></td><td class="total-label">SUBTOTAL</td><td class="money">${formatControlSalesMoney(quote.subtotalCents)}</td></tr><tr><td class="total-label">IVA</td><td class="money">${formatControlSalesMoney(quote.vatCents)}</td></tr><tr><td class="total-label">TOTAL</td><td class="money">${formatControlSalesMoney(quote.totalCents)}</td></tr></tfoot></table><p class="guarantee">*${value(quote.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.")}</p><section class="terms"><p><strong>${value(quote.commercialNotes || "Precios unitarios no incluyen IVA")}</strong></p><p><b>Vigencia de oferta:</b> ${value(quote.validDays || 30)} días</p><p><b>Tiempo de entrega:</b> ${value(quote.deliveryTerms)}</p><p><b>Forma de Pago:</b> ${value(quote.paymentTerms)}</p><p><strong>${value(quote.specialSizesNote)}</strong></p></section><section class="signature"><p class="closing-word">Atentamente,</p><strong>${value(quote.seller)}</strong><span>${value(data.sellerRole || "Ejecutivo/a de ventas")}</span>${data.sellerPhone ? `<span>${value(data.sellerPhone)}</span>` : ""}${data.sellerEmail ? `<a href="mailto:${value(data.sellerEmail)}">${value(data.sellerEmail)}</a>` : ""}</section><footer class="footer-brand"><div class="footer-contact"><span>Arte y Color Uniformes</span><span>+503 2277-2032</span><span>arteycolor.bordados@gmail.com</span><span>+503 7202-8137</span></div><div class="footer-qr"><span>Catálogo digital</span><img src="${value(qrUrl)}" alt="Código QR de Arte y Color Uniformes"></div><div class="motto">Innovación, calidad y responsabilidad garantizada</div></footer></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><a href="${value(emailHref)}">Preparar correo</a><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  </style></head><body><main class="sheet"><header class="letterhead"><img class="brand-logo" src="${value(logoUrl)}" alt="Arte y Color Uniformes"></header><p class="city-date">San Salvador, ${value(longDate)}</p><section class="recipient"><strong>${value(String(quote.client || "Cliente").toUpperCase())}</strong><span>${data.contactName ? `Atención: ${value(data.contactName)}` : "Presente"}</span></section><p class="intro">En atención a su solicitud y de la manera más atenta le presentamos la siguiente cotización:</p><table class="quote-table"><thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${rows}${fillerRows}</tbody><tfoot><tr><td class="totals-spacer" colspan="2" rowspan="3"></td><td class="total-label">SUBTOTAL</td><td class="money">${formatControlSalesMoney(quote.subtotalCents)}</td></tr><tr><td class="total-label">IVA</td><td class="money">${formatControlSalesMoney(quote.vatCents)}</td></tr><tr><td class="total-label">TOTAL</td><td class="money">${formatControlSalesMoney(quote.totalCents)}</td></tr></tfoot></table><p class="guarantee">*${value(quote.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.")}</p><section class="terms"><p><strong>${value(quote.commercialNotes || "Precios unitarios no incluyen IVA")}</strong></p><p><b>Vigencia de oferta:</b> ${value(quote.validDays || 30)} días</p><p><b>Tiempo de entrega:</b> ${value(quote.deliveryTerms)}</p><p><b>Forma de Pago:</b> ${value(quote.paymentTerms)}</p><p><strong>${value(quote.specialSizesNote)}</strong></p></section><section class="signature"><p class="closing-word">Atentamente,</p><strong>${value(quote.seller)}</strong><span>${value(data.sellerRole || "Ejecutivo/a de ventas")}</span>${data.sellerPhone ? `<span>${value(data.sellerPhone)}</span>` : ""}${data.sellerEmail ? `<a href="mailto:${value(data.sellerEmail)}">${value(data.sellerEmail)}</a>` : ""}</section><footer class="footer-brand"><div class="footer-contact"><span>Arte y Color Uniformes</span><span>+503 2277-2032</span><span>arteycolor.bordados@gmail.com</span><span>+503 7202-8137</span></div><div class="footer-qr"><span>Catálogo digital</span><img src="${value(qrUrl)}" alt="Código QR de Arte y Color Uniformes"></div><div class="motto">Innovación, calidad y responsabilidad garantizada</div></footer></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><a href="${value(emailHref)}">Preparar correo</a><button onclick="window.close()">Cerrar</button></nav></body></html>`);
   popup.document.close();
   const quotationQrLabel = popup.document.querySelector(".footer-qr span");
   if (quotationQrLabel) quotationQrLabel.textContent = "Página web";
@@ -6188,7 +6171,7 @@ function renderCrmTracking() {
       <p>${escapeHtml(win.comment || "Cierre ganado registrado.")}</p>
       <button type="button" class="crm-won-order-button ${detailOrder ? "is-ready" : ""}" data-crm-won-order="${escapeHtml(win.id)}">
         <span>${detailOrder ? "Pedido listo" : "Pedido"}</span>
-        <strong>${detailOrder ? "Ver / editar / imprimir" : quotation ? `Crear desde ${escapeHtml(quotation.number)}` : "Crear detalle"}</strong>
+        <strong>${detailOrder ? "Ver / editar / imprimir" : quotation ? "Crear desde cotización" : "Crear detalle"}</strong>
       </button>
     </article>
   `;
@@ -6464,7 +6447,7 @@ function renderCommercialSubmenu(area) {
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
     const pendingOrders = commercialPendingApprovalOrders();
-    commercialSubmenuStatus.textContent = `${pendingOrders.length} pendientes · ${savedQuotationRows().length} cotizaciones con correlativo`;
+    commercialSubmenuStatus.textContent = `${pendingOrders.length} pendientes · ${savedQuotationRows().length} cotizaciones`;
     opportunityTable.innerHTML = renderCommercialOrderAuthorization();
     wireCommercialOrderAuthorization();
     return;
