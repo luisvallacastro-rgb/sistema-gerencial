@@ -16542,6 +16542,30 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   font-weight: 850;
   cursor: pointer;
 }
+#quotationDialog .quotation-crud-action {
+  min-height: 54px;
+  min-width: 124px;
+  padding: 0 22px;
+  border-radius: 16px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+#quotationDialog .quotation-print-action {
+  width: 54px;
+  min-width: 54px;
+  padding: 0;
+  border: 1px solid rgba(82, 144, 219, .62);
+  background: rgba(31, 82, 139, .62);
+  color: #f5f9ff;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+#quotationDialog .quotation-print-action:hover {
+  border-color: #70b8ff;
+  background: rgba(39, 103, 174, .78);
+}
 @media (max-width: 1050px) {
   #quotationDialog.quotation-dialog > #quotationForm > footer {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -3234,7 +3234,7 @@ function ensureQuotationDialog() {
     <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Selecciona pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label><label class="quotation-field-editable">Tiempo de entrega<select id="quotationDeliveryTerms" required><option>30 días hábiles posterior a la orden de compra</option><option>60 días hábiles posterior a la orden de compra</option><option>90 días hábiles posterior a la orden de compra</option></select></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
-    <footer><button type="button" class="ghost-btn" data-quotation-preview>Vista previa</button><button type="button" class="quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="primary-btn">Guardar</button></footer>
+    <footer><button type="button" class="quotation-crud-action quotation-print-action" data-quotation-preview aria-label="Vista previa e imprimir" title="Vista previa e imprimir">🖨️</button><button type="button" class="quotation-crud-action quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="quotation-crud-action primary-btn">Guardar</button></footer>
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");
 
@@ -3268,7 +3268,7 @@ function ensureQuotationDialog() {
       return;
     }
     const history = event.target.closest("[data-quotation-history-id]"); if (history) populateQuotationForm(state.quotations.find((item) => item.id === history.dataset.quotationHistoryId), crmOpportunityForQuotation(document.querySelector("#quotationOpportunityId").value));
-    if (event.target.matches("[data-quotation-preview]")) printQuotation(quotationDraftFromForm());
+    if (event.target.closest("[data-quotation-preview]")) printQuotation(quotationDraftFromForm());
     if (event.target.matches("[data-quotation-edit]")) {
       setQuotationPanelExpanded(dialog.querySelector(".quotation-customer"), true);
       const status = document.querySelector("#quotationSaveStatus");
