@@ -6876,12 +6876,12 @@ function renderCommercialSubmenu(area) {
 
   const resultView = resultViews[submenu.key] || "active";
   state.opportunityCycleView = resultView;
-  commercialSubmenuTitle.classList.toggle("hidden", resultView === "active");
-  commercialPanel.classList.toggle("opportunity-mode", resultView === "active");
-  opportunityTotalAmount.classList.toggle("hidden", resultView !== "active");
-  opportunitySearchField.classList.toggle("hidden", resultView !== "active");
+  commercialSubmenuTitle.classList.remove("hidden");
+  commercialPanel.classList.remove("opportunity-mode");
+  opportunityTotalAmount.classList.add("hidden");
+  opportunitySearchField.classList.add("hidden");
   opportunitySearchInput.value = state.opportunitySearch;
-  newOpportunityBtn.classList.toggle("hidden", resultView !== "active");
+  newOpportunityBtn.classList.add("hidden");
   newRiskBtn.classList.add("hidden");
   newManagementRequestBtn.classList.add("hidden");
   goalsMatrixBtn.classList.add("hidden");
@@ -6916,70 +6916,53 @@ function renderCommercialSubmenu(area) {
   const pagedRows = displayRows.slice(pageStart, pageEnd);
   commercialSubmenuStatus.textContent = "";
 
-  if (!opportunitySubmenu.items.length) {
-    opportunityTable.innerHTML = `
-      <div class="empty-state">
-        No hay oportunidades ingresadas. Usa el formulario para crear el primer registro.
-      </div>
-    `;
-    return;
-  }
-
   opportunityTable.innerHTML = `
     ${resultView === "dashboard" ? renderCycleDashboard(opportunitySubmenu.items) : resultView === "history" ? renderHistoryList(historyRows) : `
-    <div class="opportunity-row opportunity-header">
-      <strong>Fecha</strong>
-      <strong>Empresa</strong>
-      <strong>Vendedor</strong>
-      <strong>Etapa</strong>
-      <strong>Temperatura</strong>
-      <strong>Monto</strong>
-      <strong>Acciones</strong>
-    </div>
-    <div class="opportunity-table-body">
+    <section class="opportunities-module" aria-label="Módulo de oportunidades">
+      <header class="opportunities-module__hero">
+        <div><span>COMERCIALIZACIÓN</span><h3>Oportunidades</h3><p>Gestiona el pipeline comercial y sus próximas acciones.</p></div>
+        <div class="opportunities-module__metrics">
+          <article><small>OPORTUNIDADES ACTIVAS</small><strong>${filteredActiveRows.length}</strong></article>
+          <article><small>MONTO TOTAL</small><strong>${formatMoney(filteredActiveRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0))}</strong></article>
+          <button type="button" class="primary-btn" data-opportunities-new>+ Nueva oportunidad</button>
+        </div>
+      </header>
+      <div class="opportunities-module__toolbar">
+        <label class="opportunities-module__search"><span>⌕</span><input type="search" data-opportunities-search value="${escapeHtml(state.opportunitySearch)}" placeholder="Buscar empresa, vendedor, etapa o temperatura..."></label>
+        <span>${displayRows.length} ${displayRows.length === 1 ? "resultado" : "resultados"}</span>
+      </div>
+      <div class="opportunity-table-body opportunities-module__list">
       ${displayRows.length ? pagedRows.map(({ item, result, isInherited, isHistory, isImportedHistory }) => `
-        <div class="opportunity-row ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
-          <span>${formatDate(item.date)}</span>
-          <strong class="company-cell">
-            <span class="company-name">${item.company}</span>
+        <article class="opportunity-record ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
+          <div class="opportunity-record__main"><small>OPORTUNIDAD</small><strong>${escapeHtml(item.company)}</strong><span>${formatDate(item.date)} · ${escapeHtml(item.seller || "Sin vendedor")}</span>
             ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
             ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
             ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}">${result.result === "ganado" ? "Ganado" : "Perdida"}</span>` : ""}
             ${hasOutstandingSamples(item) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}
-          </strong>
-          <span>${item.seller}</span>
-          <span>${item.stage}</span>
-          <span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span>
-          <strong>${formatMoney(item.amount)}</strong>
-          <span class="row-actions">
+          </div>
+          <div class="opportunity-record__stage"><small>ETAPA</small><strong>${escapeHtml(item.stage || "Sin etapa")}</strong><span class="tag ${probabilityClass(item.probability)}">${probabilityLabel(item.probability)}</span></div>
+          <div class="opportunity-record__amount"><small>MONTO</small><strong>${formatMoney(item.amount)}</strong></div>
+          <div class="opportunity-record__actions">
           ${!isHistory ? `
-            <button class="action-icon-btn" type="button" data-action="edit" data-id="${item.id}" aria-label="Editar">
-              <span aria-hidden="true">✏️</span>
-            </button>
+            <button type="button" data-action="edit" data-id="${item.id}">Ver / editar</button>
           ` : ""}
           ${isImportedHistory ? `<span class="history-lock">Cierre real</span>` : `
-            <button class="action-icon-btn" type="button" data-action="manage" data-id="${item.id}" aria-label="Gestiones">
-              <span aria-hidden="true">📋</span>
-            </button>
+            <button type="button" data-action="manage" data-id="${item.id}">Gestiones</button>
           `}
           ${canDeleteOpportunities() && item.crmOpportunityId && !isHistory ? `
-            <button class="action-icon-btn return-followup" type="button" data-action="return-followup" data-id="${item.id}" aria-label="Volver a Seguimiento" title="Volver a Seguimiento">
-              <span aria-hidden="true">↩️</span>
-            </button>
+            <button type="button" data-action="return-followup" data-id="${item.id}">Seguimiento</button>
           ` : ""}
           ${canDeleteOpportunities() && !isHistory ? `
-            <button class="action-icon-btn danger" type="button" data-action="cancel" data-id="${item.id}" aria-label="Anular oportunidad" title="Anular oportunidad">
-              <span aria-hidden="true">🗑️</span>
-            </button>
+            <button class="danger" type="button" data-action="cancel" data-id="${item.id}">Anular</button>
           ` : ""}
-          </span>
-        </div>
+          </div>
+        </article>
       `).join("") : `
         <div class="empty-state">
           No hay oportunidades vigentes para este periodo.
         </div>
       `}
-    </div>
+      </div>
     ${displayRows.length > opportunityPageSize ? `
       <div class="opportunity-pagination" aria-label="Paginacion de oportunidades">
         <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, displayRows.length)} de ${displayRows.length}</span>
@@ -6990,8 +6973,24 @@ function renderCommercialSubmenu(area) {
         </div>
       </div>
     ` : ""}
+    </section>
     `}
   `;
+
+  if (resultView === "active") {
+    opportunityTable.querySelector("[data-opportunities-new]")?.addEventListener("click", () => {
+      resetOpportunityForm();
+      opportunityDialog.showModal();
+    });
+    opportunityTable.querySelector("[data-opportunities-search]")?.addEventListener("input", (event) => {
+      state.opportunitySearch = event.target.value;
+      state.opportunityPage = 1;
+      renderCommercialSubmenu(areas.comercializacion);
+      const input = opportunityTable.querySelector("[data-opportunities-search]");
+      input?.focus();
+      input?.setSelectionRange(input.value.length, input.value.length);
+    });
+  }
 }
 
 function renderOpportunityDashboard(items) {
