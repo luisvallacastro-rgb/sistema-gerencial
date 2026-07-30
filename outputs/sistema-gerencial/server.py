@@ -1457,19 +1457,6 @@ def save_control_sales_order(conn, data, existing_row=None):
     return control_sales_order_payload(conn, row, include_audit=True)
 
 
-def next_quotation_number(conn, year):
-    prefix = f"COT-{year}-"
-    highest = 0
-    for row in conn.execute(
-        "SELECT quotation_number FROM quotations WHERE quotation_number LIKE ?",
-        (f"{prefix}%",),
-    ).fetchall():
-        suffix = text(row["quotation_number"]).replace(prefix, "", 1)
-        if suffix.isdigit():
-            highest = max(highest, int(suffix))
-    return f"{prefix}{highest + 1:04d}"
-
-
 def quotation_payload(row):
     try:
         customer = json.loads(row["customer_data"] or "{}")
@@ -1578,11 +1565,8 @@ def save_quotation(conn, data, existing_row=None):
     existing = quotation_payload(existing_row) if existing_row else None
     item = quotation_validate(data, existing)
     quote_id = existing_row["id"] if existing_row else f"quote-{uuid.uuid4()}"
-    # La interfaz anticipa el siguiente correlativo, pero el servidor confirma
-    # siempre el consecutivo definitivo para impedir duplicados entre usuarios.
-    number = existing["number"] if existing else next_quotation_number(
-        conn, item["date"][:4] or time.strftime("%Y")
-    )
+    # Identificador técnico aleatorio: evita correlativos y no se muestra al usuario.
+    number = existing["number"] if existing else f"Q-{uuid.uuid4()}"
     actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
     now = time.strftime("%Y-%m-%dT%H:%M:%S")
     converted_order_id = existing.get("convertedOrderId", "") if existing else ""
@@ -2403,7 +2387,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(error)}, status=400)
                 return
             except sqlite3.IntegrityError:
-                self.send_json({"error": "El numero de cotizacion ya existe"}, status=409)
+                self.send_json({"error": "No se pudo generar el identificador interno de la cotizacion"}, status=409)
                 return
             self.send_json({"ok": True, "item": item}, status=201)
             return
@@ -2571,7 +2555,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(error)}, status=400)
                 return
             except sqlite3.IntegrityError:
-                self.send_json({"error": "El numero de cotizacion ya existe"}, status=409)
+                self.send_json({"error": "No se pudo generar el identificador interno de la cotizacion"}, status=409)
                 return
             self.send_json({"ok": True, "item": item})
             return
