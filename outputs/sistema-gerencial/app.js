@@ -308,6 +308,7 @@ const state = {
   quotations: [],
   quotationModuleStatus: "all",
   quotationModuleQuery: "",
+  quotationModulePage: 1,
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -767,6 +768,8 @@ const demoStrategicRiskIds = new Set(["risk-001", "risk-002", "risk-003"]);
 const demoManagementRequestIds = new Set(["req-001", "req-002"]);
 const defaultOpportunities = [];
 const opportunityPageSize = 10;
+const opportunityManagementPageSize = 5;
+const quotationModulePageSize = 5;
 
 const loginView = document.querySelector("#loginView");
 const appShell = document.querySelector("#appShell");
@@ -3003,23 +3006,25 @@ function quotationOpportunityOptions() {
 
 function renderQuotationsModule() {
   const selectedStatus = state.quotationModuleStatus;
-  const query = normalizeKey(state.quotationModuleQuery);
+  const queryTokens = normalizeKey(state.quotationModuleQuery).split(/\s+/).filter(Boolean);
   const rows = [...state.quotations]
     .filter(canManageQuotation)
     .filter((quotation) => selectedStatus === "all"
       || normalizeKey(quotation.status || "Borrador") === normalizeKey(selectedStatus))
     .filter((quotation) => {
-      if (!query) return true;
-      const productText = (quotation.lines || []).map((line) => `${line.description || ""} ${line.size || ""} ${line.notes || ""}`).join(" ");
-      return normalizeKey(`${quotation.client || ""} ${quotation.customerData?.commercialName || ""} ${quotation.seller || ""} ${quotation.status || ""} ${quotation.date || ""} ${productText}`).includes(query);
+      if (!queryTokens.length) return true;
+      const productText = (quotation.lines || []).map((line) => `${line.description || ""} ${line.size || ""} ${line.notes || ""} ${line.quantity || ""} ${line.unitPriceCents || ""}`).join(" ");
+      const searchIndex = normalizeKey(`${quotation.number || ""} ${quotation.client || ""} ${quotation.company || ""} ${quotation.customerData?.commercialName || ""} ${quotation.customerData?.legalName || ""} ${quotation.customerData?.taxId || ""} ${quotation.seller || ""} ${quotation.status || ""} ${quotation.date || ""} ${formatDate(quotation.date)} ${quotation.validity || ""} ${quotation.totalCents || ""} ${formatControlSalesMoney(quotation.totalCents || 0)} ${productText}`);
+      return queryTokens.every((token) => searchIndex.includes(token));
     })
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
   const opportunityOptions = quotationOpportunityOptions();
   const visibleTotal = rows.reduce((sum, quotation) => sum + Number(quotation.totalCents || 0), 0);
-  const tabs = [
-    ["all", "Todas"],
-    ...quotationModuleStatuses.map((status) => [status, status])
-  ];
+  const pageCount = Math.max(1, Math.ceil(rows.length / quotationModulePageSize));
+  state.quotationModulePage = Math.min(Math.max(Number(state.quotationModulePage) || 1, 1), pageCount);
+  const pageStart = (state.quotationModulePage - 1) * quotationModulePageSize;
+  const pageEnd = pageStart + quotationModulePageSize;
+  const pagedRows = rows.slice(pageStart, pageEnd);
   return `
     <section class="quotations-module" aria-label="Módulo de cotizaciones">
       <header class="quotations-module__toolbar">
@@ -3028,20 +3033,18 @@ function renderQuotationsModule() {
         <label class="quotations-module__origin"><span>Oportunidad de origen</span><select data-quotation-module-opportunity>${opportunityOptions || `<option value="">No hay oportunidades disponibles</option>`}</select></label>
         <button type="button" class="quotations-module__new" data-quotation-module-create ${opportunityOptions ? "" : "disabled"}><span aria-hidden="true">＋</span>Nuevo registro</button>
       </header>
-      <nav class="quotations-module__tabs" aria-label="Estados de cotización">
-        ${tabs.map(([value, label]) => `<button type="button" data-quotation-module-status="${escapeHtml(value)}" class="${selectedStatus === value ? "active" : ""}"><span>${escapeHtml(label)}</span><b>${quotationStatusCount(value)}</b></button>`).join("")}
-      </nav>
-      <div class="quotation-table-head" aria-hidden="true">
-        <strong>Fecha</strong><strong>Cliente</strong><strong>Vendedor</strong><strong>Detalle</strong><strong>Estado</strong><strong>Total</strong><strong>Acciones</strong>
+      <div class="quotation-table-head">
+        <strong>Fecha</strong>
+        <label class="quotation-status-filter"><span>Cliente</span><select data-quotation-module-status aria-label="Filtrar cotizaciones por estado"><option value="all" ${selectedStatus === "all" ? "selected" : ""}>Todos los estados (${quotationStatusCount("all")})</option>${quotationModuleStatuses.map((status) => `<option value="${escapeHtml(status)}" ${selectedStatus === status ? "selected" : ""}>${escapeHtml(status)} (${quotationStatusCount(status)})</option>`).join("")}</select></label>
+        <strong>Vendedor</strong><strong>Detalle</strong><strong>Total</strong><strong>Acciones</strong>
       </div>
       <div class="quotation-table-body">
-        ${rows.map((quotation) => `
+        ${pagedRows.map((quotation) => `
           <article class="quotation-table-row">
             <span>${formatDate(quotation.date)}</span>
-            <strong class="quotation-table-row__client">${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong>
+            <div class="quotation-table-row__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span></div>
             <span>${escapeHtml(quotation.seller || "Sin vendedor")}</span>
             <span class="quotation-table-row__detail"><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><small>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</small></span>
-            <span class="quotation-record__status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span>
             <strong class="quotation-table-row__amount">${formatControlSalesMoney(quotation.totalCents || 0)}</strong>
             <div class="quotation-record__actions">
               <button type="button" class="quotation-action edit" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Ver o editar cotización" title="Ver / editar"><span aria-hidden="true">✏️</span></button>
@@ -3050,22 +3053,28 @@ function renderQuotationsModule() {
             </div>
           </article>`).join("") || `<div class="empty-state">No hay cotizaciones que coincidan con esta vista.</div>`}
       </div>
-      <footer class="quotations-module__results">${rows.length} ${rows.length === 1 ? "resultado" : "resultados"}</footer>
+      ${rows.length > quotationModulePageSize ? `<div class="opportunity-pagination quotation-pagination" aria-label="Paginación de cotizaciones"><span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="prev" ${state.quotationModulePage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.quotationModulePage} de ${pageCount}</strong><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="next" ${state.quotationModulePage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>` : `<footer class="quotations-module__results">${rows.length} ${rows.length === 1 ? "resultado" : "resultados"}</footer>`}
     </section>`;
 }
 
 function wireQuotationsModule() {
-  opportunityTable.querySelectorAll("[data-quotation-module-status]").forEach((button) => button.addEventListener("click", () => {
-    state.quotationModuleStatus = button.dataset.quotationModuleStatus;
+  opportunityTable.querySelector("[data-quotation-module-status]")?.addEventListener("change", (event) => {
+    state.quotationModuleStatus = event.target.value;
+    state.quotationModulePage = 1;
     renderCommercialSubmenu(areas.comercializacion);
-  }));
+  });
   opportunityTable.querySelector("[data-quotation-module-search]")?.addEventListener("input", (event) => {
     state.quotationModuleQuery = event.target.value;
+    state.quotationModulePage = 1;
     renderCommercialSubmenu(areas.comercializacion);
     const input = opportunityTable.querySelector("[data-quotation-module-search]");
     input?.focus();
     input?.setSelectionRange(input.value.length, input.value.length);
   });
+  opportunityTable.querySelectorAll("[data-quotation-module-page]").forEach((button) => button.addEventListener("click", () => {
+    state.quotationModulePage += button.dataset.quotationModulePage === "next" ? 1 : -1;
+    renderCommercialSubmenu(areas.comercializacion);
+  }));
   opportunityTable.querySelector("[data-quotation-module-create]")?.addEventListener("click", () => {
     const opportunityId = opportunityTable.querySelector("[data-quotation-module-opportunity]")?.value;
     if (opportunityId) openQuotationDialog(opportunityId);
@@ -6907,10 +6916,10 @@ function renderCommercialSubmenu(area) {
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
     filteredActiveRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0)
   );
-  const pageCount = Math.max(1, Math.ceil(displayRows.length / opportunityPageSize));
+  const pageCount = Math.max(1, Math.ceil(displayRows.length / opportunityManagementPageSize));
   state.opportunityPage = Math.min(Math.max(Number(state.opportunityPage) || 1, 1), pageCount);
-  const pageStart = (state.opportunityPage - 1) * opportunityPageSize;
-  const pageEnd = pageStart + opportunityPageSize;
+  const pageStart = (state.opportunityPage - 1) * opportunityManagementPageSize;
+  const pageEnd = pageStart + opportunityManagementPageSize;
   const pagedRows = displayRows.slice(pageStart, pageEnd);
   commercialSubmenuStatus.textContent = "";
 
@@ -6978,7 +6987,7 @@ function renderCommercialSubmenu(area) {
         </div>
       `}
     </div>
-    ${displayRows.length > opportunityPageSize ? `
+    ${displayRows.length > opportunityManagementPageSize ? `
       <div class="opportunity-pagination" aria-label="Paginacion de oportunidades">
         <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, displayRows.length)} de ${displayRows.length}</span>
         <div>

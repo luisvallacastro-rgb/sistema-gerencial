@@ -2120,6 +2120,7 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
 .app-shell .quotations-module__results { color: #68778e !important; }
 .app-shell .quotations-module__origin > span { color: #52627a !important; }
 .app-shell .quotations-module__origin select,
+.app-shell .quotation-status-filter select,
 .app-shell .quotations-module__search input {
   background: #fff !important;
   border-color: #c7d3e2 !important;
