@@ -3256,7 +3256,7 @@ function ensureQuotationDialog() {
     <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Selecciona pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label><label class="quotation-field-editable">Tiempo de entrega<select id="quotationDeliveryTerms" required><option>30 días hábiles posterior a la orden de compra</option><option>60 días hábiles posterior a la orden de compra</option><option>90 días hábiles posterior a la orden de compra</option></select></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
-    <footer><button type="button" class="quotation-crud-action quotation-delete-action hidden" data-quotation-delete>Eliminar</button><button type="button" class="quotation-crud-action quotation-print-action" data-quotation-preview aria-label="Vista previa e imprimir" title="Vista previa e imprimir">🖨️</button><button type="button" class="quotation-crud-action quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="quotation-crud-action primary-btn">Guardar</button></footer>
+    <footer><button type="button" class="quotation-crud-action quotation-delete-action hidden" data-quotation-delete>Eliminar</button><button type="button" class="quotation-crud-action quotation-print-action" data-quotation-preview aria-label="Vista previa e imprimir" title="Vista previa e imprimir">🖨️</button><button type="button" class="quotation-crud-action quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="quotation-crud-action primary-btn">Guardar</button><button type="button" class="quotation-crud-action quotation-new-action" data-quotation-new>Nuevo</button></footer>
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");
 
@@ -3312,11 +3312,32 @@ function ensureQuotationDialog() {
     }
     const history = event.target.closest("[data-quotation-history-id]"); if (history) {
       const selectedQuote = state.quotations.find((item) => item.id === history.dataset.quotationHistoryId);
+      dialog.dataset.quotationCreationAuthorized = "false";
       populateQuotationForm(selectedQuote, crmOpportunityForQuotation(document.querySelector("#quotationOpportunityId").value));
       renderQuotationHistory(document.querySelector("#quotationOpportunityId").value, selectedQuote?.id || "");
     }
     if (event.target.closest("[data-quotation-delete]")) { await deleteQuotationFromForm(); return; }
     if (event.target.closest("[data-quotation-preview]")) printQuotation(quotationDraftFromForm());
+    if (event.target.closest("[data-quotation-new]")) {
+      const currentId = document.querySelector("#quotationId").value;
+      if (currentId && !confirm("¿Iniciar una nueva cotización? Los cambios no guardados de la cotización seleccionada se descartarán.")) return;
+      const opportunityId = document.querySelector("#quotationOpportunityId").value;
+      let opportunity = crmOpportunityForQuotation(opportunityId);
+      if (!opportunity) {
+        const win = crmResultWinHistory().find((item) => String(item.id) === String(opportunityId));
+        if (win) opportunity = { id:win.id, company:win.company, seller:win.seller, estimatedAmount:win.amount, segment:win.segment || "", product:win.product || "", stageId:"Cierre ganado" };
+      }
+      if (!opportunity) return alert("No se encontró la oportunidad comercial para crear la cotización.");
+      dialog.dataset.quotationCreationAuthorized = "true";
+      populateQuotationForm(null, opportunity);
+      renderQuotationHistory(opportunityId, "");
+      const status = document.querySelector("#quotationSaveStatus");
+      status.textContent = "Nueva cotización habilitada. Completa el detalle y presiona Guardar para crearla.";
+      status.dataset.tone = "success";
+      status.classList.remove("hidden");
+      document.querySelector("[data-quotation-description]")?.focus();
+      return;
+    }
     if (event.target.matches("[data-quotation-edit]")) {
       setQuotationPanelExpanded(dialog.querySelector(".quotation-customer"), true);
       const status = document.querySelector("#quotationSaveStatus");
@@ -3444,11 +3465,13 @@ async function openQuotationDialog(opportunityId, quoteId = "") {
   }
   if (!opportunity) return alert("No se encontró la oportunidad comercial.");
   const quote = quoteId ? state.quotations.find((item) => item.id === quoteId) : null;
+  const dialog = document.querySelector("#quotationDialog");
+  dialog.dataset.quotationCreationAuthorized = quoteId ? "false" : "true";
   document.querySelector("#quotationOpportunityId").value = opportunity.id;
   document.querySelector("#quotationDialogSubtitle").textContent = `${opportunity.company} · ${opportunity.stage?.name || opportunity.stageId || "Oportunidad"}`;
   renderQuotationHistory(opportunity.id, quote?.id || ""); populateQuotationForm(quote, opportunity);
   const status = document.querySelector("#quotationSaveStatus"); status.classList.add("hidden"); status.textContent = ""; status.dataset.tone = "success";
-  document.querySelector("#quotationDialog").showModal();
+  dialog.showModal();
 }
 
 async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
@@ -3460,6 +3483,16 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
   if (missingInheritedField) setQuotationPanelExpanded(customerPanel, true);
   if (!form.reportValidity()) return null;
   const draft = quotationDraftFromForm(); if (forcedStatus) draft.status = forcedStatus;
+  const dialog = document.querySelector("#quotationDialog");
+  const creationAuthorized = dialog?.dataset.quotationCreationAuthorized === "true";
+  if (!draft.id && !creationAuthorized) {
+    const blockedStatus = document.querySelector("#quotationSaveStatus");
+    blockedStatus.textContent = "No se creó otra cotización. Selecciona una cotización existente o presiona Nuevo para habilitar una nueva.";
+    blockedStatus.dataset.tone = "error";
+    blockedStatus.classList.remove("hidden");
+    alert(blockedStatus.textContent);
+    return null;
+  }
   const referenceCents = Number(document.querySelector("#quotationReference")?.dataset.referenceCents || 0);
   const amountDifferenceCents = draft.totalCents - referenceCents;
   if (["Enviada", "Aprobada", "Convertida"].includes(draft.status)
@@ -3476,6 +3509,7 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
     }
     const resultOpportunity = getOpportunitySubmenu().items.find((item) => String(item.crmOpportunityId) === String(saved.opportunityId));
     if (resultOpportunity && Number(saved.totalCents || 0) > 0) resultOpportunity.amount = Number(saved.totalCents) / 100;
+    if (dialog) dialog.dataset.quotationCreationAuthorized = "false";
     renderQuotationHistory(saved.opportunityId, saved.id); populateQuotationForm(saved, linkedOpportunity || crmOpportunityForQuotation(saved.opportunityId));
     const changeDirection = amountDifferenceCents > 0 ? "aumentó" : amountDifferenceCents < 0 ? "disminuyó" : "se mantuvo";
     const changeDetail = draft.totalCents <= 0

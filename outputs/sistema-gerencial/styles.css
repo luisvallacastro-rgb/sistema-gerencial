@@ -16664,7 +16664,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 
 /* Acciones finales de cotización: orden operativo unificado. */
 #quotationDialog.quotation-dialog > #quotationForm > footer {
-  grid-template-columns: repeat(4, auto);
+  grid-template-columns: repeat(5, auto);
   justify-content: end;
 }
 #quotationDialog .quotation-edit-btn {
@@ -16709,6 +16709,15 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   border-color: #ff7893;
   background: rgba(171, 48, 76, .52);
   color: #fff;
+}
+#quotationDialog .quotation-new-action {
+  border: 1px solid rgba(157, 126, 255, .66);
+  background: linear-gradient(135deg, rgba(91, 68, 184, .78), rgba(62, 75, 164, .78));
+  color: #f5f1ff;
+}
+#quotationDialog .quotation-new-action:hover {
+  border-color: #b59cff;
+  background: linear-gradient(135deg, rgba(108, 79, 220, .92), rgba(71, 88, 191, .92));
 }
 
 #quotationDialog .quotation-history nav button {
