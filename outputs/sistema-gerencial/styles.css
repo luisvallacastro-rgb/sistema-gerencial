@@ -16823,39 +16823,27 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   opacity: .58;
 }
 
-.app-shell .crm-tracking-card.is-migrated {
-  border-color: rgba(114, 245, 209, .34) !important;
-  background:
-    radial-gradient(circle at 90% 20%, rgba(114, 245, 209, .1), transparent 32%),
-    linear-gradient(100deg, rgba(56, 83, 116, .48), rgba(13, 43, 55, .66)) !important;
-}
-
-.app-shell .crm-tracking-card.is-migrated::before {
-  background: var(--tracking-mint) !important;
-  box-shadow: 0 0 16px rgba(114, 245, 209, .56) !important;
-}
-
-.app-shell .crm-migration-status {
-  flex: 1 1 170px;
-  min-width: 0;
-  padding: 6px 10px;
-  border: 1px solid rgba(114, 245, 209, .3);
-  border-radius: 10px;
-  background: rgba(42, 160, 128, .16);
-  color: #83efd3 !important;
-  font-size: 9px !important;
+.app-shell .crm-tracking-card > div > .crm-migration-tab {
+  width: max-content;
+  max-width: 100%;
+  margin: 1px 0 2px;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 126, 139, .48);
+  border-radius: 999px;
+  background: rgba(177, 45, 65, .42);
+  color: #ff9eaa !important;
+  font-size: 8px !important;
   font-weight: 900;
-  line-height: 1.2;
-  letter-spacing: .045em;
-  text-align: center;
+  line-height: 1.15;
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .app-shell .crm-card-icon-action.is-result.is-complete:disabled {
-  border-color: rgba(114, 245, 209, .5);
-  background: rgba(44, 155, 124, .2);
-  color: #83efd3;
-  opacity: .82;
+  opacity: .48;
 }
 
 .app-shell .crm-card-action-badge {
@@ -16883,9 +16871,6 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
     justify-content: flex-start;
   }
 
-  .app-shell .crm-migration-status {
-    flex-basis: 100%;
-  }
 }
 
 /* Lifecycle safeguards need room for edit, management, return and cancellation. */

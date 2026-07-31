@@ -6387,7 +6387,8 @@ function renderCrmTracking() {
     return `
       <article class="crm-tracking-card ${migrated ? "is-migrated" : ""}" data-crm-opportunity="${opp.id}">
         <div>
-          <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)} - ${escapeHtml(opp.status || "Vigente")}</span>
+          <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)}${migrated ? "" : ` - ${escapeHtml(opp.status || "Vigente")}`}</span>
+          ${migrated ? `<mark class="crm-migration-tab" role="status">Migrado a Oportunidades / Gerencia</mark>` : ""}
           <strong>${escapeHtml(opp.company)}</strong>
           <p>${escapeHtml(opp.product || "Producto pendiente")}</p>
         </div>
@@ -6395,7 +6396,6 @@ function renderCrmTracking() {
           <strong>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</strong>
           <span>${opp.closePercent || 0}% cierre</span>
           <div class="crm-tracking-card-actions" aria-label="Acciones de la oportunidad">
-            ${migrated ? `<span class="crm-migration-status" role="status">Migrado a Oportunidades / Gerencia</span>` : ""}
             <button class="crm-card-icon-action is-quotation" type="button" data-crm-quotation="${opp.id}" aria-label="${quotationAction}" title="${quotationAction}">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4V20.5H7z"></path><path d="M14 3.5v4h4M9.5 11h6M9.5 14h6M9.5 17h3.5"></path></svg>
               <span class="crm-card-action-badge">${quotationCount || "+"}</span>
