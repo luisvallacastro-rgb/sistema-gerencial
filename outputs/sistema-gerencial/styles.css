@@ -6531,15 +6531,17 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 }
 
 #quotationDialog .quotation-line-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 360px max-content max-content;
   align-items: end;
   justify-content: flex-end;
   gap: 9px;
-  flex-wrap: wrap;
 }
 
 #quotationDialog .quotation-line-actions label {
   display: grid;
+  width: 360px;
+  min-width: 0;
   gap: 5px;
   color: #aebbd0;
   font-size: .68rem;
@@ -6547,7 +6549,9 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 }
 
 #quotationDialog .quotation-line-actions select {
-  min-width: 235px;
+  width: 100%;
+  min-width: 0;
+  max-width: 360px;
   min-height: 42px;
   padding: 0 38px 0 12px;
   border: 1px solid #506a8e;
@@ -6584,6 +6588,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 @media (max-width: 820px) {
   #quotationDialog .quotation-line-actions {
     width: 100%;
+    grid-template-columns: 1fr;
     justify-content: stretch;
   }
   #quotationDialog .quotation-line-actions label,
