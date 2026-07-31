@@ -16194,6 +16194,37 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 /* Cotizaciones: las líneas de título conservan una composición propia. */
 #quotationDialog .quotation-line.quotation-title-line {
   grid-template-columns: minmax(260px, 1fr) auto 48px;
+  border: 1px solid rgba(157, 126, 255, .62) !important;
+  border-left: 6px solid #9b7cff !important;
+  background: linear-gradient(135deg, rgba(83, 56, 145, .7), rgba(38, 43, 91, .82)) !important;
+  box-shadow: inset 0 1px 0 rgba(205, 190, 255, .12), 0 8px 22px rgba(34, 20, 77, .18) !important;
+}
+
+#quotationDialog .quotation-line.quotation-title-line .quotation-title-field {
+  color: #d8ceff;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+#quotationDialog .quotation-line.quotation-title-line [data-quotation-title] {
+  border-color: rgba(180, 154, 255, .72) !important;
+  background: rgba(24, 30, 67, .78) !important;
+  color: #fff !important;
+  font-weight: 900;
+  letter-spacing: .025em;
+}
+
+#quotationDialog .quotation-line.quotation-title-line [data-quotation-title]:focus {
+  border-color: #c3adff !important;
+  box-shadow: 0 0 0 3px rgba(155, 124, 255, .2) !important;
+}
+
+#quotationDialog .quotation-line.quotation-title-line > small {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(155, 124, 255, .16);
+  color: #d6cbff;
+  font-weight: 750;
 }
 
 @media (max-width: 820px) {
