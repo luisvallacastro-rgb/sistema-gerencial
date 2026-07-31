@@ -6364,7 +6364,11 @@ function renderCrmTracking() {
   const controlSalesByOpportunityId = new Map(state.controlSales
     .filter((order) => order.sourceOpportunityId && !order.archived)
     .map((order) => [String(order.sourceOpportunityId), order]));
-  const visibleOpportunities = sellerOpportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity));
+  // Las migradas dejan de formar parte del pipeline vigente, pero permanecen
+  // visibles en Seguimiento como referencia operativa y bitácora del vendedor.
+  const visibleOpportunities = sellerOpportunities.filter((opportunity) => (
+    !isCrmArchivedOpportunity(opportunity) || Boolean(opportunity.migratedToResults)
+  ));
   const sellerButtons = sellers.map((seller) => {
     const active = crmActiveOpportunitiesForSeller(seller.id);
     const activeTotal = active.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
@@ -6377,11 +6381,11 @@ function renderCrmTracking() {
   }).join("");
   const opportunityCards = visibleOpportunities.filter((opp) => crmMatchesSearch(opp, selectedSeller)).sort((a, b) => String(a.deadline || a.nextDate || "").localeCompare(String(b.deadline || b.nextDate || ""))).map((opp) => {
     const quotationCount = state.quotations.filter((item) => String(item.opportunityId) === String(opp.id)).length;
-    const migrated = opportunityMigratedFromCrm(opp.id);
+    const migrated = Boolean(opp.migratedToResults) || opportunityMigratedFromCrm(opp.id);
     const quotationAction = quotationCount ? `Ver o editar cotización (${quotationCount})` : "Crear cotización";
-    const resultAction = migrated ? "Oportunidad migrada a resultados" : "Migrar a resultados";
+    const resultAction = migrated ? "Migrado a Oportunidades / Gerencia" : "Migrar a Oportunidades / Gerencia";
     return `
-      <article class="crm-tracking-card" data-crm-opportunity="${opp.id}">
+      <article class="crm-tracking-card ${migrated ? "is-migrated" : ""}" data-crm-opportunity="${opp.id}">
         <div>
           <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)} - ${escapeHtml(opp.status || "Vigente")}</span>
           <strong>${escapeHtml(opp.company)}</strong>
@@ -6391,6 +6395,7 @@ function renderCrmTracking() {
           <strong>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</strong>
           <span>${opp.closePercent || 0}% cierre</span>
           <div class="crm-tracking-card-actions" aria-label="Acciones de la oportunidad">
+            ${migrated ? `<span class="crm-migration-status" role="status">Migrado a Oportunidades / Gerencia</span>` : ""}
             <button class="crm-card-icon-action is-quotation" type="button" data-crm-quotation="${opp.id}" aria-label="${quotationAction}" title="${quotationAction}">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4V20.5H7z"></path><path d="M14 3.5v4h4M9.5 11h6M9.5 14h6M9.5 17h3.5"></path></svg>
               <span class="crm-card-action-badge">${quotationCount || "+"}</span>
@@ -6458,7 +6463,7 @@ function renderCrmTracking() {
         </aside>
         <section class="crm-tracking-main">
           <div class="crm-tracking-view-tabs" role="tablist" aria-label="Vistas de seguimiento">
-            <button type="button" role="tab" data-crm-tracking-view="active" aria-selected="${state.crmTrackingView === "active"}" class="${state.crmTrackingView === "active" ? "is-active" : ""}">Vigentes <span>${visibleOpportunities.length}</span></button>
+            <button type="button" role="tab" data-crm-tracking-view="active" aria-selected="${state.crmTrackingView === "active"}" class="${state.crmTrackingView === "active" ? "is-active" : ""}">Vigentes y migradas <span>${visibleOpportunities.length}</span></button>
             <button type="button" role="tab" data-crm-tracking-view="won" aria-selected="${state.crmTrackingView === "won"}" class="${state.crmTrackingView === "won" ? "is-active" : ""}">Histórico de ganadas <span>${resultWins.length}</span></button>
           </div>
           ${state.crmTrackingView === "won" ? `
