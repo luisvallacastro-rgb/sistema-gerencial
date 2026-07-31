@@ -1640,10 +1640,20 @@ def quotation_validate(data, existing=None):
         raise ValueError("Estado de cotizacion no valido")
     lines = []
     subtotal_cents = 0
+    product_line_count = 0
     for index, raw in enumerate(raw_lines, start=1):
         description = text(raw.get("description") or raw.get("product"))
         if not description:
             raise ValueError(f"Descripcion requerida en la linea {index}")
+        if text(raw.get("type")).lower() == "title":
+            lines.append({
+                "id": text(raw.get("id"), f"quote-line-{uuid.uuid4()}"),
+                "sequence": index, "type": "title", "title": description,
+                "description": description, "size": "", "quantity": "0",
+                "unitPriceCents": 0, "lineTotalCents": 0, "notes": "",
+            })
+            continue
+        product_line_count += 1
         quantity_text = control_sales_quantity(raw.get("quantity"))
         quantity = Decimal(quantity_text)
         unit_price_cents = control_sales_cents(raw.get("unitPrice"), f"Precio unitario de la linea {index}")
@@ -1660,6 +1670,8 @@ def quotation_validate(data, existing=None):
             "unitPriceCents": unit_price_cents, "lineTotalCents": line_total_cents,
             "notes": text(raw.get("notes")),
         })
+    if product_line_count < 1:
+        raise ValueError("La cotizacion debe contener al menos una linea de producto")
     vat_cents = int((Decimal(subtotal_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     return {
         "opportunityId": opportunity_id, "date": quote_date, "validDays": valid_days,

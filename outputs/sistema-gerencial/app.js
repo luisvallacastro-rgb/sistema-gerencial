@@ -3199,10 +3199,32 @@ function crmCustomerForQuotation(opportunity) {
 
 function quotationLineTemplate(line = {}) {
   const id = line.id || crypto.randomUUID();
+  if (line.type === "title") {
+    const title = line.title || line.description || "";
+    return `<div class="quotation-line quotation-title-line" data-quotation-line-id="${escapeHtml(id)}" data-quotation-line-type="title"><label class="quotation-title-field">Título del grupo<input data-quotation-title required value="${escapeHtml(title)}" placeholder="Ej. Uniformes administrativos"></label><small>No afecta cantidades ni totales; se imprimirá como separador.</small><button type="button" class="quotation-remove-line" data-quotation-remove-line aria-label="Quitar línea de título">×</button></div>`;
+  }
   const price = line.unitPriceCents == null ? "" : (Number(line.unitPriceCents) / 100).toFixed(2);
   const notes = String(line.notes || "");
   const hasNotes = Boolean(notes.trim());
   return `<div class="quotation-line${hasNotes ? " has-detail" : ""}" data-quotation-line-id="${escapeHtml(id)}"><label class="quotation-product">Descripción<input data-quotation-description required value="${escapeHtml(line.description || line.product || "")}" placeholder="Producto, confección o servicio"></label><label>Talla<input data-quotation-size value="${escapeHtml(line.size || "")}" placeholder="Opcional"></label><label>Cantidad<input data-quotation-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(line.quantity || "1")}"></label><label>Precio unitario<input data-quotation-price type="number" min="0" step="0.01" value="${price}" placeholder="Pendiente"></label><output data-quotation-line-total>${formatControlSalesMoney(line.lineTotalCents || 0)}</output><div class="quotation-notes"><span class="quotation-field-label">Detalle</span><button type="button" class="quotation-detail-toggle${hasNotes ? " is-open" : ""}" data-quotation-detail-toggle aria-expanded="${hasNotes}"><span data-quotation-detail-label>${hasNotes ? "Detalle agregado" : "Agregar detalle"}</span><span class="quotation-detail-chevron" aria-hidden="true">⌄</span></button></div><button type="button" class="quotation-remove-line" data-quotation-remove-line aria-label="Quitar línea">×</button><div class="quotation-detail-panel" data-quotation-detail-panel${hasNotes ? "" : " hidden"}><label>Comentario extenso<textarea data-quotation-notes rows="4" placeholder="Color, tela, bordado, especificaciones u observaciones…">${escapeHtml(notes)}</textarea></label></div></div>`;
+}
+
+function refreshQuotationTitlePositionMenu(preferredPosition = "") {
+  const menu = document.querySelector("#quotationTitlePosition");
+  const container = document.querySelector("#quotationLines");
+  if (!menu || !container) return;
+  const rows = [...container.children];
+  const current = preferredPosition !== "" ? String(preferredPosition) : menu.value;
+  const options = [`<option value="0">Al inicio del detalle</option>`];
+  rows.forEach((row, index) => {
+    const isTitle = row.dataset.quotationLineType === "title";
+    const label = isTitle
+      ? row.querySelector("[data-quotation-title]")?.value.trim() || "Título sin completar"
+      : row.querySelector("[data-quotation-description]")?.value.trim() || `Línea ${index + 1} sin completar`;
+    options.push(`<option value="${index + 1}">Después de ${index + 1} · ${escapeHtml(label)}</option>`);
+  });
+  menu.innerHTML = options.join("");
+  menu.value = Array.from(menu.options).some((option) => option.value === current) ? current : String(rows.length);
 }
 
 function setQuotationPanelExpanded(panel, expanded) {
@@ -3226,7 +3248,7 @@ function ensureQuotationDialog() {
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
     <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label></section>
     <section class="quotation-customer quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationCustomerFields"><span><b>Datos heredados del cliente y vendedor</b><small>Se cargan desde la oportunidad. Ábrelos únicamente si necesitas corregirlos.</small></span><i aria-hidden="true">⌄</i></button><div id="quotationCustomerFields" class="quotation-form-grid quotation-collapsible-content quotation-inherited-fields" hidden><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></section>
-    <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><button type="button" data-quotation-add-line>+ Agregar línea</button></div><div id="quotationLines"></div></section>
+    <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><div class="quotation-line-actions"><label>Ubicación del título<select id="quotationTitlePosition" aria-label="Ubicación de la línea de título"><option value="0">Al inicio del detalle</option></select></label><button type="button" class="quotation-title-add-btn" data-quotation-add-title>+ Línea de título</button><button type="button" data-quotation-add-line>+ Agregar línea</button></div></div><div id="quotationLines"></div></section>
     <section class="quotation-totals">
       <div class="quotation-totals-comparison"><article class="quotation-reference"><span>Monto original de la oportunidad</span><strong id="quotationReference" data-reference-cents="0">$0.00</strong></article><article class="quotation-variation" id="quotationVariationCard" data-variation="neutral"><span id="quotationVariationLabel">Saldo pendiente por cotizar</span><strong id="quotationVariation">$0.00</strong><small>Calculado contra el subtotal acumulado de las líneas</small></article></div>
       <div class="quotation-totals-breakdown"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article class="quotation-grand-total"><span>Total cotización · nuevo valor oportunidad</span><strong id="quotationTotal">$0.00</strong></article></div>
@@ -3251,8 +3273,26 @@ function ensureQuotationDialog() {
 
   dialog.addEventListener("click", async (event) => {
     if (event.target.matches("[data-quotation-close]")) dialog.close();
-    if (event.target.matches("[data-quotation-add-line]")) { document.querySelector("#quotationLines").insertAdjacentHTML("beforeend", quotationLineTemplate()); updateQuotationTotals(); }
-    if (event.target.matches("[data-quotation-remove-line]")) { if (document.querySelectorAll(".quotation-line").length <= 1) return alert("La cotización debe conservar al menos una línea."); event.target.closest(".quotation-line").remove(); updateQuotationTotals(); }
+    if (event.target.matches("[data-quotation-add-line]")) { document.querySelector("#quotationLines").insertAdjacentHTML("beforeend", quotationLineTemplate()); refreshQuotationTitlePositionMenu(); updateQuotationTotals(); }
+    if (event.target.matches("[data-quotation-add-title]")) {
+      const container = document.querySelector("#quotationLines");
+      const position = Math.max(0, Math.min(container.children.length, Number(document.querySelector("#quotationTitlePosition").value || 0)));
+      const nextRow = container.children[position] || null;
+      if (nextRow) nextRow.insertAdjacentHTML("beforebegin", quotationLineTemplate({ type:"title" }));
+      else container.insertAdjacentHTML("beforeend", quotationLineTemplate({ type:"title" }));
+      const insertedRow = container.children[position];
+      refreshQuotationTitlePositionMenu(String(position + 1));
+      insertedRow?.querySelector("[data-quotation-title]")?.focus();
+    }
+    if (event.target.matches("[data-quotation-remove-line]")) {
+      const line = event.target.closest(".quotation-line");
+      const isTitle = line?.dataset.quotationLineType === "title";
+      const productCount = document.querySelectorAll('.quotation-line:not([data-quotation-line-type="title"])').length;
+      if (!isTitle && productCount <= 1) return alert("La cotización debe conservar al menos una línea de producto.");
+      line?.remove();
+      refreshQuotationTitlePositionMenu();
+      updateQuotationTotals();
+    }
     const detailToggle = event.target.closest("[data-quotation-detail-toggle]");
     if (detailToggle) {
       const line = detailToggle.closest(".quotation-line");
@@ -3289,6 +3329,7 @@ function ensureQuotationDialog() {
       const label = line.querySelector("[data-quotation-detail-label]");
       if (label) label.textContent = hasDetail ? "Detalle agregado" : "Agregar detalle";
     }
+    if (event.target.matches("[data-quotation-description], [data-quotation-title]")) refreshQuotationTitlePositionMenu();
     updateQuotationTotals();
   });
   document.querySelector("#quotationForm").addEventListener("submit", async (event) => { event.preventDefault(); await saveQuotationFromForm(); });
@@ -3296,6 +3337,10 @@ function ensureQuotationDialog() {
 
 function quotationDraftFromForm() {
   const lines = [...document.querySelectorAll("#quotationLines .quotation-line")].map((line) => {
+    if (line.dataset.quotationLineType === "title") {
+      const title = line.querySelector("[data-quotation-title]").value.trim();
+      return { id:line.dataset.quotationLineId, type:"title", title, description:title, size:"", quantity:"0", unitPrice:0, unitPriceCents:0, lineTotalCents:0, notes:"" };
+    }
     const quantity = Number(line.querySelector("[data-quotation-quantity]").value || 0);
     const unitPrice = Number(line.querySelector("[data-quotation-price]").value || 0);
     return { id:line.dataset.quotationLineId, description:line.querySelector("[data-quotation-description]").value.trim(), size:line.querySelector("[data-quotation-size]").value.trim(), quantity:String(quantity), unitPrice, unitPriceCents:Math.round(unitPrice * 100), lineTotalCents:Math.round(quantity * unitPrice * 100), notes:line.querySelector("[data-quotation-notes]").value.trim() };
@@ -3309,7 +3354,7 @@ function quotationDraftFromForm() {
 
 function updateQuotationTotals() {
   const draft = quotationDraftFromForm();
-  draft.lines.forEach((line, index) => { const output = document.querySelectorAll("[data-quotation-line-total]")[index]; if (output) output.textContent = formatControlSalesMoney(line.lineTotalCents); });
+  draft.lines.filter((line) => line.type !== "title").forEach((line, index) => { const output = document.querySelectorAll("[data-quotation-line-total]")[index]; if (output) output.textContent = formatControlSalesMoney(line.lineTotalCents); });
   document.querySelector("#quotationSubtotal").textContent = formatControlSalesMoney(draft.subtotalCents);
   document.querySelector("#quotationVat").textContent = formatControlSalesMoney(draft.vatCents);
   document.querySelector("#quotationTotal").textContent = formatControlSalesMoney(draft.totalCents);
@@ -3325,7 +3370,8 @@ function updateQuotationTotals() {
 }
 
 function validateQuotationPricesForFinalAction(draft, action = "continuar") {
-  const pendingIndex = draft.lines.findIndex((line) => Number(line.unitPriceCents || 0) <= 0);
+  const productLines = draft.lines.filter((line) => line.type !== "title");
+  const pendingIndex = productLines.findIndex((line) => Number(line.unitPriceCents || 0) <= 0);
   if (pendingIndex < 0) return true;
   const status = document.querySelector("#quotationSaveStatus");
   const message = `Completa el precio unitario de la línea ${pendingIndex + 1} antes de ${action}. Puedes conservarla sin precio mientras esté en Borrador.`;
@@ -3368,6 +3414,7 @@ function populateQuotationForm(quote, opportunity = null) {
     field.value = normalizedValue ?? "";
   });
   document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:"", quantity:"1" }]).map(quotationLineTemplate).join("");
+  refreshQuotationTitlePositionMenu();
   const referenceAmount = Number(opportunity?.quotationReferenceAmount ?? opportunity?.estimatedAmount ?? 0);
   const referenceOutput = document.querySelector("#quotationReference");
   referenceOutput.textContent = formatMoney(referenceAmount);
@@ -3444,8 +3491,10 @@ async function deleteQuotationFromForm() {
 }
 
 function printQuotation(quote) {
-  const printableLines = (quote.lines || []).filter((line) => String(line.description || "").trim() && Number(line.quantity || 0) > 0);
-  if (!printableLines.length) return alert("Agrega al menos una línea completa a la cotización.");
+  const printableLines = (quote.lines || []).filter((line) => line.type === "title"
+    ? String(line.title || line.description || "").trim()
+    : String(line.description || "").trim() && Number(line.quantity || 0) > 0);
+  if (!printableLines.some((line) => line.type !== "title")) return alert("Agrega al menos una línea completa de producto a la cotización.");
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) return alert("Habilita las ventanas emergentes para ver la cotización.");
   const data = quote.customerData || {}; const value = (item) => escapeHtml(String(item || ""));
@@ -3455,6 +3504,9 @@ function printQuotation(quote) {
     ? new Intl.DateTimeFormat("es-SV", { day:"numeric", month:"long", year:"numeric", timeZone:"UTC" }).format(new Date(`${quote.date}T12:00:00Z`))
     : "Fecha pendiente";
   const rows = printableLines.map((line) => {
+    if (line.type === "title") {
+      return `<tr class="quote-title-row"><td colspan="4" style="width:auto!important">${value(line.title || line.description)}</td></tr>`;
+    }
     const detail = String(line.notes || "").trim();
     const description = String(line.description || "").trim();
     const productDescription = [description, line.size ? `Talla: ${line.size}` : ""].filter(Boolean).join(" · ");
@@ -3465,7 +3517,7 @@ function printQuotation(quote) {
   }).join("");
   const emailHref = `mailto:${encodeURIComponent(data.email || "")}?subject=${encodeURIComponent("Cotización - Arte y Color Uniformes")}&body=${encodeURIComponent(`Estimado/a ${data.contactName || quote.client}:\n\nAdjuntamos la cotización. La oferta tiene una vigencia de ${quote.validDays || 30} días.\n\nSaludos,\n${quote.seller}`)}`;
   popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cotización</title><style>
-    @page{size:Letter;margin:12mm 17mm 12mm}*{box-sizing:border-box}html{background:#dfe5ec}body{margin:0;color:#111;font:12px Arial,Helvetica,sans-serif}.sheet{position:relative;width:216mm;min-height:279mm;margin:12px auto;background:#fff;padding:12mm 17mm 10mm;overflow:visible}.letterhead{height:33mm;display:flex;justify-content:flex-end;align-items:flex-start}.brand-logo{display:block;width:78mm;height:30mm;object-fit:contain;object-position:right center}.city-date{text-align:right;margin:-3mm 8mm 10mm 0;font-size:13px}.recipient{margin:0 0 8mm}.recipient strong{display:block;font-size:14px;margin-bottom:3px}.recipient span{display:block;font-size:13px}.intro{font-size:13px;margin:0 0 2mm}.quote-number{position:absolute;left:17mm;top:13mm;color:#17794f;font-weight:800;letter-spacing:.08em}.quote-number small{display:block;color:#667085;font-size:9px;text-transform:uppercase;letter-spacing:.14em;margin-bottom:3px}.quote-table{width:100%;border-collapse:collapse;table-layout:fixed}.quote-table th,.quote-table td{border:1px solid #111}.quote-table th{padding:6px 5px;background:#bdbdbd;text-align:center;font-weight:800}.quote-table th:nth-child(1){width:9%}.quote-table th:nth-child(3){width:17%}.quote-table th:nth-child(4){width:16%}.quote-table td{padding:4px 7px;vertical-align:middle;line-height:1.22}.quote-table .qty{text-align:center;font-weight:700}.quote-table .money{text-align:right;white-space:nowrap}.quote-line-detail,.quote-line-product{display:block}.quote-line-detail{white-space:pre-wrap;margin-bottom:3px}.quote-line-product{color:#3d4652;font-weight:700}.quote-conclusion{break-inside:avoid;page-break-inside:avoid}.quote-totals{width:33%;margin-left:auto;border-collapse:collapse}.quote-totals td{height:8mm;border:1px solid #111;padding:4px 7px;font-weight:700}.quote-totals .total-label{text-align:left}.quote-totals .money{text-align:right;white-space:nowrap}.quote-totals tr:last-child td{font-size:13px;font-weight:900}.guarantee{clear:both;display:block;padding-top:2mm;font-size:12px;font-weight:800;margin:0 0 8mm}.terms{font-size:12px;line-height:1.55}.terms p{margin:2px 0}.terms strong{font-weight:800}.signature{margin-top:12mm;line-height:1.45}.signature .closing-word{margin-bottom:7mm}.signature strong,.signature span,.signature a{display:block}.signature a{color:#0645d6}.footer-brand{position:absolute;left:17mm;right:17mm;bottom:5mm;display:grid;grid-template-columns:1fr auto;grid-template-areas:"contact qr" "motto motto";align-items:end;column-gap:10mm;row-gap:2mm;color:#626b77;font-size:9px}.footer-contact{grid-area:contact;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}.footer-contact span{white-space:nowrap}.footer-qr{grid-area:qr;display:flex;align-items:center;gap:3mm;color:#17794f;font-weight:800;white-space:nowrap}.footer-qr img{display:block;width:16mm;height:16mm;object-fit:contain}.motto{grid-area:motto;width:100%;text-align:center;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}.actions{position:fixed;z-index:10;top:14px;right:14px;display:flex;gap:8px;background:#182d4e;padding:8px;border-radius:12px;box-shadow:0 12px 30px #182d4e44}.actions button,.actions a{border:0;border-radius:8px;padding:10px 13px;background:#238760;color:white;text-decoration:none;font-weight:800;cursor:pointer}.actions button:last-child{background:white;color:#18233d}@media(max-width:850px){.sheet{margin:0;transform-origin:top left}.actions{position:sticky;justify-content:center;border-radius:0}}@media print{html,body{background:#fff}.actions{display:none}.sheet{margin:0;width:auto;height:auto;min-height:0;padding:0;box-shadow:none}.brand-logo,.footer-qr img{print-color-adjust:exact;-webkit-print-color-adjust:exact}.quote-table thead{display:table-header-group}.quote-table tbody tr{break-inside:avoid;page-break-inside:avoid}.quote-conclusion{break-inside:avoid;page-break-inside:avoid}.footer-brand{position:static;margin-top:12mm}}
+    @page{size:Letter;margin:12mm 17mm 12mm}*{box-sizing:border-box}html{background:#dfe5ec}body{margin:0;color:#111;font:12px Arial,Helvetica,sans-serif}.sheet{position:relative;width:216mm;min-height:279mm;margin:12px auto;background:#fff;padding:12mm 17mm 10mm;overflow:visible}.letterhead{height:33mm;display:flex;justify-content:flex-end;align-items:flex-start}.brand-logo{display:block;width:78mm;height:30mm;object-fit:contain;object-position:right center}.city-date{text-align:right;margin:-3mm 8mm 10mm 0;font-size:13px}.recipient{margin:0 0 8mm}.recipient strong{display:block;font-size:14px;margin-bottom:3px}.recipient span{display:block;font-size:13px}.intro{font-size:13px;margin:0 0 2mm}.quote-number{position:absolute;left:17mm;top:13mm;color:#17794f;font-weight:800;letter-spacing:.08em}.quote-number small{display:block;color:#667085;font-size:9px;text-transform:uppercase;letter-spacing:.14em;margin-bottom:3px}.quote-table{width:100%;border-collapse:collapse;table-layout:fixed}.quote-table th,.quote-table td{border:1px solid #111}.quote-table th{padding:6px 5px;background:#bdbdbd;text-align:center;font-weight:800}.quote-table th:nth-child(1){width:9%}.quote-table th:nth-child(3){width:17%}.quote-table th:nth-child(4){width:16%}.quote-table td{padding:4px 7px;vertical-align:middle;line-height:1.22}.quote-table .qty{text-align:center;font-weight:700}.quote-table .money{text-align:right;white-space:nowrap}.quote-table .quote-title-row td{padding:7px 9px;background:#e2e2e2;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}.quote-line-detail,.quote-line-product{display:block}.quote-line-detail{white-space:pre-wrap;margin-bottom:3px}.quote-line-product{color:#3d4652;font-weight:700}.quote-conclusion{break-inside:avoid;page-break-inside:avoid}.quote-totals{width:33%;margin-left:auto;border-collapse:collapse}.quote-totals td{height:8mm;border:1px solid #111;padding:4px 7px;font-weight:700}.quote-totals .total-label{text-align:left}.quote-totals .money{text-align:right;white-space:nowrap}.quote-totals tr:last-child td{font-size:13px;font-weight:900}.guarantee{clear:both;display:block;padding-top:2mm;font-size:12px;font-weight:800;margin:0 0 8mm}.terms{font-size:12px;line-height:1.55}.terms p{margin:2px 0}.terms strong{font-weight:800}.signature{margin-top:12mm;line-height:1.45}.signature .closing-word{margin-bottom:7mm}.signature strong,.signature span,.signature a{display:block}.signature a{color:#0645d6}.footer-brand{position:absolute;left:17mm;right:17mm;bottom:5mm;display:grid;grid-template-columns:1fr auto;grid-template-areas:"contact qr" "motto motto";align-items:end;column-gap:10mm;row-gap:2mm;color:#626b77;font-size:9px}.footer-contact{grid-area:contact;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}.footer-contact span{white-space:nowrap}.footer-qr{grid-area:qr;display:flex;align-items:center;gap:3mm;color:#17794f;font-weight:800;white-space:nowrap}.footer-qr img{display:block;width:16mm;height:16mm;object-fit:contain}.motto{grid-area:motto;width:100%;text-align:center;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}.actions{position:fixed;z-index:10;top:14px;right:14px;display:flex;gap:8px;background:#182d4e;padding:8px;border-radius:12px;box-shadow:0 12px 30px #182d4e44}.actions button,.actions a{border:0;border-radius:8px;padding:10px 13px;background:#238760;color:white;text-decoration:none;font-weight:800;cursor:pointer}.actions button:last-child{background:white;color:#18233d}@media(max-width:850px){.sheet{margin:0;transform-origin:top left}.actions{position:sticky;justify-content:center;border-radius:0}}@media print{html,body{background:#fff}.actions{display:none}.sheet{margin:0;width:auto;height:auto;min-height:0;padding:0;box-shadow:none}.brand-logo,.footer-qr img{print-color-adjust:exact;-webkit-print-color-adjust:exact}.quote-table thead{display:table-header-group}.quote-table tbody tr{break-inside:avoid;page-break-inside:avoid}.quote-conclusion{break-inside:avoid;page-break-inside:avoid}.footer-brand{position:static;margin-top:12mm}}
     .footer-contact{grid-template-columns:max-content max-content;column-gap:8mm;justify-content:start}
     .footer-brand{row-gap:4mm}
   </style></head><body><main class="sheet"><header class="letterhead"><img class="brand-logo" src="${value(logoUrl)}" alt="Arte y Color Uniformes"></header><p class="city-date">San Salvador, ${value(longDate)}</p><section class="recipient"><strong>${value(String(quote.client || "Cliente").toUpperCase())}</strong><span>${data.contactName ? `Atención: ${value(data.contactName)}` : "Presente"}</span></section><p class="intro">En atención a su solicitud y de la manera más atenta le presentamos la siguiente cotización:</p><table class="quote-table"><thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${rows}</tbody></table><section class="quote-conclusion"><table class="quote-totals"><tbody><tr><td class="total-label">SUBTOTAL</td><td class="money">${formatControlSalesMoney(quote.subtotalCents)}</td></tr><tr><td class="total-label">IVA</td><td class="money">${formatControlSalesMoney(quote.vatCents)}</td></tr><tr><td class="total-label">TOTAL</td><td class="money">${formatControlSalesMoney(quote.totalCents)}</td></tr></tbody></table><p class="guarantee">*${value(quote.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.")}</p><section class="terms"><p><strong>${value(quote.commercialNotes || "Precios unitarios no incluyen IVA")}</strong></p><p><b>Vigencia de oferta:</b> ${value(quote.validDays || 30)} días</p><p><b>Tiempo de entrega:</b> ${value(quote.deliveryTerms)}</p><p><b>Forma de Pago:</b> ${value(quote.paymentTerms)}</p><p><strong>${value(quote.specialSizesNote)}</strong></p></section><section class="signature"><p class="closing-word">Atentamente,</p><strong>${value(quote.seller)}</strong><span>${value(data.sellerRole || "Ejecutivo/a de ventas")}</span>${data.sellerPhone ? `<span>${value(data.sellerPhone)}</span>` : ""}${data.sellerEmail ? `<a href="mailto:${value(data.sellerEmail)}">${value(data.sellerEmail)}</a>` : ""}</section></section><footer class="footer-brand"><div class="footer-contact"><span>Arte y Color Uniformes</span><span>+503 2277-2032</span><span>arteycolor.bordados@gmail.com</span><span>+503 7202-8137</span></div><div class="footer-qr"><span>Catálogo digital</span><img src="${value(qrUrl)}" alt="Código QR de Arte y Color Uniformes"></div><div class="motto">Innovación, calidad y responsabilidad garantizada</div></footer></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><a href="${value(emailHref)}">Preparar correo</a><button onclick="window.close()">Cerrar</button></nav></body></html>`);
@@ -3700,7 +3752,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   const initialDetails = order?.details?.length
     ? order.details
     : sourceQuotation?.lines?.length
-      ? sourceQuotation.lines.map((line) => ({ id: line.id, product: line.description, size: line.size, quantity: line.quantity, unitPriceCents: line.unitPriceCents, notes: line.notes }))
+      ? sourceQuotation.lines.filter((line) => line.type !== "title").map((line) => ({ id: line.id, product: line.description, size: line.size, quantity: line.quantity, unitPriceCents: line.unitPriceCents, notes: line.notes }))
     : sourceWin
       ? [{ product: sourceWin.segment && sourceWin.segment !== "Sin producto registrado" ? sourceWin.segment : "", quantity: "1" }]
       : [{}];
