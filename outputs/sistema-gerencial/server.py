@@ -189,6 +189,8 @@ def sync_crm_result_closures(conn, data):
                 "id": text(item.get("id")),
                 "opportunityId": text(item.get("id")),
                 "crmOpportunityId": crm_opportunity_id,
+                "quotationId": text(item.get("quotationId")),
+                "quotationNumber": text(item.get("quotationNumber")),
                 "managementId": text((latest_closure or {}).get("id")),
                 "date": text((latest_closure or {}).get("date"), item.get("date")),
                 "time": text((latest_closure or {}).get("time")),
@@ -518,34 +520,45 @@ def crm_audit_event(event_type, opportunity, request_user, reason="", related_id
     }
 
 
-def result_opportunity_from_crm(data, opportunity):
+def result_opportunity_from_crm(data, opportunity, quotation=None):
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     today = time.strftime("%Y-%m-%d")
-    result_id = f"result-{text(opportunity.get('id'))}"
+    quotation = quotation if isinstance(quotation, dict) else None
+    quotation_id = text((quotation or {}).get("id"))
+    result_id = f"result-{text(opportunity.get('id'))}{'-' + quotation_id if quotation_id else ''}"
     owner = next((item for item in data.get("users", []) if item.get("id") == opportunity.get("ownerId")), {})
     stage = next((item for item in data.get("stages", []) if item.get("id") == opportunity.get("stageId")), {})
     agenda_date = text(opportunity.get("nextDate"), opportunity.get("deadline") or opportunity.get("startDate") or today)
     date = today
     stage_name = text(stage.get("name"), "Prospeccion")
     note = text(opportunity.get("lastNote"), opportunity.get("comment"))
+    customer = (quotation or {}).get("customerData") if isinstance((quotation or {}).get("customerData"), dict) else {}
+    product_lines = [
+        text(line.get("description")) for line in ((quotation or {}).get("lines") or [])
+        if text(line.get("type")).lower() != "title" and text(line.get("description"))
+    ]
     return {
         "id": result_id,
         "date": date,
         "time": time.strftime("%H:%M"),
-        "company": text(opportunity.get("company"), "Cliente CRM"),
-        "seller": text(owner.get("name"), "Vendedor CRM"),
-        "contact": text(opportunity.get("contact"), opportunity.get("responsible")),
-        "phone": text(opportunity.get("phone")),
-        "segment": text(opportunity.get("segment"), opportunity.get("product")),
-        "location": text(opportunity.get("location")),
+        "company": text((quotation or {}).get("client"), opportunity.get("company") or "Cliente CRM"),
+        "seller": text((quotation or {}).get("seller"), owner.get("name") or "Vendedor CRM"),
+        "contact": text(customer.get("contactName"), opportunity.get("contact") or opportunity.get("responsible")),
+        "phone": text(customer.get("phone"), opportunity.get("phone")),
+        "segment": " · ".join(product_lines[:2]) or text(opportunity.get("segment"), opportunity.get("product")),
+        "location": text(customer.get("address"), opportunity.get("location")),
         "stage": stage_name,
         "priority": text(opportunity.get("priority"), "Media"),
         "probability": text(opportunity.get("temperature"), "Tibio").lower(),
-        "amount": float(opportunity.get("estimatedAmount") or 0),
+        "amount": round(int((quotation or {}).get("totalCents") or 0) / 100, 2) if quotation else float(opportunity.get("estimatedAmount") or 0),
         "nextAction": text(opportunity.get("nextAction"), "Primer seguimiento"),
         "agendaDate": agenda_date,
         "note": note,
         "crmOpportunityId": opportunity.get("id"),
+        "quotationId": quotation_id,
+        "quotationNumber": text((quotation or {}).get("number")),
+        "quotationStatus": text((quotation or {}).get("status")),
+        "quotationData": quotation or {},
         "migratedAt": now,
         "managements": [{
             "id": f"{result_id}-mgmt-001",
@@ -561,26 +574,72 @@ def sync_result_with_latest_quotation(conn, result):
     crm_id = text(result.get("crmOpportunityId"))
     if not crm_id:
         return False
-    quotation = conn.execute("""
-        SELECT client, seller, total_cents
-        FROM quotations
-        WHERE opportunity_id = ?
-        ORDER BY datetime(updated_at) DESC, rowid DESC
-        LIMIT 1
-    """, (crm_id,)).fetchone()
+    quotation_id = text(result.get("quotationId"))
+    quotation = conn.execute(
+        "SELECT * FROM quotations WHERE id = ? AND opportunity_id = ? LIMIT 1"
+        if quotation_id else
+        "SELECT * FROM quotations WHERE opportunity_id = ? ORDER BY datetime(updated_at) DESC, rowid DESC LIMIT 1",
+        (quotation_id, crm_id) if quotation_id else (crm_id,),
+    ).fetchone()
     if not quotation:
         return False
+    snapshot = quotation_payload(quotation)
     changed = False
     linked_values = {
-        "company": text(quotation["client"], result.get("company")),
-        "seller": text(quotation["seller"], result.get("seller")),
-        "amount": round(int(quotation["total_cents"] or 0) / 100, 2),
+        "company": text(snapshot["client"], result.get("company")),
+        "seller": text(snapshot["seller"], result.get("seller")),
+        "amount": round(int(snapshot["totalCents"] or 0) / 100, 2),
+        "quotationId": snapshot["id"],
+        "quotationNumber": snapshot["number"],
+        "quotationStatus": snapshot["status"],
+        "quotationData": snapshot,
     }
     for key, value in linked_values.items():
         if result.get(key) != value:
             result[key] = value
             changed = True
     return changed
+
+
+def ensure_quotation_result_opportunities(conn, data, opportunity, result_items):
+    """Create or update one Gerencia opportunity for every eligible quotation."""
+    crm_id = text(opportunity.get("id"))
+    rows = conn.execute("""
+        SELECT * FROM quotations
+        WHERE opportunity_id = ? AND total_cents > 0 AND status NOT IN ('Rechazada', 'Vencida')
+        ORDER BY datetime(created_at), rowid
+    """, (crm_id,)).fetchall()
+    quotations = [quotation_payload(row) for row in rows]
+    if not quotations:
+        existing = next((item for item in result_items if text(item.get("crmOpportunityId")) == crm_id), None)
+        if existing:
+            return [existing], False
+        result = result_opportunity_from_crm(data, opportunity)
+        result_items.insert(0, result)
+        return [result], True
+
+    linked = []
+    changed = False
+    legacy = next((
+        item for item in result_items
+        if text(item.get("crmOpportunityId")) == crm_id and not text(item.get("quotationId"))
+    ), None)
+    for index, quotation in enumerate(quotations):
+        result = next((
+            item for item in result_items
+            if text(item.get("crmOpportunityId")) == crm_id
+            and text(item.get("quotationId")) == text(quotation.get("id"))
+        ), None)
+        if not result and index == 0 and legacy:
+            result = legacy
+        if not result:
+            result = result_opportunity_from_crm(data, opportunity, quotation)
+            result_items.insert(0, result)
+            changed = True
+        if sync_result_with_latest_quotation(conn, result):
+            changed = True
+        linked.append(result)
+    return linked, changed
 
 
 def repair_missing_result_migrations(conn):
@@ -603,35 +662,18 @@ def repair_missing_result_migrations(conn):
         is_migrated = bool(opportunity.get("migratedToResults")) or text(opportunity.get("archiveType")).lower() == "migration"
         if not crm_id or not is_migrated:
             continue
-        related_id = text(opportunity.get("resultOpportunityId"))
-        existing = next((
-            item for item in result_items
-            if text(item.get("crmOpportunityId")) == crm_id
-            or (related_id and text(item.get("id")) == related_id)
-        ), None)
-        if existing:
-            if text(existing.get("crmOpportunityId")) != crm_id:
-                existing["crmOpportunityId"] = crm_id
-                changed = True
-            if sync_result_with_latest_quotation(conn, existing):
-                changed = True
-            continue
-
-        result = result_opportunity_from_crm(data, opportunity)
-        migration_at = text(opportunity.get("migratedAt"), opportunity.get("archivedAt"))
-        migration_date = migration_at.split("T", 1)[0] if migration_at else time.strftime("%Y-%m-%d")
-        result["id"] = related_id or result["id"]
-        result["migratedAt"] = migration_at or result["migratedAt"]
-        result["date"] = migration_date
-        for management in result.get("managements", []):
-            management["date"] = migration_date
-        sync_result_with_latest_quotation(conn, result)
-        result_items.insert(0, result)
-        repaired += 1
-        changed = True
+        before_count = len(result_items)
+        linked, linked_changed = ensure_quotation_result_opportunities(conn, data, opportunity, result_items)
+        created_count = len(result_items) - before_count
+        if linked:
+            opportunity["resultOpportunityId"] = text(linked[0].get("id"))
+            opportunity["resultOpportunityIds"] = [text(item.get("id")) for item in linked]
+        repaired += max(0, created_count)
+        changed = changed or linked_changed or created_count > 0
 
     if changed:
         write_result_opportunities(conn, result_items)
+        write_crm_data(conn, data)
     return repaired
 
 
@@ -1718,9 +1760,17 @@ def sync_opportunity_amount_from_latest_quotation(conn, opportunity_id):
     results = read_result_opportunities(conn)
     changed = False
     for result in results:
-        if text(result.get("crmOpportunityId")) == opportunity_id and float(result.get("amount") or 0) != next_amount:
-            result["amount"] = next_amount
+        if text(result.get("crmOpportunityId")) != opportunity_id:
+            continue
+        if sync_result_with_latest_quotation(conn, result):
             changed = True
+    if opportunity.get("migratedToResults"):
+        linked, linked_changed = ensure_quotation_result_opportunities(conn, data, opportunity, results)
+        if linked:
+            opportunity["resultOpportunityId"] = text(linked[0].get("id"))
+            opportunity["resultOpportunityIds"] = [text(item.get("id")) for item in linked]
+            write_crm_data(conn, data)
+        changed = changed or linked_changed
     if changed:
         write_result_opportunities(conn, results)
     return next_amount
@@ -3279,21 +3329,24 @@ class AppHandler(BaseHTTPRequestHandler):
                             return
                         opportunity = data["opportunities"][index]
                         result_opportunities = read_result_opportunities(conn)
-                        result_index = next((
+                        linked_result_indexes = [
                             i for i, item in enumerate(result_opportunities)
                             if text(item.get("crmOpportunityId")) == item_id
-                        ), -1)
-                        if result_index == -1 or not opportunity.get("migratedToResults"):
+                        ]
+                        if not linked_result_indexes or not opportunity.get("migratedToResults"):
                             self.send_json({"error": "La oportunidad no tiene una migracion activa a Gerencia"}, status=409)
                             return
-                        result = result_opportunities[result_index]
-                        dependencies = result_opportunity_dependencies(conn, text(result.get("id")))
-                        managements = result.get("managements") if isinstance(result.get("managements"), list) else []
-                        active_managements = [item for item in managements if not item.get("canceled") and not item.get("notified")]
-                        if result_opportunity_has_closure(result):
-                            dependencies.append("un cierre comercial")
-                        if len(active_managements) > 1:
-                            dependencies.append("gestiones posteriores a la migracion")
+                        linked_results = [result_opportunities[i] for i in linked_result_indexes]
+                        result = linked_results[0]
+                        dependencies = []
+                        for linked_result in linked_results:
+                            dependencies.extend(result_opportunity_dependencies(conn, text(linked_result.get("id"))))
+                            managements = linked_result.get("managements") if isinstance(linked_result.get("managements"), list) else []
+                            active_managements = [item for item in managements if not item.get("canceled") and not item.get("notified")]
+                            if result_opportunity_has_closure(linked_result):
+                                dependencies.append("un cierre comercial")
+                            if len(active_managements) > 1:
+                                dependencies.append("gestiones posteriores a la migracion")
                         if dependencies:
                             self.send_json({
                                 "error": f"No se puede devolver porque tiene {' y '.join(dict.fromkeys(dependencies))}"
@@ -3316,7 +3369,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         opportunity["status"] = previous_status if previous_status.lower() not in {"migrada", "anulada", "cancelada"} else "Vigente"
                         opportunity["archived"] = False
                         for key in [
-                            "migratedToResults", "migratedAt", "migratedBy", "resultOpportunityId",
+                            "migratedToResults", "migratedAt", "migratedBy", "resultOpportunityId", "resultOpportunityIds",
                             "archiveType", "archivedReason", "archivedAt", "archivedBy",
                         ]:
                             opportunity.pop(key, None)
@@ -3333,7 +3386,10 @@ class AppHandler(BaseHTTPRequestHandler):
                             "place": text(opportunity.get("location"), "Por definir"),
                             "restoredAt": now,
                         })
-                        result_opportunities.pop(result_index)
+                        result_opportunities = [
+                            item for item in result_opportunities
+                            if text(item.get("crmOpportunityId")) != item_id
+                        ]
                         write_result_opportunities(conn, result_opportunities)
                         write_crm_data(conn, data)
                         self.send_json({
@@ -3348,11 +3404,11 @@ class AppHandler(BaseHTTPRequestHandler):
                             self.send_json({"error": "No se puede migrar una oportunidad anulada o cerrada"}, status=409)
                             return
                         result_opportunities = read_result_opportunities(conn)
-                        result = next((item for item in result_opportunities if item.get("crmOpportunityId") == item_id), None)
-                        if not result:
-                            result = result_opportunity_from_crm(data, opportunity)
-                            sync_result_with_latest_quotation(conn, result)
-                            result_opportunities.insert(0, result)
+                        linked_results, results_changed = ensure_quotation_result_opportunities(
+                            conn, data, opportunity, result_opportunities
+                        )
+                        result = linked_results[0] if linked_results else None
+                        if results_changed:
                             write_result_opportunities(conn, result_opportunities)
                         if not opportunity.get("migratedToResults"):
                             now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -3361,6 +3417,7 @@ class AppHandler(BaseHTTPRequestHandler):
                             opportunity["migratedAt"] = now
                             opportunity["migratedBy"] = audit["userName"]
                             opportunity["resultOpportunityId"] = result.get("id")
+                            opportunity["resultOpportunityIds"] = [item.get("id") for item in linked_results]
                             opportunity["status"] = "Migrada"
                             opportunity["archived"] = True
                             opportunity["archiveType"] = "migration"
@@ -3369,10 +3426,15 @@ class AppHandler(BaseHTTPRequestHandler):
                             opportunity.setdefault("auditLog", []).append(audit)
                             data["agenda"] = [item for item in data.get("agenda", []) if item.get("opportunityId") != item_id]
                             write_crm_data(conn, data)
+                        elif linked_results:
+                            opportunity["resultOpportunityId"] = linked_results[0].get("id")
+                            opportunity["resultOpportunityIds"] = [item.get("id") for item in linked_results]
+                            write_crm_data(conn, data)
                         self.send_json({
                             "crm": build_crm_view_model(data),
                             "opportunities": result_opportunities,
                             "resultOpportunity": result,
+                            "resultOpportunities": linked_results,
                         })
                         return
                     if self.command in {"PUT", "PATCH"}:

@@ -3500,14 +3500,24 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
   const status = document.querySelector("#quotationSaveStatus");
   try {
     let saved;
-    if (apiEnabled) { const response = await apiJson(draft.id ? `/api/quotations/${encodeURIComponent(draft.id)}` : "/api/quotations", { method:draft.id ? "PUT" : "POST", body:JSON.stringify(draft) }); saved = response.item; await loadQuotations(); }
+    if (apiEnabled) {
+      const response = await apiJson(draft.id ? `/api/quotations/${encodeURIComponent(draft.id)}` : "/api/quotations", { method:draft.id ? "PUT" : "POST", body:JSON.stringify(draft) });
+      saved = response.item;
+      await loadQuotations();
+      const opportunityItems = await apiJson("/api/opportunities");
+      getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(Array.isArray(opportunityItems) ? opportunityItems : []));
+      localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+    }
     else { const now = new Date().toISOString(); saved = { ...draft, id:draft.id || crypto.randomUUID(), number:draft.number || `Q-${crypto.randomUUID()}`, status:draft.status, updatedAt:now, createdAt:draft.createdAt || now }; const index = state.quotations.findIndex((item) => item.id === saved.id); if (index >= 0) state.quotations[index] = saved; else state.quotations.unshift(saved); persistLocalQuotations(); }
     const linkedOpportunity = state.crmData?.opportunities?.find((item) => String(item.id) === String(saved.opportunityId));
     if (linkedOpportunity && Number(saved.totalCents || 0) > 0) {
       if (linkedOpportunity.quotationReferenceAmount == null) linkedOpportunity.quotationReferenceAmount = Number(linkedOpportunity.estimatedAmount || 0);
       linkedOpportunity.estimatedAmount = Number(saved.totalCents) / 100;
     }
-    const resultOpportunity = getOpportunitySubmenu().items.find((item) => String(item.crmOpportunityId) === String(saved.opportunityId));
+    const resultOpportunity = getOpportunitySubmenu().items.find((item) => (
+      String(item.crmOpportunityId) === String(saved.opportunityId)
+      && (!item.quotationId || String(item.quotationId) === String(saved.id))
+    ));
     if (resultOpportunity && Number(saved.totalCents || 0) > 0) resultOpportunity.amount = Number(saved.totalCents) / 100;
     if (dialog) dialog.dataset.quotationCreationAuthorized = "false";
     renderQuotationHistory(saved.opportunityId, saved.id); populateQuotationForm(saved, linkedOpportunity || crmOpportunityForQuotation(saved.opportunityId));
@@ -6297,6 +6307,8 @@ function crmResultWinHistory(selectedSeller = null) {
       id: item.id,
       opportunityId: item.id,
       crmOpportunityId: item.crmOpportunityId || "",
+      quotationId: item.quotationId || "",
+      quotationNumber: item.quotationNumber || "",
       managementId: result.id || "",
       date: result.date || item.trackingWin?.closedDate || item.date || "",
       time: result.time || item.trackingWin?.closedTime || "",
@@ -6326,6 +6338,9 @@ function crmWonIdentityKeys(win) {
 }
 
 function latestQuotationForWonOpportunity(win) {
+  if (win?.quotationId) {
+    return state.quotations.find((item) => String(item.id) === String(win.quotationId)) || null;
+  }
   const identityKeys = crmWonIdentityKeys(win);
   return state.quotations
     .filter((item) => identityKeys.has(String(item.opportunityId || "")))
