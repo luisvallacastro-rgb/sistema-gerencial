@@ -2436,10 +2436,9 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if self.path == "/api/opportunities":
             with connect() as conn:
-                value = conn.execute(
-                    "SELECT value FROM app_state WHERE key = 'opportunities'"
-                ).fetchone()["value"]
-            self.send_json(json.loads(value))
+                repair_missing_result_migrations(conn)
+                items = read_result_opportunities(conn)
+            self.send_json(items)
             return
 
         if self.path == "/api/strategic-risks":
@@ -2791,7 +2790,9 @@ class AppHandler(BaseHTTPRequestHandler):
                         value = excluded.value,
                         updated_at = CURRENT_TIMESTAMP
                 """, (json.dumps(data, ensure_ascii=True),))
-            self.send_json({"ok": True})
+                repair_missing_result_migrations(conn)
+                reconciled = read_result_opportunities(conn)
+            self.send_json({"ok": True, "items": reconciled})
             return
 
         if self.path == "/api/strategic-risks":
