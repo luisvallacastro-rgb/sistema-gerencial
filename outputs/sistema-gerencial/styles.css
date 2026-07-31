@@ -16664,6 +16664,40 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   border-color: #70b8ff;
   background: rgba(39, 103, 174, .78);
 }
+#quotationDialog .quotation-delete-action {
+  border: 1px solid rgba(238, 91, 119, .58);
+  background: rgba(139, 43, 65, .35);
+  color: #ff9db0;
+}
+#quotationDialog .quotation-delete-action:hover {
+  border-color: #ff7893;
+  background: rgba(171, 48, 76, .52);
+  color: #fff;
+}
+
+#quotationDialog .quotation-history nav button {
+  position: relative;
+}
+
+#quotationDialog .quotation-history nav button.is-selected {
+  border-color: #70b8ff !important;
+  background: linear-gradient(135deg, rgba(39, 91, 153, .82), rgba(29, 66, 112, .82)) !important;
+  box-shadow: inset 0 0 0 1px rgba(112, 184, 255, .42), 0 0 0 2px rgba(71, 147, 231, .18);
+}
+
+#quotationDialog .quotation-history nav button mark {
+  grid-column: 1 / -1;
+  width: max-content;
+  margin-top: 4px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(100, 225, 194, .18);
+  color: #75efd1;
+  font-size: .62rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
 @media (max-width: 1050px) {
   #quotationDialog.quotation-dialog > #quotationForm > footer {
     grid-template-columns: repeat(2, minmax(0, 1fr));
