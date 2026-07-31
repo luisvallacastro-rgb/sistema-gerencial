@@ -5,6 +5,7 @@ import mimetypes
 import os
 import sqlite3
 import time
+import unicodedata
 import uuid
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -57,6 +58,26 @@ LEGACY_ROLE_MAP = {
     "operaciones": "gerencias",
     "rrhh": "gerencias",
 }
+
+
+def is_commercial_management_user(user):
+    """Authorize the single commercial-management account for migrated lifecycle actions."""
+    if not user:
+        return False
+    user_id = text(user.get("id")).lower()
+    username = text(user.get("username")).lower()
+    email = text(user.get("email")).lower()
+    name = "".join(
+        character
+        for character in unicodedata.normalize("NFD", text(user.get("name")).lower())
+        if unicodedata.category(character) != "Mn"
+    )
+    return (
+        user_id == "user-comercial"
+        or username == "comercializacion"
+        or email == "comercializacion@empresa.local"
+        or ("gerencia" in name and "comercial" in name)
+    )
 ALL_OPERATIONAL_PERMISSIONS = [
     f"{area}:{section}"
     for area in AREA_KEYS
@@ -2487,9 +2508,13 @@ class AppHandler(BaseHTTPRequestHandler):
                     return
                 now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                 actor_id = text(self.headers.get("X-System-User-Id"))
-                actor_row = conn.execute("SELECT name, role, admin FROM users WHERE id = ? LIMIT 1", (actor_id,)).fetchone() if actor_id else None
-                if not actor_row or (text(actor_row["role"]) != "gerencias" and not actor_row["admin"]):
-                    self.send_json({"error": "Solo una gerencia autorizada puede anular oportunidades"}, status=403)
+                actor_row = conn.execute(
+                    "SELECT id, name, username, email, role, admin FROM users WHERE id = ? LIMIT 1",
+                    (actor_id,),
+                ).fetchone() if actor_id else None
+                actor_user = dict(actor_row) if actor_row else None
+                if not is_commercial_management_user(actor_user):
+                    self.send_json({"error": "Solo Gerencia de Comercializacion puede anular oportunidades migradas"}, status=403)
                     return
                 actor = text(actor_row["name"] if actor_row else payload.get("updatedBy"), "Sistema Gerencial")
                 reason = text(payload.get("reason"), "Anulada desde Oportunidades / Gerencia")
@@ -3325,8 +3350,8 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_json(response)
                         return
                     if action == "return-to-followup" and self.command == "POST":
-                        if not request_user or text(request_user.get("role")) != "gerencias":
-                            self.send_json({"error": "Solo una gerencia autorizada puede devolver oportunidades a Seguimiento"}, status=403)
+                        if not is_commercial_management_user(request_user):
+                            self.send_json({"error": "Solo Gerencia de Comercializacion puede devolver oportunidades a Seguimiento"}, status=403)
                             return
                         opportunity = data["opportunities"][index]
                         result_opportunities = read_result_opportunities(conn)

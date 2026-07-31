@@ -1129,6 +1129,27 @@ function canDeleteOpportunities() {
   return isAdminUser() || state.role === "gerencias";
 }
 
+function isCommercialManagementUser(user = state.currentUser) {
+  if (!user) return false;
+  const normalizeIdentity = (value) => String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  const id = normalizeIdentity(user.id);
+  const username = normalizeIdentity(user.username);
+  const email = normalizeIdentity(user.email);
+  const name = normalizeIdentity(user.name);
+  return id === "user-comercial"
+    || username === "comercializacion"
+    || email === "comercializacion@empresa.local"
+    || (name.includes("gerencia") && name.includes("comercial"));
+}
+
+function canManageMigratedOpportunityLifecycle() {
+  return isCommercialManagementUser();
+}
+
 function canCancelManagements() {
   return isAdminUser() || state.role === "gerencias";
 }
@@ -7129,12 +7150,12 @@ function renderCommercialSubmenu(area) {
               <span aria-hidden="true">📋</span>
             </button>
           `}
-          ${canDeleteOpportunities() && item.crmOpportunityId && !isHistory ? `
+          ${canManageMigratedOpportunityLifecycle() && item.crmOpportunityId && !isHistory ? `
             <button class="action-icon-btn return-followup" type="button" data-action="return-followup" data-id="${item.id}" aria-label="Volver a Seguimiento" title="Volver a Seguimiento">
               <span aria-hidden="true">↩️</span>
             </button>
           ` : ""}
-          ${canDeleteOpportunities() && !isHistory ? `
+          ${canManageMigratedOpportunityLifecycle() && !isHistory ? `
             <button class="action-icon-btn danger" type="button" data-action="cancel" data-id="${item.id}" aria-label="Anular oportunidad" title="Anular oportunidad">
               <span aria-hidden="true">🗑️</span>
             </button>
@@ -9535,12 +9556,13 @@ opportunityTable.addEventListener("click", (event) => {
   if (!item) return;
 
   if (button.dataset.action === "cancel") {
-    if (!canDeleteOpportunities()) return;
+    if (!canManageMigratedOpportunityLifecycle()) return;
     cancelResultOpportunity(item, button);
     return;
   }
 
   if (button.dataset.action === "return-followup") {
+    if (!canManageMigratedOpportunityLifecycle()) return;
     returnOpportunityToFollowup(item, button);
     return;
   }
