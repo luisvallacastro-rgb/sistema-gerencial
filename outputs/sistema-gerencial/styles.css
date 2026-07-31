@@ -16823,27 +16823,33 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   opacity: .58;
 }
 
-.app-shell .crm-tracking-card > div > .crm-migration-tab {
+.app-shell .crm-card-icon-action .crm-migration-tab {
+  position: absolute;
+  top: -8px;
+  right: -9px;
+  z-index: 2;
   width: max-content;
-  max-width: 100%;
-  margin: 1px 0 2px;
-  padding: 4px 8px;
-  overflow: hidden;
+  margin: 0;
+  padding: 3px 6px;
   border: 1px solid rgba(255, 126, 139, .48);
   border-radius: 999px;
-  background: rgba(177, 45, 65, .42);
-  color: #ff9eaa !important;
-  font-size: 8px !important;
+  background: #a92f45;
+  color: #ffd9de !important;
+  font-size: 7px !important;
   font-weight: 900;
-  line-height: 1.15;
-  letter-spacing: .04em;
-  text-overflow: ellipsis;
+  line-height: 1;
+  letter-spacing: .055em;
+  box-shadow: 0 3px 9px rgba(86, 16, 29, .32);
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .app-shell .crm-card-icon-action.is-result.is-complete:disabled {
-  opacity: .48;
+  opacity: 1;
+}
+
+.app-shell .crm-card-icon-action.is-result.is-complete:disabled svg {
+  opacity: .42;
 }
 
 .app-shell .crm-card-action-badge {

@@ -6388,7 +6388,6 @@ function renderCrmTracking() {
       <article class="crm-tracking-card ${migrated ? "is-migrated" : ""}" data-crm-opportunity="${opp.id}">
         <div>
           <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)}${migrated ? "" : ` - ${escapeHtml(opp.status || "Vigente")}`}</span>
-          ${migrated ? `<mark class="crm-migration-tab" role="status">Migrado a Oportunidades / Gerencia</mark>` : ""}
           <strong>${escapeHtml(opp.company)}</strong>
           <p>${escapeHtml(opp.product || "Producto pendiente")}</p>
         </div>
@@ -6402,6 +6401,7 @@ function renderCrmTracking() {
             </button>
             <button class="crm-card-icon-action is-result ${migrated ? "is-complete" : ""}" type="button" data-crm-migrate="${opp.id}" aria-label="${resultAction}" title="${resultAction}" ${migrated ? "disabled" : ""}>
               <svg viewBox="0 0 24 24" aria-hidden="true">${migrated ? `<path d="M5 12.5l4.2 4.2L19 7"></path>` : `<path d="M4 12h14M13 6l6 6-6 6"></path>`}</svg>
+              ${migrated ? `<mark class="crm-migration-tab" role="status">Migrado</mark>` : ""}
             </button>
           </div>
         </footer>
