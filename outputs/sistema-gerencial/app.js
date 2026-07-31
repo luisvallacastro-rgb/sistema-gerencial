@@ -3215,16 +3215,16 @@ function refreshQuotationTitlePositionMenu(preferredPosition = "") {
   if (!menu || !container) return;
   const rows = [...container.children];
   const current = preferredPosition !== "" ? String(preferredPosition) : menu.value;
-  const options = [`<option value="0">Al inicio del detalle</option>`];
-  rows.forEach((row, index) => {
-    const isTitle = row.dataset.quotationLineType === "title";
-    const label = isTitle
-      ? row.querySelector("[data-quotation-title]")?.value.trim() || "Título sin completar"
-      : row.querySelector("[data-quotation-description]")?.value.trim() || `Línea ${index + 1} sin completar`;
-    options.push(`<option value="${index + 1}">Después de ${index + 1} · ${escapeHtml(label)}</option>`);
+  const productRows = rows.filter((row) => row.dataset.quotationLineType !== "title");
+  const options = [`<option value="end">Al final, después de todas las líneas</option>`];
+  productRows.forEach((row, index) => {
+    const id = row.dataset.quotationLineId;
+    const label = row.querySelector("[data-quotation-description]")?.value.trim() || `Producto ${index + 1} sin completar`;
+    options.push(`<option value="before:${escapeHtml(id)}">Antes del producto ${index + 1} · ${escapeHtml(label)}</option>`);
+    options.push(`<option value="after:${escapeHtml(id)}">Después del producto ${index + 1} · ${escapeHtml(label)}</option>`);
   });
   menu.innerHTML = options.join("");
-  menu.value = Array.from(menu.options).some((option) => option.value === current) ? current : String(rows.length);
+  menu.value = Array.from(menu.options).some((option) => option.value === current) ? current : "end";
 }
 
 function setQuotationPanelExpanded(panel, expanded) {
@@ -3248,7 +3248,7 @@ function ensureQuotationDialog() {
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
     <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label></section>
     <section class="quotation-customer quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationCustomerFields"><span><b>Datos heredados del cliente y vendedor</b><small>Se cargan desde la oportunidad. Ábrelos únicamente si necesitas corregirlos.</small></span><i aria-hidden="true">⌄</i></button><div id="quotationCustomerFields" class="quotation-form-grid quotation-collapsible-content quotation-inherited-fields" hidden><label>Cliente / nombre comercial<input id="quotationCommercialName" required></label><label>Razón social<input id="quotationLegalName"></label><label>Contacto<input id="quotationContactName"></label><label>Teléfono<input id="quotationPhone"></label><label>Email del cliente<input id="quotationEmail" type="email"></label><label class="span-2">Dirección<input id="quotationAddress"></label><label>Giro<input id="quotationBusinessActivity"></label><label>NIT<input id="quotationTaxId"></label><label>Número de registro<input id="quotationRegistrationNumber"></label><label>Tipo de contribuyente<input id="quotationTaxpayerType"></label><label>Código de cliente<input id="quotationCustomerCode"></label><label>Tipo de estrategia<select id="quotationStrategy"><option value="">Seleccionar</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label><label>Vendedor<input id="quotationSeller" required></label><label>Teléfono del vendedor<input id="quotationSellerPhone"></label><label>Email del vendedor<input id="quotationSellerEmail" type="email"></label></div></section>
-    <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><div class="quotation-line-actions"><label>Ubicación del título<select id="quotationTitlePosition" aria-label="Ubicación de la línea de título"><option value="0">Al inicio del detalle</option></select></label><button type="button" class="quotation-title-add-btn" data-quotation-add-title>+ Línea de título</button><button type="button" data-quotation-add-line>+ Agregar línea</button></div></div><div id="quotationLines"></div></section>
+    <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><div class="quotation-line-actions"><label>Insertar línea de título<select id="quotationTitlePosition" aria-label="Ubicación de la línea de título"><option value="end">Al final, después de todas las líneas</option></select></label><button type="button" class="quotation-title-add-btn" data-quotation-add-title>+ Línea de título</button><button type="button" data-quotation-add-line>+ Agregar línea</button></div></div><div id="quotationLines"></div></section>
     <section class="quotation-totals">
       <div class="quotation-totals-comparison"><article class="quotation-reference"><span>Monto original de la oportunidad</span><strong id="quotationReference" data-reference-cents="0">$0.00</strong></article><article class="quotation-variation" id="quotationVariationCard" data-variation="neutral"><span id="quotationVariationLabel">Saldo pendiente por cotizar</span><strong id="quotationVariation">$0.00</strong><small>Calculado contra el subtotal acumulado de las líneas</small></article></div>
       <div class="quotation-totals-breakdown"><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article class="quotation-grand-total"><span>Total cotización · nuevo valor oportunidad</span><strong id="quotationTotal">$0.00</strong></article></div>
@@ -3276,12 +3276,15 @@ function ensureQuotationDialog() {
     if (event.target.matches("[data-quotation-add-line]")) { document.querySelector("#quotationLines").insertAdjacentHTML("beforeend", quotationLineTemplate()); refreshQuotationTitlePositionMenu(); updateQuotationTotals(); }
     if (event.target.matches("[data-quotation-add-title]")) {
       const container = document.querySelector("#quotationLines");
-      const position = Math.max(0, Math.min(container.children.length, Number(document.querySelector("#quotationTitlePosition").value || 0)));
-      const nextRow = container.children[position] || null;
-      if (nextRow) nextRow.insertAdjacentHTML("beforebegin", quotationLineTemplate({ type:"title" }));
-      else container.insertAdjacentHTML("beforeend", quotationLineTemplate({ type:"title" }));
-      const insertedRow = container.children[position];
-      refreshQuotationTitlePositionMenu(String(position + 1));
+      const placement = document.querySelector("#quotationTitlePosition").value || "end";
+      const [direction, targetId = ""] = placement.split(":");
+      const targetRow = [...container.children].find((row) => row.dataset.quotationLineId === targetId);
+      if (placement === "end" || !targetRow) container.insertAdjacentHTML("beforeend", quotationLineTemplate({ type:"title" }));
+      else targetRow.insertAdjacentHTML(direction === "before" ? "beforebegin" : "afterend", quotationLineTemplate({ type:"title" }));
+      const insertedRow = placement === "end" || !targetRow
+        ? container.lastElementChild
+        : direction === "before" ? targetRow.previousElementSibling : targetRow.nextElementSibling;
+      refreshQuotationTitlePositionMenu("end");
       insertedRow?.querySelector("[data-quotation-title]")?.focus();
     }
     if (event.target.matches("[data-quotation-remove-line]")) {
