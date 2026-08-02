@@ -9660,18 +9660,23 @@ opportunityDashboard.addEventListener("click", (event) => {
 
 function linkedManagementQuotations(item) {
   if (!item) return [];
+  const quotationId = String(item.quotationId || "");
+  if (quotationId) {
+    return state.quotations.filter((quotation) => String(quotation.id || "") === quotationId);
+  }
+  const resultLinked = state.quotations.filter((quotation) => (
+    String(quotation.resultOpportunityId || "") === String(item.id || "")
+  ));
+  if (resultLinked.length) return resultLinked;
   const sourceIds = new Set([
     item.id,
     item.crmOpportunityId,
     item.sourceOpportunityId
   ].map((value) => String(value || "")).filter(Boolean));
-  return state.quotations
-    .filter((quotation) => (
-      String(quotation.id || "") === String(item.quotationId || "")
-      || String(quotation.resultOpportunityId || "") === String(item.id || "")
-      || sourceIds.has(String(quotation.opportunityId || ""))
-    ))
+  const sourceLinked = state.quotations
+    .filter((quotation) => sourceIds.has(String(quotation.opportunityId || "")))
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
+  return sourceLinked.length === 1 ? sourceLinked : [];
 }
 
 function renderManagementQuotations(item) {
