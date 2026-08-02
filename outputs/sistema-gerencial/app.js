@@ -885,6 +885,8 @@ const managementEntryEyebrow = document.querySelector("#managementEntryEyebrow")
 const managementEntryTitle = document.querySelector("#managementEntryTitle");
 const managementSubmitBtn = document.querySelector("#managementSubmitBtn");
 const managementTable = document.querySelector("#managementTable");
+const managementQuotationCount = document.querySelector("#managementQuotationCount");
+const managementQuotationList = document.querySelector("#managementQuotationList");
 const sampleCustodyToggle = document.querySelector("#sampleCustodyToggle");
 const sampleCustodyPanel = document.querySelector("#sampleCustodyPanel");
 const sampleCustodyId = document.querySelector("#sampleCustodyId");
@@ -9656,7 +9658,47 @@ opportunityDashboard.addEventListener("click", (event) => {
   renderCommercialSubmenu(areas.comercializacion);
 });
 
-function openManagementDialog(item) {
+function linkedManagementQuotations(item) {
+  if (!item) return [];
+  const sourceIds = new Set([
+    item.id,
+    item.crmOpportunityId,
+    item.sourceOpportunityId
+  ].map((value) => String(value || "")).filter(Boolean));
+  return state.quotations
+    .filter((quotation) => (
+      String(quotation.id || "") === String(item.quotationId || "")
+      || String(quotation.resultOpportunityId || "") === String(item.id || "")
+      || sourceIds.has(String(quotation.opportunityId || ""))
+    ))
+    .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
+}
+
+function renderManagementQuotations(item) {
+  const quotations = linkedManagementQuotations(item);
+  managementQuotationCount.textContent = String(quotations.length);
+  managementQuotationList.innerHTML = quotations.length ? quotations.map((quotation) => `
+    <article class="management-quotation-record">
+      <div class="management-quotation-identity">
+        <small>Cotización</small>
+        <strong>${formatDate(quotation.date)}</strong>
+        <span>${formatControlSalesMoney(quotation.totalCents || 0)}</span>
+      </div>
+      <span class="management-quotation-status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span>
+      <button type="button" data-management-quotation-open="${escapeHtml(quotation.id)}" aria-label="Abrir cotización del ${escapeHtml(formatDate(quotation.date))}">Abrir cotización</button>
+    </article>
+  `).join("") : `<p class="management-quotation-empty">No hay cotizaciones vinculadas a esta oportunidad.</p>`;
+  managementQuotationList.querySelectorAll("[data-management-quotation-open]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const quotation = quotations.find((record) => record.id === button.dataset.managementQuotationOpen);
+      if (!quotation) return;
+      managementDialog.close();
+      openQuotationDialog(quotation.opportunityId || item.crmOpportunityId || item.id, quotation.id);
+    });
+  });
+}
+
+async function openManagementDialog(item) {
   managementOpportunityId.value = item.id;
   managementDialogTitle.textContent = item.company;
   resetManagementEntry(item);
@@ -9664,8 +9706,13 @@ function openManagementDialog(item) {
   renderManagements(item);
   resetSampleCustodyForm();
   renderSampleCustodies(item);
+  renderManagementQuotations(item);
   setSampleCustodyMode(false);
   managementDialog.showModal();
+  await loadQuotations();
+  if (managementDialog.open && managementOpportunityId.value === String(item.id)) {
+    renderManagementQuotations(item);
+  }
 }
 
 function setSampleCustodyMode(enabled) {
