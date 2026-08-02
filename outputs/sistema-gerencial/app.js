@@ -3283,6 +3283,15 @@ function ensureQuotationDialog() {
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");
 
+  dialog.addEventListener("close", () => {
+    const returnOpportunityId = dialog.dataset.returnToManagementOpportunityId;
+    if (!returnOpportunityId) return;
+    delete dialog.dataset.returnToManagementOpportunityId;
+    if (!managementDialog.open || managementOpportunityId.value !== returnOpportunityId) return;
+    const managementItem = currentManagementItem();
+    if (managementItem) renderManagementQuotations(managementItem);
+  });
+
   // Los paneles editables usan listeners propios para no depender del
   // manejador general del modal (que también procesa acciones asíncronas).
   dialog.querySelectorAll("[data-quotation-panel-toggle]").forEach((trigger) => {
@@ -9690,11 +9699,20 @@ function renderManagementQuotations(item) {
     </button>
   `).join("") : `<p class="management-quotation-empty">No hay cotizaciones vinculadas a esta oportunidad.</p>`;
   managementQuotationList.querySelectorAll("[data-management-quotation-open]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       const quotation = quotations.find((record) => String(record.id) === String(button.dataset.managementQuotationOpen));
       if (!quotation) return;
-      managementDialog.close();
-      openQuotationDialog(quotation.opportunityId || item.crmOpportunityId || item.id, quotation.id);
+      button.classList.add("is-opening");
+      button.disabled = true;
+      ensureQuotationDialog();
+      const quotationDialog = document.querySelector("#quotationDialog");
+      quotationDialog.dataset.returnToManagementOpportunityId = String(item.id || "");
+      try {
+        await openQuotationDialog(quotation.opportunityId || item.crmOpportunityId || item.id, quotation.id);
+      } finally {
+        button.classList.remove("is-opening");
+        button.disabled = false;
+      }
     });
   });
 }
