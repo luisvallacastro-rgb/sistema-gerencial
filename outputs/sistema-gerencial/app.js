@@ -3487,7 +3487,7 @@ async function openQuotationDialog(opportunityId, quoteId = "") {
     if (win) opportunity = { id:win.id, company:win.company, seller:win.seller, estimatedAmount:win.amount, segment:win.segment || "", product:win.product || "", stageId:"Cierre ganado" };
   }
   if (!opportunity) return alert("No se encontró la oportunidad comercial.");
-  const quote = quoteId ? state.quotations.find((item) => item.id === quoteId) : null;
+  const quote = quoteId ? state.quotations.find((item) => String(item.id) === String(quoteId)) : null;
   const dialog = document.querySelector("#quotationDialog");
   dialog.dataset.quotationCreationAuthorized = quoteId ? "false" : "true";
   document.querySelector("#quotationOpportunityId").value = opportunity.id;
@@ -9678,19 +9678,15 @@ function renderManagementQuotations(item) {
   const quotations = linkedManagementQuotations(item);
   managementQuotationCount.textContent = String(quotations.length);
   managementQuotationList.innerHTML = quotations.length ? quotations.map((quotation) => `
-    <article class="management-quotation-record">
-      <div class="management-quotation-identity">
-        <small>Cotización</small>
-        <strong>${formatDate(quotation.date)}</strong>
-        <span>${formatControlSalesMoney(quotation.totalCents || 0)}</span>
-      </div>
-      <span class="management-quotation-status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span>
-      <button type="button" data-management-quotation-open="${escapeHtml(quotation.id)}" aria-label="Abrir cotización del ${escapeHtml(formatDate(quotation.date))}">Abrir cotización</button>
-    </article>
+    <button class="management-quotation-card" type="button" data-management-quotation-open="${escapeHtml(quotation.id)}" aria-label="Abrir cotización del ${escapeHtml(formatDate(quotation.date))}, estado ${escapeHtml(quotation.status || "Borrador")}">
+      <strong>Cotización</strong>
+      <span>${formatDate(quotation.date)} · ${formatControlSalesMoney(quotation.totalCents || 0)}</span>
+      <em class="management-quotation-status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</em>
+    </button>
   `).join("") : `<p class="management-quotation-empty">No hay cotizaciones vinculadas a esta oportunidad.</p>`;
   managementQuotationList.querySelectorAll("[data-management-quotation-open]").forEach((button) => {
     button.addEventListener("click", () => {
-      const quotation = quotations.find((record) => record.id === button.dataset.managementQuotationOpen);
+      const quotation = quotations.find((record) => String(record.id) === String(button.dataset.managementQuotationOpen));
       if (!quotation) return;
       managementDialog.close();
       openQuotationDialog(quotation.opportunityId || item.crmOpportunityId || item.id, quotation.id);
