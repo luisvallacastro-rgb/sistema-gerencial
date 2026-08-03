@@ -7156,10 +7156,11 @@ function renderCommercialSubmenu(area) {
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
     isClosedView ? visibleTotal : filteredActiveRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0)
   );
-  const pageCount = Math.max(1, Math.ceil(displayRows.length / opportunityManagementPageSize));
+  const effectivePageSize = isClosedView ? 5 : opportunityManagementPageSize;
+  const pageCount = Math.max(1, Math.ceil(displayRows.length / effectivePageSize));
   state.opportunityPage = Math.min(Math.max(Number(state.opportunityPage) || 1, 1), pageCount);
-  const pageStart = (state.opportunityPage - 1) * opportunityManagementPageSize;
-  const pageEnd = pageStart + opportunityManagementPageSize;
+  const pageStart = (state.opportunityPage - 1) * effectivePageSize;
+  const pageEnd = pageStart + effectivePageSize;
   const pagedRows = displayRows.slice(pageStart, pageEnd);
   commercialSubmenuStatus.textContent = "";
 
@@ -7256,7 +7257,7 @@ function renderCommercialSubmenu(area) {
         </div>
       `}
     </div>
-    ${displayRows.length > opportunityManagementPageSize ? `
+    ${displayRows.length > effectivePageSize ? `
       <div class="opportunity-pagination" aria-label="Paginacion de oportunidades">
         <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, displayRows.length)} de ${displayRows.length}</span>
         <div>

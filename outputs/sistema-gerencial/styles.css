@@ -6682,6 +6682,37 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   }
 }
 
+/* Mantiene la paginación visible cuando el filtro histórico ocupa una fila adicional. */
+.app-shell .dashboard.opportunity-focus .opportunity-table:has(.opportunity-cycle-toolbar) {
+  display: grid !important;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard.opportunity-focus .opportunity-table:has(.opportunity-cycle-toolbar) .opportunity-cycle-toolbar {
+  margin-bottom: 0;
+}
+
+.app-shell .dashboard.opportunity-focus .opportunity-table:has(.opportunity-cycle-toolbar) .opportunity-table-body {
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding-right: 6px !important;
+}
+
+.app-shell .dashboard.opportunity-focus .opportunity-table:has(.opportunity-cycle-toolbar) .opportunity-pagination {
+  position: relative;
+  z-index: 4;
+  flex: none;
+  margin-top: 0;
+  background: linear-gradient(145deg, rgba(38, 54, 86, .98), rgba(13, 27, 50, .98));
+  box-shadow: 0 -8px 22px rgba(3, 12, 28, .2);
+}
+
 #quotationDialog .quotation-collapsible-trigger i {
   color: #aebbd0;
 }
