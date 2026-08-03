@@ -261,6 +261,7 @@ const state = {
   opportunitySearch: "",
   opportunityClosedDateFrom: "2026-07-01",
   opportunityClosedDateTo: todayISO(),
+  opportunityClosedResultFilter: "all",
   opportunityFormContext: "results",
   kpiView: "dashboard",
   kpiSeller: "all",
@@ -7148,10 +7149,18 @@ function renderCommercialSubmenu(area) {
     ].some((value) => searchTokenMatches(value, searchQuery));
     return matchesDate && matchesSearch;
   });
+  const wonClosedRows = filteredClosedRows.filter(({ result }) => result?.result === "ganado");
+  const lostClosedRows = filteredClosedRows.filter(({ result }) => result?.result !== "ganado");
+  const closedRowsByResult = state.opportunityClosedResultFilter === "won"
+    ? wonClosedRows
+    : (state.opportunityClosedResultFilter === "lost" ? lostClosedRows : filteredClosedRows);
+  const closedTotalAmount = filteredClosedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
+  const wonClosedAmount = wonClosedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
+  const lostClosedAmount = lostClosedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   const isClosedView = state.opportunityCycleView === "closed";
   const displayRows = state.opportunityCycleView === "history"
     ? historyRows
-    : (isClosedView ? filteredClosedRows : filteredActiveRows);
+    : (isClosedView ? closedRowsByResult : filteredActiveRows);
   const visibleTotal = displayRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
     isClosedView ? visibleTotal : filteredActiveRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0)
@@ -7195,10 +7204,17 @@ function renderCommercialSubmenu(area) {
             <input type="date" data-opportunity-closed-to value="${state.opportunityClosedDateTo}">
           </label>
           <button class="ghost-btn compact-btn" type="button" data-opportunity-closed-reset>Desde 1 de julio</button>
-          <span class="opportunity-closed-summary">
-            <small>${filteredClosedRows.length} ${filteredClosedRows.length === 1 ? "oportunidad cerrada" : "oportunidades cerradas"}</small>
-            <strong>${formatMoney(visibleTotal)}</strong>
-          </span>
+          <div class="opportunity-closed-result-switch" role="group" aria-label="Resultado de oportunidades cerradas">
+            <button type="button" data-closed-result-filter="all" class="${state.opportunityClosedResultFilter === "all" ? "active" : ""}">
+              <span>Total</span><b>${filteredClosedRows.length}</b><strong>${formatMoney(closedTotalAmount)}</strong>
+            </button>
+            <button type="button" data-closed-result-filter="won" class="won ${state.opportunityClosedResultFilter === "won" ? "active" : ""}">
+              <span>Ganadas</span><b>${wonClosedRows.length}</b><strong>${formatMoney(wonClosedAmount)}</strong>
+            </button>
+            <button type="button" data-closed-result-filter="lost" class="lost ${state.opportunityClosedResultFilter === "lost" ? "active" : ""}">
+              <span>Perdidas</span><b>${lostClosedRows.length}</b><strong>${formatMoney(lostClosedAmount)}</strong>
+            </button>
+          </div>
         </div>
       ` : `
         <p class="opportunity-cycle-note">Solo se contabilizan oportunidades que continúan en venta.</p>
@@ -9602,6 +9618,14 @@ opportunityTable.addEventListener("click", (event) => {
   const cycleButton = event.target.closest("[data-cycle-view]");
   if (cycleButton) {
     state.opportunityCycleView = cycleButton.dataset.cycleView;
+    state.opportunityPage = 1;
+    renderCommercialSubmenu(areas[state.activeArea]);
+    return;
+  }
+
+  const closedResultButton = event.target.closest("[data-closed-result-filter]");
+  if (closedResultButton) {
+    state.opportunityClosedResultFilter = closedResultButton.dataset.closedResultFilter;
     state.opportunityPage = 1;
     renderCommercialSubmenu(areas[state.activeArea]);
     return;
