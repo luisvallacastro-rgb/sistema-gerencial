@@ -80,7 +80,7 @@ function renderProforma(order) {
   document.querySelector("#proformaRoot").innerHTML = `
     <header class="top">
       <div class="brand-panel">
-        <img src="assets/proforma-konfi-arte-color.png" alt="Konfi y Arte y Color">
+        <img src="assets/proforma-konfi-arte-color-transparent.png?v=20260803-transparent-v2" alt="Konfi y Arte y Color">
         <time>${printValue(printDate(order.date))}</time>
       </div>
       <div class="order-panel">
