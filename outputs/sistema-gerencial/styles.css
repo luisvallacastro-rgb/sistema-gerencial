@@ -5465,6 +5465,23 @@ dialog[open]::backdrop { animation: system-backdrop-in 300ms ease both; backdrop
   resize: vertical;
 }
 
+.control-sales-proforma-grid input:-webkit-autofill,
+.control-sales-proforma-grid input:-webkit-autofill:hover,
+.control-sales-proforma-grid input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f5fbff;
+  caret-color: #f5fbff;
+  -webkit-box-shadow: 0 0 0 1000px #203a5a inset;
+  box-shadow: 0 0 0 1000px #203a5a inset;
+  border-color: #49647f;
+  transition: background-color 9999s ease-out 0s;
+}
+
+#controlSalesRegistrationNumber {
+  color-scheme: dark;
+  background: #203a5a !important;
+  color: #f5fbff !important;
+}
+
 .control-sales-proforma-grid input:focus,
 .control-sales-proforma-grid select:focus,
 .control-sales-proforma-grid textarea:focus {
