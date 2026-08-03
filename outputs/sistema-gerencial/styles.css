@@ -17423,3 +17423,120 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   line-height: 1.05 !important;
   letter-spacing: -.025em;
 }
+
+/* Oportunidades / Gerencia: ciclo activo y cierres históricos */
+.app-shell .opportunity-cycle-toolbar {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(113, 227, 206, .22);
+  border-radius: 18px;
+  background: rgba(7, 27, 52, .42);
+}
+
+.app-shell .opportunity-cycle-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-shell .opportunity-cycle-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 17px;
+  border: 1px solid rgba(139, 166, 207, .28);
+  border-radius: 13px;
+  color: var(--muted);
+  background: rgba(20, 45, 79, .72);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.app-shell .opportunity-cycle-tabs button b {
+  min-width: 25px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #dce8ff;
+  background: rgba(101, 136, 190, .28);
+  text-align: center;
+}
+
+.app-shell .opportunity-cycle-tabs button.active {
+  color: #eafff9;
+  border-color: rgba(102, 235, 206, .64);
+  background: linear-gradient(135deg, rgba(32, 151, 130, .66), rgba(25, 94, 120, .62));
+  box-shadow: 0 10px 28px rgba(20, 150, 127, .16);
+}
+
+.app-shell .opportunity-cycle-tabs button.active.closed {
+  border-color: rgba(116, 164, 255, .66);
+  background: linear-gradient(135deg, rgba(63, 76, 157, .76), rgba(30, 92, 139, .66));
+}
+
+.app-shell .opportunity-cycle-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: .84rem;
+}
+
+.app-shell .opportunity-closed-filters {
+  display: grid;
+  grid-template-columns: minmax(170px, 220px) minmax(170px, 220px) auto 1fr;
+  align-items: end;
+  gap: 10px;
+}
+
+.app-shell .opportunity-closed-filters label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: .76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.app-shell .opportunity-closed-filters input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(132, 167, 214, .36);
+  border-radius: 12px;
+  color: var(--text);
+  background: rgba(31, 58, 93, .78);
+  font: inherit;
+  font-weight: 750;
+}
+
+.app-shell .opportunity-closed-summary {
+  display: grid;
+  justify-items: end;
+  align-self: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.app-shell .opportunity-closed-summary small {
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.app-shell .opportunity-closed-summary strong {
+  color: var(--accent);
+  font-size: 1.25rem;
+}
+
+@media (max-width: 980px) {
+  .app-shell .opportunity-closed-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .app-shell .opportunity-closed-summary {
+    justify-items: start;
+    margin-left: 0;
+  }
+}

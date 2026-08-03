@@ -259,6 +259,8 @@ const state = {
   opportunityCycleView: "active",
   opportunityPage: 1,
   opportunitySearch: "",
+  opportunityClosedDateFrom: "2026-07-01",
+  opportunityClosedDateTo: todayISO(),
   opportunityFormContext: "results",
   kpiView: "dashboard",
   kpiSeller: "all",
@@ -7095,7 +7097,9 @@ function renderCommercialSubmenu(area) {
   }
 
   const resultView = resultViews[submenu.key] || "active";
-  state.opportunityCycleView = resultView;
+  state.opportunityCycleView = resultView === "active"
+    ? (["active", "closed"].includes(state.opportunityCycleView) ? state.opportunityCycleView : "active")
+    : resultView;
   commercialSubmenuTitle.classList.toggle("hidden", resultView === "active");
   commercialPanel.classList.toggle("opportunity-mode", resultView === "active");
   opportunityTotalAmount.classList.toggle("hidden", resultView !== "active");
@@ -7125,9 +7129,32 @@ function renderCommercialSubmenu(area) {
         result?.result
       ].some((value) => searchTokenMatches(value, searchQuery)))
     : activeRows;
-  const displayRows = state.opportunityCycleView === "history" ? historyRows : filteredActiveRows;
+  const filteredClosedRows = historyRows.filter(({ item, result }) => {
+    const closedDate = result?.date || item.date || "";
+    const matchesDate = (!state.opportunityClosedDateFrom || closedDate >= state.opportunityClosedDateFrom)
+      && (!state.opportunityClosedDateTo || closedDate <= state.opportunityClosedDateTo);
+    const matchesSearch = !searchQuery || [
+      closedDate,
+      formatDate(closedDate),
+      item.company,
+      item.seller,
+      item.stage,
+      item.probability,
+      probabilityLabel(item.probability),
+      item.amount,
+      formatMoney(item.amount),
+      result?.result,
+      result?.comment
+    ].some((value) => searchTokenMatches(value, searchQuery));
+    return matchesDate && matchesSearch;
+  });
+  const isClosedView = state.opportunityCycleView === "closed";
+  const displayRows = state.opportunityCycleView === "history"
+    ? historyRows
+    : (isClosedView ? filteredClosedRows : filteredActiveRows);
+  const visibleTotal = displayRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
-    filteredActiveRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0)
+    isClosedView ? visibleTotal : filteredActiveRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0)
   );
   const pageCount = Math.max(1, Math.ceil(displayRows.length / opportunityManagementPageSize));
   state.opportunityPage = Math.min(Math.max(Number(state.opportunityPage) || 1, 1), pageCount);
@@ -7147,6 +7174,35 @@ function renderCommercialSubmenu(area) {
 
   opportunityTable.innerHTML = `
     ${resultView === "dashboard" ? renderCycleDashboard(opportunitySubmenu.items) : resultView === "history" ? renderHistoryList(historyRows) : `
+    <section class="opportunity-cycle-toolbar" aria-label="Vista de oportunidades">
+      <div class="opportunity-cycle-tabs" role="tablist" aria-label="Estado del ciclo comercial">
+        <button class="${isClosedView ? "" : "active"}" type="button" role="tab" data-cycle-view="active" aria-selected="${!isClosedView}">
+          En venta <b>${filteredActiveRows.length}</b>
+        </button>
+        <button class="${isClosedView ? "active closed" : ""}" type="button" role="tab" data-cycle-view="closed" aria-selected="${isClosedView}">
+          Cerradas <b>${filteredClosedRows.length}</b>
+        </button>
+      </div>
+      ${isClosedView ? `
+        <div class="opportunity-closed-filters">
+          <label>
+            <span>Desde</span>
+            <input type="date" data-opportunity-closed-from value="${state.opportunityClosedDateFrom}">
+          </label>
+          <label>
+            <span>Hasta</span>
+            <input type="date" data-opportunity-closed-to value="${state.opportunityClosedDateTo}">
+          </label>
+          <button class="ghost-btn compact-btn" type="button" data-opportunity-closed-reset>Desde 1 de julio</button>
+          <span class="opportunity-closed-summary">
+            <small>${filteredClosedRows.length} ${filteredClosedRows.length === 1 ? "oportunidad cerrada" : "oportunidades cerradas"}</small>
+            <strong>${formatMoney(visibleTotal)}</strong>
+          </span>
+        </div>
+      ` : `
+        <p class="opportunity-cycle-note">Solo se contabilizan oportunidades que continúan en venta.</p>
+      `}
+    </section>
     <div class="opportunity-row opportunity-header">
       <strong>Fecha</strong>
       <strong>Empresa</strong>
@@ -7196,7 +7252,7 @@ function renderCommercialSubmenu(area) {
         </div>
       `).join("") : `
         <div class="empty-state">
-          No hay oportunidades vigentes para este periodo.
+          ${isClosedView ? "No hay oportunidades cerradas dentro del rango seleccionado." : "No hay oportunidades vigentes para este periodo."}
         </div>
       `}
     </div>
@@ -9550,6 +9606,15 @@ opportunityTable.addEventListener("click", (event) => {
     return;
   }
 
+  const closedResetButton = event.target.closest("[data-opportunity-closed-reset]");
+  if (closedResetButton) {
+    state.opportunityClosedDateFrom = "2026-07-01";
+    state.opportunityClosedDateTo = todayISO();
+    state.opportunityPage = 1;
+    renderCommercialSubmenu(areas[state.activeArea]);
+    return;
+  }
+
   const pageButton = event.target.closest("[data-opportunity-page]");
   if (pageButton) {
     state.opportunityPage += pageButton.dataset.opportunityPage === "next" ? 1 : -1;
@@ -9628,6 +9693,18 @@ opportunityTable.addEventListener("click", (event) => {
   opportunityDialogTitle.textContent = "Editar oportunidad";
   saveOpportunityBtn.textContent = "Actualizar oportunidad";
   opportunityDialog.showModal();
+});
+
+opportunityTable.addEventListener("change", (event) => {
+  if (event.target.matches("[data-opportunity-closed-from]")) {
+    state.opportunityClosedDateFrom = event.target.value;
+  } else if (event.target.matches("[data-opportunity-closed-to]")) {
+    state.opportunityClosedDateTo = event.target.value;
+  } else {
+    return;
+  }
+  state.opportunityPage = 1;
+  renderCommercialSubmenu(areas[state.activeArea]);
 });
 
 opportunityDashboard.addEventListener("click", (event) => {

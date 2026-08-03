@@ -15,6 +15,39 @@
     linear-gradient(145deg, #f8fafc 0%, #edf2f8 48%, #f7f9fc 100%) !important;
   color: var(--light-ink) !important;
 }
+
+/* Oportunidades cerradas */
+.app-shell.theme-light .opportunity-cycle-toolbar {
+  border-color: rgba(61, 93, 139, .22) !important;
+  background: rgba(241, 246, 253, .94) !important;
+}
+
+.app-shell.theme-light .opportunity-cycle-tabs button {
+  color: #516178 !important;
+  border-color: rgba(68, 95, 135, .24) !important;
+  background: #e8eef7 !important;
+}
+
+.app-shell.theme-light .opportunity-cycle-tabs button.active {
+  color: #fff !important;
+  border-color: #188d78 !important;
+  background: linear-gradient(135deg, #1f9d86, #287a91) !important;
+}
+
+.app-shell.theme-light .opportunity-cycle-tabs button.active.closed {
+  border-color: #5369c7 !important;
+  background: linear-gradient(135deg, #5d55bf, #3175a8) !important;
+}
+
+.app-shell.theme-light .opportunity-closed-filters input {
+  color: #17253b !important;
+  border-color: rgba(61, 88, 127, .3) !important;
+  background: #fff !important;
+}
+
+.app-shell.theme-light .opportunity-closed-summary strong {
+  color: #087e69 !important;
+}
 .app-shell::before,
 .app-shell::after,
 .app-shell .nav-item::after,
