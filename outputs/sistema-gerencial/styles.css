@@ -4714,7 +4714,16 @@ button:disabled {
   background: rgba(2, 14, 31, .2) !important;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.045) !important;
 }
-#managementDialog .management-section.entry { background: linear-gradient(135deg, rgba(44, 170, 139, .08), transparent 48%), rgba(2, 14, 31, .22) !important; }
+#managementDialog .management-section.entry {
+  position: relative;
+  border: 1px solid rgba(83, 224, 190, .28) !important;
+  background: linear-gradient(135deg, rgba(44, 170, 139, .14), transparent 52%), rgba(2, 14, 31, .34) !important;
+  box-shadow: inset 4px 0 0 rgba(94, 239, 207, .72), 0 14px 34px rgba(0, 8, 24, .14) !important;
+}
+#managementDialog .management-section.entry .management-section-head {
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(103, 230, 201, .14);
+}
 #managementDialog .management-table { gap: 7px !important; }
 #managementDialog .management-row {
   min-height: 66px !important; padding: 9px 11px !important;
@@ -4799,6 +4808,29 @@ button:disabled {
 #managementDialog select:focus,
 #managementDialog textarea:focus { outline: 0 !important; background: linear-gradient(135deg, rgba(71, 151, 255, .18), rgba(44, 178, 149, .1)), rgba(255,255,255,.07) !important; box-shadow: inset 3px 0 0 #72f5d1, 0 10px 24px rgba(2, 9, 24, .12) !important; transform: translateY(-1px); }
 #managementDialog textarea { min-height: 76px !important; }
+#managementDialog .management-section.entry .management-comment {
+  margin-top: 2px;
+  padding: 11px;
+  border: 1px solid rgba(107, 139, 185, .18);
+  border-radius: 15px;
+  background: rgba(12, 30, 54, .46);
+}
+#managementDialog #managementComment {
+  min-height: 98px !important;
+  color: #f7fbff !important;
+  caret-color: #72f5d1;
+  background: linear-gradient(135deg, rgba(72, 105, 151, .34), rgba(31, 58, 91, .34)), rgba(16, 36, 64, .9) !important;
+  box-shadow: inset 0 0 0 1px rgba(144, 173, 211, .18), inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+#managementDialog #managementComment::placeholder {
+  color: rgba(213, 226, 243, .58) !important;
+  opacity: 1;
+  font-weight: 700;
+}
+#managementDialog #managementComment:focus {
+  background: linear-gradient(135deg, rgba(53, 126, 163, .34), rgba(31, 94, 87, .27)), rgba(16, 36, 64, .94) !important;
+  box-shadow: inset 4px 0 0 #72f5d1, inset 0 0 0 1px rgba(114,245,209,.35), 0 12px 28px rgba(2,9,24,.18) !important;
+}
 
 #managementDialog > .management-card > menu { gap: 8px; margin: 0; padding: 10px 0 0; border: 0 !important; background: linear-gradient(180deg, transparent, rgba(5,16,33,.4)) !important; }
 #managementDialog > .management-card > menu button { min-height: 40px; border: 0 !important; border-radius: 12px !important; padding: 0 17px; }
