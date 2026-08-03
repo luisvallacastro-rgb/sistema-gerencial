@@ -698,6 +698,128 @@ def repair_missing_result_migrations(conn):
     return repaired
 
 
+def repair_converted_result_opportunities(conn):
+    """Keep converted quotations visible as won opportunities in Gerencia.
+
+    A quotation can only be converted after its opportunity was closed as won.
+    Therefore the converted quotation and order are authoritative recovery
+    sources when the JSON opportunity row, or its closing management, was lost
+    during an earlier client-side save.
+    """
+    crm_row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
+    try:
+        crm_data = json.loads(crm_row["value"] or "{}") if crm_row else {}
+    except (json.JSONDecodeError, TypeError):
+        crm_data = {}
+    if not isinstance(crm_data, dict):
+        crm_data = {}
+
+    result_items = read_result_opportunities(conn)
+    quotation_rows = conn.execute("""
+        SELECT * FROM quotations
+        WHERE converted_order_id <> ''
+        ORDER BY datetime(converted_at), rowid
+    """).fetchall()
+    changed = False
+    repaired = 0
+
+    for row in quotation_rows:
+        quotation = quotation_payload(row)
+        quotation_id = text(quotation.get("id"))
+        crm_id = text(row["opportunity_id"])
+        result = next((
+            item for item in result_items
+            if text(item.get("quotationId")) == quotation_id
+        ), None)
+
+        if not result:
+            crm_opportunity = next((
+                item for item in crm_data.get("opportunities", [])
+                if text(item.get("id")) == crm_id
+            ), None)
+            if crm_opportunity:
+                result = result_opportunity_from_crm(crm_data, crm_opportunity, quotation)
+            else:
+                sibling = next((
+                    item for item in result_items
+                    if text(item.get("crmOpportunityId")) == crm_id
+                ), None)
+                if not sibling:
+                    continue
+                result = {
+                    **sibling,
+                    "id": f"result-{crm_id}-{quotation_id}",
+                    "managements": [],
+                }
+            result_items.insert(0, result)
+            repaired += 1
+            changed = True
+
+        linked_values = {
+            "company": text(quotation.get("client"), result.get("company")),
+            "seller": text(quotation.get("seller"), result.get("seller")),
+            "amount": round(int(quotation.get("totalCents") or 0) / 100, 2),
+            "quotationId": quotation_id,
+            "quotationNumber": text(quotation.get("number")),
+            "quotationStatus": text(quotation.get("status")),
+            "quotationData": quotation,
+        }
+        for key, value in linked_values.items():
+            if result.get(key) != value:
+                result[key] = value
+                changed = True
+
+        managements = result.get("managements") if isinstance(result.get("managements"), list) else []
+        closure = next((
+            management for management in reversed(managements)
+            if not management.get("canceled")
+            and text(management.get("stage")).lower() in {"cierre", "cierre de ventas"}
+            and text(management.get("result")).lower() == "ganado"
+        ), None)
+        converted_at = text(quotation.get("convertedAt"), time.strftime("%Y-%m-%dT%H:%M:%S"))
+        normalized_converted_at = converted_at.replace(" ", "T")
+        closed_date = normalized_converted_at.split("T", 1)[0]
+        closed_time = normalized_converted_at.split("T", 1)[1][:5] if "T" in normalized_converted_at else ""
+        if not closure:
+            closure = {
+                "id": f"recovered-win-{quotation_id}",
+                "date": closed_date,
+                "time": closed_time,
+                "stage": "Cierre de ventas",
+                "result": "ganado",
+                "comment": "Cierre ganado conciliado desde la cotizacion convertida a pedido.",
+                "recovered": True,
+            }
+            managements.append(closure)
+            result["managements"] = managements
+            repaired += 1
+            changed = True
+
+        recovery_values = {
+            "stage": "Cierre de ventas",
+            "trackingWin": {
+                "managementId": text(closure.get("id")),
+                "closedDate": text(closure.get("date"), closed_date),
+                "closedTime": text(closure.get("time"), closed_time),
+                "createdAt": normalized_converted_at,
+            },
+            "orderHandoff": {
+                "status": "converted",
+                "orderId": text(quotation.get("convertedOrderId")),
+                "quotationId": quotation_id,
+                "convertedAt": normalized_converted_at,
+            },
+        }
+        for key, value in recovery_values.items():
+            if result.get(key) != value:
+                result[key] = value
+                changed = True
+
+    if changed:
+        write_result_opportunities(conn, result_items)
+    return repaired
+
+
 def upsert_crm_agenda(data, opportunity, payload):
     has_agenda = any(payload.get(key) for key in ["agendaDate", "agendaTime", "agendaType", "agendaPlace"])
     existing = next((item for item in data.get("agenda", []) if item.get("opportunityId") == opportunity.get("id")), None)
@@ -2458,6 +2580,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path == "/api/opportunities":
             with connect() as conn:
                 repair_missing_result_migrations(conn)
+                repair_converted_result_opportunities(conn)
                 items = read_result_opportunities(conn)
             self.send_json(items)
             return
@@ -2816,6 +2939,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         updated_at = CURRENT_TIMESTAMP
                 """, (json.dumps(data, ensure_ascii=True),))
                 repair_missing_result_migrations(conn)
+                repair_converted_result_opportunities(conn)
                 reconciled = read_result_opportunities(conn)
             self.send_json({"ok": True, "items": reconciled})
             return
