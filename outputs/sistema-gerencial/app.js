@@ -3854,7 +3854,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
     document.querySelector("#controlSalesCommercialName").value = sourceWin.company || "";
   }
   document.querySelector("#controlSalesOrderStatus").value = order?.status === "Histórica" ? "Activa" : (order?.status || "Activa");
-  const documentType = sourceQuotation ? "CCF" : (order?.documentType === "CCF" ? "CCF" : "CF");
+  const documentType = order?.documentType === "CCF" ? "CCF" : "CF";
   document.querySelector(`input[name="controlSalesDocumentType"][value="${documentType}"]`).checked = true;
   const initialDetails = order?.details?.length
     ? order.details
