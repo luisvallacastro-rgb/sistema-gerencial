@@ -2806,6 +2806,14 @@ function ensureControlSalesDialogs() {
     <dialog id="controlSalesDetailDialog" class="wide-dialog control-sales-detail-dialog"><section id="controlSalesDetailContent"></section></dialog>`);
   const formDialog = document.querySelector("#controlSalesDialog");
   const form = document.querySelector("#controlSalesForm");
+  formDialog.addEventListener("close", () => {
+    const returnOpportunityId = formDialog.dataset.returnToManagementOpportunityId;
+    if (!returnOpportunityId) return;
+    delete formDialog.dataset.returnToManagementOpportunityId;
+    if (!managementDialog.open || managementOpportunityId.value !== returnOpportunityId) return;
+    const managementItem = currentManagementItem();
+    if (managementItem) renderManagementQuotations(managementItem);
+  });
   formDialog.addEventListener("click", (event) => {
     if (event.target.matches("[data-control-sales-close]")) formDialog.close();
     if (event.target.matches("[data-control-sales-add-line]")) {
@@ -9814,13 +9822,27 @@ function linkedManagementQuotations(item) {
 function renderManagementQuotations(item) {
   const quotations = linkedManagementQuotations(item);
   managementQuotationCount.textContent = String(quotations.length);
-  managementQuotationList.innerHTML = quotations.length ? quotations.map((quotation) => `
-    <button class="management-quotation-card" type="button" data-management-quotation-open="${escapeHtml(quotation.id)}" aria-label="Abrir cotización del ${escapeHtml(formatDate(quotation.date))}, estado ${escapeHtml(quotation.status || "Borrador")}">
-      <strong>Cotización</strong>
-      <span>${formatDate(quotation.date)} · ${formatControlSalesMoney(quotation.totalCents || 0)}</span>
-      <em class="management-quotation-status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</em>
-    </button>
-  `).join("") : `<p class="management-quotation-empty">No hay cotizaciones vinculadas a esta oportunidad.</p>`;
+  const linkedOrder = (quotation) => state.controlSales.find((order) => (
+    String(order.id || "") === String(quotation.convertedOrderId || "")
+    || String(order.sourceQuotationId || "") === String(quotation.id || "")
+  ));
+  managementQuotationList.innerHTML = quotations.length ? quotations.map((quotation) => {
+    const order = linkedOrder(quotation);
+    const quotationStatus = order ? "Convertida" : (quotation.status || "Borrador");
+    return `<article class="management-commercial-document${order ? " has-order" : ""}">
+      <button class="management-quotation-card" type="button" data-management-quotation-open="${escapeHtml(quotation.id)}" aria-label="Abrir cotización del ${escapeHtml(formatDate(quotation.date))}, estado ${escapeHtml(quotationStatus)}">
+        <strong>Cotización</strong>
+        <span>${formatDate(quotation.date)} · ${formatControlSalesMoney(quotation.totalCents || 0)}</span>
+        <em class="management-quotation-status" data-status="${normalizeKey(quotationStatus)}">${escapeHtml(quotationStatus)}</em>
+      </button>
+      ${order ? `<button class="management-order-card" type="button" data-management-order-open="${escapeHtml(order.id)}" aria-label="Abrir orden de pedido número ${escapeHtml(order.number || "")}">
+        <small>Convertida en</small>
+        <strong>Orden de pedido #${escapeHtml(order.number || "—")}</strong>
+        <span>${formatDate(order.date)} · ${formatControlSalesMoney(order.totalCents || quotation.totalCents || 0)}</span>
+        <em data-status="${normalizeKey(order.archived ? "Anulada" : (order.status || "Activa"))}">${escapeHtml(order.archived ? "Anulada" : (order.status || "Activa"))} · ${escapeHtml(order.documentType || "CF")}</em>
+      </button>` : ""}
+    </article>`;
+  }).join("") : `<p class="management-quotation-empty">No hay cotizaciones vinculadas a esta oportunidad.</p>`;
   managementQuotationList.querySelectorAll("[data-management-quotation-open]").forEach((button) => {
     button.addEventListener("click", async () => {
       const quotation = quotations.find((record) => String(record.id) === String(button.dataset.managementQuotationOpen));
@@ -9838,6 +9860,16 @@ function renderManagementQuotations(item) {
       }
     });
   });
+  managementQuotationList.querySelectorAll("[data-management-order-open]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const order = state.controlSales.find((record) => String(record.id) === String(button.dataset.managementOrderOpen));
+      if (!order) return;
+      ensureControlSalesDialogs();
+      const orderDialog = document.querySelector("#controlSalesDialog");
+      orderDialog.dataset.returnToManagementOpportunityId = String(item.id || "");
+      openControlSalesForm(order, null, item, true);
+    });
+  });
 }
 
 async function openManagementDialog(item) {
@@ -9851,7 +9883,7 @@ async function openManagementDialog(item) {
   renderManagementQuotations(item);
   setSampleCustodyMode(false);
   managementDialog.showModal();
-  await loadQuotations();
+  await Promise.all([loadQuotations(), loadControlSales()]);
   if (managementDialog.open && managementOpportunityId.value === String(item.id)) {
     renderManagementQuotations(item);
     updateClosureControls();
