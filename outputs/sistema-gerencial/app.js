@@ -2869,6 +2869,27 @@ function ensureControlSalesDialogs() {
       submit.textContent = "Guardar cambios";
       await loadControlSales();
       await loadQuotations();
+      if (savedOrder.sourceOpportunityId) {
+        const sourceOpportunity = getOpportunitySubmenu().items.find((item) => (
+          [item.id, item.crmOpportunityId, item.sourceOpportunityId]
+            .map((value) => String(value || ""))
+            .includes(String(savedOrder.sourceOpportunityId))
+        ));
+        if (sourceOpportunity) {
+          sourceOpportunity.orderHandoff = {
+            ...(sourceOpportunity.orderHandoff || {}),
+            status: "converted",
+            orderId: savedOrder.id,
+            quotationId: savedOrder.sourceQuotationId || "",
+            convertedAt: new Date().toISOString()
+          };
+          saveOpportunities();
+          if (managementDialog.open && managementOpportunityId.value === String(sourceOpportunity.id)) {
+            renderManagementQuotations(sourceOpportunity);
+            updateClosureControls();
+          }
+        }
+      }
       if (formDialog.dataset.orderFormatOnly === "true" && state.activeSubmenu === "crm-seguimiento") {
         renderCommercialSubmenu(areas.comercializacion);
       }
@@ -9731,6 +9752,7 @@ async function openManagementDialog(item) {
   await loadQuotations();
   if (managementDialog.open && managementOpportunityId.value === String(item.id)) {
     renderManagementQuotations(item);
+    updateClosureControls();
   }
 }
 
@@ -9918,13 +9940,18 @@ function updateClosureControls() {
   const isWon = managementResult.value === "ganado";
   const item = currentManagementItem();
   const hasWonClosure = closureResult(item || {})?.result === "ganado";
-  const hasNotification = Boolean(item?.managements?.some((management) => management.notified));
+  const quotation = linkedManagementQuotations(item)[0];
+  const convertedOrderId = quotation?.convertedOrderId || item?.orderHandoff?.orderId || "";
   managementResultField.classList.toggle("hidden", !isClosing);
   managementResult.classList.toggle("result-won", isWon);
   managementResult.classList.toggle("result-lost", !isWon);
   notifyOperationsBtn.classList.toggle("hidden", !hasWonClosure);
-  notifyOperationsBtn.textContent = hasNotification ? "Notificado" : "Notificar";
-  notifyOperationsBtn.disabled = hasNotification;
+  notifyOperationsBtn.textContent = convertedOrderId
+    ? "Orden de pedido creada"
+    : quotation
+      ? "Convertir en orden de pedido"
+      : "Sin cotización para convertir";
+  notifyOperationsBtn.disabled = Boolean(convertedOrderId) || !quotation;
 }
 
 opportunityForm.addEventListener("submit", (event) => {
@@ -10122,41 +10149,36 @@ saveSampleCustody.addEventListener("click", () => {
   resetSampleCustodyForm();
 });
 
-notifyOperationsBtn.addEventListener("click", () => {
-  const submenu = getOpportunitySubmenu();
-  const item = submenu.items.find((record) => record.id === managementOpportunityId.value);
+notifyOperationsBtn.addEventListener("click", async () => {
+  const item = currentManagementItem();
   if (!item || closureResult(item)?.result !== "ganado") return;
-  if (item.managements?.some((management) => management.notified)) return;
 
-  areas.operaciones.requests.unshift([
-    `Oportunidad ganada: ${item.company}`,
-    "Comercializacion",
-    "Alta",
-    "Pendiente"
-  ]);
-  item.managements = normalizeManagements(item);
-  item.managements.push({
-    id: crypto.randomUUID(),
-    date: managementDate.value || new Date().toISOString().slice(0, 10),
-    time: currentTimeValue(),
-    stage: closureStage,
-    result: "",
-    comment: "Notificacion enviada a gerencia de operaciones.",
-    notified: true
-  });
-  item.stage = closureStage;
-  saveOpportunities();
-  renderManagements(item);
-  renderCommercialSubmenu(areas.comercializacion);
-  notifyOperationsBtn.textContent = "Notificado";
   notifyOperationsBtn.disabled = true;
+  notifyOperationsBtn.textContent = "Preparando orden...";
+  try {
+    await Promise.all([loadQuotations(), loadControlSales()]);
+    const quotation = linkedManagementQuotations(item)[0];
+    if (!quotation) {
+      alert("Esta oportunidad no tiene una cotización vinculada para convertir.");
+      return;
+    }
+    if (quotation.convertedOrderId) {
+      alert("Esta cotización ya fue convertida en una orden de pedido.");
+      return;
+    }
+    openControlSalesForm(null, null, item, true, quotation);
+  } catch (error) {
+    alert("No fue posible preparar la orden de pedido. Verifica la conexión e inténtalo nuevamente.");
+  } finally {
+    updateClosureControls();
+  }
 });
 
 function closeManagementForm() {
   managementDialog.close();
   managementForm.reset();
   managementEditId.value = "";
-  notifyOperationsBtn.textContent = "Notificar";
+  notifyOperationsBtn.textContent = "Convertir en orden de pedido";
   notifyOperationsBtn.disabled = false;
   updateClosureControls();
 }
