@@ -3910,7 +3910,7 @@ function printControlSalesProformaInline(order) {
   const subtotalCents = Number(order.subtotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0), 0));
   const vatCents = Number(order.vatTotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.vatCents || 0), 0));
   const perceptionCents = Number(order.perceptionCents ?? Math.max(0, Number(order.totalCents || 0) - subtotalCents - vatCents));
-  const brandUrl = new URL("assets/proforma-konfi-arte-color.png", window.location.href).href;
+  const brandUrl = new URL("assets/proforma-konfi-arte-color-transparent.png", window.location.href).href;
   const value = (content) => escapeHtml(String(content || "")) || "&nbsp;";
   const rawOrderNumber = String(order.number || "BORRADOR").trim();
   const printableOrderNumber = /^\d+$/.test(rawOrderNumber)
