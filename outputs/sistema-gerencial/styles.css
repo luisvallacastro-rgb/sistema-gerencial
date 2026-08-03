@@ -16367,22 +16367,51 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 }
 
 .app-shell #quotationDialog .quotation-variation[data-variation="positive"] strong {
-  color: #69e7c4;
+  color: #f1c75b;
 }
 
 .app-shell #quotationDialog .quotation-variation[data-variation="negative"] strong {
-  color: #ff91a8;
+  color: #f1c75b;
+}
+
+.app-shell #quotationDialog .quotation-totals-comparison > .quotation-variation {
+  padding: 13px 15px !important;
+  border: 1px solid rgba(226, 183, 75, .38) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, rgba(197, 145, 28, .13), rgba(112, 79, 19, .06)) !important;
+}
+
+.app-shell #quotationDialog .quotation-variation > span {
+  color: #d8bd7b !important;
+}
+
+.app-shell #quotationDialog .quotation-variation strong {
+  color: #f1c75b !important;
+  font-size: 1.18rem !important;
+}
+
+.app-shell #quotationDialog .quotation-variation[data-variation="negative"] strong {
+  color: #ff91a8 !important;
 }
 
 .app-shell #quotationDialog .quotation-grand-total {
-  background: rgba(29, 78, 75, .22) !important;
-  border: 1px solid rgba(91, 185, 164, .45) !important;
-  border-radius: 14px !important;
+  padding: 18px 19px !important;
+  background: linear-gradient(135deg, rgba(25, 116, 94, .3), rgba(37, 86, 99, .2)) !important;
+  border: 1px solid rgba(91, 218, 184, .65) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 14px 32px rgba(1, 12, 29, .18), inset 0 0 0 1px rgba(103, 227, 194, .08) !important;
+}
+
+.app-shell #quotationDialog .quotation-grand-total > span {
+  color: #b7dcd2 !important;
+  font-size: .8rem !important;
 }
 
 .app-shell #quotationDialog .quotation-grand-total strong {
-  color: #67d3bd !important;
-  font-size: 1.55rem;
+  color: #70ebcb !important;
+  font-size: clamp(1.85rem, 2.2vw, 2.25rem) !important;
+  line-height: 1.05;
+  letter-spacing: -.025em;
 }
 
 @media (max-width: 850px) {

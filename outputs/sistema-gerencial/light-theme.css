@@ -2064,6 +2064,46 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   border-radius: 14px !important;
 }
 
+.app-shell #quotationDialog .quotation-totals-comparison > .quotation-variation {
+  background: #fff8df !important;
+  border: 1px solid #e4c76f !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+
+.app-shell #quotationDialog .quotation-variation > span {
+  color: #765515 !important;
+}
+
+.app-shell #quotationDialog .quotation-variation strong,
+.app-shell #quotationDialog .quotation-variation[data-variation="positive"] strong {
+  color: #986800 !important;
+}
+
+.app-shell #quotationDialog .quotation-variation[data-variation="negative"] strong {
+  color: #b4233d !important;
+}
+
+.app-shell #quotationDialog .quotation-variation small {
+  color: #6d6250 !important;
+}
+
+.app-shell #quotationDialog .quotation-totals-breakdown > .quotation-grand-total {
+  background: linear-gradient(135deg, #e6f7f0, #eef9f5) !important;
+  border: 1px solid #75bca5 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 28px rgba(27, 103, 80, .1) !important;
+}
+
+.app-shell #quotationDialog .quotation-grand-total > span {
+  color: #416c61 !important;
+}
+
+.app-shell #quotationDialog .quotation-grand-total strong {
+  color: #087459 !important;
+  font-size: clamp(1.85rem, 2.2vw, 2.25rem) !important;
+}
+
 .app-shell #quotationDialog .quotation-field-secondary textarea,
 .app-shell #quotationDialog .quotation-field-secondary input {
   background: #f7f9fc !important;
