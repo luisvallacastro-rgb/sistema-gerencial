@@ -4249,8 +4249,38 @@ function saveFinancialOrderFilters() {
   }));
 }
 
+function approvedControlSalesFinancialRows() {
+  const persistedIds = new Set(state.financialOrders.map((order) => String(order.id)));
+  return state.controlSales
+    .filter((order) => !order.archived && order.financeApprovalStatus === "Aprobada")
+    .filter((order) => !order.financialOrderId || !persistedIds.has(String(order.financialOrderId)))
+    .map((order) => {
+      const date = String(order.date || order.financeApprovedAt || order.updatedAt || todayISO()).slice(0, 10);
+      const [year, monthNumber] = date.split("-").map(Number);
+      return {
+        id: `approved-control:${order.id}`,
+        controlSalesOrderId: order.id,
+        approvedControlSales: true,
+        number: formatOrderCorrelative(order.number),
+        date,
+        year: Number.isFinite(year) ? year : new Date().getFullYear(),
+        month: monthLabel(monthNumber),
+        seller: order.seller || "Sin vendedor",
+        client: order.client || "Sin cliente",
+        sale: Number(order.totalCents || 0) / 100,
+        conditions: order.proformaData?.paymentCondition || "",
+        createdAt: order.createdAt || date,
+        updatedAt: order.financeApprovedAt || order.updatedAt || date
+      };
+    });
+}
+
+function financialOrderLedgerRows() {
+  return [...approvedControlSalesFinancialRows(), ...state.financialOrders];
+}
+
 function financialOrdersForSelectedPeriod() {
-  return state.financialOrders.filter((order) => {
+  return financialOrderLedgerRows().filter((order) => {
     if (state.financialOrderYearFilter !== "all" && String(order.year) !== state.financialOrderYearFilter) return false;
     if (state.financialOrderMonthFilter !== "all" && String(order.month) !== state.financialOrderMonthFilter) return false;
     return true;
@@ -4267,7 +4297,7 @@ function renderFinancialOrderTopbarFilters(isVisible) {
   financialOrdersTopbarFilters?.classList.toggle("hidden", !isVisible);
   financialOrdersTopbarFilters?.closest(".topbar")?.classList.toggle("financial-orders-filter-mode", isVisible);
   if (!isVisible || !financialOrderYearFilter || !financialOrderMonthFilter) return;
-  const years = [...new Set(state.financialOrders.map((order) => String(order.year)).filter(Boolean))].sort((a, b) => Number(b) - Number(a));
+  const years = [...new Set(financialOrderLedgerRows().map((order) => String(order.year)).filter(Boolean))].sort((a, b) => Number(b) - Number(a));
   financialOrderYearFilter.innerHTML = `<option value="all">Todos</option>${years.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join("")}`;
   financialOrderMonthFilter.innerHTML = `<option value="all">Todos</option>${Array.from({ length: 12 }, (_, index) => monthLabel(index + 1)).map((month) => `<option value="${month}">${month}</option>`).join("")}`;
   if (!years.includes(state.financialOrderYearFilter)) state.financialOrderYearFilter = "all";
@@ -4331,7 +4361,10 @@ function renderFinancialOrderList() {
       <div class="financial-orders-table">
         <div class="financial-order-row header"><span>Fecha</span><span>#</span><span>Venta</span><span>Vendedor</span><span>Clientes</span><span>Acciones</span></div>
         ${pagedRows.map((order) => {
-          const linkedOrder = linkedControlSalesByFinancialOrderId.get(String(order.id));
+          const approvedControlOrder = order.approvedControlSales
+            ? state.controlSales.find((item) => item.id === order.controlSalesOrderId)
+            : null;
+          const linkedOrder = approvedControlOrder || linkedControlSalesByFinancialOrderId.get(String(order.id));
           const variance = Number(linkedOrder?.varianceCents || 0);
           return `
           <article class="financial-order-row">
@@ -4341,11 +4374,14 @@ function renderFinancialOrderList() {
             <span>${escapeHtml(order.seller)}</span>
             <span class="financial-order-client-cell">
               <span>${escapeHtml(order.client)}</span>
-              ${linkedOrder ? `<em class="financial-order-entered-badge">Ingresado</em>` : ""}
+              ${approvedControlOrder ? `<em class="financial-order-entered-badge">Aprobado · 2 firmas</em>` : linkedOrder ? `<em class="financial-order-entered-badge">Ingresado</em>` : ""}
               ${linkedOrder && variance !== 0 ? `<em class="financial-order-variance-badge" data-tone="${variance > 0 ? "over" : "under"}">Descuadre ${formatControlSalesMoney(variance)}</em>` : ""}
               ${linkedOrder && variance === 0 ? `<em class="financial-order-balanced-badge">Conciliado</em>` : ""}
             </span>
-            <span class="financial-order-actions"><button type="button" data-financial-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-financial-order-delete="${order.id}">Eliminar</button></span>
+            <span class="financial-order-actions">${approvedControlOrder
+              ? `<button type="button" data-finance-order-view="${escapeHtml(approvedControlOrder.id)}">Ver orden y firmas</button>`
+              : `<button type="button" data-financial-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-financial-order-delete="${order.id}">Eliminar</button>`}
+            </span>
           </article>
         `; }).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
       </div>
@@ -4530,7 +4566,8 @@ function renderFinancialSellerPortfolio(seller) {
 const financialComparisonPalette = ["#72f5d1", "#67a9ff", "#ffbd66", "#ff7895", "#b899ff", "#63d7ed"];
 
 function financialComparisonData() {
-  const availableYears = [...new Set(state.financialOrders.map((order) => String(order.year)).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+  const ledgerRows = financialOrderLedgerRows();
+  const availableYears = [...new Set(ledgerRows.map((order) => String(order.year)).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
   if (!Array.isArray(state.financialComparisonYears)) state.financialComparisonYears = availableYears.slice(-2);
   state.financialComparisonYears = state.financialComparisonYears.filter((year) => availableYears.includes(year));
   const months = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
@@ -4538,7 +4575,7 @@ function financialComparisonData() {
   const selectedMonths = months.filter((month) => state.financialComparisonMonths.includes(month));
   const series = state.financialComparisonYears.map((year) => ({
     year,
-    values: selectedMonths.map((month) => state.financialOrders
+    values: selectedMonths.map((month) => ledgerRows
       .filter((order) => String(order.year) === year && String(order.month) === month)
       .reduce((sum, order) => sum + Number(order.sale || 0), 0))
   }));
@@ -4616,7 +4653,14 @@ function wireFinancialOrders() {
   opportunityTable.querySelectorAll("[data-finance-order-approve]").forEach((button) => button.addEventListener("click", async () => {
     if (!confirm("¿Confirmas la firma electrónica financiera y el segundo visto bueno de esta orden de pedido?")) return;
     try {
-      await updateControlSalesApproval(button.dataset.financeOrderApprove, "finance", "Aprobada");
+      const approvedOrder = await updateControlSalesApproval(button.dataset.financeOrderApprove, "finance", "Aprobada");
+      const approvedDate = String(approvedOrder.date || approvedOrder.financeApprovedAt || todayISO()).slice(0, 10);
+      const [approvedYear, approvedMonth] = approvedDate.split("-").map(Number);
+      state.financialOrdersView = "list";
+      state.financialOrderYearFilter = Number.isFinite(approvedYear) ? String(approvedYear) : "all";
+      state.financialOrderMonthFilter = monthLabel(approvedMonth) || "all";
+      state.financialOrderPage = 1;
+      saveFinancialOrderFilters();
       renderCommercialSubmenu(areas.financiera);
     } catch (error) {
       alert(error.message || "No se pudo aprobar la orden.");
@@ -4636,7 +4680,7 @@ function wireFinancialOrders() {
     renderFinancialSellerPortfolio(button.dataset.financialSellerDetail);
   }));
   opportunityTable.querySelectorAll("[data-comparison-all]").forEach((button) => button.addEventListener("click", () => {
-    if (button.dataset.comparisonAll === "year") state.financialComparisonYears = [...new Set(state.financialOrders.map((order) => String(order.year)).filter(Boolean))];
+    if (button.dataset.comparisonAll === "year") state.financialComparisonYears = [...new Set(financialOrderLedgerRows().map((order) => String(order.year)).filter(Boolean))];
     else state.financialComparisonMonths = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
     saveFinancialOrderFilters();
     renderCommercialSubmenu(areas.financiera);
@@ -6859,7 +6903,7 @@ function renderCommercialSubmenu(area) {
     const visibleOrders = state.financialOrdersView === "list" ? filteredFinancialOrders().length : financialOrdersForSelectedPeriod().length;
     commercialSubmenuStatus.textContent = state.financialOrdersView === "notifications"
       ? `${pendingNotifications.length} pedidos pendientes del segundo visto bueno`
-      : `${visibleOrders} de ${state.financialOrders.length} pedidos`;
+      : `${visibleOrders} de ${financialOrderLedgerRows().length} pedidos`;
     opportunityTable.innerHTML = renderFinancialOrders();
     wireFinancialOrders();
     return;
