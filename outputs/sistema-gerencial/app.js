@@ -3180,6 +3180,25 @@ function commercialApprovalSignatureMarkup(order, compact = false) {
   </section>`;
 }
 
+function financeApprovalFolio(order) {
+  const orderNumber = String(formatOrderCorrelative(order?.number)).replace(/[^A-Z0-9]/gi, "");
+  const timestamp = String(order?.financeApprovedAt || order?.updatedAt || "").replace(/\D/g, "").slice(0, 14);
+  return `KMI-GF-${orderNumber}-${timestamp || "REGISTRADA"}`;
+}
+
+function financeApprovalSignatureMarkup(order, compact = false) {
+  if (order?.financeApprovalStatus !== "Aprobada") return "";
+  return `<section class="commercial-electronic-signature finance-electronic-signature${compact ? " is-compact" : ""}" aria-label="Firma electrónica de Gerencia Financiera">
+    <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
+    <div class="commercial-electronic-signature__copy">
+      <small>Segundo visto bueno · firma electrónica validada</small>
+      <strong>${escapeHtml(order.financeApprovedBy || "Gerencia Financiera")}</strong>
+      <span>${escapeHtml(formatCommercialApprovalDateTime(order.financeApprovedAt || order.updatedAt))}</span>
+    </div>
+    <code>${escapeHtml(financeApprovalFolio(order))}</code>
+  </section>`;
+}
+
 async function updateControlSalesApproval(orderId, stage, status, note = "") {
   const result = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}/${stage}-approval`, {
     method: "PATCH",
@@ -4005,7 +4024,10 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
   const warnings = [...(order.anomalies || []), ...order.details.flatMap((detail) => detail.reviewRequired ? [{ description: `Precio faltante en ${detail.product}; requiere revisión.` }] : (detail.anomalies || []))];
   document.querySelector("#controlSalesDetailContent").innerHTML = `<header><div><p class="eyebrow">Control de Ventas · ${escapeHtml(order.source)}</p><h3>Orden #${escapeHtml(order.number)}</h3><span>${escapeHtml(order.client)} · ${escapeHtml(order.seller)}</span></div><button type="button" data-control-sales-detail-close>×</button></header>
     <div class="control-sales-detail-summary"><article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article><article><small>Líneas</small><strong>${order.details.length}</strong></article><article><small>Monto del pedido</small><strong>${formatControlSalesMoney(order.expectedTotalCents || 0)}</strong></article><article><small>Total detallado</small><strong>${formatControlSalesMoney(order.totalCents)}</strong></article><article class="${Number(order.varianceCents || 0) === 0 ? "balanced" : "mismatch"}"><small>Diferencia</small><strong>${formatControlSalesMoney(order.varianceCents || 0)}</strong></article><article><small>Estado</small><strong>${escapeHtml(order.status)}</strong></article></div>
-    ${commercialApprovalSignatureMarkup(order)}
+    <div class="electronic-signatures-stack">
+      ${commercialApprovalSignatureMarkup(order)}
+      ${financeApprovalSignatureMarkup(order)}
+    </div>
     ${warnings.length ? `<aside class="control-sales-warnings"><strong>⚠ Advertencias históricas</strong>${warnings.map((warning) => `<p>${escapeHtml(warning.description || warning.type || "Dato por revisar")}</p>`).join("")}</aside>` : ""}
     <section class="control-sales-detail-proforma"><h4>Datos de proforma</h4><div><article><small>Nombre comercial</small><strong>${escapeHtml(order.proformaData?.commercialName || order.client || "—")}</strong></article><article><small>Razón social</small><strong>${escapeHtml(order.proformaData?.legalName || "—")}</strong></article><article><small>Encargado</small><strong>${escapeHtml(order.proformaData?.contactName || "—")}</strong></article><article><small>Entrega</small><strong>${escapeHtml(order.proformaData?.deliveryDate ? formatDate(order.proformaData.deliveryDate) : "—")}</strong></article><article><small>Condición de pago</small><strong>${escapeHtml(order.proformaData?.paymentTerms || "—")}</strong></article><article><small>Estrategia</small><strong>${escapeHtml(order.proformaData?.strategy || "—")}</strong></article></div></section>
     <div class="control-sales-detail-lines"><div class="control-sales-detail-row head"><span>#</span><span>Producto</span><span>Talla</span><span>Cantidad</span><span>Precio</span><span>IVA</span><span>Total</span></div>${order.details.map((detail, index) => `<article class="control-sales-detail-row"><span>${index + 1}</span><strong>${escapeHtml(detail.product)}</strong><span>${escapeHtml(detail.size || "—")}</span><span>${escapeHtml(detail.quantity)}</span><span>${detail.unitPriceCents == null ? "Revisar" : formatControlSalesMoney(detail.unitPriceCents)}</span><span>${formatControlSalesMoney(detail.vatCents)}</span><strong>${formatControlSalesMoney(detail.lineTotalCents)}</strong></article>`).join("")}</div>
@@ -4393,7 +4415,7 @@ function renderFinancialOrderNotifications() {
               <div class="financial-order-notification-actions">
                 <button type="button" data-finance-order-view="${escapeHtml(order.id)}">Ver orden</button>
                 <button type="button" class="secondary" data-finance-order-observe="${escapeHtml(order.id)}">Observar</button>
-                <button type="button" class="primary" data-finance-order-approve="${escapeHtml(order.id)}">✓ Segundo visto bueno</button>
+                <button type="button" class="primary" data-finance-order-approve="${escapeHtml(order.id)}">✓ Firmar y dar segundo visto bueno</button>
               </div>
             </article>`).join("") || `
           <div class="financial-order-notifications-empty">
@@ -4592,7 +4614,7 @@ function wireFinancialOrders() {
     openControlSalesDetail(button.dataset.financeOrderView);
   }));
   opportunityTable.querySelectorAll("[data-finance-order-approve]").forEach((button) => button.addEventListener("click", async () => {
-    if (!confirm("¿Confirmas el segundo visto bueno de esta orden de pedido?")) return;
+    if (!confirm("¿Confirmas la firma electrónica financiera y el segundo visto bueno de esta orden de pedido?")) return;
     try {
       await updateControlSalesApproval(button.dataset.financeOrderApprove, "finance", "Aprobada");
       renderCommercialSubmenu(areas.financiera);

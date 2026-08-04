@@ -273,6 +273,12 @@ body {
 .electronic-signature strong { font-size: 11px; }
 .electronic-signature span { font-size: 8px; }
 .electronic-signature code { color: #365c51; font-family: Arial, Helvetica, sans-serif; font-size: 7px; font-weight: 700; }
+.electronic-signatures-print { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.electronic-signatures-print .electronic-signature { margin-top: 0; }
+.electronic-signature--finance { border-color: #6d91bd; background: #edf5ff; }
+.electronic-signature--finance .electronic-signature__seal { background: #367ac6; }
+.electronic-signature--finance small,
+.electronic-signature--finance code { color: #245f9f; }
 
 .strategy-item {
   display: grid;

@@ -41,6 +41,12 @@ function printApprovalFolio(order, printableOrderNumber) {
   return `KMI-GC-${orderNumber}-${timestamp || "REGISTRADA"}`;
 }
 
+function printFinanceApprovalFolio(order, printableOrderNumber) {
+  const orderNumber = String(printableOrderNumber).replace(/[^A-Z0-9]/gi, "");
+  const timestamp = String(order.financeApprovedAt || order.updatedAt || "").replace(/\D/g, "").slice(0, 14);
+  return `KMI-GF-${orderNumber}-${timestamp || "REGISTRADA"}`;
+}
+
 function readPrintOrder() {
   const key = new URLSearchParams(window.location.search).get("key");
   if (!key) return null;
@@ -78,6 +84,12 @@ function renderProforma(order) {
       <span class="electronic-signature__seal">✓</span>
       <div><small>FIRMA ELECTRÓNICA VALIDADA</small><strong>${printValue(order.commercialApprovedBy || "Gerencia de Comercialización")}</strong><span>Gerencia de Comercialización · ${printValue(printApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</span></div>
       <code>${printValue(printApprovalFolio(order, printableOrderNumber))}</code>
+    </section>` : "";
+  const financeSignature = order.financeApprovalStatus === "Aprobada" ? `
+    <section class="electronic-signature electronic-signature--finance">
+      <span class="electronic-signature__seal">✓</span>
+      <div><small>SEGUNDO VISTO BUENO · FIRMA ELECTRÓNICA VALIDADA</small><strong>${printValue(order.financeApprovedBy || "Gerencia Financiera")}</strong><span>Gerencia Financiera · ${printValue(printApprovalDateTime(order.financeApprovedAt || order.updatedAt))}</span></div>
+      <code>${printValue(printFinanceApprovalFolio(order, printableOrderNumber))}</code>
     </section>` : "";
   const strategies = [
     ["RETENCION", "Retención"],
@@ -148,7 +160,10 @@ function renderProforma(order) {
       ${strategies.map(([label, stored]) => `<div class="strategy-item"><span>${label}</span><i class="check">${data.strategy === stored ? "X" : ""}</i></div>`).join("")}
       <div class="customer-code"><span>CODIGO DE CLIENTE NO.:</span><span>${printValue(data.customerCode)}</span></div>
     </section>
-    ${commercialSignature}
+    ${commercialSignature || financeSignature ? `<section class="electronic-signatures-print">
+      ${commercialSignature}
+      ${financeSignature}
+    </section>` : ""}
     <section class="signatures">
       <div class="signature">CLIENTE O RESPONSABLE</div>
       <div class="signature">REPRESENTANTE</div>

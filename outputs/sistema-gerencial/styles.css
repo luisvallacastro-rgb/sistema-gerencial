@@ -6963,6 +6963,14 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .commercial-electronic-signature.is-compact .commercial-electronic-signature__copy strong { font-size: 10px; }
 .commercial-electronic-signature.is-compact .commercial-electronic-signature__copy span { font-size: 8px; }
 .commercial-electronic-signature.is-compact code { font-size: 7px; }
+.electronic-signatures-stack { display: grid; gap: 9px; }
+.finance-electronic-signature {
+  border-color: rgba(111,167,255,.42);
+  background: linear-gradient(135deg, rgba(35,88,155,.24), rgba(13,44,83,.34));
+}
+.finance-electronic-signature .commercial-electronic-signature__seal { background: #4f8fe8; }
+.finance-electronic-signature .commercial-electronic-signature__copy small,
+.finance-electronic-signature code { color: #9fc8ff; }
 
 @media (max-width: 1220px) {
   .app-shell .commercial-approval__row,
