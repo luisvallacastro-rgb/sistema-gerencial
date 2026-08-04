@@ -6733,6 +6733,35 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   }
 }
 
+/* Auditoría de pedidos: evita que acciones largas invadan usuario y detalle. */
+#controlSalesDetailDialog .control-sales-audit article {
+  grid-template-columns: minmax(210px, .72fr) minmax(300px, 1.08fr) minmax(0, 1.35fr);
+  align-items: center;
+  column-gap: 22px;
+}
+
+#controlSalesDetailDialog .control-sales-audit article > * {
+  min-width: 0;
+}
+
+#controlSalesDetailDialog .control-sales-audit article strong {
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+#controlSalesDetailDialog .control-sales-audit article span,
+#controlSalesDetailDialog .control-sales-audit article small {
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1050px) {
+  #controlSalesDetailDialog .control-sales-audit article {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+}
+
 /* Mantiene la paginación visible cuando el filtro histórico ocupa una fila adicional. */
 .app-shell .dashboard.opportunity-focus .opportunity-table:has(.opportunity-cycle-toolbar) {
   display: grid !important;
