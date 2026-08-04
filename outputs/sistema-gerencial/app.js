@@ -3146,6 +3146,40 @@ function formatOrderCorrelative(number) {
   return raw;
 }
 
+function formatCommercialApprovalDateTime(value) {
+  if (!value) return "Fecha no disponible";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return formatDate(value);
+  return new Intl.DateTimeFormat("es-SV", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "America/El_Salvador"
+  }).format(date);
+}
+
+function commercialApprovalFolio(order) {
+  const orderNumber = String(formatOrderCorrelative(order?.number)).replace(/[^A-Z0-9]/gi, "");
+  const timestamp = String(order?.commercialApprovedAt || order?.updatedAt || "").replace(/\D/g, "").slice(0, 14);
+  return `KMI-GC-${orderNumber}-${timestamp || "REGISTRADA"}`;
+}
+
+function commercialApprovalSignatureMarkup(order, compact = false) {
+  if (order?.commercialApprovalStatus !== "Autorizada") return "";
+  return `<section class="commercial-electronic-signature${compact ? " is-compact" : ""}" aria-label="Firma electrónica de Gerencia de Comercialización">
+    <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
+    <div class="commercial-electronic-signature__copy">
+      <small>Firma electrónica validada</small>
+      <strong>${escapeHtml(order.commercialApprovedBy || "Gerencia de Comercialización")}</strong>
+      <span>${escapeHtml(formatCommercialApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</span>
+    </div>
+    <code>${escapeHtml(commercialApprovalFolio(order))}</code>
+  </section>`;
+}
+
 async function updateControlSalesApproval(orderId, stage, status, note = "") {
   const result = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}/${stage}-approval`, {
     method: "PATCH",
@@ -3971,6 +4005,7 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
   const warnings = [...(order.anomalies || []), ...order.details.flatMap((detail) => detail.reviewRequired ? [{ description: `Precio faltante en ${detail.product}; requiere revisión.` }] : (detail.anomalies || []))];
   document.querySelector("#controlSalesDetailContent").innerHTML = `<header><div><p class="eyebrow">Control de Ventas · ${escapeHtml(order.source)}</p><h3>Orden #${escapeHtml(order.number)}</h3><span>${escapeHtml(order.client)} · ${escapeHtml(order.seller)}</span></div><button type="button" data-control-sales-detail-close>×</button></header>
     <div class="control-sales-detail-summary"><article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article><article><small>Líneas</small><strong>${order.details.length}</strong></article><article><small>Monto del pedido</small><strong>${formatControlSalesMoney(order.expectedTotalCents || 0)}</strong></article><article><small>Total detallado</small><strong>${formatControlSalesMoney(order.totalCents)}</strong></article><article class="${Number(order.varianceCents || 0) === 0 ? "balanced" : "mismatch"}"><small>Diferencia</small><strong>${formatControlSalesMoney(order.varianceCents || 0)}</strong></article><article><small>Estado</small><strong>${escapeHtml(order.status)}</strong></article></div>
+    ${commercialApprovalSignatureMarkup(order)}
     ${warnings.length ? `<aside class="control-sales-warnings"><strong>⚠ Advertencias históricas</strong>${warnings.map((warning) => `<p>${escapeHtml(warning.description || warning.type || "Dato por revisar")}</p>`).join("")}</aside>` : ""}
     <section class="control-sales-detail-proforma"><h4>Datos de proforma</h4><div><article><small>Nombre comercial</small><strong>${escapeHtml(order.proformaData?.commercialName || order.client || "—")}</strong></article><article><small>Razón social</small><strong>${escapeHtml(order.proformaData?.legalName || "—")}</strong></article><article><small>Encargado</small><strong>${escapeHtml(order.proformaData?.contactName || "—")}</strong></article><article><small>Entrega</small><strong>${escapeHtml(order.proformaData?.deliveryDate ? formatDate(order.proformaData.deliveryDate) : "—")}</strong></article><article><small>Condición de pago</small><strong>${escapeHtml(order.proformaData?.paymentTerms || "—")}</strong></article><article><small>Estrategia</small><strong>${escapeHtml(order.proformaData?.strategy || "—")}</strong></article></div></section>
     <div class="control-sales-detail-lines"><div class="control-sales-detail-row head"><span>#</span><span>Producto</span><span>Talla</span><span>Cantidad</span><span>Precio</span><span>IVA</span><span>Total</span></div>${order.details.map((detail, index) => `<article class="control-sales-detail-row"><span>${index + 1}</span><strong>${escapeHtml(detail.product)}</strong><span>${escapeHtml(detail.size || "—")}</span><span>${escapeHtml(detail.quantity)}</span><span>${detail.unitPriceCents == null ? "Revisar" : formatControlSalesMoney(detail.unitPriceCents)}</span><span>${formatControlSalesMoney(detail.vatCents)}</span><strong>${formatControlSalesMoney(detail.lineTotalCents)}</strong></article>`).join("")}</div>
@@ -4346,9 +4381,10 @@ function renderFinancialOrderNotifications() {
             <article class="financial-order-notification-card">
               <div class="financial-order-notification-icon" aria-hidden="true">✓</div>
               <div class="financial-order-notification-copy">
-                <small>Orden ${escapeHtml(formatOrderCorrelative(order.number))} · Autorizada ${formatDate(order.commercialApprovedAt || order.updatedAt)}</small>
+                <small>Orden ${escapeHtml(formatOrderCorrelative(order.number))} · Autorizada ${escapeHtml(formatCommercialApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</small>
                 <strong>${escapeHtml(order.client || "Cliente sin nombre")}</strong>
-                <span>${escapeHtml(order.seller || "Sin vendedor")} · Primer visto bueno: ${escapeHtml(order.commercialApprovedBy || "Gerencia Comercial")}</span>
+                <span>${escapeHtml(order.seller || "Sin vendedor")}</span>
+                ${commercialApprovalSignatureMarkup(order, true)}
               </div>
               <div class="financial-order-notification-amount">
                 <small>Total confirmado</small>

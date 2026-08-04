@@ -242,6 +242,38 @@ body {
   font-weight: 800;
 }
 
+.electronic-signature {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  margin: 9px 0 0;
+  padding: 7px 10px;
+  border: 1.5px solid #16815f;
+  border-radius: 8px;
+  background: #edf9f4;
+  color: #174c3d;
+  break-inside: avoid;
+}
+
+.electronic-signature__seal {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #16815f;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.electronic-signature div { display: grid; gap: 1px; }
+.electronic-signature small { color: #16815f; font-size: 8px; font-weight: 900; letter-spacing: .1em; }
+.electronic-signature strong { font-size: 11px; }
+.electronic-signature span { font-size: 8px; }
+.electronic-signature code { color: #365c51; font-family: Arial, Helvetica, sans-serif; font-size: 7px; font-weight: 700; }
+
 .strategy-item {
   display: grid;
   gap: 5px;

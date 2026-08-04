@@ -6940,6 +6940,30 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-order-notification-actions .secondary { border-color: rgba(255,190,95,.24); color: #ffd18d; }
 .app-shell .financial-order-notification-actions { display: flex; justify-content: flex-end; gap: 6px; }
 
+.commercial-electronic-signature {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(114,245,209,.34);
+  border-radius: 15px;
+  background: linear-gradient(120deg, rgba(20,126,96,.2), rgba(28,70,91,.18));
+}
+.commercial-electronic-signature__seal { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: #1a9b73; color: #fff; font-size: 23px; font-weight: 950; box-shadow: 0 0 0 5px rgba(114,245,209,.1); }
+.commercial-electronic-signature__copy { display: grid; gap: 2px; min-width: 0; }
+.commercial-electronic-signature__copy small { color: #72f5d1; font-size: 9px; font-weight: 950; letter-spacing: .1em; text-transform: uppercase; }
+.commercial-electronic-signature__copy strong { overflow: hidden; color: #f5f8ff; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.commercial-electronic-signature__copy span { color: rgba(211,224,240,.72); font-size: 10px; font-weight: 750; }
+.commercial-electronic-signature code { color: rgba(186,255,237,.74); font-family: inherit; font-size: 8px; font-weight: 850; }
+.commercial-electronic-signature.is-compact { grid-template-columns: 25px minmax(0,1fr) auto; gap: 8px; margin: 6px 0 0; padding: 7px 9px; border-radius: 10px; }
+.commercial-electronic-signature.is-compact .commercial-electronic-signature__seal { width: 25px; height: 25px; font-size: 14px; box-shadow: none; }
+.commercial-electronic-signature.is-compact .commercial-electronic-signature__copy small { font-size: 7px; }
+.commercial-electronic-signature.is-compact .commercial-electronic-signature__copy strong { font-size: 10px; }
+.commercial-electronic-signature.is-compact .commercial-electronic-signature__copy span { font-size: 8px; }
+.commercial-electronic-signature.is-compact code { font-size: 7px; }
+
 @media (max-width: 1220px) {
   .app-shell .commercial-approval__row,
   .app-shell .commercial-approval__row.quotation { grid-template-columns: minmax(130px,.8fr) minmax(190px,1.25fr) auto auto; }

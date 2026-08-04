@@ -20,6 +20,27 @@ function printDate(value) {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : String(value || "");
 }
 
+function printApprovalDateTime(value) {
+  if (!value) return "Fecha no disponible";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return printDate(value);
+  return new Intl.DateTimeFormat("es-SV", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "America/El_Salvador"
+  }).format(date);
+}
+
+function printApprovalFolio(order, printableOrderNumber) {
+  const orderNumber = String(printableOrderNumber).replace(/[^A-Z0-9]/gi, "");
+  const timestamp = String(order.commercialApprovedAt || order.updatedAt || "").replace(/\D/g, "").slice(0, 14);
+  return `KMI-GC-${orderNumber}-${timestamp || "REGISTRADA"}`;
+}
+
 function readPrintOrder() {
   const key = new URLSearchParams(window.location.search).get("key");
   if (!key) return null;
@@ -52,6 +73,12 @@ function renderProforma(order) {
     ? `OP-${rawOrderNumber.padStart(4, "0")}`
     : rawOrderNumber;
   const invoiceType = order.documentType === "CCF" ? "Credito fiscal" : "Consumidor final";
+  const commercialSignature = order.commercialApprovalStatus === "Autorizada" ? `
+    <section class="electronic-signature">
+      <span class="electronic-signature__seal">✓</span>
+      <div><small>FIRMA ELECTRÓNICA VALIDADA</small><strong>${printValue(order.commercialApprovedBy || "Gerencia de Comercialización")}</strong><span>Gerencia de Comercialización · ${printValue(printApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</span></div>
+      <code>${printValue(printApprovalFolio(order, printableOrderNumber))}</code>
+    </section>` : "";
   const strategies = [
     ["RETENCION", "Retención"],
     ["EXPANSION", "Expansión"],
@@ -121,6 +148,7 @@ function renderProforma(order) {
       ${strategies.map(([label, stored]) => `<div class="strategy-item"><span>${label}</span><i class="check">${data.strategy === stored ? "X" : ""}</i></div>`).join("")}
       <div class="customer-code"><span>CODIGO DE CLIENTE NO.:</span><span>${printValue(data.customerCode)}</span></div>
     </section>
+    ${commercialSignature}
     <section class="signatures">
       <div class="signature">CLIENTE O RESPONSABLE</div>
       <div class="signature">REPRESENTANTE</div>

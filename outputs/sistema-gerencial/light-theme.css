@@ -1889,6 +1889,11 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
 .app-shell .commercial-approval__actions .secondary,
 .app-shell .financial-order-notification-actions .secondary { border-color: #e7c891 !important; background: #fff8eb !important; color: #955a0d !important; }
 .app-shell .financial-order-notification-icon { background: #e8f4ef !important; color: #176f52 !important; }
+.commercial-electronic-signature { border-color: #a9d6c5 !important; background: #edf8f3 !important; }
+.commercial-electronic-signature__copy strong { color: #182238 !important; }
+.commercial-electronic-signature__copy span,
+.commercial-electronic-signature code { color: #526276 !important; }
+.commercial-electronic-signature__copy small { color: #176f52 !important; }
 
 /* Catálogo maestro de vendedores: contraste y jerarquía del modo claro. */
 .app-shell .seller-admin-hero {
