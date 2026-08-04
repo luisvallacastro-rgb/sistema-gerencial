@@ -306,7 +306,6 @@ const state = {
   controlSalesDateTo: "",
   controlSalesSort: "date-desc",
   controlSalesPage: 1,
-  commercialApprovalView: "pending",
   commercialApprovalQuery: "",
   quotations: [],
   quotationModuleQuery: "",
@@ -3163,30 +3162,21 @@ function renderCommercialOrderAuthorization() {
   const allOrders = approvalControlSalesOrders();
   const pending = commercialPendingApprovalOrders();
   const authorized = allOrders.filter((order) => order.commercialApprovalStatus === "Autorizada");
-  const quotations = savedQuotationRows();
   const query = normalizeKey(state.commercialApprovalQuery);
   const pendingRows = pending.filter((order) => !query || normalizeKey(`${order.number} ${order.client} ${order.seller}`).includes(query));
-  const quotationRows = quotations.filter((quotation) => !query || normalizeKey(`${quotation.customerData?.commercialName || ""} ${quotation.seller || ""} ${quotation.status || ""}`).includes(query));
-  const isPending = state.commercialApprovalView === "pending";
   return `
     <section class="commercial-approval" aria-label="Autorización comercial de pedidos">
       <header class="commercial-approval__hero">
-        <div><span>Flujo comercial</span><h3>Control de documentos</h3><p>Primer visto bueno de pedidos y trazabilidad de cotizaciones.</p></div>
+        <div><span>Flujo comercial</span><h3>Autorización de pedidos</h3><p>Primer visto bueno de las órdenes antes de notificarlas a Financiera.</p></div>
         <div class="commercial-approval__metrics">
           <article><small>Pendientes</small><strong>${pending.length}</strong></article>
           <article><small>Autorizados</small><strong>${authorized.length}</strong></article>
-          <article><small>Cotizaciones</small><strong>${quotations.length}</strong></article>
         </div>
       </header>
-      <nav class="commercial-approval__tabs" aria-label="Vistas de autorización">
-        <button type="button" data-commercial-approval-view="pending" class="${isPending ? "active" : ""}">Pedidos pendientes de autorizar <b>${pending.length}</b></button>
-        <button type="button" data-commercial-approval-view="quotations" class="${!isPending ? "active" : ""}">Cotizaciones enviadas <b>${quotations.length}</b></button>
-      </nav>
       <label class="commercial-approval__search"><span>⌕</span><input type="search" data-commercial-approval-search value="${escapeHtml(state.commercialApprovalQuery)}" placeholder="Buscar cliente, vendedor o estado..."></label>
-      ${isPending ? `
-        <div class="commercial-approval__notice"><strong>Primer visto bueno</strong><span>Al autorizar, la orden se notificará a Financiera / Pedidos para su segundo visto bueno.</span></div>
-        <div class="commercial-approval__list">
-          ${pendingRows.map((order) => `
+      <div class="commercial-approval__notice"><strong>Primer visto bueno</strong><span>Al autorizar, la orden se notificará a Financiera / Pedidos para su segundo visto bueno.</span></div>
+      <div class="commercial-approval__list">
+        ${pendingRows.map((order) => `
             <article class="commercial-approval__row">
               <div class="commercial-approval__identity"><small>ORDEN DE PEDIDO</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><span>${formatDate(order.date)}</span></div>
               <div class="commercial-approval__client"><strong>${escapeHtml(order.client)}</strong><span>${escapeHtml(order.seller || "Sin vendedor")}</span></div>
@@ -3198,27 +3188,12 @@ function renderCommercialOrderAuthorization() {
                 <button type="button" class="secondary" data-commercial-order-return="${escapeHtml(order.id)}">Devolver</button>
                 <button type="button" class="primary" data-commercial-order-approve="${escapeHtml(order.id)}">✓ Firmar y autorizar</button>
               </div>
-            </article>`).join("") || `<div class="empty-state">No hay pedidos pendientes de autorización comercial.</div>`}
-        </div>` : `
-        <div class="commercial-approval__notice"><strong>Control de cotizaciones</strong><span>Aquí aparecen todas las cotizaciones guardadas, con su estado.</span></div>
-        <div class="commercial-approval__list">
-          ${quotationRows.map((quotation) => `
-            <article class="commercial-approval__row quotation">
-              <div class="commercial-approval__identity"><small>COTIZACIÓN</small><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.company || "Sin cliente")}</strong><span>${formatDate(quotation.date)}</span></div>
-              <div class="commercial-approval__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.company || "Sin cliente")}</strong><span>${escapeHtml(quotation.seller || "Sin vendedor")}</span></div>
-              <div class="commercial-approval__amount"><small>Total</small><strong>${formatControlSalesMoney(quotation.totalCents || 0)}</strong></div>
-              <span class="commercial-approval__status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span>
-              <div class="commercial-approval__actions"><button type="button" class="primary" data-commercial-quotation-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}">Ver / editar</button></div>
-            </article>`).join("") || `<div class="empty-state">Aún no existen cotizaciones guardadas.</div>`}
-        </div>`}
+          </article>`).join("") || `<div class="empty-state">No hay pedidos pendientes de autorización comercial.</div>`}
+      </div>
     </section>`;
 }
 
 function wireCommercialOrderAuthorization() {
-  opportunityTable.querySelectorAll("[data-commercial-approval-view]").forEach((button) => button.addEventListener("click", () => {
-    state.commercialApprovalView = button.dataset.commercialApprovalView;
-    renderCommercialSubmenu(areas.comercializacion);
-  }));
   opportunityTable.querySelector("[data-commercial-approval-search]")?.addEventListener("input", (event) => {
     state.commercialApprovalQuery = event.target.value;
     renderCommercialSubmenu(areas.comercializacion);
@@ -3241,7 +3216,6 @@ function wireCommercialOrderAuthorization() {
     try { await updateControlSalesApproval(button.dataset.commercialOrderReturn, "commercial", "Devuelta", note.trim()); renderCommercialSubmenu(areas.comercializacion); }
     catch (error) { alert(error.message || "No se pudo devolver la orden."); }
   }));
-  opportunityTable.querySelectorAll("[data-commercial-quotation-open]").forEach((button) => button.addEventListener("click", () => openQuotationDialog(button.dataset.opportunityId, button.dataset.commercialQuotationOpen)));
 }
 
 function persistLocalQuotations() { localStorage.setItem(QUOTATIONS_STORAGE_KEY, JSON.stringify(state.quotations)); }
