@@ -248,6 +248,17 @@ const areas = {
   }
 };
 
+function currentElSalvadorPeriod() {
+  const parts = new Intl.DateTimeFormat("es-SV", {
+    timeZone: "America/El_Salvador",
+    month: "long",
+    year: "numeric"
+  }).formatToParts(new Date());
+  const month = parts.find((part) => part.type === "month")?.value || "julio";
+  const year = parts.find((part) => part.type === "year")?.value || "2026";
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`;
+}
+
 const state = {
   role: "gerencias",
   currentUser: null,
@@ -319,7 +330,7 @@ const state = {
   crmWonDateTo: "",
   crmOpportunityPage: 1,
   crmOpportunitiesView: "list",
-  period: "Julio 2026"
+  period: currentElSalvadorPeriod()
 };
 
 const areaKeys = ["comercializacion", "financiera", "operaciones", "rrhh"];
@@ -795,6 +806,9 @@ const dashboard = document.querySelector(".dashboard");
 const pageTitle = document.querySelector("#pageTitle");
 const periodLabel = document.querySelector("#periodLabel");
 const periodSelect = document.querySelector("#periodSelect");
+const initialPeriodOption = Array.from(periodSelect.options)
+  .find((option) => option.text === state.period);
+if (initialPeriodOption) periodSelect.value = initialPeriodOption.value;
 const topbarActions = document.querySelector(".topbar-actions");
 const minutesTopbarTabs = document.querySelector("#minutesTopbarTabs");
 const financialOrdersTopbarFilters = document.querySelector("#financialOrdersTopbarFilters");
@@ -1454,7 +1468,9 @@ function opportunityCycleRows(items) {
   };
 
   return {
-    active: rows.filter((row) => !row.result && !row.isFuture).sort(sortRows),
+    // Una oportunidad vigente siempre debe ser localizable en Gerencia. El
+    // periodo limita métricas y cierres, pero nunca oculta el pipeline activo.
+    active: rows.filter((row) => !row.result).sort(sortRows),
     history: [
       ...rows.filter((row) => row.isHistory && !row.isFuture),
       ...importedHistoryRows
