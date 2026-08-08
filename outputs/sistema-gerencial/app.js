@@ -2269,7 +2269,6 @@ function renderNav() {
       }
       persistNavigationState();
       renderDashboard();
-      if (!hasSubmenus && usesTabletDrawer()) setSidebarCollapsed(true);
     });
     navList.appendChild(button);
     if (hasSubmenus) renderSubmenu(area, key, submenus);
@@ -2288,7 +2287,6 @@ function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
       state.activeSubmenu = button.dataset.submenu;
       persistNavigationState();
       renderDashboard();
-      if (usesTabletDrawer()) setSidebarCollapsed(true);
     });
   });
   navList.appendChild(submenu);
