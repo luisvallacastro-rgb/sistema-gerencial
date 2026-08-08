@@ -2858,7 +2858,10 @@ function ensureControlSalesDialogs() {
             <option>Ventas Detalle</option>
           </select></label>
           <label>Estrategia<input id="controlSalesFinancialStrategy"></label>
-          <label>Gestión<input id="controlSalesFinancialManagement"></label>
+          <label>Gestión<select id="controlSalesFinancialManagement">
+            <option>C. AYC</option>
+            <option>C. ONLINE</option>
+          </select></label>
           <label>País<input id="controlSalesFinancialCountry"></label>
           <label>Departamento<input id="controlSalesFinancialDepartment"></label>
         </div>
@@ -3105,7 +3108,7 @@ function fillControlSalesFinancialData(data = {}, order = null) {
     client: data.client || order?.client || "",
     clientType: inheritedFinancialValue(data.clientType, order?.proformaData?.taxpayerType),
     strategy: inheritedFinancialValue(data.strategy, order?.proformaData?.strategy),
-    management: data.management || "",
+    management: data.management || "C. AYC",
     country: data.country || "El Salvador",
     department: data.department || ""
   };
