@@ -3114,6 +3114,30 @@ class AppHandler(BaseHTTPRequestHandler):
                 if stage == "finance-approval" and text(row["commercial_approval_status"]) != "Autorizada":
                     self.send_json({"error": "La orden requiere primero el visto bueno comercial"}, status=409)
                     return
+                if stage == "finance-approval" and status == "Aprobada":
+                    financial_order_id = text(row["financial_order_id"])
+                    financial_row = conn.execute(
+                        "SELECT * FROM financial_orders WHERE id = ? AND deleted = 0 LIMIT 1",
+                        (financial_order_id,),
+                    ).fetchone() if financial_order_id else None
+                    required_financial_fields = {
+                        "number": "Número", "month": "Mes", "year": "Año", "date": "Fecha de ingreso",
+                        "seller": "Vendedor", "order_number": "N.º de orden", "invoice": "Factura",
+                        "conditions": "Condiciones", "client": "Cliente", "client_type": "Tipo de cliente",
+                        "strategy": "Estrategia", "management": "Gestión", "country": "País",
+                        "department": "Departamento",
+                    }
+                    missing_fields = list(required_financial_fields.values()) if not financial_row else [
+                        label for field, label in required_financial_fields.items() if not text(financial_row[field])
+                    ]
+                    if financial_row and float(financial_row["sale"] or 0) <= 0:
+                        missing_fields.append("Venta")
+                    if missing_fields:
+                        self.send_json({
+                            "error": "Completa el registro financiero antes de firmar",
+                            "missingFields": missing_fields,
+                        }, status=409)
+                        return
                 if stage == "commercial-approval":
                     conn.execute("""
                         UPDATE control_sales_orders

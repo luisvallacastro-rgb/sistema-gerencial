@@ -2803,20 +2803,20 @@ function ensureControlSalesDialogs() {
         <summary><span><b>Registro financiero del pedido</b><small>Anexo al formulario heredado · se conserva dentro del mismo pedido</small></span><em>FINANCIERA</em><i>⌄</i></summary>
         <div class="control-sales-proforma-grid">
           <label>Número (automático)<input id="controlSalesFinancialNumber" readonly></label>
-          <label>Mes<input id="controlSalesFinancialMonth"></label>
-          <label>Año<input id="controlSalesFinancialYear" type="number"></label>
-          <label>Fecha de ingreso<input id="controlSalesFinancialDate" type="date"></label>
-          <label>Vendedor<input id="controlSalesFinancialSeller"></label>
-          <label>Venta<input id="controlSalesFinancialSale" type="number" step="0.01" readonly></label>
-          <label>Nº de orden<input id="controlSalesFinancialOrderNumber"></label>
-          <label>Factura<input id="controlSalesFinancialInvoice"></label>
-          <label>Condiciones<input id="controlSalesFinancialConditions"></label>
-          <label class="span-2">Cliente<input id="controlSalesFinancialClient"></label>
-          <label>Tipo de cliente<input id="controlSalesFinancialClientType"></label>
-          <label>Estrategia<input id="controlSalesFinancialStrategy"></label>
-          <label>Gestión<input id="controlSalesFinancialManagement"></label>
-          <label>País<input id="controlSalesFinancialCountry"></label>
-          <label>Departamento<input id="controlSalesFinancialDepartment"></label>
+          <label>Mes<input id="controlSalesFinancialMonth" required></label>
+          <label>Año<input id="controlSalesFinancialYear" type="number" required></label>
+          <label>Fecha de ingreso<input id="controlSalesFinancialDate" type="date" required></label>
+          <label>Vendedor<input id="controlSalesFinancialSeller" required></label>
+          <label>Venta<input id="controlSalesFinancialSale" type="number" step="0.01" min="0.01" readonly required></label>
+          <label>Nº de orden<input id="controlSalesFinancialOrderNumber" required></label>
+          <label>Factura<input id="controlSalesFinancialInvoice" required></label>
+          <label>Condiciones<input id="controlSalesFinancialConditions" required></label>
+          <label class="span-2">Cliente<input id="controlSalesFinancialClient" required></label>
+          <label>Tipo de cliente<input id="controlSalesFinancialClientType" required></label>
+          <label>Estrategia<input id="controlSalesFinancialStrategy" required></label>
+          <label>Gestión<input id="controlSalesFinancialManagement" required></label>
+          <label>País<input id="controlSalesFinancialCountry" required></label>
+          <label>Departamento<input id="controlSalesFinancialDepartment" required></label>
         </div>
       </details>
       <p id="controlSalesSaveStatus" class="control-sales-save-status hidden" role="status" aria-live="polite"></p>
@@ -2904,6 +2904,9 @@ function ensureControlSalesDialogs() {
       submit.textContent = "Guardar cambios";
       await loadControlSales();
       await loadQuotations();
+      if (state.activeArea === "financiera" && state.activeSubmenu === "resultados-pedidos") {
+        renderCommercialSubmenu(areas.financiera);
+      }
       if (savedOrder.sourceOpportunityId) {
         const sourceOpportunity = getOpportunitySubmenu().items.find((item) => (
           [item.id, item.crmOpportunityId, item.sourceOpportunityId]
@@ -3144,6 +3147,36 @@ function financePendingApprovalOrders() {
   return approvalControlSalesOrders().filter((order) => (
     order.commercialApprovalStatus === "Autorizada" && order.financeApprovalStatus !== "Aprobada"
   ));
+}
+
+const FINANCIAL_ORDER_REQUIRED_FIELDS = {
+  number: "Número",
+  month: "Mes",
+  year: "Año",
+  date: "Fecha de ingreso",
+  seller: "Vendedor",
+  sale: "Venta",
+  orderNumber: "N.º de orden",
+  invoice: "Factura",
+  conditions: "Condiciones",
+  client: "Cliente",
+  clientType: "Tipo de cliente",
+  strategy: "Estrategia",
+  management: "Gestión",
+  country: "País",
+  department: "Departamento"
+};
+
+function financialRecordForControlOrder(order) {
+  return state.financialOrders.find((item) => String(item.id) === String(order?.financialOrderId || "")) || null;
+}
+
+function missingFinancialOrderFields(order) {
+  const record = financialRecordForControlOrder(order);
+  if (!record) return Object.values(FINANCIAL_ORDER_REQUIRED_FIELDS);
+  return Object.entries(FINANCIAL_ORDER_REQUIRED_FIELDS)
+    .filter(([key]) => key === "sale" ? Number(record.sale || 0) <= 0 : !String(record[key] ?? "").trim())
+    .map(([, label]) => label);
 }
 
 function savedQuotationRows() {
@@ -4561,13 +4594,17 @@ function renderFinancialOrderNotifications() {
         </div>
       </header>
       <div class="financial-order-notifications-list">
-        ${pendingHandoffs.map((order) => `
+        ${pendingHandoffs.map((order) => {
+          const missingFields = missingFinancialOrderFields(order);
+          const financialComplete = missingFields.length === 0;
+          return `
             <article class="financial-order-notification-card">
               <div class="financial-order-notification-icon" aria-hidden="true">✓</div>
               <div class="financial-order-notification-copy">
                 <small>Orden ${escapeHtml(formatOrderCorrelative(order.number))} · Autorizada ${escapeHtml(formatCommercialApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</small>
                 <strong>${escapeHtml(order.client || "Cliente sin nombre")}</strong>
                 <span>${escapeHtml(order.seller || "Sin vendedor")}</span>
+                <em class="financial-record-status ${financialComplete ? "complete" : "incomplete"}">${financialComplete ? "Registro financiero completo" : `Faltan ${missingFields.length} campos: ${escapeHtml(missingFields.join(", "))}`}</em>
                 ${commercialApprovalSignatureMarkup(order, true)}
               </div>
               <div class="financial-order-notification-amount">
@@ -4576,10 +4613,12 @@ function renderFinancialOrderNotifications() {
               </div>
               <div class="financial-order-notification-actions">
                 <button type="button" data-finance-order-view="${escapeHtml(order.id)}">Ver orden</button>
+                <button type="button" class="secondary" data-finance-order-complete="${escapeHtml(order.id)}">${financialComplete ? "Revisar registro" : "Completar registro"}</button>
                 <button type="button" class="secondary" data-finance-order-observe="${escapeHtml(order.id)}">Observar</button>
-                <button type="button" class="primary" data-finance-order-approve="${escapeHtml(order.id)}">✓ Firmar y dar segundo visto bueno</button>
+                <button type="button" class="primary" data-finance-order-approve="${escapeHtml(order.id)}" ${financialComplete ? "" : `disabled title="Completa primero: ${escapeHtml(missingFields.join(", "))}"`}>✓ Firmar y dar segundo visto bueno</button>
               </div>
-            </article>`).join("") || `
+            </article>`;
+        }).join("") || `
           <div class="financial-order-notifications-empty">
             <span aria-hidden="true">✓</span>
             <strong>Todo está al día</strong>
@@ -4780,6 +4819,10 @@ function wireFinancialOrders() {
     const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderEdit);
     if (order) openControlSalesForm(order);
   }));
+  opportunityTable.querySelectorAll("[data-finance-order-complete]").forEach((button) => button.addEventListener("click", () => {
+    const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderComplete);
+    if (order) openControlSalesForm(order);
+  }));
   opportunityTable.querySelectorAll("[data-finance-order-archive]").forEach((button) => button.addEventListener("click", async () => {
     const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderArchive);
     if (!order || !confirm(`¿Anular el pedido #${order.number}? Las firmas y la auditoría se conservarán.`)) return;
@@ -4801,6 +4844,13 @@ function wireFinancialOrders() {
     }
   }));
   opportunityTable.querySelectorAll("[data-finance-order-approve]").forEach((button) => button.addEventListener("click", async () => {
+    const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderApprove);
+    const missingFields = missingFinancialOrderFields(order);
+    if (missingFields.length) {
+      alert(`Completa el registro financiero antes de firmar. Faltan: ${missingFields.join(", ")}.`);
+      if (order) openControlSalesForm(order);
+      return;
+    }
     if (!confirm("¿Confirmas la firma electrónica financiera y el segundo visto bueno de esta orden de pedido?")) return;
     try {
       const approvedOrder = await updateControlSalesApproval(button.dataset.financeOrderApprove, "finance", "Aprobada");

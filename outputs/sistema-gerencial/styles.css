@@ -6968,6 +6968,10 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .commercial-approval__actions .secondary,
 .app-shell .financial-order-notification-actions .secondary { border-color: rgba(255,190,95,.24); color: #ffd18d; }
 .app-shell .financial-order-notification-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.app-shell .financial-record-status { display: block; margin-top: 5px; font-size: 9px; font-style: normal; font-weight: 900; line-height: 1.35; }
+.app-shell .financial-record-status.complete { color: #72f5d1; }
+.app-shell .financial-record-status.incomplete { color: #ffd18d; }
+.app-shell .financial-order-notification-actions button:disabled { cursor: not-allowed; filter: grayscale(.5); opacity: .42; transform: none; }
 
 .commercial-electronic-signature {
   display: grid;
