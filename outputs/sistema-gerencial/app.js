@@ -2837,7 +2837,7 @@ function ensureControlSalesDialogs() {
         <article><span>Diferencia</span><strong id="controlSalesVariance">$0.00</strong><small id="controlSalesReconciliationMessage">Selecciona un pedido para conciliar.</small></article>
       </section>
       <details class="control-sales-proforma-block control-sales-financial-annex" open>
-        <summary><span><b>Registro financiero del pedido</b><small>Anexo al formulario heredado · se conserva dentro del mismo pedido</small></span><em>FINANCIERA</em><i>⌄</i></summary>
+        <summary><span><b>Registro financiero del pedido</b><small data-financial-annex-help>Anexo al formulario heredado · se conserva dentro del mismo pedido</small></span><i>⌄</i></summary>
         <div class="control-sales-proforma-grid">
           <label>Número (automático)<input id="controlSalesFinancialNumber" readonly></label>
           <label>Mes<input id="controlSalesFinancialMonth" required></label>
@@ -4096,6 +4096,16 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
     client: document.querySelector("#controlSalesClient").value,
     proformaData: quotationData
   });
+  const financialAnnex = dialog.querySelector(".control-sales-financial-annex");
+  const financialAnnexReadOnly = !financialCompletionOnly && state.activeArea !== "financiera";
+  financialAnnex.classList.toggle("is-readonly", financialAnnexReadOnly);
+  financialAnnex.querySelectorAll("input, select, textarea").forEach((field) => {
+    field.disabled = financialAnnexReadOnly;
+  });
+  const financialAnnexHelp = financialAnnex.querySelector("[data-financial-annex-help]");
+  financialAnnexHelp.textContent = financialAnnexReadOnly
+    ? "Solo editable desde Financiera → Pedidos"
+    : "Anexo al formulario heredado · se conserva dentro del mismo pedido";
   if (!order && sourceWin && !document.querySelector("#controlSalesCommercialName").value) {
     document.querySelector("#controlSalesCommercialName").value = sourceWin.company || "";
   }

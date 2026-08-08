@@ -7243,6 +7243,26 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-record-status { display: block; margin-top: 5px; font-size: 9px; font-style: normal; font-weight: 900; line-height: 1.35; }
 .app-shell .financial-record-status.complete { color: #72f5d1; }
 .app-shell .financial-record-status.incomplete { color: #ffd18d; }
+
+.control-sales-financial-annex.is-readonly .control-sales-proforma-grid {
+  position: relative;
+  opacity: .72;
+}
+
+.control-sales-financial-annex.is-readonly input,
+.control-sales-financial-annex.is-readonly select,
+.control-sales-financial-annex.is-readonly textarea {
+  cursor: not-allowed;
+  border-color: rgba(142, 178, 216, .14) !important;
+  background: rgba(23, 43, 70, .56) !important;
+  color: #aab9cb !important;
+  -webkit-text-fill-color: #aab9cb;
+}
+
+.control-sales-financial-annex.is-readonly [data-financial-annex-help] {
+  color: #ffd18d !important;
+  font-weight: 800;
+}
 .app-shell .financial-order-notification-actions button:disabled { cursor: not-allowed; filter: grayscale(.5); opacity: .42; transform: none; }
 
 .commercial-electronic-signature {
