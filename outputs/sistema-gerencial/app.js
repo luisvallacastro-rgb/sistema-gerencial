@@ -2863,7 +2863,12 @@ function ensureControlSalesDialogs() {
           <label>Vendedor<input id="controlSalesFinancialSeller" required></label>
           <label>Venta<input id="controlSalesFinancialSale" type="number" step="0.01" min="0.01" readonly required></label>
           <label>Nº de orden<input id="controlSalesFinancialOrderNumber" required></label>
-          <label>Factura<input id="controlSalesFinancialInvoice"></label>
+          <label>Factura<select id="controlSalesFinancialInvoice">
+            <option value="">Seleccionar factura</option>
+            <option>CF</option>
+            <option>CCF</option>
+            <option>CE</option>
+          </select></label>
           <label>Condiciones<input id="controlSalesFinancialConditions"></label>
           <label class="span-2">Cliente<input id="controlSalesFinancialClient" required></label>
           <label>Tipo de cliente<select id="controlSalesFinancialClientType">
