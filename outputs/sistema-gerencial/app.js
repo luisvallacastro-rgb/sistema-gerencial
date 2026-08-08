@@ -2376,6 +2376,23 @@ const financialOrderFields = [
   ["department", "financialOrderDepartment"]
 ];
 
+function financialDepartmentOptionsMarkup() {
+  const groups = new Map();
+  (window.financialDepartmentLocations || []).forEach((location) => {
+    const separator = location.indexOf(" - ");
+    if (separator < 0) return;
+    const department = location.slice(0, separator).trim();
+    const municipality = location.slice(separator + 3).trim();
+    if (!groups.has(department)) groups.set(department, []);
+    groups.get(department).push({ location, municipality });
+  });
+  return `<option value="">Seleccionar departamento y municipio</option>${[...groups.entries()].map(([department, municipalities]) => (
+    `<optgroup label="${escapeHtml(department)}">${municipalities.map(({ location, municipality }) => (
+      `<option value="${escapeHtml(location)}">${escapeHtml(municipality)}</option>`
+    )).join("")}</optgroup>`
+  )).join("")}`;
+}
+
 const accountsReceivableFields = [
   ["invoiceNumber", "accountsReceivableInvoiceNumber"],
   ["referenceNumber", "accountsReceivableReferenceNumber"],
@@ -2863,7 +2880,7 @@ function ensureControlSalesDialogs() {
             <option>C. ONLINE</option>
           </select></label>
           <label>País<input id="controlSalesFinancialCountry"></label>
-          <label>Departamento<input id="controlSalesFinancialDepartment"></label>
+          <label>Departamento<select id="controlSalesFinancialDepartment">${financialDepartmentOptionsMarkup()}</select></label>
         </div>
       </details>
       <p id="controlSalesSaveStatus" class="control-sales-save-status hidden" role="status" aria-live="polite"></p>
