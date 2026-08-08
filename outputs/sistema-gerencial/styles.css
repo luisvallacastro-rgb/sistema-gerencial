@@ -17173,6 +17173,25 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   font-weight: 900;
 }
 
+.app-shell .opportunity-row .delete-record-btn,
+.app-shell:not(.sidebar-collapsed) .opportunity-row .delete-record-btn {
+  width: auto !important;
+  min-width: 92px !important;
+  padding: 0 10px !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 122, 151, .42) !important;
+  background: linear-gradient(135deg, rgba(181, 59, 88, .44), rgba(105, 34, 62, .38)) !important;
+  color: #ffe3ea !important;
+}
+.app-shell .opportunity-row .delete-record-btn strong {
+  color: inherit;
+  font-size: 11px;
+  font-weight: 900;
+}
+
 .quotation-table-body {
   gap: 7px;
   max-height: none;

@@ -3319,6 +3319,73 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
             return
+        opportunity_path = self.path.split("?", 1)[0].strip("/").split("/")
+        if len(opportunity_path) == 3 and opportunity_path[:2] == ["api", "opportunities"]:
+            opportunity_id = unquote(opportunity_path[2])
+            with connect() as conn:
+                opportunities = read_result_opportunities(conn)
+                opportunity = next((item for item in opportunities if text(item.get("id")) == opportunity_id), None)
+                if not opportunity:
+                    self.send_json({"error": "Oportunidad no encontrada"}, status=404)
+                    return
+                quotation_id = text(opportunity.get("quotationId"))
+                quotation = conn.execute(
+                    "SELECT opportunity_id, converted_order_id FROM quotations WHERE id = ? LIMIT 1",
+                    (quotation_id,),
+                ).fetchone() if quotation_id else None
+                linked_order = conn.execute("""
+                    SELECT id FROM control_sales_orders
+                    WHERE source_opportunity_id = ? OR source_quotation_id = ?
+                    LIMIT 1
+                """, (opportunity_id, quotation_id)).fetchone()
+                if (quotation and text(quotation["converted_order_id"])) or linked_order:
+                    self.send_json({
+                        "error": "No se puede eliminar: la oportunidad ya tiene una orden de pedido vinculada"
+                    }, status=409)
+                    return
+
+                crm_id = text(opportunity.get("crmOpportunityId"), quotation["opportunity_id"] if quotation else "")
+                if quotation_id:
+                    conn.execute("DELETE FROM quotations WHERE id = ?", (quotation_id,))
+                opportunities = [item for item in opportunities if text(item.get("id")) != opportunity_id]
+                write_result_opportunities(conn, opportunities)
+
+                crm_data = read_crm_data(conn)
+                remaining = [item for item in opportunities if text(item.get("crmOpportunityId")) == crm_id]
+                source = next((
+                    item for item in crm_data.get("opportunities", [])
+                    if text(item.get("id")) == crm_id
+                ), None)
+                if source and remaining:
+                    source["resultOpportunityId"] = text(remaining[0].get("id"))
+                    source["resultOpportunityIds"] = [text(item.get("id")) for item in remaining]
+                    source["latestQuotationId"] = text(remaining[0].get("quotationId"))
+                    source["estimatedAmount"] = float(remaining[0].get("amount") or 0)
+                elif source:
+                    crm_data["opportunities"] = [
+                        item for item in crm_data.get("opportunities", [])
+                        if text(item.get("id")) != crm_id
+                    ]
+                    crm_data["agenda"] = [
+                        item for item in crm_data.get("agenda", [])
+                        if text(item.get("opportunityId")) != crm_id
+                    ]
+                    conn.execute(
+                        "DELETE FROM quotations WHERE opportunity_id = ? AND converted_order_id = ''",
+                        (crm_id,),
+                    )
+                write_crm_data(conn, crm_data)
+                quotation_rows = conn.execute(
+                    "SELECT * FROM quotations ORDER BY datetime(updated_at) DESC, rowid DESC"
+                ).fetchall()
+                quotation_items = [quotation_payload(row) for row in quotation_rows]
+            self.send_json({
+                "ok": True,
+                "opportunities": opportunities,
+                "quotations": quotation_items,
+                "crm": build_crm_view_model(crm_data),
+            })
+            return
         if self.path.startswith("/api/accounts-receivable/"):
             item_id = unquote(self.path.rsplit("/", 1)[-1])
             with connect() as conn:

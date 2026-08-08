@@ -7602,6 +7602,11 @@ function renderCommercialSubmenu(area) {
               <span aria-hidden="true">🧾</span><strong>Crear orden</strong>
             </button>
           ` : ""}
+          ${canManageMigratedOpportunityLifecycle() && !hasConvertedQuotationOrder(item) ? `
+            <button class="action-icon-btn delete-record-btn" type="button" data-action="delete-record" data-id="${item.id}" aria-label="Eliminar registro completo" title="Eliminar oportunidad, cotización y gestiones">
+              <span aria-hidden="true">🗑️</span><strong>Eliminar</strong>
+            </button>
+          ` : ""}
           ${canManageMigratedOpportunityLifecycle() && item.crmOpportunityId && !isHistory ? `
             <button class="action-icon-btn return-followup" type="button" data-action="return-followup" data-id="${item.id}" aria-label="Volver a Seguimiento" title="Volver a Seguimiento">
               <span aria-hidden="true">↩️</span>
@@ -10061,6 +10066,11 @@ opportunityTable.addEventListener("click", (event) => {
     return;
   }
 
+  if (button.dataset.action === "delete-record") {
+    deleteCompleteOpportunityRecord(item, button);
+    return;
+  }
+
   state.opportunityFormContext = "results";
   fillOpportunityOptions();
   opportunityId.value = item.id;
@@ -10697,6 +10707,38 @@ async function convertWonOpportunityToOrder(item, triggerButton) {
     alert("No fue posible preparar la orden de pedido. Verifica la conexión e inténtalo nuevamente.");
   } finally {
     if (triggerButton?.isConnected) triggerButton.disabled = false;
+  }
+}
+
+async function deleteCompleteOpportunityRecord(item, triggerButton) {
+  if (!item || hasConvertedQuotationOrder(item)) return;
+  const confirmation = prompt(
+    `ELIMINACIÓN IRREVERSIBLE\n\nSe borrarán la oportunidad “${item.company}”, su cotización de ${formatMoney(item.amount)} y todas sus gestiones.\n\nEscribe ELIMINAR para confirmar:`
+  );
+  if (confirmation !== "ELIMINAR") return;
+  const originalHtml = triggerButton?.innerHTML;
+  if (triggerButton) {
+    triggerButton.disabled = true;
+    triggerButton.textContent = "…";
+  }
+  try {
+    const payload = await apiJson(`/api/opportunities/${encodeURIComponent(item.id)}`, {
+      method: "DELETE",
+      headers: { "X-System-User-Id": state.currentUser?.id || "" }
+    });
+    getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(payload.opportunities || []));
+    state.quotations = Array.isArray(payload.quotations) ? payload.quotations : state.quotations;
+    state.crmData = payload.crm || state.crmData;
+    localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+    persistLocalQuotations();
+    renderCommercialSubmenu(areas.comercializacion);
+    alert("El registro completo fue eliminado.");
+  } catch (error) {
+    if (triggerButton?.isConnected) {
+      triggerButton.disabled = false;
+      triggerButton.innerHTML = originalHtml;
+    }
+    alert(error.message || "No fue posible eliminar el registro completo.");
   }
 }
 
