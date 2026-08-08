@@ -2266,6 +2266,7 @@ function renderNav() {
       }
       persistNavigationState();
       renderDashboard();
+      if (!hasSubmenus && usesTabletDrawer()) setSidebarCollapsed(true);
     });
     navList.appendChild(button);
     if (hasSubmenus) renderSubmenu(area, key, submenus);
@@ -2284,6 +2285,7 @@ function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
       state.activeSubmenu = button.dataset.submenu;
       persistNavigationState();
       renderDashboard();
+      if (usesTabletDrawer()) setSidebarCollapsed(true);
     });
   });
   navList.appendChild(submenu);
@@ -9315,6 +9317,10 @@ function setSidebarCollapsed(collapsed) {
   persistNavigationState();
 }
 
+function usesTabletDrawer() {
+  return window.matchMedia("(min-width: 600px) and (max-width: 1100px)").matches;
+}
+
 function navigationStorageId(user = state.currentUser) {
   return `${navigationSessionKey}:${user?.id || user?.username || "guest"}`;
 }
@@ -9622,6 +9628,7 @@ function openApp(userOrRole, options = {}) {
     state.activeSubmenu = firstSubmenu?.key || "resultados";
     if (firstSubmenu) state.openMenus.add(state.activeArea);
   }
+  if (usesTabletDrawer()) setSidebarCollapsed(true);
   persistSession(user);
   loginView.classList.add("hidden");
   appShell.classList.remove("hidden");
@@ -9744,6 +9751,12 @@ sidebarToggleBtn.addEventListener("click", () => {
 
 sidebarRestoreBtn.addEventListener("click", () => {
   setSidebarCollapsed(false);
+});
+
+appShell.addEventListener("click", (event) => {
+  if (!usesTabletDrawer() || appShell.classList.contains("sidebar-collapsed")) return;
+  if (event.target.closest(".sidebar") || event.target.closest("#sidebarRestoreBtn")) return;
+  setSidebarCollapsed(true);
 });
 
 systemThemeSwitch?.addEventListener("click", () => {

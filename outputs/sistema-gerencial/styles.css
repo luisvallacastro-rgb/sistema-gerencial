@@ -17945,25 +17945,55 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 @media (min-width: 600px) and (max-width: 1100px) {
   .app-shell,
   .app-shell:not(.sidebar-collapsed) { grid-template-columns: minmax(0, 1fr) !important; column-gap: 0 !important; }
-  .app-shell .sidebar {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 40 !important;
-    width: auto !important;
-    max-width: none !important;
-    height: auto !important;
-    max-height: 142px !important;
-    margin: 0 !important;
-    padding: 8px 12px 9px !important;
-    overflow: hidden !important;
-    border-radius: 0 !important;
+  .app-shell:not(.sidebar-collapsed)::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 79;
+    background: rgba(3, 10, 22, .62);
+    backdrop-filter: blur(3px);
   }
-  .app-shell .nav-list { display: flex !important; grid-template-columns: none !important; overflow-x: auto !important; overflow-y: hidden !important; }
-  .app-shell .nav-item { flex: 0 0 auto !important; width: auto !important; min-width: 132px !important; }
-  .app-shell .submenu-list.open { display: flex !important; flex: 0 0 auto !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }
-  .app-shell .submenu-item { flex: 0 0 auto !important; width: auto !important; min-width: max-content !important; margin: 0 !important; white-space: nowrap !important; }
+  .app-shell .sidebar {
+    position: fixed !important;
+    inset: 10px auto 10px 10px !important;
+    z-index: 80 !important;
+    width: min(330px, calc(100vw - 44px)) !important;
+    max-width: 330px !important;
+    height: auto !important;
+    max-height: calc(100dvh - 20px) !important;
+    margin: 0 !important;
+    padding: 18px 14px 14px !important;
+    overflow: hidden !important;
+    border-radius: 22px !important;
+    box-shadow: 18px 0 60px rgba(0, 0, 0, .48) !important;
+  }
+  .app-shell.sidebar-collapsed .sidebar { display: none !important; }
+  .app-shell .sidebar-head { margin-bottom: 12px !important; }
+  .app-shell .nav-list {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 6px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .app-shell .nav-item { width: 100% !important; min-width: 0 !important; min-height: 44px !important; }
+  .app-shell .submenu-list.open { display: grid !important; margin: 0 0 4px 12px !important; padding: 0 0 0 8px !important; }
+  .app-shell .submenu-item { width: 100% !important; min-width: 0 !important; margin: 0 !important; white-space: normal !important; }
   .app-shell .presence-panel,
   .app-shell .logout { display: none !important; }
+  .app-shell .sidebar-restore {
+    position: fixed !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 70 !important;
+    width: 42px !important;
+    height: 42px !important;
+    margin: 0 !important;
+    border-radius: 14px !important;
+    background: rgba(27, 49, 79, .92) !important;
+  }
   .app-shell .dashboard { width: 100% !important; min-width: 0 !important; padding: 12px 14px 22px !important; }
   .app-shell .opportunity-table,
   .app-shell .financial-orders-table-wrap,
