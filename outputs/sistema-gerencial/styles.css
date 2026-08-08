@@ -16357,6 +16357,171 @@ html.macos-render-safe .app-shell .permission-access-user {
 .control-sales-detail-dialog.control-sales-order-format-only .control-sales-audit,
 .control-sales-detail-dialog.control-sales-order-format-only .control-sales-warnings { display: none; }
 
+/* Revisión de pedidos: resumen primero, detalle bajo demanda. */
+#controlSalesDetailDialog.control-sales-detail-dialog {
+  width: min(1040px, 94vw);
+  max-height: 92vh;
+}
+
+#controlSalesDetailDialog > section {
+  gap: 14px;
+  max-height: 88vh;
+  padding: 22px;
+}
+
+.control-sales-review-header {
+  align-items: center !important;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(151, 185, 216, .16);
+}
+
+.control-sales-review-header h3 {
+  margin: 3px 0;
+  color: #f7fbff;
+  font-size: clamp(21px, 2.4vw, 30px);
+}
+
+.control-sales-review-header > div:first-child > span {
+  color: #9fb0c6;
+  font-size: 13px;
+}
+
+.control-sales-review-header__aside {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.control-sales-review-header__aside em {
+  padding: 7px 11px;
+  border: 1px solid rgba(114, 245, 209, .28);
+  border-radius: 999px;
+  background: rgba(31, 157, 120, .13);
+  color: #8bf4d8;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.control-sales-review-hero {
+  display: grid;
+  grid-template-columns: minmax(230px, .8fr) 1.7fr;
+  gap: 12px;
+}
+
+.control-sales-review-total,
+.control-sales-review-meta article {
+  border: 1px solid rgba(142, 178, 216, .18);
+  border-radius: 16px;
+  background: rgba(19, 44, 73, .72);
+}
+
+.control-sales-review-total {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 17px 20px;
+  border-color: rgba(114, 245, 209, .3);
+  background: linear-gradient(135deg, rgba(20, 91, 79, .44), rgba(17, 49, 79, .72));
+}
+
+.control-sales-review-total small,
+.control-sales-review-meta small {
+  color: #91a5bd;
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.control-sales-review-total strong {
+  color: #72f5d1;
+  font-size: clamp(26px, 3vw, 38px);
+}
+
+.control-sales-review-total span { color: #a8b9cd; font-size: 11px; }
+.control-sales-review-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.control-sales-review-meta article { display: grid; align-content: center; gap: 5px; padding: 15px; }
+.control-sales-review-meta strong { color: #f2f7fc; font-size: 15px; }
+.control-sales-review-meta article.balanced strong { color: #72f5d1; }
+.control-sales-review-meta article.mismatch strong { color: #ffb06e; }
+
+.control-sales-review-signatures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.control-sales-review-signatures .commercial-electronic-signature.is-compact { margin: 0; }
+.control-sales-review-signature-pending { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 10px 12px; border: 1px dashed rgba(151, 185, 216, .25); border-radius: 12px; color: #879ab2; }
+.control-sales-review-signature-pending > span { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: rgba(151, 185, 216, .12); font-weight: 900; }
+.control-sales-review-signature-pending div { display: grid; gap: 2px; }
+.control-sales-review-signature-pending small { font-size: 8px; font-weight: 900; text-transform: uppercase; }
+.control-sales-review-signature-pending strong { font-size: 11px; }
+
+.control-sales-review-products {
+  overflow: hidden;
+  border: 1px solid rgba(142, 178, 216, .18);
+  border-radius: 16px;
+  background: rgba(12, 34, 59, .42);
+}
+
+.control-sales-review-products > header,
+.control-sales-review-products > article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px 120px;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 15px;
+}
+
+.control-sales-review-products > header { background: rgba(13, 40, 70, .82); color: #93a7bf; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.control-sales-review-products > header h4 { margin: 2px 0 0; color: #f3f8fd; font-size: 14px; text-transform: none; }
+.control-sales-review-products > article { border-top: 1px solid rgba(142, 178, 216, .1); }
+.control-sales-review-products > article div { display: grid; gap: 2px; }
+.control-sales-review-products > article small { color: #91a3ba; }
+.control-sales-review-products > article > strong:last-child { color: #72f5d1; }
+
+.control-sales-review-more {
+  border: 1px solid rgba(142, 178, 216, .18);
+  border-radius: 15px;
+  background: rgba(13, 35, 59, .48);
+}
+
+.control-sales-review-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 58px;
+  padding: 10px 15px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.control-sales-review-more > summary::-webkit-details-marker { display: none; }
+.control-sales-review-more > summary span { display: grid; gap: 2px; }
+.control-sales-review-more > summary strong { color: #dce8f5; font-size: 13px; }
+.control-sales-review-more > summary small { color: #8297af; font-size: 10px; }
+.control-sales-review-more > summary i { color: #72f5d1; font-size: 18px; font-style: normal; transition: transform .2s ease; }
+.control-sales-review-more[open] > summary i { transform: rotate(180deg); }
+.control-sales-review-more__content { display: grid; gap: 14px; padding: 0 15px 15px; border-top: 1px solid rgba(142, 178, 216, .12); }
+.control-sales-review-more__content .control-sales-detail-proforma { margin: 14px 0 0; }
+.control-sales-review-more__content .control-sales-audit h4 { margin-bottom: 2px; }
+
+.control-sales-review-footer { align-items: center; }
+.control-sales-review-footer .danger-btn { margin-right: auto; padding-inline: 12px !important; opacity: .72; }
+
+@media (max-width: 760px) {
+  .control-sales-review-header__aside em { display: none; }
+  .control-sales-review-hero { grid-template-columns: 1fr; }
+  .control-sales-review-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .control-sales-review-signatures { grid-template-columns: 1fr; }
+  .control-sales-review-products > header,
+  .control-sales-review-products > article { grid-template-columns: minmax(0, 1fr) 62px 92px; }
+  .control-sales-review-footer { flex-wrap: wrap; }
+  .control-sales-review-footer .danger-btn { margin-right: 0; }
+}
+
 @media (max-width: 1180px) {
   .app-shell .crm-won-history-card { grid-template-columns: 120px minmax(220px, 1fr) 150px minmax(180px, 1fr); }
   .app-shell .crm-won-order-button { grid-column: 2 / -1; }
