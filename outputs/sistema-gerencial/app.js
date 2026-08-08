@@ -1283,6 +1283,22 @@ function closureResult(item) {
   return [...managements].reverse().find((management) => !management.canceled && isClosureStage(management.stage) && management.result);
 }
 
+function hasConvertedQuotationOrder(item) {
+  if (!item) return false;
+  if (item.orderHandoff?.status === "converted" || item.orderHandoff?.orderId) return true;
+  const quotationId = String(item.quotationId || "");
+  if (!quotationId) return false;
+  const quotation = state.quotations.find((record) => String(record.id || "") === quotationId);
+  if (quotation?.convertedOrderId) return true;
+  return state.controlSales.some((order) => (
+    !order.archived && String(order.sourceQuotationId || "") === quotationId
+  ));
+}
+
+function isWonPendingOrder(item, result = closureResult(item || {})) {
+  return result?.result === "ganado" && !hasConvertedQuotationOrder(item);
+}
+
 function syncTrackingWin(item) {
   const result = closureResult(item || {});
   if (result?.result !== "ganado") {
@@ -1440,6 +1456,7 @@ function opportunityCycleRows(items) {
   const nextStart = nextPeriodStart();
   const rows = items.map((item) => {
     const result = closureResult(item);
+    const isPendingOrder = isWonPendingOrder(item, result);
     const closureDate = result?.date || "";
     const isClosedBeforePeriod = Boolean(result && closureDate < periodStart);
     const isClosedInPeriod = Boolean(result && closureDate >= periodStart && closureDate < nextStart);
@@ -1447,7 +1464,8 @@ function opportunityCycleRows(items) {
     return {
       item,
       result,
-      isHistory: Boolean(result),
+      isHistory: Boolean(result) && !isPendingOrder,
+      isPendingOrder,
       isInherited: item.date < periodStart && !isClosedBeforePeriod,
       isClosedInPeriod,
       isFuture
@@ -1473,7 +1491,7 @@ function opportunityCycleRows(items) {
   return {
     // Una oportunidad vigente siempre debe ser localizable en Gerencia. El
     // periodo limita métricas y cierres, pero nunca oculta el pipeline activo.
-    active: rows.filter((row) => !row.result).sort(sortRows),
+    active: rows.filter((row) => !row.result || row.isPendingOrder).sort(sortRows),
     history: [
       ...rows.filter((row) => row.isHistory && !row.isFuture),
       ...importedHistoryRows
@@ -7554,14 +7572,14 @@ function renderCommercialSubmenu(area) {
       <strong>Acciones</strong>
     </div>
     <div class="opportunity-table-body">
-      ${displayRows.length ? pagedRows.map(({ item, result, isInherited, isHistory, isImportedHistory }) => `
+      ${displayRows.length ? pagedRows.map(({ item, result, isInherited, isHistory, isPendingOrder, isImportedHistory }) => `
         <div class="opportunity-row ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
           <span>${formatDate(item.date)}</span>
           <strong class="company-cell">
             <span class="company-name">${item.company}</span>
             ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
             ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
-            ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}">${result.result === "ganado" ? "Ganado" : "Perdida"}</span>` : ""}
+            ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}">${isPendingOrder ? "Ganado · pedido pendiente" : (result.result === "ganado" ? "Ganado" : "Perdida")}</span>` : ""}
             ${hasOutstandingSamples(item) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}
           </strong>
           <span>${item.seller}</span>
