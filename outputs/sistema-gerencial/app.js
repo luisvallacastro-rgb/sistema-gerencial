@@ -9318,7 +9318,11 @@ function setSidebarCollapsed(collapsed) {
 }
 
 function usesTabletDrawer() {
-  return window.matchMedia("(min-width: 600px) and (max-width: 1100px)").matches;
+  const tabletWidth = window.matchMedia("(min-width: 600px) and (max-width: 1100px)").matches;
+  const scaledTouchTablet = window.matchMedia(
+    "(hover: none) and (pointer: coarse) and (min-width: 600px) and (max-width: 1366px)"
+  ).matches;
+  return tabletWidth || scaledTouchTablet;
 }
 
 function navigationStorageId(user = state.currentUser) {
