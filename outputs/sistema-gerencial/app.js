@@ -4626,6 +4626,8 @@ function renderFinancialOrderList() {
             ? state.controlSales.find((item) => item.id === order.controlSalesOrderId)
             : null;
           const linkedOrder = approvedControlOrder || linkedControlSalesByFinancialOrderId.get(String(order.id));
+          const hasTwoSignatures = linkedOrder?.commercialApprovalStatus === "Autorizada"
+            && linkedOrder?.financeApprovalStatus === "Aprobada";
           const variance = Number(linkedOrder?.varianceCents || 0);
           return `
           <article class="financial-order-row">
@@ -4635,13 +4637,13 @@ function renderFinancialOrderList() {
             <span>${escapeHtml(order.seller)}</span>
             <span class="financial-order-client-cell">
               <span>${escapeHtml(order.client)}</span>
-              ${approvedControlOrder ? `<em class="financial-order-entered-badge">Aprobado · 2 firmas</em>` : linkedOrder ? `<em class="financial-order-entered-badge">Ingresado</em>` : ""}
+              ${hasTwoSignatures ? `<em class="financial-order-entered-badge">Aprobado · 2 firmas</em>` : linkedOrder ? `<em class="financial-order-entered-badge">Ingresado</em>` : ""}
               ${linkedOrder && variance !== 0 ? `<em class="financial-order-variance-badge" data-tone="${variance > 0 ? "over" : "under"}">Descuadre ${formatControlSalesMoney(variance)}</em>` : ""}
               ${linkedOrder && variance === 0 ? `<em class="financial-order-balanced-badge">Conciliado</em>` : ""}
             </span>
             <span class="financial-order-actions">${approvedControlOrder
               ? `<button type="button" data-finance-order-view="${escapeHtml(approvedControlOrder.id)}" title="Ver orden y firmas">Ver</button><button type="button" data-finance-order-edit="${escapeHtml(approvedControlOrder.id)}">Editar</button><button class="danger" type="button" data-finance-order-archive="${escapeHtml(approvedControlOrder.id)}">Anular</button>`
-              : `<button type="button" data-financial-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-financial-order-delete="${order.id}">Eliminar</button>`}
+              : `${linkedOrder ? `<button type="button" data-finance-order-view="${escapeHtml(linkedOrder.id)}" title="Ver orden y firmas">Ver</button>` : ""}<button type="button" data-financial-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-financial-order-delete="${order.id}">Eliminar</button>`}
             </span>
           </article>
         `; }).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
