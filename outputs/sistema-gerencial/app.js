@@ -3414,7 +3414,7 @@ function renderCommercialOrderAuthorization() {
   const pending = commercialPendingApprovalOrders();
   const authorized = allOrders.filter((order) => order.commercialApprovalStatus === "Autorizada");
   const query = normalizeKey(state.commercialApprovalQuery);
-  const pendingRows = pending.filter((order) => !query || normalizeKey(`${order.number} ${order.client} ${order.seller}`).includes(query));
+  const visibleRows = allOrders.filter((order) => !query || normalizeKey(`${order.number} ${order.client} ${order.seller} ${order.commercialApprovalStatus || "Pendiente"}`).includes(query));
   return `
     <section class="commercial-approval" aria-label="Autorización comercial de pedidos">
       <header class="commercial-approval__hero">
@@ -3427,7 +3427,9 @@ function renderCommercialOrderAuthorization() {
       <label class="commercial-approval__search"><span>⌕</span><input type="search" data-commercial-approval-search value="${escapeHtml(state.commercialApprovalQuery)}" placeholder="Buscar cliente, vendedor o estado..."></label>
       <div class="commercial-approval__notice"><strong>Primer visto bueno</strong><span>Al autorizar, la orden se notificará a Financiera / Pedidos para su segundo visto bueno.</span></div>
       <div class="commercial-approval__list">
-        ${pendingRows.map((order) => `
+        ${visibleRows.map((order) => {
+          const isAuthorized = order.commercialApprovalStatus === "Autorizada";
+          return `
             <article class="commercial-approval__row">
               <div class="commercial-approval__identity"><small>ORDEN DE PEDIDO</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><span>${formatDate(order.date)}</span></div>
               <div class="commercial-approval__client"><strong>${escapeHtml(order.client)}</strong><span>${escapeHtml(order.seller || "Sin vendedor")}</span></div>
@@ -3435,11 +3437,14 @@ function renderCommercialOrderAuthorization() {
               <span class="commercial-approval__status" data-status="${normalizeKey(order.commercialApprovalStatus || "Pendiente")}">${escapeHtml(order.commercialApprovalStatus || "Pendiente")}</span>
               <div class="commercial-approval__actions">
                 <button type="button" data-commercial-order-view="${escapeHtml(order.id)}">Ver</button>
-                <button type="button" data-commercial-order-edit="${escapeHtml(order.id)}">Editar</button>
-                <button type="button" class="secondary" data-commercial-order-return="${escapeHtml(order.id)}">Devolver</button>
-                <button type="button" class="primary" data-commercial-order-approve="${escapeHtml(order.id)}">✓ Firmar y autorizar</button>
+                ${isAuthorized
+                  ? `<button type="button" class="primary" data-commercial-order-print="${escapeHtml(order.id)}">Imprimir</button>`
+                  : `<button type="button" data-commercial-order-edit="${escapeHtml(order.id)}">Editar</button>
+                     <button type="button" class="secondary" data-commercial-order-return="${escapeHtml(order.id)}">Devolver</button>
+                     <button type="button" class="primary" data-commercial-order-approve="${escapeHtml(order.id)}">✓ Firmar y autorizar</button>`}
               </div>
-          </article>`).join("") || `<div class="empty-state">No hay pedidos pendientes de autorización comercial.</div>`}
+          </article>`;
+        }).join("") || `<div class="empty-state">No hay pedidos en el histórico de autorización comercial.</div>`}
       </div>
     </section>`;
 }
@@ -3452,6 +3457,10 @@ function wireCommercialOrderAuthorization() {
     input?.focus(); input?.setSelectionRange(input.value.length, input.value.length);
   });
   opportunityTable.querySelectorAll("[data-commercial-order-view]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.commercialOrderView)));
+  opportunityTable.querySelectorAll("[data-commercial-order-print]").forEach((button) => button.addEventListener("click", () => {
+    const order = state.controlSales.find((item) => item.id === button.dataset.commercialOrderPrint);
+    if (order) printControlSalesProforma(order);
+  }));
   opportunityTable.querySelectorAll("[data-commercial-order-edit]").forEach((button) => button.addEventListener("click", () => {
     const order = state.controlSales.find((item) => item.id === button.dataset.commercialOrderEdit);
     if (order) openControlSalesForm(order);
