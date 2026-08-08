@@ -2846,14 +2846,14 @@ function ensureControlSalesDialogs() {
           <label>Vendedor<input id="controlSalesFinancialSeller" required></label>
           <label>Venta<input id="controlSalesFinancialSale" type="number" step="0.01" min="0.01" readonly required></label>
           <label>Nº de orden<input id="controlSalesFinancialOrderNumber" required></label>
-          <label>Factura<input id="controlSalesFinancialInvoice" required></label>
-          <label>Condiciones<input id="controlSalesFinancialConditions" required></label>
+          <label>Factura<input id="controlSalesFinancialInvoice"></label>
+          <label>Condiciones<input id="controlSalesFinancialConditions"></label>
           <label class="span-2">Cliente<input id="controlSalesFinancialClient" required></label>
-          <label>Tipo de cliente<input id="controlSalesFinancialClientType" required></label>
-          <label>Estrategia<input id="controlSalesFinancialStrategy" required></label>
-          <label>Gestión<input id="controlSalesFinancialManagement" required></label>
-          <label>País<input id="controlSalesFinancialCountry" required></label>
-          <label>Departamento<input id="controlSalesFinancialDepartment" required></label>
+          <label>Tipo de cliente<input id="controlSalesFinancialClientType"></label>
+          <label>Estrategia<input id="controlSalesFinancialStrategy"></label>
+          <label>Gestión<input id="controlSalesFinancialManagement"></label>
+          <label>País<input id="controlSalesFinancialCountry"></label>
+          <label>Departamento<input id="controlSalesFinancialDepartment"></label>
         </div>
       </details>
       <p id="controlSalesSaveStatus" class="control-sales-save-status hidden" role="status" aria-live="polite"></p>
@@ -3077,6 +3077,7 @@ function collectControlSalesFinancialData() {
 function fillControlSalesFinancialData(data = {}, order = null) {
   const date = data.date || order?.date || todayISO();
   const [year, monthNumber] = String(date).split("-").map(Number);
+  const inheritedStrategy = String(order?.proformaData?.strategy || "").trim();
   const defaults = {
     number: data.number || order?.number || nextFinancialOrderNumber(),
     month: data.month || monthLabel(monthNumber || new Date().getMonth() + 1),
@@ -3088,8 +3089,8 @@ function fillControlSalesFinancialData(data = {}, order = null) {
     invoice: data.invoice || "",
     conditions: data.conditions || order?.proformaData?.paymentTerms || "",
     client: data.client || order?.client || "",
-    clientType: data.clientType || "",
-    strategy: data.strategy || order?.proformaData?.strategy || "",
+    clientType: data.clientType || order?.proformaData?.taxpayerType || "",
+    strategy: data.strategy || (normalizeKey(inheritedStrategy) === "none" ? "" : inheritedStrategy),
     management: data.management || "",
     country: data.country || "El Salvador",
     department: data.department || ""
@@ -3204,14 +3205,7 @@ const FINANCIAL_ORDER_REQUIRED_FIELDS = {
   seller: "Vendedor",
   sale: "Venta",
   orderNumber: "N.º de orden",
-  invoice: "Factura",
-  conditions: "Condiciones",
-  client: "Cliente",
-  clientType: "Tipo de cliente",
-  strategy: "Estrategia",
-  management: "Gestión",
-  country: "País",
-  department: "Departamento"
+  client: "Cliente"
 };
 
 function financialRecordForControlOrder(order) {
