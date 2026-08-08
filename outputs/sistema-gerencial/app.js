@@ -803,6 +803,9 @@ const sidebarRestoreBtn = document.querySelector("#sidebarRestoreBtn");
 const systemThemeSwitch = document.querySelector("#systemThemeSwitch");
 const navList = document.querySelector("#navList");
 const dashboard = document.querySelector(".dashboard");
+const explicitIPadLayout = /iPad/i.test(navigator.userAgent)
+  || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+appShell.classList.toggle("ipad-layout", explicitIPadLayout);
 const pageTitle = document.querySelector("#pageTitle");
 const periodLabel = document.querySelector("#periodLabel");
 const periodSelect = document.querySelector("#periodSelect");
@@ -9322,7 +9325,7 @@ function usesTabletDrawer() {
   const scaledTouchTablet = window.matchMedia(
     "(hover: none) and (pointer: coarse) and (min-width: 600px) and (max-width: 1366px)"
   ).matches;
-  return tabletWidth || scaledTouchTablet;
+  return explicitIPadLayout || tabletWidth || scaledTouchTablet;
 }
 
 function navigationStorageId(user = state.currentUser) {
