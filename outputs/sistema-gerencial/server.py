@@ -716,9 +716,14 @@ def repair_converted_result_opportunities(conn):
 
     result_items = read_result_opportunities(conn)
     quotation_rows = conn.execute("""
-        SELECT * FROM quotations
-        WHERE converted_order_id <> ''
-        ORDER BY datetime(converted_at), rowid
+        SELECT q.*,
+               COALESCE(NULLIF(q.converted_order_id, ''), cso.id, '') AS recovered_order_id,
+               COALESCE(NULLIF(q.converted_at, ''), cso.created_at, cso.order_date, '') AS recovered_converted_at
+        FROM quotations q
+        LEFT JOIN control_sales_orders cso
+          ON cso.source_quotation_id = q.id
+        WHERE q.converted_order_id <> '' OR cso.id IS NOT NULL
+        ORDER BY datetime(COALESCE(NULLIF(q.converted_at, ''), cso.created_at, cso.order_date)), q.rowid
     """).fetchall()
     changed = False
     repaired = 0
@@ -744,13 +749,42 @@ def repair_converted_result_opportunities(conn):
                     item for item in result_items
                     if text(item.get("crmOpportunityId")) == crm_id
                 ), None)
-                if not sibling:
-                    continue
-                result = {
-                    **sibling,
-                    "id": f"result-{crm_id}-{quotation_id}",
-                    "managements": [],
-                }
+                if sibling:
+                    result = {
+                        **sibling,
+                        "id": f"result-{crm_id or 'quotation'}-{quotation_id}",
+                        "managements": [],
+                    }
+                else:
+                    # The quotation/order pair is enough to rebuild the closed
+                    # sale even when an older client save removed both the CRM
+                    # source and its Gerencia row.
+                    customer = quotation.get("customerData") if isinstance(quotation.get("customerData"), dict) else {}
+                    product_lines = [
+                        text(line.get("description")) for line in (quotation.get("lines") or [])
+                        if text(line.get("type")).lower() != "title" and text(line.get("description"))
+                    ]
+                    result = {
+                        "id": f"result-recovered-{quotation_id}",
+                        "date": text(quotation.get("date"), time.strftime("%Y-%m-%d")),
+                        "time": "",
+                        "company": text(quotation.get("client"), "Cliente sin nombre"),
+                        "seller": text(quotation.get("seller"), "Sin vendedor"),
+                        "contact": text(customer.get("contactName")),
+                        "phone": text(customer.get("phone")),
+                        "segment": " · ".join(product_lines[:2]),
+                        "location": text(customer.get("address")),
+                        "stage": "Cierre de ventas",
+                        "priority": "Media",
+                        "probability": "tibio",
+                        "amount": round(int(quotation.get("totalCents") or 0) / 100, 2),
+                        "nextAction": "Pedido creado",
+                        "agendaDate": text(quotation.get("date")),
+                        "note": "Oportunidad recuperada desde la cotizacion convertida a pedido.",
+                        "crmOpportunityId": crm_id,
+                        "managements": [],
+                        "recoveredFromConvertedQuotation": True,
+                    }
             result_items.insert(0, result)
             repaired += 1
             changed = True
@@ -776,7 +810,10 @@ def repair_converted_result_opportunities(conn):
             and text(management.get("stage")).lower() in {"cierre", "cierre de ventas"}
             and text(management.get("result")).lower() == "ganado"
         ), None)
-        converted_at = text(quotation.get("convertedAt"), time.strftime("%Y-%m-%dT%H:%M:%S"))
+        converted_at = text(
+            row["recovered_converted_at"],
+            quotation.get("convertedAt") or quotation.get("date") or time.strftime("%Y-%m-%dT%H:%M:%S"),
+        )
         normalized_converted_at = converted_at.replace(" ", "T")
         closed_date = normalized_converted_at.split("T", 1)[0]
         closed_time = normalized_converted_at.split("T", 1)[1][:5] if "T" in normalized_converted_at else ""
@@ -805,7 +842,7 @@ def repair_converted_result_opportunities(conn):
             },
             "orderHandoff": {
                 "status": "converted",
-                "orderId": text(quotation.get("convertedOrderId")),
+                "orderId": text(row["recovered_order_id"], quotation.get("convertedOrderId")),
                 "quotationId": quotation_id,
                 "convertedAt": normalized_converted_at,
             },

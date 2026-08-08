@@ -2799,6 +2799,26 @@ function ensureControlSalesDialogs() {
         <article><span>Total detallado</span><strong id="controlSalesDetailedTotal">$0.00</strong><small>Según CF o CCF</small></article>
         <article><span>Diferencia</span><strong id="controlSalesVariance">$0.00</strong><small id="controlSalesReconciliationMessage">Selecciona un pedido para conciliar.</small></article>
       </section>
+      <details class="control-sales-proforma-block control-sales-financial-annex" open>
+        <summary><span><b>Registro financiero del pedido</b><small>Anexo al formulario heredado · se conserva dentro del mismo pedido</small></span><em>FINANCIERA</em><i>⌄</i></summary>
+        <div class="control-sales-proforma-grid">
+          <label>Número (automático)<input id="controlSalesFinancialNumber" readonly></label>
+          <label>Mes<input id="controlSalesFinancialMonth"></label>
+          <label>Año<input id="controlSalesFinancialYear" type="number"></label>
+          <label>Fecha de ingreso<input id="controlSalesFinancialDate" type="date"></label>
+          <label>Vendedor<input id="controlSalesFinancialSeller"></label>
+          <label>Venta<input id="controlSalesFinancialSale" type="number" step="0.01" readonly></label>
+          <label>Nº de orden<input id="controlSalesFinancialOrderNumber"></label>
+          <label>Factura<input id="controlSalesFinancialInvoice"></label>
+          <label>Condiciones<input id="controlSalesFinancialConditions"></label>
+          <label class="span-2">Cliente<input id="controlSalesFinancialClient"></label>
+          <label>Tipo de cliente<input id="controlSalesFinancialClientType"></label>
+          <label>Estrategia<input id="controlSalesFinancialStrategy"></label>
+          <label>Gestión<input id="controlSalesFinancialManagement"></label>
+          <label>País<input id="controlSalesFinancialCountry"></label>
+          <label>Departamento<input id="controlSalesFinancialDepartment"></label>
+        </div>
+      </details>
       <p id="controlSalesSaveStatus" class="control-sales-save-status hidden" role="status" aria-live="polite"></p>
       <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong><small id="controlSalesFooterReconciliation">Selecciona un pedido para conciliar.</small></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="button" class="control-sales-print-btn" data-control-sales-print-draft>Vista previa / Imprimir</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
     </form></dialog>
@@ -2843,12 +2863,14 @@ function ensureControlSalesDialogs() {
   });
   formDialog.addEventListener("input", (event) => {
     if (event.target.closest(".control-sales-line")) updateControlSalesFormTotal();
+    if (event.target.matches("#controlSalesNumber, #controlSalesDate, #controlSalesSeller, #controlSalesClient")) syncControlSalesFinancialData();
     if (event.target.matches("#controlSalesFinancialOrderSearch")) {
       renderControlSalesFinancialOrderResults(event.target.value);
     }
   });
   formDialog.addEventListener("change", (event) => {
     if (event.target.matches('input[name="controlSalesDocumentType"], #controlSalesPerceptionEnabled')) updateControlSalesFormTotal();
+    if (event.target.matches("#controlSalesDate")) syncControlSalesFinancialData();
   });
   document.querySelector("#controlSalesFinancialOrderPicker").addEventListener("toggle", (event) => {
     if (event.target.open) {
@@ -2865,13 +2887,16 @@ function ensureControlSalesDialogs() {
       notes: line.querySelector("[data-line-notes]").value.trim()
     }));
     const id = document.querySelector("#controlSalesId").value;
-    const payload = { financialOrderId:document.querySelector("#controlSalesFinancialOrderId").value, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+    syncControlSalesFinancialData();
     const submit = form.querySelector('button[type="submit"]');
     const saveStatus = document.querySelector("#controlSalesSaveStatus");
     submit.disabled = true;
     saveStatus.classList.add("hidden");
     saveStatus.dataset.tone = "success";
     try {
+      const linkedFinancialOrder = await saveControlSalesFinancialData(document.querySelector("#controlSalesFinancialOrderId").value);
+      document.querySelector("#controlSalesFinancialOrderId").value = linkedFinancialOrder.id;
+      const payload = { financialOrderId:linkedFinancialOrder.id, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
       const response = await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
       const savedOrder = response.item;
       document.querySelector("#controlSalesId").value = savedOrder.id;
@@ -2971,6 +2996,99 @@ const CONTROL_SALES_PROFORMA_FIELDS = {
   customerCode: "controlSalesCustomerCode",
   generalNotes: "controlSalesGeneralNotes"
 };
+
+const CONTROL_SALES_FINANCIAL_FIELDS = {
+  number: "controlSalesFinancialNumber",
+  month: "controlSalesFinancialMonth",
+  year: "controlSalesFinancialYear",
+  date: "controlSalesFinancialDate",
+  seller: "controlSalesFinancialSeller",
+  sale: "controlSalesFinancialSale",
+  orderNumber: "controlSalesFinancialOrderNumber",
+  invoice: "controlSalesFinancialInvoice",
+  conditions: "controlSalesFinancialConditions",
+  client: "controlSalesFinancialClient",
+  clientType: "controlSalesFinancialClientType",
+  strategy: "controlSalesFinancialStrategy",
+  management: "controlSalesFinancialManagement",
+  country: "controlSalesFinancialCountry",
+  department: "controlSalesFinancialDepartment"
+};
+
+function collectControlSalesFinancialData() {
+  const data = Object.fromEntries(Object.entries(CONTROL_SALES_FINANCIAL_FIELDS).map(([key, id]) => [
+    key,
+    document.querySelector(`#${id}`)?.value.trim() || ""
+  ]));
+  data.sale = Number(data.sale || 0);
+  return data;
+}
+
+function fillControlSalesFinancialData(data = {}, order = null) {
+  const date = data.date || order?.date || todayISO();
+  const [year, monthNumber] = String(date).split("-").map(Number);
+  const defaults = {
+    number: data.number || order?.number || nextFinancialOrderNumber(),
+    month: data.month || monthLabel(monthNumber || new Date().getMonth() + 1),
+    year: data.year || year || new Date().getFullYear(),
+    date,
+    seller: data.seller || order?.seller || "",
+    sale: data.sale ?? (Number(order?.totalCents || 0) / 100),
+    orderNumber: data.orderNumber || order?.number || "",
+    invoice: data.invoice || "",
+    conditions: data.conditions || order?.proformaData?.paymentTerms || "",
+    client: data.client || order?.client || "",
+    clientType: data.clientType || "",
+    strategy: data.strategy || order?.proformaData?.strategy || "",
+    management: data.management || "",
+    country: data.country || "El Salvador",
+    department: data.department || ""
+  };
+  Object.entries(CONTROL_SALES_FINANCIAL_FIELDS).forEach(([key, id]) => {
+    const field = document.querySelector(`#${id}`);
+    if (field) field.value = defaults[key] ?? "";
+  });
+}
+
+function syncControlSalesFinancialData() {
+  const date = document.querySelector("#controlSalesDate")?.value || todayISO();
+  const [year, monthNumber] = date.split("-").map(Number);
+  const values = {
+    date,
+    year: year || new Date().getFullYear(),
+    month: monthLabel(monthNumber || new Date().getMonth() + 1),
+    seller: document.querySelector("#controlSalesSeller")?.value || "",
+    client: document.querySelector("#controlSalesClient")?.value || "",
+    sale: (controlSalesDraftFromForm().totalCents / 100).toFixed(2),
+    orderNumber: document.querySelector("#controlSalesNumber")?.value || ""
+  };
+  Object.entries(values).forEach(([key, value]) => {
+    const field = document.querySelector(`#${CONTROL_SALES_FINANCIAL_FIELDS[key]}`);
+    if (field) field.value = value;
+  });
+}
+
+async function saveControlSalesFinancialData(existingId = "") {
+  const payload = collectControlSalesFinancialData();
+  const existing = state.financialOrders.find((item) => String(item.id) === String(existingId));
+  const now = new Date().toISOString();
+  const pending = existing
+    ? { ...existing, ...payload, updatedAt: now, updatedBy: state.currentUser?.name || "Sistema Gerencial" }
+    : { id: crypto.randomUUID(), source: "manual", createdAt: now, createdBy: state.currentUser?.name || "Sistema Gerencial", updatedAt: now, updatedBy: state.currentUser?.name || "Sistema Gerencial", ...payload };
+  let saved = pending;
+  if (apiEnabled) {
+    const response = await apiJson(existing ? `/api/financial-orders/${encodeURIComponent(existing.id)}` : "/api/financial-orders", {
+      method: existing ? "PUT" : "POST",
+      body: JSON.stringify(existing ? pending : { ...pending, autoNumber: true })
+    });
+    saved = response.item;
+  }
+  const index = state.financialOrders.findIndex((item) => item.id === saved.id);
+  if (index >= 0) state.financialOrders[index] = saved;
+  else state.financialOrders.unshift(saved);
+  saveFinancialOrders();
+  return saved;
+}
 
 function collectControlSalesProformaData() {
   const data = Object.fromEntries(Object.entries(CONTROL_SALES_PROFORMA_FIELDS).map(([key, id]) => [
@@ -3888,6 +4006,13 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
     generalNotes: sourceQuotation.commercialNotes || ""
   } : {};
   fillControlSalesProformaData(order?.proformaData || quotationData, order || sourceOrder);
+  fillControlSalesFinancialData(sourceOrder || {}, order || {
+    number: document.querySelector("#controlSalesNumber").value,
+    date: document.querySelector("#controlSalesDate").value,
+    seller: document.querySelector("#controlSalesSeller").value,
+    client: document.querySelector("#controlSalesClient").value,
+    proformaData: quotationData
+  });
   if (!order && sourceWin && !document.querySelector("#controlSalesCommercialName").value) {
     document.querySelector("#controlSalesCommercialName").value = sourceWin.company || "";
   }
@@ -3906,6 +4031,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   document.querySelector("#controlSalesFinancialOrderPicker").open = false;
   renderControlSalesFinancialOrderResults("");
   updateControlSalesFormTotal();
+  syncControlSalesFinancialData();
   if (formatOnly) document.querySelector("#controlSalesFooterReconciliation").textContent = "Detalle listo para guardar e imprimir.";
   dialog.showModal();
 }
@@ -4379,7 +4505,7 @@ function renderFinancialOrderList() {
               ${linkedOrder && variance === 0 ? `<em class="financial-order-balanced-badge">Conciliado</em>` : ""}
             </span>
             <span class="financial-order-actions">${approvedControlOrder
-              ? `<button type="button" data-finance-order-view="${escapeHtml(approvedControlOrder.id)}">Ver orden y firmas</button>`
+              ? `<button type="button" data-finance-order-view="${escapeHtml(approvedControlOrder.id)}" title="Ver orden y firmas">Ver</button><button type="button" data-finance-order-edit="${escapeHtml(approvedControlOrder.id)}">Editar</button><button class="danger" type="button" data-finance-order-archive="${escapeHtml(approvedControlOrder.id)}">Anular</button>`
               : `<button type="button" data-financial-order-edit="${order.id}">Editar</button><button class="danger" type="button" data-financial-order-delete="${order.id}">Eliminar</button>`}
             </span>
           </article>
@@ -4650,6 +4776,30 @@ function wireFinancialOrders() {
   opportunityTable.querySelectorAll("[data-finance-order-view]").forEach((button) => button.addEventListener("click", () => {
     openControlSalesDetail(button.dataset.financeOrderView);
   }));
+  opportunityTable.querySelectorAll("[data-finance-order-edit]").forEach((button) => button.addEventListener("click", () => {
+    const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderEdit);
+    if (order) openControlSalesForm(order);
+  }));
+  opportunityTable.querySelectorAll("[data-finance-order-archive]").forEach((button) => button.addEventListener("click", async () => {
+    const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderArchive);
+    if (!order || !confirm(`¿Anular el pedido #${order.number}? Las firmas y la auditoría se conservarán.`)) return;
+    button.disabled = true;
+    try {
+      await apiJson(`/api/control-sales/${encodeURIComponent(order.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          archived: true,
+          reason: "Anulado desde listado financiero",
+          updatedBy: state.currentUser?.name
+        })
+      });
+      await loadControlSales();
+      renderCommercialSubmenu(areas.financiera);
+    } catch (error) {
+      button.disabled = false;
+      alert(error.message || "No se pudo anular el pedido.");
+    }
+  }));
   opportunityTable.querySelectorAll("[data-finance-order-approve]").forEach((button) => button.addEventListener("click", async () => {
     if (!confirm("¿Confirmas la firma electrónica financiera y el segundo visto bueno de esta orden de pedido?")) return;
     try {
@@ -4702,8 +4852,7 @@ function wireFinancialOrders() {
     renderCommercialSubmenu(areas.financiera);
   }));
   opportunityTable.querySelector("[data-financial-order-new]")?.addEventListener("click", () => {
-    resetFinancialOrderForm();
-    financialOrderDialog.showModal();
+    openControlSalesForm();
   });
   opportunityTable.querySelectorAll("[data-won-order-handoff]").forEach((button) => button.addEventListener("click", () => {
     const opportunity = getOpportunitySubmenu().items.find((item) => item.id === button.dataset.wonOrderHandoff);
