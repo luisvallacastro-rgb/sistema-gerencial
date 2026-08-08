@@ -7,10 +7,12 @@ import sqlite3
 import time
 import unicodedata
 import uuid
+from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import unquote
+from zoneinfo import ZoneInfo
 
 
 ROOT = Path(__file__).resolve().parent
@@ -543,7 +545,8 @@ def crm_audit_event(event_type, opportunity, request_user, reason="", related_id
 
 def result_opportunity_from_crm(data, opportunity, quotation=None):
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    today = time.strftime("%Y-%m-%d")
+    local_now = datetime.now(ZoneInfo("America/El_Salvador"))
+    today = local_now.strftime("%Y-%m-%d")
     quotation = quotation if isinstance(quotation, dict) else None
     quotation_id = text((quotation or {}).get("id"))
     result_id = f"result-{text(opportunity.get('id'))}{'-' + quotation_id if quotation_id else ''}"
@@ -561,7 +564,7 @@ def result_opportunity_from_crm(data, opportunity, quotation=None):
     return {
         "id": result_id,
         "date": date,
-        "time": time.strftime("%H:%M"),
+        "time": local_now.strftime("%H:%M"),
         "company": text((quotation or {}).get("client"), opportunity.get("company") or "Cliente CRM"),
         "seller": text((quotation or {}).get("seller"), owner.get("name") or "Vendedor CRM"),
         "contact": text(customer.get("contactName"), opportunity.get("contact") or opportunity.get("responsible")),
@@ -3714,8 +3717,12 @@ class AppHandler(BaseHTTPRequestHandler):
                             conn, data, opportunity, result_opportunities
                         )
                         result = linked_results[0] if linked_results else None
-                        if results_changed:
-                            write_result_opportunities(conn, result_opportunities)
+                        if not result:
+                            self.send_json({"error": "No se pudo crear la oportunidad gerencial"}, status=500)
+                            return
+                        # Persistir siempre la colección completa antes de marcar
+                        # el origen como migrado; evita estados parciales.
+                        write_result_opportunities(conn, result_opportunities)
                         if not opportunity.get("migratedToResults"):
                             now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                             audit = crm_audit_event("migration", opportunity, request_user, "Migrada a Oportunidades / Gerencia", result.get("id"))
@@ -3736,9 +3743,10 @@ class AppHandler(BaseHTTPRequestHandler):
                             opportunity["resultOpportunityId"] = linked_results[0].get("id")
                             opportunity["resultOpportunityIds"] = [item.get("id") for item in linked_results]
                             write_crm_data(conn, data)
+                        persisted_results = read_result_opportunities(conn)
                         self.send_json({
                             "crm": build_crm_view_model(data),
-                            "opportunities": result_opportunities,
+                            "opportunities": persisted_results,
                             "resultOpportunity": result,
                             "resultOpportunities": linked_results,
                         })

@@ -6054,9 +6054,18 @@ async function migrateCrmOpportunityToResults(opportunityId, trigger = null) {
       headers: { "X-System-User-Id": state.currentUser?.id || "" },
       body: "{}"
     });
-    state.crmData = payload.crm;
-    getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(payload.opportunities || []));
+    const [persistedOpportunities, refreshedCrm] = await Promise.all([
+      apiJson("/api/opportunities"),
+      apiJson("/api/crm/bootstrap")
+    ]);
+    state.crmData = refreshedCrm || payload.crm;
+    const confirmedItems = Array.isArray(persistedOpportunities) ? persistedOpportunities : (payload.opportunities || []);
+    getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(confirmedItems));
+    const migrationConfirmed = getOpportunitySubmenu().items.some((item) => String(item.crmOpportunityId) === String(opportunityId));
+    if (!migrationConfirmed) throw new Error("La migración no quedó persistida en Oportunidades / Gerencia");
     localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+    state.opportunityCycleView = "active";
+    state.opportunityPage = 1;
     renderCommercialSubmenu(areas.comercializacion);
   } catch (error) {
     if (trigger) {
