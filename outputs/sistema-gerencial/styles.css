@@ -17129,7 +17129,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 }
 .app-shell .dashboard.opportunity-focus .opportunity-pagination { margin-top: 6px; }
 
-/* Gerencia: la acción principal debe reconocerse sin depender del icono. */
+/* Gerencia: acciones compactas; la etiqueta permanece en title/aria-label. */
 .app-shell .opportunity-row .row-actions,
 .app-shell:not(.sidebar-collapsed) .opportunity-row .row-actions {
   display: flex !important;
@@ -17138,58 +17138,30 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   max-width: none !important;
 }
 .app-shell .opportunity-row .manage-action-btn,
-.app-shell:not(.sidebar-collapsed) .opportunity-row .manage-action-btn {
-  width: auto !important;
-  min-width: 96px !important;
-  padding: 0 10px !important;
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+.app-shell:not(.sidebar-collapsed) .opportunity-row .manage-action-btn,
+.app-shell .opportunity-row .order-action-btn,
+.app-shell:not(.sidebar-collapsed) .opportunity-row .order-action-btn,
+.app-shell .opportunity-row .delete-record-btn,
+.app-shell:not(.sidebar-collapsed) .opportunity-row .delete-record-btn {
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 !important;
+  display: inline-grid !important;
+  place-items: center;
 }
-.app-shell .opportunity-row .manage-action-btn strong {
-  color: inherit;
-  font-size: 11px;
-  font-weight: 900;
-}
-
 .app-shell .opportunity-row .order-action-btn,
 .app-shell:not(.sidebar-collapsed) .opportunity-row .order-action-btn {
-  width: auto !important;
-  min-width: 108px !important;
-  padding: 0 10px !important;
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
   border: 1px solid rgba(114, 245, 209, .46) !important;
   background: linear-gradient(135deg, rgba(27, 157, 121, .48), rgba(18, 92, 106, .38)) !important;
   color: #d9fff4 !important;
 }
-
-.app-shell .opportunity-row .order-action-btn strong {
-  color: inherit;
-  font-size: 11px;
-  font-weight: 900;
-}
-
 .app-shell .opportunity-row .delete-record-btn,
 .app-shell:not(.sidebar-collapsed) .opportunity-row .delete-record-btn {
-  width: auto !important;
-  min-width: 92px !important;
-  padding: 0 10px !important;
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
   border: 1px solid rgba(255, 122, 151, .42) !important;
   background: linear-gradient(135deg, rgba(181, 59, 88, .44), rgba(105, 34, 62, .38)) !important;
   color: #ffe3ea !important;
-}
-.app-shell .opportunity-row .delete-record-btn strong {
-  color: inherit;
-  font-size: 11px;
-  font-weight: 900;
 }
 
 .quotation-table-body {

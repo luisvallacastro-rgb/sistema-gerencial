@@ -7594,17 +7594,17 @@ function renderCommercialSubmenu(area) {
           ` : ""}
           ${isImportedHistory ? `<span class="history-lock">Cierre real</span>` : `
             <button class="action-icon-btn manage-action-btn" type="button" data-action="manage" data-id="${item.id}" aria-label="Abrir gestiones" title="Abrir y registrar gestiones">
-              <span aria-hidden="true">📋</span><strong>Gestiones</strong>
+              <span aria-hidden="true">📋</span>
             </button>
           `}
           ${isPendingOrder ? `
             <button class="action-icon-btn order-action-btn" type="button" data-action="convert-order" data-id="${item.id}" aria-label="Convertir a orden de pedido" title="Convertir la cotización ganada en orden de pedido">
-              <span aria-hidden="true">🧾</span><strong>Crear orden</strong>
+              <span aria-hidden="true">🧾</span>
             </button>
           ` : ""}
           ${canDeleteOpportunities() && !hasConvertedQuotationOrder(item) ? `
             <button class="action-icon-btn delete-record-btn" type="button" data-action="delete-record" data-id="${item.id}" aria-label="Eliminar registro completo" title="Eliminar oportunidad, cotización y gestiones">
-              <span aria-hidden="true">🗑️</span><strong>Eliminar</strong>
+              <span aria-hidden="true">🗑️</span>
             </button>
           ` : ""}
           ${canManageMigratedOpportunityLifecycle() && item.crmOpportunityId && !isHistory ? `
