@@ -7579,7 +7579,7 @@ function renderCommercialSubmenu(area) {
             <span class="company-name">${item.company}</span>
             ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
             ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
-            ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}">${isPendingOrder ? "Ganado · pedido pendiente" : (result.result === "ganado" ? "Ganado" : "Perdida")}</span>` : ""}
+            ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}" ${isPendingOrder ? 'title="La venta está ganada y falta convertir la cotización en orden de pedido"' : ""}>${isPendingOrder ? "Ganada · pendiente de orden" : (result.result === "ganado" ? "Ganada" : "Perdida")}</span>` : ""}
             ${hasOutstandingSamples(item) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}
           </strong>
           <span>${item.seller}</span>
@@ -7593,8 +7593,8 @@ function renderCommercialSubmenu(area) {
             </button>
           ` : ""}
           ${isImportedHistory ? `<span class="history-lock">Cierre real</span>` : `
-            <button class="action-icon-btn" type="button" data-action="manage" data-id="${item.id}" aria-label="Gestiones">
-              <span aria-hidden="true">📋</span>
+            <button class="action-icon-btn manage-action-btn" type="button" data-action="manage" data-id="${item.id}" aria-label="Abrir gestiones" title="Abrir y registrar gestiones">
+              <span aria-hidden="true">📋</span><strong>Gestiones</strong>
             </button>
           `}
           ${canManageMigratedOpportunityLifecycle() && item.crmOpportunityId && !isHistory ? `
