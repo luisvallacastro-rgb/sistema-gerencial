@@ -3323,6 +3323,16 @@ class AppHandler(BaseHTTPRequestHandler):
         if len(opportunity_path) == 3 and opportunity_path[:2] == ["api", "opportunities"]:
             opportunity_id = unquote(opportunity_path[2])
             with connect() as conn:
+                actor_id = text(self.headers.get("X-System-User-Id"))
+                actor_row = conn.execute(
+                    "SELECT id, name, username, email, role, admin FROM users WHERE id = ? LIMIT 1",
+                    (actor_id,),
+                ).fetchone() if actor_id else None
+                if not actor_row or (not actor_row["admin"] and text(actor_row["role"]) != "gerencias"):
+                    self.send_json({
+                        "error": "Solo usuarios de Gerencia o administradores pueden eliminar registros completos"
+                    }, status=403)
+                    return
                 opportunities = read_result_opportunities(conn)
                 opportunity = next((item for item in opportunities if text(item.get("id")) == opportunity_id), None)
                 if not opportunity:

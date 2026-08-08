@@ -7602,7 +7602,7 @@ function renderCommercialSubmenu(area) {
               <span aria-hidden="true">🧾</span><strong>Crear orden</strong>
             </button>
           ` : ""}
-          ${canManageMigratedOpportunityLifecycle() && !hasConvertedQuotationOrder(item) ? `
+          ${canDeleteOpportunities() && !hasConvertedQuotationOrder(item) ? `
             <button class="action-icon-btn delete-record-btn" type="button" data-action="delete-record" data-id="${item.id}" aria-label="Eliminar registro completo" title="Eliminar oportunidad, cotización y gestiones">
               <span aria-hidden="true">🗑️</span><strong>Eliminar</strong>
             </button>
