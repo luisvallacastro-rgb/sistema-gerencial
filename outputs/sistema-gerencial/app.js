@@ -3074,10 +3074,17 @@ function collectControlSalesFinancialData() {
   return data;
 }
 
+function inheritedFinancialValue(currentValue, inheritedValue) {
+  const emptyMarkers = new Set(["", "none", "null", "undefined", "n/a", "na"]);
+  const current = String(currentValue ?? "").trim();
+  if (!emptyMarkers.has(normalizeKey(current))) return current;
+  const inherited = String(inheritedValue ?? "").trim();
+  return emptyMarkers.has(normalizeKey(inherited)) ? "" : inherited;
+}
+
 function fillControlSalesFinancialData(data = {}, order = null) {
   const date = data.date || order?.date || todayISO();
   const [year, monthNumber] = String(date).split("-").map(Number);
-  const inheritedStrategy = String(order?.proformaData?.strategy || "").trim();
   const defaults = {
     number: data.number || order?.number || nextFinancialOrderNumber(),
     month: data.month || monthLabel(monthNumber || new Date().getMonth() + 1),
@@ -3089,8 +3096,8 @@ function fillControlSalesFinancialData(data = {}, order = null) {
     invoice: data.invoice || "",
     conditions: data.conditions || order?.proformaData?.paymentTerms || "",
     client: data.client || order?.client || "",
-    clientType: data.clientType || order?.proformaData?.taxpayerType || "",
-    strategy: data.strategy || (normalizeKey(inheritedStrategy) === "none" ? "" : inheritedStrategy),
+    clientType: inheritedFinancialValue(data.clientType, order?.proformaData?.taxpayerType),
+    strategy: inheritedFinancialValue(data.strategy, order?.proformaData?.strategy),
     management: data.management || "",
     country: data.country || "El Salvador",
     department: data.department || ""
