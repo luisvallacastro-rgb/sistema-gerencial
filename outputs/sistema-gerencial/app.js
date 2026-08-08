@@ -7597,6 +7597,11 @@ function renderCommercialSubmenu(area) {
               <span aria-hidden="true">📋</span><strong>Gestiones</strong>
             </button>
           `}
+          ${isPendingOrder ? `
+            <button class="action-icon-btn order-action-btn" type="button" data-action="convert-order" data-id="${item.id}" aria-label="Convertir a orden de pedido" title="Convertir la cotización ganada en orden de pedido">
+              <span aria-hidden="true">🧾</span><strong>Crear orden</strong>
+            </button>
+          ` : ""}
           ${canManageMigratedOpportunityLifecycle() && item.crmOpportunityId && !isHistory ? `
             <button class="action-icon-btn return-followup" type="button" data-action="return-followup" data-id="${item.id}" aria-label="Volver a Seguimiento" title="Volver a Seguimiento">
               <span aria-hidden="true">↩️</span>
@@ -10051,6 +10056,11 @@ opportunityTable.addEventListener("click", (event) => {
     return;
   }
 
+  if (button.dataset.action === "convert-order") {
+    convertWonOpportunityToOrder(item, button);
+    return;
+  }
+
   state.opportunityFormContext = "results";
   fillOpportunityOptions();
   opportunityId.value = item.id;
@@ -10656,6 +10666,39 @@ notifyOperationsBtn.addEventListener("click", async () => {
     updateClosureControls();
   }
 });
+
+async function convertWonOpportunityToOrder(item, triggerButton) {
+  if (!item || !isWonPendingOrder(item)) return;
+  if (triggerButton) triggerButton.disabled = true;
+  try {
+    await Promise.all([loadQuotations(), loadControlSales()]);
+    const quotation = linkedManagementQuotations(item)[0];
+    if (!quotation) {
+      alert("Esta oportunidad ganada no tiene una cotización vinculada para convertir.");
+      return;
+    }
+    const existingOrder = state.controlSales.find((order) => (
+      !order.archived && String(order.sourceQuotationId || "") === String(quotation.id || "")
+    ));
+    if (quotation.convertedOrderId || existingOrder) {
+      item.orderHandoff = {
+        ...(item.orderHandoff || {}),
+        status: "converted",
+        orderId: quotation.convertedOrderId || existingOrder.id,
+        convertedAt: quotation.convertedAt || existingOrder.createdAt || new Date().toISOString()
+      };
+      saveOpportunities();
+      renderCommercialSubmenu(areas.comercializacion);
+      alert("Esta cotización ya fue convertida en una orden de pedido.");
+      return;
+    }
+    openControlSalesForm(null, null, item, true, quotation);
+  } catch (error) {
+    alert("No fue posible preparar la orden de pedido. Verifica la conexión e inténtalo nuevamente.");
+  } finally {
+    if (triggerButton?.isConnected) triggerButton.disabled = false;
+  }
+}
 
 function closeManagementForm() {
   managementDialog.close();
