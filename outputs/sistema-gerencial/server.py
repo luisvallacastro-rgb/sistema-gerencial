@@ -276,7 +276,7 @@ def write_result_opportunities(conn, items):
 
 
 def repair_future_dated_result_migrations(conn):
-    """Restore migrated opportunities hidden by a future follow-up date."""
+    """Restore migrations dated with UTC instead of El Salvador local time."""
     row = conn.execute("SELECT value FROM app_state WHERE key = 'opportunities'").fetchone()
     if not row:
         return 0
@@ -289,7 +289,16 @@ def repair_future_dated_result_migrations(conn):
 
     repaired = 0
     for item in items:
-        migration_date = text(item.get("migratedAt")).split("T", 1)[0]
+        migrated_at = text(item.get("migratedAt"))
+        try:
+            migration_local = datetime.fromisoformat(
+                migrated_at.replace("Z", "+00:00")
+            ).astimezone(ZoneInfo("America/El_Salvador"))
+            migration_date = migration_local.strftime("%Y-%m-%d")
+            migration_time = migration_local.strftime("%H:%M")
+        except (TypeError, ValueError):
+            migration_date = migrated_at.split("T", 1)[0]
+            migration_time = ""
         result_date = text(item.get("date"))
         if not text(item.get("crmOpportunityId")) or len(migration_date) != 10:
             continue
@@ -297,11 +306,15 @@ def repair_future_dated_result_migrations(conn):
             continue
         item["agendaDate"] = text(item.get("agendaDate"), result_date)
         item["date"] = migration_date
+        if migration_time:
+            item["time"] = migration_time
         managements = item.get("managements") if isinstance(item.get("managements"), list) else []
         for management in managements:
             comment = text(management.get("comment")).lower()
             if "migrada desde crm" in comment and text(management.get("date")) > migration_date:
                 management["date"] = migration_date
+                if migration_time:
+                    management["time"] = migration_time
         repaired += 1
 
     if repaired:
@@ -587,7 +600,7 @@ def result_opportunity_from_crm(data, opportunity, quotation=None):
         "managements": [{
             "id": f"{result_id}-mgmt-001",
             "date": date,
-            "time": time.strftime("%H:%M"),
+            "time": local_now.strftime("%H:%M"),
             "stage": stage_name,
             "comment": f"Migrada desde CRM{': ' + note if note else '.'}",
         }],
@@ -2715,6 +2728,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path == "/api/opportunities":
             with connect() as conn:
                 repair_missing_result_migrations(conn)
+                repair_future_dated_result_migrations(conn)
                 repair_converted_result_opportunities(conn)
                 items = read_result_opportunities(conn)
             self.send_json(items)
