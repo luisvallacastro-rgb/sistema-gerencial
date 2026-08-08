@@ -2896,6 +2896,16 @@ function ensureControlSalesDialogs() {
     try {
       const linkedFinancialOrder = await saveControlSalesFinancialData(document.querySelector("#controlSalesFinancialOrderId").value);
       document.querySelector("#controlSalesFinancialOrderId").value = linkedFinancialOrder.id;
+      if (formDialog.dataset.financialCompletionOnly === "true") {
+        await loadControlSales();
+        if (state.activeArea === "financiera" && state.activeSubmenu === "resultados-pedidos") {
+          renderCommercialSubmenu(areas.financiera);
+        }
+        saveStatus.innerHTML = `<span aria-hidden="true">✓</span><div><strong>Registro financiero guardado</strong><small>El primer visto bueno se conservó. Ya puedes cerrar y firmar la orden.</small></div>`;
+        saveStatus.classList.remove("hidden");
+        submit.textContent = "Registro financiero guardado";
+        return;
+      }
       const payload = { financialOrderId:linkedFinancialOrder.id, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
       const response = await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
       const savedOrder = response.item;
@@ -4007,17 +4017,18 @@ function nextControlSalesOrderNumber() {
   return String(highest + 1);
 }
 
-function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false, sourceQuotation = null) {
+function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false, sourceQuotation = null, financialCompletionOnly = false) {
   ensureControlSalesDialogs();
   const dialog = document.querySelector("#controlSalesDialog");
   dialog.classList.toggle("control-sales-order-format-only", formatOnly);
   dialog.dataset.orderFormatOnly = formatOnly ? "true" : "false";
+  dialog.dataset.financialCompletionOnly = financialCompletionOnly ? "true" : "false";
   document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar pedido #${order.number}` : "Nuevo pedido";
   const saveStatus = document.querySelector("#controlSalesSaveStatus");
   saveStatus.classList.add("hidden");
   saveStatus.textContent = "";
   saveStatus.dataset.tone = "success";
-  dialog.querySelector('button[type="submit"]').textContent = order ? "Guardar cambios" : "Guardar orden";
+  dialog.querySelector('button[type="submit"]').textContent = financialCompletionOnly ? "Guardar registro financiero" : order ? "Guardar cambios" : "Guardar orden";
   document.querySelector("#controlSalesId").value = order?.id || "";
   document.querySelector("#controlSalesSourceOpportunityId").value = order?.sourceOpportunityId || sourceWin?.id || "";
   document.querySelector("#controlSalesSourceQuotationId").value = order?.sourceQuotationId || sourceQuotation?.id || "";
@@ -4821,7 +4832,7 @@ function wireFinancialOrders() {
   }));
   opportunityTable.querySelectorAll("[data-finance-order-complete]").forEach((button) => button.addEventListener("click", () => {
     const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderComplete);
-    if (order) openControlSalesForm(order);
+    if (order) openControlSalesForm(order, null, null, false, null, true);
   }));
   opportunityTable.querySelectorAll("[data-finance-order-archive]").forEach((button) => button.addEventListener("click", async () => {
     const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderArchive);

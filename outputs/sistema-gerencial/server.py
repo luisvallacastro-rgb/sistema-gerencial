@@ -2132,6 +2132,100 @@ def grant_johanna_minutes_permissions(conn):
         )
 
 
+def purge_luis_valladares_test_flow_once(conn):
+    """Remove the existing Luis Valladares test flow once, preserving his user account."""
+    marker_key = "maintenance.purge-luis-valladares-flow.2026-08-07.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+
+    target = crm_identity_key("Luis Valladares")
+    matches_luis = lambda value: crm_identity_key(value) == target
+    crm = read_crm_data(conn)
+    seller_ids = {
+        text(user.get("id")) for user in crm.get("users", [])
+        if matches_luis(user.get("name"))
+    }
+    crm_opportunities = [
+        item for item in crm.get("opportunities", [])
+        if text(item.get("ownerId")) in seller_ids
+        or matches_luis(item.get("seller"))
+        or matches_luis(item.get("owner"))
+        or matches_luis(item.get("responsible"))
+    ]
+    opportunity_ids = {
+        text(value) for item in crm_opportunities
+        for value in (item.get("id"), item.get("resultOpportunityId"), item.get("crmOpportunityId"))
+        if text(value)
+    }
+
+    quotation_rows = conn.execute("SELECT id, opportunity_id, converted_order_id FROM quotations WHERE lower(seller) = lower(?) OR lower(created_by) = lower(?)", ("Luis Valladares", "Luis Valladares")).fetchall()
+    if opportunity_ids:
+        placeholders = ",".join("?" for _ in opportunity_ids)
+        quotation_rows += conn.execute(
+            f"SELECT id, opportunity_id, converted_order_id FROM quotations WHERE opportunity_id IN ({placeholders})",
+            tuple(opportunity_ids),
+        ).fetchall()
+    quotation_ids = {text(row["id"]) for row in quotation_rows}
+
+    order_rows = conn.execute("SELECT id, financial_order_id, source_opportunity_id, source_quotation_id FROM control_sales_orders WHERE lower(seller) = lower(?) OR lower(created_by) = lower(?)", ("Luis Valladares", "Luis Valladares")).fetchall()
+    relation_clauses = []
+    relation_values = []
+    for column, values in (("source_opportunity_id", opportunity_ids), ("source_quotation_id", quotation_ids)):
+        if values:
+            relation_clauses.append(f"{column} IN ({','.join('?' for _ in values)})")
+            relation_values.extend(values)
+    if relation_clauses:
+        order_rows += conn.execute(
+            "SELECT id, financial_order_id, source_opportunity_id, source_quotation_id FROM control_sales_orders WHERE " + " OR ".join(relation_clauses),
+            tuple(relation_values),
+        ).fetchall()
+    order_ids = {text(row["id"]) for row in order_rows}
+    financial_order_ids = {text(row["financial_order_id"]) for row in order_rows if text(row["financial_order_id"])}
+
+    result_rows = read_result_opportunities(conn)
+    removed_result_ids = {
+        text(item.get("id")) for item in result_rows
+        if matches_luis(item.get("seller"))
+        or text(item.get("crmOpportunityId")) in opportunity_ids
+        or text(item.get("quotationId")) in quotation_ids
+    }
+    opportunity_ids.update(removed_result_ids)
+
+    if order_ids:
+        placeholders = ",".join("?" for _ in order_ids)
+        conn.execute(f"DELETE FROM control_sales_audit WHERE order_id IN ({placeholders})", tuple(order_ids))
+        conn.execute(f"DELETE FROM control_sales_details WHERE order_id IN ({placeholders})", tuple(order_ids))
+        conn.execute(f"DELETE FROM control_sales_orders WHERE id IN ({placeholders})", tuple(order_ids))
+    if quotation_ids:
+        placeholders = ",".join("?" for _ in quotation_ids)
+        conn.execute(f"DELETE FROM quotations WHERE id IN ({placeholders})", tuple(quotation_ids))
+    if financial_order_ids:
+        placeholders = ",".join("?" for _ in financial_order_ids)
+        conn.execute(f"DELETE FROM financial_orders WHERE id IN ({placeholders})", tuple(financial_order_ids))
+    conn.execute("DELETE FROM financial_orders WHERE lower(seller) = lower(?) OR lower(created_by) = lower(?)", ("Luis Valladares", "Luis Valladares"))
+    deleted_purchase_orders = conn.execute("DELETE FROM purchase_orders WHERE lower(created_by) = lower(?)", ("Luis Valladares",)).rowcount
+
+    crm["opportunities"] = [item for item in crm.get("opportunities", []) if text(item.get("id")) not in opportunity_ids]
+    crm["agenda"] = [item for item in crm.get("agenda", []) if text(item.get("opportunityId")) not in opportunity_ids and text(item.get("ownerId")) not in seller_ids]
+    crm["gestiones"] = [item for item in crm.get("gestiones", []) if text(item.get("opportunityId")) not in opportunity_ids and text(item.get("ownerId")) not in seller_ids]
+    crm["resultWins"] = [item for item in crm.get("resultWins", []) if text(item.get("id")) not in opportunity_ids and text(item.get("crmOpportunityId")) not in opportunity_ids and not matches_luis(item.get("seller"))]
+    write_crm_data(conn, crm)
+    write_result_opportunities(conn, [item for item in result_rows if text(item.get("id")) not in removed_result_ids])
+
+    summary = {
+        "seller": "Luis Valladares",
+        "opportunities": len(crm_opportunities),
+        "quotations": len(quotation_ids),
+        "orders": len(order_ids),
+        "financialOrders": len(financial_order_ids),
+        "resultOpportunities": len(removed_result_ids),
+        "purchaseOrders": deleted_purchase_orders,
+        "executedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)", (marker_key, json.dumps(summary, ensure_ascii=True)))
+    print(f"Limpieza de prueba Luis Valladares completada: {summary}")
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -2443,6 +2537,7 @@ def init_db():
         grant_purchase_order_permissions(conn)
         seed_control_sales(conn)
         grant_control_sales_permissions(conn)
+        purge_luis_valladares_test_flow_once(conn)
 
 
 class AppHandler(BaseHTTPRequestHandler):
