@@ -6394,6 +6394,209 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .app-shell .purchase-order-card { grid-template-columns:minmax(180px,1.5fr) 130px 105px 105px auto;min-width:760px; }.app-shell .purchase-orders-list { overflow:auto; }
   #purchaseOrderDialog .purchase-order-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.app-shell .purchase-orders-hero { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* Tablet 7–10 pulgadas: navegación compacta sin alterar escritorio/laptop. */
+@media (min-width: 600px) and (max-width: 1100px) {
+  html, body { max-width: 100%; overflow-x: hidden; }
+
+  .app-shell,
+  .app-shell:not(.sidebar-collapsed) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+    column-gap: 0;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .app-shell .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    width: auto;
+    max-width: none;
+    height: auto;
+    max-height: 142px;
+    margin: 0;
+    padding: 8px 12px 9px;
+    overflow: hidden;
+    border: 0;
+    border-bottom: 1px solid rgba(145, 181, 216, .22);
+    border-radius: 0;
+    background: rgba(12, 27, 49, .97);
+    box-shadow: 0 12px 28px rgba(2, 10, 25, .28);
+    backdrop-filter: blur(18px) saturate(1.18);
+  }
+
+  .app-shell .sidebar-head { align-items: center; min-height: 44px; }
+  .app-shell .brand-row.compact { min-height: 42px; padding: 2px 0 6px; }
+  .app-shell .brand-row.compact img,
+  .app-shell .brand-mark { max-height: 30px; }
+  .app-shell .brand-row.compact strong { max-width: 230px; font-size: 13px; }
+  .app-shell .brand-row.compact small { max-width: 230px; font-size: 10px; }
+  .app-shell .online-pill { margin-top: 3px; padding: 3px 7px; font-size: 8px; }
+  .app-shell .sidebar-toggle { display: none; }
+  .app-shell .presence-panel,
+  .app-shell .logout { display: none !important; }
+
+  .app-shell .nav-list {
+    display: flex;
+    width: 100%;
+    min-height: 50px;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 2px 7px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-shell .nav-item {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 132px;
+    min-height: 40px;
+    padding: 0 11px;
+    border-radius: 12px;
+    scroll-snap-align: start;
+    white-space: nowrap;
+  }
+
+  .app-shell .submenu-list,
+  .app-shell .submenu-list.open {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .app-shell .submenu-list:not(.open) { display: none; }
+  .app-shell .submenu-item,
+  .app-shell .submenu-item.crm-child,
+  .app-shell .submenu-item.resultados-child,
+  .app-shell .submenu-group-child {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: max-content;
+    min-height: 38px !important;
+    margin: 0 !important;
+    padding: 0 11px !important;
+    border: 1px solid rgba(137, 171, 207, .16);
+    border-radius: 11px;
+    background: rgba(38, 62, 97, .5);
+    white-space: nowrap;
+  }
+
+  .app-shell .submenu-item.crm-parent { margin: 0; }
+  .app-shell .submenu-item::before,
+  .app-shell .submenu-group-child::before { margin-right: 6px !important; }
+
+  .app-shell .dashboard {
+    width: 100%;
+    min-width: 0;
+    padding: 12px 14px 22px !important;
+  }
+
+  .app-shell .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .app-shell .topbar h2,
+  .app-shell #pageTitle { font-size: clamp(22px, 4vw, 34px); line-height: 1.05; }
+  .app-shell .topbar-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .app-shell .sidebar-restore { top: 7px; margin: 0 0 7px; }
+  .app-shell.sidebar-collapsed .topbar { padding-left: 0; }
+
+  .app-shell .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-shell .content-grid,
+  .app-shell .crm-two-column,
+  .app-shell .crm-tracking-layout,
+  .app-shell .crm-agenda-layout,
+  .app-shell .admin-layout,
+  .app-shell .operations-presentation-layout { grid-template-columns: minmax(0, 1fr) !important; }
+
+  .app-shell .panel,
+  .app-shell .commercial-panel,
+  .app-shell .crm-panel,
+  .app-shell .crm-original-module,
+  .app-shell .financial-orders-shell,
+  .app-shell .purchase-orders-shell,
+  .app-shell .control-sales-shell { width: 100%; min-width: 0; max-width: 100%; }
+
+  .app-shell .opportunity-table,
+  .app-shell .financial-orders-table-wrap,
+  .app-shell .accounts-receivable-table-wrap,
+  .app-shell .purchase-orders-list,
+  .app-shell .crm-data-table-wrap,
+  .app-shell .control-sales-table { overflow-x: auto !important; overflow-y: visible; -webkit-overflow-scrolling: touch; }
+
+  .app-shell .opportunity-header,
+  .app-shell .opportunity-table-body .opportunity-row { min-width: 930px !important; }
+  .app-shell .financial-order-row { min-width: 760px; }
+  .app-shell .accounts-receivable-row { min-width: 780px; }
+  .app-shell .control-sales-row { min-width: 920px; }
+
+  .app-shell .financial-orders-toolbar,
+  .app-shell .purchase-orders-toolbar { grid-template-columns: minmax(0, 1fr) auto; }
+  .app-shell .financial-orders-toolbar > label,
+  .app-shell .purchase-orders-toolbar > label { grid-column: 1 / -1; }
+
+  dialog,
+  dialog.wide-dialog,
+  #quotationDialog,
+  #controlSalesDialog,
+  #controlSalesDetailDialog,
+  #managementDialog,
+  #opportunityDialog,
+  #financialOrderDialog,
+  #purchaseOrderDialog {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    margin: auto !important;
+  }
+
+  dialog .dialog-card,
+  #quotationDialog > form,
+  #controlSalesDialog form,
+  #managementDialog .management-card { max-height: calc(100dvh - 24px) !important; overflow-y: auto; }
+
+  #quotationDialog .quotation-form-grid,
+  #quotationDialog .quotation-terms,
+  #controlSalesDialog .control-sales-form-head,
+  #controlSalesDialog .control-sales-proforma-grid,
+  #financialOrderDialog .financial-order-grid,
+  #purchaseOrderDialog .purchase-order-grid,
+  .crm-opportunity-form .crm-form-grid,
+  .opportunity-form .crm-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+
+  #quotationDialog .quotation-line,
+  #controlSalesDialog .control-sales-line { min-width: 860px; }
+  #quotationDialog .quotation-lines,
+  #controlSalesDialog .control-sales-lines { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  #quotationDialog.quotation-dialog > #quotationForm > footer,
+  #controlSalesDialog footer,
+  dialog menu { flex-wrap: wrap; }
+
+  #quotationDialog.quotation-dialog > #quotationForm > footer button,
+  #controlSalesDialog footer button,
+  dialog menu button { min-height: 44px; }
+}
+
+@media (max-width: 599px) {
+  .app-shell .dashboard { padding: 10px !important; }
+  .app-shell .sidebar { margin: 0; border-radius: 0; }
+  dialog,
+  dialog.wide-dialog { width: 100vw !important; max-width: 100vw !important; max-height: 100dvh !important; border-radius: 0 !important; }
+}
 @media (max-width: 640px) { #purchaseOrderDialog .purchase-order-grid { grid-template-columns:1fr; } #purchaseOrderDialog .purchase-order-grid .span-2,#purchaseOrderDialog .purchase-order-grid .span-4 { grid-column:span 1; } .app-shell .purchase-orders-hero { grid-template-columns:1fr; } }
 
 .app-shell .commercial-panel-title-row {
@@ -17736,4 +17939,37 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
     width: 100%;
     margin-left: 0;
   }
+}
+
+/* Tablet final guard: debe permanecer al cierre de la cascada. */
+@media (min-width: 600px) and (max-width: 1100px) {
+  .app-shell,
+  .app-shell:not(.sidebar-collapsed) { grid-template-columns: minmax(0, 1fr) !important; column-gap: 0 !important; }
+  .app-shell .sidebar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 40 !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: 142px !important;
+    margin: 0 !important;
+    padding: 8px 12px 9px !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+  }
+  .app-shell .nav-list { display: flex !important; grid-template-columns: none !important; overflow-x: auto !important; overflow-y: hidden !important; }
+  .app-shell .nav-item { flex: 0 0 auto !important; width: auto !important; min-width: 132px !important; }
+  .app-shell .submenu-list.open { display: flex !important; flex: 0 0 auto !important; margin: 0 !important; padding: 0 !important; border: 0 !important; }
+  .app-shell .submenu-item { flex: 0 0 auto !important; width: auto !important; min-width: max-content !important; margin: 0 !important; white-space: nowrap !important; }
+  .app-shell .presence-panel,
+  .app-shell .logout { display: none !important; }
+  .app-shell .dashboard { width: 100% !important; min-width: 0 !important; padding: 12px 14px 22px !important; }
+  .app-shell .opportunity-table,
+  .app-shell .financial-orders-table-wrap,
+  .app-shell .accounts-receivable-table-wrap,
+  .app-shell .purchase-orders-list,
+  .app-shell .control-sales-table { max-width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  dialog,
+  dialog.wide-dialog { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; max-height: calc(100dvh - 20px) !important; }
 }
