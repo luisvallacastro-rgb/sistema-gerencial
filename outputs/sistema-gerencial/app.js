@@ -2849,7 +2849,14 @@ function ensureControlSalesDialogs() {
           <label>Factura<input id="controlSalesFinancialInvoice"></label>
           <label>Condiciones<input id="controlSalesFinancialConditions"></label>
           <label class="span-2">Cliente<input id="controlSalesFinancialClient" required></label>
-          <label>Tipo de cliente<input id="controlSalesFinancialClientType"></label>
+          <label>Tipo de cliente<select id="controlSalesFinancialClientType">
+            <option value="">Seleccionar tipo de cliente</option>
+            <option>Empresa Privada</option>
+            <option>Gobierno</option>
+            <option>Instituciones Educativas</option>
+            <option>ONG</option>
+            <option>Ventas Detalle</option>
+          </select></label>
           <label>Estrategia<input id="controlSalesFinancialStrategy"></label>
           <label>Gestión<input id="controlSalesFinancialManagement"></label>
           <label>País<input id="controlSalesFinancialCountry"></label>
