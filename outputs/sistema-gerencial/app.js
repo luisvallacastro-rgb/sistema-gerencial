@@ -3759,12 +3759,14 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
       const opportunityItems = await apiJson("/api/opportunities");
       getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(Array.isArray(opportunityItems) ? opportunityItems : []));
       localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+      state.crmData = await apiJson("/api/crm/bootstrap");
     }
     else { const now = new Date().toISOString(); saved = { ...draft, id:draft.id || crypto.randomUUID(), number:draft.number || `Q-${crypto.randomUUID()}`, status:draft.status, updatedAt:now, createdAt:draft.createdAt || now }; const index = state.quotations.findIndex((item) => item.id === saved.id); if (index >= 0) state.quotations[index] = saved; else state.quotations.unshift(saved); persistLocalQuotations(); }
     const linkedOpportunity = state.crmData?.opportunities?.find((item) => String(item.id) === String(saved.opportunityId));
     if (linkedOpportunity && Number(saved.totalCents || 0) > 0) {
       if (linkedOpportunity.quotationReferenceAmount == null) linkedOpportunity.quotationReferenceAmount = Number(linkedOpportunity.estimatedAmount || 0);
       linkedOpportunity.estimatedAmount = Number(saved.totalCents) / 100;
+      linkedOpportunity.estimatedAmountLabel = formatMoney(linkedOpportunity.estimatedAmount);
     }
     const resultOpportunity = getOpportunitySubmenu().items.find((item) => (
       String(item.crmOpportunityId) === String(saved.opportunityId)
@@ -6757,7 +6759,7 @@ function renderCrmTracking() {
           <p>${escapeHtml(opp.product || "Producto pendiente")}</p>
         </div>
         <footer>
-          <strong>${opp.estimatedAmountLabel || formatMoney(opp.estimatedAmount || 0)}</strong>
+          <strong>${formatMoney(opp.estimatedAmount || 0)}</strong>
           <span>${opp.closePercent || 0}% cierre</span>
           <div class="crm-tracking-card-actions" aria-label="Acciones de la oportunidad">
             <button class="crm-card-icon-action is-quotation" type="button" data-crm-quotation="${opp.id}" aria-label="${quotationAction}" title="${quotationAction}">
