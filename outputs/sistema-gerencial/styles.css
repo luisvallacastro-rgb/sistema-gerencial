@@ -17945,28 +17945,29 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 /* Tablet final guard: debe permanecer al cierre de la cascada. */
 @media (min-width: 600px) and (max-width: 1100px) {
   .app-shell,
-  .app-shell:not(.sidebar-collapsed) { grid-template-columns: minmax(0, 1fr) !important; column-gap: 0 !important; }
+  .app-shell.sidebar-collapsed { grid-template-columns: minmax(0, 1fr) !important; column-gap: 0 !important; }
+  .app-shell:not(.sidebar-collapsed) {
+    grid-template-columns: 248px minmax(0, 1fr) !important;
+    column-gap: 0 !important;
+  }
   .app-shell:not(.sidebar-collapsed)::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 79;
-    background: rgba(3, 10, 22, .62);
-    backdrop-filter: blur(3px);
+    display: none !important;
+    content: none !important;
   }
   .app-shell .sidebar {
-    position: fixed !important;
-    inset: 12px auto auto 12px !important;
-    z-index: 80 !important;
-    width: min(280px, calc(100vw - 56px)) !important;
-    max-width: 280px !important;
-    height: min(76dvh, 560px) !important;
-    max-height: calc(100dvh - 24px) !important;
-    margin: 0 !important;
+    position: sticky !important;
+    inset: auto !important;
+    top: 10px !important;
+    z-index: 20 !important;
+    width: 236px !important;
+    max-width: 236px !important;
+    height: calc(100dvh - 20px) !important;
+    max-height: calc(100dvh - 20px) !important;
+    margin: 0 0 0 10px !important;
     padding: 14px 12px 12px !important;
     overflow: hidden !important;
     border-radius: 22px !important;
-    box-shadow: 18px 0 60px rgba(0, 0, 0, .48) !important;
+    box-shadow: 10px 0 32px rgba(0, 0, 0, .28) !important;
   }
   .app-shell.sidebar-collapsed .sidebar { display: none !important; }
   .app-shell .sidebar-head { margin-bottom: 12px !important; }
@@ -17998,7 +17999,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
     border-radius: 14px !important;
     background: rgba(27, 49, 79, .92) !important;
   }
-  .app-shell .dashboard { width: 100% !important; min-width: 0 !important; padding: 12px 14px 22px !important; }
+  .app-shell .dashboard { width: 100% !important; min-width: 0 !important; padding: 12px 10px 22px !important; }
   .app-shell .opportunity-table,
   .app-shell .financial-orders-table-wrap,
   .app-shell .accounts-receivable-table-wrap,
