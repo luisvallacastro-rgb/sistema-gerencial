@@ -16581,6 +16581,57 @@ html.macos-render-safe .app-shell .permission-access-user {
 .control-sales-month-panel select { width: 100%; min-height: 48px; border: 1px solid rgba(153, 185, 217, .26); border-radius: 13px; padding: 0 13px; background: #173454; color: #f3f8fd; font-size: 14px; font-weight: 850; outline: 0; }
 .control-sales-month-panel select:focus { border-color: #72f5d1; box-shadow: 0 0 0 3px rgba(114, 245, 209, .1); }
 
+.control-sales-summary-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(142, 178, 216, .2);
+  border-radius: 18px;
+  background: rgba(10, 30, 54, .58);
+}
+
+.control-sales-summary-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+  color: #dce8f5;
+  font-size: 12px;
+}
+
+.control-sales-summary-table th,
+.control-sales-summary-table td { padding: 13px 16px; text-align: left; vertical-align: middle; }
+.control-sales-summary-table thead th { color: #9fb2c8; font-size: 9px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; }
+.control-sales-summary-table tbody tr { cursor: pointer; background: rgba(38, 65, 101, .58); transition: background .15s ease, transform .15s ease; }
+.control-sales-summary-table tbody tr:hover,
+.control-sales-summary-table tbody tr:focus { background: rgba(53, 86, 127, .78); outline: 2px solid rgba(114, 245, 209, .32); outline-offset: -2px; }
+.control-sales-summary-table tbody tr > *:first-child { border-radius: 13px 0 0 13px; }
+.control-sales-summary-table tbody tr > *:last-child { border-radius: 0 13px 13px 0; }
+.control-sales-summary-table tbody th strong,
+.control-sales-summary-table tbody th small { display: block; }
+.control-sales-summary-table tbody th strong { color: #f4f8fc; font-size: 13px; }
+.control-sales-summary-table tbody th small { margin-top: 3px; color: #8297af; font-size: 9px; }
+.control-sales-summary-table .money { color: #72f5d1; font-weight: 950; text-align: right; white-space: nowrap; }
+.control-sales-product-count { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 9px; border-radius: 999px; background: rgba(92, 139, 195, .2); color: #e8f2fc; font-weight: 900; }
+
+.control-sales-matrix-dialog { width: min(940px, calc(100vw - 32px)); padding: 0; border: 1px solid rgba(114, 245, 209, .3); border-radius: 22px; background: #142944; color: #edf6ff; }
+.control-sales-matrix-dialog > section { display: grid; gap: 18px; padding: 24px; }
+.control-sales-matrix-dialog__header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.control-sales-matrix-dialog__header small { color: #72f5d1; font-size: 9px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.control-sales-matrix-dialog__header h3 { margin: 3px 0 0; font-size: 24px; }
+.control-sales-matrix-dialog__header button { width: 40px; height: 40px; border: 1px solid rgba(143, 177, 215, .3); border-radius: 12px; background: #1b385c; color: #fff; font-size: 25px; cursor: pointer; }
+.control-sales-matrix-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.control-sales-matrix-meta article { display: grid; gap: 5px; min-height: 72px; align-content: center; padding: 12px 14px; border: 1px solid rgba(139, 174, 211, .18); border-radius: 13px; background: rgba(24, 54, 89, .72); }
+.control-sales-matrix-meta small { color: #91a7be; font-size: 9px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.control-sales-matrix-meta strong { overflow: hidden; color: #f4f8fc; font-size: 12px; text-overflow: ellipsis; }
+.control-sales-matrix-dialog .control-sales-matrix { min-width: 680px; }
+.control-sales-matrix-dialog .control-sales-matrix tbody tr { cursor: default; }
+.control-sales-matrix-dialog .control-sales-matrix tbody tr:hover { background: transparent; }
+.control-sales-matrix tfoot th,
+.control-sales-matrix tfoot td { border-bottom: 0; background: rgba(31, 157, 120, .1); font-weight: 950; }
+.control-sales-matrix tfoot th { text-align: right; text-transform: uppercase; }
+.control-sales-matrix tfoot td { color: #72f5d1; font-size: 14px; }
+.control-sales-matrix-dialog__footer { display: flex; justify-content: flex-end; }
+.control-sales-matrix-dialog__footer button { min-height: 42px; padding: 0 20px; border: 1px solid rgba(142, 178, 216, .32); border-radius: 12px; background: #1c3a60; color: #f4f8fc; font: inherit; font-weight: 850; cursor: pointer; }
+
 .control-sales-matrix-wrap {
   overflow: auto;
   border: 1px solid rgba(142, 178, 216, .2);
@@ -16651,6 +16702,8 @@ html.macos-render-safe .app-shell .permission-access-user {
   .control-sales-period-summary .control-sales-date-fields { grid-template-columns: 1fr; }
   .control-sales-period-summary .control-sales-date-fields > i { display: none; }
   .control-sales-period-summary .control-sales-date-fields > button { width: 100%; }
+  .control-sales-matrix-meta { grid-template-columns: 1fr 1fr; }
+  .control-sales-matrix-dialog > section { padding: 16px; }
 }
 
 @media (max-width: 1180px) {

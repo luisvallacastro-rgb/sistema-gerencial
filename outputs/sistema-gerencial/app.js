@@ -2765,21 +2765,17 @@ function renderControlSales() {
         }).join("")}</select></label>
       </div>
     </header>
-    <div class="control-sales-matrix-wrap">
-      <table class="control-sales-matrix">
-        <thead><tr><th>N.º de orden</th><th>Vendedor</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>IVA</th><th>Total línea</th><th>Total orden</th></tr></thead>
-        <tbody>${visible.flatMap((order) => {
-          const details = order.details?.length ? order.details : [{ product: "Sin detalle", quantity: 0, unitPriceCents: 0, vatCents: 0, lineTotalCents: 0 }];
-          return details.map((detail, index) => `<tr class="${index === 0 ? "order-start" : ""}" data-control-sales-view="${escapeHtml(order.id)}" tabindex="0" title="Abrir orden ${escapeHtml(order.number)}">
-            ${index === 0 ? `<th rowspan="${details.length}"><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Pedido heredado"}</small></th><td rowspan="${details.length}">${escapeHtml(order.seller || "—")}</td><td rowspan="${details.length}">${formatDate(order.date)}</td><td rowspan="${details.length}">${escapeHtml(order.client || "—")}</td>` : ""}
-            <td><strong>${escapeHtml(detail.product || "Sin producto")}</strong>${detail.size ? `<small>${escapeHtml(detail.size)}</small>` : ""}</td>
-            <td class="number">${escapeHtml(detail.quantity ?? 0)}</td>
-            <td class="money">${detail.unitPriceCents == null ? "—" : formatControlSalesMoney(detail.unitPriceCents)}</td>
-            <td class="money">${formatControlSalesMoney(detail.vatCents || 0)}</td>
-            <td class="money line-total">${formatControlSalesMoney(detail.lineTotalCents || 0)}</td>
-            ${index === 0 ? `<td class="money order-total" rowspan="${details.length}">${formatControlSalesMoney(order.totalCents || 0)}</td>` : ""}
-          </tr>`);
-        }).join("")}</tbody>
+    <div class="control-sales-summary-wrap">
+      <table class="control-sales-summary-table">
+        <thead><tr><th>N.º de orden</th><th>Vendedor</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th></tr></thead>
+        <tbody>${visible.map((order) => `<tr data-control-sales-matrix-view="${escapeHtml(order.id)}" tabindex="0" title="Ver detalle de la venta">
+          <th><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Pedido heredado"}</small></th>
+          <td>${escapeHtml(order.seller || "—")}</td>
+          <td>${formatDate(order.date)}</td>
+          <td>${escapeHtml(order.client || "—")}</td>
+          <td><span class="control-sales-product-count">${order.details?.length || 0}</span></td>
+          <td class="money">${formatControlSalesMoney(order.totalCents || 0)}</td>
+        </tr>`).join("")}</tbody>
       </table>
       ${visible.length ? "" : `<div class="empty-state">No hay órdenes para el mes seleccionado.</div>`}
     </div>
@@ -2879,7 +2875,8 @@ function ensureControlSalesDialogs() {
       <p id="controlSalesSaveStatus" class="control-sales-save-status hidden" role="status" aria-live="polite"></p>
       <footer><div><span>Total consolidado</span><strong id="controlSalesFormTotal">$0.00</strong><small id="controlSalesFooterReconciliation">Selecciona un pedido para conciliar.</small></div><button type="button" class="ghost-btn" data-control-sales-close>Cancelar</button><button type="button" class="control-sales-print-btn" data-control-sales-print-draft>Vista previa / Imprimir</button><button type="submit" class="primary-btn">Guardar orden</button></footer>
     </form></dialog>
-    <dialog id="controlSalesDetailDialog" class="wide-dialog control-sales-detail-dialog"><section id="controlSalesDetailContent"></section></dialog>`);
+    <dialog id="controlSalesDetailDialog" class="wide-dialog control-sales-detail-dialog"><section id="controlSalesDetailContent"></section></dialog>
+    <dialog id="controlSalesMatrixDetailDialog" class="wide-dialog control-sales-matrix-dialog"><section id="controlSalesMatrixDetailContent"></section></dialog>`);
   const formDialog = document.querySelector("#controlSalesDialog");
   const form = document.querySelector("#controlSalesForm");
   formDialog.addEventListener("close", () => {
@@ -4296,6 +4293,40 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
   detailDialog.showModal();
 }
 
+async function openControlSalesMatrixDetail(orderId) {
+  ensureControlSalesDialogs();
+  const order = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}`);
+  const dialog = document.querySelector("#controlSalesMatrixDetailDialog");
+  const content = document.querySelector("#controlSalesMatrixDetailContent");
+  const details = order.details?.length ? order.details : [{ product: "Sin detalle", quantity: 0, unitPriceCents: null, vatCents: 0, lineTotalCents: 0 }];
+  content.innerHTML = `<header class="control-sales-matrix-dialog__header">
+      <div><small>Detalle de venta</small><h3>${escapeHtml(formatOrderCorrelative(order.number))}</h3></div>
+      <button type="button" data-control-sales-matrix-close aria-label="Cerrar">×</button>
+    </header>
+    <section class="control-sales-matrix-meta" aria-label="Datos generales de la venta">
+      <article><small>N.º de orden</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong></article>
+      <article><small>Vendedor</small><strong>${escapeHtml(order.seller || "—")}</strong></article>
+      <article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article>
+      <article><small>Cliente</small><strong>${escapeHtml(order.client || "—")}</strong></article>
+    </section>
+    <div class="control-sales-matrix-wrap">
+      <table class="control-sales-matrix">
+        <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>IVA</th><th>Total</th></tr></thead>
+        <tbody>${details.map((detail) => `<tr>
+          <td><strong>${escapeHtml(detail.product || "Sin producto")}</strong>${detail.size ? `<small>${escapeHtml(detail.size)}</small>` : ""}</td>
+          <td class="number">${escapeHtml(detail.quantity ?? 0)}</td>
+          <td class="money">${detail.unitPriceCents == null ? "—" : formatControlSalesMoney(detail.unitPriceCents)}</td>
+          <td class="money">${formatControlSalesMoney(detail.vatCents || 0)}</td>
+          <td class="money line-total">${formatControlSalesMoney(detail.lineTotalCents || 0)}</td>
+        </tr>`).join("")}</tbody>
+        <tfoot><tr><th colspan="4">Total de la venta</th><td class="money">${formatControlSalesMoney(order.totalCents || 0)}</td></tr></tfoot>
+      </table>
+    </div>
+    <footer class="control-sales-matrix-dialog__footer"><button type="button" data-control-sales-matrix-close>Cerrar</button></footer>`;
+  content.querySelectorAll("[data-control-sales-matrix-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.showModal();
+}
+
 function wireControlSales() {
   const rerender = () => { state.controlSalesPage = 1; renderCommercialSubmenu(areas.operaciones); };
   document.querySelector("[data-control-sales-query]")?.addEventListener("input", (event) => { state.controlSalesQuery = event.target.value; rerender(); const input = document.querySelector("[data-control-sales-query]"); input?.focus({ preventScroll: true }); input?.setSelectionRange(input.value.length, input.value.length); });
@@ -4319,6 +4350,15 @@ function wireControlSales() {
     const openDetail = () => openControlSalesDetail(button.dataset.controlSalesView);
     button.addEventListener("click", openDetail);
     button.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openDetail();
+    });
+  });
+  document.querySelectorAll("[data-control-sales-matrix-view]").forEach((row) => {
+    const openDetail = () => openControlSalesMatrixDetail(row.dataset.controlSalesMatrixView).catch((error) => alert(error.message || "No se pudo abrir el detalle de la venta."));
+    row.addEventListener("click", openDetail);
+    row.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       openDetail();
