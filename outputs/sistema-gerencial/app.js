@@ -2756,10 +2756,10 @@ function ensureProductionDialog() {
   if (document.querySelector("#productionScheduleDialog")) return;
   document.body.insertAdjacentHTML("beforeend", `<dialog id="productionScheduleDialog" class="wide-dialog production-schedule-dialog"><form id="productionScheduleForm">
     <input type="hidden" id="productionScheduleId">
-    <header><div><small>Agenda de producción</small><h3>Agendar productos seleccionados</h3><p>Los datos vienen directamente de la orden de pedido autorizada.</p></div><button type="button" data-production-close aria-label="Cerrar">×</button></header>
-    <section class="production-availability"><header><div><small>Disponibilidad semanal</small><h4>Asignaciones por fecha y línea</h4></div><nav><button type="button" data-production-calendar-prev aria-label="Semana anterior">‹</button><strong id="productionCalendarRange"></strong><button type="button" data-production-calendar-next aria-label="Semana siguiente">›</button></nav></header><div id="productionAvailabilityColumns"></div></section>
+    <header><div><small>Producción</small><h3>Agendar producción</h3></div><button type="button" data-production-close aria-label="Cerrar">×</button></header>
+    <section class="production-availability"><header><h4>Semana</h4><nav><button type="button" data-production-calendar-prev aria-label="Semana anterior">‹</button><strong id="productionCalendarRange"></strong><button type="button" data-production-calendar-next aria-label="Semana siguiente">›</button></nav></header><div id="productionAvailabilityColumns"></div></section>
     <section class="production-schedule-fields"><label>Fecha de producción<input id="productionScheduleDate" type="date" required></label><label>Línea de producción<select id="productionScheduleLine" required><option>Línea 1</option><option>Línea 2</option></select></label></section>
-    <section class="production-picker"><header><div><small>Grupo heredado</small><h4>Productos que se enviarán a producción</h4></div><strong id="productionSelectedCount"></strong></header><div id="productionScheduleItems"></div></section>
+    <section class="production-picker"><header><h4>Selección</h4><strong id="productionSelectedCount"></strong></header><div id="productionScheduleItems"></div></section>
     <p id="productionScheduleError" class="production-schedule-error hidden"></p>
     <footer><button type="button" data-production-close>Cancelar</button><button type="submit" class="primary-btn">Guardar grupo</button></footer>
   </form></dialog>`);
@@ -2794,13 +2794,19 @@ function renderProductionAvailabilityCalendar() {
     return `<article class="production-day-column${date === selectedDate ? " has-selection" : ""}"><header><small>${label(date, { weekday:"short" })}</small><strong>${label(date, { day:"2-digit" })}</strong><span>${label(date, { month:"short" })}</span></header><div>${["Línea 1", "Línea 2"].map((line) => {
       const assignments = dayAssignments.filter((item) => item.line === line);
       const selected = date === selectedDate && line === selectedLine;
-      return `<button type="button" class="production-capacity-slot${assignments.length ? " occupied" : " available"}${selected ? " selected" : ""}" data-production-slot-date="${date}" data-production-slot-line="${line}"><span><b>${escapeHtml(line)}</b><em>${assignments.length ? `${assignments.length} grupo${assignments.length === 1 ? "" : "s"}` : "Disponible"}</em></span>${assignments.slice(0, 2).map((item) => `<small>${escapeHtml(item.items?.[0]?.client || "Producción asignada")}</small>`).join("")}${assignments.length > 2 ? `<i>+${assignments.length - 2} más</i>` : ""}</button>`;
+      return `<section class="production-capacity-slot${assignments.length ? " occupied" : " available"}${selected ? " selected" : ""}"><button type="button" class="production-slot-select" data-production-slot-date="${date}" data-production-slot-line="${line}"><b>${escapeHtml(line.replace("Línea ", "L"))}</b><em>${assignments.length ? assignments.length : "Libre"}</em></button><div>${assignments.map((item) => { const first = item.items?.[0] || {}; const quantity = (item.items || []).reduce((total, row) => total + (Number(String(row.quantity || "0").replace(",", ".")) || 0), 0); return `<button type="button" class="production-slot-order" data-production-view-order="${escapeHtml(first.orderId || "")}" title="Ver detalle de la orden"><strong>${escapeHtml(first.client || "Producción")}</strong><span>${escapeHtml(first.product || "Producto")}</span><b>${quantity}</b></button>`; }).join("")}</div></section>`;
     }).join("")}</div></article>`;
   }).join("");
   dialog.querySelectorAll("[data-production-slot-date]").forEach((button) => button.addEventListener("click", () => {
     document.querySelector("#productionScheduleDate").value = button.dataset.productionSlotDate;
     document.querySelector("#productionScheduleLine").value = button.dataset.productionSlotLine;
     renderProductionAvailabilityCalendar();
+  }));
+  dialog.querySelectorAll("[data-production-view-order]").forEach((button) => button.addEventListener("click", () => {
+    const orderId = button.dataset.productionViewOrder;
+    if (!orderId) return;
+    dialog.close();
+    openControlSalesMatrixDetail(orderId).catch((error) => alert(error.message || "No se pudo abrir la orden."));
   }));
 }
 
@@ -4393,7 +4399,7 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
       </div>
     </details>
     <footer class="control-sales-review-footer"><button type="button" class="danger-btn" data-control-sales-detail-archive="${order.id}" title="Anular pedido">Anular</button><button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="control-sales-print-btn" data-control-sales-detail-print="${order.id}">Imprimir</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar</button></footer>`;
-  detailDialog.showModal();
+  if (!detailDialog.open) detailDialog.showModal();
 }
 
 function linkedQuotationForControlSalesOrder(order) {
