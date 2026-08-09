@@ -16562,12 +16562,33 @@ html.macos-render-safe .app-shell .permission-access-user {
 .control-sales-period-total span { color: #94a8bf; font-size: 11px; font-weight: 750; }
 .control-sales-period-summary .control-sales-date-entry { grid-column: auto; min-height: 100%; margin: 0; }
 
+.control-sales-month-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, .55fr) minmax(190px, .7fr);
+  gap: 12px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid rgba(142, 178, 216, .22);
+  border-radius: 17px;
+  background: rgba(16, 42, 72, .62);
+}
+
+.control-sales-month-panel > div { display: grid; gap: 3px; }
+.control-sales-month-panel > div small { color: #72f5d1; font-size: 9px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.control-sales-month-panel > div strong { color: #f0f7ff; font-size: 15px; }
+.control-sales-month-panel > div span { color: #8fa4bc; font-size: 10px; }
+.control-sales-month-panel label { display: grid; gap: 6px; color: #9aadc4; font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.control-sales-month-panel select { width: 100%; min-height: 48px; border: 1px solid rgba(153, 185, 217, .26); border-radius: 13px; padding: 0 13px; background: #173454; color: #f3f8fd; font-size: 14px; font-weight: 850; outline: 0; }
+.control-sales-month-panel select:focus { border-color: #72f5d1; box-shadow: 0 0 0 3px rgba(114, 245, 209, .1); }
+
 @media (max-width: 1050px) {
   .control-sales-period-summary { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 680px) {
   .control-sales-period-summary { padding: 12px; }
+  .control-sales-month-panel { grid-template-columns: 1fr 1fr; }
+  .control-sales-month-panel > div { grid-column: 1 / -1; }
   .control-sales-period-summary .control-sales-date-fields { grid-template-columns: 1fr; }
   .control-sales-period-summary .control-sales-date-fields > i { display: none; }
   .control-sales-period-summary .control-sales-date-fields > button { width: 100%; }

@@ -315,6 +315,8 @@ const state = {
   controlSalesStatus: "active",
   controlSalesDateFrom: "",
   controlSalesDateTo: "",
+  controlSalesPeriodYear: String(new Date().getFullYear()),
+  controlSalesPeriodMonth: String(new Date().getMonth() + 1).padStart(2, "0"),
   controlSalesSort: "date-desc",
   controlSalesPage: 1,
   commercialApprovalQuery: "",
@@ -706,6 +708,7 @@ const financialOrdersSeedVersionKey = "sistemaGerencial.pedidosFinancieros.seedV
 const financialOrdersSeedManifestKey = "sistemaGerencial.pedidosFinancieros.seedManifest";
 const financialOrdersDeletedSeedKeysKey = "sistemaGerencial.pedidosFinancieros.deletedSeedKeys";
 const financialOrdersFiltersStorageKey = "sistemaGerencial.pedidosFinancieros.filters.v1";
+const controlSalesPeriodStorageKey = "sistemaGerencial.controlVentas.periodo.v1";
 const financialOrdersSeedVersion = "base-pedidos-20260720-v3";
 const financialOrdersSeedExpectedCount = 2596;
 const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
@@ -2700,15 +2703,19 @@ function controlSalesDisplayDateToIso(value) {
   return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== iso ? "" : iso;
 }
 
-function controlSalesRangeModel() {
-  const dates = state.controlSales.map((order) => order.date).filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
-  const today = new Date().toISOString().slice(0, 10);
-  const minIso = dates[0] || today;
-  const maxIso = dates[dates.length - 1] || minIso;
-  return {
-    fromIso: state.controlSalesDateFrom || minIso,
-    toIso: state.controlSalesDateTo || maxIso
-  };
+function loadControlSalesPeriod() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(controlSalesPeriodStorageKey) || "{}");
+    if (/^\d{4}$/.test(String(saved.year || ""))) state.controlSalesPeriodYear = String(saved.year);
+    if (/^(0[1-9]|1[0-2])$/.test(String(saved.month || ""))) state.controlSalesPeriodMonth = String(saved.month);
+  } catch { /* Conserva el periodo actual si no existe una selección válida. */ }
+}
+
+function saveControlSalesPeriod() {
+  localStorage.setItem(controlSalesPeriodStorageKey, JSON.stringify({
+    year: state.controlSalesPeriodYear,
+    month: state.controlSalesPeriodMonth
+  }));
 }
 
 function loadControlSales() {
@@ -2727,17 +2734,19 @@ function loadControlSales() {
 }
 
 function controlSalesFilteredRows() {
+  const selectedPeriod = `${state.controlSalesPeriodYear}-${state.controlSalesPeriodMonth}`;
   return state.controlSales.filter((order) => {
     if (order.archived) return false;
-    if (state.controlSalesDateFrom && order.date < state.controlSalesDateFrom) return false;
-    if (state.controlSalesDateTo && order.date > state.controlSalesDateTo) return false;
-    return true;
+    return String(order.date || "").slice(0, 7) === selectedPeriod;
   }).sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
 }
 
 function renderControlSales() {
   const rows = controlSalesFilteredRows();
-  const range = controlSalesRangeModel();
+  const years = [...new Set([
+    state.controlSalesPeriodYear,
+    ...state.controlSales.map((order) => String(order.date || "").slice(0, 4)).filter((year) => /^\d{4}$/.test(year))
+  ])].sort((a, b) => Number(b) - Number(a));
   const pageSize = 15;
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   state.controlSalesPage = Math.min(Math.max(state.controlSalesPage, 1), pages);
@@ -2747,16 +2756,13 @@ function renderControlSales() {
   return `<section class="control-sales-shell">
     <header class="control-sales-period-summary">
       <div class="control-sales-period-total"><small>Total del periodo</small><strong>${formatControlSalesMoney(total)}</strong><span>${rows.length === 1 ? "1 orden" : `${rows.length} órdenes`}</span></div>
-      <div class="control-sales-range control-sales-date-entry" data-control-sales-range>
-        <div class="control-sales-date-heading"><small>Periodo</small><span>Selecciona las fechas a consultar</span></div>
-        <div class="control-sales-date-fields">
-          <label><span>Desde</span><input type="date" data-control-sales-date-from value="${range.fromIso}" aria-label="Fecha inicial"></label>
-          <i aria-hidden="true">→</i>
-          <label><span>Hasta</span><input type="date" data-control-sales-date-to value="${range.toIso}" aria-label="Fecha final"></label>
-          <button type="button" data-control-sales-date-apply>Aplicar</button>
-          <button type="button" data-control-sales-date-clear>Limpiar</button>
-        </div>
-        <small class="control-sales-date-feedback" data-control-sales-date-feedback aria-live="polite">El filtro se aplica al confirmar el rango.</small>
+      <div class="control-sales-month-panel">
+        <div><small>Periodo mensual</small><strong>Selecciona el mes a consultar</strong><span>La selección se conservará hasta que la cambies.</span></div>
+        <label><span>Año</span><select data-control-sales-period-year>${years.map((year) => `<option value="${year}" ${state.controlSalesPeriodYear === year ? "selected" : ""}>${year}</option>`).join("")}</select></label>
+        <label><span>Mes</span><select data-control-sales-period-month>${Array.from({ length: 12 }, (_, index) => {
+          const value = String(index + 1).padStart(2, "0");
+          return `<option value="${value}" ${state.controlSalesPeriodMonth === value ? "selected" : ""}>${monthLabel(index + 1)}</option>`;
+        }).join("")}</select></label>
       </div>
     </header>
     <div class="control-sales-table">
@@ -4289,38 +4295,14 @@ function wireControlSales() {
   const rerender = () => { state.controlSalesPage = 1; renderCommercialSubmenu(areas.operaciones); };
   document.querySelector("[data-control-sales-query]")?.addEventListener("input", (event) => { state.controlSalesQuery = event.target.value; rerender(); const input = document.querySelector("[data-control-sales-query]"); input?.focus({ preventScroll: true }); input?.setSelectionRange(input.value.length, input.value.length); });
   [["seller","controlSalesSeller"],["status","controlSalesStatus"],["sort","controlSalesSort"]].forEach(([name,key]) => document.querySelector(`[data-control-sales-${name}]`)?.addEventListener("change", (event) => { state[key] = event.target.value; rerender(); }));
-  const fromDate = document.querySelector("[data-control-sales-date-from]");
-  const toDate = document.querySelector("[data-control-sales-date-to]");
-  const feedback = document.querySelector("[data-control-sales-date-feedback]");
-  const commitDateRange = () => {
-    if (!fromDate || !toDate) return false;
-    const fromIso = controlSalesDisplayDateToIso(fromDate.value);
-    const toIso = controlSalesDisplayDateToIso(toDate.value);
-    fromDate.classList.toggle("invalid", !fromIso);
-    toDate.classList.toggle("invalid", !toIso);
-    if (!fromIso || !toIso) {
-      if (feedback) feedback.textContent = "Completa ambas fechas en formato DD/MM/AAAA.";
-      return false;
-    }
-    if (fromIso > toIso) {
-      fromDate.classList.add("invalid");
-      toDate.classList.add("invalid");
-      if (feedback) feedback.textContent = "La fecha Desde no puede ser posterior a la fecha Hasta.";
-      return false;
-    }
-    state.controlSalesDateFrom = fromIso;
-    state.controlSalesDateTo = toIso;
+  document.querySelector("[data-control-sales-period-year]")?.addEventListener("change", (event) => {
+    state.controlSalesPeriodYear = event.target.value;
+    saveControlSalesPeriod();
     rerender();
-    return true;
-  };
-  [fromDate, toDate].forEach((input) => input?.addEventListener("change", () => {
-    input.classList.remove("invalid");
-    if (feedback) feedback.textContent = "Rango modificado. Presiona Aplicar para filtrar.";
-  }));
-  document.querySelector("[data-control-sales-date-apply]")?.addEventListener("click", commitDateRange);
-  document.querySelector("[data-control-sales-date-clear]")?.addEventListener("click", () => {
-    state.controlSalesDateFrom = "";
-    state.controlSalesDateTo = "";
+  });
+  document.querySelector("[data-control-sales-period-month]")?.addEventListener("change", (event) => {
+    state.controlSalesPeriodMonth = event.target.value;
+    saveControlSalesPeriod();
     rerender();
   });
   document.querySelector("[data-control-sales-new]")?.addEventListener("click", () => openControlSalesForm());
@@ -11011,6 +10993,7 @@ purchaseOrderForm.addEventListener("submit", async (event) => {
 fillOpportunityOptions();
 loadUsers();
 loadFinancialOrderFilters();
+loadControlSalesPeriod();
 loadFinancialOrders();
 syncFinancialOrdersWithApi();
 loadAccountsReceivable();
