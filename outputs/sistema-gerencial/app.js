@@ -4293,16 +4293,50 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
   detailDialog.showModal();
 }
 
+function linkedQuotationForControlSalesOrder(order) {
+  if (!order || order.source === "importado") return null;
+  const directId = String(order.sourceQuotationId || "");
+  if (directId) {
+    const direct = state.quotations.find((item) => String(item.id || "") === directId);
+    if (direct) return direct;
+  }
+  const converted = state.quotations.find((item) => String(item.convertedOrderId || "") === String(order.id || ""));
+  if (converted) return converted;
+  const financialOrder = state.financialOrders?.find((item) => String(item.id || "") === String(order.financialOrderId || ""));
+  const sourceIds = new Set([
+    order.sourceOpportunityId,
+    financialOrder?.sourceOpportunityId,
+    financialOrder?.crmOpportunityId,
+    financialOrder?.quotationId
+  ].map((value) => String(value || "")).filter(Boolean));
+  const linked = state.quotations.filter((item) => (
+    sourceIds.has(String(item.id || ""))
+    || sourceIds.has(String(item.opportunityId || ""))
+    || sourceIds.has(String(item.resultOpportunityId || ""))
+  ));
+  if (linked.length === 1) return linked[0];
+  const exact = state.quotations.filter((item) => (
+    normalizeKey(item.client || "") === normalizeKey(order.client || "")
+    && normalizeKey(item.seller || "") === normalizeKey(order.seller || "")
+    && Number(item.totalCents || 0) === Number(order.totalCents || 0)
+  ));
+  return exact.length === 1 ? exact[0] : null;
+}
+
+function controlSalesOrderHasAuthorizedSignatures(order) {
+  const commercialSigned = order?.commercialApprovalStatus === "Autorizada" || Boolean(order?.commercialApprovedAt);
+  const financeSigned = order?.financeApprovalStatus === "Aprobada" || Boolean(order?.financeApprovedAt);
+  return commercialSigned && financeSigned;
+}
+
 async function openControlSalesMatrixDetail(orderId) {
   ensureControlSalesDialogs();
   const order = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}`);
   const dialog = document.querySelector("#controlSalesMatrixDetailDialog");
   const content = document.querySelector("#controlSalesMatrixDetailContent");
   const details = order.details?.length ? order.details : [{ product: "Sin detalle", quantity: 0, unitPriceCents: null, vatCents: 0, lineTotalCents: 0 }];
-  const quotation = order.sourceQuotationId
-    ? state.quotations.find((item) => String(item.id) === String(order.sourceQuotationId))
-    : null;
-  const hasAuthorizedOrder = order.commercialApprovalStatus === "Autorizada" && order.financeApprovalStatus === "Aprobada";
+  const quotation = linkedQuotationForControlSalesOrder(order);
+  const hasAuthorizedOrder = controlSalesOrderHasAuthorizedSignatures(order);
   content.innerHTML = `<header class="control-sales-matrix-dialog__header">
       <div><small>Detalle de venta</small><h3>${escapeHtml(formatOrderCorrelative(order.number))}</h3></div>
       <button type="button" data-control-sales-matrix-close aria-label="Cerrar">×</button>
