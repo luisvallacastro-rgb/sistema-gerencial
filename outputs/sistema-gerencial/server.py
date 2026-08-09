@@ -26,7 +26,7 @@ CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-quotations-v1"
+API_VERSION = "kmi-production-schedule-v1"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -41,7 +41,7 @@ AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento"],
     "financiera": ["resultados", "resultados-pedidos", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido", "kpi"],
-    "operaciones": ["resultados", "resultados-control-ventas", "kpi"],
+    "operaciones": ["resultados", "resultados-control-ventas", "produccion-semanal", "kpi"],
     "rrhh": ["resultados", "kpi"],
 }
 VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
@@ -1512,6 +1512,55 @@ def control_sales_quantity(value):
     return format(quantity.normalize(), "f")
 
 
+def production_schedule_payload(row):
+    try:
+        items = json.loads(row["items"] or "[]")
+    except (json.JSONDecodeError, TypeError):
+        items = []
+    return {
+        "id": row["id"], "productionDate": row["production_date"],
+        "line": row["production_line"], "status": row["status"],
+        "notes": row["notes"], "items": items,
+        "createdBy": row["created_by"], "updatedBy": row["updated_by"],
+        "createdAt": row["created_at"], "updatedAt": row["updated_at"],
+    }
+
+
+def save_production_schedule(conn, data, existing=None):
+    production_date = text(data.get("productionDate"), existing["productionDate"] if existing else "")
+    production_line = text(data.get("line"), existing["line"] if existing else "")
+    items = data.get("items", existing["items"] if existing else [])
+    if not production_date or production_line not in {"Línea 1", "Línea 2"}:
+        raise ValueError("Fecha y línea de producción son requeridas")
+    if not isinstance(items, list) or not items:
+        raise ValueError("Selecciona al menos un producto de una orden")
+    clean_items = []
+    seen = set()
+    for item in items:
+        detail_id = text(item.get("detailId"))
+        order_id = text(item.get("orderId"))
+        if not detail_id or not order_id or detail_id in seen:
+            continue
+        seen.add(detail_id)
+        clean_items.append({
+            "detailId": detail_id, "orderId": order_id,
+            "orderNumber": text(item.get("orderNumber")), "client": text(item.get("client")),
+            "product": text(item.get("product")), "size": text(item.get("size")),
+            "quantity": text(item.get("quantity")), "notes": text(item.get("notes")),
+        })
+    if not clean_items:
+        raise ValueError("Los productos seleccionados no son válidos")
+    schedule_id = existing["id"] if existing else f"production-{uuid.uuid4()}"
+    actor = text(data.get("updatedBy"), "Sistema Gerencial")
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    values = (production_date, production_line, text(data.get("status"), existing["status"] if existing else "Programado"), text(data.get("notes"), existing["notes"] if existing else ""), json.dumps(clean_items, ensure_ascii=False), actor, now, schedule_id)
+    if existing:
+        conn.execute("UPDATE production_schedule SET production_date=?, production_line=?, status=?, notes=?, items=?, updated_by=?, updated_at=? WHERE id=?", values)
+    else:
+        conn.execute("INSERT INTO production_schedule (production_date, production_line, status, notes, items, created_by, updated_by, created_at, updated_at, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (production_date, production_line, text(data.get("status"), "Programado"), text(data.get("notes")), json.dumps(clean_items, ensure_ascii=False), actor, actor, now, now, schedule_id))
+    return production_schedule_payload(conn.execute("SELECT * FROM production_schedule WHERE id = ?", (schedule_id,)).fetchone())
+
+
 def control_sales_order_payload(conn, row, include_audit=False):
     detail_rows = conn.execute("""
         SELECT * FROM control_sales_details
@@ -2528,6 +2577,21 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_seller ON control_sales_orders(seller)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_details_order ON control_sales_details(order_id, active)")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS production_schedule (
+                id TEXT PRIMARY KEY,
+                production_date TEXT NOT NULL,
+                production_line TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'Programado',
+                notes TEXT NOT NULL DEFAULT '',
+                items TEXT NOT NULL DEFAULT '[]',
+                created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                updated_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_production_schedule_date ON production_schedule(production_date, production_line)")
+        conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
@@ -2553,6 +2617,15 @@ def init_db():
         grant_purchase_order_permissions(conn)
         seed_control_sales(conn)
         grant_control_sales_permissions(conn)
+        for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
+            if row["role"] not in {"gerencias", "jefaturas"}:
+                continue
+            try: permissions = json.loads(row["permissions"] or "[]")
+            except json.JSONDecodeError: permissions = []
+            permission = "operaciones:produccion-semanal"
+            if permission not in permissions:
+                permissions.append(permission)
+                conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions), row["id"]))
         purge_luis_valladares_test_flow_once(conn)
 
 
@@ -2712,6 +2785,12 @@ class AppHandler(BaseHTTPRequestHandler):
                 """).fetchone()
                 imported = conn.execute("SELECT value FROM app_state WHERE key = 'control_sales_import'").fetchone()
             self.send_json({"items": items, "counts": dict(counts), "import": json.loads(imported["value"] if imported else "{}")})
+            return
+
+        if self.path == "/api/production-schedule":
+            with connect() as conn:
+                rows = conn.execute("SELECT * FROM production_schedule ORDER BY production_date, production_line, created_at").fetchall()
+            self.send_json([production_schedule_payload(row) for row in rows])
             return
 
         if self.path.startswith("/api/control-sales/"):
@@ -2948,6 +3027,16 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
+        if self.path == "/api/production-schedule":
+            data = self.read_json()
+            try:
+                with connect() as conn: item = save_production_schedule(conn, data)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
+            self.send_json({"ok": True, "item": item}, status=201)
+            return
+
         if self.path == "/api/control-sales/import":
             with connect() as conn:
                 seed_control_sales(conn)
@@ -3007,6 +3096,23 @@ class AppHandler(BaseHTTPRequestHandler):
                 existing = receivable_payload(row)
                 data["id"] = item_id
                 item = upsert_receivable(conn, data, existing)
+            self.send_json({"ok": True, "item": item})
+            return
+
+        if self.path.startswith("/api/production-schedule/"):
+            item_id = unquote(self.path.rsplit("/", 1)[-1])
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    row = conn.execute("SELECT * FROM production_schedule WHERE id = ?", (item_id,)).fetchone()
+                    if not row:
+                        self.send_json({"error": "Grupo de producción no encontrado"}, status=404)
+                        return
+                    data["id"] = item_id
+                    item = save_production_schedule(conn, data, production_schedule_payload(row))
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
             self.send_json({"ok": True, "item": item})
             return
 
@@ -3318,6 +3424,15 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_api_delete(self):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+        if self.path.startswith("/api/production-schedule/"):
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            with connect() as conn:
+                result = conn.execute("DELETE FROM production_schedule WHERE id = ?", (item_id,))
+            if not result.rowcount:
+                self.send_json({"error": "Grupo de producción no encontrado"}, status=404)
+                return
+            self.send_json({"ok": True})
             return
         opportunity_path = self.path.split("?", 1)[0].strip("/").split("/")
         if len(opportunity_path) == 3 and opportunity_path[:2] == ["api", "opportunities"]:
