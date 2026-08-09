@@ -2727,30 +2727,16 @@ function loadControlSales() {
 }
 
 function controlSalesFilteredRows() {
-  const query = normalizeKey(state.controlSalesQuery);
-  let rows = state.controlSales.filter((order) => {
-    if (state.controlSalesStatus === "active" && order.archived) return false;
-    if (state.controlSalesStatus === "archived" && !order.archived) return false;
-    if (state.controlSalesStatus === "review" && !(order.anomalies?.length || order.details.some((detail) => detail.reviewRequired || detail.anomalies?.length))) return false;
-    if (state.controlSalesSeller !== "all" && order.seller !== state.controlSalesSeller) return false;
+  return state.controlSales.filter((order) => {
+    if (order.archived) return false;
     if (state.controlSalesDateFrom && order.date < state.controlSalesDateFrom) return false;
     if (state.controlSalesDateTo && order.date > state.controlSalesDateTo) return false;
-    if (!query) return true;
-    const detailText = order.details.map((detail) => `${detail.product} ${detail.size}`).join(" ");
-    return normalizeKey(`${order.number} ${order.seller} ${order.client} ${order.status} ${detailText}`).includes(query);
-  });
-  const sorts = {
-    "date-desc": (a, b) => String(b.date).localeCompare(String(a.date)) || String(b.number).localeCompare(String(a.number), "es", { numeric: true }),
-    "date-asc": (a, b) => String(a.date).localeCompare(String(b.date)),
-    "total-desc": (a, b) => b.totalCents - a.totalCents,
-    "number-asc": (a, b) => String(a.number).localeCompare(String(b.number), "es", { numeric: true })
-  };
-  return rows.sort(sorts[state.controlSalesSort] || sorts["date-desc"]);
+    return true;
+  }).sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
 }
 
 function renderControlSales() {
   const rows = controlSalesFilteredRows();
-  const sellers = [...new Set(state.controlSales.map((order) => order.seller).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
   const range = controlSalesRangeModel();
   const pageSize = 15;
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -2758,18 +2744,11 @@ function renderControlSales() {
   const start = (state.controlSalesPage - 1) * pageSize;
   const visible = rows.slice(start, start + pageSize);
   const total = rows.reduce((sum, order) => sum + Number(order.totalCents || 0), 0);
-  const anomalies = rows.filter((order) => order.anomalies?.length || order.details.some((detail) => detail.reviewRequired || detail.anomalies?.length)).length;
   return `<section class="control-sales-shell">
-    <header class="control-sales-hero">
-      <div class="control-sales-heading"><span>Resumen operativo</span><p>Órdenes, totales y alertas del filtro actual.</p></div>
-      <div class="control-sales-kpis"><article><small>Órdenes visibles</small><strong>${rows.length}</strong><span>${state.controlSalesCounts.orders || 0} históricas y manuales</span></article><article><small>Total consolidado</small><strong>${formatControlSalesMoney(total)}</strong><span>Calculado desde líneas activas</span></article><article class="${anomalies ? "warning" : ""}"><small>Por revisar</small><strong>${anomalies}</strong><span>Advertencias del origen</span></article></div>
-    </header>
-    <div class="control-sales-toolbar">
-      <label class="control-sales-search"><span>⌕</span><input type="search" data-control-sales-query value="${escapeHtml(state.controlSalesQuery)}" placeholder="Buscar orden, vendedor, cliente, producto o talla..."></label>
-      <label class="control-sales-control"><small>Vendedor</small><select data-control-sales-seller><option value="all">Todos los vendedores</option>${sellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.controlSalesSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label>
-      <label class="control-sales-control"><small>Estado</small><select data-control-sales-status><option value="active" ${state.controlSalesStatus === "active" ? "selected" : ""}>Activas</option><option value="all" ${state.controlSalesStatus === "all" ? "selected" : ""}>Todas</option><option value="archived" ${state.controlSalesStatus === "archived" ? "selected" : ""}>Archivadas</option><option value="review" ${state.controlSalesStatus === "review" ? "selected" : ""}>Por revisar</option></select></label>
+    <header class="control-sales-period-summary">
+      <div class="control-sales-period-total"><small>Total del periodo</small><strong>${formatControlSalesMoney(total)}</strong><span>${rows.length === 1 ? "1 orden" : `${rows.length} órdenes`}</span></div>
       <div class="control-sales-range control-sales-date-entry" data-control-sales-range>
-        <div class="control-sales-date-heading"><small>Periodo operativo</small><span>Selecciona el rango y aplícalo</span></div>
+        <div class="control-sales-date-heading"><small>Periodo</small><span>Selecciona las fechas a consultar</span></div>
         <div class="control-sales-date-fields">
           <label><span>Desde</span><input type="date" data-control-sales-date-from value="${range.fromIso}" aria-label="Fecha inicial"></label>
           <i aria-hidden="true">→</i>
@@ -2779,9 +2758,7 @@ function renderControlSales() {
         </div>
         <small class="control-sales-date-feedback" data-control-sales-date-feedback aria-live="polite">El filtro se aplica al confirmar el rango.</small>
       </div>
-      <label class="control-sales-control"><small>Ordenar</small><select data-control-sales-sort><option value="date-desc">Más recientes</option><option value="date-asc" ${state.controlSalesSort === "date-asc" ? "selected" : ""}>Más antiguas</option><option value="total-desc" ${state.controlSalesSort === "total-desc" ? "selected" : ""}>Mayor total</option><option value="number-asc" ${state.controlSalesSort === "number-asc" ? "selected" : ""}>Número de orden</option></select></label>
-      <button type="button" class="primary-btn" data-control-sales-new>+ Nueva orden</button>
-    </div>
+    </header>
     <div class="control-sales-table">
       <div class="control-sales-row head"><span>Orden</span><span>Fecha</span><span>Vendedor</span><span>Cliente</span><span>Total</span><span>Estado</span><span>Acciones</span></div>
       ${visible.map((order) => {

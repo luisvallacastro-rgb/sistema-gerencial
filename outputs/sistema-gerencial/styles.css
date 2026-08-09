@@ -16522,6 +16522,57 @@ html.macos-render-safe .app-shell .permission-access-user {
   .control-sales-review-footer .danger-btn { margin-right: 0; }
 }
 
+/* Control de Ventas: total y periodo como únicos controles principales. */
+.control-sales-period-summary {
+  display: grid;
+  grid-template-columns: minmax(250px, .72fr) minmax(560px, 1.7fr);
+  gap: 14px;
+  align-items: stretch;
+  padding: 18px;
+  border: 1px solid rgba(114, 245, 209, .24);
+  border-radius: 22px;
+  background: linear-gradient(120deg, rgba(29, 59, 94, .78), rgba(10, 48, 58, .68));
+  box-shadow: 0 18px 42px rgba(2, 12, 30, .2);
+}
+
+.control-sales-period-total {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 17px 20px;
+  border: 1px solid rgba(114, 245, 209, .28);
+  border-radius: 17px;
+  background: rgba(12, 42, 66, .7);
+}
+
+.control-sales-period-total small {
+  color: #9cb0c7;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.control-sales-period-total strong {
+  color: #72f5d1;
+  font-size: clamp(28px, 3.2vw, 42px);
+  line-height: 1.05;
+}
+
+.control-sales-period-total span { color: #94a8bf; font-size: 11px; font-weight: 750; }
+.control-sales-period-summary .control-sales-date-entry { grid-column: auto; min-height: 100%; margin: 0; }
+
+@media (max-width: 1050px) {
+  .control-sales-period-summary { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .control-sales-period-summary { padding: 12px; }
+  .control-sales-period-summary .control-sales-date-fields { grid-template-columns: 1fr; }
+  .control-sales-period-summary .control-sales-date-fields > i { display: none; }
+  .control-sales-period-summary .control-sales-date-fields > button { width: 100%; }
+}
+
 @media (max-width: 1180px) {
   .app-shell .crm-won-history-card { grid-template-columns: 120px minmax(220px, 1fr) 150px minmax(180px, 1fr); }
   .app-shell .crm-won-order-button { grid-column: 2 / -1; }
