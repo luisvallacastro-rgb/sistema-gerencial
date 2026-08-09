@@ -2757,6 +2757,7 @@ function ensureProductionDialog() {
   document.body.insertAdjacentHTML("beforeend", `<dialog id="productionScheduleDialog" class="wide-dialog production-schedule-dialog"><form id="productionScheduleForm">
     <input type="hidden" id="productionScheduleId">
     <header><div><small>Agenda de producción</small><h3>Agendar productos seleccionados</h3><p>Los datos vienen directamente de la orden de pedido autorizada.</p></div><button type="button" data-production-close aria-label="Cerrar">×</button></header>
+    <section class="production-availability"><header><div><small>Disponibilidad semanal</small><h4>Asignaciones por fecha y línea</h4></div><nav><button type="button" data-production-calendar-prev aria-label="Semana anterior">‹</button><strong id="productionCalendarRange"></strong><button type="button" data-production-calendar-next aria-label="Semana siguiente">›</button></nav></header><div id="productionAvailabilityColumns"></div></section>
     <section class="production-schedule-fields"><label>Fecha de producción<input id="productionScheduleDate" type="date" required></label><label>Línea de producción<select id="productionScheduleLine" required><option>Línea 1</option><option>Línea 2</option></select></label></section>
     <section class="production-picker"><header><div><small>Grupo heredado</small><h4>Productos que se enviarán a producción</h4></div><strong id="productionSelectedCount"></strong></header><div id="productionScheduleItems"></div></section>
     <p id="productionScheduleError" class="production-schedule-error hidden"></p>
@@ -2765,6 +2766,42 @@ function ensureProductionDialog() {
   const dialog = document.querySelector("#productionScheduleDialog");
   dialog.querySelectorAll("[data-production-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   dialog.querySelector("#productionScheduleForm").addEventListener("submit", saveProductionScheduleFromDialog);
+  dialog.querySelector("[data-production-calendar-prev]").addEventListener("click", () => moveProductionAvailabilityWeek(-7));
+  dialog.querySelector("[data-production-calendar-next]").addEventListener("click", () => moveProductionAvailabilityWeek(7));
+  dialog.querySelector("#productionScheduleDate").addEventListener("change", (event) => { dialog.productionCalendarAnchor = productionMonday(event.target.value); renderProductionAvailabilityCalendar(); });
+  dialog.querySelector("#productionScheduleLine").addEventListener("change", renderProductionAvailabilityCalendar);
+}
+
+function moveProductionAvailabilityWeek(days) {
+  const dialog = document.querySelector("#productionScheduleDialog");
+  const date = new Date(`${dialog.productionCalendarAnchor || productionMonday()}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  dialog.productionCalendarAnchor = productionMonday(date);
+  renderProductionAvailabilityCalendar();
+}
+
+function renderProductionAvailabilityCalendar() {
+  const dialog = document.querySelector("#productionScheduleDialog");
+  if (!dialog) return;
+  const start = new Date(`${dialog.productionCalendarAnchor || productionMonday()}T12:00:00`);
+  const selectedDate = document.querySelector("#productionScheduleDate")?.value || "";
+  const selectedLine = document.querySelector("#productionScheduleLine")?.value || "Línea 1";
+  const dates = Array.from({ length:7 }, (_, index) => { const date = new Date(start); date.setDate(date.getDate() + index); return date.toISOString().slice(0, 10); });
+  const label = (value, options) => new Intl.DateTimeFormat("es-SV", { ...options, timeZone:"UTC" }).format(new Date(`${value}T12:00:00Z`));
+  document.querySelector("#productionCalendarRange").textContent = `${label(dates[0], { day:"numeric", month:"short" })} — ${label(dates[6], { day:"numeric", month:"short" })}`;
+  document.querySelector("#productionAvailabilityColumns").innerHTML = dates.map((date) => {
+    const dayAssignments = state.productionSchedule.filter((item) => item.productionDate === date);
+    return `<article class="production-day-column${date === selectedDate ? " has-selection" : ""}"><header><small>${label(date, { weekday:"short" })}</small><strong>${label(date, { day:"2-digit" })}</strong><span>${label(date, { month:"short" })}</span></header><div>${["Línea 1", "Línea 2"].map((line) => {
+      const assignments = dayAssignments.filter((item) => item.line === line);
+      const selected = date === selectedDate && line === selectedLine;
+      return `<button type="button" class="production-capacity-slot${assignments.length ? " occupied" : " available"}${selected ? " selected" : ""}" data-production-slot-date="${date}" data-production-slot-line="${line}"><span><b>${escapeHtml(line)}</b><em>${assignments.length ? `${assignments.length} grupo${assignments.length === 1 ? "" : "s"}` : "Disponible"}</em></span>${assignments.slice(0, 2).map((item) => `<small>${escapeHtml(item.items?.[0]?.client || "Producción asignada")}</small>`).join("")}${assignments.length > 2 ? `<i>+${assignments.length - 2} más</i>` : ""}</button>`;
+    }).join("")}</div></article>`;
+  }).join("");
+  dialog.querySelectorAll("[data-production-slot-date]").forEach((button) => button.addEventListener("click", () => {
+    document.querySelector("#productionScheduleDate").value = button.dataset.productionSlotDate;
+    document.querySelector("#productionScheduleLine").value = button.dataset.productionSlotLine;
+    renderProductionAvailabilityCalendar();
+  }));
 }
 
 function openProductionScheduleDialog(assignment = null, sourceItems = []) {
@@ -2777,7 +2814,8 @@ function openProductionScheduleDialog(assignment = null, sourceItems = []) {
   document.querySelector("#productionScheduleLine").value = assignment?.line || "Línea 1";
   document.querySelector("#productionScheduleItems").innerHTML = items.map((item) => `<article class="production-selected-row"><div><small>${escapeHtml(item.orderNumber)}</small><strong>${escapeHtml(item.client)}</strong></div><span><strong>${escapeHtml(item.product)}</strong><small>${escapeHtml(item.size || "Sin talla")}</small></span><b>${escapeHtml(item.quantity)}</b></article>`).join("");
   document.querySelector("#productionSelectedCount").textContent = `${items.length} seleccionados`;
-  document.querySelector("#productionScheduleError").classList.add("hidden"); dialog.showModal();
+  dialog.productionCalendarAnchor = productionMonday(document.querySelector("#productionScheduleDate").value);
+  document.querySelector("#productionScheduleError").classList.add("hidden"); renderProductionAvailabilityCalendar(); dialog.showModal();
 }
 
 async function saveProductionScheduleFromDialog(event) {
