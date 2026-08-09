@@ -2752,29 +2752,13 @@ function loadProductionSchedule() {
   }).catch((error) => console.error("No se pudo cargar la agenda de producción.", error));
 }
 
-function productionSourceItems() {
-  return state.controlSales
-    .filter((order) => !order.archived && controlSalesOrderHasAuthorizedSignatures(order))
-    .flatMap((order) => (order.details || []).map((detail) => ({
-      detailId: detail.id, orderId: order.id, orderNumber: formatOrderCorrelative(order.number),
-      client: order.client, product: detail.product, size: detail.size,
-      quantity: detail.quantity, notes: detail.notes || ""
-    })));
-}
-
-function productionWeekRange() {
-  const start = new Date(`${state.productionWeekStart || productionMonday()}T12:00:00`);
-  const end = new Date(start); end.setDate(end.getDate() + 6);
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
-}
-
 function ensureProductionDialog() {
   if (document.querySelector("#productionScheduleDialog")) return;
   document.body.insertAdjacentHTML("beforeend", `<dialog id="productionScheduleDialog" class="wide-dialog production-schedule-dialog"><form id="productionScheduleForm">
     <input type="hidden" id="productionScheduleId">
-    <header><div><small>Agenda de producción</small><h3>Preparar grupo semanal</h3><p>Selecciona los productos heredados y asigna fecha y línea.</p></div><button type="button" data-production-close aria-label="Cerrar">×</button></header>
-    <section class="production-schedule-fields"><label>Fecha de producción<input id="productionScheduleDate" type="date" required></label><label>Línea<select id="productionScheduleLine" required><option>Línea 1</option><option>Línea 2</option></select></label><label>Estado<select id="productionScheduleStatus"><option>Programado</option><option>En producción</option><option>Completado</option></select></label><label>Observaciones<input id="productionScheduleNotes" placeholder="Preparación, bordados, prioridades…"></label></section>
-    <section class="production-picker"><header><div><small>Órdenes autorizadas</small><h4>Productos disponibles</h4></div><strong id="productionSelectedCount">0 seleccionados</strong></header><div id="productionScheduleItems"></div></section>
+    <header><div><small>Agenda de producción</small><h3>Agendar productos seleccionados</h3><p>Los datos vienen directamente de la orden de pedido autorizada.</p></div><button type="button" data-production-close aria-label="Cerrar">×</button></header>
+    <section class="production-schedule-fields"><label>Fecha de producción<input id="productionScheduleDate" type="date" required></label><label>Línea de producción<select id="productionScheduleLine" required><option>Línea 1</option><option>Línea 2</option></select></label></section>
+    <section class="production-picker"><header><div><small>Grupo heredado</small><h4>Productos que se enviarán a producción</h4></div><strong id="productionSelectedCount"></strong></header><div id="productionScheduleItems"></div></section>
     <p id="productionScheduleError" class="production-schedule-error hidden"></p>
     <footer><button type="button" data-production-close>Cancelar</button><button type="submit" class="primary-btn">Guardar grupo</button></footer>
   </form></dialog>`);
@@ -2783,30 +2767,24 @@ function ensureProductionDialog() {
   dialog.querySelector("#productionScheduleForm").addEventListener("submit", saveProductionScheduleFromDialog);
 }
 
-function openProductionScheduleDialog(assignment = null) {
+function openProductionScheduleDialog(assignment = null, sourceItems = []) {
   ensureProductionDialog();
   const dialog = document.querySelector("#productionScheduleDialog");
-  const selected = new Set((assignment?.items || []).map((item) => String(item.detailId)));
-  const assignedElsewhere = new Set(state.productionSchedule.filter((item) => item.id !== assignment?.id).flatMap((item) => item.items || []).map((item) => String(item.detailId)));
+  const items = assignment?.items?.length ? assignment.items : sourceItems;
+  dialog.productionItems = items;
   document.querySelector("#productionScheduleId").value = assignment?.id || "";
   document.querySelector("#productionScheduleDate").value = assignment?.productionDate || state.productionWeekStart || productionMonday();
   document.querySelector("#productionScheduleLine").value = assignment?.line || "Línea 1";
-  document.querySelector("#productionScheduleStatus").value = assignment?.status || "Programado";
-  document.querySelector("#productionScheduleNotes").value = assignment?.notes || "";
-  const items = productionSourceItems().filter((item) => !assignedElsewhere.has(String(item.detailId)) || selected.has(String(item.detailId)));
-  const grouped = Map.groupBy ? Map.groupBy(items, (item) => item.orderId) : items.reduce((map, item) => map.set(item.orderId, [...(map.get(item.orderId) || []), item]), new Map());
-  document.querySelector("#productionScheduleItems").innerHTML = [...grouped.values()].map((rows) => `<article class="production-picker-order"><header><div><strong>${escapeHtml(rows[0].orderNumber)}</strong><span>${escapeHtml(rows[0].client)}</span></div><small>${rows.length} productos</small></header>${rows.map((item) => `<label class="production-picker-row"><input type="checkbox" data-production-detail="${escapeHtml(item.detailId)}" ${selected.has(String(item.detailId)) ? "checked" : ""}><span class="production-switch" aria-hidden="true"></span><span><strong>${escapeHtml(item.product)}</strong><small>${escapeHtml(item.size || "Sin talla")}</small></span><b>${escapeHtml(item.quantity)}</b></label>`).join("")}</article>`).join("") || `<div class="empty-state">No hay productos autorizados disponibles para programar.</div>`;
-  const updateCount = () => { document.querySelector("#productionSelectedCount").textContent = `${dialog.querySelectorAll("[data-production-detail]:checked").length} seleccionados`; };
-  dialog.querySelectorAll("[data-production-detail]").forEach((input) => input.addEventListener("change", updateCount));
-  document.querySelector("#productionScheduleError").classList.add("hidden"); updateCount(); dialog.showModal();
+  document.querySelector("#productionScheduleItems").innerHTML = items.map((item) => `<article class="production-selected-row"><div><small>${escapeHtml(item.orderNumber)}</small><strong>${escapeHtml(item.client)}</strong></div><span><strong>${escapeHtml(item.product)}</strong><small>${escapeHtml(item.size || "Sin talla")}</small></span><b>${escapeHtml(item.quantity)}</b></article>`).join("");
+  document.querySelector("#productionSelectedCount").textContent = `${items.length} seleccionados`;
+  document.querySelector("#productionScheduleError").classList.add("hidden"); dialog.showModal();
 }
 
 async function saveProductionScheduleFromDialog(event) {
   event.preventDefault();
   const id = document.querySelector("#productionScheduleId").value;
-  const selectedIds = new Set([...document.querySelectorAll("[data-production-detail]:checked")].map((input) => input.dataset.productionDetail));
-  const items = productionSourceItems().filter((item) => selectedIds.has(String(item.detailId)));
-  const payload = { productionDate:document.querySelector("#productionScheduleDate").value, line:document.querySelector("#productionScheduleLine").value, status:document.querySelector("#productionScheduleStatus").value, notes:document.querySelector("#productionScheduleNotes").value.trim(), items, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+  const items = document.querySelector("#productionScheduleDialog").productionItems || [];
+  const payload = { productionDate:document.querySelector("#productionScheduleDate").value, line:document.querySelector("#productionScheduleLine").value, status:"Programado", notes:"", items, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
   const error = document.querySelector("#productionScheduleError");
   try {
     await apiJson(id ? `/api/production-schedule/${encodeURIComponent(id)}` : "/api/production-schedule", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
@@ -2815,21 +2793,10 @@ async function saveProductionScheduleFromDialog(event) {
 }
 
 function renderProductionSchedule() {
-  const range = productionWeekRange();
-  const weekItems = state.productionSchedule.filter((item) => item.productionDate >= range.start && item.productionDate <= range.end);
-  const card = (item) => `<article class="production-agenda-card"><header><div><small>${formatDate(item.productionDate)}</small><strong>${escapeHtml(item.items?.[0]?.client || "Grupo de producción")}</strong></div><em data-status="${normalizeKey(item.status)}">${escapeHtml(item.status)}</em></header><div>${(item.items || []).map((row) => `<p><b>${escapeHtml(row.quantity)}</b><span>${escapeHtml(row.product)}${row.size ? `<small>${escapeHtml(row.size)}</small>` : ""}</span><i>${escapeHtml(row.orderNumber)}</i></p>`).join("")}</div>${item.notes ? `<aside>${escapeHtml(item.notes)}</aside>` : ""}<footer><button type="button" data-production-edit="${escapeHtml(item.id)}" title="Editar">✏️</button><button type="button" data-production-delete="${escapeHtml(item.id)}" title="Eliminar">🗑️</button></footer></article>`;
-  return `<section class="production-week"><header class="production-week-hero"><div><small>Plan maestro semanal</small><h3>Producción y Pedidos de la Semana</h3><p>Agenda construida desde el detalle de órdenes autorizadas.</p></div><div class="production-week-controls"><button type="button" data-production-week-prev aria-label="Semana anterior">‹</button><label>Semana del<input type="date" data-production-week value="${escapeHtml(range.start)}"></label><button type="button" data-production-week-next aria-label="Semana siguiente">›</button><button type="button" class="primary-btn" data-production-new>+ Preparar grupo</button></div></header><div class="production-agenda"><section><header><span>01</span><div><small>Capacidad</small><h4>Línea 1</h4></div><b>${weekItems.filter((item) => item.line === "Línea 1").length} grupos</b></header><div>${weekItems.filter((item) => item.line === "Línea 1").map(card).join("") || `<div class="production-line-empty">Sin producción asignada</div>`}</div></section><section><header><span>02</span><div><small>Capacidad</small><h4>Línea 2</h4></div><b>${weekItems.filter((item) => item.line === "Línea 2").length} grupos</b></header><div>${weekItems.filter((item) => item.line === "Línea 2").map(card).join("") || `<div class="production-line-empty">Sin producción asignada</div>`}</div></section></div></section>`;
+  return "";
 }
 
-function wireProductionSchedule() {
-  const move = (days) => { const date = new Date(`${state.productionWeekStart}T12:00:00`); date.setDate(date.getDate() + days); state.productionWeekStart = productionMonday(date); renderCommercialSubmenu(areas.operaciones); };
-  document.querySelector("[data-production-week-prev]")?.addEventListener("click", () => move(-7));
-  document.querySelector("[data-production-week-next]")?.addEventListener("click", () => move(7));
-  document.querySelector("[data-production-week]")?.addEventListener("change", (event) => { state.productionWeekStart = productionMonday(event.target.value); renderCommercialSubmenu(areas.operaciones); });
-  document.querySelector("[data-production-new]")?.addEventListener("click", () => openProductionScheduleDialog());
-  document.querySelectorAll("[data-production-edit]").forEach((button) => button.addEventListener("click", () => openProductionScheduleDialog(state.productionSchedule.find((item) => item.id === button.dataset.productionEdit))));
-  document.querySelectorAll("[data-production-delete]").forEach((button) => button.addEventListener("click", async () => { const item = state.productionSchedule.find((row) => row.id === button.dataset.productionDelete); if (!item || !confirm("¿Eliminar este grupo de la agenda de producción?")) return; await apiJson(`/api/production-schedule/${encodeURIComponent(item.id)}`, { method:"DELETE" }); await loadProductionSchedule(); }));
-}
+function wireProductionSchedule() {}
 
 function controlSalesFilteredRows() {
   const selectedPeriod = `${state.controlSalesPeriodYear}-${state.controlSalesPeriodMonth}`;
@@ -4435,6 +4402,7 @@ async function openControlSalesMatrixDetail(orderId) {
   const details = order.details?.length ? order.details : [{ product: "Sin detalle", quantity: 0, unitPriceCents: null, vatCents: 0, lineTotalCents: 0 }];
   const quotation = linkedQuotationForControlSalesOrder(order);
   const hasAuthorizedOrder = controlSalesOrderHasAuthorizedSignatures(order);
+  const scheduledDetailIds = new Set(state.productionSchedule.flatMap((item) => item.items || []).map((item) => String(item.detailId)));
   content.innerHTML = `<header class="control-sales-matrix-dialog__header">
       <div><small>Detalle de venta</small><h3>${escapeHtml(formatOrderCorrelative(order.number))}</h3></div>
       <button type="button" data-control-sales-matrix-close aria-label="Cerrar">×</button>
@@ -4447,27 +4415,41 @@ async function openControlSalesMatrixDetail(orderId) {
     </section>
     <div class="control-sales-matrix-wrap">
       <table class="control-sales-matrix">
-        <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>IVA</th><th>Total</th></tr></thead>
+        <thead><tr>${hasAuthorizedOrder ? "<th>Agregar</th>" : ""}<th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>IVA</th><th>Total</th></tr></thead>
         <tbody>${details.map((detail) => `<tr>
+          ${hasAuthorizedOrder ? `<td class="production-detail-select"><label title="${scheduledDetailIds.has(String(detail.id)) ? "Ya está agendado" : "Agregar al grupo de producción"}"><input type="checkbox" data-control-sales-production-detail="${escapeHtml(detail.id)}" ${scheduledDetailIds.has(String(detail.id)) ? "disabled" : ""}><span class="production-switch" aria-hidden="true"></span></label></td>` : ""}
           <td><strong>${escapeHtml(detail.product || "Sin producto")}</strong>${detail.size ? `<small>${escapeHtml(detail.size)}</small>` : ""}</td>
           <td class="number">${escapeHtml(detail.quantity ?? 0)}</td>
           <td class="money">${detail.unitPriceCents == null ? "—" : formatControlSalesMoney(detail.unitPriceCents)}</td>
           <td class="money">${formatControlSalesMoney(detail.vatCents || 0)}</td>
           <td class="money line-total">${formatControlSalesMoney(detail.lineTotalCents || 0)}</td>
         </tr>`).join("")}</tbody>
-        <tfoot><tr><th colspan="4">Total de la venta</th><td class="money">${formatControlSalesMoney(order.totalCents || 0)}</td></tr></tfoot>
+        <tfoot><tr><th colspan="${hasAuthorizedOrder ? 5 : 4}">Total de la venta</th><td class="money">${formatControlSalesMoney(order.totalCents || 0)}</td></tr></tfoot>
       </table>
     </div>
     <footer class="control-sales-matrix-dialog__footer">
       <div class="control-sales-matrix-dialog__documents">
         ${quotation ? `<button type="button" data-control-sales-matrix-quotation title="Abrir cotización"><span aria-hidden="true">📄</span>Cotización</button>` : ""}
         ${hasAuthorizedOrder ? `<button type="button" class="authorized" data-control-sales-matrix-order title="Abrir orden de pedido autorizada con firmas"><span aria-hidden="true">✓</span>Orden autorizada</button>` : ""}
+        ${hasAuthorizedOrder ? `<button type="button" class="production" data-control-sales-production-schedule disabled><span aria-hidden="true">＋</span><b>Agendar producción</b></button>` : ""}
       </div>
       <button type="button" data-control-sales-matrix-close>Cerrar</button>
     </footer>`;
   content.querySelectorAll("[data-control-sales-matrix-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   content.querySelector("[data-control-sales-matrix-quotation]")?.addEventListener("click", () => printQuotation(quotation));
   content.querySelector("[data-control-sales-matrix-order]")?.addEventListener("click", () => printControlSalesProforma(order));
+  const scheduleButton = content.querySelector("[data-control-sales-production-schedule]");
+  const productionInputs = [...content.querySelectorAll("[data-control-sales-production-detail]")];
+  const refreshScheduleButton = () => {
+    const count = productionInputs.filter((input) => input.checked).length;
+    if (scheduleButton) { scheduleButton.disabled = count === 0; scheduleButton.querySelector("b").textContent = count ? `Agendar producción (${count})` : "Agendar producción"; }
+  };
+  productionInputs.forEach((input) => input.addEventListener("change", refreshScheduleButton));
+  scheduleButton?.addEventListener("click", () => {
+    const selectedIds = new Set(productionInputs.filter((input) => input.checked).map((input) => String(input.dataset.controlSalesProductionDetail)));
+    const selectedItems = details.filter((detail) => selectedIds.has(String(detail.id))).map((detail) => ({ detailId:detail.id, orderId:order.id, orderNumber:formatOrderCorrelative(order.number), client:order.client, product:detail.product, size:detail.size, quantity:detail.quantity, notes:detail.notes || "" }));
+    if (selectedItems.length) openProductionScheduleDialog(null, selectedItems);
+  });
   dialog.showModal();
 }
 
