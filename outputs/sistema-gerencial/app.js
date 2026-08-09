@@ -2765,18 +2765,23 @@ function renderControlSales() {
         }).join("")}</select></label>
       </div>
     </header>
-    <div class="control-sales-table">
-      <div class="control-sales-row head"><span>Orden</span><span>Fecha</span><span>Vendedor</span><span>Cliente</span><span>Total</span><span>Estado</span><span>Acciones</span></div>
-      ${visible.map((order) => {
-        const warning = order.anomalies?.length || order.details.some((detail) => detail.reviewRequired || detail.anomalies?.length);
-        return `<article class="control-sales-row ${order.archived ? "archived" : ""}">
-          <span><b>#${escapeHtml(order.number)}</b><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Manual"}</small></span>
-          <span>${formatDate(order.date)}</span><span>${escapeHtml(order.seller)}</span><span title="${escapeHtml(order.client)}">${escapeHtml(order.client)}</span>
-          <span class="money">${formatControlSalesMoney(order.totalCents)}</span>
-          <span><em class="control-sales-status ${warning ? "warning" : ""}">${warning ? "⚠ Revisar" : escapeHtml(order.status)}</em></span>
-          <span class="control-sales-actions"><button type="button" class="print" data-control-sales-print="${order.id}">Proforma</button><button type="button" data-control-sales-view="${order.id}">Ver</button><button type="button" data-control-sales-edit="${order.id}">Editar</button><button type="button" class="${order.archived ? "restore" : "danger"}" data-control-sales-archive="${order.id}">${order.archived ? "Restaurar" : "Archivar"}</button></span>
-        </article>`;
-      }).join("") || `<div class="empty-state">No hay órdenes para los filtros seleccionados.</div>`}
+    <div class="control-sales-matrix-wrap">
+      <table class="control-sales-matrix">
+        <thead><tr><th>N.º de orden</th><th>Vendedor</th><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>IVA</th><th>Total línea</th><th>Total orden</th></tr></thead>
+        <tbody>${visible.flatMap((order) => {
+          const details = order.details?.length ? order.details : [{ product: "Sin detalle", quantity: 0, unitPriceCents: 0, vatCents: 0, lineTotalCents: 0 }];
+          return details.map((detail, index) => `<tr class="${index === 0 ? "order-start" : ""}" data-control-sales-view="${escapeHtml(order.id)}" tabindex="0" title="Abrir orden ${escapeHtml(order.number)}">
+            ${index === 0 ? `<th rowspan="${details.length}"><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Pedido heredado"}</small></th><td rowspan="${details.length}">${escapeHtml(order.seller || "—")}</td><td rowspan="${details.length}">${formatDate(order.date)}</td><td rowspan="${details.length}">${escapeHtml(order.client || "—")}</td>` : ""}
+            <td><strong>${escapeHtml(detail.product || "Sin producto")}</strong>${detail.size ? `<small>${escapeHtml(detail.size)}</small>` : ""}</td>
+            <td class="number">${escapeHtml(detail.quantity ?? 0)}</td>
+            <td class="money">${detail.unitPriceCents == null ? "—" : formatControlSalesMoney(detail.unitPriceCents)}</td>
+            <td class="money">${formatControlSalesMoney(detail.vatCents || 0)}</td>
+            <td class="money line-total">${formatControlSalesMoney(detail.lineTotalCents || 0)}</td>
+            ${index === 0 ? `<td class="money order-total" rowspan="${details.length}">${formatControlSalesMoney(order.totalCents || 0)}</td>` : ""}
+          </tr>`);
+        }).join("")}</tbody>
+      </table>
+      ${visible.length ? "" : `<div class="empty-state">No hay órdenes para el mes seleccionado.</div>`}
     </div>
     <footer class="control-sales-pagination"><span>Mostrando ${rows.length ? start + 1 : 0}-${Math.min(start + pageSize, rows.length)} de ${rows.length}</span><div><button type="button" data-control-sales-page="prev" ${state.controlSalesPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.controlSalesPage} de ${pages}</strong><button type="button" data-control-sales-page="next" ${state.controlSalesPage >= pages ? "disabled" : ""}>Siguiente</button></div></footer>
   </section>`;
@@ -4310,7 +4315,15 @@ function wireControlSales() {
     const order = state.controlSales.find((item) => item.id === button.dataset.controlSalesPrint);
     if (order) printControlSalesProforma(order);
   }));
-  document.querySelectorAll("[data-control-sales-view]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.controlSalesView)));
+  document.querySelectorAll("[data-control-sales-view]").forEach((button) => {
+    const openDetail = () => openControlSalesDetail(button.dataset.controlSalesView);
+    button.addEventListener("click", openDetail);
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openDetail();
+    });
+  });
   document.querySelectorAll("[data-control-sales-edit]").forEach((button) => button.addEventListener("click", () => openControlSalesForm(state.controlSales.find((order) => order.id === button.dataset.controlSalesEdit))));
   document.querySelectorAll("[data-control-sales-archive]").forEach((button) => button.addEventListener("click", async () => { const order = state.controlSales.find((item) => item.id === button.dataset.controlSalesArchive); if (!order) return; const reason = prompt(order.archived ? "Motivo de restauración:" : "Motivo de anulación o archivo:"); if (reason === null || !reason.trim()) return; await apiJson(`/api/control-sales/${encodeURIComponent(order.id)}`, { method:"PATCH", body:JSON.stringify({ archived:!order.archived, reason, updatedBy:state.currentUser?.name }) }); loadControlSales(); }));
   document.querySelectorAll("[data-control-sales-page]").forEach((button) => button.addEventListener("click", () => { state.controlSalesPage += button.dataset.controlSalesPage === "next" ? 1 : -1; renderCommercialSubmenu(areas.operaciones); }));

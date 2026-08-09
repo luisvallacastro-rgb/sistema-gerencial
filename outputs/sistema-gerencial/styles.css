@@ -16581,6 +16581,65 @@ html.macos-render-safe .app-shell .permission-access-user {
 .control-sales-month-panel select { width: 100%; min-height: 48px; border: 1px solid rgba(153, 185, 217, .26); border-radius: 13px; padding: 0 13px; background: #173454; color: #f3f8fd; font-size: 14px; font-weight: 850; outline: 0; }
 .control-sales-month-panel select:focus { border-color: #72f5d1; box-shadow: 0 0 0 3px rgba(114, 245, 209, .1); }
 
+.control-sales-matrix-wrap {
+  overflow: auto;
+  border: 1px solid rgba(142, 178, 216, .2);
+  border-radius: 18px;
+  background: rgba(10, 30, 54, .58);
+}
+
+.control-sales-matrix {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #dce8f5;
+  font-size: 12px;
+}
+
+.control-sales-matrix th,
+.control-sales-matrix td {
+  padding: 11px 12px;
+  border-right: 1px solid rgba(142, 178, 216, .1);
+  border-bottom: 1px solid rgba(142, 178, 216, .11);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.control-sales-matrix thead th {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  height: 46px;
+  background: #10294a;
+  color: #aebed0;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.control-sales-matrix tbody tr { cursor: pointer; transition: background .15s ease; }
+.control-sales-matrix tbody tr:hover,
+.control-sales-matrix tbody tr:focus { background: rgba(76, 145, 229, .1); outline: none; }
+.control-sales-matrix tbody tr.order-start > * { border-top: 2px solid rgba(114, 245, 209, .2); }
+.control-sales-matrix tbody tr:first-child > * { border-top: 0; }
+.control-sales-matrix tbody th { width: 110px; color: #f3f8fd; }
+.control-sales-matrix tbody th strong,
+.control-sales-matrix td strong,
+.control-sales-matrix td small { display: block; }
+.control-sales-matrix tbody th small,
+.control-sales-matrix td small { margin-top: 3px; color: #8297af; font-size: 9px; font-weight: 750; }
+.control-sales-matrix .number { text-align: center; font-weight: 850; }
+.control-sales-matrix .money { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.control-sales-matrix .line-total { color: #c8d8e8; font-weight: 850; }
+.control-sales-matrix .order-total { min-width: 120px; background: rgba(31, 157, 120, .08); color: #72f5d1; font-size: 13px; font-weight: 950; }
+.control-sales-matrix th:nth-child(2) { width: 125px; }
+.control-sales-matrix th:nth-child(3) { width: 105px; }
+.control-sales-matrix th:nth-child(4) { width: 210px; }
+.control-sales-matrix th:nth-child(5) { width: 260px; }
+
 @media (max-width: 1050px) {
   .control-sales-period-summary { grid-template-columns: 1fr; }
 }
