@@ -4442,6 +4442,7 @@ async function openControlSalesMatrixDetail(orderId) {
   const productionInputs = [...content.querySelectorAll("[data-control-sales-production-detail]")];
   const refreshScheduleButton = () => {
     const count = productionInputs.filter((input) => input.checked).length;
+    productionInputs.forEach((input) => input.closest("tr")?.classList.toggle("is-production-selected", input.checked));
     if (scheduleButton) { scheduleButton.disabled = count === 0; scheduleButton.querySelector("b").textContent = count ? `Agendar producción (${count})` : "Agendar producción"; }
   };
   productionInputs.forEach((input) => input.addEventListener("change", refreshScheduleButton));

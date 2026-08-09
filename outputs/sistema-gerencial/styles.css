@@ -16641,7 +16641,12 @@ html.macos-render-safe .app-shell .permission-access-user {
 .production-detail-select { width: 72px; text-align: center !important; }
 .production-detail-select label { display: inline-flex; cursor: pointer; }
 .production-detail-select input { position: absolute; opacity: 0; }
+.production-detail-select input:checked + .production-switch { background: #238e76; box-shadow: 0 0 0 3px rgba(114, 245, 209, .13); }
+.production-detail-select input:checked + .production-switch::after { transform: translateX(16px); background: #dffff7; }
+.production-detail-select input:focus-visible + .production-switch { outline: 2px solid #72f5d1; outline-offset: 3px; }
 .production-detail-select input:disabled + .production-switch { opacity: .36; cursor: not-allowed; }
+.control-sales-matrix tbody tr.is-production-selected { background: rgba(35, 142, 118, .14); box-shadow: inset 4px 0 #72f5d1; }
+.control-sales-matrix tbody tr.is-production-selected:hover { background: rgba(35, 142, 118, .18); }
 
 .control-sales-matrix-wrap {
   overflow: auto;
