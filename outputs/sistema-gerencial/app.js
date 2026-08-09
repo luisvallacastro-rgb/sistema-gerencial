@@ -4299,6 +4299,10 @@ async function openControlSalesMatrixDetail(orderId) {
   const dialog = document.querySelector("#controlSalesMatrixDetailDialog");
   const content = document.querySelector("#controlSalesMatrixDetailContent");
   const details = order.details?.length ? order.details : [{ product: "Sin detalle", quantity: 0, unitPriceCents: null, vatCents: 0, lineTotalCents: 0 }];
+  const quotation = order.sourceQuotationId
+    ? state.quotations.find((item) => String(item.id) === String(order.sourceQuotationId))
+    : null;
+  const hasAuthorizedOrder = order.commercialApprovalStatus === "Autorizada" && order.financeApprovalStatus === "Aprobada";
   content.innerHTML = `<header class="control-sales-matrix-dialog__header">
       <div><small>Detalle de venta</small><h3>${escapeHtml(formatOrderCorrelative(order.number))}</h3></div>
       <button type="button" data-control-sales-matrix-close aria-label="Cerrar">×</button>
@@ -4322,8 +4326,16 @@ async function openControlSalesMatrixDetail(orderId) {
         <tfoot><tr><th colspan="4">Total de la venta</th><td class="money">${formatControlSalesMoney(order.totalCents || 0)}</td></tr></tfoot>
       </table>
     </div>
-    <footer class="control-sales-matrix-dialog__footer"><button type="button" data-control-sales-matrix-close>Cerrar</button></footer>`;
+    <footer class="control-sales-matrix-dialog__footer">
+      <div class="control-sales-matrix-dialog__documents">
+        ${quotation ? `<button type="button" data-control-sales-matrix-quotation title="Abrir cotización"><span aria-hidden="true">📄</span>Cotización</button>` : ""}
+        ${hasAuthorizedOrder ? `<button type="button" class="authorized" data-control-sales-matrix-order title="Abrir orden de pedido autorizada con firmas"><span aria-hidden="true">✓</span>Orden autorizada</button>` : ""}
+      </div>
+      <button type="button" data-control-sales-matrix-close>Cerrar</button>
+    </footer>`;
   content.querySelectorAll("[data-control-sales-matrix-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  content.querySelector("[data-control-sales-matrix-quotation]")?.addEventListener("click", () => printQuotation(quotation));
+  content.querySelector("[data-control-sales-matrix-order]")?.addEventListener("click", () => printControlSalesProforma(order));
   dialog.showModal();
 }
 

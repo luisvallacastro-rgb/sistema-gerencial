@@ -16629,8 +16629,12 @@ html.macos-render-safe .app-shell .permission-access-user {
 .control-sales-matrix tfoot td { border-bottom: 0; background: rgba(31, 157, 120, .1); font-weight: 950; }
 .control-sales-matrix tfoot th { text-align: right; text-transform: uppercase; }
 .control-sales-matrix tfoot td { color: #72f5d1; font-size: 14px; }
-.control-sales-matrix-dialog__footer { display: flex; justify-content: flex-end; }
+.control-sales-matrix-dialog__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.control-sales-matrix-dialog__documents { display: flex; flex-wrap: wrap; gap: 8px; }
 .control-sales-matrix-dialog__footer button { min-height: 42px; padding: 0 20px; border: 1px solid rgba(142, 178, 216, .32); border-radius: 12px; background: #1c3a60; color: #f4f8fc; font: inherit; font-weight: 850; cursor: pointer; }
+.control-sales-matrix-dialog__documents button { display: inline-flex; align-items: center; gap: 8px; border-color: rgba(99, 170, 244, .4); background: rgba(35, 91, 145, .56); }
+.control-sales-matrix-dialog__documents button.authorized { border-color: rgba(114, 245, 209, .5); background: rgba(24, 126, 103, .54); color: #eafff9; }
+.control-sales-matrix-dialog__documents button span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; background: rgba(255, 255, 255, .1); }
 
 .control-sales-matrix-wrap {
   overflow: auto;
@@ -16704,6 +16708,8 @@ html.macos-render-safe .app-shell .permission-access-user {
   .control-sales-period-summary .control-sales-date-fields > button { width: 100%; }
   .control-sales-matrix-meta { grid-template-columns: 1fr 1fr; }
   .control-sales-matrix-dialog > section { padding: 16px; }
+  .control-sales-matrix-dialog__footer { align-items: stretch; flex-direction: column; }
+  .control-sales-matrix-dialog__documents { display: grid; grid-template-columns: 1fr; }
 }
 
 @media (max-width: 1180px) {
