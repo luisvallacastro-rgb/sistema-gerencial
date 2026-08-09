@@ -2758,7 +2758,7 @@ function ensureProductionDialog() {
     <input type="hidden" id="productionScheduleId">
     <header><div><small>Producción</small><h3>Agendar producción</h3></div><button type="button" data-production-close aria-label="Cerrar">×</button></header>
     <section class="production-availability"><header><h4>Semana</h4><nav><button type="button" data-production-calendar-prev aria-label="Semana anterior">‹</button><strong id="productionCalendarRange"></strong><button type="button" data-production-calendar-next aria-label="Semana siguiente">›</button></nav></header><div id="productionAvailabilityColumns"></div></section>
-    <section class="production-schedule-fields"><label>Fecha de producción<input id="productionScheduleDate" type="date" required></label><label>Línea de producción<select id="productionScheduleLine" required><option>Línea 1</option><option>Línea 2</option></select></label></section>
+    <section class="production-schedule-fields"><label>Fecha de inicio<input id="productionScheduleDate" type="date" required></label><label>Fecha fin<input id="productionScheduleEndDate" type="date" required></label><label>Línea de producción<select id="productionScheduleLine" required><option>Línea 1</option><option>Línea 2</option></select></label></section>
     <section class="production-picker"><header><h4>Selección</h4><strong id="productionSelectedCount"></strong></header><div id="productionScheduleItems"></div></section>
     <p id="productionScheduleError" class="production-schedule-error hidden"></p>
     <footer><button type="button" data-production-close>Cancelar</button><button type="submit" class="primary-btn">Guardar grupo</button></footer>
@@ -2769,6 +2769,7 @@ function ensureProductionDialog() {
   dialog.querySelector("[data-production-calendar-prev]").addEventListener("click", () => moveProductionAvailabilityWeek(-7));
   dialog.querySelector("[data-production-calendar-next]").addEventListener("click", () => moveProductionAvailabilityWeek(7));
   dialog.querySelector("#productionScheduleDate").addEventListener("change", (event) => { dialog.productionCalendarAnchor = productionMonday(event.target.value); renderProductionAvailabilityCalendar(); });
+  dialog.querySelector("#productionScheduleEndDate").addEventListener("change", renderProductionAvailabilityCalendar);
   dialog.querySelector("#productionScheduleLine").addEventListener("change", renderProductionAvailabilityCalendar);
 }
 
@@ -2785,20 +2786,23 @@ function renderProductionAvailabilityCalendar() {
   if (!dialog) return;
   const start = new Date(`${dialog.productionCalendarAnchor || productionMonday()}T12:00:00`);
   const selectedDate = document.querySelector("#productionScheduleDate")?.value || "";
+  const selectedEndDate = document.querySelector("#productionScheduleEndDate")?.value || selectedDate;
   const selectedLine = document.querySelector("#productionScheduleLine")?.value || "Línea 1";
   const dates = Array.from({ length:7 }, (_, index) => { const date = new Date(start); date.setDate(date.getDate() + index); return date.toISOString().slice(0, 10); });
   const label = (value, options) => new Intl.DateTimeFormat("es-SV", { ...options, timeZone:"UTC" }).format(new Date(`${value}T12:00:00Z`));
   document.querySelector("#productionCalendarRange").textContent = `${label(dates[0], { day:"numeric", month:"short" })} — ${label(dates[6], { day:"numeric", month:"short" })}`;
   document.querySelector("#productionAvailabilityColumns").innerHTML = dates.map((date) => {
-    const dayAssignments = state.productionSchedule.filter((item) => item.productionDate === date);
-    return `<article class="production-day-column${date === selectedDate ? " has-selection" : ""}"><header><small>${label(date, { weekday:"short" })}</small><strong>${label(date, { day:"2-digit" })}</strong><span>${label(date, { month:"short" })}</span></header><div>${["Línea 1", "Línea 2"].map((line) => {
+    const dayAssignments = state.productionSchedule.filter((item) => date >= item.productionDate && date <= (item.productionEndDate || item.productionDate));
+    const dateSelected = date >= selectedDate && date <= selectedEndDate;
+    return `<article class="production-day-column${dateSelected ? " has-selection" : ""}"><header><small>${label(date, { weekday:"short" })}</small><strong>${label(date, { day:"2-digit" })}</strong><span>${label(date, { month:"short" })}</span></header><div>${["Línea 1", "Línea 2"].map((line) => {
       const assignments = dayAssignments.filter((item) => item.line === line);
-      const selected = date === selectedDate && line === selectedLine;
+      const selected = dateSelected && line === selectedLine;
       return `<section class="production-capacity-slot${assignments.length ? " occupied" : " available"}${selected ? " selected" : ""}"><button type="button" class="production-slot-select" data-production-slot-date="${date}" data-production-slot-line="${line}"><b>${escapeHtml(line.replace("Línea ", "L"))}</b><em>${assignments.length ? assignments.length : "Libre"}</em></button><div>${assignments.map((item) => { const first = item.items?.[0] || {}; const quantity = (item.items || []).reduce((total, row) => total + (Number(String(row.quantity || "0").replace(",", ".")) || 0), 0); return `<button type="button" class="production-slot-order" data-production-view-order="${escapeHtml(first.orderId || "")}" title="Ver detalle de la orden"><strong>${escapeHtml(first.client || "Producción")}</strong><span>${escapeHtml(first.product || "Producto")}</span><b>${quantity}</b></button>`; }).join("")}</div></section>`;
     }).join("")}</div></article>`;
   }).join("");
   dialog.querySelectorAll("[data-production-slot-date]").forEach((button) => button.addEventListener("click", () => {
     document.querySelector("#productionScheduleDate").value = button.dataset.productionSlotDate;
+    document.querySelector("#productionScheduleEndDate").value = button.dataset.productionSlotDate;
     document.querySelector("#productionScheduleLine").value = button.dataset.productionSlotLine;
     renderProductionAvailabilityCalendar();
   }));
@@ -2817,6 +2821,7 @@ function openProductionScheduleDialog(assignment = null, sourceItems = []) {
   dialog.productionItems = items;
   document.querySelector("#productionScheduleId").value = assignment?.id || "";
   document.querySelector("#productionScheduleDate").value = assignment?.productionDate || state.productionWeekStart || productionMonday();
+  document.querySelector("#productionScheduleEndDate").value = assignment?.productionEndDate || assignment?.productionDate || state.productionWeekStart || productionMonday();
   document.querySelector("#productionScheduleLine").value = assignment?.line || "Línea 1";
   document.querySelector("#productionScheduleItems").innerHTML = items.map((item) => `<article class="production-selected-row"><div><small>${escapeHtml(item.orderNumber)}</small><strong>${escapeHtml(item.client)}</strong></div><span><strong>${escapeHtml(item.product)}</strong><small>${escapeHtml(item.size || "Sin talla")}</small></span><b>${escapeHtml(item.quantity)}</b></article>`).join("");
   document.querySelector("#productionSelectedCount").textContent = `${items.length} seleccionados`;
@@ -2828,9 +2833,12 @@ async function saveProductionScheduleFromDialog(event) {
   event.preventDefault();
   const id = document.querySelector("#productionScheduleId").value;
   const items = document.querySelector("#productionScheduleDialog").productionItems || [];
-  const payload = { productionDate:document.querySelector("#productionScheduleDate").value, line:document.querySelector("#productionScheduleLine").value, status:"Programado", notes:"", items, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+  const productionDate = document.querySelector("#productionScheduleDate").value;
+  const productionEndDate = document.querySelector("#productionScheduleEndDate").value;
+  const payload = { productionDate, productionEndDate, line:document.querySelector("#productionScheduleLine").value, status:"Programado", notes:"", items, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
   const error = document.querySelector("#productionScheduleError");
   try {
+    if (productionEndDate < productionDate) throw new Error("La fecha fin no puede ser anterior a la fecha de inicio.");
     await apiJson(id ? `/api/production-schedule/${encodeURIComponent(id)}` : "/api/production-schedule", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
     document.querySelector("#productionScheduleDialog").close(); await loadProductionSchedule();
   } catch (failure) { error.textContent = failure.message || "No se pudo guardar el grupo."; error.classList.remove("hidden"); }

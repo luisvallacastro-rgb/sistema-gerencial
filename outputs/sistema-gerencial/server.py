@@ -26,7 +26,7 @@ CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-production-schedule-v1"
+API_VERSION = "kmi-production-schedule-range-v2"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -1519,6 +1519,7 @@ def production_schedule_payload(row):
         items = []
     return {
         "id": row["id"], "productionDate": row["production_date"],
+        "productionEndDate": row["production_end_date"] or row["production_date"],
         "line": row["production_line"], "status": row["status"],
         "notes": row["notes"], "items": items,
         "createdBy": row["created_by"], "updatedBy": row["updated_by"],
@@ -1528,10 +1529,18 @@ def production_schedule_payload(row):
 
 def save_production_schedule(conn, data, existing=None):
     production_date = text(data.get("productionDate"), existing["productionDate"] if existing else "")
+    production_end_date = text(data.get("productionEndDate"), existing["productionEndDate"] if existing else production_date)
     production_line = text(data.get("line"), existing["line"] if existing else "")
     items = data.get("items", existing["items"] if existing else [])
-    if not production_date or production_line not in {"Línea 1", "Línea 2"}:
-        raise ValueError("Fecha y línea de producción son requeridas")
+    if not production_date or not production_end_date or production_line not in {"Línea 1", "Línea 2"}:
+        raise ValueError("Fechas y línea de producción son requeridas")
+    try:
+        start_date = datetime.strptime(production_date, "%Y-%m-%d").date()
+        end_date = datetime.strptime(production_end_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError("Las fechas de producción no son válidas")
+    if end_date < start_date:
+        raise ValueError("La fecha fin no puede ser anterior a la fecha de inicio")
     if not isinstance(items, list) or not items:
         raise ValueError("Selecciona al menos un producto de una orden")
     clean_items = []
@@ -1553,11 +1562,11 @@ def save_production_schedule(conn, data, existing=None):
     schedule_id = existing["id"] if existing else f"production-{uuid.uuid4()}"
     actor = text(data.get("updatedBy"), "Sistema Gerencial")
     now = time.strftime("%Y-%m-%dT%H:%M:%S")
-    values = (production_date, production_line, text(data.get("status"), existing["status"] if existing else "Programado"), text(data.get("notes"), existing["notes"] if existing else ""), json.dumps(clean_items, ensure_ascii=False), actor, now, schedule_id)
+    values = (production_date, production_end_date, production_line, text(data.get("status"), existing["status"] if existing else "Programado"), text(data.get("notes"), existing["notes"] if existing else ""), json.dumps(clean_items, ensure_ascii=False), actor, now, schedule_id)
     if existing:
-        conn.execute("UPDATE production_schedule SET production_date=?, production_line=?, status=?, notes=?, items=?, updated_by=?, updated_at=? WHERE id=?", values)
+        conn.execute("UPDATE production_schedule SET production_date=?, production_end_date=?, production_line=?, status=?, notes=?, items=?, updated_by=?, updated_at=? WHERE id=?", values)
     else:
-        conn.execute("INSERT INTO production_schedule (production_date, production_line, status, notes, items, created_by, updated_by, created_at, updated_at, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (production_date, production_line, text(data.get("status"), "Programado"), text(data.get("notes")), json.dumps(clean_items, ensure_ascii=False), actor, actor, now, now, schedule_id))
+        conn.execute("INSERT INTO production_schedule (production_date, production_end_date, production_line, status, notes, items, created_by, updated_by, created_at, updated_at, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (production_date, production_end_date, production_line, text(data.get("status"), "Programado"), text(data.get("notes")), json.dumps(clean_items, ensure_ascii=False), actor, actor, now, now, schedule_id))
     return production_schedule_payload(conn.execute("SELECT * FROM production_schedule WHERE id = ?", (schedule_id,)).fetchone())
 
 
@@ -2580,6 +2589,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS production_schedule (
                 id TEXT PRIMARY KEY,
                 production_date TEXT NOT NULL,
+                production_end_date TEXT NOT NULL DEFAULT '',
                 production_line TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'Programado',
                 notes TEXT NOT NULL DEFAULT '',
@@ -2590,6 +2600,10 @@ def init_db():
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        production_schedule_columns = {row["name"] for row in conn.execute("PRAGMA table_info(production_schedule)").fetchall()}
+        if "production_end_date" not in production_schedule_columns:
+            conn.execute("ALTER TABLE production_schedule ADD COLUMN production_end_date TEXT NOT NULL DEFAULT ''")
+        conn.execute("UPDATE production_schedule SET production_end_date = production_date WHERE production_end_date = ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_production_schedule_date ON production_schedule(production_date, production_line)")
         conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
