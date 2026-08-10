@@ -2301,8 +2301,8 @@ def purge_luis_valladares_test_flow_once(conn):
 
 
 def repair_edgar_admin_seller_assignments_once(conn):
-    """Remove the administrative Edgar profile from CRM sellers and repair its test flow."""
-    marker_key = "maintenance.repair-edgar-admin-seller.2026-08-10.v1"
+    """Remove the administrative Edgar profile and reconcile every persisted sales layer."""
+    marker_key = "maintenance.repair-edgar-admin-seller.2026-08-10.v2"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
         return
 
@@ -2317,17 +2317,21 @@ def repair_edgar_admin_seller_assignments_once(conn):
         and any(token.startswith("valladar") for token in crm_identity_key(user.get("name")).split())
         and user.get("roleId") == "sales_exec"
     ), None)
-    if not invalid_sellers or not luis:
+    if not luis:
         conn.execute(
             "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-            (marker_key, json.dumps({"repaired": 0, "reason": "No había perfil Edgar o vendedor Luis"})),
+            (marker_key, json.dumps({"repaired": 0, "reason": "No se encontró el vendedor Luis"})),
         )
         return
 
     invalid_ids = {text(user.get("id")) for user in invalid_sellers}
-    affected_ids = set()
+    affected_ids = {
+        text(row["opportunity_id"])
+        for row in conn.execute("SELECT opportunity_id FROM quotations WHERE lower(trim(seller)) = lower(?)", ("Edgar Menjivar",)).fetchall()
+        if text(row["opportunity_id"])
+    }
     for opportunity in crm.get("opportunities", []):
-        if text(opportunity.get("ownerId")) in invalid_ids:
+        if text(opportunity.get("ownerId")) in invalid_ids or text(opportunity.get("id")) in affected_ids:
             opportunity["ownerId"] = luis.get("id")
             affected_ids.add(text(opportunity.get("id")))
     for collection in (crm.get("agenda", []), crm.get("gestiones", [])):
@@ -2337,6 +2341,9 @@ def repair_edgar_admin_seller_assignments_once(conn):
     crm["users"] = [user for user in crm.get("users", []) if text(user.get("id")) not in invalid_ids]
     write_crm_data(conn, crm)
 
+    conn.execute("UPDATE quotations SET seller = ? WHERE lower(trim(seller)) = lower(?)", (text(luis.get("name")), "Edgar Menjivar"))
+    conn.execute("UPDATE control_sales_orders SET seller = ? WHERE lower(trim(seller)) = lower(?)", (text(luis.get("name")), "Edgar Menjivar"))
+    conn.execute("UPDATE financial_orders SET seller = ? WHERE lower(trim(seller)) = lower(?)", (text(luis.get("name")), "Edgar Menjivar"))
     if affected_ids:
         placeholders = ",".join("?" for _ in affected_ids)
         conn.execute(
@@ -2354,8 +2361,10 @@ def repair_edgar_admin_seller_assignments_once(conn):
     results = read_result_opportunities(conn)
     result_changes = 0
     for item in results:
-        if text(item.get("crmOpportunityId")) in affected_ids:
+        if text(item.get("crmOpportunityId")) in affected_ids or crm_identity_key(item.get("seller")) == "edgar menjivar":
             item["seller"] = text(luis.get("name"))
+            if isinstance(item.get("quotationData"), dict):
+                item["quotationData"]["seller"] = text(luis.get("name"))
             result_changes += 1
     if result_changes:
         write_result_opportunities(conn, results)
