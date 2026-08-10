@@ -13578,6 +13578,63 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 }
 .crm-cancellation-card .danger-btn:disabled { opacity: .6; cursor: wait; }
 
+/* Anulación CRM: todo el formulario debe permanecer dentro del diálogo. */
+#crmCancellationDialog {
+  width: min(680px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+}
+
+#crmCancellationDialog .crm-cancellation-card,
+#crmCancellationDialog .crm-cancellation-card * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+#crmCancellationDialog .crm-cancellation-card {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+#crmCancellationDialog .crm-cancellation-card > label {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+}
+
+#crmCancellationDialog .crm-cancellation-card textarea {
+  width: 100%;
+  max-width: 100%;
+}
+
+#crmCancellationDialog .crm-cancellation-copy,
+#crmCancellationDialog .muted-copy {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+#crmCancellationDialog menu {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+}
+
+#crmCancellationDialog menu button {
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 560px) {
+  #crmCancellationDialog { width: calc(100vw - 20px); max-width: calc(100vw - 20px); }
+  #crmCancellationDialog .crm-cancellation-card { padding: 16px; }
+  #crmCancellationDialog menu button { flex: 1 1 100%; }
+}
+
 @media (max-width: 900px) {
   .app-shell .crm-history-summary { align-items: start; flex-direction: column; }
   .app-shell .crm-history-card { grid-template-columns: 1fr; gap: 14px; }
