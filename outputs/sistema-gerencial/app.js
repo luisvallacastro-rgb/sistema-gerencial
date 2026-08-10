@@ -102,6 +102,18 @@ const areas = {
     status: "Atencion",
     submenus: [
       {
+        key: "crm",
+        label: "Oportunidades / Vendedores",
+        status: "Operacion comercial",
+        items: []
+      },
+      {
+        key: "crm-seguimiento",
+        label: "Seguimiento",
+        status: "Pipeline por etapa",
+        items: []
+      },
+      {
         key: "resultados-oportunidades",
         label: "Oportunidades / Gerencia",
         status: "Pipeline activo",
@@ -113,13 +125,13 @@ const areas = {
         status: "Primer visto bueno",
         items: []
       },
-      { key: "resultados-pedidos", label: "Pedidos", status: "Registro comercial de pedidos", items: [] },
       {
         key: "cotizaciones",
         label: "Cotizaciones",
         status: "Gestión comercial por estado",
         items: []
       },
+      { key: "resultados-pedidos", label: "Pedidos", status: "Registro comercial de pedidos", items: [] },
       {
         key: "resultados-dashboard",
         label: "Dashboard",
@@ -130,18 +142,6 @@ const areas = {
         key: "kpi",
         label: "KPI de Comercialización",
         status: "Dashboard visual",
-        items: []
-      },
-      {
-        key: "crm",
-        label: "Oportunidades / Vendedores",
-        status: "Operacion comercial",
-        items: []
-      },
-      {
-        key: "crm-seguimiento",
-        label: "Seguimiento",
-        status: "Pipeline por etapa",
         items: []
       },
       {

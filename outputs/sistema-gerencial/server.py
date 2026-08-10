@@ -40,7 +40,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 }
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
-    "comercializacion": ["resultados-oportunidades", "autorizacion-pedidos", "resultados-pedidos", "cotizaciones", "resultados-dashboard", "kpi", "crm", "crm-seguimiento"],
+    "comercializacion": ["crm", "crm-seguimiento", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi"],
     "financiera": ["resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal"],
     "rrhh": [],
