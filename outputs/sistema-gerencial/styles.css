@@ -17504,6 +17504,21 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 }
 .app-shell .dashboard.opportunity-focus .opportunity-pagination { margin-top: 6px; }
 
+/* La navegación CRM siempre permanece visible; únicamente se desplaza la lista. */
+.app-shell .dashboard.opportunity-focus .commercial-panel.crm-opportunity-tabs .opportunity-table-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+.app-shell .dashboard.opportunity-focus .commercial-panel.crm-opportunity-tabs .opportunity-pagination {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  position: relative;
+  z-index: 5;
+  margin-top: 6px !important;
+}
+
 /* Gerencia: acciones compactas; la etiqueta permanece en title/aria-label. */
 .app-shell .opportunity-row .row-actions,
 .app-shell:not(.sidebar-collapsed) .opportunity-row .row-actions {

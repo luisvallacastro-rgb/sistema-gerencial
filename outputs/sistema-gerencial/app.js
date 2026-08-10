@@ -7963,16 +7963,14 @@ function renderCommercialSubmenu(area) {
         </div>
       `}
     </div>
-    ${displayRows.length > effectivePageSize ? `
-      <div class="opportunity-pagination" aria-label="Paginacion de oportunidades">
-        <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, displayRows.length)} de ${displayRows.length}</span>
-        <div>
-          <button class="ghost-btn compact-btn" type="button" data-opportunity-page="prev" ${state.opportunityPage <= 1 ? "disabled" : ""}>Anterior</button>
-          <strong>Pagina ${state.opportunityPage} de ${pageCount}</strong>
-          <button class="ghost-btn compact-btn" type="button" data-opportunity-page="next" ${state.opportunityPage >= pageCount ? "disabled" : ""}>Siguiente</button>
-        </div>
+    <div class="opportunity-pagination" aria-label="Paginacion de oportunidades">
+      <span>Mostrando ${displayRows.length ? pageStart + 1 : 0}-${Math.min(pageEnd, displayRows.length)} de ${displayRows.length}</span>
+      <div>
+        <button class="ghost-btn compact-btn" type="button" data-opportunity-page="prev" ${state.opportunityPage <= 1 ? "disabled" : ""}>Anterior</button>
+        <strong>Pagina ${state.opportunityPage} de ${pageCount}</strong>
+        <button class="ghost-btn compact-btn" type="button" data-opportunity-page="next" ${state.opportunityPage >= pageCount ? "disabled" : ""}>Siguiente</button>
       </div>
-    ` : ""}
+    </div>
     `}
   `;
 }
