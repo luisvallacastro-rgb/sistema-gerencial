@@ -67,7 +67,6 @@ const areas = {
     nav: "Financiera",
     status: "Controlado",
     submenus: [
-      { key: "resultados-pedidos", label: "Pedidos", status: "Registro financiero de pedidos", items: [] },
       { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
       { key: "resultados-ordenes-de-pedido", label: "Órdenes de Pedido", status: "Control de producción y entregas", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
@@ -114,6 +113,7 @@ const areas = {
         status: "Primer visto bueno",
         items: []
       },
+      { key: "resultados-pedidos", label: "Pedidos", status: "Registro comercial de pedidos", items: [] },
       {
         key: "cotizaciones",
         label: "Cotizaciones",
@@ -1058,7 +1058,7 @@ function defaultPermissionsForRole(role) {
     return [
       ...areaPermissionSections("comercializacion")
         .map((section) => permissionKey("comercializacion", section.key)),
-      permissionKey("financiera", "resultados-pedidos"),
+      permissionKey("comercializacion", "resultados-pedidos"),
       permissionKey("financiera", "resultados-cuentas-por-cobrar"),
       permissionKey("financiera", "resultados-ordenes-de-pedido"),
       ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
@@ -1078,6 +1078,9 @@ function normalizePermissionList(value, role) {
     ...value,
     ...(value.includes(permissionKey("comercializacion", "resultados"))
       ? [permissionKey("comercializacion", "resultados-oportunidades")]
+      : []),
+    ...(value.includes(permissionKey("financiera", "resultados-pedidos"))
+      ? [permissionKey("comercializacion", "resultados-pedidos")]
       : []),
     ...(value.some((item) => [
       permissionKey("comercializacion", "crm"),
@@ -2735,7 +2738,7 @@ function loadControlSales() {
       state.controlSalesCounts = payload.counts || { orders: state.controlSales.length, details: 0 };
       if (
         (state.activeArea === "operaciones" && state.activeSubmenu === "resultados-control-ventas")
-        || (state.activeArea === "financiera" && state.activeSubmenu === "resultados-pedidos")
+        || (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos")
         || (state.activeArea === "comercializacion" && state.activeSubmenu === "autorizacion-pedidos")
       ) renderDashboard();
     })
@@ -3134,8 +3137,8 @@ function ensureControlSalesDialogs() {
       document.querySelector("#controlSalesFinancialOrderId").value = linkedFinancialOrder.id;
       if (formDialog.dataset.financialCompletionOnly === "true") {
         await loadControlSales();
-        if (state.activeArea === "financiera" && state.activeSubmenu === "resultados-pedidos") {
-          renderCommercialSubmenu(areas.financiera);
+        if (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos") {
+          renderCommercialSubmenu(areas.comercializacion);
         }
         saveStatus.innerHTML = `<span aria-hidden="true">✓</span><div><strong>Registro financiero guardado</strong><small>El primer visto bueno se conservó. Ya puedes cerrar y firmar la orden.</small></div>`;
         saveStatus.classList.remove("hidden");
@@ -3150,8 +3153,8 @@ function ensureControlSalesDialogs() {
       submit.textContent = "Guardar cambios";
       await loadControlSales();
       await loadQuotations();
-      if (state.activeArea === "financiera" && state.activeSubmenu === "resultados-pedidos") {
-        renderCommercialSubmenu(areas.financiera);
+      if (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos") {
+        renderCommercialSubmenu(areas.comercializacion);
       }
       if (savedOrder.sourceOpportunityId) {
         const sourceOpportunity = getOpportunitySubmenu().items.find((item) => (
@@ -4319,7 +4322,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   });
   const financialAnnexHelp = financialAnnex.querySelector("[data-financial-annex-help]");
   financialAnnexHelp.textContent = financialAnnexReadOnly
-    ? "Solo editable desde Financiera → Pedidos"
+    ? "Solo editable desde Comercialización → Pedidos"
     : "Anexo al formulario heredado · se conserva dentro del mismo pedido";
   if (!order && sourceWin && !document.querySelector("#controlSalesCommercialName").value) {
     document.querySelector("#controlSalesCommercialName").value = sourceWin.company || "";
@@ -4761,7 +4764,7 @@ async function syncFinancialOrdersWithApi() {
       remoteRecords = await apiJson("/api/financial-orders");
     }
     applyPersistedFinancialOrders(remoteRecords);
-    if (state.activeArea === "financiera" && state.activeSubmenu === "resultados-pedidos") {
+    if (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos") {
       renderDashboard();
     }
   } catch (error) {
@@ -7483,7 +7486,7 @@ function renderCommercialSubmenu(area) {
     return;
   }
 
-  if (state.activeArea === "financiera" && submenu.key === "resultados-pedidos") {
+  if (state.activeArea === "comercializacion" && submenu.key === "resultados-pedidos") {
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");
@@ -9573,7 +9576,7 @@ function renderAdminPanel() {
 function renderPageTitle(area, activeSubmenu) {
   const isResultsView = state.activeArea === "comercializacion" && activeSubmenu?.key?.startsWith("resultados");
   const isKpiView = state.activeArea === "comercializacion" && activeSubmenu?.key === "kpi";
-  const isFinancialOrdersView = state.activeArea === "financiera" && activeSubmenu?.key === "resultados-pedidos";
+  const isFinancialOrdersView = state.activeArea === "comercializacion" && activeSubmenu?.key === "resultados-pedidos";
   pageTitle.classList.toggle("with-results-summary", isResultsView || isKpiView);
   renderFinancialOrderTopbarFilters(isFinancialOrdersView);
 
@@ -9740,7 +9743,7 @@ function restoreNavigationState(user = state.currentUser) {
     const submenus = visibleSubmenus(state.activeArea, user);
     const legacyDefaults = {
       comercializacion: "resultados-oportunidades",
-      financiera: "resultados-pedidos",
+      financiera: "resultados-cuentas-por-cobrar",
       operaciones: "resultados-control-ventas",
       rrhh: "riesgos"
     };

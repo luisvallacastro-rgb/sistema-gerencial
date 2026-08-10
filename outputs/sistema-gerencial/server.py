@@ -39,8 +39,8 @@ CRM_SELLER_ACCOUNT_LINKS = {
 }
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
-    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "kpi", "crm", "crm-seguimiento"],
-    "financiera": ["resultados", "resultados-pedidos", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido", "kpi"],
+    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "resultados-pedidos", "kpi", "crm", "crm-seguimiento"],
+    "financiera": ["resultados", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido", "kpi"],
     "operaciones": ["resultados", "resultados-control-ventas", "produccion-semanal", "kpi"],
     "rrhh": ["resultados", "kpi"],
 }
@@ -1007,7 +1007,7 @@ def default_permissions_for_role(role):
         return [
             *[f"comercializacion:{section}" for section in AREA_SECTION_KEYS["comercializacion"]],
             "financiera:resultados",
-            "financiera:resultados-pedidos",
+            "comercializacion:resultados-pedidos",
             "financiera:resultados-cuentas-por-cobrar",
             "financiera:resultados-ordenes-de-pedido",
             *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
@@ -1028,6 +1028,10 @@ def normalize_permissions(value, role):
     if not isinstance(value, list):
         return default_permissions_for_role(role)
     valid = set(ALL_PERMISSIONS)
+    value = [
+        "comercializacion:resultados-pedidos" if item == "financiera:resultados-pedidos" else item
+        for item in value
+    ]
     permissions = [item for item in value if item in valid]
     return list(dict.fromkeys(permissions))
 
@@ -2118,7 +2122,7 @@ def seed_control_sales(conn):
 
 
 def grant_control_sales_permissions(conn):
-    permissions_to_grant = ["operaciones:resultados-control-ventas", "comercializacion:autorizacion-pedidos"]
+    permissions_to_grant = ["operaciones:resultados-control-ventas", "comercializacion:autorizacion-pedidos", "comercializacion:resultados-pedidos"]
     for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
         try:
             permissions = json.loads(row["permissions"] or "[]")
@@ -2139,7 +2143,7 @@ def grant_purchase_order_permissions(conn):
             permissions = json.loads(row["permissions"] or "[]")
         except json.JSONDecodeError:
             permissions = []
-        if "financiera:resultados-pedidos" in permissions and permission not in permissions:
+        if ("comercializacion:resultados-pedidos" in permissions or "financiera:resultados-pedidos" in permissions) and permission not in permissions:
             permissions.append(permission)
             conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions, ensure_ascii=True), row["id"]))
     conn.execute("INSERT INTO app_state (key, value) VALUES (?, ?)", (migration_key, "completed"))
@@ -3401,7 +3405,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 required_permission = (
                     "comercializacion:autorizacion-pedidos"
                     if stage == "commercial-approval"
-                    else "financiera:resultados-pedidos"
+                    else "comercializacion:resultados-pedidos"
                 )
                 try:
                     actor_permissions = json.loads(actor_row["permissions"] or "[]") if actor_row else []
