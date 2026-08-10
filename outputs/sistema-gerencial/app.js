@@ -6317,6 +6317,7 @@ function crmOpportunityToFormItem(opportunity = {}) {
     id: opportunity.id || "",
     date: opportunity.nextDate || opportunity.deadline || opportunity.startDate || todayISO(),
     company: opportunity.company || "",
+    sellerId: opportunity.ownerId || "",
     seller: opportunity.owner?.name || crmOwnerName(opportunity.ownerId),
     contact: opportunity.contact || opportunity.responsible || "",
     phone: opportunity.phone || "",
@@ -6343,10 +6344,14 @@ function fillOpportunityForm(item, context = "results") {
   opportunityCompany.value = item?.company || "";
   if (context === "crm") {
     opportunitySeller.innerHTML = crmSortedSellers().map((seller) => (
-      `<option value="${escapeHtml(seller.name)}">${escapeHtml(seller.name)}</option>`
+      `<option value="${escapeHtml(seller.id)}">${escapeHtml(seller.name)}</option>`
     )).join("");
   }
-  ensureSelectOption(opportunitySeller, item?.seller || crmSortedSellers()[0]?.name || commercialSellerNames()[0]);
+  if (context === "crm") {
+    opportunitySeller.value = item?.sellerId || crmSortedSellers()[0]?.id || "";
+  } else {
+    ensureSelectOption(opportunitySeller, item?.seller || commercialSellerNames()[0]);
+  }
   opportunityContact.value = item?.contact || "";
   opportunityPhone.value = item?.phone || "";
   ensureSelectOption(opportunitySegment, item?.segment || "");
@@ -10806,7 +10811,12 @@ opportunityForm.addEventListener("submit", (event) => {
   event.preventDefault();
   if (state.opportunityFormContext === "crm") {
     const id = opportunityId.value;
-    const seller = crmSalesUsers().find((user) => normalizeKey(user.name) === normalizeKey(opportunitySeller.value));
+    const selectedSellerId = opportunitySeller.value;
+    const seller = crmSalesUsers().find((user) => String(user.id) === String(selectedSellerId));
+    if (!seller) {
+      alert("Seleccione un vendedor comercial válido.");
+      return;
+    }
     const stageId = Math.max(1, opportunityStages.indexOf(opportunityStage.value) + 1);
     const temperature = { caliente: "Caliente", tibio: "Tibio", frio: "Frio", congelado: "Congelado" }[opportunityProbability.value] || "Tibio";
     const payload = {
@@ -10817,7 +10827,7 @@ opportunityForm.addEventListener("submit", (event) => {
       phone: opportunityPhone.value.trim(),
       segment: opportunitySegment.value.trim(),
       location: opportunityLocation.value.trim(),
-      ownerId: seller?.id || state.crmSellerId || crmSalesUsers()[0]?.id || "",
+      ownerId: seller.id,
       stageId,
       priority: opportunityPriority.value,
       temperature,

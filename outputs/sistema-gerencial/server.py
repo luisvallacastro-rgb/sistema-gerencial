@@ -2300,6 +2300,73 @@ def purge_luis_valladares_test_flow_once(conn):
     print(f"Limpieza de prueba Luis Valladares completada: {summary}")
 
 
+def repair_edgar_admin_seller_assignments_once(conn):
+    """Remove the administrative Edgar profile from CRM sellers and repair its test flow."""
+    marker_key = "maintenance.repair-edgar-admin-seller.2026-08-10.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+
+    crm = read_crm_data(conn)
+    invalid_sellers = [
+        user for user in crm.get("users", [])
+        if crm_identity_key(user.get("name")) == "edgar menjivar"
+    ]
+    luis = next((
+        user for user in crm.get("users", [])
+        if "luis" in crm_identity_key(user.get("name")).split()
+        and any(token.startswith("valladar") for token in crm_identity_key(user.get("name")).split())
+        and user.get("roleId") == "sales_exec"
+    ), None)
+    if not invalid_sellers or not luis:
+        conn.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+            (marker_key, json.dumps({"repaired": 0, "reason": "No había perfil Edgar o vendedor Luis"})),
+        )
+        return
+
+    invalid_ids = {text(user.get("id")) for user in invalid_sellers}
+    affected_ids = set()
+    for opportunity in crm.get("opportunities", []):
+        if text(opportunity.get("ownerId")) in invalid_ids:
+            opportunity["ownerId"] = luis.get("id")
+            affected_ids.add(text(opportunity.get("id")))
+    for collection in (crm.get("agenda", []), crm.get("gestiones", [])):
+        for item in collection:
+            if text(item.get("ownerId")) in invalid_ids or text(item.get("opportunityId")) in affected_ids:
+                item["ownerId"] = luis.get("id")
+    crm["users"] = [user for user in crm.get("users", []) if text(user.get("id")) not in invalid_ids]
+    write_crm_data(conn, crm)
+
+    if affected_ids:
+        placeholders = ",".join("?" for _ in affected_ids)
+        conn.execute(
+            f"UPDATE quotations SET seller = ? WHERE opportunity_id IN ({placeholders})",
+            (text(luis.get("name")), *affected_ids),
+        )
+        conn.execute(
+            f"UPDATE control_sales_orders SET seller = ? WHERE source_opportunity_id IN ({placeholders})",
+            (text(luis.get("name")), *affected_ids),
+        )
+        conn.execute(
+            f"UPDATE financial_orders SET seller = ? WHERE source_opportunity_id IN ({placeholders})",
+            (text(luis.get("name")), *affected_ids),
+        )
+    results = read_result_opportunities(conn)
+    result_changes = 0
+    for item in results:
+        if text(item.get("crmOpportunityId")) in affected_ids:
+            item["seller"] = text(luis.get("name"))
+            result_changes += 1
+    if result_changes:
+        write_result_opportunities(conn, results)
+    summary = {"repaired": len(affected_ids), "resultOpportunities": result_changes, "seller": text(luis.get("name"))}
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps(summary, ensure_ascii=True)),
+    )
+    print(f"Reparación de vendedor administrativo completada: {summary}")
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -2641,6 +2708,7 @@ def init_db():
                 permissions.append(permission)
                 conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions), row["id"]))
         purge_luis_valladares_test_flow_once(conn)
+        repair_edgar_admin_seller_assignments_once(conn)
 
 
 class AppHandler(BaseHTTPRequestHandler):
@@ -3669,6 +3737,9 @@ class AppHandler(BaseHTTPRequestHandler):
                     payload = self.read_json()
                     if not text(payload.get("name")) and not text(payload.get("email")):
                         self.send_json({"error": "Nombre o correo requerido"}, status=400)
+                        return
+                    if crm_identity_key(payload.get("name")) == "edgar menjivar":
+                        self.send_json({"error": "Edgar Menjivar es un perfil administrativo, no un vendedor"}, status=409)
                         return
                     if duplicate_crm_user(data, payload):
                         self.send_json({"error": "Usuario CRM existente"}, status=409)
