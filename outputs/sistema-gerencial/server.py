@@ -3,6 +3,7 @@
 import json
 import mimetypes
 import os
+import re
 import sqlite3
 import time
 import unicodedata
@@ -39,10 +40,10 @@ CRM_SELLER_ACCOUNT_LINKS = {
 }
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
-    "comercializacion": ["resultados", "resultados-oportunidades", "resultados-dashboard", "resultados-pedidos", "kpi", "crm", "crm-seguimiento"],
-    "financiera": ["resultados", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido", "kpi"],
-    "operaciones": ["resultados", "resultados-control-ventas", "produccion-semanal", "kpi"],
-    "rrhh": ["resultados", "kpi"],
+    "comercializacion": ["resultados-oportunidades", "autorizacion-pedidos", "resultados-pedidos", "cotizaciones", "resultados-dashboard", "kpi", "crm", "crm-seguimiento"],
+    "financiera": ["resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
+    "operaciones": ["resultados-control-ventas", "produccion-semanal"],
+    "rrhh": [],
 }
 VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
 ADMIN_CONSOLIDATED_PERMISSION_KEYS = [
@@ -1001,7 +1002,7 @@ def default_permissions_for_role(role):
     if role == "operativos":
         return [
             f"comercializacion:{section}"
-            for section in ["crm", "crm-seguimiento"]
+            for section in ["crm", "crm-seguimiento", "cotizaciones"]
         ]
     if role == "jefaturas":
         return [
@@ -1032,7 +1033,16 @@ def normalize_permissions(value, role):
         "comercializacion:resultados-pedidos" if item == "financiera:resultados-pedidos" else item
         for item in value
     ]
-    permissions = [item for item in value if item in valid]
+    # Los módulos del panel nacen del menú del frontend. Aceptar nuevas claves
+    # bien formadas dentro de áreas conocidas evita tener que sincronizar una
+    # segunda lista del servidor cada vez que se agrega un módulo.
+    dynamic_permission = re.compile(
+        rf"^(?:{'|'.join([*AREA_KEYS, 'administracion'])}):[a-z0-9][a-z0-9-]*$"
+    )
+    permissions = [
+        item for item in value
+        if isinstance(item, str) and (item in valid or dynamic_permission.fullmatch(item))
+    ]
     return list(dict.fromkeys(permissions))
 
 

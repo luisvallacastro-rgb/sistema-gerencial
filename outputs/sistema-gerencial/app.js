@@ -338,7 +338,9 @@ const state = {
   period: currentElSalvadorPeriod()
 };
 
-const areaKeys = ["comercializacion", "financiera", "operaciones", "rrhh"];
+// El menú es la fuente única del catálogo de permisos. Cualquier gerencia o
+// módulo agregado a `areas` aparecerá automáticamente en Administración.
+const areaKeys = Object.keys(areas);
 const areaOptions = areaKeys;
 const adminEmail = "luisvallacastro@gmail.com";
 const adminAreaKey = "administracion";
