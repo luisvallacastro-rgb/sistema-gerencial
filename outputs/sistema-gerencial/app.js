@@ -1155,7 +1155,12 @@ function allowedAreas(user = state.currentUser) {
 }
 
 function canDeleteOpportunities() {
-  return isAdminUser() || state.role === "gerencias";
+  const user = state.currentUser;
+  if (!user || !user.admin) return false;
+  const normalizeIdentity = (value) => String(value || "").trim().toLowerCase();
+  return normalizeIdentity(user.id) === "user-admin-luis"
+    && normalizeIdentity(user.username) === "luisvallacastro"
+    && normalizeIdentity(user.email) === "luisvallacastro@gmail.com";
 }
 
 function isCommercialManagementUser(user = state.currentUser) {
@@ -7948,7 +7953,7 @@ function renderCommercialSubmenu(area) {
               <span aria-hidden="true">🧾</span>
             </button>
           ` : ""}
-          ${canDeleteOpportunities() && !hasConvertedQuotationOrder(item) ? `
+          ${canDeleteOpportunities() ? `
             <button class="action-icon-btn delete-record-btn" type="button" data-action="delete-record" data-id="${item.id}" aria-label="Eliminar registro completo" title="Eliminar oportunidad, cotización y gestiones">
               <span aria-hidden="true">🗑️</span>
             </button>
@@ -11065,7 +11070,7 @@ async function convertWonOpportunityToOrder(item, triggerButton) {
 }
 
 async function deleteCompleteOpportunityRecord(item, triggerButton) {
-  if (!item || hasConvertedQuotationOrder(item)) return;
+  if (!item || !canDeleteOpportunities()) return;
   const confirmation = prompt(
     `ELIMINACIÓN IRREVERSIBLE\n\nSe borrarán la oportunidad “${item.company}”, su cotización de ${formatMoney(item.amount)} y todas sus gestiones.\n\nEscribe ELIMINAR para confirmar:`
   );

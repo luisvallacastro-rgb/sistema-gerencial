@@ -3534,9 +3534,16 @@ class AppHandler(BaseHTTPRequestHandler):
                     "SELECT id, name, username, email, role, admin FROM users WHERE id = ? LIMIT 1",
                     (actor_id,),
                 ).fetchone() if actor_id else None
-                if not actor_row or (not actor_row["admin"] and text(actor_row["role"]) != "gerencias"):
+                is_luis_admin = bool(
+                    actor_row
+                    and actor_row["admin"]
+                    and text(actor_row["id"]).lower() == "user-admin-luis"
+                    and text(actor_row["username"]).lower() == "luisvallacastro"
+                    and text(actor_row["email"]).lower() == ADMIN_EMAIL.lower()
+                )
+                if not is_luis_admin:
                     self.send_json({
-                        "error": "Solo usuarios de Gerencia o administradores pueden eliminar registros completos"
+                        "error": "Solo el usuario administrador Luis Valladares puede eliminar registros completos"
                     }, status=403)
                     return
                 opportunities = read_result_opportunities(conn)
@@ -3554,7 +3561,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     WHERE source_opportunity_id = ? OR source_quotation_id = ?
                     LIMIT 1
                 """, (opportunity_id, quotation_id)).fetchone()
-                if (quotation and text(quotation["converted_order_id"])) or linked_order:
+                if linked_order:
                     self.send_json({
                         "error": "No se puede eliminar: la oportunidad ya tiene una orden de pedido vinculada"
                     }, status=409)
