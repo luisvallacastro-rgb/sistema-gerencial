@@ -787,6 +787,7 @@ const demoStrategicRiskIds = new Set(["risk-001", "risk-002", "risk-003"]);
 const demoManagementRequestIds = new Set(["req-001", "req-002"]);
 const defaultOpportunities = [];
 const opportunityPageSize = 10;
+const crmOpportunityPageSize = 6;
 const opportunityManagementPageSize = 6;
 const quotationModulePageSize = 8;
 
@@ -6926,10 +6927,10 @@ function renderCrmDashboard() {
   );
   if (state.crmOpportunitiesView === "history") return renderCrmHistory();
   if (state.crmOpportunitiesView === "seller-kpi") return renderCrmSellerKpi(rows);
-  const pageCount = Math.max(1, Math.ceil(rows.length / opportunityPageSize));
+  const pageCount = Math.max(1, Math.ceil(rows.length / crmOpportunityPageSize));
   state.crmOpportunityPage = Math.min(Math.max(Number(state.crmOpportunityPage) || 1, 1), pageCount);
-  const pageStart = (state.crmOpportunityPage - 1) * opportunityPageSize;
-  const pageEnd = pageStart + opportunityPageSize;
+  const pageStart = (state.crmOpportunityPage - 1) * crmOpportunityPageSize;
+  const pageEnd = pageStart + crmOpportunityPageSize;
   const pagedRows = rows.slice(pageStart, pageEnd);
   return `
     <div class="opportunity-row opportunity-header">
@@ -6962,16 +6963,14 @@ function renderCrmDashboard() {
         `;
       }).join("") : `<div class="empty-state">No hay oportunidades vigentes para este filtro.</div>`}
     </div>
-    ${rows.length > opportunityPageSize ? `
-      <div class="opportunity-pagination" aria-label="Paginacion de oportunidades CRM">
-        <span>Mostrando ${pageStart + 1}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
-        <div>
-          <button class="ghost-btn compact-btn" type="button" data-crm-page="prev" ${state.crmOpportunityPage <= 1 ? "disabled" : ""}>Anterior</button>
-          <strong>Pagina ${state.crmOpportunityPage} de ${pageCount}</strong>
-          <button class="ghost-btn compact-btn" type="button" data-crm-page="next" ${state.crmOpportunityPage >= pageCount ? "disabled" : ""}>Siguiente</button>
-        </div>
+    <div class="opportunity-pagination" aria-label="Paginacion de oportunidades CRM">
+      <span>Mostrando ${rows.length ? pageStart + 1 : 0}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
+      <div>
+        <button class="ghost-btn compact-btn" type="button" data-crm-page="prev" ${state.crmOpportunityPage <= 1 ? "disabled" : ""}>Anterior</button>
+        <strong>Pagina ${state.crmOpportunityPage} de ${pageCount}</strong>
+        <button class="ghost-btn compact-btn" type="button" data-crm-page="next" ${state.crmOpportunityPage >= pageCount ? "disabled" : ""}>Siguiente</button>
       </div>
-    ` : ""}
+    </div>
   `;
 }
 
