@@ -297,8 +297,6 @@ const state = {
   financialOrdersView: "list",
   financialOrderYearFilter: "all",
   financialOrderMonthFilter: "all",
-  financialComparisonYears: null,
-  financialComparisonMonths: ["Enero", "Febrero", "Marzo"],
   accountsReceivable: [],
   accountsReceivableQuery: "",
   accountsReceivablePage: 1,
@@ -4779,15 +4777,11 @@ function loadFinancialOrderFilters() {
     const saved = JSON.parse(localStorage.getItem(financialOrdersFiltersStorageKey) || "{}");
     state.financialOrderYearFilter = saved.year ? String(saved.year) : "all";
     state.financialOrderMonthFilter = saved.month ? String(saved.month) : "all";
-    state.financialOrdersView = ["list", "notifications", "seller-kpi", "comparison-kpi"].includes(saved.view) ? saved.view : "list";
-    state.financialComparisonYears = Array.isArray(saved.comparisonYears) ? saved.comparisonYears.map(String) : null;
-    state.financialComparisonMonths = Array.isArray(saved.comparisonMonths) && saved.comparisonMonths.length ? saved.comparisonMonths.map(String) : ["Enero", "Febrero", "Marzo"];
+    state.financialOrdersView = ["list", "notifications"].includes(saved.view) ? saved.view : "list";
   } catch {
     state.financialOrderYearFilter = "all";
     state.financialOrderMonthFilter = "all";
     state.financialOrdersView = "list";
-    state.financialComparisonYears = null;
-    state.financialComparisonMonths = ["Enero", "Febrero", "Marzo"];
   }
 }
 
@@ -4795,9 +4789,7 @@ function saveFinancialOrderFilters() {
   localStorage.setItem(financialOrdersFiltersStorageKey, JSON.stringify({
     year: state.financialOrderYearFilter,
     month: state.financialOrderMonthFilter,
-    view: state.financialOrdersView,
-    comparisonYears: state.financialComparisonYears,
-    comparisonMonths: state.financialComparisonMonths
+    view: state.financialOrdersView
   }));
 }
 
@@ -5201,8 +5193,6 @@ function renderFinancialOrdersComparisonKpi() {
 
 function renderFinancialOrders() {
   if (state.financialOrdersView === "notifications") return renderFinancialOrderNotifications();
-  if (state.financialOrdersView === "seller-kpi") return renderFinancialOrdersSellerKpi();
-  if (state.financialOrdersView === "comparison-kpi") return renderFinancialOrdersComparisonKpi();
   return renderFinancialOrderList();
 }
 
@@ -5274,31 +5264,6 @@ function wireFinancialOrders() {
     } catch (error) {
       alert(error.message || "No se pudo registrar la observación.");
     }
-  }));
-  opportunityTable.querySelectorAll("[data-financial-seller-detail]").forEach((button) => button.addEventListener("click", () => {
-    renderFinancialSellerPortfolio(button.dataset.financialSellerDetail);
-  }));
-  opportunityTable.querySelectorAll("[data-comparison-all]").forEach((button) => button.addEventListener("click", () => {
-    if (button.dataset.comparisonAll === "year") state.financialComparisonYears = [...new Set(financialOrderLedgerRows().map((order) => String(order.year)).filter(Boolean))];
-    else state.financialComparisonMonths = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
-    saveFinancialOrderFilters();
-    refreshFinancialOrdersModule();
-  }));
-  opportunityTable.querySelectorAll("[data-comparison-clear]").forEach((button) => button.addEventListener("click", () => {
-    if (button.dataset.comparisonClear === "year") state.financialComparisonYears = [];
-    else state.financialComparisonMonths = [];
-    saveFinancialOrderFilters();
-    refreshFinancialOrdersModule();
-  }));
-  opportunityTable.querySelectorAll("[data-comparison-year]").forEach((input) => input.addEventListener("change", () => {
-    state.financialComparisonYears = [...opportunityTable.querySelectorAll("[data-comparison-year]:checked")].map((item) => item.value);
-    saveFinancialOrderFilters();
-    refreshFinancialOrdersModule();
-  }));
-  opportunityTable.querySelectorAll("[data-comparison-month]").forEach((input) => input.addEventListener("change", () => {
-    state.financialComparisonMonths = [...opportunityTable.querySelectorAll("[data-comparison-month]:checked")].map((item) => item.value);
-    saveFinancialOrderFilters();
-    refreshFinancialOrdersModule();
   }));
   opportunityTable.querySelector("[data-financial-order-new]")?.addEventListener("click", () => {
     openControlSalesForm();
