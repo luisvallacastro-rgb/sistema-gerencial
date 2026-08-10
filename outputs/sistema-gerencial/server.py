@@ -3557,16 +3557,43 @@ class AppHandler(BaseHTTPRequestHandler):
                     "SELECT opportunity_id, converted_order_id FROM quotations WHERE id = ? LIMIT 1",
                     (quotation_id,),
                 ).fetchone() if quotation_id else None
-                linked_order = conn.execute("""
-                    SELECT id FROM control_sales_orders
+                linked_orders = conn.execute("""
+                    SELECT id, financial_order_id FROM control_sales_orders
                     WHERE source_opportunity_id = ? OR source_quotation_id = ?
-                    LIMIT 1
-                """, (opportunity_id, quotation_id)).fetchone()
-                if linked_order:
-                    self.send_json({
-                        "error": "No se puede eliminar: la oportunidad ya tiene una orden de pedido vinculada"
-                    }, status=409)
-                    return
+                """, (opportunity_id, quotation_id)).fetchall()
+
+                linked_order_ids = [text(row["id"]) for row in linked_orders if text(row["id"])]
+                linked_financial_ids = {
+                    text(row["financial_order_id"])
+                    for row in linked_orders
+                    if text(row["financial_order_id"])
+                }
+                if quotation and text(quotation["converted_order_id"]):
+                    linked_financial_ids.add(text(quotation["converted_order_id"]))
+                if linked_order_ids:
+                    placeholders = ",".join("?" for _ in linked_order_ids)
+                    conn.execute(
+                        f"DELETE FROM control_sales_audit WHERE order_id IN ({placeholders})",
+                        tuple(linked_order_ids),
+                    )
+                    conn.execute(
+                        f"DELETE FROM control_sales_details WHERE order_id IN ({placeholders})",
+                        tuple(linked_order_ids),
+                    )
+                    conn.execute(
+                        f"DELETE FROM control_sales_orders WHERE id IN ({placeholders})",
+                        tuple(linked_order_ids),
+                    )
+                if linked_financial_ids:
+                    placeholders = ",".join("?" for _ in linked_financial_ids)
+                    conn.execute(
+                        f"DELETE FROM financial_orders WHERE id IN ({placeholders})",
+                        tuple(linked_financial_ids),
+                    )
+                conn.execute(
+                    "DELETE FROM financial_orders WHERE source_opportunity_id = ?",
+                    (opportunity_id,),
+                )
 
                 crm_id = text(opportunity.get("crmOpportunityId"), quotation["opportunity_id"] if quotation else "")
                 if quotation_id:
