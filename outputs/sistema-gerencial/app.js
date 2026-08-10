@@ -1158,9 +1158,8 @@ function canDeleteOpportunities() {
   const user = state.currentUser;
   if (!user || !user.admin) return false;
   const normalizeIdentity = (value) => String(value || "").trim().toLowerCase();
-  return normalizeIdentity(user.id) === "user-admin-luis"
-    && normalizeIdentity(user.username) === "luisvallacastro"
-    && normalizeIdentity(user.email) === "luisvallacastro@gmail.com";
+  return normalizeIdentity(user.username) === "luisvallacastro"
+    || normalizeIdentity(user.email) === "luisvallacastro@gmail.com";
 }
 
 function isCommercialManagementUser(user = state.currentUser) {

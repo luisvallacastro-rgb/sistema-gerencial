@@ -3537,9 +3537,10 @@ class AppHandler(BaseHTTPRequestHandler):
                 is_luis_admin = bool(
                     actor_row
                     and actor_row["admin"]
-                    and text(actor_row["id"]).lower() == "user-admin-luis"
-                    and text(actor_row["username"]).lower() == "luisvallacastro"
-                    and text(actor_row["email"]).lower() == ADMIN_EMAIL.lower()
+                    and (
+                        text(actor_row["username"]).lower() == "luisvallacastro"
+                        or text(actor_row["email"]).lower() == ADMIN_EMAIL.lower()
+                    )
                 )
                 if not is_luis_admin:
                     self.send_json({
