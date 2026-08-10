@@ -5206,6 +5206,10 @@ function renderFinancialOrders() {
   return renderFinancialOrderList();
 }
 
+function refreshFinancialOrdersModule() {
+  renderCommercialSubmenu(areas.comercializacion);
+}
+
 function wireFinancialOrders() {
   opportunityTable.querySelectorAll("[data-finance-order-view]").forEach((button) => button.addEventListener("click", () => {
     openControlSalesDetail(button.dataset.financeOrderView);
@@ -5232,7 +5236,7 @@ function wireFinancialOrders() {
         })
       });
       await loadControlSales();
-      renderCommercialSubmenu(areas.financiera);
+      refreshFinancialOrdersModule();
     } catch (error) {
       button.disabled = false;
       alert(error.message || "No se pudo anular el pedido.");
@@ -5256,7 +5260,7 @@ function wireFinancialOrders() {
       state.financialOrderMonthFilter = monthLabel(approvedMonth) || "all";
       state.financialOrderPage = 1;
       saveFinancialOrderFilters();
-      renderCommercialSubmenu(areas.financiera);
+      refreshFinancialOrdersModule();
     } catch (error) {
       alert(error.message || "No se pudo aprobar la orden.");
     }
@@ -5266,7 +5270,7 @@ function wireFinancialOrders() {
     if (note === null || !note.trim()) return;
     try {
       await updateControlSalesApproval(button.dataset.financeOrderObserve, "finance", "Observada", note.trim());
-      renderCommercialSubmenu(areas.financiera);
+      refreshFinancialOrdersModule();
     } catch (error) {
       alert(error.message || "No se pudo registrar la observación.");
     }
@@ -5278,23 +5282,23 @@ function wireFinancialOrders() {
     if (button.dataset.comparisonAll === "year") state.financialComparisonYears = [...new Set(financialOrderLedgerRows().map((order) => String(order.year)).filter(Boolean))];
     else state.financialComparisonMonths = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
     saveFinancialOrderFilters();
-    renderCommercialSubmenu(areas.financiera);
+    refreshFinancialOrdersModule();
   }));
   opportunityTable.querySelectorAll("[data-comparison-clear]").forEach((button) => button.addEventListener("click", () => {
     if (button.dataset.comparisonClear === "year") state.financialComparisonYears = [];
     else state.financialComparisonMonths = [];
     saveFinancialOrderFilters();
-    renderCommercialSubmenu(areas.financiera);
+    refreshFinancialOrdersModule();
   }));
   opportunityTable.querySelectorAll("[data-comparison-year]").forEach((input) => input.addEventListener("change", () => {
     state.financialComparisonYears = [...opportunityTable.querySelectorAll("[data-comparison-year]:checked")].map((item) => item.value);
     saveFinancialOrderFilters();
-    renderCommercialSubmenu(areas.financiera);
+    refreshFinancialOrdersModule();
   }));
   opportunityTable.querySelectorAll("[data-comparison-month]").forEach((input) => input.addEventListener("change", () => {
     state.financialComparisonMonths = [...opportunityTable.querySelectorAll("[data-comparison-month]:checked")].map((item) => item.value);
     saveFinancialOrderFilters();
-    renderCommercialSubmenu(areas.financiera);
+    refreshFinancialOrdersModule();
   }));
   opportunityTable.querySelector("[data-financial-order-new]")?.addEventListener("click", () => {
     openControlSalesForm();
@@ -5308,14 +5312,14 @@ function wireFinancialOrders() {
   opportunityTable.querySelector("[data-financial-order-search]")?.addEventListener("input", (event) => {
     state.financialOrderQuery = event.target.value;
     state.financialOrderPage = 1;
-    renderCommercialSubmenu(areas.financiera);
+    refreshFinancialOrdersModule();
     const input = opportunityTable.querySelector("[data-financial-order-search]");
     input?.focus();
     input?.setSelectionRange(input.value.length, input.value.length);
   });
   opportunityTable.querySelectorAll("[data-financial-order-page]").forEach((button) => button.addEventListener("click", () => {
     state.financialOrderPage += button.dataset.financialOrderPage === "next" ? 1 : -1;
-    renderCommercialSubmenu(areas.financiera);
+    refreshFinancialOrdersModule();
   }));
   opportunityTable.querySelectorAll("[data-financial-order-edit]").forEach((button) => button.addEventListener("click", () => {
     const order = state.financialOrders.find((item) => item.id === button.dataset.financialOrderEdit);
@@ -5348,7 +5352,7 @@ function wireFinancialOrders() {
     }
     state.financialOrders = state.financialOrders.filter((item) => item.id !== button.dataset.financialOrderDelete);
     saveFinancialOrders();
-    renderCommercialSubmenu(areas.financiera);
+    refreshFinancialOrdersModule();
   }));
 }
 
@@ -7488,7 +7492,7 @@ function renderCommercialSubmenu(area) {
     return;
   }
 
-  if (state.activeArea === "comercializacion" && submenu.key === "resultados-pedidos") {
+  if (submenu.key === "resultados-pedidos") {
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");
@@ -9576,11 +9580,17 @@ function renderAdminPanel() {
 }
 
 function renderPageTitle(area, activeSubmenu) {
-  const isResultsView = state.activeArea === "comercializacion" && activeSubmenu?.key?.startsWith("resultados");
+  const isResultsView = state.activeArea === "comercializacion"
+    && ["resultados-oportunidades", "resultados-dashboard"].includes(activeSubmenu?.key);
   const isKpiView = state.activeArea === "comercializacion" && activeSubmenu?.key === "kpi";
-  const isFinancialOrdersView = state.activeArea === "comercializacion" && activeSubmenu?.key === "resultados-pedidos";
+  const isFinancialOrdersView = activeSubmenu?.key === "resultados-pedidos";
   pageTitle.classList.toggle("with-results-summary", isResultsView || isKpiView);
   renderFinancialOrderTopbarFilters(isFinancialOrdersView);
+
+  if (isFinancialOrdersView) {
+    pageTitle.textContent = "Pedidos";
+    return;
+  }
 
   if (state.activeArea === "comercializacion" && activeSubmenu?.key === "crm") {
     pageTitle.textContent = "Oportunidades / Vendedores";
@@ -11140,7 +11150,7 @@ financialOrdersViewTabs?.querySelectorAll("[data-financial-orders-view]").forEac
   button.addEventListener("click", () => {
     state.financialOrdersView = button.dataset.financialOrdersView;
     saveFinancialOrderFilters();
-    renderCommercialSubmenu(areas.financiera);
+    refreshFinancialOrdersModule();
   });
 });
 accountsReceivableViewTabs?.querySelectorAll("[data-accounts-receivable-view]").forEach((button) => {
@@ -11206,13 +11216,13 @@ financialOrderYearFilter?.addEventListener("change", () => {
   state.financialOrderYearFilter = financialOrderYearFilter.value;
   state.financialOrderPage = 1;
   saveFinancialOrderFilters();
-  renderCommercialSubmenu(areas.financiera);
+  refreshFinancialOrdersModule();
 });
 financialOrderMonthFilter?.addEventListener("change", () => {
   state.financialOrderMonthFilter = financialOrderMonthFilter.value;
   state.financialOrderPage = 1;
   saveFinancialOrderFilters();
-  renderCommercialSubmenu(areas.financiera);
+  refreshFinancialOrdersModule();
 });
 financialOrderForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -11271,7 +11281,7 @@ financialOrderForm.addEventListener("submit", async (event) => {
     }
     state.financialOrderSourceOpportunityId = "";
     financialOrderDialog.close();
-    renderCommercialSubmenu(areas.financiera);
+    refreshFinancialOrdersModule();
   } catch {
     alert("No se pudo guardar el pedido en la base de datos. Verifica la conexión e intenta nuevamente.");
   } finally {
