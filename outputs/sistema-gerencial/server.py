@@ -46,6 +46,10 @@ AREA_SECTION_KEYS = {
     "rrhh": [],
 }
 VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
+ADMIN_MANAGEMENT_PERMISSION_KEYS = [
+    "administracion:permisos",
+    "administracion:vendedores",
+]
 ADMIN_CONSOLIDATED_PERMISSION_KEYS = [
     "administracion:riesgos",
     "administracion:solicitudes",
@@ -88,6 +92,7 @@ ALL_OPERATIONAL_PERMISSIONS = [
 ]
 ALL_PERMISSIONS = [
     *ALL_OPERATIONAL_PERMISSIONS,
+    *ADMIN_MANAGEMENT_PERMISSION_KEYS,
     *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
     *ADMIN_MINUTE_PERMISSION_KEYS,
 ]

@@ -350,6 +350,10 @@ const adminConsolidatedPermissionSections = [
   { key: "riesgos", label: "Riesgos" },
   { key: "solicitudes", label: "Solicitudes" }
 ];
+const adminManagementPermissionSections = [
+  { key: "permisos", label: "Asignación de permisos" },
+  { key: "vendedores", label: "Administración de vendedores" }
+];
 areas[adminAreaKey] = {
   label: "Administracion",
   nav: "Administracion",
@@ -1039,6 +1043,7 @@ function allPermissionKeys() {
   return [
     ...areaKeys.flatMap((areaKey) => areaPermissionSections(areaKey)
       .map((section) => permissionKey(areaKey, section.key))),
+    ...adminManagementPermissionSections.map((section) => permissionKey(adminAreaKey, section.key)),
     ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key)),
     ...adminMinutePermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
   ];
@@ -1100,13 +1105,16 @@ function isAdminUser(user = state.currentUser) {
   return Boolean(user?.admin) || normalizeKey(user?.email) === adminEmail;
 }
 
-function canOpenAdminPermissions(user = state.currentUser) {
+function canOpenAdminModule(sectionKey, user = state.currentUser) {
   const username = normalizeKey(user?.username);
   const email = normalizeKey(user?.email);
-  return isAdminUser(user)
-    || Boolean(user?.permissionManager)
-    || username === "financiera"
-    || email === "financiera@empresa.local";
+  if (isAdminUser(user)) return true;
+  if (sectionKey === "permisos" && (user?.permissionManager || username === "financiera" || email === "financiera@empresa.local")) return true;
+  return new Set(normalizePermissionList(user?.permissions, user?.role)).has(permissionKey(adminAreaKey, sectionKey));
+}
+
+function canOpenAdminPermissions(user = state.currentUser) {
+  return canOpenAdminModule("permisos", user);
 }
 
 function canOpenAdminMinutes(user = state.currentUser) {
@@ -1134,8 +1142,8 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
     return area.submenus.filter((item) => {
       if (item.key === "cambiar-contrasena") return Boolean(user);
       if (item.key === "apariencia") return isAdminUser(user);
-      if (item.key === "permisos") return canOpenAdminPermissions(user);
-      if (item.key === "vendedores") return canOpenAdminPermissions(user);
+      if (item.key === "permisos") return canOpenAdminModule("permisos", user);
+      if (item.key === "vendedores") return canOpenAdminModule("vendedores", user);
       if (item.key === "actas") return canOpenAdminMinutes(user);
       if (["riesgos", "solicitudes"].includes(item.key)) {
         return userPermissions(user).has(permissionKey(adminAreaKey, item.key));
@@ -8429,6 +8437,9 @@ function adminPermissionSummary(user) {
       return count ? `${areas[areaKey].nav}: ${count}` : "";
     })
     .filter(Boolean);
+  const managementCount = adminManagementPermissionSections
+    .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
+  if (managementCount) areaLabels.push(`Administración: ${managementCount}`);
   const consolidatedCount = adminConsolidatedPermissionSections
     .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
   if (consolidatedCount) areaLabels.push(`Consolidados: ${consolidatedCount}`);
@@ -8451,6 +8462,9 @@ function adminPermissionModules(user) {
       return count ? { label: areas[areaKey].nav, count } : null;
     })
     .filter(Boolean);
+  const managementCount = adminManagementPermissionSections
+    .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
+  if (managementCount) modules.push({ label: "Administración", count: managementCount });
   const consolidatedCount = adminConsolidatedPermissionSections
     .filter((section) => permissions.has(permissionKey(adminAreaKey, section.key))).length;
   if (consolidatedCount) modules.push({ label: "Consolidados", count: consolidatedCount });
@@ -8496,6 +8510,18 @@ function renderAdminPermissionControls(existingUser = null) {
       }).join("")}
     </fieldset>
   `).join("")}
+    <fieldset class="permission-group">
+      <legend>Administración</legend>
+      ${adminManagementPermissionSections.map((section) => {
+        const key = permissionKey(adminAreaKey, section.key);
+        return `
+          <label class="permission-check">
+            <input type="checkbox" value="${key}" ${selected.has(key) ? "checked" : ""} ${fullAccessProfile ? "disabled" : ""}>
+            <span>${section.label}</span>
+          </label>
+        `;
+      }).join("")}
+    </fieldset>
     <fieldset class="permission-group">
       <legend>Riesgos y solicitudes</legend>
       ${adminConsolidatedPermissionSections.map((section) => {
@@ -8741,6 +8767,13 @@ function adminOperationalPermissionColumns() {
       label: section.label,
       key: permissionKey(areaKey, section.key)
     }))),
+    ...adminManagementPermissionSections.map((section) => ({
+      areaKey: adminAreaKey,
+      areaLabel: "Administración",
+      sectionKey: section.key,
+      label: section.label,
+      key: permissionKey(adminAreaKey, section.key)
+    })),
     ...adminConsolidatedPermissionSections.map((section) => ({
       areaKey: adminAreaKey,
       areaLabel: "Riesgos y solicitudes",
