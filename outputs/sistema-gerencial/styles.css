@@ -13481,8 +13481,13 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 /* CRM lifecycle: auditable cancellations and seller-to-management transfers. */
 .app-shell .crm-history-shell {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 18px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   padding: 4px 0 12px;
+  overflow: hidden;
 }
 
 .app-shell .crm-history-summary,
@@ -13511,7 +13516,27 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
 
 .app-shell .crm-history-summary h4 { margin: 5px 0 0; font-size: 1.45rem; }
 .app-shell .crm-history-summary p { margin: 0; color: #aebbd2; font-weight: 700; }
-.app-shell .crm-history-list { display: grid; gap: 12px; }
+.app-shell .crm-history-list {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 10px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.app-shell .crm-history-list::-webkit-scrollbar { width: 9px; }
+.app-shell .crm-history-list::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(12, 24, 44, .45);
+}
+.app-shell .crm-history-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(114,245,209,.85), rgba(82,139,205,.82));
+}
 
 .app-shell .crm-history-card {
   display: grid;
