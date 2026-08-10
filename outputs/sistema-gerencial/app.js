@@ -6872,42 +6872,74 @@ function renderCrmSellerKpi(rows) {
 
 function renderCrmHistory() {
   const query = crmSearchText();
-  const rows = crmData().opportunities
-    .filter((opportunity) => isCrmArchivedOpportunity(opportunity))
+  const cancelledRows = crmData().opportunities.filter((opportunity) => {
+    const status = normalizeKey(opportunity.status);
+    const isCancellation = opportunity.archiveType === "seller_cancellation"
+      || ["anulada", "cancelada", "perdida"].includes(status);
+    return isCancellation && opportunity.archiveType !== "migration";
+  });
+  const sourceById = new Map(crmData().opportunities.map((opportunity) => [String(opportunity.id), opportunity]));
+  const closedRows = getOpportunitySubmenu().items.flatMap((item) => {
+    if (!item.crmOpportunityId) return [];
+    const result = closureResult(item);
+    if (!result?.result) return [];
+    const source = sourceById.get(String(item.crmOpportunityId)) || {};
+    const resultKey = normalizeKey(result.result);
+    const status = resultKey === "ganado"
+      ? "Ganada"
+      : resultKey === "perdido" || resultKey === "perdida" ? "Perdida" : "Anulada";
+    return [{
+      ...source,
+      id: source.id || item.crmOpportunityId,
+      company: item.company || source.company,
+      owner: source.owner,
+      ownerId: source.ownerId,
+      seller: item.seller,
+      status,
+      archiveType: "closure",
+      archivedReason: result.comment || `Cierre ${status.toLowerCase()} registrado en Gerencia`,
+      archivedBy: result.createdBy || item.updatedBy || item.seller || "Sistema",
+      archivedAt: result.date || item.updatedAt || item.date || "",
+      estimatedAmount: Number(item.amount || source.estimatedAmount || 0)
+    }];
+  });
+  const closedSourceIds = new Set(closedRows.map((opportunity) => String(opportunity.id)));
+  const rows = [...cancelledRows.filter((opportunity) => !closedSourceIds.has(String(opportunity.id))), ...closedRows]
     .filter((opportunity) => {
       if (!query) return true;
       return [
         opportunity.company,
         opportunity.owner?.name,
         crmOwnerName(opportunity.ownerId),
+        opportunity.seller,
         opportunity.status,
         opportunity.archivedReason,
         opportunity.archivedBy
       ].some((value) => String(value || "").toLowerCase().includes(query));
     })
-    .sort((a, b) => String(b.archivedAt || b.migratedAt || "").localeCompare(String(a.archivedAt || a.migratedAt || "")));
+    .sort((a, b) => String(b.archivedAt || "").localeCompare(String(a.archivedAt || "")));
   return `
     <section class="crm-history-shell" aria-label="Bitacora de oportunidades">
       <div class="crm-history-summary">
         <div><span>Bitacora comercial</span><h4>Historial de oportunidades</h4></div>
-        <p>${rows.length} registros conservados · ninguna anulacion elimina datos de la base</p>
+        <p>${rows.length} anuladas o cerradas · las migraciones activas no se muestran</p>
       </div>
       <div class="crm-history-list">
         ${rows.map((opportunity) => {
-          const isMigration = opportunity.archiveType === "migration" || opportunity.migratedToResults;
+          const isClosure = opportunity.archiveType === "closure";
           const audit = [...(Array.isArray(opportunity.auditLog) ? opportunity.auditLog : [])].reverse()[0] || {};
-          const date = String(opportunity.archivedAt || opportunity.migratedAt || audit.date || "").slice(0, 10);
+          const date = String(opportunity.archivedAt || audit.date || "").slice(0, 10);
           return `
-            <article class="crm-history-card ${isMigration ? "is-migration" : "is-cancellation"}">
+            <article class="crm-history-card ${isClosure ? "is-closure" : "is-cancellation"}">
               <div class="crm-history-main">
-                <span class="crm-history-status">${isMigration ? "Migrada a Gerencia" : escapeHtml(opportunity.status || "Anulada")}</span>
+                <span class="crm-history-status">${escapeHtml(opportunity.status || "Anulada")}</span>
                 <strong>${escapeHtml(opportunity.company || "Sin empresa")}</strong>
-                <small>${escapeHtml(opportunity.owner?.name || crmOwnerName(opportunity.ownerId))}</small>
+                <small>${escapeHtml(opportunity.owner?.name || crmOwnerName(opportunity.ownerId) || opportunity.seller || "Sin vendedor")}</small>
               </div>
               <div class="crm-history-reason">
-                <span>Motivo / movimiento</span>
+                <span>Resultado / motivo</span>
                 <strong>${escapeHtml(opportunity.archivedReason || audit.reason || "Movimiento registrado")}</strong>
-                <small>${escapeHtml(opportunity.archivedBy || opportunity.migratedBy || audit.userName || "Sistema")}${date ? ` · ${formatDate(date)}` : ""}</small>
+                <small>${escapeHtml(opportunity.archivedBy || audit.userName || "Sistema")}${date ? ` · ${formatDate(date)}` : ""}</small>
               </div>
               <div class="crm-history-amount"><span>Monto historico</span><strong>${formatMoney(opportunity.estimatedAmount || 0)}</strong></div>
               ${canDeleteOpportunities() ? `<button type="button" class="crm-history-purge" data-crm-history-purge="${escapeHtml(opportunity.id)}" aria-label="Eliminar definitivamente ${escapeHtml(opportunity.company || "oportunidad")}">Eliminar definitivamente</button>` : ""}
