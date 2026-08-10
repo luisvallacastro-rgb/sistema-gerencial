@@ -2845,10 +2845,51 @@ async function saveProductionScheduleFromDialog(event) {
 }
 
 function renderProductionSchedule() {
-  return "";
+  const weekStart = state.productionWeekStart || productionMonday();
+  const start = new Date(`${weekStart}T12:00:00`);
+  const dates = Array.from({ length:7 }, (_, index) => { const date = new Date(start); date.setDate(date.getDate() + index); return date.toISOString().slice(0, 10); });
+  const weekEnd = dates[6];
+  const label = (value, options) => new Intl.DateTimeFormat("es-SV", { ...options, timeZone:"UTC" }).format(new Date(`${value}T12:00:00Z`));
+  const visible = state.productionSchedule.filter((item) => item.productionDate <= weekEnd && (item.productionEndDate || item.productionDate) >= weekStart);
+  const quantity = (item) => (item.items || []).reduce((total, row) => total + (Number(String(row.quantity || "0").replace(",", ".")) || 0), 0);
+  const dateIndex = (value) => Math.round((new Date(`${value}T12:00:00`) - start) / 86400000);
+  const lineRows = (line) => {
+    const assignments = visible.filter((item) => item.line === line);
+    if (!assignments.length) return `<div class="production-gantt-empty" style="grid-column:1 / 8">Sin producción programada</div>`;
+    return assignments.map((item, rowIndex) => {
+      const first = item.items?.[0] || {};
+      const startColumn = Math.max(0, dateIndex(item.productionDate)) + 1;
+      const endColumn = Math.min(6, dateIndex(item.productionEndDate || item.productionDate)) + 2;
+      const extraProducts = Math.max(0, (item.items?.length || 0) - 1);
+      return `<button type="button" class="production-gantt-bar line-${line.endsWith("2") ? "two" : "one"}" style="grid-column:${startColumn} / ${endColumn};grid-row:${rowIndex + 1}" data-production-gantt-order="${escapeHtml(first.orderId || "")}" title="Abrir detalle de Control de Ventas"><span><small>${escapeHtml(first.orderNumber || "Orden")}</small><strong>${escapeHtml(first.client || "Producción")}</strong></span><em>${escapeHtml(first.product || "Producto")}${extraProducts ? ` +${extraProducts}` : ""}</em><b>${quantity(item)}</b></button>`;
+    }).join("");
+  };
+  return `<section class="production-gantt-module">
+    <header class="production-gantt-toolbar"><div><small>Agenda operativa</small><h3>Producción de la semana</h3></div><nav><button type="button" data-production-week-prev aria-label="Semana anterior">‹</button><button type="button" class="production-gantt-today" data-production-week-today>Hoy</button><strong>${label(weekStart, { day:"numeric", month:"short" })} — ${label(weekEnd, { day:"numeric", month:"short", year:"numeric" })}</strong><button type="button" data-production-week-next aria-label="Semana siguiente">›</button></nav></header>
+    <div class="production-gantt-summary"><span><b>${visible.length}</b><small>programaciones</small></span><span><b>${visible.filter((item) => item.line === "Línea 1").length}</b><small>Línea 1</small></span><span><b>${visible.filter((item) => item.line === "Línea 2").length}</b><small>Línea 2</small></span></div>
+    <div class="production-gantt-scroll"><div class="production-gantt">
+      <div class="production-gantt-corner">Línea</div>${dates.map((date) => `<div class="production-gantt-day${date === new Date().toISOString().slice(0, 10) ? " today" : ""}"><small>${label(date, { weekday:"short" })}</small><b>${label(date, { day:"2-digit" })}</b></div>`).join("")}
+      ${["Línea 1", "Línea 2"].map((line) => `<div class="production-gantt-line-label"><b>${escapeHtml(line.replace("Línea ", "L"))}</b><span>${escapeHtml(line)}</span></div><div class="production-gantt-lane">${dates.map(() => "<i></i>").join("")}${lineRows(line)}</div>`).join("")}
+    </div></div>
+    <footer class="production-gantt-legend"><span><i class="line-one"></i>Línea 1</span><span><i class="line-two"></i>Línea 2</span><small>Toca una barra para ver la orden completa.</small></footer>
+  </section>`;
 }
 
-function wireProductionSchedule() {}
+function wireProductionSchedule() {
+  const moveWeek = (days) => {
+    const date = new Date(`${state.productionWeekStart || productionMonday()}T12:00:00`);
+    date.setDate(date.getDate() + days);
+    state.productionWeekStart = productionMonday(date);
+    renderDashboard();
+  };
+  document.querySelector("[data-production-week-prev]")?.addEventListener("click", () => moveWeek(-7));
+  document.querySelector("[data-production-week-next]")?.addEventListener("click", () => moveWeek(7));
+  document.querySelector("[data-production-week-today]")?.addEventListener("click", () => { state.productionWeekStart = productionMonday(); renderDashboard(); });
+  document.querySelectorAll("[data-production-gantt-order]").forEach((button) => button.addEventListener("click", () => {
+    const orderId = button.dataset.productionGanttOrder;
+    if (orderId) openControlSalesMatrixDetail(orderId).catch((error) => alert(error.message || "No se pudo abrir la orden."));
+  }));
+}
 
 function controlSalesFilteredRows() {
   const selectedPeriod = `${state.controlSalesPeriodYear}-${state.controlSalesPeriodMonth}`;
