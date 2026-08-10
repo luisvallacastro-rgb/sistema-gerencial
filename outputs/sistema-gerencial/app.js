@@ -2866,7 +2866,6 @@ function renderProductionSchedule() {
   };
   return `<section class="production-gantt-module">
     <header class="production-gantt-toolbar"><div><small>Agenda operativa</small><h3>Producción de la semana</h3></div><nav><button type="button" data-production-week-prev aria-label="Semana anterior">‹</button><button type="button" class="production-gantt-today" data-production-week-today>Hoy</button><strong>${label(weekStart, { day:"numeric", month:"short" })} — ${label(weekEnd, { day:"numeric", month:"short", year:"numeric" })}</strong><button type="button" data-production-week-next aria-label="Semana siguiente">›</button></nav></header>
-    <div class="production-gantt-summary"><span><b>${visible.length}</b><small>programaciones</small></span><span><b>${visible.filter((item) => item.line === "Línea 1").length}</b><small>Línea 1</small></span><span><b>${visible.filter((item) => item.line === "Línea 2").length}</b><small>Línea 2</small></span></div>
     <div class="production-gantt-scroll"><div class="production-gantt">
       <div class="production-gantt-corner">Línea</div>${dates.map((date) => `<div class="production-gantt-day${date === new Date().toISOString().slice(0, 10) ? " today" : ""}"><small>${label(date, { weekday:"short" })}</small><b>${label(date, { day:"2-digit" })}</b></div>`).join("")}
       ${["Línea 1", "Línea 2"].map((line) => `<div class="production-gantt-line-label"><b>${escapeHtml(line.replace("Línea ", "L"))}</b><span>${escapeHtml(line)}</span></div><div class="production-gantt-lane">${dates.map(() => "<i></i>").join("")}${lineRows(line)}</div>`).join("")}
@@ -9577,6 +9576,7 @@ function renderDashboard() {
     const activeAdminSubmenu = visibleItems.find((item) => item.key === state.activeSubmenu);
     dashboard.classList.add("admin-focus");
     dashboard.classList.remove("opportunity-focus");
+    dashboard.classList.remove("production-focus");
     pageTitle.classList.remove("with-results-summary");
     pageTitle.textContent = activeAdminSubmenu?.label || area.label;
     if (state.activeSubmenu === "actas") renderAdminMinutesTopbar();
@@ -9633,11 +9633,13 @@ function renderDashboard() {
       "riesgos",
       "solicitudes",
       "autorizacion-pedidos",
-      "cotizaciones"
+      "cotizaciones",
+      "produccion-semanal"
     ].includes(state.activeSubmenu)
     || state.activeSubmenu.startsWith("resultados")
   );
   dashboard.classList.toggle("opportunity-focus", isExclusiveWorkspace);
+  dashboard.classList.toggle("production-focus", state.activeArea === "operaciones" && state.activeSubmenu === "produccion-semanal");
   renderPageTitle(area, activeSubmenu);
   periodLabel.textContent = state.period;
   overallStatus.textContent = area.status;
