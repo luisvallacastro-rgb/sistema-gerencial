@@ -17255,8 +17255,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   font-weight: 900;
 }
 
-.quotations-module__search input,
-.quotations-module__origin select {
+.quotations-module__search input {
   width: 100%;
   min-height: 52px;
   border: 1px solid rgba(123, 151, 190, .36);
@@ -17275,8 +17274,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   min-width: 150px;
 }
 
-.quotations-module__total small,
-.quotations-module__origin > span {
+.quotations-module__total small {
   color: #91a3bc;
   font-size: .72rem;
   font-weight: 900;
@@ -17289,14 +17287,6 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   font-size: 1.35rem;
   line-height: 1.15;
 }
-
-.quotations-module__origin {
-  display: grid;
-  flex: 0 1 300px;
-  gap: 5px;
-}
-
-.quotations-module__origin select { min-height: 46px; padding: 0 12px; }
 
 .quotations-module__new {
   display: inline-flex;
@@ -17462,15 +17452,13 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 @media (max-width: 1250px) {
   .quotations-module__toolbar { flex-wrap: wrap; }
   .quotations-module__search { flex-basis: calc(100% - 180px); }
-  .quotations-module__origin { flex: 1 1 360px; }
   .quotation-table-head,
   .quotation-table-row { grid-template-columns: 95px minmax(190px, 1.35fr) minmax(130px, .9fr) minmax(155px, 1fr) 125px 145px; gap: 11px; }
 }
 
 @media (max-width: 780px) {
   .quotations-module__toolbar { align-items: stretch; flex-direction: column; }
-  .quotations-module__search,
-  .quotations-module__origin { flex: auto; width: 100%; }
+  .quotations-module__search { flex: auto; width: 100%; }
   .quotations-module__total { min-width: 0; }
   .quotation-table-head { display: none; }
   .quotation-table-row { grid-template-columns: 1fr 1fr; gap: 10px 16px; padding: 18px; }

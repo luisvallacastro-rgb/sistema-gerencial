@@ -3437,14 +3437,11 @@ function canManageQuotation(quotation) {
   return Boolean(opportunity && canManageCrmOpportunity(opportunity));
 }
 
-function quotationOpportunityOptions() {
-  const opportunities = state.crmData?.opportunities || [];
-  return opportunities
+function availableQuotationOpportunities() {
+  return (state.crmData?.opportunities || [])
     .filter((opportunity) => !opportunity.cancelledAt && !opportunity.cancellationReason)
     .filter((opportunity) => canManageCrmOpportunity(opportunity))
-    .sort((a, b) => String(a.company || "").localeCompare(String(b.company || ""), "es"))
-    .map((opportunity) => `<option value="${escapeHtml(opportunity.id)}">${escapeHtml(opportunity.company || "Sin cliente")} · ${escapeHtml(opportunity.seller || "Sin vendedor")}</option>`)
-    .join("");
+    .sort((a, b) => String(a.company || "").localeCompare(String(b.company || ""), "es"));
 }
 
 function renderQuotationsModule() {
@@ -3458,7 +3455,7 @@ function renderQuotationsModule() {
       return queryTokens.every((token) => searchIndex.includes(token));
     })
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
-  const opportunityOptions = quotationOpportunityOptions();
+  const hasAvailableOpportunities = availableQuotationOpportunities().length > 0;
   const visibleTotal = rows.reduce((sum, quotation) => sum + Number(quotation.totalCents || 0), 0);
   const pageCount = Math.max(1, Math.ceil(rows.length / quotationModulePageSize));
   state.quotationModulePage = Math.min(Math.max(Number(state.quotationModulePage) || 1, 1), pageCount);
@@ -3472,8 +3469,7 @@ function renderQuotationsModule() {
       <header class="quotations-module__toolbar">
         <label class="quotations-module__search"><span aria-hidden="true">⌕</span><input type="search" data-quotation-module-search value="${escapeHtml(state.quotationModuleQuery)}" placeholder="Buscar cliente, vendedor, estado, fecha o producto..."></label>
         <div class="quotations-module__total"><small>TOTAL</small><strong>${formatControlSalesMoney(visibleTotal)}</strong></div>
-        <label class="quotations-module__origin"><span>Oportunidad de origen</span><select data-quotation-module-opportunity>${opportunityOptions || `<option value="">No hay oportunidades disponibles</option>`}</select></label>
-        <button type="button" class="quotations-module__new" data-quotation-module-create ${opportunityOptions ? "" : "disabled"}><span aria-hidden="true">＋</span>Nuevo registro</button>
+        <button type="button" class="quotations-module__new" data-quotation-module-create ${hasAvailableOpportunities ? "" : "disabled"}><span aria-hidden="true">＋</span>Nuevo registro</button>
       </header>
       <div class="quotation-table-head">
         <strong>Fecha</strong>
@@ -3514,8 +3510,18 @@ function wireQuotationsModule() {
     renderCommercialSubmenu(areas.comercializacion);
   }));
   opportunityTable.querySelector("[data-quotation-module-create]")?.addEventListener("click", () => {
-    const opportunityId = opportunityTable.querySelector("[data-quotation-module-opportunity]")?.value;
-    if (opportunityId) openQuotationDialog(opportunityId);
+    const opportunities = availableQuotationOpportunities();
+    if (!opportunities.length) return;
+    if (opportunities.length === 1) {
+      openQuotationDialog(opportunities[0].id);
+      return;
+    }
+    const options = opportunities.map((item, index) => `${index + 1}. ${item.company || "Sin cliente"} · ${item.seller || "Sin vendedor"}`).join("\n");
+    const selected = prompt(`Selecciona la oportunidad para la nueva cotización:\n\n${options}\n\nEscribe el número:`);
+    if (selected === null) return;
+    const opportunity = opportunities[Number.parseInt(selected, 10) - 1];
+    if (!opportunity) return alert("Selecciona un número válido.");
+    openQuotationDialog(opportunity.id);
   });
   opportunityTable.querySelectorAll("[data-quotation-module-open]").forEach((button) => button.addEventListener("click", () => (
     openQuotationDialog(button.dataset.opportunityId, button.dataset.quotationModuleOpen)
