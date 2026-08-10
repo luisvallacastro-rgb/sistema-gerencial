@@ -2876,8 +2876,11 @@ function renderProductionSchedule() {
       const first = item.items?.[0] || {};
       const startColumn = Math.max(0, dateIndex(item.productionDate)) + 1;
       const endColumn = Math.min(6, dateIndex(item.productionEndDate || item.productionDate)) + 2;
-      const extraProducts = Math.max(0, (item.items?.length || 0) - 1);
-      return `<button type="button" class="production-gantt-bar line-${line.endsWith("2") ? "two" : "one"}" style="grid-column:${startColumn} / ${endColumn};grid-row:${rowIndex + 1}" data-production-gantt-order="${escapeHtml(first.orderId || "")}" title="Abrir detalle de Control de Ventas"><span><small>${escapeHtml(first.orderNumber || "Orden")}</small><strong>${escapeHtml(first.client || "Producción")}</strong></span><em>${escapeHtml(first.product || "Producto")}${extraProducts ? ` +${extraProducts}` : ""}</em><b>${quantity(item)}</b></button>`;
+      const visibleDays = endColumn - startColumn;
+      const productLimit = visibleDays <= 2 ? 4 : 2;
+      const displayedItems = (item.items || []).slice(0, productLimit);
+      const extraProducts = Math.max(0, (item.items?.length || 0) - displayedItems.length);
+      return `<button type="button" class="production-gantt-bar duration-${Math.min(visibleDays, 3)} line-${line.endsWith("2") ? "two" : "one"}" style="grid-column:${startColumn} / ${endColumn};grid-row:${rowIndex + 1}" data-production-gantt-order="${escapeHtml(first.orderId || "")}" title="Abrir detalle de Control de Ventas"><span class="production-gantt-identity"><small>${escapeHtml(first.orderNumber || "Orden")}</small><strong>${escapeHtml(first.client || "Producción")}</strong></span><span class="production-gantt-products">${displayedItems.map((productItem) => `<em><b>${escapeHtml(productItem.quantity || "0")}</b><span>${escapeHtml(productItem.product || "Producto")}</span>${productItem.size ? `<small>${escapeHtml(productItem.size)}</small>` : ""}</em>`).join("")}${extraProducts ? `<i>+${extraProducts} productos</i>` : ""}</span><b class="production-gantt-quantity">${quantity(item)}<small>unidades</small></b></button>`;
     }).join("");
   };
   return `<section class="production-gantt-module">
