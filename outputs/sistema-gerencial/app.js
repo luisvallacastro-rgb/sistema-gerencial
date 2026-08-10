@@ -712,6 +712,7 @@ const financialOrdersSeedManifestKey = "sistemaGerencial.pedidosFinancieros.seed
 const financialOrdersDeletedSeedKeysKey = "sistemaGerencial.pedidosFinancieros.deletedSeedKeys";
 const financialOrdersFiltersStorageKey = "sistemaGerencial.pedidosFinancieros.filters.v1";
 const controlSalesPeriodStorageKey = "sistemaGerencial.controlVentas.periodo.v1";
+const productionWeekStorageKey = "sistemaGerencial.produccion.semana.v1";
 const financialOrdersSeedVersion = "base-pedidos-20260720-v3";
 const financialOrdersSeedExpectedCount = 2596;
 const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
@@ -2745,9 +2746,19 @@ function productionMonday(value = new Date()) {
 
 function loadProductionSchedule() {
   if (!apiEnabled) return Promise.resolve();
-  if (!state.productionWeekStart) state.productionWeekStart = productionMonday();
+  const savedWeek = localStorage.getItem(productionWeekStorageKey) || "";
+  if (!state.productionWeekStart) state.productionWeekStart = /^\d{4}-\d{2}-\d{2}$/.test(savedWeek) ? savedWeek : productionMonday();
   return apiJson("/api/production-schedule").then((items) => {
     state.productionSchedule = Array.isArray(items) ? items : [];
+    const weekEndDate = new Date(`${state.productionWeekStart}T12:00:00`);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+    const weekEnd = weekEndDate.toISOString().slice(0, 10);
+    const weekHasProduction = state.productionSchedule.some((item) => item.productionDate <= weekEnd && (item.productionEndDate || item.productionDate) >= state.productionWeekStart);
+    if (!savedWeek && !weekHasProduction && state.productionSchedule.length) {
+      const latest = [...state.productionSchedule].sort((a, b) => String(b.productionDate).localeCompare(String(a.productionDate)))[0];
+      state.productionWeekStart = productionMonday(latest.productionDate);
+      localStorage.setItem(productionWeekStorageKey, state.productionWeekStart);
+    }
     if (state.activeArea === "operaciones" && state.activeSubmenu === "produccion-semanal") renderDashboard();
   }).catch((error) => console.error("No se pudo cargar la agenda de producción.", error));
 }
@@ -2840,7 +2851,12 @@ async function saveProductionScheduleFromDialog(event) {
   try {
     if (productionEndDate < productionDate) throw new Error("La fecha fin no puede ser anterior a la fecha de inicio.");
     await apiJson(id ? `/api/production-schedule/${encodeURIComponent(id)}` : "/api/production-schedule", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
-    document.querySelector("#productionScheduleDialog").close(); await loadProductionSchedule();
+    state.productionWeekStart = productionMonday(productionDate);
+    localStorage.setItem(productionWeekStorageKey, state.productionWeekStart);
+    document.querySelector("#productionScheduleDialog").close();
+    await loadProductionSchedule();
+    const sourceOrderId = items[0]?.orderId;
+    if (sourceOrderId && document.querySelector("#controlSalesMatrixDetailDialog")?.open) await openControlSalesMatrixDetail(sourceOrderId);
   } catch (failure) { error.textContent = failure.message || "No se pudo guardar el grupo."; error.classList.remove("hidden"); }
 }
 
@@ -2879,11 +2895,12 @@ function wireProductionSchedule() {
     const date = new Date(`${state.productionWeekStart || productionMonday()}T12:00:00`);
     date.setDate(date.getDate() + days);
     state.productionWeekStart = productionMonday(date);
+    localStorage.setItem(productionWeekStorageKey, state.productionWeekStart);
     renderDashboard();
   };
   document.querySelector("[data-production-week-prev]")?.addEventListener("click", () => moveWeek(-7));
   document.querySelector("[data-production-week-next]")?.addEventListener("click", () => moveWeek(7));
-  document.querySelector("[data-production-week-today]")?.addEventListener("click", () => { state.productionWeekStart = productionMonday(); renderDashboard(); });
+  document.querySelector("[data-production-week-today]")?.addEventListener("click", () => { state.productionWeekStart = productionMonday(); localStorage.setItem(productionWeekStorageKey, state.productionWeekStart); renderDashboard(); });
   document.querySelectorAll("[data-production-gantt-order]").forEach((button) => button.addEventListener("click", () => {
     const orderId = button.dataset.productionGanttOrder;
     if (orderId) openControlSalesMatrixDetail(orderId).catch((error) => alert(error.message || "No se pudo abrir la orden."));
@@ -4488,13 +4505,19 @@ function controlSalesOrderHasAuthorizedSignatures(order) {
 
 async function openControlSalesMatrixDetail(orderId) {
   ensureControlSalesDialogs();
-  const order = await apiJson(`/api/control-sales/${encodeURIComponent(orderId)}`);
+  const [order, currentProductionSchedule] = await Promise.all([
+    apiJson(`/api/control-sales/${encodeURIComponent(orderId)}`),
+    apiJson("/api/production-schedule").catch(() => state.productionSchedule)
+  ]);
+  state.productionSchedule = Array.isArray(currentProductionSchedule) ? currentProductionSchedule : [];
   const dialog = document.querySelector("#controlSalesMatrixDetailDialog");
   const content = document.querySelector("#controlSalesMatrixDetailContent");
   const details = order.details?.length ? order.details : [{ product: "Sin detalle", quantity: 0, unitPriceCents: null, vatCents: 0, lineTotalCents: 0 }];
   const quotation = linkedQuotationForControlSalesOrder(order);
   const hasAuthorizedOrder = controlSalesOrderHasAuthorizedSignatures(order);
   const scheduledDetailIds = new Set(state.productionSchedule.flatMap((item) => item.items || []).map((item) => String(item.detailId)));
+  const orderAssignments = state.productionSchedule.filter((item) => (item.items || []).some((scheduledItem) => String(scheduledItem.orderId) === String(order.id)));
+  const hasUnscheduledDetails = details.some((detail) => !scheduledDetailIds.has(String(detail.id)));
   content.innerHTML = `<header class="control-sales-matrix-dialog__header">
       <div><small>Detalle de venta</small><h3>${escapeHtml(formatOrderCorrelative(order.number))}</h3></div>
       <button type="button" data-control-sales-matrix-close aria-label="Cerrar">×</button>
@@ -4509,7 +4532,7 @@ async function openControlSalesMatrixDetail(orderId) {
       <table class="control-sales-matrix">
         <thead><tr>${hasAuthorizedOrder ? "<th>Agregar</th>" : ""}<th>Producto</th><th>Cantidad</th><th>Precio unitario</th><th>IVA</th><th>Total</th></tr></thead>
         <tbody>${details.map((detail) => `<tr>
-          ${hasAuthorizedOrder ? `<td class="production-detail-select"><label title="${scheduledDetailIds.has(String(detail.id)) ? "Ya está agendado" : "Agregar al grupo de producción"}"><input type="checkbox" data-control-sales-production-detail="${escapeHtml(detail.id)}" ${scheduledDetailIds.has(String(detail.id)) ? "disabled" : ""}><span class="production-switch" aria-hidden="true"></span></label></td>` : ""}
+          ${hasAuthorizedOrder ? `<td class="production-detail-select"><label title="${scheduledDetailIds.has(String(detail.id)) ? "Producto ya programado" : "Agregar al grupo de producción"}"><input type="checkbox" data-control-sales-production-detail="${escapeHtml(detail.id)}" ${scheduledDetailIds.has(String(detail.id)) ? "checked disabled" : ""}><span class="production-switch" aria-hidden="true"></span></label></td>` : ""}
           <td><strong>${escapeHtml(detail.product || "Sin producto")}</strong>${detail.size ? `<small>${escapeHtml(detail.size)}</small>` : ""}</td>
           <td class="number">${escapeHtml(detail.quantity ?? 0)}</td>
           <td class="money">${detail.unitPriceCents == null ? "—" : formatControlSalesMoney(detail.unitPriceCents)}</td>
@@ -4523,7 +4546,8 @@ async function openControlSalesMatrixDetail(orderId) {
       <div class="control-sales-matrix-dialog__documents">
         ${quotation ? `<button type="button" data-control-sales-matrix-quotation title="Abrir cotización"><span aria-hidden="true">📄</span>Cotización</button>` : ""}
         ${hasAuthorizedOrder ? `<button type="button" class="authorized" data-control-sales-matrix-order title="Abrir orden de pedido autorizada con firmas"><span aria-hidden="true">✓</span>Orden autorizada</button>` : ""}
-        ${hasAuthorizedOrder ? `<button type="button" class="production" data-control-sales-production-schedule disabled><span aria-hidden="true">＋</span><b>Agendar producción</b></button>` : ""}
+        ${hasAuthorizedOrder && hasUnscheduledDetails ? `<button type="button" class="production" data-control-sales-production-schedule disabled><span aria-hidden="true">＋</span><b>Agendar producción</b></button>` : ""}
+        ${orderAssignments.length ? `<button type="button" class="production scheduled" data-control-sales-production-edit><span aria-hidden="true">✎</span><b>Editar producción</b></button>` : ""}
       </div>
       <button type="button" data-control-sales-matrix-close>Cerrar</button>
     </footer>`;
@@ -4533,17 +4557,23 @@ async function openControlSalesMatrixDetail(orderId) {
   const scheduleButton = content.querySelector("[data-control-sales-production-schedule]");
   const productionInputs = [...content.querySelectorAll("[data-control-sales-production-detail]")];
   const refreshScheduleButton = () => {
-    const count = productionInputs.filter((input) => input.checked).length;
+    const count = productionInputs.filter((input) => input.checked && !input.disabled).length;
     productionInputs.forEach((input) => input.closest("tr")?.classList.toggle("is-production-selected", input.checked));
     if (scheduleButton) { scheduleButton.disabled = count === 0; scheduleButton.querySelector("b").textContent = count ? `Agendar producción (${count})` : "Agendar producción"; }
   };
   productionInputs.forEach((input) => input.addEventListener("change", refreshScheduleButton));
   scheduleButton?.addEventListener("click", () => {
-    const selectedIds = new Set(productionInputs.filter((input) => input.checked).map((input) => String(input.dataset.controlSalesProductionDetail)));
+    const selectedIds = new Set(productionInputs.filter((input) => input.checked && !input.disabled).map((input) => String(input.dataset.controlSalesProductionDetail)));
     const selectedItems = details.filter((detail) => selectedIds.has(String(detail.id))).map((detail) => ({ detailId:detail.id, orderId:order.id, orderNumber:formatOrderCorrelative(order.number), client:order.client, product:detail.product, size:detail.size, quantity:detail.quantity, notes:detail.notes || "" }));
     if (selectedItems.length) openProductionScheduleDialog(null, selectedItems);
   });
-  dialog.showModal();
+  content.querySelector("[data-control-sales-production-edit]")?.addEventListener("click", () => {
+    const assignment = orderAssignments[0];
+    state.productionWeekStart = productionMonday(assignment.productionDate);
+    localStorage.setItem(productionWeekStorageKey, state.productionWeekStart);
+    openProductionScheduleDialog(assignment);
+  });
+  if (!dialog.open) dialog.showModal();
 }
 
 function wireControlSales() {
