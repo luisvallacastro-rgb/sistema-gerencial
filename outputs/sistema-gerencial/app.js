@@ -4957,6 +4957,70 @@ function filteredFinancialOrders() {
   return query ? rows.filter((order) => Object.values(order).some((value) => searchTokenMatches(value, query))) : rows;
 }
 
+function escapeSpreadsheetXml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;");
+}
+
+function financialOrdersReportFilterSummary() {
+  const filters = [];
+  filters.push(state.financialOrderMonthFilter === "all" ? "Mes: todos" : `Mes: ${state.financialOrderMonthFilter}`);
+  filters.push(state.financialOrderYearFilter === "all" ? "Año: todos" : `Año: ${state.financialOrderYearFilter}`);
+  if (state.financialOrderQuery) filters.push(`Búsqueda: ${state.financialOrderQuery}`);
+  return filters;
+}
+
+function downloadFinancialOrdersExcelReport() {
+  const rows = filteredFinancialOrders()
+    .slice()
+    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || Number(a.number || 0) - Number(b.number || 0));
+  const totalNumber = rows.reduce((sum, order) => sum + (Number(order.number) || 0), 0);
+  const totalSale = rows.reduce((sum, order) => sum + (Number(order.sale) || 0), 0);
+  const rowXml = rows.map((order) => `
+    <Row>
+      <Cell ss:StyleID="Date"><Data ss:Type="DateTime">${escapeSpreadsheetXml(String(order.date || todayISO()).slice(0, 10))}T00:00:00.000</Data></Cell>
+      <Cell ss:StyleID="Integer"><Data ss:Type="Number">${Number(order.number) || 0}</Data></Cell>
+      <Cell ss:StyleID="Money"><Data ss:Type="Number">${Number(order.sale) || 0}</Data></Cell>
+      <Cell><Data ss:Type="String">${escapeSpreadsheetXml(controlSalesResponsibleSeller(order).toLocaleUpperCase("es"))}</Data></Cell>
+      <Cell><Data ss:Type="String">${escapeSpreadsheetXml(order.client || "Sin cliente")}</Data></Cell>
+    </Row>`).join("");
+  const filterXml = financialOrdersReportFilterSummary()
+    .map((filter) => `<Row><Cell ss:MergeAcross="4"><Data ss:Type="String">${escapeSpreadsheetXml(filter)}</Data></Cell></Row>`)
+    .join("");
+  const workbook = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Bottom"/><Font ss:FontName="Calibri" ss:Size="11"/></Style>
+  <Style ss:ID="Header"><Font ss:Bold="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>
+  <Style ss:ID="Date"><NumberFormat ss:Format="d/m/yyyy"/></Style>
+  <Style ss:ID="Integer"><NumberFormat ss:Format="0"/></Style>
+  <Style ss:ID="Money"><NumberFormat ss:Format="0.00"/></Style>
+  <Style ss:ID="Total"><Font ss:Bold="1"/></Style>
+ </Styles>
+ <Worksheet ss:Name="Export"><Table>
+  <Column ss:Width="82"/><Column ss:Width="58"/><Column ss:Width="82"/><Column ss:Width="125"/><Column ss:Width="330"/>
+  <Row><Cell ss:StyleID="Header"><Data ss:Type="String">Fecha</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Venta</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Vendedor</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Clientes</Data></Cell></Row>
+  ${rowXml}
+  <Row><Cell ss:StyleID="Total"><Data ss:Type="String">Total</Data></Cell><Cell ss:StyleID="Total"><Data ss:Type="Number">${totalNumber}</Data></Cell><Cell ss:StyleID="Total"><Data ss:Type="Number">${totalSale}</Data></Cell><Cell/><Cell/></Row>
+  <Row/><Row><Cell ss:MergeAcross="4"><Data ss:Type="String">Filtros aplicados:</Data></Cell></Row>${filterXml}
+ </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane></WorksheetOptions></Worksheet>
+</Workbook>`;
+  const blob = new Blob(["\ufeff", workbook], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const period = [state.financialOrderYearFilter, state.financialOrderMonthFilter].filter((value) => value && value !== "all").join("-") || "todos";
+  link.href = url;
+  link.download = `Reporte-pedidos-${period}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function renderFinancialOrderTopbarFilters(isVisible) {
   financialOrdersTopbarFilters?.classList.toggle("hidden", !isVisible);
   financialOrdersTopbarFilters?.closest(".topbar")?.classList.toggle("financial-orders-filter-mode", isVisible);
@@ -5019,6 +5083,7 @@ function renderFinancialOrderList() {
       <div class="financial-orders-toolbar">
         <label><span>⌕</span><input data-financial-order-search type="search" value="${escapeHtml(state.financialOrderQuery)}" placeholder="Buscar pedido, cliente, vendedor..."></label>
         <strong>${formatMoney(total)}</strong>
+        <button class="financial-orders-report-button" type="button" data-financial-order-report>⇩ Reporte Excel</button>
         <button type="button" data-financial-order-new>+ Nuevo pedido</button>
       </div>
       <div class="financial-orders-table-wrap">
@@ -5321,6 +5386,7 @@ function refreshFinancialOrdersModule() {
 }
 
 function wireFinancialOrders() {
+  opportunityTable.querySelector("[data-financial-order-report]")?.addEventListener("click", downloadFinancialOrdersExcelReport);
   opportunityTable.querySelectorAll("[data-finance-order-view]").forEach((button) => button.addEventListener("click", () => {
     openControlSalesDetail(button.dataset.financeOrderView);
   }));
