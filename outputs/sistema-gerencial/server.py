@@ -632,7 +632,6 @@ def sync_result_with_latest_quotation(conn, result):
     changed = False
     linked_values = {
         "company": text(snapshot["client"], result.get("company")),
-        "seller": text(snapshot["seller"], result.get("seller")),
         "amount": round(int(snapshot["totalCents"] or 0) / 100, 2),
         "quotationId": snapshot["id"],
         "quotationNumber": snapshot["number"],
@@ -764,16 +763,21 @@ def repair_converted_result_opportunities(conn):
         quotation = quotation_payload(row)
         quotation_id = text(quotation.get("id"))
         crm_id = text(row["opportunity_id"])
+        crm_opportunity = next((
+            item for item in crm_data.get("opportunities", [])
+            if text(item.get("id")) == crm_id
+        ), None)
+        crm_owner = next((
+            item for item in crm_data.get("users", [])
+            if crm_opportunity and text(item.get("id")) == text(crm_opportunity.get("ownerId"))
+        ), {})
+        responsible_seller = text(crm_owner.get("name"))
         result = next((
             item for item in result_items
             if text(item.get("quotationId")) == quotation_id
         ), None)
 
         if not result:
-            crm_opportunity = next((
-                item for item in crm_data.get("opportunities", [])
-                if text(item.get("id")) == crm_id
-            ), None)
             if crm_opportunity:
                 result = result_opportunity_from_crm(crm_data, crm_opportunity, quotation)
             else:
@@ -823,7 +827,7 @@ def repair_converted_result_opportunities(conn):
 
         linked_values = {
             "company": text(quotation.get("client"), result.get("company")),
-            "seller": text(quotation.get("seller"), result.get("seller")),
+            "seller": responsible_seller or text(result.get("seller"), quotation.get("seller")),
             "amount": round(int(quotation.get("totalCents") or 0) / 100, 2),
             "quotationId": quotation_id,
             "quotationNumber": text(quotation.get("number")),
