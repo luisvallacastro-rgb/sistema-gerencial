@@ -878,7 +878,6 @@ const purchaseOrderMonthList = document.querySelector("#purchaseOrderMonthList")
 const closePurchaseOrderMonthDialog = document.querySelector("#closePurchaseOrderMonthDialog");
 const opportunityDashboard = document.querySelector("#opportunityDashboard");
 const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
-const printOpportunityReportBtn = document.querySelector("#printOpportunityReportBtn");
 const newRiskBtn = document.querySelector("#newRiskBtn");
 const newManagementRequestBtn = document.querySelector("#newManagementRequestBtn");
 const goalsMatrixBtn = document.querySelector("#goalsMatrixBtn");
@@ -7452,29 +7451,35 @@ function renderCrmModule(submenuKey) {
 }
 
 
-function opportunityManagementReportRows() {
+function opportunityManagementReportRows(options = {}) {
   const { active, history } = opportunityCycleRows(getOpportunitySubmenu().items);
-  const query = normalizeKey(state.opportunitySearch);
+  const query = normalizeKey(options.query || "");
   const matchesSearch = ({ item, result }) => !query || [
     item.date, item.company, item.seller, item.contact, item.phone, item.segment, item.location,
     item.stage, item.priority, probabilityLabel(item.probability), item.amount, item.nextAction,
     item.agendaDate, item.agendaType, item.agendaPlace, item.note, result?.result, result?.comment
   ].some((value) => searchTokenMatches(value, query));
-  if (state.opportunityCycleView !== "closed") return active.filter(matchesSearch);
-  return history.filter((row) => {
+  const statusRows = options.status === "active" ? active : options.status === "closed" ? history : [...active, ...history];
+  return statusRows.filter((row) => {
     const closedDate = row.result?.date || row.item.date || "";
-    const matchesDate = (!state.opportunityClosedDateFrom || closedDate >= state.opportunityClosedDateFrom)
-      && (!state.opportunityClosedDateTo || closedDate <= state.opportunityClosedDateTo);
-    const matchesResult = state.opportunityClosedResultFilter === "all"
-      || (state.opportunityClosedResultFilter === "won" && row.result?.result === "ganado")
-      || (state.opportunityClosedResultFilter === "lost" && row.result?.result !== "ganado");
-    return matchesDate && matchesResult && matchesSearch(row);
+    const matchesDate = (!options.dateFrom || closedDate >= options.dateFrom) && (!options.dateTo || closedDate <= options.dateTo);
+    const matchesResult = !options.result || options.result === "all"
+      || (options.result === "won" && row.result?.result === "ganado")
+      || (options.result === "lost" && row.result && row.result.result !== "ganado")
+      || (options.result === "pending" && !row.result);
+    const matchesAmount = (!options.amountMin || Number(row.item.amount || 0) >= Number(options.amountMin))
+      && (!options.amountMax || Number(row.item.amount || 0) <= Number(options.amountMax));
+    return matchesDate && matchesResult && matchesAmount && matchesSearch(row)
+      && (!options.seller || row.item.seller === options.seller)
+      && (!options.stage || row.item.stage === options.stage)
+      && (!options.temperature || row.item.probability === options.temperature)
+      && (!options.priority || row.item.priority === options.priority);
   });
 }
 
-function printOpportunityManagementReport() {
-  const rows = opportunityManagementReportRows();
-  const isClosed = state.opportunityCycleView === "closed";
+function printOpportunityManagementReport(options = {}) {
+  const rows = opportunityManagementReportRows(options);
+  const isClosed = options.status === "closed";
   const amount = rows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   const weighted = rows.reduce((sum, row) => sum + Number(row.item.amount || 0)
     * ({ caliente: .8, tibio: .55, frio: .3, congelado: .1 }[row.item.probability] || .2), 0);
@@ -7505,12 +7510,53 @@ function printOpportunityManagementReport() {
   if (!popup) return alert("El navegador bloqueó el reporte. Habilite las ventanas emergentes e intente nuevamente.");
   popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte gerencial de oportunidades</title><style>
   :root{font-family:Arial,sans-serif;color:#18243a}*{box-sizing:border-box}body{margin:0;background:#eef2f6}.report{width:1180px;max-width:calc(100% - 32px);margin:24px auto;background:#fff;padding:38px;box-shadow:0 8px 28px #18243a22}.head{display:flex;justify-content:space-between;border-bottom:4px solid #22a98b;padding-bottom:18px}.head h1{margin:4px 0;font-size:28px}.head p,.head small{display:block;margin:3px 0;color:#5d6879}.brand{font-weight:900;font-size:24px}.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:22px 0}.card{border:1px solid #d8e0e9;border-radius:10px;padding:13px}.card span{display:block;text-transform:uppercase;font-size:10px;font-weight:800;color:#647184}.card strong{display:block;font-size:21px;margin-top:6px;color:#087f69}.groups{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px}.groups section{border:1px solid #d8e0e9;border-radius:10px;padding:14px}.groups h2{font-size:13px;margin:0 0 8px}.groups ul{list-style:none;padding:0;margin:0}.groups li{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid #edf0f4;font-size:11px}table{width:100%;border-collapse:collapse;font-size:9px}th{background:#162743;color:#fff;text-align:left;padding:8px 5px}td{vertical-align:top;border-bottom:1px solid #dce3eb;padding:8px 5px}td small{display:block;line-height:1.45;min-width:245px}.money{white-space:nowrap;font-weight:700}.empty{text-align:center;padding:35px;color:#687386}.footer{margin-top:18px;font-size:10px;color:#6b7482}.actions{position:sticky;bottom:0;display:flex;gap:10px;justify-content:center;padding:14px;background:#13233e}.actions button{border:0;border-radius:8px;padding:11px 18px;font-weight:800;cursor:pointer}.actions button:first-child{background:#39d6b5;color:#10243b}@page{size:landscape;margin:10mm}@media print{body{background:#fff}.report{width:auto;max-width:none;margin:0;padding:0;box-shadow:none}.actions{display:none}.head h1{font-size:22px}.cards{margin:12px 0}.groups{margin-bottom:12px}tr{break-inside:avoid}}</style></head><body><main class="report">
-  <header class="head"><div><div class="brand">KONFI</div><h1>Reporte gerencial de oportunidades</h1><p>${isClosed ? "Oportunidades cerradas" : "Pipeline de oportunidades en venta"}</p></div><div><small>Periodo: ${escapeHtml(state.period)}</small><small>Generado: ${escapeHtml(generatedAt)}</small><small>Usuario: ${escapeHtml(state.currentUser?.name || roleDisplayName())}</small></div></header>
+  <header class="head"><div><div class="brand">KONFI</div><h1>Reporte gerencial de oportunidades</h1><p>${isClosed ? "Oportunidades cerradas" : options.status === "active" ? "Pipeline de oportunidades en venta" : "Reporte integral de oportunidades"}</p></div><div><small>Periodo: ${escapeHtml(state.period)}</small><small>Generado: ${escapeHtml(generatedAt)}</small><small>Usuario: ${escapeHtml(state.currentUser?.name || roleDisplayName())}</small></div></header>
   <section class="cards"><article class="card"><span>Registros</span><strong>${rows.length}</strong></article><article class="card"><span>Monto total</span><strong>${formatMoney(amount)}</strong></article><article class="card"><span>Pipeline ponderado</span><strong>${isClosed ? "N/A" : formatMoney(weighted)}</strong></article><article class="card"><span>Ganadas</span><strong>${won.length}</strong></article><article class="card"><span>Monto ganado</span><strong>${formatMoney(wonAmount)}</strong></article></section>
   <section class="groups"><section><h2>Distribución por vendedor</h2><ul>${groupSummary("seller", (value) => value)}</ul></section><section><h2>Distribución por etapa</h2><ul>${groupSummary("stage", (value) => value)}</ul></section><section><h2>Distribución por temperatura</h2><ul>${groupSummary("probability", (value) => probabilityLabel(value))}</ul></section></section>
   <table><thead><tr><th>#</th><th>Fecha</th><th>Empresa / producto</th><th>Vendedor</th><th>Etapa</th><th>Temperatura</th><th>Prioridad</th><th>Monto</th><th>Estado</th><th>Detalle comercial</th></tr></thead><tbody>${reportRows || `<tr><td class="empty" colspan="10">No hay oportunidades que coincidan con los filtros actuales.</td></tr>`}</tbody></table>
   <p class="footer">Documento generado por Sistema Gerencial KONFI. Los montos y resultados corresponden a la información registrada al momento de emisión.</p></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
   popup.document.close();
+}
+
+function openOpportunityReportDialog() {
+  document.querySelector("#opportunityReportDialog")?.remove();
+  const items = getOpportunitySubmenu().items;
+  const uniqueOptions = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), "es"));
+  const optionMarkup = (values) => values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+  const dialog = document.createElement("dialog");
+  dialog.id = "opportunityReportDialog";
+  dialog.className = "opportunity-report-dialog";
+  dialog.innerHTML = `<form method="dialog" class="opportunity-report-form">
+    <header><div><span>Reporte gerencial</span><h3>Configurar reporte de oportunidades</h3><p>Seleccione las variables que desea incluir antes de imprimir o guardar en PDF.</p></div><button type="button" data-report-close aria-label="Cerrar">×</button></header>
+    <div class="opportunity-report-filter-grid">
+      <label><span>Estado de oportunidad</span><select name="status"><option value="all">Todas</option><option value="active" ${state.opportunityCycleView !== "closed" ? "selected" : ""}>En venta / pendientes</option><option value="closed" ${state.opportunityCycleView === "closed" ? "selected" : ""}>Cerradas</option></select></label>
+      <label><span>Resultado</span><select name="result"><option value="all">Todos</option><option value="pending">Pendientes</option><option value="won">Ganadas</option><option value="lost">Perdidas</option></select></label>
+      <label><span>Desde</span><input type="date" name="dateFrom"></label><label><span>Hasta</span><input type="date" name="dateTo"></label>
+      <label><span>Vendedor</span><select name="seller"><option value="">Todos</option>${optionMarkup(uniqueOptions(items.map((item) => item.seller)))}</select></label>
+      <label><span>Etapa</span><select name="stage"><option value="">Todas</option>${optionMarkup(uniqueOptions(items.map((item) => item.stage)))}</select></label>
+      <label><span>Temperatura</span><select name="temperature"><option value="">Todas</option><option value="caliente">Caliente</option><option value="tibio">Tibio</option><option value="frio">Frío</option><option value="congelado">Congelado</option></select></label>
+      <label><span>Prioridad</span><select name="priority"><option value="">Todas</option>${optionMarkup(uniqueOptions(items.map((item) => item.priority)))}</select></label>
+      <label><span>Monto mínimo</span><input type="number" name="amountMin" min="0" step="0.01" placeholder="$0.00"></label><label><span>Monto máximo</span><input type="number" name="amountMax" min="0" step="0.01" placeholder="Sin límite"></label>
+      <label class="wide"><span>Buscar en el reporte</span><input type="search" name="query" value="${escapeHtml(state.opportunitySearch)}" placeholder="Empresa, producto, contacto, gestión..."></label>
+    </div>
+    <div class="opportunity-report-preview"><span data-report-count>0 oportunidades seleccionadas</span><strong data-report-total>${formatMoney(0)}</strong></div>
+    <footer><button class="ghost-btn" type="button" data-report-reset>Limpiar filtros</button><button class="secondary-btn" type="button" data-report-close>Cancelar</button><button class="primary-btn" type="submit">Generar reporte</button></footer>
+  </form>`;
+  document.body.append(dialog);
+  const form = dialog.querySelector("form");
+  const values = () => Object.fromEntries(new FormData(form).entries());
+  const refreshPreview = () => {
+    const rows = opportunityManagementReportRows(values());
+    dialog.querySelector("[data-report-count]").textContent = `${rows.length} ${rows.length === 1 ? "oportunidad seleccionada" : "oportunidades seleccionadas"}`;
+    dialog.querySelector("[data-report-total]").textContent = formatMoney(rows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0));
+  };
+  form.addEventListener("input", refreshPreview);
+  form.addEventListener("submit", (event) => { event.preventDefault(); const filters = values(); dialog.close(); printOpportunityManagementReport(filters); });
+  dialog.querySelectorAll("[data-report-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelector("[data-report-reset]").addEventListener("click", () => { form.reset(); form.elements.status.value = "all"; form.elements.result.value = "all"; refreshPreview(); });
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.showModal();
+  refreshPreview();
 }
 
 function renderCommercialSubmenu(area) {
@@ -7529,7 +7575,6 @@ function renderCommercialSubmenu(area) {
   accountsReceivableViewTabs?.classList.add("hidden");
   purchaseOrdersViewTabs?.classList.add("hidden");
   crmOpportunitiesViewTabs?.classList.add("hidden");
-  printOpportunityReportBtn?.classList.add("hidden");
   opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
@@ -7883,7 +7928,6 @@ function renderCommercialSubmenu(area) {
   opportunitySearchField.classList.toggle("hidden", resultView !== "active");
   opportunitySearchInput.value = state.opportunitySearch;
   newOpportunityBtn.classList.toggle("hidden", resultView !== "active");
-  printOpportunityReportBtn?.classList.toggle("hidden", resultView !== "active");
   newRiskBtn.classList.add("hidden");
   newManagementRequestBtn.classList.add("hidden");
   goalsMatrixBtn.classList.add("hidden");
@@ -7970,6 +8014,7 @@ function renderCommercialSubmenu(area) {
           Cerradas <b>${filteredClosedRows.length}</b>
         </button>
       </div>
+      <button class="opportunity-report-launch" type="button" data-opportunity-report><span aria-hidden="true">🖨</span> Reporte</button>
       ${isClosedView ? `
         <div class="opportunity-closed-filters">
           <label>
@@ -10449,6 +10494,11 @@ goalsMatrixBtn.addEventListener("click", () => {
 });
 
 opportunityTable.addEventListener("click", (event) => {
+  const reportButton = event.target.closest("[data-opportunity-report]");
+  if (reportButton) {
+    openOpportunityReportDialog();
+    return;
+  }
   const cycleButton = event.target.closest("[data-cycle-view]");
   if (cycleButton) {
     state.opportunityCycleView = cycleButton.dataset.cycleView;
@@ -11025,8 +11075,6 @@ newOpportunityBtn.addEventListener("click", () => {
     opportunityDialog.showModal();
   }
 });
-
-printOpportunityReportBtn?.addEventListener("click", printOpportunityManagementReport);
 
 closeOpportunityDialog.addEventListener("click", closeOpportunityForm);
 cancelOpportunityEdit.addEventListener("click", closeOpportunityForm);

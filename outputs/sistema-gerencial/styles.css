@@ -18376,6 +18376,8 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 /* Oportunidades / Gerencia: ciclo activo y cierres históricos */
 .app-shell .opportunity-cycle-toolbar {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
   margin: 0 0 14px;
   padding: 12px 14px;
@@ -18427,16 +18429,126 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 }
 
 .app-shell .opportunity-cycle-note {
+  grid-column: 1 / -1;
   margin: 0;
   color: var(--muted);
   font-size: .84rem;
 }
 
 .app-shell .opportunity-closed-filters {
+  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: minmax(160px, 190px) minmax(160px, 190px) auto minmax(440px, 1fr);
   align-items: end;
   gap: 10px;
+}
+
+.app-shell .opportunity-report-launch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(102, 235, 206, .45);
+  border-radius: 13px;
+  color: #dffff7;
+  background: rgba(28, 95, 105, .72);
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+  transition: transform .16s ease, background .16s ease;
+}
+
+.app-shell .opportunity-report-launch:hover {
+  transform: translateY(-1px);
+  background: rgba(31, 132, 124, .82);
+}
+
+.opportunity-report-dialog {
+  width: min(920px, calc(100vw - 28px));
+  max-height: min(850px, calc(100vh - 28px));
+  padding: 0;
+  border: 1px solid rgba(121, 157, 205, .48);
+  border-radius: 24px;
+  color: #edf4ff;
+  background: linear-gradient(145deg, #243452, #10273a);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .5);
+  overflow: hidden;
+}
+
+.opportunity-report-dialog::backdrop {
+  background: rgba(3, 12, 27, .78);
+  backdrop-filter: blur(7px);
+}
+
+.opportunity-report-form {
+  display: grid;
+  max-height: min(850px, calc(100vh - 28px));
+  overflow-y: auto;
+}
+
+.opportunity-report-form > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid rgba(139, 174, 214, .2);
+}
+
+.opportunity-report-form header span,
+.opportunity-report-filter-grid label > span {
+  color: #69e9cd;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.opportunity-report-form header h3 { margin: 5px 0; font-size: 1.55rem; }
+.opportunity-report-form header p { margin: 0; color: #aebbd0; }
+.opportunity-report-form header button { width: 38px; height: 38px; border: 0; border-radius: 50%; color: #fff; background: rgba(117, 143, 184, .22); font-size: 1.5rem; cursor: pointer; }
+
+.opportunity-report-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 22px 28px;
+}
+
+.opportunity-report-filter-grid label { display: grid; gap: 7px; }
+.opportunity-report-filter-grid label.wide { grid-column: 1 / -1; }
+.opportunity-report-filter-grid input,
+.opportunity-report-filter-grid select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid rgba(130, 164, 210, .36);
+  border-radius: 11px;
+  color: #f5f8ff;
+  background: rgba(12, 35, 62, .82);
+  font: inherit;
+}
+
+.opportunity-report-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 28px 20px;
+  padding: 15px 17px;
+  border: 1px solid rgba(100, 231, 202, .28);
+  border-radius: 13px;
+  color: #c4d0e2;
+  background: rgba(20, 91, 91, .24);
+}
+
+.opportunity-report-preview strong { color: #67efcf; font-size: 1.35rem; }
+.opportunity-report-form > footer { display: flex; justify-content: flex-end; gap: 10px; padding: 18px 28px 24px; border-top: 1px solid rgba(139, 174, 214, .2); }
+
+@media (max-width: 720px) {
+  .opportunity-report-filter-grid { grid-template-columns: 1fr; }
+  .opportunity-report-filter-grid label.wide { grid-column: auto; }
+  .opportunity-report-form > footer { flex-wrap: wrap; }
 }
 
 .app-shell .opportunity-closed-filters label {
