@@ -2459,6 +2459,151 @@ def purge_orphaned_test_orders_0293_0294_once(conn):
     print(f"Limpieza integral OP-0293/OP-0294 completada: {summary}")
 
 
+def restore_asa_order_0296_once(conn):
+    """Restore ASA's valid order removed by the former creator-based cleanup."""
+    marker_key = "maintenance.restore-asa-op0296.2026-08-11.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+    existing = conn.execute(
+        "SELECT id FROM control_sales_orders WHERE upper(replace(order_number, '-', '')) = 'OP0296' LIMIT 1"
+    ).fetchone()
+    if existing:
+        conn.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+            (marker_key, json.dumps({"status": "already-present", "orderId": text(existing["id"])})),
+        )
+        return
+
+    opportunities = read_result_opportunities(conn)
+    opportunity = next((item for item in opportunities if (
+        crm_identity_key(item.get("company")) == crm_identity_key("ASA")
+        and crm_identity_key(item.get("seller")) == crm_identity_key("Marjorie Morales")
+        and abs(float(item.get("amount") or 0) - 5795.0) < 0.01
+    )), None)
+    if not opportunity:
+        print("Restauracion OP-0296 pendiente: no se encontro la oportunidad ganada ASA de Marjorie Morales.")
+        return
+
+    opportunity_id = text(opportunity.get("id"))
+    financial_order_id = "financial-restored-op0296"
+    order_id = "cv-restored-op0296"
+    actor = "Luis Valladares"
+    created_at = "2026-08-11T10:47:49"
+    approved_at = "2026-08-11T16:47:49Z"
+    details = [
+        (10, "t-shirt manga corta azul claro", "s", 2435),
+        (13, "t-shirt manga corta azul claro", "m", 2435),
+        (5, "t-shirt manga corta azul claro", "l", 2435),
+        (2, "t-shirt manga corta azul claro", "xl", 2435),
+        (10, "t-shirt manga corta azul oscuro", "s", 2435),
+        (13, "t-shirt manga corta azul oscuro", "m", 2435),
+        (5, "t-shirt manga corta azul oscuro", "l", 2435),
+        (2, "t-shirt manga corta azul oscuro", "xl", 2435),
+        (1, "Servicio de sublimado", "", 50674),
+        (13, "t-shirt manga larga azul claro", "s", 2923),
+        (13, "t-shirt manga larga azul claro", "m", 2923),
+        (3, "t-shirt manga larga azul claro", "l", 2923),
+        (2, "t-shirt manga larga azul claro", "xl", 2923),
+        (13, "t-shirt manga larga azul oscuro", "s", 2923),
+        (13, "t-shirt manga larga azul oscuro", "m", 2923),
+        (3, "t-shirt manga larga azul oscuro", "l", 2923),
+        (2, "t-shirt manga larga azul oscuro", "xl", 2923),
+        (2, "Jens azul nacional caballero", "30", 2400),
+        (2, "Jens azul nacional caballero", "32", 2400),
+        (5, "Jens azul nacional caballero", "34", 2400),
+        (5, "Jens azul nacional caballero", "36", 2400),
+        (2, "Jens azul nacional caballero", "38", 2400),
+        (1, "Jens azul nacional dama", "28", 2400),
+        (3, "Jens azul nacional dama", "32", 2400),
+        (2, "Jens azul nacional dama", "34", 2400),
+        (2, "Jens azul nacional dama", "36", 2400),
+        (1, "Jens azul nacional dama", "30 cint 32", 2400),
+        (1, "Jens azul nacional dama", "32 cint 34", 2400),
+        (1, "Jens azul nacional dama", "36 cint 34", 2400),
+        (1, "Jens azul nacional", "40", 2700),
+        (2, "camiasa columbia manga larga", "16", 3856),
+        (1, "camiasa columbia manga larga", "s", 3856),
+        (9, "camiasa columbia manga larga", "m", 3856),
+        (3, "camiasa columbia manga larga", "l", 3856),
+        (2, "camiasa columbia manga larga", "xl", 3856),
+        (1, "camiasa columbia manga larga", "2xl", 3856),
+        (1, "camiasa columbia manga larga", "xl mas 2 pulg de manga y largo", 3856),
+        (1, "blusa columbia manga larga", "12", 3856),
+        (2, "blusa columbia manga larga", "16", 3856),
+        (4, "blusa columbia manga larga", "s", 3856),
+        (3, "blusa columbia manga larga", "m", 3856),
+        (3, "blusa columbia manga larga", "l", 3856),
+        (1, "blusa columbia manga larga", "segun muestra", 3856),
+        (1, "Servicio de Bordado para 33 camisas", "", 6752),
+    ]
+    total_cents = sum(quantity * unit_price for quantity, _, _, unit_price in details)
+    if len(details) != 44 or total_cents != 579500:
+        raise RuntimeError("El detalle recuperado de OP-0296 no concilia con el PDF original")
+
+    conn.execute("""
+        INSERT INTO financial_orders (
+            id, source_key, source, source_opportunity_id, number, month, year, date,
+            seller, sale, order_number, invoice, conditions, client, client_type,
+            strategy, management, country, department, deleted, created_by, updated_by,
+            created_at, updated_at
+        ) VALUES (?, ?, 'manual', ?, '296', 'Agosto', '2026', '2026-08-10',
+            'Marjorie Morales', 5795.0, 'OP-0296', 'CF', 'Crédito de 100% a 30 días',
+            'ASA', 'Gobierno', 'Atracción', 'C. AYC', 'El Salvador', 'San Salvador',
+            0, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET source_opportunity_id=excluded.source_opportunity_id,
+            deleted=0, updated_by=excluded.updated_by, updated_at=excluded.updated_at
+    """, (financial_order_id, "restore-op0296", opportunity_id, actor, actor, created_at, created_at))
+
+    proforma_data = {
+        "commercialName": "ASA", "legalName": "Autoridad Salvadoreña de agua",
+        "businessActivity": "", "contactName": "Lilinana Sarmiento", "phone": "70630022",
+        "address": "C. financiero torre e, nivel 8 65 av sur pasaje 1",
+        "email": "liliana.sarmiento@asa.gob.sv", "taxId": "06142112211129",
+        "registrationNumber": "", "taxpayerType": "Mediano contribuyente",
+        "deliveryDate": "", "paymentTerms": "Crédito de 100% a 30 días",
+        "perceptionEnabled": False, "strategy": "Atracción", "customerCode": "",
+        "generalNotes": "",
+    }
+    conn.execute("""
+        INSERT INTO control_sales_orders (
+            id, source, financial_order_id, source_opportunity_id, source_quotation_id,
+            order_number, order_date, seller, client, status, document_type, total_cents,
+            expected_total_cents, variance_cents, proforma_data, archived, quality_status,
+            anomalies, commercial_approval_status, commercial_approved_by,
+            commercial_approved_at, commercial_approval_note, finance_approval_status,
+            finance_approved_by, finance_approved_at, finance_approval_note,
+            created_by, updated_by, created_at, updated_at
+        ) VALUES (?, 'manual', ?, ?, '', '296', '2026-08-10', 'Marjorie Morales',
+            'ASA', 'Activa', 'CF', 579500, 579500, 0, ?, 0, 'Restaurada', '[]',
+            'Autorizada', ?, ?, 'Restaurada desde PDF original OP-0296', 'Pendiente',
+            '', '', '', ?, ?, ?, ?)
+    """, (order_id, financial_order_id, opportunity_id, json.dumps(proforma_data, ensure_ascii=False),
+          actor, approved_at, actor, actor, created_at, created_at))
+    for sequence, (quantity, product, size, unit_price_cents) in enumerate(details, start=1):
+        conn.execute("""
+            INSERT INTO control_sales_details (
+                id, order_id, sequence, product, size, quantity, unit_price_cents,
+                vat_cents, line_total_cents, notes, active, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, '', 1, ?, ?)
+        """, (f"cvd-restored-op0296-{sequence:02d}", order_id, sequence, product, size,
+              str(quantity), unit_price_cents, quantity * unit_price_cents, created_at, created_at))
+    conn.execute(
+        "INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, 'restauracion', ?, ?, ?)",
+        (order_id, actor, created_at, "Orden OP-0296 restaurada desde PDF original · 44 lineas · $5,795.00"),
+    )
+    conn.execute(
+        "INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, 'autorizacion_comercial', ?, ?, ?)",
+        (order_id, actor, approved_at, "Primera firma comercial recuperada del documento original"),
+    )
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps({"status": "restored", "orderId": order_id,
+                                 "opportunityId": opportunity_id, "details": 44,
+                                 "totalCents": total_cents}, ensure_ascii=True)),
+    )
+    print("Orden ASA OP-0296 restaurada: 44 lineas, $5,795.00, pendiente de segunda firma.")
+
+
 def repair_edgar_admin_seller_assignments_once(conn):
     """Remove the administrative Edgar profile and reconcile every persisted sales layer."""
     marker_key = "maintenance.repair-edgar-admin-seller.2026-08-10.v2"
@@ -2877,6 +3022,7 @@ def init_db():
                 conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions), row["id"]))
         purge_luis_valladares_test_flow_once(conn)
         purge_orphaned_test_orders_0293_0294_once(conn)
+        restore_asa_order_0296_once(conn)
         repair_edgar_admin_seller_assignments_once(conn)
 
 
