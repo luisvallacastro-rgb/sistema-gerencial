@@ -2965,7 +2965,7 @@ function renderControlSales() {
         <thead><tr><th>N.º de orden</th><th>Vendedor</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th></tr></thead>
         <tbody>${visible.map((order) => `<tr data-control-sales-matrix-view="${escapeHtml(order.id)}" tabindex="0" title="Ver detalle de la venta">
           <th><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Pedido heredado"}</small></th>
-          <td>${escapeHtml(order.seller || "—")}</td>
+          <td>${escapeHtml(controlSalesResponsibleSeller(order))}</td>
           <td>${formatDate(order.date)}</td>
           <td>${escapeHtml(order.client || "—")}</td>
           <td><span class="control-sales-product-count">${order.details?.length || 0}</span></td>
@@ -3407,6 +3407,21 @@ async function loadQuotations() {
   return state.quotations;
 }
 
+function controlSalesResponsibleSeller(order = {}) {
+  const financialOrder = state.financialOrders?.find((item) => String(item.id || "") === String(order.financialOrderId || ""));
+  const sourceIds = new Set([
+    order.sourceOpportunityId,
+    financialOrder?.sourceOpportunityId,
+    financialOrder?.crmOpportunityId
+  ].map((value) => String(value || "")).filter(Boolean));
+  const opportunity = getOpportunitySubmenu().items.find((item) => (
+    [item.id, item.crmOpportunityId, item.sourceOpportunityId]
+      .map((value) => String(value || ""))
+      .some((value) => value && sourceIds.has(value))
+  ));
+  return opportunity?.seller || financialOrder?.seller || order.seller || "Sin vendedor";
+}
+
 function approvalControlSalesOrders() {
   return state.controlSales
     .filter((order) => !order.archived && order.sourceOpportunityId)
@@ -3597,7 +3612,7 @@ function commercialApprovalSignatureMarkup(order, compact = false) {
     <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
     <div class="commercial-electronic-signature__copy">
       <small>Firma electrónica validada</small>
-      <strong>${escapeHtml(order.commercialApprovedBy || "Gerencia de Comercialización")}</strong>
+      <strong>${escapeHtml(controlSalesResponsibleSeller(order) || "Gerencia de Comercialización")}</strong>
       <span>${escapeHtml(formatCommercialApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</span>
     </div>
     <code>${escapeHtml(commercialApprovalFolio(order))}</code>
@@ -3640,7 +3655,7 @@ function renderCommercialOrderAuthorization() {
   const pending = commercialPendingApprovalOrders();
   const authorized = allOrders.filter((order) => order.commercialApprovalStatus === "Autorizada");
   const query = normalizeKey(state.commercialApprovalQuery);
-  const visibleRows = allOrders.filter((order) => !query || normalizeKey(`${order.number} ${order.client} ${order.seller} ${order.commercialApprovalStatus || "Pendiente"}`).includes(query));
+  const visibleRows = allOrders.filter((order) => !query || normalizeKey(`${order.number} ${order.client} ${controlSalesResponsibleSeller(order)} ${order.commercialApprovalStatus || "Pendiente"}`).includes(query));
   return `
     <section class="commercial-approval" aria-label="Autorización comercial de pedidos">
       <header class="commercial-approval__hero">
@@ -3658,7 +3673,7 @@ function renderCommercialOrderAuthorization() {
           return `
             <article class="commercial-approval__row">
               <div class="commercial-approval__identity"><small>ORDEN DE PEDIDO</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><span>${formatDate(order.date)}</span></div>
-              <div class="commercial-approval__client"><strong>${escapeHtml(order.client)}</strong><span>${escapeHtml(order.seller || "Sin vendedor")}</span></div>
+              <div class="commercial-approval__client"><strong>${escapeHtml(order.client)}</strong><span>${escapeHtml(controlSalesResponsibleSeller(order))}</span></div>
               <div class="commercial-approval__amount"><small>Total</small><strong>${formatControlSalesMoney(order.totalCents || 0)}</strong></div>
               <span class="commercial-approval__status" data-status="${normalizeKey(order.commercialApprovalStatus || "Pendiente")}">${escapeHtml(order.commercialApprovalStatus || "Pendiente")}</span>
               <div class="commercial-approval__actions">
@@ -4180,7 +4195,7 @@ function setControlSalesFinancialOrderSelection(order) {
     return;
   }
   number.value = order.number || "";
-  seller.value = order.seller || "";
+  seller.value = controlSalesResponsibleSeller(order);
   client.value = order.client || "";
   const commercialName = document.querySelector("#controlSalesCommercialName");
   if (commercialName && !commercialName.value.trim()) commercialName.value = order.client || "";
@@ -4377,7 +4392,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   document.querySelector("#controlSalesFinancialOrderId").value = order?.financialOrderId || sourceOrder?.id || "";
   document.querySelector("#controlSalesNumber").value = sourceOrder?.number || order?.number || nextControlSalesOrderNumber();
   document.querySelector("#controlSalesDate").value = order?.date || sourceQuotation?.date || sourceWin?.date || todayISO();
-  document.querySelector("#controlSalesSeller").value = sourceOrder?.seller || order?.seller || sourceQuotation?.seller || sourceWin?.seller || "";
+  document.querySelector("#controlSalesSeller").value = sourceOrder?.seller || (order ? controlSalesResponsibleSeller(order) : "") || sourceQuotation?.seller || sourceWin?.seller || "";
   document.querySelector("#controlSalesClient").value = sourceOrder?.client || order?.client || sourceQuotation?.client || sourceWin?.company || "";
   const quotationData = sourceQuotation ? {
     ...(sourceQuotation.customerData || {}),
@@ -4443,6 +4458,7 @@ function openCrmWonOrder(opportunityId) {
 }
 
 function printControlSalesProformaInline(order) {
+  order = { ...order, seller: controlSalesResponsibleSeller(order) };
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
@@ -4485,7 +4501,7 @@ function printControlSalesProformaInline(order) {
     <div class="order-panel"><h1>ORDEN DE PEDIDO</h1><strong class="order-number">No. ${value(printableOrderNumber)}</strong><p>Tipo de Factura: ${value(invoiceType)}</p></div>
   </header>
   <section class="fields">
-    <div class="field"><label>Vendedor:</label><strong>${value(order.seller)}</strong></div>
+    <div class="field"><label>Vendedor:</label><strong>${value(controlSalesResponsibleSeller(order))}</strong></div>
     <div class="field"><label>Nombre Comercial:</label><strong>${value(data.commercialName || order.client)}</strong></div>
     <div class="field"><label>Razon Social:</label><strong>${value(data.legalName)}</strong></div>
     <div class="field"><label>Giro:</label><strong>${value(data.businessActivity)}</strong></div>
@@ -4514,6 +4530,7 @@ function printControlSalesProformaInline(order) {
 }
 
 function printControlSalesProforma(order) {
+  order = { ...order, seller: controlSalesResponsibleSeller(order) };
   const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   localStorage.setItem(printKey, JSON.stringify(order));
   const popup = window.open(
@@ -4539,7 +4556,7 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
   const warnings = [...(order.anomalies || []), ...order.details.flatMap((detail) => detail.reviewRequired ? [{ description: `Precio faltante en ${detail.product}; requiere revisión.` }] : (detail.anomalies || []))];
   const isBalanced = Number(order.varianceCents || 0) === 0;
   const approvalLabel = order.financeApprovalStatus === "Aprobada" ? "Aprobado · 2 firmas" : order.commercialApprovalStatus === "Autorizada" ? "Autorización comercial" : "Pendiente de autorización";
-  document.querySelector("#controlSalesDetailContent").innerHTML = `<header class="control-sales-review-header"><div><p class="eyebrow">Orden ${escapeHtml(formatOrderCorrelative(order.number))}</p><h3>${escapeHtml(order.client)}</h3><span>${escapeHtml(order.seller || "Sin vendedor")}</span></div><div class="control-sales-review-header__aside"><em>${escapeHtml(approvalLabel)}</em><button type="button" data-control-sales-detail-close aria-label="Cerrar">×</button></div></header>
+  document.querySelector("#controlSalesDetailContent").innerHTML = `<header class="control-sales-review-header"><div><p class="eyebrow">Orden ${escapeHtml(formatOrderCorrelative(order.number))}</p><h3>${escapeHtml(order.client)}</h3><span>${escapeHtml(controlSalesResponsibleSeller(order))}</span></div><div class="control-sales-review-header__aside"><em>${escapeHtml(approvalLabel)}</em><button type="button" data-control-sales-detail-close aria-label="Cerrar">×</button></div></header>
     <section class="control-sales-review-hero">
       <div class="control-sales-review-total"><small>Total del pedido</small><strong>${formatControlSalesMoney(order.totalCents || 0)}</strong><span>${order.details.length === 1 ? "1 producto" : `${order.details.length} productos`}</span></div>
       <div class="control-sales-review-meta"><article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article><article><small>Estado</small><strong>${escapeHtml(order.status || "Activa")}</strong></article><article class="${isBalanced ? "balanced" : "mismatch"}"><small>Conciliación</small><strong>${isBalanced ? "Cuadrado" : formatControlSalesMoney(order.varianceCents || 0)}</strong></article></div>
@@ -4619,7 +4636,7 @@ async function openControlSalesMatrixDetail(orderId) {
     </header>
     <section class="control-sales-matrix-meta" aria-label="Datos generales de la venta">
       <article><small>N.º de orden</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong></article>
-      <article><small>Vendedor</small><strong>${escapeHtml(order.seller || "—")}</strong></article>
+      <article><small>Vendedor</small><strong>${escapeHtml(controlSalesResponsibleSeller(order))}</strong></article>
       <article><small>Fecha</small><strong>${formatDate(order.date)}</strong></article>
       <article><small>Cliente</small><strong>${escapeHtml(order.client || "—")}</strong></article>
     </section>
@@ -4887,7 +4904,7 @@ function approvedControlSalesFinancialRows() {
         date,
         year: Number.isFinite(year) ? year : new Date().getFullYear(),
         month: monthLabel(monthNumber),
-        seller: order.seller || "Sin vendedor",
+        seller: controlSalesResponsibleSeller(order),
         client: order.client || "Sin cliente",
         sale: Number(order.totalCents || 0) / 100,
         conditions: order.proformaData?.paymentCondition || "",
@@ -4995,7 +5012,7 @@ function renderFinancialOrderList() {
             <span>${formatDate(order.date)}</span>
             <strong>${escapeHtml(order.number)}</strong>
             <strong class="financial-order-sale">${formatMoney(order.sale)}</strong>
-            <span>${escapeHtml(order.seller)}</span>
+            <span>${escapeHtml(controlSalesResponsibleSeller(order))}</span>
             <span class="financial-order-client-cell">
               <span>${escapeHtml(order.client)}</span>
               ${hasTwoSignatures ? `<em class="financial-order-entered-badge">Aprobado · 2 firmas</em>` : linkedOrder ? `<em class="financial-order-entered-badge">Ingresado</em>` : ""}
@@ -5068,7 +5085,7 @@ function renderFinancialOrderNotifications() {
               <div class="financial-order-notification-copy">
                 <small>Orden ${escapeHtml(formatOrderCorrelative(order.number))} · Autorizada ${escapeHtml(formatCommercialApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</small>
                 <strong>${escapeHtml(order.client || "Cliente sin nombre")}</strong>
-                <span>${escapeHtml(order.seller || "Sin vendedor")}</span>
+                <span>${escapeHtml(controlSalesResponsibleSeller(order))}</span>
                 <em class="financial-record-status ${financialComplete ? "complete" : "incomplete"}">${financialComplete ? "Registro financiero completo" : `Faltan ${missingFields.length} campos: ${escapeHtml(missingFields.join(", "))}`}</em>
                 ${commercialApprovalSignatureMarkup(order, true)}
               </div>
@@ -5097,7 +5114,7 @@ function financialOrdersBySeller() {
   const periodRows = financialOrdersForSelectedPeriod();
   const sellers = new Map();
   periodRows.forEach((order) => {
-    const seller = String(order.seller || "Sin vendedor").trim() || "Sin vendedor";
+    const seller = String(controlSalesResponsibleSeller(order)).trim() || "Sin vendedor";
     const key = seller.toLocaleUpperCase("es");
     const current = sellers.get(key) || { seller, orders: 0, sales: 0 };
     current.orders += 1;
@@ -5152,7 +5169,7 @@ function financialOrdersPeriodLabel() {
 function renderFinancialSellerPortfolio(seller) {
   const sellerKey = normalizeKey(seller);
   const rows = financialOrdersForSelectedPeriod()
-    .filter((order) => normalizeKey(order.seller || "Sin vendedor") === sellerKey)
+    .filter((order) => normalizeKey(controlSalesResponsibleSeller(order)) === sellerKey)
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || Number(b.number || 0) - Number(a.number || 0));
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   const period = financialOrdersPeriodLabel();
