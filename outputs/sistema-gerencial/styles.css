@@ -18779,4 +18779,20 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .app-shell .opportunity-main-filters > div { min-height: 42px; padding: 7px 13px; border: 1px solid rgba(102, 235, 206, .26); border-radius: 12px; background: rgba(20, 91, 91, .2); }
 .app-shell .opportunity-main-filters strong { color: #6de9ce; font-size: .94rem; }
 
+.control-sales-source-option.is-won-opportunity {
+  border-color: rgba(105, 233, 205, .34);
+  background: linear-gradient(90deg, rgba(26, 105, 102, .24), rgba(25, 58, 94, .5));
+}
+
+.control-sales-source-option.is-won-opportunity > b {
+  color: #72efd2;
+  font-size: .7rem;
+  letter-spacing: .06em;
+}
+
+.control-sales-source-selected.is-won-opportunity {
+  border-color: rgba(105, 233, 205, .42);
+  background: rgba(23, 113, 104, .18);
+}
+
 @media (max-width: 900px) { .app-shell .opportunity-main-filters { grid-template-columns: 1fr 1fr; } .app-shell .opportunity-main-filters > div { grid-column: 1 / -1; } }

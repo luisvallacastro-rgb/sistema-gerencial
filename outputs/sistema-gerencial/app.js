@@ -2985,12 +2985,12 @@ function ensureControlSalesDialogs() {
       <header><div><p class="eyebrow">Operaciones</p><h3 id="controlSalesDialogTitle">Nueva orden</h3></div><button type="button" data-control-sales-close>×</button></header>
       <input type="hidden" id="controlSalesId"><input type="hidden" id="controlSalesFinancialOrderId"><input type="hidden" id="controlSalesSourceOpportunityId"><input type="hidden" id="controlSalesSourceQuotationId">
       <section class="control-sales-source-picker">
-        <div class="control-sales-source-heading"><div><span>Pedido de origen</span><strong>Selecciona por correlativo o cliente</strong></div><small>Pedidos desde julio de 2026 que todavía no han sido ingresados.</small></div>
+        <div class="control-sales-source-heading"><div><span>Pedido de origen</span><strong>Selecciona por correlativo o cliente</strong></div><small>Pedidos pendientes y oportunidades ganadas sin cotización ni orden.</small></div>
         <div id="controlSalesFinancialOrderSelected"></div>
         <details id="controlSalesFinancialOrderPicker" class="control-sales-source-dropdown">
-          <summary><span><b>Elegir pedido pendiente</b><small id="controlSalesFinancialOrderCount">0 pedidos</small></span><i aria-hidden="true">⌄</i></summary>
+          <summary><span><b>Elegir pedido u oportunidad ganada</b><small id="controlSalesFinancialOrderCount">0 orígenes</small></span><i aria-hidden="true">⌄</i></summary>
           <div class="control-sales-source-dropdown-panel">
-            <label class="control-sales-source-search"><span>⌕</span><input id="controlSalesFinancialOrderSearch" type="search" autocomplete="off" placeholder="Buscar #275, cliente o vendedor…"></label>
+            <label class="control-sales-source-search"><span>⌕</span><input id="controlSalesFinancialOrderSearch" type="search" autocomplete="off" placeholder="Buscar pedido, oportunidad, cliente o vendedor…"></label>
             <div class="control-sales-source-row-head" aria-hidden="true"><span>Fecha</span><span>Pedido</span><span>Cliente</span><span>Vendedor</span><span>Venta</span><span></span></div>
             <div id="controlSalesFinancialOrderResults" class="control-sales-source-results"></div>
           </div>
@@ -3101,7 +3101,14 @@ function ensureControlSalesDialogs() {
       const source = event.target.closest("[data-control-sales-source-id]");
       selectControlSalesFinancialOrder(source.dataset.controlSalesSourceId);
     }
+    if (event.target.closest("[data-control-sales-opportunity-id]")) {
+      const source = event.target.closest("[data-control-sales-opportunity-id]");
+      selectControlSalesWonOpportunity(source.dataset.controlSalesOpportunityId);
+    }
     if (event.target.matches("[data-control-sales-source-clear]")) {
+      document.querySelector("#controlSalesSourceOpportunityId").value = "";
+      document.querySelector("#controlSalesSourceQuotationId").value = "";
+      document.querySelector("#controlSalesOpportunityReference").classList.add("hidden");
       setControlSalesFinancialOrderSelection(null);
       const search = document.querySelector("#controlSalesFinancialOrderSearch");
       search.value = "";
@@ -4111,6 +4118,15 @@ function controlSalesFinancialOrderLabel(order) {
   return `#${order.number || "—"} · ${order.client || "Sin cliente"} · ${order.seller || "Sin vendedor"}`;
 }
 
+function controlSalesPendingWonOpportunitySources() {
+  return pendingWonOrderOpportunities().filter((item) => {
+    const identities = new Set([item.id, item.crmOpportunityId, item.sourceOpportunityId].filter(Boolean).map(String));
+    const hasQuotation = state.quotations.some((quotation) => identities.has(String(quotation.opportunityId || "")));
+    const hasOrder = state.controlSales.some((order) => !order.archived && identities.has(String(order.sourceOpportunityId || "")));
+    return !hasQuotation && !hasOrder;
+  });
+}
+
 function renderControlSalesFinancialOrderResults(query = "") {
   const container = document.querySelector("#controlSalesFinancialOrderResults");
   if (!container) return;
@@ -4118,7 +4134,7 @@ function renderControlSalesFinancialOrderResults(query = "") {
   const selectedId = document.querySelector("#controlSalesFinancialOrderId")?.value || "";
   const linkedIds = controlSalesLinkedFinancialOrderIds(currentOrderId);
   const terms = normalizeKey(query).split(/\s+/).filter(Boolean);
-  const available = state.financialOrders
+  const availableOrders = state.financialOrders
     .filter(isControlSalesEligibleFinancialOrder)
     .filter((order) => !linkedIds.has(String(order.id)) && String(order.id) !== selectedId)
     .filter((order) => {
@@ -4128,11 +4144,22 @@ function renderControlSalesFinancialOrderResults(query = "") {
     })
     .sort((a, b) => String(a.date || "9999-12-31").localeCompare(String(b.date || "9999-12-31"))
       || Number(a.number || 0) - Number(b.number || 0));
+  const availableWins = controlSalesPendingWonOpportunitySources()
+    .filter((item) => {
+      if (!terms.length) return true;
+      const haystack = normalizeKey([item.company, item.seller, item.segment, closureResult(item)?.date].join(" "));
+      return terms.every((term) => haystack.includes(term));
+    })
+    .sort((a, b) => String(closureResult(a)?.date || a.date || "").localeCompare(String(closureResult(b)?.date || b.date || "")));
+  const availableCount = availableOrders.length + availableWins.length;
   const count = document.querySelector("#controlSalesFinancialOrderCount");
-  if (count) count.textContent = `${available.length} ${available.length === 1 ? "pedido" : "pedidos"}`;
-  container.innerHTML = available.length
-    ? available.map((order) => `<button type="button" class="control-sales-source-option" data-control-sales-source-id="${escapeHtml(order.id)}"><time datetime="${escapeHtml(order.date || "")}">${formatDate(order.date) || "Sin fecha"}</time><b>#${escapeHtml(order.number || "—")}</b><span title="${escapeHtml(order.client || "Sin cliente")}">${escapeHtml(order.client || "Sin cliente")}</span><small title="${escapeHtml(order.seller || "Sin vendedor")}">${escapeHtml(order.seller || "Sin vendedor")}</small><strong>${formatMoney(order.sale || 0)}</strong><i>Seleccionar</i></button>`).join("")
-    : `<p class="control-sales-source-empty">${terms.length ? "No hay pedidos pendientes que coincidan con la búsqueda." : "No hay pedidos pendientes desde julio de 2026."}</p>`;
+  if (count) count.textContent = `${availableCount} ${availableCount === 1 ? "origen" : "orígenes"}`;
+  container.innerHTML = availableCount
+    ? `${availableOrders.map((order) => `<button type="button" class="control-sales-source-option" data-control-sales-source-id="${escapeHtml(order.id)}"><time datetime="${escapeHtml(order.date || "")}">${formatDate(order.date) || "Sin fecha"}</time><b>#${escapeHtml(order.number || "—")}</b><span title="${escapeHtml(order.client || "Sin cliente")}">${escapeHtml(order.client || "Sin cliente")}</span><small title="${escapeHtml(order.seller || "Sin vendedor")}">${escapeHtml(order.seller || "Sin vendedor")}</small><strong>${formatMoney(order.sale || 0)}</strong><i>Seleccionar</i></button>`).join("")}${availableWins.map((item) => {
+      const result = closureResult(item);
+      return `<button type="button" class="control-sales-source-option is-won-opportunity" data-control-sales-opportunity-id="${escapeHtml(item.id)}"><time datetime="${escapeHtml(result?.date || item.date || "")}">${formatDate(result?.date || item.date) || "Sin fecha"}</time><b>GANADA</b><span title="${escapeHtml(item.company || "Sin cliente")}">${escapeHtml(item.company || "Sin cliente")}</span><small title="${escapeHtml(item.seller || "Sin vendedor")}">${escapeHtml(item.seller || "Sin vendedor")}</small><strong>${formatMoney(item.amount || 0)}</strong><i>Seleccionar</i></button>`;
+    }).join("")}`
+    : `<p class="control-sales-source-empty">${terms.length ? "No hay pedidos ni oportunidades ganadas que coincidan con la búsqueda." : "No hay pedidos u oportunidades ganadas pendientes de ingresar."}</p>`;
 }
 
 function setControlSalesFinancialOrderSelection(order) {
@@ -4166,7 +4193,48 @@ function setControlSalesFinancialOrderSelection(order) {
 
 function selectControlSalesFinancialOrder(orderId) {
   const order = state.financialOrders.find((item) => String(item.id) === String(orderId));
-  if (order) setControlSalesFinancialOrderSelection(order);
+  if (order) {
+    document.querySelector("#controlSalesSourceOpportunityId").value = order.sourceOpportunityId || "";
+    document.querySelector("#controlSalesSourceQuotationId").value = "";
+    document.querySelector("#controlSalesOpportunityReference").classList.add("hidden");
+    setControlSalesFinancialOrderSelection(order);
+  }
+}
+
+function selectControlSalesWonOpportunity(opportunityId) {
+  const item = getOpportunitySubmenu().items.find((opportunity) => String(opportunity.id) === String(opportunityId));
+  if (!item || !controlSalesPendingWonOpportunitySources().some((opportunity) => String(opportunity.id) === String(item.id))) return;
+  const result = closureResult(item);
+  setControlSalesFinancialOrderSelection(null);
+  document.querySelector("#controlSalesFinancialOrderId").value = "";
+  document.querySelector("#controlSalesSourceOpportunityId").value = item.id;
+  document.querySelector("#controlSalesSourceQuotationId").value = "";
+  document.querySelector("#controlSalesNumber").value = nextControlSalesOrderNumber();
+  document.querySelector("#controlSalesDate").value = result?.date || item.date || todayISO();
+  document.querySelector("#controlSalesSeller").value = item.seller || "";
+  document.querySelector("#controlSalesClient").value = item.company || "";
+  document.querySelector("#controlSalesCommercialName").value = item.company || "";
+  document.querySelector("#controlSalesContactName").value = item.contact || "";
+  document.querySelector("#controlSalesPhone").value = item.phone || "";
+  document.querySelector("#controlSalesAddress").value = item.location || "";
+  document.querySelector("#controlSalesLines").innerHTML = controlSalesLineTemplate({
+    product: item.segment || "Producto pendiente",
+    quantity: "1",
+    unitPriceCents: Math.round(Number(item.amount || 0) * 100),
+    notes: result?.comment || item.note || "Oportunidad ganada sin cotización"
+  });
+  fillControlSalesFinancialData({
+    date: result?.date || item.date || todayISO(), seller: item.seller || "", client: item.company || "",
+    sale: Number(item.amount || 0), orderNumber: document.querySelector("#controlSalesNumber").value
+  });
+  const reference = document.querySelector("#controlSalesOpportunityReference");
+  reference.classList.remove("hidden");
+  reference.innerHTML = `<div><span>Oportunidad ganada seleccionada</span><strong>${formatMoney(item.amount || 0)}</strong></div><p>${escapeHtml(item.company || "Sin cliente")} · ${escapeHtml(item.segment || "Sin producto")} · sin cotización ni pedido previo.</p>`;
+  document.querySelector("#controlSalesFinancialOrderSelected").innerHTML = `<article class="control-sales-source-selected is-won-opportunity"><div><span>Oportunidad ganada</span><strong>${escapeHtml(item.company || "Sin cliente")} · ${escapeHtml(item.seller || "Sin vendedor")}</strong><small>Se creará el registro financiero y la orden de pedido al guardar.</small></div><em>Lista para pedido</em><button type="button" data-control-sales-source-clear>Cambiar</button></article>`;
+  document.querySelector("#controlSalesFinancialOrderSearch").value = "";
+  document.querySelector("#controlSalesFinancialOrderPicker").open = false;
+  updateControlSalesFormTotal();
+  syncControlSalesFinancialData();
 }
 
 function controlSalesLineTemplate(detail = {}) {
