@@ -2307,7 +2307,13 @@ def purge_luis_valladares_test_flow_once(conn):
         if text(value)
     }
 
-    quotation_rows = conn.execute("SELECT id, opportunity_id, converted_order_id FROM quotations WHERE lower(seller) = lower(?) OR lower(created_by) = lower(?)", ("Luis Valladares", "Luis Valladares")).fetchall()
+    # La identidad comercial corresponde al vendedor asignado. El usuario que
+    # captura o autoriza un registro es solamente parte de la auditoria y nunca
+    # debe convertir una oportunidad de otro vendedor en dato de prueba propio.
+    quotation_rows = conn.execute(
+        "SELECT id, opportunity_id, converted_order_id FROM quotations WHERE lower(seller) = lower(?)",
+        ("Luis Valladares",),
+    ).fetchall()
     if opportunity_ids:
         placeholders = ",".join("?" for _ in opportunity_ids)
         quotation_rows += conn.execute(
@@ -2316,7 +2322,10 @@ def purge_luis_valladares_test_flow_once(conn):
         ).fetchall()
     quotation_ids = {text(row["id"]) for row in quotation_rows}
 
-    order_rows = conn.execute("SELECT id, financial_order_id, source_opportunity_id, source_quotation_id FROM control_sales_orders WHERE lower(seller) = lower(?) OR lower(created_by) = lower(?)", ("Luis Valladares", "Luis Valladares")).fetchall()
+    order_rows = conn.execute(
+        "SELECT id, financial_order_id, source_opportunity_id, source_quotation_id FROM control_sales_orders WHERE lower(seller) = lower(?)",
+        ("Luis Valladares",),
+    ).fetchall()
     relation_clauses = []
     relation_values = []
     for column, values in (("source_opportunity_id", opportunity_ids), ("source_quotation_id", quotation_ids)):
@@ -2351,8 +2360,10 @@ def purge_luis_valladares_test_flow_once(conn):
     if financial_order_ids:
         placeholders = ",".join("?" for _ in financial_order_ids)
         conn.execute(f"DELETE FROM financial_orders WHERE id IN ({placeholders})", tuple(financial_order_ids))
-    conn.execute("DELETE FROM financial_orders WHERE lower(seller) = lower(?) OR lower(created_by) = lower(?)", ("Luis Valladares", "Luis Valladares"))
-    deleted_purchase_orders = conn.execute("DELETE FROM purchase_orders WHERE lower(created_by) = lower(?)", ("Luis Valladares",)).rowcount
+    conn.execute("DELETE FROM financial_orders WHERE lower(seller) = lower(?)", ("Luis Valladares",))
+    # Las ordenes de compra no tienen vendedor comercial. No se eliminan por
+    # su creador: hacerlo borraria documentos validos capturados por un admin.
+    deleted_purchase_orders = 0
 
     crm["opportunities"] = [item for item in crm.get("opportunities", []) if text(item.get("id")) not in opportunity_ids]
     crm["agenda"] = [item for item in crm.get("agenda", []) if text(item.get("opportunityId")) not in opportunity_ids and text(item.get("ownerId")) not in seller_ids]
