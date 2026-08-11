@@ -7215,14 +7215,13 @@ function renderCrmTracking() {
   const selectedSellerId = crmEnsureSellerId(sellers);
   const selectedSeller = sellers.find((seller) => seller.id === selectedSellerId);
   const sellerOpportunities = selectedSeller ? data.opportunities.filter((opp) => opp.ownerId === selectedSeller.id) : [];
-  const activeOpportunities = crmActiveOpportunitiesForSeller(selectedSellerId);
   const globalActiveOpportunities = data.opportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity) && String(opportunity.status || "Vigente").toLowerCase() !== "ganada");
   const resultWins = crmResultWinHistory(selectedSeller);
-  const resultClosures = getOpportunitySubmenu().items.filter((item) => (
+  const allResultClosures = getOpportunitySubmenu().items.filter((item) => closureResult(item));
+  const resultClosures = allResultClosures.filter((item) => (
     !selectedSeller || crmIdentityKey(item.seller) === crmIdentityKey(selectedSeller.name)
-  ) && closureResult(item));
+  ));
   const lostOpportunities = resultClosures.filter((item) => closureResult(item)?.result === "perdida");
-  const activeValue = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
   const globalActiveValue = globalActiveOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
   const wonValue = resultWins.reduce((sum, win) => sum + Number(win.amount || 0), 0);
   const conversionBase = resultWins.length + lostOpportunities.length;
@@ -7242,21 +7241,26 @@ function renderCrmTracking() {
     .map((order) => [String(order.sourceOpportunityId), order]));
   // Las migradas pendientes permanecen visibles para seguimiento. Cuando
   // Gerencia registra un cierre, salen de esta vista y quedan en el historico.
-  const closedCrmOpportunityIds = new Set(resultClosures
+  const closedCrmOpportunityIds = new Set(allResultClosures
     .map((item) => String(item.crmOpportunityId || ""))
     .filter(Boolean));
-  const closedOpportunityKeys = new Set(resultClosures.map((item) => (
+  const closedOpportunityKeys = new Set(allResultClosures.map((item) => (
     `${normalizeBusinessMatch(item.company)}::${crmIdentityKey(item.seller)}`
   )));
-  const visibleOpportunities = sellerOpportunities.filter((opportunity) => {
+  const isVisibleTrackingOpportunity = (opportunity) => {
     const isClosed = closedCrmOpportunityIds.has(String(opportunity.id || ""))
       || closedOpportunityKeys.has(`${normalizeBusinessMatch(opportunity.company)}::${crmIdentityKey(crmOwnerName(opportunity.ownerId))}`);
     return !isClosed && (
       !isCrmArchivedOpportunity(opportunity) || Boolean(opportunity.migratedToResults)
     );
-  });
+  };
+  const visibleOpportunities = sellerOpportunities.filter(isVisibleTrackingOpportunity);
+  const activeOpportunities = visibleOpportunities;
+  const activeValue = activeOpportunities.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
   const sellerButtons = sellers.map((seller) => {
-    const active = crmActiveOpportunitiesForSeller(seller.id);
+    const active = data.opportunities.filter((opportunity) => (
+      opportunity.ownerId === seller.id && isVisibleTrackingOpportunity(opportunity)
+    ));
     const activeTotal = active.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
     return `
       <button class="crm-seller-chip ${seller.id === selectedSellerId ? "is-active" : ""}" type="button" data-crm-seller-only="${seller.id}">
