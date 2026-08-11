@@ -7300,25 +7300,15 @@ function renderCrmTracking() {
       || [...identityKeys].map((key) => controlSalesByOpportunityId.get(key)).find(Boolean);
     const quotation = latestQuotationForWonOpportunity(win);
     return `
-    <article class="crm-won-history-card">
-      <div class="crm-won-history-date">
-        <time>${formatDate(win.date)}</time>
-        <span>${formatTime(win.time)}</span>
+    <article class="crm-won-history-card crm-won-history-row" title="${escapeHtml(win.comment || "Cierre ganado registrado.")}">
+      <div class="crm-won-history-date"><small>Fecha</small><time>${formatDate(win.date)}</time><span>${formatTime(win.time)}</span></div>
+      <div class="crm-won-history-client"><small>Oportunidad</small><strong>${escapeHtml(win.company)}</strong><span>${escapeHtml(win.segment || "Sin producto registrado")}</span></div>
+      <div class="crm-won-history-result"><small>Monto ganado</small><strong>${formatMoney(win.amount)}</strong></div>
+      <div class="crm-won-history-seller"><small>Vendedor</small><strong>${escapeHtml(win.seller || "Sin vendedor")}</strong></div>
+      <div class="crm-won-history-documents" aria-label="Documentos asociados">
+        <button type="button" class="crm-won-doc-action is-quotation" data-crm-won-quotation="${escapeHtml(win.id)}" data-crm-won-quotation-id="${escapeHtml(quotation?.id || "")}" title="${quotation ? "Ver o editar cotización" : "Sin cotización asociada"}" ${quotation ? "" : "disabled"} aria-label="${quotation ? "Ver cotización" : "Sin cotización asociada"}">📄<span>Cotización</span></button>
+        <button type="button" class="crm-won-doc-action is-order ${detailOrder ? "is-ready" : ""}" data-crm-won-order="${escapeHtml(win.id)}" title="${detailOrder ? "Ver, editar o imprimir orden" : quotation ? "Crear orden desde cotización" : "Crear detalle de orden"}" aria-label="${detailOrder ? "Ver orden" : "Crear orden"}">📋<span>${detailOrder ? "Orden" : "Crear orden"}</span></button>
       </div>
-      <div class="crm-won-history-client">
-        <span>Cierre ganado</span>
-        <strong>${escapeHtml(win.company)}</strong>
-        <small>${escapeHtml(win.segment || "Sin producto registrado")}</small>
-      </div>
-      <div class="crm-won-history-result">
-        <strong>${formatMoney(win.amount)}</strong>
-        <span>${escapeHtml(win.seller || "Sin vendedor")}</span>
-      </div>
-      <p>${escapeHtml(win.comment || "Cierre ganado registrado.")}</p>
-      <button type="button" class="crm-won-order-button ${detailOrder ? "is-ready" : ""}" data-crm-won-order="${escapeHtml(win.id)}">
-        <span>${detailOrder ? "Pedido listo" : "Pedido"}</span>
-        <strong>${detailOrder ? "Ver / editar / imprimir" : quotation ? "Crear desde cotización" : "Crear detalle"}</strong>
-      </button>
     </article>
   `;
   }).join("");
@@ -7361,7 +7351,10 @@ function renderCrmTracking() {
                   <button type="button" data-crm-won-date-clear>Limpiar</button>
                 </div>
               </div>
-              <div class="crm-won-history-list">${wonHistoryCards || `<div class="empty-state">No hay oportunidades ganadas en el rango seleccionado.</div>`}</div>
+              <div class="crm-won-history-list crm-won-history-table">
+                <div class="crm-won-history-head" aria-hidden="true"><span>Fecha</span><span>Oportunidad</span><span>Monto ganado</span><span>Vendedor</span><span>Documentos</span></div>
+                ${wonHistoryCards || `<div class="empty-state">No hay oportunidades ganadas en el rango seleccionado.</div>`}
+              </div>
             </section>
           ` : `
             <label class="opportunity-search crm-tracking-search">
@@ -7920,6 +7913,12 @@ function renderCommercialSubmenu(area) {
       state.crmWonDateFrom = "";
       state.crmWonDateTo = "";
       renderCommercialSubmenu(areas.comercializacion);
+    });
+    opportunityTable.querySelectorAll("[data-crm-won-quotation]").forEach((button) => {
+      button.addEventListener("click", () => openQuotationDialog(
+        button.dataset.crmWonQuotation,
+        button.dataset.crmWonQuotationId
+      ));
     });
     opportunityTable.querySelectorAll("[data-crm-won-order]").forEach((button) => {
       button.addEventListener("click", () => openCrmWonOrder(button.dataset.crmWonOrder));
