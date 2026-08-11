@@ -3409,17 +3409,36 @@ async function loadQuotations() {
 
 function controlSalesResponsibleSeller(order = {}) {
   const financialOrder = state.financialOrders?.find((item) => String(item.id || "") === String(order.financialOrderId || ""));
+  const opportunities = getOpportunitySubmenu().items;
   const sourceIds = new Set([
     order.sourceOpportunityId,
     financialOrder?.sourceOpportunityId,
     financialOrder?.crmOpportunityId
   ].map((value) => String(value || "")).filter(Boolean));
-  const opportunity = getOpportunitySubmenu().items.find((item) => (
+  const opportunity = opportunities.find((item) => (
     [item.id, item.crmOpportunityId, item.sourceOpportunityId]
       .map((value) => String(value || ""))
       .some((value) => value && sourceIds.has(value))
   ));
-  return opportunity?.seller || financialOrder?.seller || order.seller || "Sin vendedor";
+  if (opportunity?.seller) return opportunity.seller;
+
+  // Algunas ordenes historicas no conservaron el identificador de la oportunidad.
+  // En esos casos recuperamos al vendedor comercial por el cliente de origen.
+  const clientKey = normalizeBusinessMatch(order.client || financialOrder?.client || "");
+  const clientMatches = clientKey
+    ? opportunities
+      .filter((item) => normalizeBusinessMatch(item.company || item.client || "") === clientKey && item.seller)
+      .sort((a, b) => {
+        const wonDifference = Number(closureResult(b)?.result === "ganado") - Number(closureResult(a)?.result === "ganado");
+        if (wonDifference) return wonDifference;
+        const dateA = closureResult(a)?.date || a.updatedAt || a.date || "";
+        const dateB = closureResult(b)?.date || b.updatedAt || b.date || "";
+        return String(dateB).localeCompare(String(dateA));
+      })
+    : [];
+  if (clientMatches[0]?.seller) return clientMatches[0].seller;
+
+  return financialOrder?.seller || order.seller || "Sin vendedor";
 }
 
 function approvalControlSalesOrders() {
@@ -3612,7 +3631,7 @@ function commercialApprovalSignatureMarkup(order, compact = false) {
     <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
     <div class="commercial-electronic-signature__copy">
       <small>Firma electrónica validada</small>
-      <strong>${escapeHtml(controlSalesResponsibleSeller(order) || "Gerencia de Comercialización")}</strong>
+      <strong>${escapeHtml(order.commercialApprovedBy || "Gerencia de Comercialización")}</strong>
       <span>${escapeHtml(formatCommercialApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</span>
     </div>
     <code>${escapeHtml(commercialApprovalFolio(order))}</code>
