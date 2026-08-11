@@ -269,6 +269,8 @@ const state = {
   onlineUsers: [],
   opportunityFilter: null,
   opportunityCycleView: "active",
+  opportunityMainStatusFilter: "active",
+  opportunityMainResultFilter: "pending",
   opportunityPage: 1,
   opportunitySearch: "",
   opportunityClosedDateFrom: "2026-07-01",
@@ -7529,8 +7531,8 @@ function openOpportunityReportDialog() {
   dialog.innerHTML = `<form method="dialog" class="opportunity-report-form">
     <header><div><span>Reporte gerencial</span><h3>Configurar reporte de oportunidades</h3><p>Seleccione las variables que desea incluir antes de imprimir o guardar en PDF.</p></div><button type="button" data-report-close aria-label="Cerrar">×</button></header>
     <div class="opportunity-report-filter-grid">
-      <label><span>Estado de oportunidad</span><select name="status"><option value="all">Todas</option><option value="active" ${state.opportunityCycleView !== "closed" ? "selected" : ""}>En venta / pendientes</option><option value="closed" ${state.opportunityCycleView === "closed" ? "selected" : ""}>Cerradas</option></select></label>
-      <label><span>Resultado</span><select name="result"><option value="all">Todos</option><option value="pending">Pendientes</option><option value="won">Ganadas</option><option value="lost">Perdidas</option></select></label>
+      <label><span>Estado de oportunidad</span><select name="status"><option value="all" ${state.opportunityMainStatusFilter === "all" ? "selected" : ""}>Todas</option><option value="active" ${state.opportunityMainStatusFilter === "active" ? "selected" : ""}>En venta / pendientes</option><option value="closed" ${state.opportunityMainStatusFilter === "closed" ? "selected" : ""}>Cerradas</option></select></label>
+      <label><span>Resultado</span><select name="result"><option value="all" ${state.opportunityMainResultFilter === "all" ? "selected" : ""}>Todos</option><option value="pending" ${state.opportunityMainResultFilter === "pending" ? "selected" : ""}>Pendientes</option><option value="won" ${state.opportunityMainResultFilter === "won" ? "selected" : ""}>Ganadas</option><option value="lost" ${state.opportunityMainResultFilter === "lost" ? "selected" : ""}>Perdidas</option></select></label>
       <label><span>Desde</span><input type="date" name="dateFrom"></label><label><span>Hasta</span><input type="date" name="dateTo"></label>
       <label><span>Vendedor</span><select name="seller"><option value="">Todos</option>${optionMarkup(uniqueOptions(items.map((item) => item.seller)))}</select></label>
       <label><span>Etapa</span><select name="stage"><option value="">Todas</option>${optionMarkup(uniqueOptions(items.map((item) => item.stage)))}</select></label>
@@ -7978,14 +7980,20 @@ function renderCommercialSubmenu(area) {
   const closedTotalAmount = filteredClosedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   const wonClosedAmount = wonClosedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   const lostClosedAmount = lostClosedRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
-  const isClosedView = state.opportunityCycleView === "closed";
-  const displayRows = state.opportunityCycleView === "history"
-    ? historyRows
-    : (isClosedView ? closedRowsByResult : filteredActiveRows);
+  const mainStatus = state.opportunityMainStatusFilter || "active";
+  const mainResult = state.opportunityMainResultFilter || "pending";
+  const isClosedView = mainStatus === "closed";
+  const statusRows = mainStatus === "active"
+    ? filteredActiveRows
+    : mainStatus === "closed" ? filteredClosedRows : [...filteredActiveRows, ...filteredClosedRows];
+  const displayRows = statusRows.filter(({ result }) => (
+    mainResult === "all"
+    || (mainResult === "pending" && !result)
+    || (mainResult === "won" && result?.result === "ganado")
+    || (mainResult === "lost" && result && result.result !== "ganado")
+  ));
   const visibleTotal = displayRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
-  opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
-    isClosedView ? visibleTotal : filteredActiveRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0)
-  );
+  opportunityTotalAmount.querySelector("strong").textContent = formatMoney(visibleTotal);
   const effectivePageSize = isClosedView ? 5 : opportunityManagementPageSize;
   const pageCount = Math.max(1, Math.ceil(displayRows.length / effectivePageSize));
   state.opportunityPage = Math.min(Math.max(Number(state.opportunityPage) || 1, 1), pageCount);
@@ -8007,14 +8015,28 @@ function renderCommercialSubmenu(area) {
     ${resultView === "dashboard" ? renderCycleDashboard(opportunitySubmenu.items) : resultView === "history" ? renderHistoryList(historyRows) : `
     <section class="opportunity-cycle-toolbar" aria-label="Vista de oportunidades">
       <div class="opportunity-cycle-tabs" role="tablist" aria-label="Estado del ciclo comercial">
-        <button class="${isClosedView ? "" : "active"}" type="button" role="tab" data-cycle-view="active" aria-selected="${!isClosedView}">
+        <button class="${mainStatus === "active" ? "active" : ""}" type="button" role="tab" data-cycle-view="active" aria-selected="${mainStatus === "active"}">
           En venta <b>${filteredActiveRows.length}</b>
         </button>
-        <button class="${isClosedView ? "active closed" : ""}" type="button" role="tab" data-cycle-view="closed" aria-selected="${isClosedView}">
+        <button class="${mainStatus === "closed" ? "active closed" : ""}" type="button" role="tab" data-cycle-view="closed" aria-selected="${mainStatus === "closed"}">
           Cerradas <b>${filteredClosedRows.length}</b>
         </button>
       </div>
       <button class="opportunity-report-launch" type="button" data-opportunity-report><span aria-hidden="true">🖨</span> Reporte</button>
+      <div class="opportunity-main-filters" aria-label="Filtros principales de oportunidades">
+        <label><span>Estado de oportunidad</span><select data-main-opportunity-status>
+          <option value="active" ${mainStatus === "active" ? "selected" : ""}>En venta / pendientes</option>
+          <option value="closed" ${mainStatus === "closed" ? "selected" : ""}>Cerradas</option>
+          <option value="all" ${mainStatus === "all" ? "selected" : ""}>Todas</option>
+        </select></label>
+        <label><span>Resultado</span><select data-main-opportunity-result>
+          <option value="pending" ${mainResult === "pending" ? "selected" : ""}>Pendientes</option>
+          <option value="won" ${mainResult === "won" ? "selected" : ""}>Ganadas</option>
+          <option value="lost" ${mainResult === "lost" ? "selected" : ""}>Perdidas</option>
+          <option value="all" ${mainResult === "all" ? "selected" : ""}>Todos</option>
+        </select></label>
+        <div><span>Métrica filtrada</span><strong>${displayRows.length} oportunidades · ${formatMoney(visibleTotal)}</strong></div>
+      </div>
       ${isClosedView ? `
         <div class="opportunity-closed-filters">
           <label>
@@ -10502,6 +10524,8 @@ opportunityTable.addEventListener("click", (event) => {
   const cycleButton = event.target.closest("[data-cycle-view]");
   if (cycleButton) {
     state.opportunityCycleView = cycleButton.dataset.cycleView;
+    state.opportunityMainStatusFilter = cycleButton.dataset.cycleView;
+    state.opportunityMainResultFilter = cycleButton.dataset.cycleView === "active" ? "pending" : "all";
     state.opportunityPage = 1;
     renderCommercialSubmenu(areas[state.activeArea]);
     return;
@@ -10615,6 +10639,19 @@ opportunityTable.addEventListener("click", (event) => {
 });
 
 opportunityTable.addEventListener("change", (event) => {
+  if (event.target.matches("[data-main-opportunity-status]")) {
+    state.opportunityMainStatusFilter = event.target.value;
+    state.opportunityCycleView = event.target.value === "closed" ? "closed" : "active";
+    state.opportunityPage = 1;
+    renderCommercialSubmenu(areas[state.activeArea]);
+    return;
+  }
+  if (event.target.matches("[data-main-opportunity-result]")) {
+    state.opportunityMainResultFilter = event.target.value;
+    state.opportunityPage = 1;
+    renderCommercialSubmenu(areas[state.activeArea]);
+    return;
+  }
   if (event.target.matches("[data-opportunity-closed-from]")) {
     state.opportunityClosedDateFrom = event.target.value;
   } else if (event.target.matches("[data-opportunity-closed-to]")) {

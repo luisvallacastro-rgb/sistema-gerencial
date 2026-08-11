@@ -18760,3 +18760,23 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   dialog,
   dialog.wide-dialog { width: calc(100vw - 20px) !important; max-width: calc(100vw - 20px) !important; max-height: calc(100dvh - 20px) !important; }
 }
+
+
+.app-shell .opportunity-main-filters {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(230px, 1fr) minmax(210px, 1fr) minmax(260px, auto);
+  align-items: end;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(113, 227, 206, .16);
+}
+
+.app-shell .opportunity-main-filters label,
+.app-shell .opportunity-main-filters > div { display: grid; gap: 6px; }
+.app-shell .opportunity-main-filters span { color: #69e9cd; font-size: .7rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+.app-shell .opportunity-main-filters select { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid rgba(132, 167, 214, .4); border-radius: 12px; color: var(--text); background: rgba(31, 58, 93, .78); font: inherit; font-weight: 780; }
+.app-shell .opportunity-main-filters > div { min-height: 42px; padding: 7px 13px; border: 1px solid rgba(102, 235, 206, .26); border-radius: 12px; background: rgba(20, 91, 91, .2); }
+.app-shell .opportunity-main-filters strong { color: #6de9ce; font-size: .94rem; }
+
+@media (max-width: 900px) { .app-shell .opportunity-main-filters { grid-template-columns: 1fr 1fr; } .app-shell .opportunity-main-filters > div { grid-column: 1 / -1; } }
