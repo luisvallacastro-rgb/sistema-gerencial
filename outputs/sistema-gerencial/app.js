@@ -7240,11 +7240,21 @@ function renderCrmTracking() {
   const controlSalesByOpportunityId = new Map(state.controlSales
     .filter((order) => order.sourceOpportunityId && !order.archived)
     .map((order) => [String(order.sourceOpportunityId), order]));
-  // Las migradas dejan de formar parte del pipeline vigente, pero permanecen
-  // visibles en Seguimiento como referencia operativa y bitácora del vendedor.
-  const visibleOpportunities = sellerOpportunities.filter((opportunity) => (
-    !isCrmArchivedOpportunity(opportunity) || Boolean(opportunity.migratedToResults)
-  ));
+  // Las migradas pendientes permanecen visibles para seguimiento. Cuando
+  // Gerencia registra un cierre, salen de esta vista y quedan en el historico.
+  const closedCrmOpportunityIds = new Set(resultClosures
+    .map((item) => String(item.crmOpportunityId || ""))
+    .filter(Boolean));
+  const closedOpportunityKeys = new Set(resultClosures.map((item) => (
+    `${normalizeBusinessMatch(item.company)}::${crmIdentityKey(item.seller)}`
+  )));
+  const visibleOpportunities = sellerOpportunities.filter((opportunity) => {
+    const isClosed = closedCrmOpportunityIds.has(String(opportunity.id || ""))
+      || closedOpportunityKeys.has(`${normalizeBusinessMatch(opportunity.company)}::${crmIdentityKey(crmOwnerName(opportunity.ownerId))}`);
+    return !isClosed && (
+      !isCrmArchivedOpportunity(opportunity) || Boolean(opportunity.migratedToResults)
+    );
+  });
   const sellerButtons = sellers.map((seller) => {
     const active = crmActiveOpportunitiesForSeller(seller.id);
     const activeTotal = active.reduce((sum, opp) => sum + Number(opp.estimatedAmount || 0), 0);
