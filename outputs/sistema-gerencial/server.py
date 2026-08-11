@@ -1560,6 +1560,48 @@ def production_schedule_payload(row):
     }
 
 
+def remove_production_schedule_links(conn, order_ids=None, order_numbers=None, opportunity_ids=None, quotation_ids=None):
+    """Remove deleted commercial records from denormalized production groups."""
+    order_ids = {text(value) for value in (order_ids or []) if text(value)}
+    order_numbers = {text(value).upper() for value in (order_numbers or []) if text(value)}
+    opportunity_ids = {text(value) for value in (opportunity_ids or []) if text(value)}
+    quotation_ids = {text(value) for value in (quotation_ids or []) if text(value)}
+    removed_items = 0
+    removed_groups = 0
+    updated_groups = 0
+    for row in conn.execute("SELECT id, items FROM production_schedule").fetchall():
+        try:
+            items = json.loads(row["items"] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            items = []
+        retained = []
+        for item in items if isinstance(items, list) else []:
+            linked = (
+                text(item.get("orderId")) in order_ids
+                or text(item.get("orderNumber")).upper() in order_numbers
+                or text(item.get("opportunityId")) in opportunity_ids
+                or text(item.get("sourceOpportunityId")) in opportunity_ids
+                or text(item.get("quotationId")) in quotation_ids
+                or text(item.get("sourceQuotationId")) in quotation_ids
+            )
+            if linked:
+                removed_items += 1
+            else:
+                retained.append(item)
+        if len(retained) == len(items):
+            continue
+        if retained:
+            conn.execute(
+                "UPDATE production_schedule SET items = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (json.dumps(retained, ensure_ascii=False), row["id"]),
+            )
+            updated_groups += 1
+        else:
+            conn.execute("DELETE FROM production_schedule WHERE id = ?", (row["id"],))
+            removed_groups += 1
+    return {"items": removed_items, "groups": removed_groups, "updatedGroups": updated_groups}
+
+
 def save_production_schedule(conn, data, existing=None):
     production_date = text(data.get("productionDate"), existing["productionDate"] if existing else "")
     production_end_date = text(data.get("productionEndDate"), existing["productionEndDate"] if existing else production_date)
@@ -2333,6 +2375,79 @@ def purge_luis_valladares_test_flow_once(conn):
     print(f"Limpieza de prueba Luis Valladares completada: {summary}")
 
 
+def purge_orphaned_test_orders_0293_0294_once(conn):
+    """Erase the two deleted test flows from every persisted application layer."""
+    marker_key = "maintenance.purge-test-orders-op0293-op0294.2026-08-11.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+
+    target_numbers = {"OP-0293", "OP-0294", "0293", "0294"}
+    rows = conn.execute("""
+        SELECT id, financial_order_id, source_opportunity_id, source_quotation_id, order_number
+        FROM control_sales_orders
+        WHERE upper(trim(order_number)) IN ('OP-0293', 'OP-0294', '0293', '0294')
+    """).fetchall()
+    order_ids = {text(row["id"]) for row in rows if text(row["id"])}
+    financial_ids = {text(row["financial_order_id"]) for row in rows if text(row["financial_order_id"])}
+    result_ids = {text(row["source_opportunity_id"]) for row in rows if text(row["source_opportunity_id"])}
+    quotation_ids = {text(row["source_quotation_id"]) for row in rows if text(row["source_quotation_id"])}
+
+    result_rows = read_result_opportunities(conn)
+    removed_results = [item for item in result_rows if text(item.get("id")) in result_ids or text(item.get("quotationId")) in quotation_ids]
+    result_ids.update(text(item.get("id")) for item in removed_results if text(item.get("id")))
+    crm_ids = {text(item.get("crmOpportunityId")) for item in removed_results if text(item.get("crmOpportunityId"))}
+    if quotation_ids:
+        placeholders = ",".join("?" for _ in quotation_ids)
+        quote_rows = conn.execute(
+            f"SELECT id, opportunity_id, converted_order_id FROM quotations WHERE id IN ({placeholders})",
+            tuple(quotation_ids),
+        ).fetchall()
+        crm_ids.update(text(row["opportunity_id"]) for row in quote_rows if text(row["opportunity_id"]))
+        financial_ids.update(text(row["converted_order_id"]) for row in quote_rows if text(row["converted_order_id"]))
+
+    production_summary = remove_production_schedule_links(
+        conn,
+        order_ids=order_ids,
+        order_numbers=target_numbers,
+        opportunity_ids=result_ids | crm_ids,
+        quotation_ids=quotation_ids,
+    )
+    if order_ids:
+        placeholders = ",".join("?" for _ in order_ids)
+        conn.execute(f"DELETE FROM control_sales_audit WHERE order_id IN ({placeholders})", tuple(order_ids))
+        conn.execute(f"DELETE FROM control_sales_details WHERE order_id IN ({placeholders})", tuple(order_ids))
+        conn.execute(f"DELETE FROM control_sales_orders WHERE id IN ({placeholders})", tuple(order_ids))
+    if financial_ids:
+        placeholders = ",".join("?" for _ in financial_ids)
+        conn.execute(f"DELETE FROM financial_orders WHERE id IN ({placeholders})", tuple(financial_ids))
+    if result_ids:
+        placeholders = ",".join("?" for _ in result_ids)
+        conn.execute(f"DELETE FROM financial_orders WHERE source_opportunity_id IN ({placeholders})", tuple(result_ids))
+    if quotation_ids:
+        placeholders = ",".join("?" for _ in quotation_ids)
+        conn.execute(f"DELETE FROM quotations WHERE id IN ({placeholders})", tuple(quotation_ids))
+
+    write_result_opportunities(conn, [item for item in result_rows if text(item.get("id")) not in result_ids])
+    crm = read_crm_data(conn)
+    crm["opportunities"] = [item for item in crm.get("opportunities", []) if text(item.get("id")) not in crm_ids and text(item.get("resultOpportunityId")) not in result_ids]
+    crm["agenda"] = [item for item in crm.get("agenda", []) if text(item.get("opportunityId")) not in crm_ids]
+    crm["gestiones"] = [item for item in crm.get("gestiones", []) if text(item.get("opportunityId")) not in crm_ids]
+    crm["resultWins"] = [item for item in crm.get("resultWins", []) if text(item.get("id")) not in result_ids and text(item.get("crmOpportunityId")) not in crm_ids]
+    write_crm_data(conn, crm)
+
+    summary = {
+        "orders": len(order_ids), "financialOrders": len(financial_ids),
+        "quotations": len(quotation_ids), "opportunities": len(result_ids),
+        "crmOpportunities": len(crm_ids), "production": production_summary,
+        "executedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps(summary, ensure_ascii=True)),
+    )
+    print(f"Limpieza integral OP-0293/OP-0294 completada: {summary}")
+
+
 def repair_edgar_admin_seller_assignments_once(conn):
     """Remove the administrative Edgar profile and reconcile every persisted sales layer."""
     marker_key = "maintenance.repair-edgar-admin-seller.2026-08-10.v2"
@@ -2750,6 +2865,7 @@ def init_db():
                 permissions.append(permission)
                 conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions), row["id"]))
         purge_luis_valladares_test_flow_once(conn)
+        purge_orphaned_test_orders_0293_0294_once(conn)
         repair_edgar_admin_seller_assignments_once(conn)
 
 
@@ -3591,11 +3707,12 @@ class AppHandler(BaseHTTPRequestHandler):
                     (quotation_id,),
                 ).fetchone() if quotation_id else None
                 linked_orders = conn.execute("""
-                    SELECT id, financial_order_id FROM control_sales_orders
+                    SELECT id, financial_order_id, order_number FROM control_sales_orders
                     WHERE source_opportunity_id = ? OR source_quotation_id = ?
                 """, (opportunity_id, quotation_id)).fetchall()
 
                 linked_order_ids = [text(row["id"]) for row in linked_orders if text(row["id"])]
+                linked_order_numbers = [text(row["order_number"]) for row in linked_orders if text(row["order_number"])]
                 linked_financial_ids = {
                     text(row["financial_order_id"])
                     for row in linked_orders
@@ -3603,6 +3720,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 }
                 if quotation and text(quotation["converted_order_id"]):
                     linked_financial_ids.add(text(quotation["converted_order_id"]))
+                remove_production_schedule_links(
+                    conn,
+                    order_ids=linked_order_ids,
+                    order_numbers=linked_order_numbers,
+                    opportunity_ids=[opportunity_id],
+                    quotation_ids=[quotation_id],
+                )
                 if linked_order_ids:
                     placeholders = ",".join("?" for _ in linked_order_ids)
                     conn.execute(

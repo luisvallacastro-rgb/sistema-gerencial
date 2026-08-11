@@ -359,3 +359,22 @@ body {
     display: none;
   }
 }
+
+
+/* Paginación explícita carta v5 */
+.sheet { width: 216mm; min-height: 0; padding: 0; background: transparent; box-shadow: none; }
+.print-pages { display: grid; gap: 18px; }
+.print-page { position: relative; width: 216mm; min-height: 279mm; padding: 8mm 11mm 9mm; background: #fff; box-shadow: 0 18px 55px rgba(25, 38, 61, .18); }
+.continuation-head { display: flex; align-items: center; justify-content: space-between; min-height: 18mm; margin-bottom: 3mm; padding: 0 4mm; border: 1px solid #aeb7c7; border-radius: 6px; color: #27344b; }
+.continuation-head div { display: grid; gap: 3px; }
+.continuation-head strong { font-size: 14px; }
+.continuation-head span, .continuation-head b { font-size: 10px; }
+.page-number { position: absolute; right: 11mm; bottom: 4mm; color: #6d7788; font-size: 8px; font-weight: 700; }
+.items tr, .closing, .strategy-row, .electronic-signatures-print, .signatures { break-inside: avoid; page-break-inside: avoid; }
+
+@media print {
+  .print-pages { display: block; }
+  .print-page { width: auto; min-height: 0; margin: 0; padding: 0; background: #fff; box-shadow: none; break-after: page; page-break-after: always; }
+  .print-page:last-child { break-after: auto; page-break-after: auto; }
+  .page-number { right: 0; bottom: -5mm; }
+}
