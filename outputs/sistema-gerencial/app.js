@@ -7275,26 +7275,21 @@ function renderCrmTracking() {
     const quotationAction = quotationCount ? `Ver o editar cotización (${quotationCount})` : "Crear cotización";
     const resultAction = migrated ? "Migrado a Oportunidades / Gerencia" : "Migrar a Oportunidades / Gerencia";
     return `
-      <article class="crm-tracking-card ${migrated ? "is-migrated" : ""}" data-crm-opportunity="${opp.id}">
-        <div>
-          <span>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)}${migrated ? "" : ` - ${escapeHtml(opp.status || "Vigente")}`}</span>
-          <strong>${escapeHtml(opp.company)}</strong>
-          <p>${escapeHtml(opp.product || "Producto pendiente")}</p>
+      <article class="crm-tracking-card crm-tracking-list-row ${migrated ? "is-migrated" : ""}" data-crm-opportunity="${opp.id}">
+        <div class="crm-tracking-list-stage"><small>Etapa</small><strong>${escapeHtml(opp.stage?.name || `${opp.stageId}. Etapa`)}</strong></div>
+        <div class="crm-tracking-list-client"><small>Empresa / oportunidad</small><strong>${escapeHtml(opp.company)}</strong><p>${escapeHtml(opp.product || "Producto pendiente")}</p></div>
+        <div class="crm-tracking-list-amount"><small>Monto</small><strong>${formatMoney(opp.estimatedAmount || 0)}</strong></div>
+        <div class="crm-tracking-list-probability"><small>Cierre</small><strong>${opp.closePercent || 0}%</strong></div>
+        <div class="crm-tracking-list-status"><small>Estado</small><span class="${migrated ? "is-migrated" : "is-active"}">${migrated ? "Migrada · pendiente" : escapeHtml(opp.status || "Vigente")}</span></div>
+        <div class="crm-tracking-card-actions" aria-label="Acciones de la oportunidad">
+          <button class="crm-card-icon-action is-quotation" type="button" data-crm-quotation="${opp.id}" aria-label="${quotationAction}" title="${quotationAction}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4V20.5H7z"></path><path d="M14 3.5v4h4M9.5 11h6M9.5 14h6M9.5 17h3.5"></path></svg>
+            <span class="crm-card-action-badge">${quotationCount || "+"}</span>
+          </button>
+          <button class="crm-card-icon-action is-result ${migrated ? "is-complete" : ""}" type="button" data-crm-migrate="${opp.id}" aria-label="${resultAction}" title="${resultAction}" ${migrated ? "disabled" : ""}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">${migrated ? `<path d="M5 12.5l4.2 4.2L19 7"></path>` : `<path d="M4 12h14M13 6l6 6-6 6"></path>`}</svg>
+          </button>
         </div>
-        <footer>
-          <strong>${formatMoney(opp.estimatedAmount || 0)}</strong>
-          <span>${opp.closePercent || 0}% cierre</span>
-          <div class="crm-tracking-card-actions" aria-label="Acciones de la oportunidad">
-            <button class="crm-card-icon-action is-quotation" type="button" data-crm-quotation="${opp.id}" aria-label="${quotationAction}" title="${quotationAction}">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4V20.5H7z"></path><path d="M14 3.5v4h4M9.5 11h6M9.5 14h6M9.5 17h3.5"></path></svg>
-              <span class="crm-card-action-badge">${quotationCount || "+"}</span>
-            </button>
-            <button class="crm-card-icon-action is-result ${migrated ? "is-complete" : ""}" type="button" data-crm-migrate="${opp.id}" aria-label="${resultAction}" title="${resultAction}" ${migrated ? "disabled" : ""}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">${migrated ? `<path d="M5 12.5l4.2 4.2L19 7"></path>` : `<path d="M4 12h14M13 6l6 6-6 6"></path>`}</svg>
-              ${migrated ? `<mark class="crm-migration-tab" role="status">Migrado</mark>` : ""}
-            </button>
-          </div>
-        </footer>
       </article>
     `;
   }).join("");
@@ -7373,7 +7368,10 @@ function renderCrmTracking() {
               <span aria-hidden="true">⌕</span>
               <input type="search" data-crm-tracking-search value="${escapeHtml(state.crmSearch)}" placeholder="Buscar empresa, etapa, estatus o producto..." autocomplete="off">
             </label>
-            <div class="crm-tracking-grid">${opportunityCards || `<div class="empty-state">No hay oportunidades para este filtro.</div>`}</div>
+            <div class="crm-tracking-grid crm-tracking-list">
+              <div class="crm-tracking-list-head" aria-hidden="true"><span>Etapa</span><span>Empresa / oportunidad</span><span>Monto</span><span>Cierre</span><span>Estado</span><span>Acciones</span></div>
+              ${opportunityCards || `<div class="empty-state">No hay oportunidades para este filtro.</div>`}
+            </div>
           `}
         </section>
       </div>
