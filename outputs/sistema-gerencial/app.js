@@ -2928,10 +2928,16 @@ function wireProductionSchedule() {
   }));
 }
 
+function controlSalesIsConfirmed(order) {
+  // Las ventas históricas importadas no participaron en el flujo de firmas.
+  // Toda orden nueva requiere los dos vistos buenos antes de contabilizarse.
+  return order?.source === "importado" || order?.financeApprovalStatus === "Aprobada";
+}
+
 function controlSalesFilteredRows() {
   const selectedPeriod = `${state.controlSalesPeriodYear}-${state.controlSalesPeriodMonth}`;
   return state.controlSales.filter((order) => {
-    if (order.archived) return false;
+    if (order.archived || !controlSalesIsConfirmed(order)) return false;
     return String(order.date || "").slice(0, 7) === selectedPeriod;
   }).sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
 }
