@@ -17586,6 +17586,14 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   grid-template-columns: minmax(0, 1fr) !important;
   justify-items: start;
 }
+.app-shell .dashboard.opportunity-focus .company-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
 .app-shell .dashboard.opportunity-focus .company-cell .closure-badge {
   width: max-content;
   min-height: 20px;

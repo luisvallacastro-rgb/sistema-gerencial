@@ -8200,10 +8200,12 @@ function renderCommercialSubmenu(area) {
           <span>${formatDate(item.date)}</span>
           <strong class="company-cell">
             <span class="company-name">${item.company}</span>
-            ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
-            ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
-            ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}" ${isPendingOrder ? 'title="La venta está ganada y falta convertir la cotización en orden de pedido"' : ""}>${isPendingOrder ? "Ganada · pendiente de orden" : (result.result === "ganado" ? "Ganada" : "Perdida")}</span>` : ""}
-            ${hasOutstandingSamples(item) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}
+            <span class="company-badges">
+              ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
+              ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
+              ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}" ${isPendingOrder ? 'title="La venta está ganada y falta convertir la cotización en orden de pedido"' : ""}>${isPendingOrder ? "Ganada · pendiente de orden" : (result.result === "ganado" ? "Ganada" : "Perdida")}</span>` : ""}
+              ${hasOutstandingSamples(item) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}
+            </span>
           </strong>
           <span>${item.seller}</span>
           <span>${item.stage}</span>
