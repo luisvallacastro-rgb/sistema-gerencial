@@ -585,7 +585,9 @@ def result_opportunity_from_crm(data, opportunity, quotation=None):
         "date": date,
         "time": local_now.strftime("%H:%M"),
         "company": text((quotation or {}).get("client"), opportunity.get("company") or "Cliente CRM"),
-        "seller": text((quotation or {}).get("seller"), owner.get("name") or "Vendedor CRM"),
+        # El vendedor pertenece a la oportunidad. La cotizacion puede haber sido
+        # creada o gestionada por otro usuario y no debe cambiar su responsable.
+        "seller": text(owner.get("name"), (quotation or {}).get("seller") or "Vendedor CRM"),
         "contact": text(customer.get("contactName"), opportunity.get("contact") or opportunity.get("responsible")),
         "phone": text(customer.get("phone"), opportunity.get("phone")),
         "segment": " · ".join(product_lines[:2]) or text(opportunity.get("segment"), opportunity.get("product")),
@@ -680,6 +682,14 @@ def ensure_quotation_result_opportunities(conn, data, opportunity, result_items)
             result_items.insert(0, result)
             changed = True
         if sync_result_with_latest_quotation(conn, result):
+            changed = True
+        owner = next((
+            item for item in data.get("users", [])
+            if text(item.get("id")) == text(opportunity.get("ownerId"))
+        ), {})
+        responsible_seller = text(owner.get("name"))
+        if responsible_seller and text(result.get("seller")) != responsible_seller:
+            result["seller"] = responsible_seller
             changed = True
         linked.append(result)
     return linked, changed
