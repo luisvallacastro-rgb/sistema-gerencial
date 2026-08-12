@@ -7808,21 +7808,20 @@ function renderCrmClients() {
       <div class="crm-customer-toolbar">
         <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar cliente, contacto, NIT, teléfono o ubicación..."></label>
         <label class="crm-customer-filter">Estado<select data-crm-customer-status><option value="active" ${status === "active" ? "selected" : ""}>Activos</option><option value="archived" ${status === "archived" ? "selected" : ""}>Archivados</option><option value="all" ${status === "all" ? "selected" : ""}>Todos</option></select></label>
-        <div class="crm-customer-result"><strong>${clients.length}</strong><span>resultados</span></div>
+        <div class="crm-customer-result"><strong>${clients.length}</strong><span>clientes</span></div>
       </div>
       <div class="crm-customer-table-wrap"><div class="crm-customer-table">
-        <div class="crm-customer-row crm-customer-head"><span>Código</span><span>Cliente / razón social</span><span>Contacto</span><span>Información comercial</span><span>Calidad de ficha</span><span>Acciones</span></div>
+        <div class="crm-customer-row crm-customer-head"><span>Cliente</span><span>Contacto</span><span>Ubicación</span><span>Estado</span><span>Acciones</span></div>
         ${pageRows.map((client) => {
           const score = completeness(client);
           const linked = linkedCounts.get(String(client.id)) || linkedNames.get(normalizeKey(client.commercialName || client.legalName || "")) || 0;
           return `
           <article class="crm-customer-row">
-            <span class="crm-customer-code">${escapeHtml(client.customerCode || "S/C")}</span>
-            <span><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName || "Razón social pendiente")}</small><em>${linked} oportunidad${linked === 1 ? "" : "es"}</em></span>
-            <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || "Sin teléfono")}</small><small>${escapeHtml(client.email || "Sin correo")}</small></span>
-            <span><strong>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</strong><small>NIT: ${escapeHtml(client.taxId || "pendiente")}</small><small>${escapeHtml(client.department || client.address || "Ubicación pendiente")}</small></span>
-            <span class="crm-customer-quality"><strong>${score}%</strong><i><b style="width:${score}%"></b></i><small>${score >= 80 ? "Ficha lista" : "Completar información"}</small></span>
-            <span class="crm-row-actions"><button type="button" data-crm-customer-edit="${escapeHtml(client.id)}">Ver / editar</button>${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}">Restaurar</button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}">Archivar</button>`}</span>
+            <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.customerCode || "Sin código"))}</small></span>
+            <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
+            <span><strong>${escapeHtml(client.department || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
+            <span class="crm-customer-status"><b class="${score >= 80 ? "complete" : "pending"}">${score >= 80 ? "Completa" : `${score}% · Incompleta`}</b><small>${linked} oportunidad${linked === 1 ? "" : "es"}</small></span>
+            <span class="crm-row-actions"><button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar">✎</button>${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar">↻</button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar">⌫</button>`}</span>
           </article>
         `}).join("") || `<div class="empty-state">No hay clientes que coincidan con esta vista.</div>`}
       </div></div>
