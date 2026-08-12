@@ -6696,7 +6696,7 @@ async function migrateCrmOpportunityToResults(opportunityId, trigger = null) {
 }
 
 async function returnOpportunityToFollowup(item, trigger = null) {
-  if (!item?.crmOpportunityId) return;
+  if (!item?.id && !item?.crmOpportunityId) return;
   const confirmed = confirm(
     `¿Volver “${item.company}” a Seguimiento?\n\n` +
     "Se retirará de Oportunidades / Gerencia y volverá a quedar activa en Seguimiento. " +
@@ -6711,7 +6711,7 @@ async function returnOpportunityToFollowup(item, trigger = null) {
   }
   try {
     const payload = await apiJson(
-      `/api/crm/opportunities/${encodeURIComponent(item.crmOpportunityId)}/return-to-followup`,
+      `/api/crm/opportunities/${encodeURIComponent(item.crmOpportunityId || item.id)}/return-to-followup`,
       {
         method: "POST",
         headers: { "X-System-User-Id": state.currentUser?.id || "" },
@@ -8499,7 +8499,7 @@ function renderCommercialSubmenu(area) {
               <span aria-hidden="true">🗑️</span>
             </button>
           ` : ""}
-          ${canManageMigratedOpportunityLifecycle() && item.crmOpportunityId && !isHistory ? `
+          ${canManageMigratedOpportunityLifecycle() && !isHistory ? `
             <button class="action-icon-btn return-followup" type="button" data-action="return-followup" data-id="${item.id}" aria-label="Volver a Seguimiento" title="Volver a Seguimiento">
               <span aria-hidden="true">↩️</span>
             </button>

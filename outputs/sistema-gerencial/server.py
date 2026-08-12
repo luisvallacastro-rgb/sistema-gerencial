@@ -432,6 +432,79 @@ def repair_result_opportunity_origin_links(conn, data):
     return changed
 
 
+def ensure_result_opportunity_origin(data, result):
+    """Return/create the CRM origin for an active legacy Gerencia row."""
+    result_id = text(result.get("id"))
+    current_id = text(result.get("crmOpportunityId"))
+    opportunities = data.setdefault("opportunities", [])
+    current = next((item for item in opportunities if text(item.get("id")) == current_id), None)
+    if current:
+        return current
+
+    users_by_id = {text(item.get("id")): item for item in data.get("users", [])}
+    result_company = crm_identity_key(result.get("company"))
+    result_seller = crm_identity_key(result.get("seller"))
+    candidates = []
+    for opportunity in opportunities:
+        owner = users_by_id.get(text(opportunity.get("ownerId")), {})
+        if crm_identity_key(owner.get("name")) != result_seller:
+            continue
+        if crm_identity_key(opportunity.get("company")) == result_company:
+            candidates.append(opportunity)
+    opportunity = next((item for item in candidates if text(item.get("resultOpportunityId")) == result_id), None)
+    if not opportunity and len(candidates) == 1:
+        opportunity = candidates[0]
+
+    if not opportunity:
+        owners = [
+            item for item in data.get("users", [])
+            if crm_identity_key(item.get("name")) == result_seller
+        ]
+        if len(owners) != 1:
+            return None
+        stage_name = text(result.get("stage"), "Prospeccion")
+        stage = next((
+            item for item in data.get("stages", [])
+            if crm_identity_key(item.get("name")) == crm_identity_key(stage_name)
+        ), {})
+        base_id = crm_key(result_id or result.get("company")) or str(int(time.time() * 1000))
+        synthetic_id = f"opp-restored-{base_id}"
+        suffix = 2
+        used_ids = {text(item.get("id")) for item in opportunities}
+        while synthetic_id in used_ids:
+            synthetic_id = f"opp-restored-{base_id}-{suffix}"
+            suffix += 1
+        opportunity = normalize_crm_opportunity({
+            "company": result.get("company"),
+            "contact": result.get("contact"),
+            "phone": result.get("phone"),
+            "segment": result.get("segment"),
+            "location": result.get("location"),
+            "ownerId": owners[0].get("id"),
+            "stageId": stage.get("id") or 1,
+            "priority": result.get("priority"),
+            "temperature": text(result.get("probability"), "Tibio").title(),
+            "estimatedAmount": result.get("amount"),
+            "nextAction": result.get("nextAction"),
+            "nextDate": result.get("agendaDate") or result.get("date"),
+            "status": "Migrada",
+            "lastNote": result.get("note"),
+            "sampleCustodies": result.get("sampleCustodies") or [],
+        })
+        opportunity["id"] = synthetic_id
+        opportunities.append(opportunity)
+
+    crm_id = text(opportunity.get("id"))
+    result["crmOpportunityId"] = crm_id
+    opportunity["migratedToResults"] = True
+    opportunity["resultOpportunityId"] = result_id
+    opportunity["archived"] = True
+    opportunity["status"] = "Migrada"
+    opportunity["archiveType"] = "migration"
+    opportunity["archivedReason"] = "Migrada a Oportunidades / Gerencia"
+    return opportunity
+
+
 def sync_crm_result_migrations(conn, data):
     migrated = {
         text(item.get("crmOpportunityId")): item
@@ -4486,6 +4559,29 @@ class AppHandler(BaseHTTPRequestHandler):
                     return
                 if item_id:
                     index = next((i for i, item in enumerate(data.get("opportunities", [])) if item.get("id") == item_id), -1)
+                    if index == -1 and action == "return-to-followup" and self.command == "POST":
+                        # Legacy/imported Gerencia rows did not always retain their
+                        # crmOpportunityId. Accept the result id, recover its origin
+                        # and continue through the same guarded reversal workflow.
+                        result_opportunities = read_result_opportunities(conn)
+                        legacy_result = next((
+                            item for item in result_opportunities
+                            if text(item.get("id")) == item_id
+                        ), None)
+                        if legacy_result:
+                            recovered_opportunity = ensure_result_opportunity_origin(data, legacy_result)
+                            if not recovered_opportunity:
+                                self.send_json({
+                                    "error": "No se pudo identificar al vendedor de la oportunidad para devolverla a Seguimiento"
+                                }, status=409)
+                                return
+                            item_id = text(recovered_opportunity.get("id"))
+                            index = next((
+                                i for i, item in enumerate(data.get("opportunities", []))
+                                if text(item.get("id")) == item_id
+                            ), -1)
+                            write_result_opportunities(conn, result_opportunities)
+                            write_crm_data(conn, data)
                     if index == -1:
                         self.send_json({"error": "Oportunidad no encontrada"}, status=404)
                         return
