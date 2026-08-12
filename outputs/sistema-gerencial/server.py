@@ -1376,6 +1376,21 @@ def upsert_financial_order(conn, data, existing=None):
     return item
 
 
+def sync_control_sales_from_financial_order(conn, item):
+    """Keep the linked operational order on the financial order's canonical period."""
+    financial_id = text(item.get("id"))
+    if not financial_id:
+        return
+    conn.execute("""
+        UPDATE control_sales_orders
+        SET order_date=?, seller=?, client=?, updated_by=?, updated_at=?
+        WHERE financial_order_id=?
+    """, (
+        text(item.get("date")), text(item.get("seller")), text(item.get("client")),
+        text(item.get("updatedBy"), "Sistema Gerencial"), text(item.get("updatedAt")), financial_id,
+    ))
+
+
 def normalize_purchase_order(data, existing=None):
     current = dict(existing or {})
     payload = dict(data or {})
@@ -2965,6 +2980,20 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_date ON control_sales_orders(order_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_seller ON control_sales_orders(seller)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_details_order ON control_sales_details(order_id, active)")
+        # Repair legacy linked orders whose operational date was left behind after
+        # editing the financial order. The financial record is the canonical period.
+        conn.execute("""
+            UPDATE control_sales_orders
+            SET order_date = (SELECT fo.date FROM financial_orders fo WHERE fo.id = control_sales_orders.financial_order_id),
+                seller = (SELECT fo.seller FROM financial_orders fo WHERE fo.id = control_sales_orders.financial_order_id),
+                client = (SELECT fo.client FROM financial_orders fo WHERE fo.id = control_sales_orders.financial_order_id)
+            WHERE financial_order_id <> ''
+              AND EXISTS (
+                  SELECT 1 FROM financial_orders fo
+                  WHERE fo.id = control_sales_orders.financial_order_id
+                    AND fo.deleted = 0 AND fo.date <> ''
+              )
+        """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS production_schedule (
                 id TEXT PRIMARY KEY,
@@ -3397,6 +3426,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "Numero de pedido requerido"}, status=400)
                     return
                 item = upsert_financial_order(conn, data)
+                sync_control_sales_from_financial_order(conn, item)
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
@@ -3523,6 +3553,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 if existing:
                     data["number"] = existing["number"]
                 item = upsert_financial_order(conn, data, existing)
+                sync_control_sales_from_financial_order(conn, item)
             self.send_json({"ok": True, "item": item})
             return
 
@@ -3753,6 +3784,15 @@ class AppHandler(BaseHTTPRequestHandler):
                             "missingFields": missing_fields,
                         }, status=409)
                         return
+                    if financial_row:
+                        conn.execute("""
+                            UPDATE control_sales_orders
+                            SET order_date=?, seller=?, client=?, updated_by=?, updated_at=?
+                            WHERE id=?
+                        """, (
+                            text(financial_row["date"]), text(financial_row["seller"]),
+                            text(financial_row["client"]), actor, now, item_id,
+                        ))
                 if stage == "commercial-approval":
                     conn.execute("""
                         UPDATE control_sales_orders

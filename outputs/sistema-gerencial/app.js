@@ -2934,19 +2934,41 @@ function controlSalesIsConfirmed(order) {
   return order?.source === "importado" || controlSalesOrderHasAuthorizedSignatures(order);
 }
 
+function normalizeOrderLinkNumber(value) {
+  return String(value || "").replace(/^OP-/i, "").replace(/[^0-9A-Z]/gi, "").replace(/^0+(?=\d)/, "").toUpperCase();
+}
+
+function linkedFinancialOrderForControlSale(order) {
+  const linkedId = String(order?.financialOrderId || "");
+  if (linkedId) {
+    const byId = state.financialOrders.find((item) => String(item.id) === linkedId);
+    if (byId) return byId;
+  }
+  const controlNumber = normalizeOrderLinkNumber(order?.number);
+  if (!controlNumber) return null;
+  return state.financialOrders.find((item) => {
+    const financialNumber = normalizeOrderLinkNumber(item.orderNumber || item.number);
+    return financialNumber && financialNumber === controlNumber;
+  }) || null;
+}
+
+function controlSalesEffectiveDate(order) {
+  return String(linkedFinancialOrderForControlSale(order)?.date || order?.date || "").slice(0, 10);
+}
+
 function controlSalesFilteredRows() {
   const selectedPeriod = `${state.controlSalesPeriodYear}-${state.controlSalesPeriodMonth}`;
   return state.controlSales.filter((order) => {
     if (order.archived || !controlSalesIsConfirmed(order)) return false;
-    return String(order.date || "").slice(0, 7) === selectedPeriod;
-  }).sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
+    return controlSalesEffectiveDate(order).slice(0, 7) === selectedPeriod;
+  }).sort((a, b) => controlSalesEffectiveDate(b).localeCompare(controlSalesEffectiveDate(a)) || String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
 }
 
 function renderControlSales() {
   const rows = controlSalesFilteredRows();
   const years = [...new Set([
     state.controlSalesPeriodYear,
-    ...state.controlSales.map((order) => String(order.date || "").slice(0, 4)).filter((year) => /^\d{4}$/.test(year))
+    ...state.controlSales.map((order) => controlSalesEffectiveDate(order).slice(0, 4)).filter((year) => /^\d{4}$/.test(year))
   ])].sort((a, b) => Number(b) - Number(a));
   const pageSize = 15;
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -2972,7 +2994,7 @@ function renderControlSales() {
         <tbody>${visible.map((order) => `<tr data-control-sales-matrix-view="${escapeHtml(order.id)}" tabindex="0" title="Ver detalle de la venta">
           <th><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Pedido heredado"}</small></th>
           <td>${escapeHtml(controlSalesResponsibleSeller(order))}</td>
-          <td>${formatDate(order.date)}</td>
+          <td>${formatDate(controlSalesEffectiveDate(order))}</td>
           <td>${escapeHtml(order.client || "—")}</td>
           <td><span class="control-sales-product-count">${order.details?.length || 0}</span></td>
           <td class="money">${formatControlSalesMoney(order.totalCents || 0)}</td>
@@ -4915,12 +4937,11 @@ function saveFinancialOrderFilters() {
 }
 
 function approvedControlSalesFinancialRows() {
-  const persistedIds = new Set(state.financialOrders.map((order) => String(order.id)));
   return state.controlSales
     .filter((order) => !order.archived && controlSalesOrderHasAuthorizedSignatures(order))
-    .filter((order) => !order.financialOrderId || !persistedIds.has(String(order.financialOrderId)))
+    .filter((order) => !linkedFinancialOrderForControlSale(order))
     .map((order) => {
-      const date = String(order.date || order.financeApprovedAt || order.updatedAt || todayISO()).slice(0, 10);
+      const date = String(controlSalesEffectiveDate(order) || order.financeApprovedAt || order.updatedAt || todayISO()).slice(0, 10);
       const [year, monthNumber] = date.split("-").map(Number);
       return {
         id: `approved-control:${order.id}`,
@@ -5429,7 +5450,7 @@ function wireFinancialOrders() {
     if (!confirm("¿Confirmas la firma electrónica financiera y el segundo visto bueno de esta orden de pedido?")) return;
     try {
       const approvedOrder = await updateControlSalesApproval(button.dataset.financeOrderApprove, "finance", "Aprobada");
-      const approvedDate = String(approvedOrder.date || approvedOrder.financeApprovedAt || todayISO()).slice(0, 10);
+      const approvedDate = String(controlSalesEffectiveDate(approvedOrder) || approvedOrder.financeApprovedAt || todayISO()).slice(0, 10);
       const [approvedYear, approvedMonth] = approvedDate.split("-").map(Number);
       state.financialOrdersView = "list";
       state.financialOrderYearFilter = Number.isFinite(approvedYear) ? String(approvedYear) : "all";
