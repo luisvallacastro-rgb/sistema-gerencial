@@ -7809,7 +7809,10 @@ function renderCrmClients() {
             <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.customerCode || "Sin código"))}</small></span>
             <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
             <span><strong>${escapeHtml(client.department || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
-            <span class="crm-row-actions"><button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar">✎</button>${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar">↻</button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar">⌫</button>`}</span>
+            <span class="crm-row-actions">
+              <button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></button>
+              ${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 1.8-8.3L4 10"/></svg></button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m7 7 1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg></button>`}
+            </span>
           </article>
         `).join("") || `<div class="empty-state">No hay clientes que coincidan con esta vista.</div>`}
       </div></div>
