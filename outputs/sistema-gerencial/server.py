@@ -356,6 +356,82 @@ def result_opportunity_has_closure(opportunity):
     )
 
 
+def repair_result_opportunity_origin_links(conn, data):
+    """Recover the CRM origin omitted by legacy/imported Gerencia records."""
+    results = read_result_opportunities(conn)
+    if not results:
+        return False
+    users_by_id = {text(item.get("id")): item for item in data.get("users", [])}
+    linked_crm_ids = {text(item.get("crmOpportunityId")) for item in results if text(item.get("crmOpportunityId"))}
+    changed = False
+    for result in results:
+        if text(result.get("crmOpportunityId")) or result_opportunity_has_closure(result):
+            continue
+        result_company = crm_identity_key(result.get("company"))
+        result_seller = crm_identity_key(result.get("seller"))
+        if not result_company:
+            continue
+        candidates = []
+        for opportunity in data.get("opportunities", []):
+            opportunity_id = text(opportunity.get("id"))
+            if not opportunity_id or opportunity_id in linked_crm_ids:
+                continue
+            owner = users_by_id.get(text(opportunity.get("ownerId")), {})
+            if crm_identity_key(owner.get("name")) != result_seller:
+                continue
+            company = crm_identity_key(opportunity.get("company"))
+            if company == result_company:
+                candidates.append(opportunity)
+        if len(candidates) > 1:
+            continue
+        if candidates:
+            opportunity = candidates[0]
+        else:
+            owners = [
+                item for item in data.get("users", [])
+                if crm_identity_key(item.get("name")) == result_seller
+            ]
+            if len(owners) != 1:
+                continue
+            stage_name = text(result.get("stage"), "Prospeccion")
+            stage = next((item for item in data.get("stages", []) if crm_identity_key(item.get("name")) == crm_identity_key(stage_name)), {})
+            synthetic_id = f"opp-restored-{crm_key(result.get('id') or result.get('company'))}"
+            opportunity = normalize_crm_opportunity({
+                "company": result.get("company"),
+                "contact": result.get("contact"),
+                "phone": result.get("phone"),
+                "segment": result.get("segment"),
+                "location": result.get("location"),
+                "ownerId": owners[0].get("id"),
+                "stageId": stage.get("id") or 1,
+                "priority": result.get("priority"),
+                "temperature": text(result.get("probability"), "Tibio").title(),
+                "estimatedAmount": result.get("amount"),
+                "nextAction": result.get("nextAction"),
+                "nextDate": result.get("agendaDate") or result.get("date"),
+                "status": "Migrada",
+                "lastNote": result.get("note"),
+                "sampleCustodies": result.get("sampleCustodies") or [],
+            })
+            opportunity["id"] = synthetic_id
+            data.setdefault("opportunities", []).append(opportunity)
+        crm_id = text(opportunity.get("id"))
+        result["crmOpportunityId"] = crm_id
+        result["migratedAt"] = text(result.get("migratedAt"), opportunity.get("migratedAt") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        opportunity["migratedToResults"] = True
+        opportunity["resultOpportunityId"] = text(result.get("id"))
+        opportunity["archived"] = True
+        if text(opportunity.get("status")).lower() not in {"perdida", "cancelada", "anulada", "ganada"}:
+            opportunity["status"] = "Migrada"
+            opportunity["archiveType"] = "migration"
+            opportunity["archivedReason"] = "Migrada a Oportunidades / Gerencia"
+        linked_crm_ids.add(crm_id)
+        changed = True
+    if changed:
+        write_result_opportunities(conn, results)
+    return changed
+
+
 def sync_crm_result_migrations(conn, data):
     migrated = {
         text(item.get("crmOpportunityId")): item
@@ -397,9 +473,10 @@ def read_crm_data(conn):
     data.setdefault("gestiones", [])
     data.setdefault("customers", [])
     data, changed = sync_crm_seed_updates(data)
+    origin_links_changed = repair_result_opportunity_origin_links(conn, data)
     data, migration_changed = sync_crm_result_migrations(conn, data)
     data, closure_changed = sync_crm_result_closures(conn, data)
-    changed = changed or migration_changed or closure_changed
+    changed = changed or origin_links_changed or migration_changed or closure_changed
     if changed:
         write_crm_data(conn, data)
     return data
