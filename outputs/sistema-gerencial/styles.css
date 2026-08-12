@@ -6783,6 +6783,145 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .app-shell .financial-order-notification-card > button { grid-column: 3; grid-row: 1 / span 2; }
 }
 
+/* Modern floating customer editor */
+#crmCustomerDialog.crm-customer-dialog {
+  width: min(980px, calc(100vw - 36px));
+  max-width: 980px;
+  height: auto;
+  max-height: min(90dvh, 860px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(125, 231, 211, .28);
+  border-radius: 26px;
+  background: rgba(13, 32, 57, .76);
+  color: #f4f8ff;
+  box-shadow: 0 30px 90px rgba(0, 8, 24, .62), inset 0 1px 0 rgba(255,255,255,.12);
+  backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+}
+#crmCustomerDialog.crm-customer-dialog::backdrop {
+  background: radial-gradient(circle at 82% 18%, rgba(44, 203, 161, .13), transparent 30%), rgba(3, 12, 28, .74);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+#crmCustomerDialog .crm-customer-glass {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  max-width: none;
+  height: min(86dvh, 820px);
+  max-height: min(90dvh, 860px);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 26px;
+  background: linear-gradient(145deg, rgba(42, 64, 101, .72), rgba(10, 37, 59, .84));
+  box-shadow: none;
+}
+#crmCustomerDialog .crm-customer-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid rgba(130, 202, 216, .16);
+  background: linear-gradient(90deg, rgba(90, 116, 166, .14), rgba(24, 119, 107, .08));
+}
+#crmCustomerDialog .crm-customer-dialog-head .eyebrow { margin: 0 0 4px; color: #69ebca; font-size: 11px; letter-spacing: .14em; }
+#crmCustomerDialog .crm-customer-dialog-head h3 { margin: 0; color: #fff; font-size: clamp(23px, 2vw, 30px); line-height: 1.05; }
+#crmCustomerDialog .crm-customer-dialog-head p:last-child { margin: 7px 0 0; color: rgba(220,232,245,.62); font-size: 13px; }
+#crmCustomerDialog .crm-customer-close {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(151, 188, 219, .3);
+  border-radius: 13px;
+  background: rgba(83, 113, 153, .2);
+  color: #eaf5ff;
+  cursor: pointer;
+}
+#crmCustomerDialog .crm-customer-close svg { width: 19px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+#crmCustomerDialog .crm-customer-close:hover { border-color: #6de8ca; background: rgba(42, 176, 145, .2); color: #8bf4d8; }
+#crmCustomerDialog .crm-customer-dialog-body {
+  display: grid;
+  gap: 14px;
+  min-height: 0;
+  padding: 20px 28px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #58d8bd rgba(13, 34, 58, .4);
+}
+#crmCustomerDialog .crm-customer-form-section {
+  display: grid;
+  grid-template-columns: 205px minmax(0, 1fr);
+  gap: 22px;
+  padding: 17px;
+  border: 1px solid rgba(124, 168, 207, .18);
+  border-radius: 18px;
+  background: rgba(17, 43, 72, .48);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+#crmCustomerDialog .crm-customer-section-title { display: flex; align-items: flex-start; gap: 11px; padding-top: 3px; }
+#crmCustomerDialog .crm-customer-section-title > span { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 9px; background: rgba(65, 218, 182, .13); color: #70edcf; font-size: 10px; font-weight: 900; }
+#crmCustomerDialog .crm-customer-section-title div { display: grid; gap: 4px; }
+#crmCustomerDialog .crm-customer-section-title strong { color: #f4f8ff; font-size: 13px; }
+#crmCustomerDialog .crm-customer-section-title small { color: rgba(205,222,239,.52); font-size: 10px; line-height: 1.35; }
+#crmCustomerDialog .crm-customer-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 14px; }
+#crmCustomerDialog .crm-customer-fields label { display: grid; min-width: 0; gap: 6px; color: rgba(225,237,248,.76); font-size: 10px; font-weight: 850; letter-spacing: .03em; }
+#crmCustomerDialog .crm-customer-fields label em { color: #6ce8c9; font-style: normal; }
+#crmCustomerDialog .crm-customer-fields .span-2 { grid-column: 1 / -1; }
+#crmCustomerDialog .crm-customer-fields input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 43px;
+  min-height: 43px;
+  padding: 0 13px;
+  border: 1px solid rgba(138, 173, 210, .25);
+  border-radius: 11px;
+  outline: none;
+  background: rgba(7, 27, 51, .58);
+  color: #f6faff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+#crmCustomerDialog .crm-customer-fields input::placeholder { color: rgba(194,211,228,.36); font-weight: 600; }
+#crmCustomerDialog .crm-customer-fields input:focus { border-color: #63e2c4; background: rgba(9, 35, 59, .85); box-shadow: 0 0 0 3px rgba(73, 218, 183, .1); }
+#crmCustomerDialog .crm-customer-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0;
+  padding: 16px 28px;
+  border-top: 1px solid rgba(130, 202, 216, .16);
+  background: rgba(8, 26, 47, .72);
+}
+#crmCustomerDialog .crm-customer-dialog-actions > span { display: flex; align-items: center; gap: 8px; color: rgba(211,226,239,.56); font-size: 10px; font-weight: 750; }
+#crmCustomerDialog .crm-customer-dialog-actions > span i { width: 7px; height: 7px; border-radius: 50%; background: #5fe5c3; box-shadow: 0 0 10px #45d5b2; }
+#crmCustomerDialog .crm-customer-dialog-actions > div { display: flex; gap: 10px; }
+#crmCustomerDialog .crm-customer-dialog-actions button { min-height: 42px; padding: 0 19px; border-radius: 12px; }
+@media (max-width: 760px) {
+  #crmCustomerDialog.crm-customer-dialog { width: calc(100vw - 18px); max-height: 94dvh; border-radius: 20px; }
+  #crmCustomerDialog .crm-customer-glass { height: 92dvh; border-radius: 20px; }
+  #crmCustomerDialog .crm-customer-dialog-head { padding: 19px 18px 16px; }
+  #crmCustomerDialog .crm-customer-dialog-head p:last-child { display: none; }
+  #crmCustomerDialog .crm-customer-dialog-body { padding: 14px; }
+  #crmCustomerDialog .crm-customer-form-section { grid-template-columns: 1fr; gap: 13px; padding: 14px; }
+  #crmCustomerDialog .crm-customer-section-title small { display: none; }
+  #crmCustomerDialog .crm-customer-fields { grid-template-columns: 1fr; }
+  #crmCustomerDialog .crm-customer-fields .span-2 { grid-column: auto; }
+  #crmCustomerDialog .crm-customer-dialog-actions { justify-content: flex-end; padding: 13px 16px; }
+  #crmCustomerDialog .crm-customer-dialog-actions > span { display: none; }
+}
+
 /* Maestro único de clientes */
 .crm-inline-picker { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: center; }
 .crm-customer-picker small { color: rgba(210,226,239,.62); font-size: 11px; }

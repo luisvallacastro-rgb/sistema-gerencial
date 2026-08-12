@@ -7701,28 +7701,36 @@ function ensureCrmCustomerDialog() {
   if (dialog) return dialog;
   dialog = document.createElement("dialog");
   dialog.id = "crmCustomerDialog";
-  dialog.className = "wide-dialog crm-customer-dialog";
-  dialog.innerHTML = `<form class="dialog-card" id="crmCustomerForm">
-    <div class="panel-head"><div><p class="eyebrow">Maestro comercial</p><h3 id="crmCustomerDialogTitle">Nuevo cliente</h3></div><button type="button" class="icon-btn" data-customer-close>x</button></div>
+  dialog.className = "crm-customer-dialog";
+  dialog.innerHTML = `<form class="dialog-card crm-customer-glass" id="crmCustomerForm">
+    <header class="crm-customer-dialog-head"><div><p class="eyebrow">Maestro comercial</p><h3 id="crmCustomerDialogTitle">Nuevo cliente</h3><p>Centraliza la información que heredarán oportunidades, cotizaciones y pedidos.</p></div><button type="button" class="crm-customer-close" data-customer-close aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <input type="hidden" id="crmCustomerId">
-    <div class="crm-form-grid">
-      <label>Nombre comercial<input id="crmCustomerCommercialName" maxlength="120" required></label>
-      <label>Razón social<input id="crmCustomerLegalName" maxlength="160"></label>
-      <label>Código de cliente<input id="crmCustomerCode" maxlength="40"></label>
-      <label>NIT / identificación fiscal<input id="crmCustomerTaxId" maxlength="40"></label>
-      <label>NRC / registro<input id="crmCustomerRegistration" maxlength="40"></label>
-      <label>Tipo de contribuyente<input id="crmCustomerTaxpayerType" maxlength="80"></label>
-      <label>Contacto principal<input id="crmCustomerContact" maxlength="100"></label>
-      <label>Teléfono<input id="crmCustomerPhone" maxlength="30"></label>
-      <label>Correo<input id="crmCustomerEmail" type="email" maxlength="120"></label>
-      <label>Giro / actividad económica<input id="crmCustomerBusiness" maxlength="120"></label>
-      <label class="span-2">Dirección<input id="crmCustomerAddress" maxlength="220"></label>
-      <label>Departamento / municipio<input id="crmCustomerDepartment" maxlength="100"></label>
-      <label>Tipo de cliente<input id="crmCustomerType" maxlength="80"></label>
-      <label>Condiciones de pago<input id="crmCustomerTerms" maxlength="160"></label>
-      <label>Estrategia comercial<input id="crmCustomerStrategy" maxlength="100"></label>
+    <div class="crm-customer-dialog-body">
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales para reconocerlo en todo el sistema.</small></div></div><div class="crm-customer-fields">
+        <label>Nombre comercial <em>*</em><input id="crmCustomerCommercialName" maxlength="120" placeholder="Ej. Industrias Konfi" required></label>
+        <label>Razón social<input id="crmCustomerLegalName" maxlength="160" placeholder="Nombre legal de la empresa"></label>
+        <label>Código de cliente<input id="crmCustomerCode" maxlength="40" placeholder="Código interno (opcional)"></label>
+        <label>Tipo de cliente<input id="crmCustomerType" maxlength="80" placeholder="Empresa privada, gobierno..."></label>
+      </div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales para dar seguimiento comercial.</small></div></div><div class="crm-customer-fields">
+        <label>Contacto principal<input id="crmCustomerContact" maxlength="100" placeholder="Nombre completo"></label>
+        <label>Teléfono<input id="crmCustomerPhone" maxlength="30" placeholder="0000-0000"></label>
+        <label class="span-2">Correo<input id="crmCustomerEmail" type="email" maxlength="120" placeholder="contacto@empresa.com"></label>
+      </div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Identificación para cotizaciones y documentación.</small></div></div><div class="crm-customer-fields">
+        <label>NIT / identificación fiscal<input id="crmCustomerTaxId" maxlength="40" placeholder="Número de identificación"></label>
+        <label>NRC / registro<input id="crmCustomerRegistration" maxlength="40" placeholder="Número de registro"></label>
+        <label>Tipo de contribuyente<input id="crmCustomerTaxpayerType" maxlength="80" placeholder="Grande, mediano, otro"></label>
+        <label>Giro / actividad económica<input id="crmCustomerBusiness" maxlength="120" placeholder="Actividad principal"></label>
+      </div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Información reutilizable en órdenes y pedidos.</small></div></div><div class="crm-customer-fields">
+        <label class="span-2">Dirección<input id="crmCustomerAddress" maxlength="220" placeholder="Dirección completa"></label>
+        <label>Departamento / municipio<input id="crmCustomerDepartment" maxlength="100" placeholder="Ubicación"></label>
+        <label>Condiciones de pago<input id="crmCustomerTerms" maxlength="160" placeholder="Ej. crédito a 30 días"></label>
+        <label class="span-2">Estrategia comercial<input id="crmCustomerStrategy" maxlength="100" placeholder="Enfoque o estrategia asignada"></label>
+      </div></section>
     </div>
-    <menu><button type="button" class="ghost-btn" data-customer-close>Cancelar</button><button type="submit" class="primary-btn">Guardar cliente</button></menu>
+    <footer class="crm-customer-dialog-actions"><span><i></i> Los datos se reutilizan automáticamente</span><div><button type="button" class="ghost-btn" data-customer-close>Cancelar</button><button type="submit" class="primary-btn">Guardar cliente</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
   dialog.querySelectorAll("[data-customer-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
