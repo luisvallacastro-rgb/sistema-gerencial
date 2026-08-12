@@ -2719,7 +2719,7 @@ def restore_asa_order_0296_once(conn):
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
         return
     existing = conn.execute(
-        "SELECT id FROM control_sales_orders WHERE upper(replace(order_number, '-', '')) = 'OP0296' LIMIT 1"
+        "SELECT id FROM control_sales_orders WHERE upper(replace(order_number, '-', '')) IN ('296', 'OP0296') LIMIT 1"
     ).fetchone()
     if existing:
         conn.execute(
@@ -2856,6 +2856,129 @@ def restore_asa_order_0296_once(conn):
                                  "totalCents": total_cents}, ensure_ascii=True)),
     )
     print("Orden ASA OP-0296 restaurada: 44 lineas, $5,795.00, pendiente de segunda firma.")
+
+
+def restore_asa_quotation_0296_once(conn):
+    """Rebuild and link ASA's quotation from the preserved OP-0296 snapshot."""
+    marker_key = "maintenance.restore-asa-quotation-op0296.2026-08-12.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+
+    order = conn.execute("""
+        SELECT * FROM control_sales_orders
+        WHERE upper(replace(order_number, '-', '')) IN ('296', 'OP0296') AND archived = 0
+        ORDER BY datetime(updated_at) DESC, rowid DESC
+        LIMIT 1
+    """).fetchone()
+    if not order:
+        print("Restauracion de cotizacion ASA pendiente: no se encontro OP-0296.")
+        return
+
+    opportunity_id = text(order["source_opportunity_id"])
+    if not opportunity_id:
+        print("Restauracion de cotizacion ASA pendiente: OP-0296 no tiene oportunidad vinculada.")
+        return
+
+    quotation_id = "quote-restored-op0296"
+    existing = conn.execute("""
+        SELECT id FROM quotations
+        WHERE id = ? OR converted_order_id = ?
+        ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+        LIMIT 1
+    """, (quotation_id, text(order["id"]), quotation_id)).fetchone()
+    if existing:
+        quotation_id = text(existing["id"])
+        conn.execute(
+            "UPDATE control_sales_orders SET source_quotation_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (quotation_id, text(order["id"])),
+        )
+        conn.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+            (marker_key, json.dumps({"status": "linked-existing", "quotationId": quotation_id,
+                                     "orderId": text(order["id"])}, ensure_ascii=True)),
+        )
+        return
+
+    detail_rows = conn.execute("""
+        SELECT * FROM control_sales_details
+        WHERE order_id = ? AND active = 1
+        ORDER BY sequence, rowid
+    """, (text(order["id"]),)).fetchall()
+    if len(detail_rows) != 44:
+        print(f"Restauracion de cotizacion ASA pendiente: OP-0296 tiene {len(detail_rows)} lineas, se esperaban 44.")
+        return
+
+    lines = []
+    subtotal_cents = 0
+    for index, detail in enumerate(detail_rows, start=1):
+        quantity = control_sales_quantity(detail["quantity"])
+        unit_price_cents = int(detail["unit_price_cents"] or 0)
+        line_total_cents = int(detail["line_total_cents"] or 0)
+        subtotal_cents += line_total_cents
+        lines.append({
+            "id": f"quote-restored-op0296-line-{index:02d}",
+            "sequence": index,
+            "description": text(detail["product"]),
+            "size": text(detail["size"]),
+            "quantity": quantity,
+            "unitPriceCents": unit_price_cents,
+            "lineTotalCents": line_total_cents,
+            "notes": text(detail["notes"]),
+        })
+    if subtotal_cents != 579500:
+        raise RuntimeError("El detalle de OP-0296 ya no concilia con el subtotal original de $5,795.00")
+
+    try:
+        customer_data = json.loads(order["proforma_data"] or "{}")
+        if not isinstance(customer_data, dict):
+            customer_data = {}
+    except (json.JSONDecodeError, TypeError):
+        customer_data = {}
+    customer_data.setdefault("commercialName", text(order["client"], "ASA"))
+    vat_cents = int((Decimal(subtotal_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    created_at = text(order["created_at"], "2026-08-11T10:47:49")
+    converted_at = text(order["commercial_approved_at"], created_at)
+    actor = text(order["created_by"], "Luis Valladares")
+    seller = text(order["seller"], "Marjorie Morales")
+    client = text(order["client"], "ASA")
+    quote_date = text(order["order_date"], "2026-08-10")
+
+    conn.execute("""
+        INSERT INTO quotations (
+            id, opportunity_id, quotation_number, quotation_date, valid_days, seller,
+            client, status, customer_data, payment_terms, delivery_terms, warranty_note,
+            commercial_notes, special_sizes_note, subtotal_cents, vat_cents, total_cents,
+            lines, converted_order_id, converted_at, created_by, updated_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 30, ?, ?, 'Convertida', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        quotation_id, opportunity_id, "Q-RESTORED-OP0296", quote_date, seller, client,
+        json.dumps(customer_data, ensure_ascii=False),
+        text(customer_data.get("paymentTerms"), "Crédito de 100% a 30 días"),
+        "30 días hábiles posterior a la orden de compra",
+        "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.",
+        "Precios unitarios no incluyen IVA",
+        "Tallas especiales arriba de XXL tienen costo adicional",
+        subtotal_cents, vat_cents, subtotal_cents + vat_cents,
+        json.dumps(lines, ensure_ascii=False), text(order["id"]), converted_at,
+        actor, actor, created_at, created_at,
+    ))
+    conn.execute(
+        "UPDATE control_sales_orders SET source_quotation_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (quotation_id, text(order["id"])),
+    )
+    conn.execute(
+        "INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, 'restauracion_cotizacion', ?, ?, ?)",
+        (text(order["id"]), actor, time.strftime("%Y-%m-%dT%H:%M:%S"),
+         "Cotizacion ASA reconstruida y vinculada desde OP-0296 · 44 lineas · subtotal $5,795.00"),
+    )
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps({"status": "restored", "quotationId": quotation_id,
+                                 "orderId": text(order["id"]), "lines": 44,
+                                 "subtotalCents": subtotal_cents,
+                                 "totalCents": subtotal_cents + vat_cents}, ensure_ascii=True)),
+    )
+    print("Cotizacion ASA restaurada y vinculada a OP-0296: 44 lineas, subtotal $5,795.00.")
 
 
 def repair_edgar_admin_seller_assignments_once(conn):
@@ -3302,6 +3425,7 @@ def init_db():
         purge_luis_valladares_test_flow_once(conn)
         purge_orphaned_test_orders_0293_0294_once(conn)
         restore_asa_order_0296_once(conn)
+        restore_asa_quotation_0296_once(conn)
         repair_edgar_admin_seller_assignments_once(conn)
 
 
