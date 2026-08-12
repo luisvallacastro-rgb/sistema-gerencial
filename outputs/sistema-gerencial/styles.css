@@ -18882,15 +18882,17 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .app-shell .crm-tracking-list-status .is-active { background: rgba(61,195,157,.14); color: #83efd1; border: 1px solid rgba(80,217,181,.3); }
 .app-shell .crm-tracking-card.crm-tracking-list-row .crm-tracking-card-actions {
   display: grid !important;
-  grid-template-columns: repeat(2,34px) !important;
+  grid-template-columns: repeat(3,34px) !important;
   grid-column: auto !important;
   justify-content: end;
   gap: 6px !important;
-  width: 74px !important;
+  width: 114px !important;
   min-width: 0 !important;
-  max-width: 74px !important;
+  max-width: 114px !important;
   justify-self: end;
 }
+.app-shell .crm-card-icon-action.is-management { color: #8ef1d6; font-size: 16px; }
+.app-shell .crm-tracking-list-status .samples-assigned { margin-top: 2px; border-color: rgba(255,188,88,.48); background: rgba(255,170,45,.14); color: #ffd28d; }
 .app-shell .crm-tracking-card.crm-tracking-list-row .crm-card-icon-action { width: 34px; min-width: 34px; height: 34px; min-height: 34px; border-radius: 10px; }
 .app-shell .crm-tracking-card.crm-tracking-list-row .crm-card-icon-action svg { width: 18px; height: 18px; }
 .app-shell .crm-tracking-card.crm-tracking-list-row:hover { transform: translateX(2px); }

@@ -913,6 +913,7 @@ const managementDialog = document.querySelector("#managementDialog");
 const managementForm = document.querySelector("#managementForm");
 const managementDialogTitle = document.querySelector("#managementDialogTitle");
 const managementOpportunityId = document.querySelector("#managementOpportunityId");
+let managementCrmItem = null;
 const managementEditId = document.querySelector("#managementEditId");
 const managementEntryEyebrow = document.querySelector("#managementEntryEyebrow");
 const managementEntryTitle = document.querySelector("#managementEntryTitle");
@@ -1193,7 +1194,44 @@ function isCommercialManagementUser(user = state.currentUser) {
 }
 
 function canManageMigratedOpportunityLifecycle() {
-  return isCommercialManagementUser();
+  return isAdminUser() || state.role === "gerencias" || isCommercialManagementUser();
+}
+
+function crmManagementItem(opportunity) {
+  if (!opportunity) return null;
+  const gestiones = (crmData().gestiones || []).filter((item) => String(item.opportunityId) === String(opportunity.id));
+  return {
+    ...opportunity,
+    id: `crm-management-${opportunity.id}`,
+    crmOpportunityId: opportunity.id,
+    company: opportunity.company,
+    seller: opportunity.owner?.name || crmOwnerName(opportunity.ownerId),
+    stage: crmStageToOpportunityStage(opportunity),
+    sampleCustodies: Array.isArray(opportunity.sampleCustodies) ? opportunity.sampleCustodies : [],
+    managements: gestiones.map((gestion) => ({
+      ...gestion,
+      id: gestion.id,
+      stage: gestion.stageName || crmStageToOpportunityStage(opportunity),
+      comment: gestion.note || gestion.comment || gestion.result || "Gestión registrada."
+    }))
+  };
+}
+
+async function openCrmManagementDialog(opportunityId) {
+  const opportunity = crmData().opportunities.find((item) => String(item.id) === String(opportunityId));
+  if (!opportunity) return;
+  managementCrmItem = crmManagementItem(opportunity);
+  await openManagementDialog(managementCrmItem, "crm");
+}
+
+async function persistCrmSampleCustodies(item) {
+  const opportunity = crmData().opportunities.find((record) => String(record.id) === String(item.crmOpportunityId));
+  if (!opportunity) return;
+  await crmApi(`/opportunities/${encodeURIComponent(opportunity.id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ sampleCustodies: sampleCustodies(item) })
+  });
+  managementCrmItem = crmManagementItem(crmData().opportunities.find((record) => String(record.id) === String(opportunity.id)) || opportunity);
 }
 
 function canCancelManagements() {
@@ -7181,14 +7219,14 @@ function renderCrmDashboard() {
         return `
           <div class="opportunity-row">
             <span>${formatDate(opportunity.nextDate || opportunity.deadline || opportunity.startDate)}</span>
-            <strong class="company-cell"><span class="company-name">${escapeHtml(opportunity.company || "Sin empresa")}</span></strong>
+            <strong class="company-cell"><span class="company-name">${escapeHtml(opportunity.company || "Sin empresa")}</span>${hasOutstandingSamples(opportunity) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}</strong>
             <span>${escapeHtml(opportunity.owner?.name || crmOwnerName(opportunity.ownerId))}</span>
             <span>${escapeHtml(crmStageToOpportunityStage(opportunity))}</span>
             <span class="tag ${probabilityClass(probability)}">${escapeHtml(probabilityLabel(probability))}</span>
             <strong>${formatMoney(opportunity.estimatedAmount)}</strong>
             <span class="row-actions">
               ${canManage ? `<button class="action-icon-btn" type="button" data-crm-edit="${opportunity.id}" aria-label="Editar"><span aria-hidden="true">✏️</span></button>` : ""}
-              <button class="action-icon-btn" type="button" data-crm-edit="${opportunity.id}" aria-label="Ver detalle"><span aria-hidden="true">📋</span></button>
+              <button class="action-icon-btn manage-action-btn" type="button" data-crm-management="${opportunity.id}" aria-label="Gestiones y custodia de muestras" title="Gestiones y custodia de muestras"><span aria-hidden="true">📋</span></button>
               ${canManage ? `<button class="action-icon-btn danger" type="button" data-crm-delete="${opportunity.id}" aria-label="Borrar"><span aria-hidden="true">🗑️</span></button>` : ""}
             </span>
           </div>
@@ -7377,8 +7415,9 @@ function renderCrmTracking() {
         <div class="crm-tracking-list-client"><small>Empresa / oportunidad</small><strong>${escapeHtml(opp.company)}</strong><p>${escapeHtml(opp.product || "Producto pendiente")}</p></div>
         <div class="crm-tracking-list-amount"><small>Monto</small><strong>${formatMoney(opp.estimatedAmount || 0)}</strong></div>
         <div class="crm-tracking-list-probability"><small>Cierre</small><strong>${opp.closePercent || 0}%</strong></div>
-        <div class="crm-tracking-list-status"><small>Estado</small><span class="${migrated ? "is-migrated" : "is-active"}">${migrated ? "Migrada · pendiente" : escapeHtml(opp.status || "Vigente")}</span></div>
+        <div class="crm-tracking-list-status"><small>Estado</small><span class="${migrated ? "is-migrated" : "is-active"}">${migrated ? "Migrada · pendiente" : escapeHtml(opp.status || "Vigente")}</span>${hasOutstandingSamples(opp) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}</div>
         <div class="crm-tracking-card-actions" aria-label="Acciones de la oportunidad">
+          <button class="crm-card-icon-action is-management" type="button" data-crm-management="${opp.id}" aria-label="Gestiones y custodia de muestras" title="Gestiones y custodia de muestras">📋</button>
           <button class="crm-card-icon-action is-quotation" type="button" data-crm-quotation="${opp.id}" aria-label="${quotationAction}" title="${quotationAction}">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4V20.5H7z"></path><path d="M14 3.5v4h4M9.5 11h6M9.5 14h6M9.5 17h3.5"></path></svg>
             <span class="crm-card-action-badge">${quotationCount || "+"}</span>
@@ -8067,6 +8106,12 @@ function renderCommercialSubmenu(area) {
       button.addEventListener("click", (event) => {
         event.stopPropagation();
         migrateCrmOpportunityToResults(button.dataset.crmMigrate, button);
+      });
+    });
+    opportunityTable.querySelectorAll("[data-crm-management]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openCrmManagementDialog(button.dataset.crmManagement);
       });
     });
     opportunityTable.querySelectorAll("[data-crm-quotation]").forEach((button) => {
@@ -11033,7 +11078,9 @@ function renderManagementQuotations(item) {
   });
 }
 
-async function openManagementDialog(item) {
+async function openManagementDialog(item, context = "results") {
+  managementDialog.dataset.context = context;
+  if (context !== "crm") managementCrmItem = null;
   managementOpportunityId.value = item.id;
   managementDialogTitle.textContent = item.company;
   resetManagementEntry(item);
@@ -11125,10 +11172,11 @@ function renderSampleCustodies(item) {
     });
   });
   sampleCustodyList.querySelectorAll("[data-sample-custody-delete]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
       if (!confirm("Eliminar esta línea del historial de custodia?")) return;
       item.sampleCustodies = records.filter((record) => record.id !== button.dataset.sampleCustodyDelete);
-      saveOpportunities();
+      if (managementDialog.dataset.context === "crm") await persistCrmSampleCustodies(item);
+      else saveOpportunities();
       renderSampleCustodies(item);
       renderCommercialSubmenu(areas.comercializacion);
       resetSampleCustodyForm();
@@ -11202,7 +11250,7 @@ function editManagementRecord(item, managementId) {
   managementEntryTitle.closest(".management-section").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function cancelManagementRecord(item, managementId) {
+async function cancelManagementRecord(item, managementId) {
   if (!canCancelManagements()) return;
   item.managements = normalizeManagements(item);
   const management = item.managements.find((record) => record.id === managementId);
@@ -11210,6 +11258,18 @@ function cancelManagementRecord(item, managementId) {
 
   const reason = prompt("Motivo de anulacion de la gestion:");
   if (reason === null) return;
+
+  if (managementDialog.dataset.context === "crm") {
+    await crmApi(`/gestiones/${encodeURIComponent(managementId)}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason.trim() })
+    });
+    const opportunity = crmData().opportunities.find((record) => String(record.id) === String(item.crmOpportunityId));
+    managementCrmItem = crmManagementItem(opportunity);
+    renderManagements(managementCrmItem);
+    resetManagementEntry(managementCrmItem);
+    return;
+  }
 
   management.canceled = true;
   management.canceledAt = new Date().toISOString();
@@ -11226,6 +11286,7 @@ function cancelManagementRecord(item, managementId) {
 }
 
 function currentManagementItem() {
+  if (managementDialog.dataset.context === "crm") return managementCrmItem;
   const submenu = getOpportunitySubmenu();
   return submenu.items.find((record) => record.id === managementOpportunityId.value);
 }
@@ -11354,11 +11415,39 @@ newOpportunityBtn.addEventListener("click", () => {
 closeOpportunityDialog.addEventListener("click", closeOpportunityForm);
 cancelOpportunityEdit.addEventListener("click", closeOpportunityForm);
 
-managementForm.addEventListener("submit", (event) => {
+managementForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const submenu = getOpportunitySubmenu();
-  const item = submenu.items.find((record) => record.id === managementOpportunityId.value);
+  const item = currentManagementItem();
   if (!item) return;
+
+  if (managementDialog.dataset.context === "crm") {
+    const opportunity = crmData().opportunities.find((record) => String(record.id) === String(item.crmOpportunityId));
+    if (!opportunity) return;
+    const stage = crmData().stages.find((record) => normalizeStage(record.name) === normalizeStage(managementStage.value));
+    const editingId = managementEditId.value;
+    const payload = {
+      opportunityId: opportunity.id,
+      company: opportunity.company,
+      ownerId: opportunity.ownerId,
+      date: managementDate.value,
+      time: currentTimeValue(),
+      stageId: stage?.id || opportunity.stageId,
+      stageName: managementStage.value,
+      note: managementComment.value.trim(),
+      result: isClosureStage(managementStage.value) ? managementResult.value : "",
+      status: "Realizada"
+    };
+    await crmApi(editingId ? `/gestiones/${encodeURIComponent(editingId)}` : "/gestiones", {
+      method: editingId ? "PATCH" : "POST",
+      body: JSON.stringify(payload)
+    });
+    const refreshed = crmData().opportunities.find((record) => String(record.id) === String(opportunity.id));
+    managementCrmItem = crmManagementItem(refreshed);
+    renderManagements(managementCrmItem);
+    resetManagementEntry(managementCrmItem);
+    return;
+  }
 
   item.managements = normalizeManagements(item);
   const payload = {
@@ -11417,7 +11506,7 @@ closeSampleCustody.addEventListener("click", () => {
 
 resetSampleCustody.addEventListener("click", resetSampleCustodyForm);
 
-saveSampleCustody.addEventListener("click", () => {
+saveSampleCustody.addEventListener("click", async () => {
   const item = currentManagementItem();
   if (!item) return;
   const quantity = Math.max(1, Number(sampleCustodyQuantity.value || 1));
@@ -11443,7 +11532,8 @@ saveSampleCustody.addEventListener("click", () => {
   };
   if (existing) Object.assign(existing, payload, { updatedAt: new Date().toISOString() });
   else records.unshift({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...payload });
-  saveOpportunities();
+  if (managementDialog.dataset.context === "crm") await persistCrmSampleCustodies(item);
+  else saveOpportunities();
   renderSampleCustodies(item);
   renderCommercialSubmenu(areas.comercializacion);
   resetSampleCustodyForm();

@@ -68,9 +68,11 @@ LEGACY_ROLE_MAP = {
 
 
 def is_commercial_management_user(user):
-    """Authorize the single commercial-management account for migrated lifecycle actions."""
+    """Authorize administrators and commercial-management users for lifecycle actions."""
     if not user:
         return False
+    if bool(user.get("admin")) or text(user.get("role")).lower() == "gerencias":
+        return True
     user_id = text(user.get("id")).lower()
     username = text(user.get("username")).lower()
     email = text(user.get("email")).lower()
@@ -544,6 +546,7 @@ def normalize_crm_opportunity(payload, existing=None):
         "nextDate": text(payload.get("nextDate"), existing.get("nextDate") or payload.get("deadline")),
         "lastNote": text(payload.get("lastNote"), existing.get("lastNote") or payload.get("comment")),
         "comment": text(payload.get("comment"), existing.get("comment") or payload.get("lastNote")),
+        "sampleCustodies": payload.get("sampleCustodies") if isinstance(payload.get("sampleCustodies"), list) else list(existing.get("sampleCustodies") or []),
     }
 
 
@@ -4357,12 +4360,8 @@ class AppHandler(BaseHTTPRequestHandler):
                         dependencies = []
                         for linked_result in linked_results:
                             dependencies.extend(result_opportunity_dependencies(conn, text(linked_result.get("id"))))
-                            managements = linked_result.get("managements") if isinstance(linked_result.get("managements"), list) else []
-                            active_managements = [item for item in managements if not item.get("canceled") and not item.get("notified")]
                             if result_opportunity_has_closure(linked_result):
                                 dependencies.append("un cierre comercial")
-                            if len(active_managements) > 1:
-                                dependencies.append("gestiones posteriores a la migracion")
                         if dependencies:
                             self.send_json({
                                 "error": f"No se puede devolver porque tiene {' y '.join(dict.fromkeys(dependencies))}"
@@ -4384,6 +4383,45 @@ class AppHandler(BaseHTTPRequestHandler):
                         )
                         opportunity["status"] = previous_status if previous_status.lower() not in {"migrada", "anulada", "cancelada"} else "Vigente"
                         opportunity["archived"] = False
+                        # La devolución cambia de módulo, no borra la trazabilidad. Las
+                        # gestiones creadas en Gerencia pasan a la bitácora CRM y las
+                        # custodias permanecen asociadas a la oportunidad original.
+                        existing_management_ids = {
+                            text(item.get("id")) for item in data.get("gestiones", [])
+                            if text(item.get("opportunityId")) == item_id
+                        }
+                        stages_by_name = {
+                            text(item.get("name")).lower(): item.get("id")
+                            for item in data.get("stages", [])
+                        }
+                        merged_custodies = list(opportunity.get("sampleCustodies") or [])
+                        custody_ids = {text(item.get("id")) for item in merged_custodies}
+                        for linked_result in linked_results:
+                            for management in linked_result.get("managements") or []:
+                                management_id = text(management.get("id")) or f"mgmt-return-{int(time.time() * 1000)}"
+                                if management_id in existing_management_ids:
+                                    continue
+                                stage_name = text(management.get("stage"), text(opportunity.get("stage")))
+                                data.setdefault("gestiones", []).append(normalize_crm_gestion({
+                                    **management,
+                                    "id": management_id,
+                                    "opportunityId": item_id,
+                                    "company": opportunity.get("company"),
+                                    "ownerId": opportunity.get("ownerId"),
+                                    "stageId": stages_by_name.get(stage_name.lower(), opportunity.get("stageId")),
+                                    "stageName": stage_name,
+                                    "note": management.get("comment"),
+                                    "source": "Oportunidades / Gerencia",
+                                }))
+                                data["gestiones"][-1]["id"] = management_id
+                                existing_management_ids.add(management_id)
+                            for custody in linked_result.get("sampleCustodies") or []:
+                                custody_id = text(custody.get("id")) or f"custody-return-{int(time.time() * 1000)}"
+                                if custody_id in custody_ids:
+                                    continue
+                                merged_custodies.append({**custody, "id": custody_id})
+                                custody_ids.add(custody_id)
+                        opportunity["sampleCustodies"] = merged_custodies
                         for key in [
                             "migratedToResults", "migratedAt", "migratedBy", "resultOpportunityId", "resultOpportunityIds",
                             "archiveType", "archivedReason", "archivedAt", "archivedBy",
@@ -4495,7 +4533,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 if self.command == "GET" and not item_id:
                     self.send_json(build_crm_view_model(data)["gestiones"])
                     return
-                if self.command == "POST":
+                if self.command == "POST" and not item_id:
                     payload = self.read_json()
                     opportunity = next((item for item in data.get("opportunities", []) if item.get("id") == payload.get("opportunityId")), None)
                     if not opportunity:
@@ -4541,6 +4579,46 @@ class AppHandler(BaseHTTPRequestHandler):
                     write_crm_data(conn, data)
                     self.send_json(build_crm_view_model(data), status=201)
                     return
+                if item_id:
+                    gestion_index = next((i for i, item in enumerate(data.get("gestiones", [])) if text(item.get("id")) == item_id), -1)
+                    if gestion_index == -1:
+                        self.send_json({"error": "Gestion no encontrada"}, status=404)
+                        return
+                    current = data["gestiones"][gestion_index]
+                    opportunity = next((item for item in data.get("opportunities", []) if item.get("id") == current.get("opportunityId")), None)
+                    if self.command in {"PUT", "PATCH"}:
+                        payload = self.read_json()
+                        updated = normalize_crm_gestion(payload, current)
+                        data["gestiones"][gestion_index] = updated
+                        if opportunity:
+                            stage_id = whole_number(updated.get("stageId"), opportunity.get("stageId") or 1)
+                            opportunity["stageId"] = stage_id
+                            closure_result = text(updated.get("result")).lower()
+                            if closure_result == "ganado":
+                                opportunity["status"] = "Ganada"
+                            elif closure_result == "perdida":
+                                opportunity["status"] = "Perdida"
+                                opportunity["archived"] = True
+                        write_crm_data(conn, data)
+                        self.send_json(build_crm_view_model(data))
+                        return
+                    if action == "cancel" and self.command == "POST":
+                        payload = self.read_json()
+                        current["canceled"] = True
+                        current["canceledAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        current["canceledBy"] = text((request_user or {}).get("name"), "Sistema")
+                        current["cancelReason"] = text(payload.get("reason"), "Gestion anulada")
+                        if opportunity:
+                            active = [
+                                item for item in data.get("gestiones", [])
+                                if item.get("opportunityId") == opportunity.get("id") and not item.get("canceled")
+                            ]
+                            if active:
+                                latest = sorted(active, key=lambda item: f"{item.get('date', '')} {item.get('time', '')}")[-1]
+                                opportunity["stageId"] = whole_number(latest.get("stageId"), opportunity.get("stageId"))
+                        write_crm_data(conn, data)
+                        self.send_json(build_crm_view_model(data))
+                        return
 
             self.send_json({"error": "Endpoint CRM no encontrado"}, status=404)
 
