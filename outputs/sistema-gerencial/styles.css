@@ -6783,6 +6783,21 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .app-shell .financial-order-notification-card > button { grid-column: 3; grid-row: 1 / span 2; }
 }
 
+/* Maestro único de clientes */
+.crm-inline-picker { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: center; }
+.crm-customer-picker small { color: rgba(210,226,239,.62); font-size: 11px; }
+.crm-customer-table { display: grid; gap: 8px; min-width: 920px; }
+.crm-customer-row { display: grid; grid-template-columns: 100px minmax(210px,1.35fr) minmax(170px,1fr) 130px minmax(190px,1fr) 170px; gap: 14px; align-items: center; min-height: 72px; padding: 12px 18px; border: 1px solid rgba(111,151,190,.22); border-radius: 16px; background: rgba(31,58,91,.62); }
+.crm-customer-head { min-height: 48px; background: rgba(10,36,67,.82); color: rgba(216,231,242,.68); font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.crm-customer-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.crm-customer-row strong, .crm-customer-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-customer-row small { margin-top: 3px; color: rgba(214,229,240,.58); }
+.crm-row-actions { display: flex; gap: 7px; justify-content: flex-end; }
+.crm-row-actions button { min-height: 36px; padding: 0 12px; border: 1px solid rgba(102,215,190,.32); border-radius: 10px; background: rgba(21,112,98,.18); color: #c9f6e9; font-weight: 800; cursor: pointer; }
+.crm-row-actions button.danger { border-color: rgba(232,91,124,.35); background: rgba(142,42,68,.18); color: #ff9ab3; }
+.crm-customer-dialog .dialog-card { width: min(1080px,94vw); max-height: 90vh; overflow: auto; }
+@media (max-width: 760px) { .crm-inline-picker { grid-template-columns: 1fr; } }
+
 /* Cotizaciones: contraste y jerarquía visual propios para el modo oscuro. */
 #quotationDialog {
   background: #0d1c31;

@@ -334,7 +334,18 @@
         </div>
         <input type="hidden" id="opportunityId">
         <input type="hidden" id="opportunityCrmSourceId">
+        <input type="hidden" id="opportunityCustomerId">
         <div class="crm-form-grid">
+          <label class="span-2 crm-customer-picker">
+            Cliente registrado
+            <div class="crm-inline-picker">
+              <select id="opportunityCustomerSearch">
+                <option value="">Buscar y seleccionar cliente...</option>
+              </select>
+              <button type="button" class="ghost-btn" id="newCustomerFromOpportunity">+ Crear cliente</button>
+            </div>
+            <small>Al elegirlo se heredan empresa, contacto, teléfono, rubro y ubicación.</small>
+          </label>
           <label>
             Empresa
             <input id="opportunityCompany" maxlength="80" placeholder="Nombre de la empresa" required>

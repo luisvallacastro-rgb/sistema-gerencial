@@ -114,6 +114,12 @@ const areas = {
         items: []
       },
       {
+        key: "crm-clientes",
+        label: "Clientes",
+        status: "Maestro único de clientes",
+        items: []
+      },
+      {
         key: "resultados-oportunidades",
         label: "Oportunidades / Gerencia",
         status: "Pipeline activo",
@@ -888,6 +894,9 @@ const opportunityForm = document.querySelector("#opportunityForm");
 const opportunityDialogTitle = document.querySelector("#opportunityDialogTitle");
 const opportunityId = document.querySelector("#opportunityId");
 const opportunityCrmSourceId = document.querySelector("#opportunityCrmSourceId");
+const opportunityCustomerId = document.querySelector("#opportunityCustomerId");
+const opportunityCustomerSearch = document.querySelector("#opportunityCustomerSearch");
+const newCustomerFromOpportunity = document.querySelector("#newCustomerFromOpportunity");
 const opportunityDate = document.querySelector("#opportunityDate");
 const opportunityCompany = document.querySelector("#opportunityCompany");
 const opportunitySeller = document.querySelector("#opportunitySeller");
@@ -2275,6 +2284,8 @@ function resetOpportunityForm() {
   fillOpportunityOptions();
   opportunityId.value = "";
   opportunityCrmSourceId.value = "";
+  opportunityCustomerId.value = "";
+  refreshOpportunityCustomerOptions();
   opportunityDate.valueAsDate = new Date();
   opportunityAgendaDate.valueAsDate = new Date();
   opportunityNextAction.value = "Primer seguimiento";
@@ -6480,7 +6491,7 @@ function crmData() {
     opportunities,
     agenda,
     gestiones,
-    customers: (data.customers || []).filter((item) => customerIds.has(item.id)),
+    customers: (data.customers || []).filter((item) => item.active !== false),
     pipeline: (data.pipeline || []).map((stage) => {
       const stageOpportunities = pipelineOpportunities.filter((item) => Number(item.stageId || item.stage?.id) === Number(stage.id));
       const amount = stageOpportunities.reduce((sum, item) => sum + Number(item.estimatedAmount || 0), 0);
@@ -6548,6 +6559,7 @@ function crmOpportunityToFormItem(opportunity = {}) {
   const agenda = crmData().agenda.find((item) => item.opportunityId === opportunity.id) || {};
   return {
     id: opportunity.id || "",
+    customerId: opportunity.customerId || "",
     date: opportunity.nextDate || opportunity.deadline || opportunity.startDate || todayISO(),
     company: opportunity.company || "",
     sellerId: opportunity.ownerId || "",
@@ -6573,6 +6585,8 @@ function fillOpportunityForm(item, context = "results") {
   state.opportunityFormContext = context;
   opportunityId.value = item?.id || "";
   opportunityCrmSourceId.value = "";
+  opportunityCustomerId.value = item?.customerId || "";
+  refreshOpportunityCustomerOptions(item?.customerId || "");
   opportunityDate.value = item?.date || todayISO();
   opportunityCompany.value = item?.company || "";
   if (context === "crm") {
@@ -7653,28 +7667,111 @@ function renderCrmResponses() {
   `;
 }
 
+function crmMasterCustomers(includeInactive = false) {
+  return (crmData().customers || [])
+    .filter((customer) => includeInactive || customer.active !== false)
+    .sort((a, b) => String(a.commercialName || a.legalName).localeCompare(String(b.commercialName || b.legalName), "es"));
+}
+
+function refreshOpportunityCustomerOptions(selectedId = "") {
+  if (!opportunityCustomerSearch) return;
+  const customers = crmMasterCustomers();
+  opportunityCustomerSearch.innerHTML = `<option value="">Buscar y seleccionar cliente...</option>${customers.map((customer) => (
+    `<option value="${escapeHtml(customer.id)}">${escapeHtml(customer.commercialName || customer.legalName)}${customer.taxId ? ` · ${escapeHtml(customer.taxId)}` : ""}</option>`
+  )).join("")}`;
+  opportunityCustomerSearch.value = selectedId;
+}
+
+function inheritCustomerInOpportunity(customerId) {
+  const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(customerId));
+  opportunityCustomerId.value = customer?.id || "";
+  if (!customer) return;
+  opportunityCompany.value = customer.commercialName || customer.legalName || "";
+  opportunityContact.value = customer.contactName || customer.manager || "";
+  opportunityPhone.value = customer.phone || "";
+  ensureSelectOption(opportunitySegment, customer.businessActivity || customer.businessLine || "");
+  ensureSelectOption(opportunityLocation, customer.address || customer.department || "");
+}
+
+function ensureCrmCustomerDialog() {
+  let dialog = document.querySelector("#crmCustomerDialog");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "crmCustomerDialog";
+  dialog.className = "wide-dialog crm-customer-dialog";
+  dialog.innerHTML = `<form class="dialog-card" id="crmCustomerForm">
+    <div class="panel-head"><div><p class="eyebrow">Maestro comercial</p><h3 id="crmCustomerDialogTitle">Nuevo cliente</h3></div><button type="button" class="icon-btn" data-customer-close>x</button></div>
+    <input type="hidden" id="crmCustomerId">
+    <div class="crm-form-grid">
+      <label>Nombre comercial<input id="crmCustomerCommercialName" maxlength="120" required></label>
+      <label>Razón social<input id="crmCustomerLegalName" maxlength="160"></label>
+      <label>Código de cliente<input id="crmCustomerCode" maxlength="40"></label>
+      <label>NIT / identificación fiscal<input id="crmCustomerTaxId" maxlength="40"></label>
+      <label>NRC / registro<input id="crmCustomerRegistration" maxlength="40"></label>
+      <label>Tipo de contribuyente<input id="crmCustomerTaxpayerType" maxlength="80"></label>
+      <label>Contacto principal<input id="crmCustomerContact" maxlength="100"></label>
+      <label>Teléfono<input id="crmCustomerPhone" maxlength="30"></label>
+      <label>Correo<input id="crmCustomerEmail" type="email" maxlength="120"></label>
+      <label>Giro / actividad económica<input id="crmCustomerBusiness" maxlength="120"></label>
+      <label class="span-2">Dirección<input id="crmCustomerAddress" maxlength="220"></label>
+      <label>Departamento / municipio<input id="crmCustomerDepartment" maxlength="100"></label>
+      <label>Tipo de cliente<input id="crmCustomerType" maxlength="80"></label>
+      <label>Condiciones de pago<input id="crmCustomerTerms" maxlength="160"></label>
+      <label>Estrategia comercial<input id="crmCustomerStrategy" maxlength="100"></label>
+    </div>
+    <menu><button type="button" class="ghost-btn" data-customer-close>Cancelar</button><button type="submit" class="primary-btn">Guardar cliente</button></menu>
+  </form>`;
+  document.body.appendChild(dialog);
+  dialog.querySelectorAll("[data-customer-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelector("#crmCustomerForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const id = dialog.querySelector("#crmCustomerId").value;
+    const value = (selector) => dialog.querySelector(selector).value.trim();
+    const payload = {
+      commercialName: value("#crmCustomerCommercialName"), legalName: value("#crmCustomerLegalName"),
+      customerCode: value("#crmCustomerCode"), taxId: value("#crmCustomerTaxId"), registrationNumber: value("#crmCustomerRegistration"),
+      taxpayerType: value("#crmCustomerTaxpayerType"), contactName: value("#crmCustomerContact"), phone: value("#crmCustomerPhone"),
+      email: value("#crmCustomerEmail"), businessActivity: value("#crmCustomerBusiness"), address: value("#crmCustomerAddress"),
+      department: value("#crmCustomerDepartment"), clientType: value("#crmCustomerType"), paymentTerms: value("#crmCustomerTerms"), strategy: value("#crmCustomerStrategy")
+    };
+    try {
+      const response = await crmApi(id ? `/customers/${encodeURIComponent(id)}` : "/customers", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
+      dialog.close();
+      refreshOpportunityCustomerOptions(response.selectedCustomerId || id);
+      if (opportunityDialog.open && response.selectedCustomerId) {
+        opportunityCustomerSearch.value = response.selectedCustomerId;
+        inheritCustomerInOpportunity(response.selectedCustomerId);
+      }
+      renderCurrentArea();
+    } catch (error) { alert(error.message || "No fue posible guardar el cliente."); }
+  });
+  return dialog;
+}
+
+function openCrmCustomerDialog(customer = {}) {
+  const dialog = ensureCrmCustomerDialog();
+  const set = (selector, value) => { dialog.querySelector(selector).value = value || ""; };
+  set("#crmCustomerId", customer.id); set("#crmCustomerCommercialName", customer.commercialName); set("#crmCustomerLegalName", customer.legalName);
+  set("#crmCustomerCode", customer.customerCode); set("#crmCustomerTaxId", customer.taxId); set("#crmCustomerRegistration", customer.registrationNumber);
+  set("#crmCustomerTaxpayerType", customer.taxpayerType); set("#crmCustomerContact", customer.contactName || customer.manager); set("#crmCustomerPhone", customer.phone);
+  set("#crmCustomerEmail", customer.email); set("#crmCustomerBusiness", customer.businessActivity || customer.businessLine); set("#crmCustomerAddress", customer.address);
+  set("#crmCustomerDepartment", customer.department); set("#crmCustomerType", customer.clientType); set("#crmCustomerTerms", customer.paymentTerms); set("#crmCustomerStrategy", customer.strategy);
+  dialog.querySelector("#crmCustomerDialogTitle").textContent = customer.id ? "Editar cliente" : "Nuevo cliente";
+  dialog.showModal();
+}
+
 function renderCrmClients() {
-  const opportunities = crmData().opportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity));
-  const clients = Object.values(opportunities.reduce((acc, opp) => {
-    const key = opp.customerId || opp.company;
-    if (!acc[key]) acc[key] = { name: opp.customer?.commercialName || opp.company, owner: opp.owner?.name || crmOwnerName(opp.ownerId), count: 0, amount: 0, segment: opp.segment };
-    acc[key].count += 1;
-    acc[key].amount += Number(opp.estimatedAmount || 0);
-    return acc;
-  }, {})).slice(0, 80);
+  const clients = crmMasterCustomers();
   return `
     <section class="crm-shell">
-      <div class="crm-section-head hero-line"><strong>Clientes</strong><span>${clients.length} cuentas</span></div>
-      <div class="crm-client-grid">
+      <div class="crm-section-head hero-line"><div><strong>Maestro de clientes</strong><span>Información reutilizable en oportunidades, cotizaciones y pedidos.</span></div><button class="primary-btn" type="button" data-crm-customer-new>+ Nuevo cliente</button></div>
+      <div class="crm-customer-table">
+        <div class="crm-customer-row crm-customer-head"><span>Código</span><span>Cliente / razón social</span><span>Contacto</span><span>NIT</span><span>Ubicación</span><span>Acciones</span></div>
         ${clients.map((client) => `
-          <article class="crm-client-card">
-            <strong>${escapeHtml(client.name)}</strong>
-            <span>${escapeHtml(client.segment || "Segmento pendiente")}</span>
-            <div>
-              <em>${escapeHtml(client.owner)}</em>
-              <b>${formatMoney(client.amount)}</b>
-            </div>
-            <small>${client.count} oportunidades</small>
+          <article class="crm-customer-row">
+            <span>${escapeHtml(client.customerCode || "—")}</span><span><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName || "")}</small></span>
+            <span>${escapeHtml(client.contactName || client.manager || "—")}<small>${escapeHtml(client.phone || client.email || "")}</small></span><span>${escapeHtml(client.taxId || "—")}</span>
+            <span>${escapeHtml(client.address || client.department || "—")}</span><span class="crm-row-actions"><button type="button" data-crm-customer-edit="${escapeHtml(client.id)}">Editar</button><button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}">Archivar</button></span>
           </article>
         `).join("") || `<div class="empty-state">No hay clientes CRM.</div>`}
       </div>
@@ -8041,6 +8138,16 @@ function renderCommercialSubmenu(area) {
     opportunityTable.innerHTML = renderCrmModule(submenu.key);
     opportunityTable.querySelector("[data-crm-refresh]")?.addEventListener("click", loadCrmData);
     opportunityTable.querySelector("[data-crm-new]")?.addEventListener("click", () => openCrmOpportunityDialog());
+    opportunityTable.querySelector("[data-crm-customer-new]")?.addEventListener("click", () => openCrmCustomerDialog());
+    opportunityTable.querySelectorAll("[data-crm-customer-edit]").forEach((button) => button.addEventListener("click", () => {
+      const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerEdit));
+      if (customer) openCrmCustomerDialog(customer);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-customer-delete]").forEach((button) => button.addEventListener("click", async () => {
+      if (!confirm("¿Archivar este cliente? Sus documentos y oportunidades conservarán la relación.")) return;
+      try { await crmApi(`/customers/${encodeURIComponent(button.dataset.crmCustomerDelete)}`, { method: "DELETE" }); renderCurrentArea(); }
+      catch (error) { alert(error.message || "No fue posible archivar el cliente."); }
+    }));
     opportunityTable.querySelector("[data-crm-search]")?.addEventListener("input", (event) => {
       state.crmSearch = event.target.value;
       renderCommercialSubmenu(areas.comercializacion);
@@ -11310,6 +11417,9 @@ function updateClosureControls() {
   notifyOperationsBtn.disabled = Boolean(convertedOrderId) || !quotation;
 }
 
+opportunityCustomerSearch?.addEventListener("change", () => inheritCustomerInOpportunity(opportunityCustomerSearch.value));
+newCustomerFromOpportunity?.addEventListener("click", () => openCrmCustomerDialog());
+
 opportunityForm.addEventListener("submit", (event) => {
   if (event.submitter && event.submitter.value === "cancel") return;
   event.preventDefault();
@@ -11324,6 +11434,7 @@ opportunityForm.addEventListener("submit", (event) => {
     const stageId = Math.max(1, opportunityStages.indexOf(opportunityStage.value) + 1);
     const temperature = { caliente: "Caliente", tibio: "Tibio", frio: "Frio", congelado: "Congelado" }[opportunityProbability.value] || "Tibio";
     const payload = {
+      customerId: opportunityCustomerId.value,
       company: opportunityCompany.value.trim(),
       product: opportunitySegment.value.trim(),
       contact: opportunityContact.value.trim(),

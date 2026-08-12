@@ -464,6 +464,70 @@ def crm_customer_from_opportunity(opportunity):
     }
 
 
+def normalize_crm_customer(payload, existing=None):
+    existing = dict(existing or {})
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    commercial_name = text(payload.get("commercialName") or payload.get("name"), existing.get("commercialName"))
+    legal_name = text(payload.get("legalName"), existing.get("legalName") or commercial_name)
+    return {
+        **existing,
+        "commercialName": commercial_name,
+        "legalName": legal_name,
+        "contactName": text(payload.get("contactName") or payload.get("manager"), existing.get("contactName") or existing.get("manager")),
+        "phone": text(payload.get("phone"), existing.get("phone")),
+        "email": text(payload.get("email"), existing.get("email")).lower(),
+        "address": text(payload.get("address"), existing.get("address")),
+        "country": text(payload.get("country"), existing.get("country") or "El Salvador"),
+        "department": text(payload.get("department"), existing.get("department")),
+        "businessActivity": text(payload.get("businessActivity") or payload.get("businessLine"), existing.get("businessActivity") or existing.get("businessLine")),
+        "taxId": text(payload.get("taxId"), existing.get("taxId")),
+        "registrationNumber": text(payload.get("registrationNumber"), existing.get("registrationNumber")),
+        "taxpayerType": text(payload.get("taxpayerType"), existing.get("taxpayerType")),
+        "customerCode": text(payload.get("customerCode"), existing.get("customerCode")),
+        "clientType": text(payload.get("clientType"), existing.get("clientType")),
+        "paymentTerms": text(payload.get("paymentTerms"), existing.get("paymentTerms")),
+        "strategy": text(payload.get("strategy"), existing.get("strategy")),
+        "active": payload.get("active", existing.get("active", True)) is not False,
+        "createdAt": text(existing.get("createdAt"), now),
+        "updatedAt": now,
+    }
+
+
+def duplicate_crm_customer(data, payload, current_id=""):
+    candidate = normalize_crm_customer(payload)
+    keys = {
+        "commercialName": crm_identity_key(candidate.get("commercialName")),
+        "legalName": crm_identity_key(candidate.get("legalName")),
+        "taxId": crm_identity_key(candidate.get("taxId")),
+        "customerCode": crm_identity_key(candidate.get("customerCode")),
+    }
+    for customer in data.get("customers", []):
+        if text(customer.get("id")) == current_id:
+            continue
+        for field, value in keys.items():
+            if value and crm_identity_key(customer.get(field)) == value:
+                return field
+    return ""
+
+
+def inherit_crm_customer_fields(data, payload):
+    customer_id = text(payload.get("customerId"))
+    if not customer_id:
+        return payload
+    customer = next((item for item in data.get("customers", []) if text(item.get("id")) == customer_id and item.get("active", True)), None)
+    if not customer:
+        return payload
+    enriched = dict(payload)
+    enriched["company"] = text(customer.get("commercialName"), customer.get("legalName"))
+    enriched["contact"] = text(customer.get("contactName"), customer.get("manager"))
+    enriched["responsible"] = enriched["contact"]
+    enriched["phone"] = text(customer.get("phone"))
+    enriched["segment"] = text(customer.get("businessActivity"), customer.get("businessLine"))
+    enriched["product"] = text(enriched.get("product"), enriched["segment"])
+    enriched["location"] = text(customer.get("address"), customer.get("department"))
+    return enriched
+
+
 def normalize_crm_user(payload, existing=None):
     existing = dict(existing or {})
     first_name = text(payload.get("firstName"), existing.get("firstName"))
@@ -522,6 +586,7 @@ def normalize_crm_opportunity(payload, existing=None):
         estimated = 0
     return {
         **existing,
+        "customerId": text(payload.get("customerId"), existing.get("customerId")),
         "startDate": text(payload.get("startDate"), existing.get("startDate")),
         "deadline": text(payload.get("deadline"), existing.get("deadline")),
         "company": text(payload.get("company"), existing.get("company")),
@@ -967,6 +1032,12 @@ def build_crm_view_model(data, include_private=False):
         and not item.get("archived")
     ]
     derived_customers = list({item["customer"]["id"]: item["customer"] for item in opportunities}.values())
+    stored_customer_ids = {text(item.get("id")) for item in customers}
+    customer_catalog = customers + [
+        {**item, "derived": True}
+        for item in derived_customers
+        if text(item.get("id")) not in stored_customer_ids
+    ]
     agenda = []
     for item in data.get("agenda", []):
         opportunity = next((opp for opp in opportunities if opp.get("id") == item.get("opportunityId")), None)
@@ -997,7 +1068,7 @@ def build_crm_view_model(data, include_private=False):
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "roles": roles,
         "users": users if include_private else [public_crm_user(user) for user in users],
-        "customers": customers or derived_customers,
+        "customers": customer_catalog,
         "stages": stages,
         "forms": data.get("forms", []),
         "opportunities": opportunities,
@@ -4255,6 +4326,66 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_json(build_crm_view_model(data))
                         return
 
+            if resource == "customers":
+                customers = data.setdefault("customers", [])
+                if self.command == "GET" and not item_id:
+                    self.send_json(customers)
+                    return
+                if self.command == "POST" and not item_id:
+                    payload = self.read_json()
+                    if not text(payload.get("commercialName") or payload.get("name")):
+                        self.send_json({"error": "El nombre comercial es obligatorio"}, status=400)
+                        return
+                    duplicate_field = duplicate_crm_customer(data, payload)
+                    if duplicate_field:
+                        self.send_json({"error": "El cliente ya existe; revise nombre, NIT o código"}, status=409)
+                        return
+                    customer = {"id": f"customer-{int(time.time() * 1000)}", **normalize_crm_customer(payload)}
+                    customers.append(customer)
+                    write_crm_data(conn, data)
+                    response = build_crm_view_model(data)
+                    response["selectedCustomerId"] = customer["id"]
+                    self.send_json(response, status=201)
+                    return
+                if item_id:
+                    index = next((i for i, item in enumerate(customers) if text(item.get("id")) == item_id), -1)
+                    if index == -1:
+                        if self.command in {"PUT", "PATCH"}:
+                            payload = self.read_json()
+                            if duplicate_crm_customer(data, payload):
+                                self.send_json({"error": "Otro cliente ya usa ese nombre, NIT o código"}, status=409)
+                                return
+                            customer = {"id": item_id, **normalize_crm_customer(payload)}
+                            customers.append(customer)
+                            write_crm_data(conn, data)
+                            response = build_crm_view_model(data)
+                            response["selectedCustomerId"] = item_id
+                            self.send_json(response, status=201)
+                            return
+                        self.send_json({"error": "Cliente no encontrado"}, status=404)
+                        return
+                    if self.command in {"PUT", "PATCH"}:
+                        payload = self.read_json()
+                        if duplicate_crm_customer(data, payload, item_id):
+                            self.send_json({"error": "Otro cliente ya usa ese nombre, NIT o código"}, status=409)
+                            return
+                        customers[index] = normalize_crm_customer(payload, customers[index])
+                        write_crm_data(conn, data)
+                        response = build_crm_view_model(data)
+                        response["selectedCustomerId"] = item_id
+                        self.send_json(response)
+                        return
+                    if self.command == "DELETE":
+                        linked = any(text(item.get("customerId")) == item_id for item in data.get("opportunities", []))
+                        if linked:
+                            customers[index]["active"] = False
+                            customers[index]["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        else:
+                            customers.pop(index)
+                        write_crm_data(conn, data)
+                        self.send_json(build_crm_view_model(data))
+                        return
+
             if resource == "opportunities":
                 if self.command == "GET" and not item_id:
                     self.send_json(build_crm_view_model(data)["opportunities"])
@@ -4266,6 +4397,7 @@ class AppHandler(BaseHTTPRequestHandler):
                             self.send_json({"error": "Usuario sin vendedor CRM vinculado"}, status=403)
                             return
                         payload["ownerId"] = request_linked_seller.get("id")
+                    payload = inherit_crm_customer_fields(data, payload)
                     if not text(payload.get("company")) or not text(payload.get("ownerId")):
                         self.send_json({"error": "Empresa y vendedor requeridos"}, status=400)
                         return
@@ -4498,6 +4630,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         return
                     if self.command in {"PUT", "PATCH"}:
                         payload = self.read_json()
+                        payload = inherit_crm_customer_fields(data, payload)
                         if request_linked_seller:
                             payload["ownerId"] = request_linked_seller.get("id")
                         opportunity = normalize_crm_opportunity(payload, data["opportunities"][index])
