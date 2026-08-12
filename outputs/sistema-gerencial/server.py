@@ -1270,15 +1270,22 @@ def normalize_financial_order(data, existing=None):
     current = dict(existing or {})
     payload = dict(data or {})
     now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    order_date = text(payload.get("date"), current.get("date") or "")
+    derived_year = order_date[:4] if len(order_date) >= 7 and order_date[4:5] == "-" else ""
+    month_names = ("", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
+    try:
+        derived_month = month_names[int(order_date[5:7])]
+    except (ValueError, IndexError):
+        derived_month = ""
     return {
         "id": text(payload.get("id"), current.get("id") or f"pedido-{time.time_ns()}"),
         "sourceKey": text(payload.get("sourceKey"), current.get("sourceKey") or ""),
         "source": text(payload.get("source"), current.get("source") or "manual"),
         "sourceOpportunityId": text(payload.get("sourceOpportunityId"), current.get("sourceOpportunityId") or ""),
         "number": text(payload.get("number"), current.get("number") or ""),
-        "month": text(payload.get("month"), current.get("month") or ""),
-        "year": text(payload.get("year"), current.get("year") or ""),
-        "date": text(payload.get("date"), current.get("date") or ""),
+        "month": derived_month or text(payload.get("month"), current.get("month") or ""),
+        "year": derived_year or text(payload.get("year"), current.get("year") or ""),
+        "date": order_date,
         "seller": text(payload.get("seller"), current.get("seller") or ""),
         "sale": decimal_number(payload.get("sale"), current.get("sale", 0)),
         "orderNumber": text(payload.get("orderNumber"), current.get("orderNumber") or ""),
@@ -2980,6 +2987,17 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_date ON control_sales_orders(order_date)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_seller ON control_sales_orders(seller)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_control_sales_details_order ON control_sales_details(order_id, active)")
+        conn.execute("""
+            UPDATE financial_orders
+            SET year = substr(date, 1, 4),
+                month = CASE substr(date, 6, 2)
+                    WHEN '01' THEN 'Enero' WHEN '02' THEN 'Febrero' WHEN '03' THEN 'Marzo'
+                    WHEN '04' THEN 'Abril' WHEN '05' THEN 'Mayo' WHEN '06' THEN 'Junio'
+                    WHEN '07' THEN 'Julio' WHEN '08' THEN 'Agosto' WHEN '09' THEN 'Septiembre'
+                    WHEN '10' THEN 'Octubre' WHEN '11' THEN 'Noviembre' WHEN '12' THEN 'Diciembre'
+                    ELSE month END
+            WHERE date GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'
+        """)
         # Repair legacy linked orders whose operational date was left behind after
         # editing the financial order. The financial record is the canonical period.
         conn.execute("""

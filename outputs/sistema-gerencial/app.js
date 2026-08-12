@@ -4967,8 +4967,12 @@ function financialOrderLedgerRows() {
 
 function financialOrdersForSelectedPeriod() {
   return financialOrderLedgerRows().filter((order) => {
-    if (state.financialOrderYearFilter !== "all" && String(order.year) !== state.financialOrderYearFilter) return false;
-    if (state.financialOrderMonthFilter !== "all" && String(order.month) !== state.financialOrderMonthFilter) return false;
+    const date = String(order.date || "").slice(0, 10);
+    const [dateYear, dateMonth] = date.split("-").map(Number);
+    const effectiveYear = Number.isFinite(dateYear) ? String(dateYear) : String(order.year || "");
+    const effectiveMonth = Number.isFinite(dateMonth) ? monthLabel(dateMonth) : String(order.month || "");
+    if (state.financialOrderYearFilter !== "all" && effectiveYear !== state.financialOrderYearFilter) return false;
+    if (state.financialOrderMonthFilter !== "all" && effectiveMonth !== state.financialOrderMonthFilter) return false;
     return true;
   });
 }
