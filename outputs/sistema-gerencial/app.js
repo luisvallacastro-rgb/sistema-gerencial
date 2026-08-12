@@ -337,6 +337,9 @@ const state = {
   crmStatusFilter: "Vigente",
   crmSearch: "",
   crmTrackingView: "active",
+  crmCustomerSearch: "",
+  crmCustomerStatus: "active",
+  crmCustomerPage: 1,
   crmWonDateFrom: "",
   crmWonDateTo: "",
   crmOpportunityPage: 1,
@@ -7761,20 +7764,69 @@ function openCrmCustomerDialog(customer = {}) {
 }
 
 function renderCrmClients() {
-  const clients = crmMasterCustomers();
+  const allClients = crmMasterCustomers(true);
+  const query = normalizeKey(state.crmCustomerSearch || "");
+  const status = state.crmCustomerStatus || "active";
+  const searchable = (client) => [
+    client.customerCode, client.commercialName, client.legalName, client.contactName,
+    client.manager, client.phone, client.email, client.taxId, client.registrationNumber,
+    client.address, client.department, client.businessActivity, client.clientType
+  ].some((value) => normalizeKey(value || "").includes(query));
+  const clients = allClients.filter((client) => {
+    const matchesStatus = status === "all" || (status === "active" ? client.active !== false : client.active === false);
+    return matchesStatus && (!query || searchable(client));
+  });
+  const linkedCounts = new Map();
+  const linkedNames = new Map();
+  (crmData().opportunities || []).forEach((opportunity) => {
+    const key = String(opportunity.customerId || "");
+    if (key) linkedCounts.set(key, (linkedCounts.get(key) || 0) + 1);
+    const nameKey = normalizeKey(opportunity.company || "");
+    if (nameKey) linkedNames.set(nameKey, (linkedNames.get(nameKey) || 0) + 1);
+  });
+  const requiredFields = ["commercialName", "legalName", "contactName", "phone", "email", "taxId", "businessActivity", "address", "department", "paymentTerms"];
+  const completeness = (client) => Math.round(requiredFields.filter((field) => String(client[field] || "").trim()).length / requiredFields.length * 100);
+  const pageSize = 8;
+  const pageCount = Math.max(1, Math.ceil(clients.length / pageSize));
+  state.crmCustomerPage = Math.min(Math.max(1, state.crmCustomerPage || 1), pageCount);
+  const pageStart = (state.crmCustomerPage - 1) * pageSize;
+  const pageRows = clients.slice(pageStart, pageStart + pageSize);
+  const activeCount = allClients.filter((client) => client.active !== false).length;
+  const completeCount = allClients.filter((client) => client.active !== false && completeness(client) >= 80).length;
+  const archivedCount = allClients.filter((client) => client.active === false).length;
   return `
-    <section class="crm-shell">
-      <div class="crm-section-head hero-line"><div><strong>Maestro de clientes</strong><span>Información reutilizable en oportunidades, cotizaciones y pedidos.</span></div><button class="primary-btn" type="button" data-crm-customer-new>+ Nuevo cliente</button></div>
-      <div class="crm-customer-table">
-        <div class="crm-customer-row crm-customer-head"><span>Código</span><span>Cliente / razón social</span><span>Contacto</span><span>NIT</span><span>Ubicación</span><span>Acciones</span></div>
-        ${clients.map((client) => `
-          <article class="crm-customer-row">
-            <span>${escapeHtml(client.customerCode || "—")}</span><span><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName || "")}</small></span>
-            <span>${escapeHtml(client.contactName || client.manager || "—")}<small>${escapeHtml(client.phone || client.email || "")}</small></span><span>${escapeHtml(client.taxId || "—")}</span>
-            <span>${escapeHtml(client.address || client.department || "—")}</span><span class="crm-row-actions"><button type="button" data-crm-customer-edit="${escapeHtml(client.id)}">Editar</button><button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}">Archivar</button></span>
-          </article>
-        `).join("") || `<div class="empty-state">No hay clientes CRM.</div>`}
+    <section class="crm-shell crm-customers-module">
+      <header class="crm-customers-hero">
+        <div><p class="eyebrow">Directorio comercial</p><h3>Maestro de clientes</h3><span>Una ficha única alimenta oportunidades, cotizaciones, órdenes y pedidos.</span></div>
+        <button class="primary-btn" type="button" data-crm-customer-new>+ Nuevo cliente</button>
+      </header>
+      <div class="crm-customer-metrics">
+        <article><span>Clientes activos</span><strong>${activeCount}</strong><small>Disponibles para nuevos procesos</small></article>
+        <article><span>Fichas completas</span><strong>${completeCount}</strong><small>Con 80% o más de información</small></article>
+        <article><span>Archivados</span><strong>${archivedCount}</strong><small>Conservan su historial documental</small></article>
       </div>
+      <div class="crm-customer-toolbar">
+        <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar cliente, contacto, NIT, teléfono o ubicación..."></label>
+        <label class="crm-customer-filter">Estado<select data-crm-customer-status><option value="active" ${status === "active" ? "selected" : ""}>Activos</option><option value="archived" ${status === "archived" ? "selected" : ""}>Archivados</option><option value="all" ${status === "all" ? "selected" : ""}>Todos</option></select></label>
+        <div class="crm-customer-result"><strong>${clients.length}</strong><span>resultados</span></div>
+      </div>
+      <div class="crm-customer-table-wrap"><div class="crm-customer-table">
+        <div class="crm-customer-row crm-customer-head"><span>Código</span><span>Cliente / razón social</span><span>Contacto</span><span>Información comercial</span><span>Calidad de ficha</span><span>Acciones</span></div>
+        ${pageRows.map((client) => {
+          const score = completeness(client);
+          const linked = linkedCounts.get(String(client.id)) || linkedNames.get(normalizeKey(client.commercialName || client.legalName || "")) || 0;
+          return `
+          <article class="crm-customer-row">
+            <span class="crm-customer-code">${escapeHtml(client.customerCode || "S/C")}</span>
+            <span><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName || "Razón social pendiente")}</small><em>${linked} oportunidad${linked === 1 ? "" : "es"}</em></span>
+            <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || "Sin teléfono")}</small><small>${escapeHtml(client.email || "Sin correo")}</small></span>
+            <span><strong>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</strong><small>NIT: ${escapeHtml(client.taxId || "pendiente")}</small><small>${escapeHtml(client.department || client.address || "Ubicación pendiente")}</small></span>
+            <span class="crm-customer-quality"><strong>${score}%</strong><i><b style="width:${score}%"></b></i><small>${score >= 80 ? "Ficha lista" : "Completar información"}</small></span>
+            <span class="crm-row-actions"><button type="button" data-crm-customer-edit="${escapeHtml(client.id)}">Ver / editar</button>${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}">Restaurar</button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}">Archivar</button>`}</span>
+          </article>
+        `}).join("") || `<div class="empty-state">No hay clientes que coincidan con esta vista.</div>`}
+      </div></div>
+      <footer class="crm-customer-pagination"><span>Mostrando ${clients.length ? pageStart + 1 : 0}-${Math.min(pageStart + pageSize, clients.length)} de ${clients.length}</span><div><button type="button" data-crm-customer-page="${state.crmCustomerPage - 1}" ${state.crmCustomerPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.crmCustomerPage} de ${pageCount}</strong><button type="button" data-crm-customer-page="${state.crmCustomerPage + 1}" ${state.crmCustomerPage >= pageCount ? "disabled" : ""}>Siguiente</button></div></footer>
     </section>
   `;
 }
@@ -8147,6 +8199,29 @@ function renderCommercialSubmenu(area) {
       if (!confirm("¿Archivar este cliente? Sus documentos y oportunidades conservarán la relación.")) return;
       try { await crmApi(`/customers/${encodeURIComponent(button.dataset.crmCustomerDelete)}`, { method: "DELETE" }); renderCurrentArea(); }
       catch (error) { alert(error.message || "No fue posible archivar el cliente."); }
+    }));
+    opportunityTable.querySelectorAll("[data-crm-customer-restore]").forEach((button) => button.addEventListener("click", async () => {
+      const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerRestore));
+      if (!customer) return;
+      try { await crmApi(`/customers/${encodeURIComponent(customer.id)}`, { method: "PATCH", body: JSON.stringify({ ...customer, active: true }) }); renderCurrentArea(); }
+      catch (error) { alert(error.message || "No fue posible restaurar el cliente."); }
+    }));
+    opportunityTable.querySelector("[data-crm-customer-search]")?.addEventListener("input", (event) => {
+      state.crmCustomerSearch = event.target.value;
+      state.crmCustomerPage = 1;
+      renderCommercialSubmenu(areas.comercializacion);
+      const input = opportunityTable.querySelector("[data-crm-customer-search]");
+      input?.focus();
+      input?.setSelectionRange(input.value.length, input.value.length);
+    });
+    opportunityTable.querySelector("[data-crm-customer-status]")?.addEventListener("change", (event) => {
+      state.crmCustomerStatus = event.target.value;
+      state.crmCustomerPage = 1;
+      renderCommercialSubmenu(areas.comercializacion);
+    });
+    opportunityTable.querySelectorAll("[data-crm-customer-page]").forEach((button) => button.addEventListener("click", () => {
+      state.crmCustomerPage = Number(button.dataset.crmCustomerPage) || 1;
+      renderCommercialSubmenu(areas.comercializacion);
     }));
     opportunityTable.querySelector("[data-crm-search]")?.addEventListener("input", (event) => {
       state.crmSearch = event.target.value;
