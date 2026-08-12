@@ -163,7 +163,10 @@ def load_crm_seed():
     with CRM_SEED_PATH.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
     data.setdefault("gestiones", [])
-    data.setdefault("customers", [])
+    # New installations start with an empty explicit customer master. Legacy
+    # opportunities retain their embedded client information independently.
+    data["customers"] = []
+    data["customerMasterResetVersion"] = "clean-master-20260812"
     return data
 
 
@@ -545,11 +548,19 @@ def read_crm_data(conn):
     data = json.loads(row["value"])
     data.setdefault("gestiones", [])
     data.setdefault("customers", [])
+    # One-time reset of the customer master. Historical opportunities and
+    # documents keep their own snapshots, but the reusable directory starts
+    # empty so authorized users can build a clean catalog from scratch.
+    customer_reset_version = "clean-master-20260812"
     data, changed = sync_crm_seed_updates(data)
+    customer_reset_changed = text(data.get("customerMasterResetVersion")) != customer_reset_version
+    if customer_reset_changed:
+        data["customers"] = []
+        data["customerMasterResetVersion"] = customer_reset_version
     origin_links_changed = repair_result_opportunity_origin_links(conn, data)
     data, migration_changed = sync_crm_result_migrations(conn, data)
     data, closure_changed = sync_crm_result_closures(conn, data)
-    changed = changed or origin_links_changed or migration_changed or closure_changed
+    changed = changed or customer_reset_changed or origin_links_changed or migration_changed or closure_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -1181,13 +1192,10 @@ def build_crm_view_model(data, include_private=False):
         if text(item.get("status"), "Vigente").lower() not in {"perdida", "cancelada"}
         and not item.get("archived")
     ]
-    derived_customers = list({item["customer"]["id"]: item["customer"] for item in opportunities}.values())
-    stored_customer_ids = {text(item.get("id")) for item in customers}
-    customer_catalog = customers + [
-        {**item, "derived": True}
-        for item in derived_customers
-        if text(item.get("id")) not in stored_customer_ids
-    ]
+    # The customer master is explicit: legacy opportunities must not recreate
+    # directory entries after a cleanup. Their embedded customer snapshots are
+    # still available to historical documents.
+    customer_catalog = customers
     agenda = []
     for item in data.get("agenda", []):
         opportunity = next((opp for opp in opportunities if opp.get("id") == item.get("opportunityId")), None)
