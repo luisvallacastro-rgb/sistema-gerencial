@@ -7776,14 +7776,6 @@ function renderCrmClients() {
     const matchesStatus = status === "all" || (status === "active" ? client.active !== false : client.active === false);
     return matchesStatus && (!query || searchable(client));
   });
-  const linkedCounts = new Map();
-  const linkedNames = new Map();
-  (crmData().opportunities || []).forEach((opportunity) => {
-    const key = String(opportunity.customerId || "");
-    if (key) linkedCounts.set(key, (linkedCounts.get(key) || 0) + 1);
-    const nameKey = normalizeKey(opportunity.company || "");
-    if (nameKey) linkedNames.set(nameKey, (linkedNames.get(nameKey) || 0) + 1);
-  });
   const requiredFields = ["commercialName", "legalName", "contactName", "phone", "email", "taxId", "businessActivity", "address", "department", "paymentTerms"];
   const completeness = (client) => Math.round(requiredFields.filter((field) => String(client[field] || "").trim()).length / requiredFields.length * 100);
   const pageSize = 8;
@@ -7811,19 +7803,15 @@ function renderCrmClients() {
         <div class="crm-customer-result"><strong>${clients.length}</strong><span>clientes</span></div>
       </div>
       <div class="crm-customer-table-wrap"><div class="crm-customer-table">
-        <div class="crm-customer-row crm-customer-head"><span>Cliente</span><span>Contacto</span><span>Ubicación</span><span>Estado</span><span>Acciones</span></div>
-        ${pageRows.map((client) => {
-          const score = completeness(client);
-          const linked = linkedCounts.get(String(client.id)) || linkedNames.get(normalizeKey(client.commercialName || client.legalName || "")) || 0;
-          return `
+        <div class="crm-customer-row crm-customer-head"><span>Cliente</span><span>Contacto</span><span>Ubicación</span><span>Acciones</span></div>
+        ${pageRows.map((client) => `
           <article class="crm-customer-row">
             <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.customerCode || "Sin código"))}</small></span>
             <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
             <span><strong>${escapeHtml(client.department || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
-            <span class="crm-customer-status"><b class="${score >= 80 ? "complete" : "pending"}">${score >= 80 ? "Completa" : `${score}% · Incompleta`}</b><small>${linked} oportunidad${linked === 1 ? "" : "es"}</small></span>
             <span class="crm-row-actions"><button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar">✎</button>${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar">↻</button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar">⌫</button>`}</span>
           </article>
-        `}).join("") || `<div class="empty-state">No hay clientes que coincidan con esta vista.</div>`}
+        `).join("") || `<div class="empty-state">No hay clientes que coincidan con esta vista.</div>`}
       </div></div>
       <footer class="crm-customer-pagination"><span>Mostrando ${clients.length ? pageStart + 1 : 0}-${Math.min(pageStart + pageSize, clients.length)} de ${clients.length}</span><div><button type="button" data-crm-customer-page="${state.crmCustomerPage - 1}" ${state.crmCustomerPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.crmCustomerPage} de ${pageCount}</strong><button type="button" data-crm-customer-page="${state.crmCustomerPage + 1}" ${state.crmCustomerPage >= pageCount ? "disabled" : ""}>Siguiente</button></div></footer>
     </section>
