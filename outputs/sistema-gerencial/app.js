@@ -7796,15 +7796,15 @@ function renderCrmClients() {
   const archivedCount = allClients.filter((client) => client.active === false).length;
   return `
     <section class="crm-shell crm-customers-module">
-      <header class="crm-customers-hero">
-        <div><p class="eyebrow">Directorio comercial</p><h3>Maestro de clientes</h3><span>Una ficha única alimenta oportunidades, cotizaciones, órdenes y pedidos.</span></div>
+      <header class="crm-customers-hero crm-customers-compact-head">
+        <div><p class="eyebrow">Directorio comercial</p><h3>Maestro de clientes</h3></div>
+        <div class="crm-customer-metrics" aria-label="Resumen de clientes">
+          <span><b>${activeCount}</b> activos</span>
+          <span><b>${completeCount}</b> completos</span>
+          <span><b>${archivedCount}</b> archivados</span>
+        </div>
         <button class="primary-btn" type="button" data-crm-customer-new>+ Nuevo cliente</button>
       </header>
-      <div class="crm-customer-metrics">
-        <article><span>Clientes activos</span><strong>${activeCount}</strong><small>Disponibles para nuevos procesos</small></article>
-        <article><span>Fichas completas</span><strong>${completeCount}</strong><small>Con 80% o más de información</small></article>
-        <article><span>Archivados</span><strong>${archivedCount}</strong><small>Conservan su historial documental</small></article>
-      </div>
       <div class="crm-customer-toolbar">
         <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar cliente, contacto, NIT, teléfono o ubicación..."></label>
         <label class="crm-customer-filter">Estado<select data-crm-customer-status><option value="active" ${status === "active" ? "selected" : ""}>Activos</option><option value="archived" ${status === "archived" ? "selected" : ""}>Archivados</option><option value="all" ${status === "all" ? "selected" : ""}>Todos</option></select></label>
