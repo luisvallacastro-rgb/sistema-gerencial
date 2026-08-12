@@ -2931,7 +2931,7 @@ function wireProductionSchedule() {
 function controlSalesIsConfirmed(order) {
   // Las ventas históricas importadas no participaron en el flujo de firmas.
   // Toda orden nueva requiere los dos vistos buenos antes de contabilizarse.
-  return order?.source === "importado" || order?.financeApprovalStatus === "Aprobada";
+  return order?.source === "importado" || controlSalesOrderHasAuthorizedSignatures(order);
 }
 
 function controlSalesFilteredRows() {
@@ -3459,7 +3459,8 @@ function commercialPendingApprovalOrders() {
 
 function financePendingApprovalOrders() {
   return approvalControlSalesOrders().filter((order) => (
-    order.commercialApprovalStatus === "Autorizada" && order.financeApprovalStatus !== "Aprobada"
+    (order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt))
+    && !controlSalesOrderHasAuthorizedSignatures(order)
   ));
 }
 
@@ -3632,7 +3633,7 @@ function commercialApprovalFolio(order) {
 }
 
 function commercialApprovalSignatureMarkup(order, compact = false) {
-  if (order?.commercialApprovalStatus !== "Autorizada") return "";
+  if (order?.commercialApprovalStatus !== "Autorizada" && !order?.commercialApprovedAt) return "";
   return `<section class="commercial-electronic-signature${compact ? " is-compact" : ""}" aria-label="Firma electrónica de Gerencia de Comercialización">
     <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
     <div class="commercial-electronic-signature__copy">
@@ -3651,7 +3652,7 @@ function financeApprovalFolio(order) {
 }
 
 function financeApprovalSignatureMarkup(order, compact = false) {
-  if (order?.financeApprovalStatus !== "Aprobada") return "";
+  if (order?.financeApprovalStatus !== "Aprobada" && !order?.financeApprovedAt) return "";
   return `<section class="commercial-electronic-signature finance-electronic-signature${compact ? " is-compact" : ""}" aria-label="Firma electrónica de Gerencia Financiera">
     <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
     <div class="commercial-electronic-signature__copy">
@@ -4580,7 +4581,7 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
   detailDialog.dataset.orderFormatOnly = formatOnly ? "true" : "false";
   const warnings = [...(order.anomalies || []), ...order.details.flatMap((detail) => detail.reviewRequired ? [{ description: `Precio faltante en ${detail.product}; requiere revisión.` }] : (detail.anomalies || []))];
   const isBalanced = Number(order.varianceCents || 0) === 0;
-  const approvalLabel = order.financeApprovalStatus === "Aprobada" ? "Aprobado · 2 firmas" : order.commercialApprovalStatus === "Autorizada" ? "Autorización comercial" : "Pendiente de autorización";
+  const approvalLabel = controlSalesOrderHasAuthorizedSignatures(order) ? "Aprobado · 2 firmas" : (order.commercialApprovalStatus === "Autorizada" || order.commercialApprovedAt) ? "Autorización comercial" : "Pendiente de autorización";
   document.querySelector("#controlSalesDetailContent").innerHTML = `<header class="control-sales-review-header"><div><p class="eyebrow">Orden ${escapeHtml(formatOrderCorrelative(order.number))}</p><h3>${escapeHtml(order.client)}</h3><span>${escapeHtml(controlSalesResponsibleSeller(order))}</span></div><div class="control-sales-review-header__aside"><em>${escapeHtml(approvalLabel)}</em><button type="button" data-control-sales-detail-close aria-label="Cerrar">×</button></div></header>
     <section class="control-sales-review-hero">
       <div class="control-sales-review-total"><small>Total del pedido</small><strong>${formatControlSalesMoney(order.totalCents || 0)}</strong><span>${order.details.length === 1 ? "1 producto" : `${order.details.length} productos`}</span></div>
@@ -4916,7 +4917,7 @@ function saveFinancialOrderFilters() {
 function approvedControlSalesFinancialRows() {
   const persistedIds = new Set(state.financialOrders.map((order) => String(order.id)));
   return state.controlSales
-    .filter((order) => !order.archived && order.financeApprovalStatus === "Aprobada")
+    .filter((order) => !order.archived && controlSalesOrderHasAuthorizedSignatures(order))
     .filter((order) => !order.financialOrderId || !persistedIds.has(String(order.financialOrderId)))
     .map((order) => {
       const date = String(order.date || order.financeApprovedAt || order.updatedAt || todayISO()).slice(0, 10);
@@ -5094,8 +5095,7 @@ function renderFinancialOrderList() {
             ? state.controlSales.find((item) => item.id === order.controlSalesOrderId)
             : null;
           const linkedOrder = approvedControlOrder || linkedControlSalesByFinancialOrderId.get(String(order.id));
-          const hasTwoSignatures = linkedOrder?.commercialApprovalStatus === "Autorizada"
-            && linkedOrder?.financeApprovalStatus === "Aprobada";
+          const hasTwoSignatures = controlSalesOrderHasAuthorizedSignatures(linkedOrder);
           const variance = Number(linkedOrder?.varianceCents || 0);
           return `
           <article class="financial-order-row">
