@@ -6783,6 +6783,144 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .app-shell .financial-order-notification-card > button { grid-column: 3; grid-row: 1 / span 2; }
 }
 
+/* Flujo directo: cliente -> cotización -> nota de pedido -> autorización final. */
+.direct-order-customer-dialog {
+  width: min(920px, calc(100vw - 32px));
+  max-height: min(820px, calc(100vh - 32px));
+  padding: 0;
+  border: 1px solid rgba(111, 236, 205, .3);
+  border-radius: 28px;
+  overflow: hidden;
+  color: #edf8ff;
+  background: linear-gradient(145deg, rgba(38, 58, 94, .96), rgba(8, 31, 48, .97));
+  box-shadow: 0 32px 90px rgba(0, 8, 22, .62), inset 0 1px rgba(255,255,255,.08);
+  backdrop-filter: blur(22px) saturate(130%);
+}
+.direct-order-customer-dialog::backdrop {
+  background: rgba(2, 12, 27, .72);
+  backdrop-filter: blur(7px);
+}
+.direct-order-customer-card { display: grid; grid-template-rows: auto auto minmax(0,1fr); max-height: inherit; }
+.direct-order-customer-card > header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px 20px;
+  padding: 28px 30px 22px;
+  border-bottom: 1px solid rgba(132, 201, 221, .18);
+}
+.direct-order-customer-card > header > span {
+  color: #70edce;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.direct-order-customer-card > header h3 { margin: 0; font-size: clamp(25px,3vw,36px); line-height: 1.05; }
+.direct-order-customer-card > header p { margin: 5px 0 0; color: rgba(220,235,246,.66); font-weight: 650; }
+.direct-order-customer-card > header button {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  align-self: start;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(157, 211, 231, .25);
+  border-radius: 14px;
+  color: #edf8ff;
+  background: rgba(101, 150, 185, .13);
+  font-size: 22px;
+  cursor: pointer;
+}
+.direct-order-customer-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 14px;
+  padding: 20px 30px;
+}
+.direct-order-customer-toolbar label {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 18px;
+  border: 1px solid rgba(142, 191, 220, .28);
+  border-radius: 16px;
+  background: rgba(117, 146, 187, .16);
+}
+.direct-order-customer-toolbar input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: #f5fbff;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+}
+.direct-order-customer-toolbar input::placeholder { color: rgba(219,232,244,.5); }
+.direct-order-customer-toolbar > button {
+  padding: 0 20px;
+  border: 1px solid rgba(95, 235, 196, .45);
+  border-radius: 16px;
+  color: #d9fff4;
+  background: rgba(20, 151, 113, .24);
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+.direct-order-customer-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 220px;
+  max-height: 500px;
+  padding: 2px 30px 30px;
+  overflow-y: auto;
+  scrollbar-color: #5bdcbb rgba(13,35,55,.65);
+}
+.direct-order-customer-option {
+  display: grid;
+  grid-template-columns: minmax(0,1.3fr) minmax(160px,.8fr) auto;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 78px;
+  padding: 15px 18px;
+  border: 1px solid rgba(131, 186, 216, .2);
+  border-radius: 18px;
+  color: #edf8ff;
+  text-align: left;
+  background: linear-gradient(100deg, rgba(62,88,133,.34), rgba(15,58,72,.32));
+  cursor: pointer;
+  transition: border-color .16s, transform .16s, background .16s;
+}
+.direct-order-customer-option:hover,
+.direct-order-customer-option:focus-visible {
+  border-color: rgba(104,239,204,.75);
+  outline: 0;
+  transform: translateY(-1px);
+  background: linear-gradient(100deg, rgba(55,96,137,.5), rgba(15,104,91,.4));
+}
+.direct-order-customer-option strong,
+.direct-order-customer-option small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.direct-order-customer-option strong { font-size: 17px; }
+.direct-order-customer-option small { margin-top: 4px; color: rgba(216,231,242,.58); }
+.direct-order-customer-option em { color: rgba(218,234,244,.72); font-style: normal; font-weight: 700; }
+.direct-order-customer-option b { color: #78edcf; font-size: 14px; }
+.direct-order-customer-empty {
+  padding: 50px 20px;
+  border: 1px dashed rgba(145,193,220,.28);
+  border-radius: 18px;
+  color: rgba(221,235,245,.68);
+  text-align: center;
+}
+@media (max-width: 680px) {
+  .direct-order-customer-card > header { padding: 22px 20px 18px; }
+  .direct-order-customer-toolbar { grid-template-columns: 1fr; padding: 16px 20px; }
+  .direct-order-customer-toolbar > button { min-height: 48px; }
+  .direct-order-customer-list { padding: 2px 20px 24px; }
+  .direct-order-customer-option { grid-template-columns: 1fr auto; gap: 7px 12px; }
+  .direct-order-customer-option em { grid-column: 1; }
+  .direct-order-customer-option b { grid-column: 2; grid-row: 1 / span 2; }
+}
+
 /* Modern floating customer editor */
 #crmCustomerDialog.crm-customer-dialog {
   width: min(980px, calc(100vw - 36px));

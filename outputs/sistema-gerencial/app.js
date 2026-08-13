@@ -780,21 +780,22 @@ async function apiJson(path, options = {}) {
   return response.json();
 }
 
-function loadCrmData() {
-  if (!apiEnabled) return;
-  apiJson("/api/crm/bootstrap")
-    .then((data) => {
-      state.crmData = data;
-      syncLostCrmOpportunities();
-      fillOpportunityOptions();
-      if (state.activeArea === adminAreaKey && state.activeSubmenu === "vendedores") renderAdminPanel();
-      else if (state.activeArea === "comercializacion" && (
-        state.activeSubmenu?.startsWith("crm") || state.activeSubmenu === "cotizaciones"
-      )) renderDashboard();
-    })
-    .catch(() => {
-      state.crmData = null;
-    });
+async function loadCrmData() {
+  if (!apiEnabled) return null;
+  try {
+    const data = await apiJson("/api/crm/bootstrap");
+    state.crmData = data;
+    syncLostCrmOpportunities();
+    fillOpportunityOptions();
+    if (state.activeArea === adminAreaKey && state.activeSubmenu === "vendedores") renderAdminPanel();
+    else if (state.activeArea === "comercializacion" && (
+      state.activeSubmenu?.startsWith("crm") || state.activeSubmenu === "cotizaciones"
+    )) renderDashboard();
+    return data;
+  } catch {
+    state.crmData = null;
+    return null;
+  }
 }
 const defaultStrategicRisks = [];
 const defaultManagementRequests = [];
@@ -3245,6 +3246,7 @@ function ensureControlSalesDialogs() {
       const payload = { financialOrderId:linkedFinancialOrder.id, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
       const response = await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
       const savedOrder = response.item;
+      const completedDirectFlow = formDialog.dataset.directOrderFlow === "true";
       document.querySelector("#controlSalesId").value = savedOrder.id;
       document.querySelector("#controlSalesDialogTitle").textContent = `Editar pedido #${savedOrder.number}`;
       submit.textContent = "Guardar cambios";
@@ -3252,6 +3254,15 @@ function ensureControlSalesDialogs() {
       await loadQuotations();
       if (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos") {
         renderCommercialSubmenu(areas.comercializacion);
+      }
+      if (completedDirectFlow) {
+        state.financialOrdersView = "notifications";
+        saveFinancialOrderFilters();
+        formDialog.close();
+        if (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos") {
+          renderCommercialSubmenu(areas.comercializacion);
+        }
+        return;
       }
       if (savedOrder.sourceOpportunityId) {
         const sourceOpportunity = getOpportunitySubmenu().items.find((item) => (
@@ -3453,6 +3464,7 @@ function collectControlSalesProformaData() {
     document.querySelector(`#${id}`)?.value.trim() || ""
   ]));
   data.perceptionEnabled = Boolean(document.querySelector("#controlSalesPerceptionEnabled")?.checked);
+  if (document.querySelector("#controlSalesDialog")?.dataset.directOrderFlow === "true") data.workflow = "direct-final-only";
   return data;
 }
 
@@ -3527,13 +3539,18 @@ function approvalControlSalesOrders() {
     .sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date)));
 }
 
+function isDirectOrderFlow(order = {}) {
+  return order?.proformaData?.workflow === "direct-final-only"
+    || String(order?.sourceOpportunityId || "").startsWith("direct-order:");
+}
+
 function commercialPendingApprovalOrders() {
-  return approvalControlSalesOrders().filter((order) => order.commercialApprovalStatus !== "Autorizada");
+  return approvalControlSalesOrders().filter((order) => !isDirectOrderFlow(order) && order.commercialApprovalStatus !== "Autorizada");
 }
 
 function financePendingApprovalOrders() {
   return approvalControlSalesOrders().filter((order) => (
-    (order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt))
+    (isDirectOrderFlow(order) || order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt))
     && !controlSalesOrderHasAuthorizedSignatures(order)
   ));
 }
@@ -3886,7 +3903,7 @@ function ensureQuotationDialog() {
     <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Selecciona pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label><label class="quotation-field-editable">Tiempo de entrega<select id="quotationDeliveryTerms" required><option>30 días hábiles posterior a la orden de compra</option><option>60 días hábiles posterior a la orden de compra</option><option>90 días hábiles posterior a la orden de compra</option></select></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
-    <footer><button type="button" class="quotation-crud-action quotation-delete-action hidden" data-quotation-delete>Eliminar</button><button type="button" class="quotation-crud-action quotation-print-action" data-quotation-preview aria-label="Vista previa e imprimir" title="Vista previa e imprimir">🖨️</button><button type="button" class="quotation-crud-action quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="quotation-crud-action primary-btn">Guardar</button><button type="button" class="quotation-crud-action quotation-new-action" data-quotation-new>Nuevo</button></footer>
+    <footer><button type="button" class="quotation-crud-action quotation-delete-action hidden" data-quotation-delete>Eliminar</button><button type="button" class="quotation-crud-action quotation-print-action" data-quotation-preview aria-label="Vista previa e imprimir" title="Vista previa e imprimir">🖨️</button><button type="button" class="quotation-crud-action quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="quotation-crud-action primary-btn">Guardar</button><button type="button" class="quotation-crud-action primary-btn hidden" data-quotation-direct-convert>Guardar y crear nota de pedido</button><button type="button" class="quotation-crud-action quotation-new-action" data-quotation-new>Nuevo</button></footer>
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");
 
@@ -3957,6 +3974,14 @@ function ensureQuotationDialog() {
     }
     if (event.target.closest("[data-quotation-delete]")) { await deleteQuotationFromForm(); return; }
     if (event.target.closest("[data-quotation-preview]")) printQuotation(quotationDraftFromForm());
+    if (event.target.closest("[data-quotation-direct-convert]")) {
+      const savedQuote = await saveQuotationFromForm("Aprobada");
+      if (!savedQuote) return;
+      const directOpportunity = dialog.directOrderOpportunity;
+      dialog.close();
+      openControlSalesForm(null, null, directOpportunity, false, savedQuote, false, true);
+      return;
+    }
     if (event.target.closest("[data-quotation-new]")) {
       const currentId = document.querySelector("#quotationId").value;
       if (currentId && !confirm("¿Iniciar una nueva cotización? Los cambios no guardados de la cotización seleccionada se descartarán.")) return;
@@ -4074,8 +4099,8 @@ function renderQuotationHistory(opportunityId, activeQuoteId = "") {
   history.innerHTML = `<div><span>Historial</span><strong>${quotes.length} ${quotes.length === 1 ? "cotización" : "cotizaciones"}</strong></div>${quotes.length ? `<nav>${quotes.map((quote) => { const selected = String(quote.id) === selectedId; return `<button type="button" class="${selected ? "is-selected" : ""}" data-quotation-history-id="${escapeHtml(quote.id)}" ${selected ? 'aria-current="true"' : ""}><b>Cotización</b><span>${formatDate(quote.date)} · ${formatControlSalesMoney(quote.totalCents)}</span><em data-status="${escapeHtml(quote.status)}">${escapeHtml(quote.status)}</em>${selected ? `<mark>Seleccionada</mark>` : ""}</button>`; }).join("")}</nav>` : `<p>La primera cotización se agregará aquí al guardar.</p>`}`;
 }
 
-function populateQuotationForm(quote, opportunity = null) {
-  const customer = quote?.customerData || crmCustomerForQuotation(opportunity);
+function populateQuotationForm(quote, opportunity = null, customerOverride = null) {
+  const customer = quote?.customerData || customerOverride || crmCustomerForQuotation(opportunity);
   const seller = (crmData().sellers || []).find((item) => item.id === opportunity?.ownerId) || {};
   const values = {
     quotationId:quote?.id || "", quotationNumber:quote?.number || "", quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
@@ -4113,9 +4138,9 @@ function populateQuotationForm(quote, opportunity = null) {
   updateQuotationTotals();
 }
 
-async function openQuotationDialog(opportunityId, quoteId = "") {
+async function openQuotationDialog(opportunityId, quoteId = "", opportunityOverride = null, customerOverride = null, directOrderFlow = false) {
   ensureQuotationDialog(); await loadQuotations();
-  let opportunity = crmOpportunityForQuotation(opportunityId);
+  let opportunity = opportunityOverride || crmOpportunityForQuotation(opportunityId);
   if (!opportunity) {
     const win = crmResultWinHistory().find((item) => String(item.id) === String(opportunityId));
     if (win) opportunity = { id:win.id, company:win.company, seller:win.seller, estimatedAmount:win.amount, segment:win.segment || "", product:win.product || "", stageId:"Cierre ganado" };
@@ -4123,10 +4148,16 @@ async function openQuotationDialog(opportunityId, quoteId = "") {
   if (!opportunity) return alert("No se encontró la oportunidad comercial.");
   const quote = quoteId ? state.quotations.find((item) => String(item.id) === String(quoteId)) : null;
   const dialog = document.querySelector("#quotationDialog");
+  dialog.dataset.directOrderFlow = directOrderFlow ? "true" : "false";
+  dialog.directOrderOpportunity = directOrderFlow ? opportunity : null;
+  dialog.directOrderCustomer = directOrderFlow ? customerOverride : null;
   dialog.dataset.quotationCreationAuthorized = quoteId ? "false" : "true";
   document.querySelector("#quotationOpportunityId").value = opportunity.id;
   document.querySelector("#quotationDialogSubtitle").textContent = `${opportunity.company} · ${opportunity.stage?.name || opportunity.stageId || "Oportunidad"}`;
-  renderQuotationHistory(opportunity.id, quote?.id || ""); populateQuotationForm(quote, opportunity);
+  renderQuotationHistory(opportunity.id, quote?.id || ""); populateQuotationForm(quote, opportunity, customerOverride);
+  dialog.querySelector("[data-quotation-direct-convert]")?.classList.toggle("hidden", !directOrderFlow);
+  dialog.querySelector('button[type="submit"]')?.classList.toggle("hidden", directOrderFlow);
+  dialog.querySelector("[data-quotation-new]")?.classList.toggle("hidden", directOrderFlow);
   const status = document.querySelector("#quotationSaveStatus"); status.classList.add("hidden"); status.textContent = ""; status.dataset.tone = "success";
   dialog.showModal();
 }
@@ -4488,18 +4519,19 @@ function nextControlSalesOrderNumber() {
   return String(highest + 1);
 }
 
-function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false, sourceQuotation = null, financialCompletionOnly = false) {
+function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false, sourceQuotation = null, financialCompletionOnly = false, directOrderFlow = false) {
   ensureControlSalesDialogs();
   const dialog = document.querySelector("#controlSalesDialog");
   dialog.classList.toggle("control-sales-order-format-only", formatOnly);
   dialog.dataset.orderFormatOnly = formatOnly ? "true" : "false";
   dialog.dataset.financialCompletionOnly = financialCompletionOnly ? "true" : "false";
-  document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar pedido #${order.number}` : "Nuevo pedido";
+  dialog.dataset.directOrderFlow = directOrderFlow ? "true" : "false";
+  document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar pedido #${order.number}` : directOrderFlow ? "Nota de pedido directa" : "Nuevo pedido";
   const saveStatus = document.querySelector("#controlSalesSaveStatus");
   saveStatus.classList.add("hidden");
   saveStatus.textContent = "";
   saveStatus.dataset.tone = "success";
-  dialog.querySelector('button[type="submit"]').textContent = financialCompletionOnly ? "Guardar registro financiero" : order ? "Guardar cambios" : "Guardar orden";
+  dialog.querySelector('button[type="submit"]').textContent = financialCompletionOnly ? "Guardar registro financiero" : order ? "Guardar cambios" : directOrderFlow ? "Enviar a autorización final" : "Guardar orden";
   document.querySelector("#controlSalesId").value = order?.id || "";
   document.querySelector("#controlSalesSourceOpportunityId").value = order?.sourceOpportunityId || sourceWin?.id || "";
   document.querySelector("#controlSalesSourceQuotationId").value = order?.sourceQuotationId || sourceQuotation?.id || "";
@@ -4529,7 +4561,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
     proformaData: quotationData
   });
   const financialAnnex = dialog.querySelector(".control-sales-financial-annex");
-  const financialAnnexReadOnly = !financialCompletionOnly && state.activeArea !== "financiera";
+  const financialAnnexReadOnly = !directOrderFlow && !financialCompletionOnly && state.activeArea !== "financiera";
   financialAnnex.classList.toggle("is-readonly", financialAnnexReadOnly);
   financialAnnex.querySelectorAll("input, select, textarea").forEach((field) => {
     field.disabled = financialAnnexReadOnly;
@@ -4733,7 +4765,7 @@ function linkedQuotationForControlSalesOrder(order) {
 function controlSalesOrderHasAuthorizedSignatures(order) {
   const commercialSigned = order?.commercialApprovalStatus === "Autorizada" || Boolean(order?.commercialApprovedAt);
   const financeSigned = order?.financeApprovalStatus === "Aprobada" || Boolean(order?.financeApprovedAt);
-  return commercialSigned && financeSigned;
+  return isDirectOrderFlow(order) ? financeSigned : commercialSigned && financeSigned;
 }
 
 async function openControlSalesMatrixDetail(orderId) {
@@ -5255,8 +5287,8 @@ function renderFinancialOrderNotifications() {
       <header class="financial-order-notifications-head">
         <div>
           <span>Segundo visto bueno</span>
-          <h4>Órdenes autorizadas por Comercialización</h4>
-          <p>Solo aparecen órdenes firmadas por Gerencia Comercial. Revisa el detalle antes de dar el segundo visto bueno.</p>
+          <h4>Órdenes pendientes de autorización final</h4>
+          <p>Incluye órdenes firmadas por Gerencia Comercial y pedidos directos que requieren únicamente el visto bueno final.</p>
         </div>
         <div class="financial-order-notifications-summary">
           <small>${pendingHandoffs.length === 1 ? "1 pendiente" : `${pendingHandoffs.length} pendientes`}</small>
@@ -5550,7 +5582,7 @@ function wireFinancialOrders() {
     }
   }));
   opportunityTable.querySelector("[data-financial-order-new]")?.addEventListener("click", () => {
-    openControlSalesForm();
+    openDirectOrderFlow();
   });
   opportunityTable.querySelectorAll("[data-won-order-handoff]").forEach((button) => button.addEventListener("click", () => {
     const opportunity = getOpportunitySubmenu().items.find((item) => item.id === button.dataset.wonOrderHandoff);
@@ -7768,6 +7800,8 @@ function ensureCrmCustomerDialog() {
     };
     try {
       const response = await crmApi(id ? `/customers/${encodeURIComponent(id)}` : "/customers", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
+      const returnToDirectOrder = dialog.dataset.returnToDirectOrder === "true";
+      dialog.dataset.returnToDirectOrder = "false";
       dialog.close();
       refreshOpportunityCustomerOptions(response.selectedCustomerId || id);
       if (opportunityDialog.open && response.selectedCustomerId) {
@@ -7775,6 +7809,10 @@ function ensureCrmCustomerDialog() {
         inheritCustomerInOpportunity(response.selectedCustomerId);
       }
       renderCurrentArea();
+      if (returnToDirectOrder) {
+        await loadCrmData();
+        openDirectOrderFlow();
+      }
     } catch (error) { alert(error.message || "No fue posible guardar el cliente."); }
   });
   return dialog;
@@ -7790,6 +7828,74 @@ function openCrmCustomerDialog(customer = {}) {
   set("#crmCustomerDepartment", customer.department); set("#crmCustomerType", customer.clientType); set("#crmCustomerTerms", customer.paymentTerms); set("#crmCustomerStrategy", customer.strategy);
   dialog.querySelector("#crmCustomerDialogTitle").textContent = customer.id ? "Editar cliente" : "Nuevo cliente";
   dialog.showModal();
+}
+
+function ensureDirectOrderCustomerDialog() {
+  let dialog = document.querySelector("#directOrderCustomerDialog");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "directOrderCustomerDialog";
+  dialog.className = "direct-order-customer-dialog";
+  dialog.innerHTML = `<section class="direct-order-customer-card">
+    <header><div><span>Pedido sin oportunidad</span><h3>Selecciona el cliente</h3><p>El sistema generará primero la cotización y luego la nota de pedido para autorización final.</p></div><button type="button" data-direct-order-close aria-label="Cerrar">×</button></header>
+    <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" data-direct-order-customer-search placeholder="Buscar cliente, razón social, NIT o contacto..."></label><button type="button" data-direct-order-new-customer>+ Nuevo cliente</button></div>
+    <div class="direct-order-customer-list" data-direct-order-customer-list></div>
+  </section>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector("[data-direct-order-close]").addEventListener("click", () => dialog.close());
+  dialog.querySelector("[data-direct-order-customer-search]").addEventListener("input", (event) => renderDirectOrderCustomers(event.target.value));
+  dialog.querySelector("[data-direct-order-new-customer]").addEventListener("click", () => {
+    dialog.close();
+    const customerDialog = ensureCrmCustomerDialog();
+    customerDialog.dataset.returnToDirectOrder = "true";
+    openCrmCustomerDialog();
+  });
+  dialog.querySelector("[data-direct-order-customer-list]").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-direct-order-customer]");
+    if (!button) return;
+    const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.directOrderCustomer));
+    if (!customer) return;
+    const seller = state.currentUser?.name || "Sistema Gerencial";
+    const directOpportunity = {
+      id: `direct-order:${customer.id}:${Date.now()}`,
+      company: customer.commercialName || customer.legalName,
+      seller,
+      contact: customer.contactName || customer.manager || "",
+      phone: customer.phone || "",
+      location: customer.address || customer.department || "",
+      customerId: customer.id,
+      date: todayISO(),
+      estimatedAmount: 0,
+      quotationReferenceAmount: 0,
+      stageId: "Pedido directo"
+    };
+    dialog.close();
+    openQuotationDialog(directOpportunity.id, "", directOpportunity, customer, true);
+  });
+  return dialog;
+}
+
+function renderDirectOrderCustomers(search = "") {
+  const dialog = ensureDirectOrderCustomerDialog();
+  const query = normalizeKey(search);
+  const customers = crmMasterCustomers().filter((customer) => !query || [
+    customer.commercialName, customer.legalName, customer.taxId, customer.contactName,
+    customer.phone, customer.customerCode
+  ].some((value) => normalizeKey(value || "").includes(query)));
+  dialog.querySelector("[data-direct-order-customer-list]").innerHTML = customers.map((customer) => `
+    <button type="button" class="direct-order-customer-option" data-direct-order-customer="${escapeHtml(customer.id)}">
+      <span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName && customer.legalName !== customer.commercialName ? customer.legalName : customer.contactName || "Contacto pendiente")}</small></span>
+      <em>${escapeHtml(customer.taxId || customer.customerCode || "Sin código")}</em><b>Continuar →</b>
+    </button>`).join("") || `<div class="empty-state">No encontramos clientes con ese criterio.</div>`;
+}
+
+function openDirectOrderFlow() {
+  const dialog = ensureDirectOrderCustomerDialog();
+  const search = dialog.querySelector("[data-direct-order-customer-search]");
+  search.value = "";
+  renderDirectOrderCustomers();
+  dialog.showModal();
+  requestAnimationFrame(() => search.focus());
 }
 
 function renderCrmClients() {

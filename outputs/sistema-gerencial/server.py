@@ -2006,6 +2006,7 @@ def control_sales_validate(data, existing=None):
         "strategy": strategy,
         "customerCode": text(raw_proforma.get("customerCode"), current_proforma.get("customerCode") or ""),
         "generalNotes": text(raw_proforma.get("generalNotes"), current_proforma.get("generalNotes") or ""),
+        "workflow": text(raw_proforma.get("workflow"), current_proforma.get("workflow") or ""),
     }
     raw_details = data.get("details")
     if not isinstance(raw_details, list) or not raw_details:
@@ -2071,6 +2072,10 @@ def save_control_sales_order(conn, data, existing_row=None):
         data.get("sourceQuotationId"),
         existing.get("sourceQuotationId", "") if existing else "",
     )
+    direct_order_flow = (
+        item["proformaData"].get("workflow") == "direct-final-only"
+        or source_opportunity_id.startswith("direct-order:")
+    )
     expected_total_cents = int(existing.get("expectedTotalCents") or 0) if existing else 0
     variance_cents = int(existing.get("varianceCents") or 0) if existing else 0
     if source_quotation_id:
@@ -2101,7 +2106,7 @@ def save_control_sales_order(conn, data, existing_row=None):
                 })
                 for win in crm_data.get("resultWins", [])
             )
-            if not is_won_opportunity:
+            if not is_won_opportunity and not direct_order_flow:
                 raise ValueError(
                     "La cotizacion solo puede convertirse en pedido desde Seguimiento, "
                     "despues de confirmar la oportunidad como ganada"
@@ -2138,7 +2143,7 @@ def save_control_sales_order(conn, data, existing_row=None):
         expected_total_cents, variance_cents = control_sales_reconciliation_snapshot(
             financial_order, item["totalCents"]
         )
-    elif not existing_row and not source_opportunity_id:
+    elif not existing_row and not source_opportunity_id and not direct_order_flow:
         raise ValueError("Selecciona un pedido pendiente antes de crear la orden")
     duplicate = conn.execute("""
         SELECT id FROM control_sales_orders
@@ -2153,18 +2158,18 @@ def save_control_sales_order(conn, data, existing_row=None):
         conn.execute("""
             UPDATE control_sales_orders SET financial_order_id=?, source_opportunity_id=?, source_quotation_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
                 document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
-                proforma_data=?, commercial_approval_status='Pendiente', commercial_approved_by='', commercial_approved_at='', commercial_approval_note='',
+                proforma_data=?, commercial_approval_status=?, commercial_approved_by='', commercial_approved_at='', commercial_approval_note='',
                 finance_approval_status='Pendiente', finance_approved_by='', finance_approved_at='', finance_approval_note='', updated_by=?, updated_at=? WHERE id=?
-        """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, now, order_id))
+        """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, "Omitida" if direct_order_flow else "Pendiente", actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
     else:
         conn.execute("""
             INSERT INTO control_sales_orders (
                 id, source, financial_order_id, source_opportunity_id, source_quotation_id, order_number, order_date, seller, client, status, document_type, total_cents,
-                expected_total_cents, variance_cents, proforma_data, created_by, updated_by, created_at, updated_at
-            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (order_id, financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, actor, now, now))
+                expected_total_cents, variance_cents, proforma_data, commercial_approval_status, created_by, updated_by, created_at, updated_at
+            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (order_id, financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, "Omitida" if direct_order_flow else "Pendiente", actor, actor, now, now))
         action = "creacion"
     for detail in item["details"]:
         conn.execute("""
@@ -4180,7 +4185,15 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "Una orden archivada no puede autorizarse"}, status=409)
                     return
                 actor = text(actor_row["name"], "Sistema Gerencial")
-                if stage == "finance-approval" and text(row["commercial_approval_status"]) != "Autorizada":
+                try:
+                    approval_proforma = json.loads(row["proforma_data"] or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    approval_proforma = {}
+                direct_order_flow = (
+                    approval_proforma.get("workflow") == "direct-final-only"
+                    or text(row["source_opportunity_id"]).startswith("direct-order:")
+                )
+                if stage == "finance-approval" and not direct_order_flow and text(row["commercial_approval_status"]) != "Autorizada":
                     self.send_json({"error": "La orden requiere primero el visto bueno comercial"}, status=409)
                     return
                 if stage == "finance-approval" and status == "Aprobada":
