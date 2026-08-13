@@ -2715,7 +2715,7 @@ def purge_orphaned_test_orders_0293_0294_once(conn):
 
 def restore_asa_order_0296_once(conn):
     """Restore ASA's valid order removed by the former creator-based cleanup."""
-    marker_key = "maintenance.restore-asa-op0296.2026-08-11.v1"
+    marker_key = "maintenance.restore-asa-op0296.2026-08-12.v2"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
         return
     existing = conn.execute(
@@ -2728,18 +2728,27 @@ def restore_asa_order_0296_once(conn):
         )
         return
 
+    financial_existing = conn.execute("""
+        SELECT * FROM financial_orders
+        WHERE (number = '296' OR upper(replace(order_number, '-', '')) IN ('296', 'OP0296'))
+          AND lower(trim(client)) = lower('ASA') AND deleted = 0
+        ORDER BY datetime(updated_at) DESC, rowid DESC
+        LIMIT 1
+    """).fetchone()
     opportunities = read_result_opportunities(conn)
     opportunity = next((item for item in opportunities if (
         crm_identity_key(item.get("company")) == crm_identity_key("ASA")
         and crm_identity_key(item.get("seller")) == crm_identity_key("Marjorie Morales")
         and abs(float(item.get("amount") or 0) - 5795.0) < 0.01
     )), None)
-    if not opportunity:
-        print("Restauracion OP-0296 pendiente: no se encontro la oportunidad ganada ASA de Marjorie Morales.")
+    if not opportunity and not financial_existing:
+        print("Restauracion OP-0296 pendiente: no se encontro la oportunidad ni el pedido financiero ASA.")
         return
-
-    opportunity_id = text(opportunity.get("id"))
-    financial_order_id = "financial-restored-op0296"
+    opportunity_id = text((opportunity or {}).get("id"))
+    if not opportunity_id and financial_existing:
+        opportunity_id = text(financial_existing["source_opportunity_id"])
+    opportunity_id = text(opportunity_id, "asa-restored-op0296")
+    financial_order_id = text(financial_existing["id"] if financial_existing else "", "financial-restored-op0296")
     order_id = "cv-restored-op0296"
     actor = "Luis Valladares"
     created_at = "2026-08-11T10:47:49"
@@ -2860,7 +2869,7 @@ def restore_asa_order_0296_once(conn):
 
 def restore_asa_quotation_0296_once(conn):
     """Rebuild and link ASA's quotation from the preserved OP-0296 snapshot."""
-    marker_key = "maintenance.restore-asa-quotation-op0296.2026-08-12.v2"
+    marker_key = "maintenance.restore-asa-quotation-op0296.2026-08-12.v3"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
         return
 
