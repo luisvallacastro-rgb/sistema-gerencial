@@ -11713,6 +11713,15 @@ opportunityForm.addEventListener("submit", (event) => {
   event.preventDefault();
   if (state.opportunityFormContext === "crm") {
     const id = opportunityId.value;
+    const selectedCustomer = crmMasterCustomers().find((customer) => String(customer.id) === String(opportunityCustomerId.value));
+    if (!selectedCustomer) {
+      alert("Seleccione un cliente registrado de la cartera antes de guardar la oportunidad.");
+      opportunityCustomerId.value = "";
+      opportunityCustomerSearch.focus();
+      renderOpportunityCustomerResults(opportunityCustomerSearch.value, true);
+      return;
+    }
+    inheritCustomerInOpportunity(selectedCustomer.id);
     const selectedSellerId = opportunitySeller.value;
     const seller = crmSalesUsers().find((user) => String(user.id) === String(selectedSellerId));
     if (!seller) {

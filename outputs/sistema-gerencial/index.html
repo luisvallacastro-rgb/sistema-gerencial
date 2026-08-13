@@ -342,42 +342,25 @@
               <div class="crm-customer-combobox" id="opportunityCustomerCombobox">
                 <div class="crm-customer-combobox-input">
                   <span aria-hidden="true">⌕</span>
-                  <input id="opportunityCustomerSearch" type="search" autocomplete="off" placeholder="Buscar cliente, razón social, NIT o contacto..." aria-label="Buscar cliente registrado" aria-expanded="false" aria-controls="opportunityCustomerResults">
+                  <input id="opportunityCustomerSearch" type="search" autocomplete="off" placeholder="Buscar cliente, razón social, NIT o contacto..." aria-label="Buscar cliente registrado" aria-expanded="false" aria-controls="opportunityCustomerResults" required>
                   <button type="button" id="opportunityCustomerToggle" aria-label="Mostrar clientes" title="Mostrar clientes">⌄</button>
                 </div>
                 <div class="crm-customer-combobox-results" id="opportunityCustomerResults" role="listbox" hidden></div>
               </div>
               <button type="button" class="ghost-btn" id="newCustomerFromOpportunity">+ Crear cliente</button>
             </div>
-            <small>Al elegirlo se heredan empresa, contacto, teléfono, rubro y ubicación.</small>
+            <small>Obligatorio. Si no existe, créalo primero en la cartera de clientes. Sus datos se heredarán automáticamente.</small>
           </label>
-          <label>
-            Empresa
-            <input id="opportunityCompany" maxlength="80" placeholder="Nombre de la empresa" required>
-          </label>
+          <div hidden aria-hidden="true">
+            <input id="opportunityCompany" maxlength="80">
+            <input id="opportunityContact" maxlength="90">
+            <input id="opportunityPhone" maxlength="28">
+            <select id="opportunitySegment"><option value=""></option></select>
+            <select id="opportunityLocation"><option value=""></option></select>
+          </div>
           <label>
             Vendedor
             <select id="opportunitySeller" required></select>
-          </label>
-          <label>
-            Contacto
-            <input id="opportunityContact" maxlength="90" placeholder="Nombre del contacto">
-          </label>
-          <label>
-            Telefono
-            <input id="opportunityPhone" maxlength="28" placeholder="+503 ...">
-          </label>
-          <label>
-            Segmento
-            <select id="opportunitySegment">
-              <option value="">Seleccionar rubro</option>
-            </select>
-          </label>
-          <label>
-            Ubicación
-            <select id="opportunityLocation">
-              <option value="">Seleccionar departamento y municipio</option>
-            </select>
           </label>
           <label>
             Etapa
