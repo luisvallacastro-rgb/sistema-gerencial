@@ -3881,7 +3881,7 @@ function ensureQuotationDialog() {
     <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><div class="quotation-line-actions"><label>Insertar línea de título<select id="quotationTitlePosition" aria-label="Ubicación de la línea de título"><option value="end">Al final, después de todas las líneas</option></select></label><button type="button" class="quotation-title-add-btn" data-quotation-add-title>+ Línea de título</button><button type="button" data-quotation-add-line>+ Agregar línea</button></div></div><div id="quotationLines"></div></section>
     <section class="quotation-totals">
       <div class="quotation-totals-comparison"><article class="quotation-reference"><span>Monto original de la oportunidad</span><strong id="quotationReference" data-reference-cents="0">$0.00</strong></article><article class="quotation-variation" id="quotationVariationCard" data-variation="neutral"><span id="quotationVariationLabel">Saldo pendiente por cotizar</span><strong id="quotationVariation">$0.00</strong><small>Calculado contra el subtotal acumulado de las líneas</small></article></div>
-      <div class="quotation-totals-breakdown"><label class="quotation-vat-toggle"><span><b>Aplicar IVA 13%</b><small>Actívalo o quítalo para esta cotización.</small></span><input id="quotationApplyVat" type="checkbox" checked><i aria-hidden="true"></i></label><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article id="quotationVatCard"><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article class="quotation-grand-total"><span>Total cotización · nuevo valor oportunidad</span><strong id="quotationTotal">$0.00</strong></article></div>
+      <div class="quotation-totals-breakdown"><section class="quotation-vat-control"><span class="quotation-vat-copy"><b>Tratamiento fiscal</b><small>Selecciona cómo presentar el total.</small></span><button id="quotationVatMode" class="quotation-vat-segmented" type="button" role="switch" aria-checked="true" data-apply-vat="true"><span data-vat-choice="false">Sin IVA</span><span data-vat-choice="true">IVA 13%</span></button></section><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article id="quotationVatCard"><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article class="quotation-grand-total"><span>Total cotización · nuevo valor oportunidad</span><strong id="quotationTotal">$0.00</strong></article></div>
     </section>
     <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Selecciona pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label><label class="quotation-field-editable">Tiempo de entrega<select id="quotationDeliveryTerms" required><option>30 días hábiles posterior a la orden de compra</option><option>60 días hábiles posterior a la orden de compra</option><option>90 días hábiles posterior a la orden de compra</option></select></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
@@ -3989,10 +3989,6 @@ function ensureQuotationDialog() {
     }
   });
   dialog.addEventListener("input", (event) => {
-    if (event.target.matches("#quotationApplyVat")) {
-      updateQuotationTotals();
-      return;
-    }
     const line = event.target.closest(".quotation-line");
     if (!line) return;
     if (event.target.matches("[data-quotation-notes]")) {
@@ -4002,6 +3998,16 @@ function ensureQuotationDialog() {
       if (label) label.textContent = hasDetail ? "Detalle agregado" : "Agregar detalle";
     }
     if (event.target.matches("[data-quotation-description], [data-quotation-title]")) refreshQuotationTitlePositionMenu();
+    updateQuotationTotals();
+  });
+  dialog.addEventListener("click", (event) => {
+    const vatChoice = event.target.closest("[data-vat-choice]");
+    if (!vatChoice) return;
+    const vatMode = vatChoice.closest("#quotationVatMode");
+    if (!vatMode) return;
+    const applyVat = vatChoice.dataset.vatChoice === "true";
+    vatMode.dataset.applyVat = String(applyVat);
+    vatMode.setAttribute("aria-checked", String(applyVat));
     updateQuotationTotals();
   });
   document.querySelector("#quotationForm").addEventListener("submit", async (event) => { event.preventDefault(); await saveQuotationFromForm(); });
@@ -4018,7 +4024,7 @@ function quotationDraftFromForm() {
     return { id:line.dataset.quotationLineId, description:line.querySelector("[data-quotation-description]").value.trim(), size:line.querySelector("[data-quotation-size]").value.trim(), quantity:String(quantity), unitPrice, unitPriceCents:Math.round(unitPrice * 100), lineTotalCents:Math.round(quantity * unitPrice * 100), notes:line.querySelector("[data-quotation-notes]").value.trim() };
   });
   const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
-  const applyVat = document.querySelector("#quotationApplyVat")?.checked !== false;
+  const applyVat = document.querySelector("#quotationVatMode")?.dataset.applyVat !== "false";
   const vatCents = applyVat ? Math.round(subtotalCents * .13) : 0;
   return { id:document.querySelector("#quotationId").value, opportunityId:document.querySelector("#quotationOpportunityId").value, number:document.querySelector("#quotationNumber").value, date:document.querySelector("#quotationDate").value, validDays:Number(document.querySelector("#quotationValidDays").value || 30), seller:document.querySelector("#quotationSeller").value.trim(), client:document.querySelector("#quotationCommercialName").value.trim(), status:document.querySelector("#quotationStatus").value,
     customerData:{ commercialName:document.querySelector("#quotationCommercialName").value.trim(), legalName:document.querySelector("#quotationLegalName").value.trim(), contactName:document.querySelector("#quotationContactName").value.trim(), phone:document.querySelector("#quotationPhone").value.trim(), email:document.querySelector("#quotationEmail").value.trim(), address:document.querySelector("#quotationAddress").value.trim(), businessActivity:document.querySelector("#quotationBusinessActivity").value.trim(), taxId:document.querySelector("#quotationTaxId").value.trim(), registrationNumber:document.querySelector("#quotationRegistrationNumber").value.trim(), taxpayerType:document.querySelector("#quotationTaxpayerType").value.trim(), customerCode:document.querySelector("#quotationCustomerCode").value.trim(), strategy:document.querySelector("#quotationStrategy").value, sellerPhone:document.querySelector("#quotationSellerPhone").value.trim(), sellerEmail:document.querySelector("#quotationSellerEmail").value.trim(), sellerRole:"Ejecutivo/a de ventas" },
@@ -4088,8 +4094,12 @@ function populateQuotationForm(quote, opportunity = null) {
     }
     field.value = normalizedValue ?? "";
   });
-  const vatToggle = document.querySelector("#quotationApplyVat");
-  if (vatToggle) vatToggle.checked = quote ? Number(quote.vatCents || 0) > 0 : true;
+  const vatMode = document.querySelector("#quotationVatMode");
+  if (vatMode) {
+    const applyVat = quote ? Number(quote.vatCents || 0) > 0 : true;
+    vatMode.dataset.applyVat = String(applyVat);
+    vatMode.setAttribute("aria-checked", String(applyVat));
+  }
   document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:"", quantity:"1" }]).map(quotationLineTemplate).join("");
   refreshQuotationTitlePositionMenu();
   const referenceAmount = Number(opportunity?.quotationReferenceAmount ?? opportunity?.estimatedAmount ?? 0);
