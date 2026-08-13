@@ -6845,6 +6845,16 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   border-radius: 16px;
   background: rgba(117, 146, 187, .16);
 }
+.direct-order-customer-toolbar label > button {
+  flex: 0 0 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 11px;
+  color: #77ebcf;
+  background: rgba(91,220,187,.1);
+  font-size: 18px;
+  cursor: pointer;
+}
 .direct-order-customer-toolbar input {
   width: 100%;
   border: 0;
@@ -6875,6 +6885,9 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   overflow-y: auto;
   scrollbar-color: #5bdcbb rgba(13,35,55,.65);
 }
+.direct-order-customer-list[hidden] { display: none !important; }
+.direct-order-customer-more,
+.crm-customer-combobox-more { display: block; padding: 9px 12px; color: rgba(215,231,242,.58); text-align: center; font-weight: 700; }
 .direct-order-customer-option {
   display: grid;
   grid-template-columns: minmax(0,1.3fr) minmax(160px,.8fr) auto;
@@ -6891,6 +6904,45 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   cursor: pointer;
   transition: border-color .16s, transform .16s, background .16s;
 }
+
+/* Buscador escalable de clientes para nuevas oportunidades. */
+.crm-customer-combobox { position: relative; min-width: 0; }
+.crm-customer-combobox-input {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 8px 0 15px;
+  border: 1px solid rgba(142,191,220,.25);
+  border-radius: 14px;
+  background: rgba(117,146,187,.16);
+}
+.crm-customer-combobox-input > span { margin-right: 10px; color: #72edce; }
+.crm-customer-combobox-input input { flex: 1; min-width: 0; border: 0 !important; outline: 0; background: transparent !important; box-shadow: none !important; }
+.crm-customer-combobox-input button { width: 38px; height: 36px; border: 0; border-radius: 10px; color: #72edce; background: rgba(91,220,187,.1); cursor: pointer; }
+.crm-customer-combobox-results {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 310px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid rgba(111,236,205,.32);
+  border-radius: 16px;
+  background: rgba(12,35,55,.98);
+  box-shadow: 0 24px 55px rgba(0,8,22,.5);
+  backdrop-filter: blur(18px);
+}
+.crm-customer-combobox-results[hidden] { display: none !important; }
+.crm-customer-combobox-results > button { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; width: 100%; padding: 12px 14px; border: 0; border-bottom: 1px solid rgba(134,184,211,.13); color: #edf8ff; text-align: left; background: transparent; cursor: pointer; }
+.crm-customer-combobox-results > button:hover,
+.crm-customer-combobox-results > button:focus-visible { outline: 0; border-radius: 11px; background: rgba(70,139,150,.22); }
+.crm-customer-combobox-results strong,
+.crm-customer-combobox-results small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-customer-combobox-results small { margin-top: 3px; color: rgba(215,231,242,.58); }
+.crm-customer-combobox-results em { align-self: center; color: #76eace; font-style: normal; font-size: 12px; font-weight: 800; }
+.crm-customer-combobox-empty { padding: 28px 14px; color: rgba(215,231,242,.62); text-align: center; }
 .direct-order-customer-option:hover,
 .direct-order-customer-option:focus-visible {
   border-color: rgba(104,239,204,.75);

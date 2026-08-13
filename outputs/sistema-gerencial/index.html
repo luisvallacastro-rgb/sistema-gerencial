@@ -339,9 +339,14 @@
           <label class="span-2 crm-customer-picker">
             Cliente registrado
             <div class="crm-inline-picker">
-              <select id="opportunityCustomerSearch">
-                <option value="">Buscar y seleccionar cliente...</option>
-              </select>
+              <div class="crm-customer-combobox" id="opportunityCustomerCombobox">
+                <div class="crm-customer-combobox-input">
+                  <span aria-hidden="true">⌕</span>
+                  <input id="opportunityCustomerSearch" type="search" autocomplete="off" placeholder="Buscar cliente, razón social, NIT o contacto..." aria-label="Buscar cliente registrado" aria-expanded="false" aria-controls="opportunityCustomerResults">
+                  <button type="button" id="opportunityCustomerToggle" aria-label="Mostrar clientes" title="Mostrar clientes">⌄</button>
+                </div>
+                <div class="crm-customer-combobox-results" id="opportunityCustomerResults" role="listbox" hidden></div>
+              </div>
               <button type="button" class="ghost-btn" id="newCustomerFromOpportunity">+ Crear cliente</button>
             </div>
             <small>Al elegirlo se heredan empresa, contacto, teléfono, rubro y ubicación.</small>

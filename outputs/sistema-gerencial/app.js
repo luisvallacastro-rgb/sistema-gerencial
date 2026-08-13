@@ -900,6 +900,8 @@ const opportunityId = document.querySelector("#opportunityId");
 const opportunityCrmSourceId = document.querySelector("#opportunityCrmSourceId");
 const opportunityCustomerId = document.querySelector("#opportunityCustomerId");
 const opportunityCustomerSearch = document.querySelector("#opportunityCustomerSearch");
+const opportunityCustomerToggle = document.querySelector("#opportunityCustomerToggle");
+const opportunityCustomerResults = document.querySelector("#opportunityCustomerResults");
 const newCustomerFromOpportunity = document.querySelector("#newCustomerFromOpportunity");
 const opportunityDate = document.querySelector("#opportunityDate");
 const opportunityCompany = document.querySelector("#opportunityCompany");
@@ -7731,11 +7733,40 @@ function crmMasterCustomers(includeInactive = false) {
 
 function refreshOpportunityCustomerOptions(selectedId = "") {
   if (!opportunityCustomerSearch) return;
-  const customers = crmMasterCustomers();
-  opportunityCustomerSearch.innerHTML = `<option value="">Buscar y seleccionar cliente...</option>${customers.map((customer) => (
-    `<option value="${escapeHtml(customer.id)}">${escapeHtml(customer.commercialName || customer.legalName)}${customer.taxId ? ` · ${escapeHtml(customer.taxId)}` : ""}</option>`
-  )).join("")}`;
-  opportunityCustomerSearch.value = selectedId;
+  const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(selectedId));
+  opportunityCustomerId.value = customer?.id || "";
+  opportunityCustomerSearch.value = customer ? (customer.commercialName || customer.legalName || "") : "";
+  closeOpportunityCustomerResults();
+}
+
+function opportunityCustomerMatches(customer, query) {
+  return [customer.commercialName, customer.legalName, customer.taxId, customer.contactName, customer.phone, customer.customerCode]
+    .some((value) => normalizeKey(value || "").includes(query));
+}
+
+function closeOpportunityCustomerResults() {
+  if (!opportunityCustomerResults) return;
+  opportunityCustomerResults.hidden = true;
+  opportunityCustomerSearch?.setAttribute("aria-expanded", "false");
+}
+
+function renderOpportunityCustomerResults(search = "", showAll = false) {
+  if (!opportunityCustomerResults) return;
+  const query = normalizeKey(search);
+  if (!query && !showAll) {
+    closeOpportunityCustomerResults();
+    return;
+  }
+  const matches = crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query));
+  const visible = matches.slice(0, 10);
+  opportunityCustomerResults.innerHTML = `${visible.map((customer) => `
+    <button type="button" role="option" data-opportunity-customer="${escapeHtml(customer.id)}">
+      <span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName && customer.legalName !== customer.commercialName ? customer.legalName : customer.contactName || "Contacto pendiente")}</small></span>
+      <em>${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em>
+    </button>`).join("") || `<div class="crm-customer-combobox-empty">No encontramos clientes con ese criterio.</div>`}
+    ${matches.length > visible.length ? `<small class="crm-customer-combobox-more">Mostrando 10 de ${matches.length}. Escribe más para precisar.</small>` : ""}`;
+  opportunityCustomerResults.hidden = false;
+  opportunityCustomerSearch.setAttribute("aria-expanded", "true");
 }
 
 function inheritCustomerInOpportunity(customerId) {
@@ -7804,10 +7835,7 @@ function ensureCrmCustomerDialog() {
       dialog.dataset.returnToDirectOrder = "false";
       dialog.close();
       refreshOpportunityCustomerOptions(response.selectedCustomerId || id);
-      if (opportunityDialog.open && response.selectedCustomerId) {
-        opportunityCustomerSearch.value = response.selectedCustomerId;
-        inheritCustomerInOpportunity(response.selectedCustomerId);
-      }
+      if (opportunityDialog.open && response.selectedCustomerId) inheritCustomerInOpportunity(response.selectedCustomerId);
       renderCurrentArea();
       if (returnToDirectOrder) {
         await loadCrmData();
@@ -7838,12 +7866,26 @@ function ensureDirectOrderCustomerDialog() {
   dialog.className = "direct-order-customer-dialog";
   dialog.innerHTML = `<section class="direct-order-customer-card">
     <header><div><span>Pedido sin oportunidad</span><h3>Selecciona el cliente</h3><p>El sistema generará primero la cotización y luego la nota de pedido para autorización final.</p></div><button type="button" data-direct-order-close aria-label="Cerrar">×</button></header>
-    <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" data-direct-order-customer-search placeholder="Buscar cliente, razón social, NIT o contacto..."></label><button type="button" data-direct-order-new-customer>+ Nuevo cliente</button></div>
-    <div class="direct-order-customer-list" data-direct-order-customer-list></div>
+    <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-direct-order-customer-search placeholder="Buscar cliente, razón social, NIT o contacto..." aria-expanded="false"><button type="button" data-direct-order-customer-toggle aria-label="Mostrar clientes" title="Mostrar clientes">⌄</button></label><button type="button" data-direct-order-new-customer>+ Nuevo cliente</button></div>
+    <div class="direct-order-customer-list" data-direct-order-customer-list hidden></div>
   </section>`;
   document.body.appendChild(dialog);
   dialog.querySelector("[data-direct-order-close]").addEventListener("click", () => dialog.close());
   dialog.querySelector("[data-direct-order-customer-search]").addEventListener("input", (event) => renderDirectOrderCustomers(event.target.value));
+  dialog.querySelector("[data-direct-order-customer-search]").addEventListener("keydown", (event) => {
+    const list = dialog.querySelector("[data-direct-order-customer-list]");
+    if (event.key === "Escape") return hideDirectOrderCustomers(dialog);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (list.hidden) renderDirectOrderCustomers(event.currentTarget.value, true);
+      list.querySelector("[data-direct-order-customer]")?.focus();
+    }
+  });
+  dialog.querySelector("[data-direct-order-customer-toggle]").addEventListener("click", () => {
+    const list = dialog.querySelector("[data-direct-order-customer-list]");
+    if (!list.hidden) return hideDirectOrderCustomers(dialog);
+    renderDirectOrderCustomers(dialog.querySelector("[data-direct-order-customer-search]").value, true);
+  });
   dialog.querySelector("[data-direct-order-new-customer]").addEventListener("click", () => {
     dialog.close();
     const customerDialog = ensureCrmCustomerDialog();
@@ -7875,25 +7917,39 @@ function ensureDirectOrderCustomerDialog() {
   return dialog;
 }
 
-function renderDirectOrderCustomers(search = "") {
+function hideDirectOrderCustomers(dialog = ensureDirectOrderCustomerDialog()) {
+  dialog.querySelector("[data-direct-order-customer-list]").hidden = true;
+  dialog.querySelector("[data-direct-order-customer-search]").setAttribute("aria-expanded", "false");
+}
+
+function renderDirectOrderCustomers(search = "", showAll = false) {
   const dialog = ensureDirectOrderCustomerDialog();
   const query = normalizeKey(search);
+  if (!query && !showAll) {
+    hideDirectOrderCustomers(dialog);
+    return;
+  }
   const customers = crmMasterCustomers().filter((customer) => !query || [
     customer.commercialName, customer.legalName, customer.taxId, customer.contactName,
     customer.phone, customer.customerCode
   ].some((value) => normalizeKey(value || "").includes(query)));
-  dialog.querySelector("[data-direct-order-customer-list]").innerHTML = customers.map((customer) => `
+  const visible = customers.slice(0, 10);
+  const list = dialog.querySelector("[data-direct-order-customer-list]");
+  list.innerHTML = visible.map((customer) => `
     <button type="button" class="direct-order-customer-option" data-direct-order-customer="${escapeHtml(customer.id)}">
       <span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName && customer.legalName !== customer.commercialName ? customer.legalName : customer.contactName || "Contacto pendiente")}</small></span>
       <em>${escapeHtml(customer.taxId || customer.customerCode || "Sin código")}</em><b>Continuar →</b>
-    </button>`).join("") || `<div class="empty-state">No encontramos clientes con ese criterio.</div>`;
+    </button>`).join("") || `<div class="direct-order-customer-empty">No encontramos clientes con ese criterio.</div>`;
+  if (customers.length > visible.length) list.insertAdjacentHTML("beforeend", `<small class="direct-order-customer-more">Mostrando 10 de ${customers.length}. Escribe más para precisar.</small>`);
+  list.hidden = false;
+  dialog.querySelector("[data-direct-order-customer-search]").setAttribute("aria-expanded", "true");
 }
 
 function openDirectOrderFlow() {
   const dialog = ensureDirectOrderCustomerDialog();
   const search = dialog.querySelector("[data-direct-order-customer-search]");
   search.value = "";
-  renderDirectOrderCustomers();
+  hideDirectOrderCustomers(dialog);
   dialog.showModal();
   requestAnimationFrame(() => search.focus());
 }
@@ -11617,7 +11673,39 @@ function updateClosureControls() {
   notifyOperationsBtn.disabled = Boolean(convertedOrderId) || !quotation;
 }
 
-opportunityCustomerSearch?.addEventListener("change", () => inheritCustomerInOpportunity(opportunityCustomerSearch.value));
+opportunityCustomerSearch?.addEventListener("input", () => {
+  opportunityCustomerId.value = "";
+  renderOpportunityCustomerResults(opportunityCustomerSearch.value);
+});
+opportunityCustomerSearch?.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeOpportunityCustomerResults();
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    if (opportunityCustomerResults.hidden) renderOpportunityCustomerResults(opportunityCustomerSearch.value, true);
+    opportunityCustomerResults.querySelector("[data-opportunity-customer]")?.focus();
+  }
+  if (event.key === "Enter" && !opportunityCustomerResults.hidden) {
+    const firstResult = opportunityCustomerResults.querySelector("[data-opportunity-customer]");
+    if (!firstResult) return;
+    event.preventDefault();
+    inheritCustomerInOpportunity(firstResult.dataset.opportunityCustomer);
+    refreshOpportunityCustomerOptions(firstResult.dataset.opportunityCustomer);
+  }
+});
+opportunityCustomerToggle?.addEventListener("click", () => {
+  if (!opportunityCustomerResults.hidden) return closeOpportunityCustomerResults();
+  renderOpportunityCustomerResults(opportunityCustomerSearch.value, true);
+  opportunityCustomerSearch.focus();
+});
+opportunityCustomerResults?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-opportunity-customer]");
+  if (!button) return;
+  inheritCustomerInOpportunity(button.dataset.opportunityCustomer);
+  refreshOpportunityCustomerOptions(button.dataset.opportunityCustomer);
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#opportunityCustomerCombobox")) closeOpportunityCustomerResults();
+});
 newCustomerFromOpportunity?.addEventListener("click", () => openCrmCustomerDialog());
 
 opportunityForm.addEventListener("submit", (event) => {
