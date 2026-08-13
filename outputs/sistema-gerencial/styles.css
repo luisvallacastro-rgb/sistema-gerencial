@@ -17424,6 +17424,70 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   gap: 12px;
 }
 
+.app-shell #quotationDialog .quotation-vat-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 17px;
+  border: 1px solid rgba(102, 227, 194, .38);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(33, 105, 91, .22), rgba(34, 65, 94, .2));
+  cursor: pointer;
+}
+
+.app-shell #quotationDialog .quotation-vat-toggle span,
+.app-shell #quotationDialog .quotation-vat-toggle small {
+  display: block;
+}
+
+.app-shell #quotationDialog .quotation-vat-toggle small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: .72rem;
+}
+
+.app-shell #quotationDialog .quotation-vat-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-shell #quotationDialog .quotation-vat-toggle i {
+  position: relative;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(117, 139, 166, .45);
+  transition: .2s ease;
+}
+
+.app-shell #quotationDialog .quotation-vat-toggle i::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, .3);
+  transition: .2s ease;
+}
+
+.app-shell #quotationDialog .quotation-vat-toggle input:checked + i {
+  background: #24a886;
+}
+
+.app-shell #quotationDialog .quotation-vat-toggle input:checked + i::after {
+  transform: translateX(24px);
+}
+
+.app-shell #quotationDialog #quotationVatCard.is-disabled {
+  opacity: .55;
+}
+
 .app-shell #quotationDialog .quotation-totals-comparison {
   grid-template-columns: 1fr;
 }

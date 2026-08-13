@@ -2297,7 +2297,19 @@ def quotation_validate(data, existing=None):
         })
     if product_line_count < 1:
         raise ValueError("La cotizacion debe contener al menos una linea de producto")
-    vat_cents = int((Decimal(subtotal_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    raw_apply_vat = data.get("applyVat")
+    if isinstance(raw_apply_vat, bool):
+        apply_vat = raw_apply_vat
+    elif raw_apply_vat is not None:
+        apply_vat = str(raw_apply_vat).strip().lower() in {"1", "true", "yes", "si", "sí", "on"}
+    elif existing:
+        apply_vat = int(current.get("vatCents") or 0) > 0
+    else:
+        apply_vat = True
+    vat_cents = (
+        int((Decimal(subtotal_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        if apply_vat else 0
+    )
     return {
         "opportunityId": opportunity_id, "date": quote_date, "validDays": valid_days,
         "seller": seller, "client": client, "status": status, "customerData": customer,
@@ -2869,7 +2881,7 @@ def restore_asa_order_0296_once(conn):
 
 def restore_asa_quotation_0296_once(conn):
     """Rebuild and link ASA's quotation from the preserved OP-0296 snapshot."""
-    marker_key = "maintenance.restore-asa-quotation-op0296.2026-08-12.v3"
+    marker_key = "maintenance.restore-asa-quotation-op0296.2026-08-12.v4-no-vat"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
         return
 
@@ -2902,6 +2914,18 @@ def restore_asa_quotation_0296_once(conn):
     """, (quotation_id, text(order["id"]), quotation_id)).fetchone()
     if existing:
         quotation_id = text(existing["id"])
+        existing_quote = conn.execute(
+            "SELECT subtotal_cents FROM quotations WHERE id = ?", (quotation_id,)
+        ).fetchone()
+        existing_subtotal = int(existing_quote["subtotal_cents"] or 0)
+        conn.execute("""
+            UPDATE quotations
+            SET vat_cents = 0, total_cents = ?,
+                commercial_notes = 'IVA no aplicado en esta cotización',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (existing_subtotal, quotation_id))
+        sync_opportunity_amount_from_latest_quotation(conn, opportunity_id)
         conn.execute(
             "UPDATE control_sales_orders SET source_quotation_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (quotation_id, text(order["id"])),
@@ -2960,7 +2984,6 @@ def restore_asa_quotation_0296_once(conn):
     except (json.JSONDecodeError, TypeError):
         customer_data = {}
     customer_data.setdefault("commercialName", text(order["client"], "ASA"))
-    vat_cents = int((Decimal(subtotal_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     created_at = text(order["created_at"], "2026-08-11T10:47:49")
     converted_at = text(order["commercial_approved_at"], created_at)
     actor = text(order["created_by"], "Luis Valladares")
@@ -2981,9 +3004,9 @@ def restore_asa_quotation_0296_once(conn):
         text(customer_data.get("paymentTerms"), "Crédito de 100% a 30 días"),
         "30 días hábiles posterior a la orden de compra",
         "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.",
-        "Precios unitarios no incluyen IVA",
+        "IVA no aplicado en esta cotización",
         "Tallas especiales arriba de XXL tienen costo adicional",
-        subtotal_cents, vat_cents, subtotal_cents + vat_cents,
+        subtotal_cents, 0, subtotal_cents,
         json.dumps(lines, ensure_ascii=False), text(order["id"]), converted_at,
         actor, actor, created_at, created_at,
     ))
@@ -2991,6 +3014,7 @@ def restore_asa_quotation_0296_once(conn):
         "UPDATE control_sales_orders SET source_quotation_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (quotation_id, text(order["id"])),
     )
+    sync_opportunity_amount_from_latest_quotation(conn, opportunity_id)
     conn.execute(
         "INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, 'restauracion_cotizacion', ?, ?, ?)",
         (text(order["id"]), actor, time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -3001,7 +3025,7 @@ def restore_asa_quotation_0296_once(conn):
         (marker_key, json.dumps({"status": "restored", "quotationId": quotation_id,
                                  "orderId": text(order["id"]), "lines": len(lines),
                                  "subtotalCents": subtotal_cents,
-                                 "totalCents": subtotal_cents + vat_cents}, ensure_ascii=True)),
+                                 "totalCents": subtotal_cents}, ensure_ascii=True)),
     )
     print(f"Cotizacion ASA restaurada y vinculada a OP-0296: {len(lines)} lineas, subtotal $5,795.00.")
 
