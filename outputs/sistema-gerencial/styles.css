@@ -7130,13 +7130,14 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .crm-customer-filter select { min-height: 48px; padding: 0 14px; border: 1px solid rgba(111,151,190,.32); border-radius: 14px; background: #203a5d; color: #fff; font-weight: 800; }
 .crm-customer-result { display: flex; align-items: baseline; gap: 6px; min-height: 48px; padding: 12px 15px; border-radius: 14px; background: rgba(91,230,200,.1); color: #74efd4; }
 .crm-customer-table-wrap { min-width: 0; overflow-x: auto; }
-.crm-customer-table { display: grid; gap: 5px; min-width: 860px; }
-.crm-customer-row { display: grid; grid-template-columns: minmax(260px,1.5fr) minmax(220px,1fr) minmax(240px,1.15fr) 92px; gap: 18px; align-items: center; min-height: 68px; padding: 9px 16px; border: 1px solid rgba(111,151,190,.18); border-radius: 12px; background: rgba(31,58,91,.58); }
+.crm-customer-table { display: grid; gap: 5px; min-width: 960px; }
+.crm-customer-row { display: grid; grid-template-columns: 90px minmax(260px,1.5fr) minmax(220px,1fr) minmax(240px,1.15fr) 92px; gap: 18px; align-items: center; min-height: 68px; padding: 9px 16px; border: 1px solid rgba(111,151,190,.18); border-radius: 12px; background: rgba(31,58,91,.58); }
 .crm-customer-head { min-height: 48px; background: rgba(10,36,67,.82); color: rgba(216,231,242,.68); font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .crm-customer-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .crm-customer-row strong, .crm-customer-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crm-customer-row small { margin-top: 3px; color: rgba(214,229,240,.58); }
 .crm-customer-name strong { color: #f7f9ff; }
+.crm-customer-number strong { color: #74efd4; font-variant-numeric: tabular-nums; letter-spacing: .08em; }
 .crm-customer-status b { display: inline-block; padding: 5px 9px; border-radius: 999px; font-size: 10px; text-transform: uppercase; }
 .crm-customer-status b.complete { background: rgba(74,222,180,.13); color: #74efd4; }
 .crm-customer-status b.pending { background: rgba(244,183,84,.12); color: #f5c66e; }

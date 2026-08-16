@@ -7740,7 +7740,7 @@ function refreshOpportunityCustomerOptions(selectedId = "") {
 }
 
 function opportunityCustomerMatches(customer, query) {
-  return [customer.commercialName, customer.legalName, customer.taxId, customer.contactName, customer.phone, customer.customerCode]
+  return [customer.clientNumber, customer.commercialName, customer.legalName, customer.taxId, customer.contactName, customer.phone, customer.customerCode]
     .some((value) => normalizeKey(value || "").includes(query));
 }
 
@@ -7762,7 +7762,7 @@ function renderOpportunityCustomerResults(search = "", showAll = false) {
   opportunityCustomerResults.innerHTML = `${visible.map((customer) => `
     <button type="button" role="option" data-opportunity-customer="${escapeHtml(customer.id)}">
       <span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName && customer.legalName !== customer.commercialName ? customer.legalName : customer.contactName || "Contacto pendiente")}</small></span>
-      <em>${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em>
+          <em>${escapeHtml(`ID ${customer.clientNumber || "—"} · ${customer.taxId || customer.customerCode || "Sin identificación"}`)}</em>
     </button>`).join("") || `<div class="crm-customer-combobox-empty">No encontramos clientes con ese criterio.</div>`}
     ${matches.length > visible.length ? `<small class="crm-customer-combobox-more">Mostrando 10 de ${matches.length}. Escribe más para precisar.</small>` : ""}`;
   opportunityCustomerResults.hidden = false;
@@ -7931,14 +7931,14 @@ function renderDirectOrderCustomers(search = "", showAll = false) {
   }
   const customers = crmMasterCustomers().filter((customer) => !query || [
     customer.commercialName, customer.legalName, customer.taxId, customer.contactName,
-    customer.phone, customer.customerCode
+    customer.phone, customer.customerCode, customer.clientNumber
   ].some((value) => normalizeKey(value || "").includes(query)));
   const visible = customers.slice(0, 10);
   const list = dialog.querySelector("[data-direct-order-customer-list]");
   list.innerHTML = visible.map((customer) => `
     <button type="button" class="direct-order-customer-option" data-direct-order-customer="${escapeHtml(customer.id)}">
       <span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName && customer.legalName !== customer.commercialName ? customer.legalName : customer.contactName || "Contacto pendiente")}</small></span>
-      <em>${escapeHtml(customer.taxId || customer.customerCode || "Sin código")}</em><b>Continuar →</b>
+      <em>ID ${escapeHtml(customer.clientNumber || "—")} · ${escapeHtml(customer.taxId || customer.customerCode || "Sin código")}</em><b>Continuar →</b>
     </button>`).join("") || `<div class="direct-order-customer-empty">No encontramos clientes con ese criterio.</div>`;
   if (customers.length > visible.length) list.insertAdjacentHTML("beforeend", `<small class="direct-order-customer-more">Mostrando 10 de ${customers.length}. Escribe más para precisar.</small>`);
   list.hidden = false;
@@ -7959,7 +7959,7 @@ function renderCrmClients() {
   const query = normalizeKey(state.crmCustomerSearch || "");
   const status = state.crmCustomerStatus || "active";
   const searchable = (client) => [
-    client.customerCode, client.commercialName, client.legalName, client.contactName,
+    client.clientNumber, client.customerCode, client.commercialName, client.legalName, client.contactName,
     client.manager, client.phone, client.email, client.taxId, client.registrationNumber,
     client.address, client.department, client.businessActivity, client.clientType
   ].some((value) => normalizeKey(value || "").includes(query));
@@ -7989,14 +7989,15 @@ function renderCrmClients() {
         <button class="primary-btn" type="button" data-crm-customer-new>+ Nuevo cliente</button>
       </header>
       <div class="crm-customer-toolbar">
-        <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar cliente, contacto, NIT, teléfono o ubicación..."></label>
+        <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar ID, cliente, contacto, NIT, teléfono o ubicación..."></label>
         <label class="crm-customer-filter">Estado<select data-crm-customer-status><option value="active" ${status === "active" ? "selected" : ""}>Activos</option><option value="archived" ${status === "archived" ? "selected" : ""}>Archivados</option><option value="all" ${status === "all" ? "selected" : ""}>Todos</option></select></label>
         <div class="crm-customer-result"><strong>${clients.length}</strong><span>clientes</span></div>
       </div>
       <div class="crm-customer-table-wrap"><div class="crm-customer-table">
-        <div class="crm-customer-row crm-customer-head"><span>Cliente</span><span>Contacto</span><span>Ubicación</span><span>Acciones</span></div>
+        <div class="crm-customer-row crm-customer-head"><span>ID cliente</span><span>Cliente</span><span>Contacto</span><span>Ubicación</span><span>Acciones</span></div>
         ${pageRows.map((client) => `
           <article class="crm-customer-row">
+            <span class="crm-customer-number"><strong>${escapeHtml(client.clientNumber || "—")}</strong></span>
             <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.customerCode || "Sin código"))}</small></span>
             <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
             <span><strong>${escapeHtml(client.department || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>

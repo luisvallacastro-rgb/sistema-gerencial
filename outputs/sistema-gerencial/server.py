@@ -537,12 +537,66 @@ def sync_crm_result_migrations(conn, data):
     return data, changed
 
 
+def parse_crm_customer_number(value):
+    digits = "".join(char for char in text(value) if char.isdigit())
+    number = int(digits or 0)
+    return number if number > 0 else 0
+
+
+def format_crm_customer_number(value):
+    return f"{max(1, int(value)):04d}"
+
+
+def ensure_crm_customer_numbers(data):
+    customers = data.setdefault("customers", [])
+    used = set()
+    pending = []
+    changed = False
+    for customer in customers:
+        number = parse_crm_customer_number(customer.get("clientNumber"))
+        if number and number not in used:
+            canonical = format_crm_customer_number(number)
+            if text(customer.get("clientNumber")) != canonical:
+                customer["clientNumber"] = canonical
+                changed = True
+            used.add(number)
+        else:
+            pending.append(customer)
+
+    sequence = max(parse_crm_customer_number(data.get("customerSequence")), max(used, default=0))
+    for customer in pending:
+        sequence += 1
+        while sequence in used:
+            sequence += 1
+        customer["clientNumber"] = format_crm_customer_number(sequence)
+        used.add(sequence)
+        changed = True
+
+    sequence = max(sequence, max(used, default=0))
+    if parse_crm_customer_number(data.get("customerSequence")) != sequence:
+        data["customerSequence"] = sequence
+        changed = True
+    return changed
+
+
+def next_crm_customer_number(data):
+    ensure_crm_customer_numbers(data)
+    used = {parse_crm_customer_number(customer.get("clientNumber")) for customer in data.get("customers", [])}
+    used.discard(0)
+    sequence = max(parse_crm_customer_number(data.get("customerSequence")), max(used, default=0)) + 1
+    while sequence in used:
+        sequence += 1
+    data["customerSequence"] = sequence
+    return format_crm_customer_number(sequence)
+
+
 def read_crm_data(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
     if not row:
         data = load_crm_seed()
         data, _ = sync_crm_result_migrations(conn, data)
         data, _ = sync_crm_result_closures(conn, data)
+        ensure_crm_customer_numbers(data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -557,10 +611,11 @@ def read_crm_data(conn):
     if customer_reset_changed:
         data["customers"] = []
         data["customerMasterResetVersion"] = customer_reset_version
+    numbering_changed = ensure_crm_customer_numbers(data)
     origin_links_changed = repair_result_opportunity_origin_links(conn, data)
     data, migration_changed = sync_crm_result_migrations(conn, data)
     data, closure_changed = sync_crm_result_closures(conn, data)
-    changed = changed or customer_reset_changed or origin_links_changed or migration_changed or closure_changed
+    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -4684,7 +4739,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     if duplicate_field:
                         self.send_json({"error": "El cliente ya existe; revise nombre, NIT o código"}, status=409)
                         return
-                    customer = {"id": f"customer-{int(time.time() * 1000)}", **normalize_crm_customer(payload)}
+                    customer = {
+                        "id": f"customer-{int(time.time() * 1000)}",
+                        **normalize_crm_customer(payload),
+                        "clientNumber": next_crm_customer_number(data),
+                    }
                     customers.append(customer)
                     write_crm_data(conn, data)
                     response = build_crm_view_model(data)
@@ -4699,7 +4758,11 @@ class AppHandler(BaseHTTPRequestHandler):
                             if duplicate_crm_customer(data, payload):
                                 self.send_json({"error": "Otro cliente ya usa ese nombre, NIT o código"}, status=409)
                                 return
-                            customer = {"id": item_id, **normalize_crm_customer(payload)}
+                            customer = {
+                                "id": item_id,
+                                **normalize_crm_customer(payload),
+                                "clientNumber": next_crm_customer_number(data),
+                            }
                             customers.append(customer)
                             write_crm_data(conn, data)
                             response = build_crm_view_model(data)
@@ -4713,7 +4776,11 @@ class AppHandler(BaseHTTPRequestHandler):
                         if duplicate_crm_customer(data, payload, item_id):
                             self.send_json({"error": "Otro cliente ya usa ese nombre, NIT o código"}, status=409)
                             return
-                        customers[index] = normalize_crm_customer(payload, customers[index])
+                        updated_customer = normalize_crm_customer(payload, customers[index])
+                        updated_customer["clientNumber"] = (
+                            customers[index].get("clientNumber") or next_crm_customer_number(data)
+                        )
+                        customers[index] = updated_customer
                         write_crm_data(conn, data)
                         response = build_crm_view_model(data)
                         response["selectedCustomerId"] = item_id
