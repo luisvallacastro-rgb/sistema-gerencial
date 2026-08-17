@@ -7958,15 +7958,29 @@ function renderCrmClients() {
   const allClients = crmMasterCustomers(true);
   const query = normalizeKey(state.crmCustomerSearch || "");
   const status = state.crmCustomerStatus || "active";
+  const clientSequenceValue = (client) => {
+    const sequence = Number.parseInt(String(client.clientNumber || "").replace(/\D/g, ""), 10);
+    return Number.isFinite(sequence) ? sequence : Number.MAX_SAFE_INTEGER;
+  };
   const searchable = (client) => [
     client.clientNumber, client.customerCode, client.commercialName, client.legalName, client.contactName,
     client.manager, client.phone, client.email, client.taxId, client.registrationNumber,
     client.address, client.department, client.businessActivity, client.clientType
   ].some((value) => normalizeKey(value || "").includes(query));
-  const clients = allClients.filter((client) => {
-    const matchesStatus = status === "all" || (status === "active" ? client.active !== false : client.active === false);
-    return matchesStatus && (!query || searchable(client));
-  });
+  const clients = allClients
+    .filter((client) => {
+      const matchesStatus = status === "all" || (status === "active" ? client.active !== false : client.active === false);
+      return matchesStatus && (!query || searchable(client));
+    })
+    .sort((left, right) => {
+      const sequenceDifference = clientSequenceValue(left) - clientSequenceValue(right);
+      if (sequenceDifference !== 0) return sequenceDifference;
+      return String(left.commercialName || left.legalName || "").localeCompare(
+        String(right.commercialName || right.legalName || ""),
+        "es",
+        { sensitivity: "base" }
+      );
+    });
   const requiredFields = ["commercialName", "legalName", "contactName", "phone", "email", "taxId", "businessActivity", "address", "department", "paymentTerms"];
   const completeness = (client) => Math.round(requiredFields.filter((field) => String(client[field] || "").trim()).length / requiredFields.length * 100);
   const pageSize = 8;
