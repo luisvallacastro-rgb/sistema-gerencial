@@ -6644,7 +6644,7 @@ function fillOpportunityForm(item, context = "results") {
   opportunityId.value = item?.id || "";
   opportunityCrmSourceId.value = "";
   opportunityCustomerId.value = item?.customerId || "";
-  refreshOpportunityCustomerOptions(item?.customerId || "");
+  refreshOpportunityCustomerOptions(item?.customerId || "", item?.company || "");
   opportunityDate.value = item?.date || todayISO();
   opportunityCompany.value = item?.company || "";
   if (context === "crm") {
@@ -7731,11 +7731,13 @@ function crmMasterCustomers(includeInactive = false) {
     .sort((a, b) => String(a.commercialName || a.legalName).localeCompare(String(b.commercialName || b.legalName), "es"));
 }
 
-function refreshOpportunityCustomerOptions(selectedId = "") {
+function refreshOpportunityCustomerOptions(selectedId = "", fallbackName = "") {
   if (!opportunityCustomerSearch) return;
   const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(selectedId));
   opportunityCustomerId.value = customer?.id || "";
-  opportunityCustomerSearch.value = customer ? (customer.commercialName || customer.legalName || "") : "";
+  opportunityCustomerSearch.value = customer
+    ? (customer.commercialName || customer.legalName || "")
+    : String(fallbackName || "").trim();
   closeOpportunityCustomerResults();
 }
 
@@ -7778,6 +7780,86 @@ function inheritCustomerInOpportunity(customerId) {
   opportunityPhone.value = customer.phone || "";
   ensureSelectOption(opportunitySegment, customer.businessActivity || customer.businessLine || "");
   ensureSelectOption(opportunityLocation, customer.address || customer.department || "");
+}
+
+function ensureOpportunityCustomerDirectoryDialog() {
+  let dialog = document.getElementById("opportunityCustomerDirectoryDialog");
+  if (dialog) return dialog;
+
+  dialog = document.createElement("dialog");
+  dialog.id = "opportunityCustomerDirectoryDialog";
+  dialog.className = "crm-customer-directory-dialog";
+  dialog.innerHTML = `
+    <section class="crm-customer-directory-card">
+      <header class="crm-customer-directory-head">
+        <div>
+          <span>DIRECTORIO COMERCIAL</span>
+          <h2>Clientes registrados</h2>
+          <p>Seleccione un cliente para heredar sus datos o cierre la ventana y escriba un nombre libre.</p>
+        </div>
+        <button type="button" class="crm-customer-directory-close" aria-label="Cerrar">×</button>
+      </header>
+      <div class="crm-customer-directory-search">
+        <span aria-hidden="true">⌕</span>
+        <input type="search" placeholder="Buscar por nombre, ID, NIT o contacto..." aria-label="Buscar clientes">
+      </div>
+      <div class="crm-customer-directory-results"></div>
+    </section>`;
+  document.body.appendChild(dialog);
+
+  dialog.querySelector(".crm-customer-directory-close")?.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog.querySelector("input")?.addEventListener("input", (event) => {
+    renderOpportunityCustomerDirectory(event.target.value);
+  });
+  dialog.querySelector(".crm-customer-directory-results")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-customer-id]");
+    if (!button) return;
+    const customerId = button.dataset.customerId;
+    inheritCustomerInOpportunity(customerId);
+    refreshOpportunityCustomerOptions(customerId);
+    dialog.close();
+  });
+  return dialog;
+}
+
+function renderOpportunityCustomerDirectory(search = "") {
+  const dialog = ensureOpportunityCustomerDirectoryDialog();
+  const results = dialog.querySelector(".crm-customer-directory-results");
+  const customers = crmMasterCustomers(true)
+    .filter((customer) => opportunityCustomerMatches(customer, search))
+    .sort((left, right) => {
+      const numberDifference = Number(left.clientNumber || 0) - Number(right.clientNumber || 0);
+      if (numberDifference) return numberDifference;
+      return String(left.commercialName || left.legalName || "").localeCompare(
+        String(right.commercialName || right.legalName || ""),
+        "es",
+        { sensitivity: "base" }
+      );
+    });
+
+  results.innerHTML = customers.length
+    ? customers.map((customer) => `
+        <article class="crm-customer-directory-row">
+          <div class="crm-customer-directory-id">${escapeHtml(String(customer.clientNumber || "").padStart(4, "0"))}</div>
+          <div>
+            <strong>${escapeHtml(customer.commercialName || customer.legalName || "Cliente sin nombre")}</strong>
+            <small>${escapeHtml(customer.contactName || "Sin contacto")} · ${escapeHtml(customer.nit || "Sin NIT")}</small>
+          </div>
+          <button type="button" data-customer-id="${escapeHtml(customer.id)}">Seleccionar</button>
+        </article>`).join("")
+    : `<div class="crm-customer-directory-empty">No hay clientes que coincidan con la búsqueda.</div>`;
+}
+
+function openOpportunityCustomerDirectory() {
+  const dialog = ensureOpportunityCustomerDirectoryDialog();
+  const search = dialog.querySelector("input");
+  if (search) search.value = "";
+  renderOpportunityCustomerDirectory();
+  if (!dialog.open) dialog.showModal();
+  window.setTimeout(() => search?.focus(), 0);
 }
 
 function ensureCrmCustomerDialog() {
@@ -11689,54 +11771,39 @@ function updateClosureControls() {
 }
 
 opportunityCustomerSearch?.addEventListener("input", () => {
+  const typedName = opportunityCustomerSearch.value.trim();
+  const previouslySelected = Boolean(opportunityCustomerId?.value);
   opportunityCustomerId.value = "";
-  renderOpportunityCustomerResults(opportunityCustomerSearch.value);
-});
-opportunityCustomerSearch?.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeOpportunityCustomerResults();
-  if (event.key === "ArrowDown") {
-    event.preventDefault();
-    if (opportunityCustomerResults.hidden) renderOpportunityCustomerResults(opportunityCustomerSearch.value, true);
-    opportunityCustomerResults.querySelector("[data-opportunity-customer]")?.focus();
-  }
-  if (event.key === "Enter" && !opportunityCustomerResults.hidden) {
-    const firstResult = opportunityCustomerResults.querySelector("[data-opportunity-customer]");
-    if (!firstResult) return;
-    event.preventDefault();
-    inheritCustomerInOpportunity(firstResult.dataset.opportunityCustomer);
-    refreshOpportunityCustomerOptions(firstResult.dataset.opportunityCustomer);
+  opportunityCompany.value = typedName;
+  if (previouslySelected) {
+    opportunityContact.value = "";
+    opportunityPhone.value = "";
+    if (opportunityLocation) opportunityLocation.value = "";
   }
 });
 opportunityCustomerToggle?.addEventListener("click", () => {
-  if (!opportunityCustomerResults.hidden) return closeOpportunityCustomerResults();
-  renderOpportunityCustomerResults(opportunityCustomerSearch.value, true);
-  opportunityCustomerSearch.focus();
+  openOpportunityCustomerDirectory();
 });
-opportunityCustomerResults?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-opportunity-customer]");
-  if (!button) return;
-  inheritCustomerInOpportunity(button.dataset.opportunityCustomer);
-  refreshOpportunityCustomerOptions(button.dataset.opportunityCustomer);
-});
-document.addEventListener("click", (event) => {
-  if (!event.target.closest("#opportunityCustomerCombobox")) closeOpportunityCustomerResults();
-});
-newCustomerFromOpportunity?.addEventListener("click", () => openCrmCustomerDialog());
 
 opportunityForm.addEventListener("submit", (event) => {
   if (event.submitter && event.submitter.value === "cancel") return;
   event.preventDefault();
   if (state.opportunityFormContext === "crm") {
     const id = opportunityId.value;
-    const selectedCustomer = crmMasterCustomers().find((customer) => String(customer.id) === String(opportunityCustomerId.value));
-    if (!selectedCustomer) {
-      alert("Seleccione un cliente registrado de la cartera antes de guardar la oportunidad.");
-      opportunityCustomerId.value = "";
+    const typedCustomerName = opportunityCustomerSearch.value.trim();
+    if (!typedCustomerName) {
+      alert("Escriba el nombre del cliente.");
       opportunityCustomerSearch.focus();
-      renderOpportunityCustomerResults(opportunityCustomerSearch.value, true);
       return;
     }
-    inheritCustomerInOpportunity(selectedCustomer.id);
+    const selectedCustomer = crmMasterCustomers(true).find(
+      (customer) => String(customer.id) === String(opportunityCustomerId.value)
+    );
+    if (selectedCustomer) inheritCustomerInOpportunity(selectedCustomer.id);
+    else {
+      opportunityCustomerId.value = "";
+      opportunityCompany.value = typedCustomerName;
+    }
     const selectedSellerId = opportunitySeller.value;
     const seller = crmSalesUsers().find((user) => String(user.id) === String(selectedSellerId));
     if (!seller) {
@@ -11746,8 +11813,10 @@ opportunityForm.addEventListener("submit", (event) => {
     const stageId = Math.max(1, opportunityStages.indexOf(opportunityStage.value) + 1);
     const temperature = { caliente: "Caliente", tibio: "Tibio", frio: "Frio", congelado: "Congelado" }[opportunityProbability.value] || "Tibio";
     const payload = {
-      customerId: opportunityCustomerId.value,
-      company: opportunityCompany.value.trim(),
+      customerId: selectedCustomer?.id || "",
+      company: selectedCustomer
+        ? (selectedCustomer.commercialName || selectedCustomer.legalName || typedCustomerName)
+        : typedCustomerName,
       product: opportunitySegment.value.trim(),
       contact: opportunityContact.value.trim(),
       responsible: opportunityContact.value.trim(),

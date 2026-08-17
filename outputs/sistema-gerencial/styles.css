@@ -19445,3 +19445,184 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   .app-shell .crm-won-history-client { grid-column: 1 / -1; }
   .app-shell .crm-won-history-documents { grid-column: 1 / -1; width: 78px; justify-self: end; }
 }
+.crm-view-customers-btn {
+  min-width: 170px;
+  min-height: 52px;
+  align-self: end;
+  white-space: nowrap;
+}
+
+.crm-customer-directory-dialog {
+  width: min(920px, calc(100vw - 32px));
+  max-height: min(780px, calc(100dvh - 32px));
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f4f7ff;
+}
+
+.crm-customer-directory-dialog::backdrop {
+  background: rgba(3, 12, 29, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.crm-customer-directory-card {
+  overflow: hidden;
+  border: 1px solid rgba(102, 238, 211, 0.34);
+  border-radius: 28px;
+  background: linear-gradient(145deg, rgba(39, 60, 94, 0.97), rgba(9, 36, 54, 0.97));
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.45);
+}
+
+.crm-customer-directory-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  padding: 28px 30px 24px;
+  border-bottom: 1px solid rgba(141, 169, 211, 0.22);
+}
+
+.crm-customer-directory-head span {
+  color: #69efd4;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.crm-customer-directory-head h2 {
+  margin: 6px 0;
+  font-size: clamp(1.7rem, 3vw, 2.5rem);
+}
+
+.crm-customer-directory-head p {
+  margin: 0;
+  color: #aebbd1;
+}
+
+.crm-customer-directory-close {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(141, 169, 211, 0.3);
+  border-radius: 15px;
+  background: rgba(37, 64, 99, 0.72);
+  color: #fff;
+  font-size: 1.8rem;
+  cursor: pointer;
+}
+
+.crm-customer-directory-search {
+  position: relative;
+  padding: 24px 28px 14px;
+}
+
+.crm-customer-directory-search > span {
+  position: absolute;
+  left: 48px;
+  top: 50%;
+  transform: translateY(-28%);
+  color: #69efd4;
+  pointer-events: none;
+}
+
+.crm-customer-directory-search input {
+  width: 100%;
+  min-height: 58px;
+  box-sizing: border-box;
+  border: 1px solid rgba(141, 169, 211, 0.35);
+  border-radius: 16px;
+  background: rgba(10, 35, 63, 0.72);
+  color: #fff;
+  padding: 0 18px 0 52px;
+  font: inherit;
+}
+
+.crm-customer-directory-results {
+  display: grid;
+  gap: 10px;
+  max-height: min(480px, 55dvh);
+  overflow: auto;
+  padding: 0 28px 28px;
+}
+
+.crm-customer-directory-row {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgba(141, 169, 211, 0.2);
+  border-radius: 17px;
+  background: rgba(35, 61, 94, 0.66);
+}
+
+.crm-customer-directory-row strong,
+.crm-customer-directory-row small {
+  display: block;
+}
+
+.crm-customer-directory-row small {
+  margin-top: 4px;
+  color: #aebbd1;
+}
+
+.crm-customer-directory-id {
+  color: #69efd4;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+
+.crm-customer-directory-row button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid rgba(105, 239, 212, 0.55);
+  border-radius: 12px;
+  background: rgba(18, 130, 105, 0.34);
+  color: #a8f7e4;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.crm-customer-directory-row button:hover {
+  background: rgba(18, 130, 105, 0.52);
+}
+
+.crm-customer-directory-empty {
+  padding: 34px;
+  color: #aebbd1;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .crm-inline-picker {
+    align-items: stretch;
+  }
+
+  .crm-view-customers-btn {
+    width: 100%;
+  }
+
+  .crm-customer-directory-head {
+    padding: 22px 20px 18px;
+  }
+
+  .crm-customer-directory-search {
+    padding: 18px 18px 12px;
+  }
+
+  .crm-customer-directory-results {
+    padding: 0 18px 20px;
+  }
+
+  .crm-customer-directory-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .crm-customer-directory-row button {
+    width: 100%;
+  }
+}
