@@ -3626,9 +3626,58 @@ function openQuotationOpportunityPicker() {
     </dialog>`);
   const dialog = document.querySelector("#quotationOpportunityPicker");
   const search = dialog.querySelector("[data-quotation-picker-search]");
+  const searchBox = search.closest("label");
   const list = dialog.querySelector("[data-quotation-picker-list]");
   const count = dialog.querySelector("[data-quotation-picker-count]");
+  const summary = count.closest(".quotation-opportunity-picker__summary");
+  const footer = dialog.querySelector("footer");
+  const heading = dialog.querySelector("header h3");
+  const description = dialog.querySelector("header p");
+  const renderPreview = (opportunity) => {
+    const seller = quotationOpportunitySellerName(opportunity);
+    searchBox.hidden = true;
+    summary.hidden = true;
+    footer.hidden = true;
+    heading.textContent = "Confirmar oportunidad";
+    description.textContent = "Verifica los datos antes de iniciar la cotización.";
+    list.innerHTML = `
+      <section class="quotation-opportunity-preview">
+        <div class="quotation-opportunity-preview__hero">
+          <div><span>Cliente / oportunidad</span><h4>${escapeHtml(opportunity.company || "Oportunidad sin nombre")}</h4><p>${escapeHtml(opportunity.product || "Producto pendiente")}</p></div>
+          <strong>${formatMoney(opportunity.estimatedAmount || 0)}</strong>
+        </div>
+        <div class="quotation-opportunity-preview__grid">
+          <article><small>Vendedor responsable</small><strong>${escapeHtml(seller)}</strong></article>
+          <article><small>Etapa actual</small><strong>${escapeHtml(opportunity.stage?.name || opportunity.stageId || "Sin etapa")}</strong></article>
+          <article><small>Estado</small><strong>${escapeHtml(opportunity.status || "Vigente")}</strong></article>
+          <article><small>Probabilidad de cierre</small><strong>${Number(opportunity.closePercent || 0)}%</strong></article>
+          <article><small>Contacto</small><strong>${escapeHtml(opportunity.contact || "Sin contacto registrado")}</strong></article>
+          <article><small>Teléfono</small><strong>${escapeHtml(opportunity.phone || "Sin teléfono registrado")}</strong></article>
+          <article><small>Segmento</small><strong>${escapeHtml(opportunity.segment || "Sin segmento")}</strong></article>
+          <article><small>Fecha estimada de cierre</small><strong>${opportunity.deadline ? formatDate(opportunity.deadline) : "Sin fecha registrada"}</strong></article>
+        </div>
+        <div class="quotation-opportunity-preview__notice"><span aria-hidden="true">✓</span><p>La cotización heredará esta oportunidad y el vendedor indicado. Podrás revisar los datos comerciales antes de guardarla.</p></div>
+        <div class="quotation-opportunity-preview__actions">
+          <button type="button" data-quotation-preview-back>← Volver a la lista</button>
+          <button type="button" class="primary" data-quotation-preview-confirm="${escapeHtml(opportunity.id)}">Crear cotización para esta oportunidad</button>
+        </div>
+      </section>`;
+    list.querySelector("[data-quotation-preview-back]")?.addEventListener("click", () => {
+      renderOptions();
+      search.focus();
+    });
+    list.querySelector("[data-quotation-preview-confirm]")?.addEventListener("click", (event) => {
+      const opportunityId = event.currentTarget.dataset.quotationPreviewConfirm;
+      dialog.close();
+      openQuotationDialog(opportunityId);
+    });
+  };
   const renderOptions = () => {
+    searchBox.hidden = false;
+    summary.hidden = false;
+    footer.hidden = false;
+    heading.textContent = "Seleccionar oportunidad vigente";
+    description.textContent = "Busca y revisa la oportunidad que dará origen a la cotización.";
     const tokens = normalizeKey(search.value).split(/\s+/).filter(Boolean);
     const visible = opportunities.filter((opportunity) => {
       const seller = quotationOpportunitySellerName(opportunity);
@@ -3637,17 +3686,16 @@ function openQuotationOpportunityPicker() {
     });
     count.textContent = String(visible.length);
     list.innerHTML = visible.length ? visible.map((opportunity) => `
-      <button type="button" class="quotation-opportunity-option" data-quotation-picker-select="${escapeHtml(opportunity.id)}">
+      <button type="button" class="quotation-opportunity-option" data-quotation-picker-preview="${escapeHtml(opportunity.id)}" aria-label="Vista preliminar de ${escapeHtml(opportunity.company || "la oportunidad")}">
         <span class="quotation-opportunity-option__main"><strong>${escapeHtml(opportunity.company || "Oportunidad sin nombre")}</strong><small>${escapeHtml(opportunity.product || "Producto pendiente")}</small></span>
         <span><small>Vendedor</small><strong>${escapeHtml(quotationOpportunitySellerName(opportunity))}</strong></span>
         <span><small>Etapa</small><strong>${escapeHtml(opportunity.stage?.name || opportunity.stageId || "Sin etapa")}</strong></span>
         <span class="quotation-opportunity-option__amount"><small>Monto</small><strong>${formatMoney(opportunity.estimatedAmount || 0)}</strong></span>
-        <i aria-hidden="true">→</i>
+        <i aria-hidden="true" title="Vista preliminar">⌕</i>
       </button>`).join("") : `<div class="quotation-opportunity-picker__empty"><strong>Sin coincidencias</strong><span>Prueba con otro nombre, vendedor, producto o etapa.</span></div>`;
-    list.querySelectorAll("[data-quotation-picker-select]").forEach((button) => button.addEventListener("click", () => {
-      const opportunityId = button.dataset.quotationPickerSelect;
-      dialog.close();
-      openQuotationDialog(opportunityId);
+    list.querySelectorAll("[data-quotation-picker-preview]").forEach((button) => button.addEventListener("click", () => {
+      const opportunity = opportunities.find((item) => String(item.id) === String(button.dataset.quotationPickerPreview));
+      if (opportunity) renderPreview(opportunity);
     }));
   };
   dialog.querySelectorAll("[data-quotation-picker-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
