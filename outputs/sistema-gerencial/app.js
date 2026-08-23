@@ -3594,8 +3594,69 @@ function canManageQuotation(quotation) {
 function availableQuotationOpportunities() {
   return (state.crmData?.opportunities || [])
     .filter((opportunity) => !opportunity.cancelledAt && !opportunity.cancellationReason)
+    .filter((opportunity) => !isCrmArchivedOpportunity(opportunity))
+    .filter((opportunity) => normalizeKey(opportunity.status || "Vigente") !== "ganada")
     .filter((opportunity) => canManageCrmOpportunity(opportunity))
     .sort((a, b) => String(a.company || "").localeCompare(String(b.company || ""), "es"));
+}
+
+function quotationOpportunitySellerName(opportunity = {}) {
+  return crmOwnerName(opportunity.ownerId) || opportunity.seller || "Sin vendedor asignado";
+}
+
+function openQuotationOpportunityPicker() {
+  const opportunities = availableQuotationOpportunities();
+  if (!opportunities.length) {
+    alert("No hay oportunidades vigentes disponibles en tu cartera para crear una cotización.");
+    return;
+  }
+  document.querySelector("#quotationOpportunityPicker")?.remove();
+  document.body.insertAdjacentHTML("beforeend", `
+    <dialog id="quotationOpportunityPicker" class="quotation-opportunity-picker">
+      <section>
+        <header>
+          <div><span>Nueva cotización</span><h3>Seleccionar oportunidad vigente</h3><p>Busca y elige la oportunidad que dará origen a la cotización.</p></div>
+          <button type="button" data-quotation-picker-close aria-label="Cerrar">×</button>
+        </header>
+        <label class="quotation-opportunity-picker__search"><span aria-hidden="true">⌕</span><input type="search" data-quotation-picker-search placeholder="Buscar empresa, vendedor, producto o etapa..." autocomplete="off"></label>
+        <div class="quotation-opportunity-picker__summary"><strong data-quotation-picker-count>${opportunities.length}</strong><span>oportunidades vigentes disponibles</span></div>
+        <div class="quotation-opportunity-picker__list" data-quotation-picker-list></div>
+        <footer><button type="button" data-quotation-picker-close>Cancelar</button></footer>
+      </section>
+    </dialog>`);
+  const dialog = document.querySelector("#quotationOpportunityPicker");
+  const search = dialog.querySelector("[data-quotation-picker-search]");
+  const list = dialog.querySelector("[data-quotation-picker-list]");
+  const count = dialog.querySelector("[data-quotation-picker-count]");
+  const renderOptions = () => {
+    const tokens = normalizeKey(search.value).split(/\s+/).filter(Boolean);
+    const visible = opportunities.filter((opportunity) => {
+      const seller = quotationOpportunitySellerName(opportunity);
+      const index = normalizeKey(`${opportunity.company || ""} ${seller} ${opportunity.product || ""} ${opportunity.stage?.name || opportunity.stageId || ""} ${opportunity.status || "Vigente"}`);
+      return tokens.every((token) => index.includes(token));
+    });
+    count.textContent = String(visible.length);
+    list.innerHTML = visible.length ? visible.map((opportunity) => `
+      <button type="button" class="quotation-opportunity-option" data-quotation-picker-select="${escapeHtml(opportunity.id)}">
+        <span class="quotation-opportunity-option__main"><strong>${escapeHtml(opportunity.company || "Oportunidad sin nombre")}</strong><small>${escapeHtml(opportunity.product || "Producto pendiente")}</small></span>
+        <span><small>Vendedor</small><strong>${escapeHtml(quotationOpportunitySellerName(opportunity))}</strong></span>
+        <span><small>Etapa</small><strong>${escapeHtml(opportunity.stage?.name || opportunity.stageId || "Sin etapa")}</strong></span>
+        <span class="quotation-opportunity-option__amount"><small>Monto</small><strong>${formatMoney(opportunity.estimatedAmount || 0)}</strong></span>
+        <i aria-hidden="true">→</i>
+      </button>`).join("") : `<div class="quotation-opportunity-picker__empty"><strong>Sin coincidencias</strong><span>Prueba con otro nombre, vendedor, producto o etapa.</span></div>`;
+    list.querySelectorAll("[data-quotation-picker-select]").forEach((button) => button.addEventListener("click", () => {
+      const opportunityId = button.dataset.quotationPickerSelect;
+      dialog.close();
+      openQuotationDialog(opportunityId);
+    }));
+  };
+  dialog.querySelectorAll("[data-quotation-picker-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  search.addEventListener("input", renderOptions);
+  renderOptions();
+  dialog.showModal();
+  search.focus();
 }
 
 function renderQuotationsModule() {
@@ -3664,18 +3725,7 @@ function wireQuotationsModule() {
     renderCommercialSubmenu(areas.comercializacion);
   }));
   opportunityTable.querySelector("[data-quotation-module-create]")?.addEventListener("click", () => {
-    const opportunities = availableQuotationOpportunities();
-    if (!opportunities.length) return;
-    if (opportunities.length === 1) {
-      openQuotationDialog(opportunities[0].id);
-      return;
-    }
-    const options = opportunities.map((item, index) => `${index + 1}. ${item.company || "Sin cliente"} · ${item.seller || "Sin vendedor"}`).join("\n");
-    const selected = prompt(`Selecciona la oportunidad para la nueva cotización:\n\n${options}\n\nEscribe el número:`);
-    if (selected === null) return;
-    const opportunity = opportunities[Number.parseInt(selected, 10) - 1];
-    if (!opportunity) return alert("Selecciona un número válido.");
-    openQuotationDialog(opportunity.id);
+    openQuotationOpportunityPicker();
   });
   opportunityTable.querySelectorAll("[data-quotation-module-open]").forEach((button) => button.addEventListener("click", () => (
     openQuotationDialog(button.dataset.opportunityId, button.dataset.quotationModuleOpen)
