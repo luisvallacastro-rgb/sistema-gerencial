@@ -3592,12 +3592,56 @@ function canManageQuotation(quotation) {
 }
 
 function availableQuotationOpportunities() {
-  return (state.crmData?.opportunities || [])
+  const crmRows = state.crmData?.opportunities || [];
+  const crmById = new Map(crmRows.map((opportunity) => [String(opportunity.id), opportunity]));
+  const managementRows = getOpportunitySubmenu().items
+    .filter((item) => !closureResult(item))
+    .map((item) => quotationOpportunityFromManagementItem(item, crmById));
+  const managementCrmIds = new Set(managementRows
+    .map((opportunity) => String(opportunity.crmOpportunityId || opportunity.id || ""))
+    .filter(Boolean));
+  const sellerRows = crmRows
     .filter((opportunity) => !opportunity.cancelledAt && !opportunity.cancellationReason)
-    .filter((opportunity) => !isCrmArchivedOpportunity(opportunity))
     .filter((opportunity) => normalizeKey(opportunity.status || "Vigente") !== "ganada")
-    .filter((opportunity) => canManageCrmOpportunity(opportunity))
+    .filter((opportunity) => !isCrmArchivedOpportunity(opportunity))
+    .filter((opportunity) => !managementCrmIds.has(String(opportunity.id)))
+    .map((opportunity) => ({ ...opportunity, _quotationSource: "seller" }));
+  const unique = new Map();
+  [...managementRows, ...sellerRows]
+    .filter(canManageQuotationOpportunity)
+    .forEach((opportunity) => unique.set(String(opportunity.id), opportunity));
+  return [...unique.values()]
     .sort((a, b) => String(a.company || "").localeCompare(String(b.company || ""), "es"));
+}
+
+function quotationOpportunityFromManagementItem(item = {}, crmById = null) {
+  const source = item.crmOpportunityId
+    ? (crmById?.get(String(item.crmOpportunityId)) || state.crmData?.opportunities?.find((opportunity) => String(opportunity.id) === String(item.crmOpportunityId)))
+    : null;
+  return {
+    ...(source || {}),
+    id: source?.id || item.id,
+    crmOpportunityId: item.crmOpportunityId || source?.id || "",
+    resultOpportunityId: item.id || "",
+    company: item.company || source?.company || "Oportunidad sin nombre",
+    seller: item.seller || source?.seller || crmOwnerName(source?.ownerId),
+    contact: item.contact || source?.contact || "",
+    phone: item.phone || source?.phone || "",
+    location: item.location || source?.location || "",
+    segment: item.segment || source?.segment || source?.product || "",
+    product: source?.product || item.segment || item.product || "",
+    estimatedAmount: Number(item.amount ?? source?.estimatedAmount ?? 0),
+    stageId: item.stage || source?.stageId || "Oportunidad Gerencia",
+    _quotationSource: "management"
+  };
+}
+
+function canManageQuotationOpportunity(opportunity = {}) {
+  if (state.currentUser?.role !== "operativos" || isAdminUser()) return true;
+  if (opportunity.ownerId) return canManageCrmOpportunity(opportunity);
+  const linkedSellerId = crmLinkedSellerId();
+  const linkedSeller = (state.crmData?.sellers || state.crmData?.users || []).find((seller) => String(seller.id) === String(linkedSellerId));
+  return Boolean(linkedSeller && crmIdentityKey(opportunity.seller) === crmIdentityKey(linkedSeller.name));
 }
 
 function quotationOpportunitySellerName(opportunity = {}) {
@@ -3605,7 +3649,9 @@ function quotationOpportunitySellerName(opportunity = {}) {
 }
 
 function quotationOpportunitySource(opportunity = {}) {
-  const isManagement = Boolean(opportunity.migratedToResults) || opportunityMigratedFromCrm(opportunity.id);
+  const isManagement = opportunity._quotationSource === "management"
+    || Boolean(opportunity.migratedToResults)
+    || opportunityMigratedFromCrm(opportunity.id);
   return isManagement
     ? { key: "management", label: "Oportunidad Gerencia" }
     : { key: "seller", label: "Oportunidad Vendedores" };
@@ -3676,8 +3722,9 @@ function openQuotationOpportunityPicker() {
     });
     list.querySelector("[data-quotation-preview-confirm]")?.addEventListener("click", (event) => {
       const opportunityId = event.currentTarget.dataset.quotationPreviewConfirm;
+      const selectedOpportunity = opportunities.find((item) => String(item.id) === String(opportunityId));
       dialog.close();
-      openQuotationDialog(opportunityId);
+      openQuotationDialog(opportunityId, "", selectedOpportunity || null);
     });
   };
   const renderOptions = () => {
@@ -4254,6 +4301,12 @@ async function openQuotationDialog(opportunityId, quoteId = "", opportunityOverr
   ensureQuotationDialog(); await loadQuotations();
   let opportunity = opportunityOverride || crmOpportunityForQuotation(opportunityId);
   if (!opportunity) {
+    const managementItem = getOpportunitySubmenu().items.find((item) => (
+      String(item.id) === String(opportunityId) || String(item.crmOpportunityId || "") === String(opportunityId)
+    ));
+    if (managementItem) opportunity = quotationOpportunityFromManagementItem(managementItem);
+  }
+  if (!opportunity) {
     const win = crmResultWinHistory().find((item) => String(item.id) === String(opportunityId));
     if (win) opportunity = { id:win.id, company:win.company, seller:win.seller, estimatedAmount:win.amount, segment:win.segment || "", product:win.product || "", stageId:"Cierre ganado" };
   }
@@ -4317,7 +4370,7 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
       linkedOpportunity.estimatedAmountLabel = formatMoney(linkedOpportunity.estimatedAmount);
     }
     const resultOpportunity = getOpportunitySubmenu().items.find((item) => (
-      String(item.crmOpportunityId) === String(saved.opportunityId)
+      [item.id, item.crmOpportunityId].map((value) => String(value || "")).includes(String(saved.opportunityId))
       && (!item.quotationId || String(item.quotationId) === String(saved.id))
     ));
     if (resultOpportunity && Number(saved.totalCents || 0) > 0) resultOpportunity.amount = Number(saved.totalCents) / 100;
