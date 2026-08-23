@@ -133,8 +133,8 @@ const areas = {
       },
       {
         key: "cotizaciones",
-        label: "Cotizaciones",
-        status: "Gestión comercial por estado",
+        label: "Cotizaciones / OP",
+        status: "Cotizaciones y órdenes de pedido vinculadas",
         items: []
       },
       { key: "resultados-pedidos", label: "Pedidos", status: "Registro comercial de pedidos", items: [] },
@@ -3799,23 +3799,35 @@ function renderQuotationsModule() {
         <strong>Vendedor</strong><strong>Detalle</strong><strong>Total</strong><strong>Acciones</strong>
       </div>
       <div class="quotation-table-body">
-        ${pagedRows.map((quotation) => `
-          <article class="quotation-table-row">
+        ${pagedRows.map((quotation) => {
+          const linkedOrder = quotationLinkedOrder(quotation);
+          return `
+          <article class="quotation-table-row ${linkedOrder ? "has-order" : "quotation-only"}">
             <span>${formatDate(quotation.date)}</span>
-            <div class="quotation-table-row__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${normalizeKey(quotation.status || "Borrador")}">${escapeHtml(quotation.status || "Borrador")}</span></div>
+            <div class="quotation-table-row__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${linkedOrder ? "orden-creada" : "solo-cotizacion"}">${linkedOrder ? `OP #${escapeHtml(linkedOrder.number || "—")} creada` : "Solo cotización"}</span></div>
             <span>${escapeHtml(quotation.seller || "Sin vendedor")}</span>
             <span class="quotation-table-row__detail"><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><small>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</small></span>
             <strong class="quotation-table-row__amount">${formatControlSalesMoney(quotation.totalCents || 0)}</strong>
             <div class="quotation-record__actions">
-              <button type="button" class="quotation-action edit" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Ver o editar cotización" title="Ver / editar"><span aria-hidden="true">✏️</span></button>
-              <button type="button" class="quotation-action print" data-quotation-module-print="${escapeHtml(quotation.id)}" aria-label="Imprimir cotización" title="Imprimir"><span aria-hidden="true">📋</span></button>
-              <button type="button" class="quotation-action danger" data-quotation-module-delete="${escapeHtml(quotation.id)}" aria-label="Eliminar cotización" ${quotation.status === "Convertida" ? "disabled title=\"Una cotización convertida no se puede eliminar\"" : "title=\"Eliminar\""}><span aria-hidden="true">🗑️</span></button>
+              <button type="button" class="quotation-action view-quotation" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Visualizar cotización" title="Visualizar cotización"><span aria-hidden="true">📄</span></button>
+              <button type="button" class="quotation-action view-order" ${linkedOrder ? `data-quotation-module-order="${escapeHtml(linkedOrder.id)}"` : "disabled"} aria-label="${linkedOrder ? "Visualizar nota de pedido" : "Nota de pedido pendiente"}" title="${linkedOrder ? "Visualizar nota de pedido" : "Aún no existe una nota de pedido"}"><span aria-hidden="true">📋</span></button>
+              <button type="button" class="quotation-action danger" data-quotation-module-delete="${escapeHtml(quotation.id)}" aria-label="Eliminar cotización" ${linkedOrder || quotation.status === "Convertida" ? "disabled title=\"Una cotización con orden de pedido no se puede eliminar\"" : "title=\"Eliminar\""}><span aria-hidden="true">🗑️</span></button>
             </div>
-          </article>`).join("")}
+          </article>`;
+        }).join("")}
         ${Array.from({ length: emptyRowCount }, (_, index) => `<div class="quotation-table-row quotation-table-row--placeholder${!rows.length && index === 0 ? " has-message" : ""}" aria-hidden="true">${!rows.length && index === 0 ? `<span>No hay cotizaciones que coincidan con esta vista.</span>` : ""}</div>`).join("")}
       </div>
       <div class="opportunity-pagination quotation-pagination" aria-label="Paginación de cotizaciones"><span>Mostrando ${visibleStart}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="prev" ${state.quotationModulePage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.quotationModulePage} de ${pageCount}</strong><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="next" ${state.quotationModulePage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>
     </section>`;
+}
+
+function quotationLinkedOrder(quotation = {}) {
+  return state.controlSales.find((order) => (
+    !order.archived && (
+      String(order.id || "") === String(quotation.convertedOrderId || "")
+      || String(order.sourceQuotationId || "") === String(quotation.id || "")
+    )
+  )) || null;
 }
 
 function wireQuotationsModule() {
@@ -3837,9 +3849,8 @@ function wireQuotationsModule() {
   opportunityTable.querySelectorAll("[data-quotation-module-open]").forEach((button) => button.addEventListener("click", () => (
     openQuotationDialog(button.dataset.opportunityId, button.dataset.quotationModuleOpen)
   )));
-  opportunityTable.querySelectorAll("[data-quotation-module-print]").forEach((button) => button.addEventListener("click", () => {
-    const quotation = state.quotations.find((item) => item.id === button.dataset.quotationModulePrint);
-    if (quotation) printQuotation(quotation);
+  opportunityTable.querySelectorAll("[data-quotation-module-order]").forEach((button) => button.addEventListener("click", () => {
+    openControlSalesDetail(button.dataset.quotationModuleOrder, true);
   }));
   opportunityTable.querySelectorAll("[data-quotation-module-delete]").forEach((button) => button.addEventListener("click", async () => {
     const quotation = state.quotations.find((item) => item.id === button.dataset.quotationModuleDelete);

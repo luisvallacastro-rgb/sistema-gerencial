@@ -18081,6 +18081,21 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   background: linear-gradient(100deg, rgba(59, 80, 124, .8), rgba(24, 48, 71, .8));
 }
 
+.quotation-table-row.quotation-only {
+  border-color: rgba(241, 185, 73, .52);
+  background: linear-gradient(100deg, rgba(104, 80, 40, .5), rgba(54, 52, 53, .48) 38%, rgba(23, 43, 65, .74));
+  box-shadow: inset 5px 0 0 #e7b44f;
+}
+
+.quotation-table-row.has-order {
+  border-color: rgba(75, 211, 165, .52);
+  background: linear-gradient(100deg, rgba(31, 105, 84, .52), rgba(31, 70, 75, .5) 38%, rgba(20, 45, 63, .76));
+  box-shadow: inset 5px 0 0 #4fd3a8;
+}
+
+.quotation-table-row.quotation-only:hover { border-color: rgba(246, 194, 87, .76); background: linear-gradient(100deg, rgba(119, 91, 43, .58), rgba(58, 56, 58, .54) 38%, rgba(26, 49, 72, .8)); }
+.quotation-table-row.has-order:hover { border-color: rgba(88, 231, 183, .76); background: linear-gradient(100deg, rgba(35, 121, 96, .61), rgba(33, 79, 82, .58) 38%, rgba(23, 52, 70, .82)); }
+
 .quotation-table-row > * { min-width: 0; }
 .quotation-table-row__amount { color: #f2f6fc; overflow: hidden; text-overflow: ellipsis; }
 .quotation-table-row__client { display: grid; justify-items: start; gap: 5px; min-width: 0; }
@@ -18097,6 +18112,8 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-record__status[data-status="rechazada"],
 .quotation-record__status[data-status="vencida"] { background: #522c3a; color: #ff9eb7 !important; }
 .quotation-record__status[data-status="enviada"] { background: #243f73; color: #a8c8ff !important; }
+.quotation-record__status[data-status="solo-cotizacion"] { border: 1px solid rgba(246, 193, 81, .42); background: rgba(131, 91, 25, .42); color: #ffd786 !important; }
+.quotation-record__status[data-status="orden-creada"] { border: 1px solid rgba(81, 220, 174, .42); background: rgba(24, 105, 82, .56); color: #83efd0 !important; }
 
 .quotation-record__actions {
   display: flex;
@@ -18120,6 +18137,9 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 }
 
 .quotation-record__actions .quotation-action.print { background: linear-gradient(145deg, #25625f, #174947); }
+.quotation-record__actions .quotation-action.view-quotation { background: linear-gradient(145deg, #2a5f94, #1c416c); }
+.quotation-record__actions .quotation-action.view-order { border-color: rgba(84, 224, 182, .36); background: linear-gradient(145deg, #24765f, #185443); }
+.quotation-record__actions .quotation-action.view-order:disabled { border-color: rgba(137, 151, 172, .18); background: linear-gradient(145deg, #39475c, #2a3548); filter: grayscale(.55); }
 .quotation-record__actions .quotation-action.danger { background: linear-gradient(145deg, #64445a, #4b3042); }
 .quotation-record__actions .quotation-action:hover:not(:disabled) { transform: translateY(-2px) scale(1.04); filter: brightness(1.15); }
 .quotation-record__actions .quotation-action:disabled { opacity: .35; cursor: not-allowed; }
