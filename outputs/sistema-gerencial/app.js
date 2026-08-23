@@ -4068,7 +4068,7 @@ function ensureQuotationDialog() {
   document.body.insertAdjacentHTML("beforeend", `<dialog id="quotationDialog" class="wide-dialog quotation-dialog"><form id="quotationForm">
     <header><div><p class="eyebrow">Comercialización · Cotizaciones</p><h3 id="quotationDialogTitle">Nueva cotización</h3><span id="quotationDialogSubtitle"></span></div><button type="button" data-quotation-close>×</button></header>
     <div class="quotation-dialog-body">
-    <input type="hidden" id="quotationId"><input type="hidden" id="quotationOpportunityId">
+    <input type="hidden" id="quotationId"><input type="hidden" id="quotationOpportunityId"><input type="hidden" id="quotationCustomerId">
     <section id="quotationHistory" class="quotation-history"></section>
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
     <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label></section>
@@ -4157,7 +4157,9 @@ function ensureQuotationDialog() {
       if (!savedQuote) return;
       const directOpportunity = dialog.directOrderOpportunity;
       dialog.close();
-      openControlSalesForm(null, null, directOpportunity, false, savedQuote, false, true);
+      await prepareQuotationOrderConversion(directOpportunity, savedQuote, (syncedOpportunity, syncedQuote) => {
+        openControlSalesForm(null, null, syncedOpportunity, false, syncedQuote, false, true);
+      });
       return;
     }
     if (event.target.closest("[data-quotation-new]")) {
@@ -4230,8 +4232,9 @@ function quotationDraftFromForm() {
   const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
   const applyVat = document.querySelector("#quotationVatMode")?.dataset.applyVat !== "false";
   const vatCents = applyVat ? Math.round(subtotalCents * .13) : 0;
-  return { id:document.querySelector("#quotationId").value, opportunityId:document.querySelector("#quotationOpportunityId").value, number:document.querySelector("#quotationNumber").value, date:document.querySelector("#quotationDate").value, validDays:Number(document.querySelector("#quotationValidDays").value || 30), seller:document.querySelector("#quotationSeller").value.trim(), client:document.querySelector("#quotationCommercialName").value.trim(), status:document.querySelector("#quotationStatus").value,
-    customerData:{ commercialName:document.querySelector("#quotationCommercialName").value.trim(), legalName:document.querySelector("#quotationLegalName").value.trim(), contactName:document.querySelector("#quotationContactName").value.trim(), phone:document.querySelector("#quotationPhone").value.trim(), email:document.querySelector("#quotationEmail").value.trim(), address:document.querySelector("#quotationAddress").value.trim(), businessActivity:document.querySelector("#quotationBusinessActivity").value.trim(), taxId:document.querySelector("#quotationTaxId").value.trim(), registrationNumber:document.querySelector("#quotationRegistrationNumber").value.trim(), taxpayerType:document.querySelector("#quotationTaxpayerType").value.trim(), customerCode:document.querySelector("#quotationCustomerCode").value.trim(), strategy:document.querySelector("#quotationStrategy").value, sellerPhone:document.querySelector("#quotationSellerPhone").value.trim(), sellerEmail:document.querySelector("#quotationSellerEmail").value.trim(), sellerRole:"Ejecutivo/a de ventas" },
+  const customerId = document.querySelector("#quotationCustomerId").value;
+  return { id:document.querySelector("#quotationId").value, opportunityId:document.querySelector("#quotationOpportunityId").value, customerId, number:document.querySelector("#quotationNumber").value, date:document.querySelector("#quotationDate").value, validDays:Number(document.querySelector("#quotationValidDays").value || 30), seller:document.querySelector("#quotationSeller").value.trim(), client:document.querySelector("#quotationCommercialName").value.trim(), status:document.querySelector("#quotationStatus").value,
+    customerData:{ customerId, commercialName:document.querySelector("#quotationCommercialName").value.trim(), legalName:document.querySelector("#quotationLegalName").value.trim(), contactName:document.querySelector("#quotationContactName").value.trim(), phone:document.querySelector("#quotationPhone").value.trim(), email:document.querySelector("#quotationEmail").value.trim(), address:document.querySelector("#quotationAddress").value.trim(), businessActivity:document.querySelector("#quotationBusinessActivity").value.trim(), taxId:document.querySelector("#quotationTaxId").value.trim(), registrationNumber:document.querySelector("#quotationRegistrationNumber").value.trim(), taxpayerType:document.querySelector("#quotationTaxpayerType").value.trim(), customerCode:document.querySelector("#quotationCustomerCode").value.trim(), strategy:document.querySelector("#quotationStrategy").value, sellerPhone:document.querySelector("#quotationSellerPhone").value.trim(), sellerEmail:document.querySelector("#quotationSellerEmail").value.trim(), sellerRole:"Ejecutivo/a de ventas" },
     paymentTerms:document.querySelector("#quotationPaymentTerms").value.trim(), deliveryTerms:document.querySelector("#quotationDeliveryTerms").value.trim(), warrantyNote:document.querySelector("#quotationWarrantyNote").value.trim(), commercialNotes:document.querySelector("#quotationCommercialNotes").value.trim(), specialSizesNote:document.querySelector("#quotationSpecialSizesNote").value.trim(), applyVat, subtotalCents, vatCents, totalCents:subtotalCents + vatCents, lines, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
 }
 
@@ -4298,6 +4301,7 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
     }
     field.value = normalizedValue ?? "";
   });
+  document.querySelector("#quotationCustomerId").value = quote?.customerId || quote?.customerData?.customerId || customerOverride?.id || opportunity?.customerId || "";
   const vatMode = document.querySelector("#quotationVatMode");
   if (vatMode) {
     const applyVat = quote ? Number(quote.vatCents || 0) > 0 : true;
@@ -8229,6 +8233,131 @@ function openDirectOrderFlow() {
   hideDirectOrderCustomers(dialog);
   dialog.showModal();
   requestAnimationFrame(() => search.focus());
+}
+
+function quotationMasterCustomer(opportunity = {}, quotation = {}) {
+  const explicitId = quotation.customerId || quotation.customerData?.customerId || opportunity.customerId || "";
+  return crmMasterCustomers(true).find((customer) => String(customer.id) === String(explicitId)) || null;
+}
+
+function masterCustomerQuotationData(customer, quotation = {}) {
+  return {
+    ...(quotation.customerData || {}),
+    customerId: customer.id,
+    commercialName: customer.commercialName || customer.legalName || "",
+    legalName: customer.legalName || "",
+    contactName: customer.contactName || customer.manager || "",
+    phone: customer.phone || "",
+    email: customer.email || "",
+    address: customer.address || customer.department || "",
+    businessActivity: customer.businessActivity || customer.businessLine || "",
+    taxId: customer.taxId || customer.nit || "",
+    registrationNumber: customer.registrationNumber || customer.nrc || "",
+    taxpayerType: customer.taxpayerType || "",
+    customerCode: customer.customerCode || customer.code || "",
+    strategy: customer.strategy || ""
+  };
+}
+
+async function bindMasterCustomerForOrder(opportunity, quotation, customer) {
+  const officialName = customer.commercialName || customer.legalName;
+  const opportunityPatch = {
+    customerId: customer.id,
+    company: officialName,
+    contact: customer.contactName || customer.manager || "",
+    responsible: customer.contactName || customer.manager || "",
+    phone: customer.phone || "",
+    segment: customer.businessActivity || customer.businessLine || opportunity.segment || opportunity.product || "",
+    product: opportunity.product || opportunity.segment || customer.businessActivity || customer.businessLine || "",
+    location: customer.address || customer.department || ""
+  };
+  const crmId = opportunity.crmOpportunityId || (crmOpportunityForQuotation(opportunity.id) ? opportunity.id : "");
+  if (crmId) await crmApi(`/opportunities/${encodeURIComponent(crmId)}`, { method:"PATCH", body:JSON.stringify(opportunityPatch) });
+
+  const resultItem = getOpportunitySubmenu().items.find((item) => (
+    String(item.id || "") === String(opportunity.resultOpportunityId || opportunity.id || "")
+    || (crmId && String(item.crmOpportunityId || "") === String(crmId))
+  ));
+  if (resultItem) {
+    Object.assign(resultItem, opportunityPatch, { customerId:customer.id });
+    saveOpportunities();
+  }
+  Object.assign(opportunity, opportunityPatch);
+
+  const customerData = masterCustomerQuotationData(customer, quotation);
+  const quotePatch = { ...quotation, customerId:customer.id, client:officialName, customerData, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+  let savedQuotation = quotePatch;
+  if (apiEnabled) {
+    const response = await apiJson(`/api/quotations/${encodeURIComponent(quotation.id)}`, { method:"PUT", body:JSON.stringify(quotePatch) });
+    savedQuotation = response.item;
+    await loadQuotations();
+  } else {
+    const index = state.quotations.findIndex((item) => String(item.id) === String(quotation.id));
+    if (index >= 0) state.quotations[index] = savedQuotation;
+    persistLocalQuotations();
+  }
+  return { opportunity, quotation:savedQuotation, customer };
+}
+
+function ensureOrderCustomerDialog() {
+  let dialog = document.querySelector("#orderCustomerRequirementDialog");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "orderCustomerRequirementDialog";
+  dialog.className = "direct-order-customer-dialog";
+  dialog.innerHTML = `<section class="direct-order-customer-card">
+    <header><div><span>REQUISITO PARA ORDEN DE PEDIDO</span><h3>Vincular cliente registrado</h3><p>La oportunidad fue creada con un nombre libre. Selecciona el cliente real del banco de Clientes para completar sus datos y emitir la orden.</p></div><button type="button" data-order-customer-close aria-label="Cerrar">×</button></header>
+    <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-order-customer-search placeholder="Buscar nombre, razón social, NIT o contacto..."><button type="button" data-order-customer-toggle aria-label="Mostrar clientes">⌄</button></label></div>
+    <div class="direct-order-customer-list" data-order-customer-list></div>
+  </section>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.pendingConversion = null; dialog.close(); };
+  dialog.querySelector("[data-order-customer-close]").addEventListener("click", close);
+  dialog.querySelector("[data-order-customer-search]").addEventListener("input", (event) => renderOrderRequirementCustomers(event.target.value));
+  dialog.querySelector("[data-order-customer-toggle]").addEventListener("click", () => renderOrderRequirementCustomers(dialog.querySelector("[data-order-customer-search]").value));
+  dialog.querySelector("[data-order-customer-list]").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-order-required-customer]");
+    if (!button || !dialog.pendingConversion) return;
+    const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.orderRequiredCustomer));
+    if (!customer) return;
+    button.disabled = true;
+    button.querySelector("b").textContent = "Vinculando…";
+    try {
+      const pending = dialog.pendingConversion;
+      const synced = await bindMasterCustomerForOrder(pending.opportunity, pending.quotation, customer);
+      dialog.pendingConversion = null;
+      dialog.close();
+      pending.onReady(synced.opportunity, synced.quotation);
+    } catch (error) {
+      button.disabled = false;
+      button.querySelector("b").textContent = "Seleccionar →";
+      alert(error.message || "No fue posible vincular el cliente.");
+    }
+  });
+  return dialog;
+}
+
+function renderOrderRequirementCustomers(search = "") {
+  const dialog = ensureOrderCustomerDialog();
+  const query = normalizeKey(search);
+  const customers = crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query)).slice(0, 12);
+  dialog.querySelector("[data-order-customer-list]").innerHTML = customers.map((customer) => `<button type="button" class="direct-order-customer-option" data-order-required-customer="${escapeHtml(customer.id)}"><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customer.clientNumber || "—")} · ${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em><b>Seleccionar →</b></button>`).join("") || `<div class="direct-order-customer-empty">No encontramos clientes con ese criterio. Regístralo primero en Comercialización → Clientes.</div>`;
+}
+
+async function prepareQuotationOrderConversion(opportunity, quotation, onReady) {
+  const customer = quotationMasterCustomer(opportunity, quotation);
+  if (customer) {
+    const synced = await bindMasterCustomerForOrder(opportunity, quotation, customer);
+    onReady(synced.opportunity, synced.quotation);
+    return;
+  }
+  const dialog = ensureOrderCustomerDialog();
+  dialog.pendingConversion = { opportunity, quotation, onReady };
+  const search = dialog.querySelector("[data-order-customer-search]");
+  search.value = opportunity.company || quotation.client || "";
+  renderOrderRequirementCustomers(search.value);
+  dialog.showModal();
+  requestAnimationFrame(() => { search.focus(); search.select(); });
 }
 
 function renderCrmClients() {
@@ -12240,7 +12369,9 @@ notifyOperationsBtn.addEventListener("click", async () => {
       alert("Esta cotización ya fue convertida en una orden de pedido.");
       return;
     }
-    openControlSalesForm(null, null, item, true, quotation);
+    await prepareQuotationOrderConversion(item, quotation, (syncedOpportunity, syncedQuote) => {
+      openControlSalesForm(null, null, syncedOpportunity, true, syncedQuote);
+    });
   } catch (error) {
     alert("No fue posible preparar la orden de pedido. Verifica la conexión e inténtalo nuevamente.");
   } finally {
@@ -12273,7 +12404,9 @@ async function convertWonOpportunityToOrder(item, triggerButton) {
       alert("Esta cotización ya fue convertida en una orden de pedido.");
       return;
     }
-    openControlSalesForm(null, null, item, true, quotation);
+    await prepareQuotationOrderConversion(item, quotation, (syncedOpportunity, syncedQuote) => {
+      openControlSalesForm(null, null, syncedOpportunity, true, syncedQuote);
+    });
   } catch (error) {
     alert("No fue posible preparar la orden de pedido. Verifica la conexión e inténtalo nuevamente.");
   } finally {

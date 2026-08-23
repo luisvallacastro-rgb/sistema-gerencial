@@ -2135,13 +2135,27 @@ def save_control_sales_order(conn, data, existing_row=None):
     variance_cents = int(existing.get("varianceCents") or 0) if existing else 0
     if source_quotation_id:
         quotation = conn.execute(
-            "SELECT id, opportunity_id, converted_order_id FROM quotations WHERE id = ?",
+            "SELECT id, opportunity_id, converted_order_id, customer_data FROM quotations WHERE id = ?",
             (source_quotation_id,),
         ).fetchone()
         if not quotation:
             raise ValueError("La cotizacion seleccionada ya no existe")
         if quotation["converted_order_id"] and quotation["converted_order_id"] != order_id:
             raise ValueError("Esta cotizacion ya fue convertida a pedido")
+        try:
+            quotation_customer = json.loads(quotation["customer_data"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            quotation_customer = {}
+        customer_id = text(quotation_customer.get("customerId"))
+        crm_customers = read_crm_data(conn).get("customers", [])
+        if not existing_row and (
+            not customer_id
+            or not any(text(customer.get("id")) == customer_id for customer in crm_customers)
+        ):
+            raise ValueError(
+                "Antes de crear la orden de pedido debes vincular la cotizacion "
+                "con un cliente registrado en el banco de Clientes"
+            )
         source_opportunity_id = source_opportunity_id or text(quotation["opportunity_id"])
         if not existing_row:
             source_ids = {
@@ -2300,6 +2314,7 @@ def quotation_validate(data, existing=None):
     if not isinstance(raw_customer, dict):
         raise ValueError("Los datos del cliente no son validos")
     customer = {
+        "customerId": text(raw_customer.get("customerId") or data.get("customerId")),
         "commercialName": text(raw_customer.get("commercialName"), client),
         "legalName": text(raw_customer.get("legalName")),
         "contactName": text(raw_customer.get("contactName")),
