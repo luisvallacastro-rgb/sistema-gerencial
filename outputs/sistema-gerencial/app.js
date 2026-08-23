@@ -3809,8 +3809,9 @@ function renderQuotationsModule() {
             <span class="quotation-table-row__detail"><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><small>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</small></span>
             <strong class="quotation-table-row__amount">${formatControlSalesMoney(quotation.totalCents || 0)}</strong>
             <div class="quotation-record__actions">
-              <button type="button" class="quotation-action view-quotation" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Visualizar cotización" title="Visualizar cotización"><span aria-hidden="true">📄</span></button>
-              <button type="button" class="quotation-action view-order" ${linkedOrder ? `data-quotation-module-order="${escapeHtml(linkedOrder.id)}"` : "disabled"} aria-label="${linkedOrder ? "Visualizar nota de pedido" : "Nota de pedido pendiente"}" title="${linkedOrder ? "Visualizar nota de pedido" : "Aún no existe una nota de pedido"}"><span aria-hidden="true">📋</span></button>
+              <button type="button" class="quotation-action view-quotation" data-quotation-module-view="${escapeHtml(quotation.id)}" aria-label="Ver cotización" title="Ver cotización"><span aria-hidden="true">👁</span></button>
+              <button type="button" class="quotation-action view-order" ${linkedOrder ? `data-quotation-module-order="${escapeHtml(linkedOrder.id)}"` : "disabled"} aria-label="${linkedOrder ? "Ver orden de pedido" : "Orden de pedido pendiente"}" title="${linkedOrder ? "Ver orden de pedido" : "Aún no existe una orden de pedido"}"><span class="quotation-action__op" aria-hidden="true">OP</span></button>
+              <button type="button" class="quotation-action edit" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Editar cotización" title="Editar cotización"><span aria-hidden="true">✏️</span></button>
               <button type="button" class="quotation-action danger" data-quotation-module-delete="${escapeHtml(quotation.id)}" aria-label="Eliminar cotización" ${linkedOrder || quotation.status === "Convertida" ? "disabled title=\"Una cotización con orden de pedido no se puede eliminar\"" : "title=\"Eliminar\""}><span aria-hidden="true">🗑️</span></button>
             </div>
           </article>`;
@@ -3849,6 +3850,10 @@ function wireQuotationsModule() {
   opportunityTable.querySelectorAll("[data-quotation-module-open]").forEach((button) => button.addEventListener("click", () => (
     openQuotationDialog(button.dataset.opportunityId, button.dataset.quotationModuleOpen)
   )));
+  opportunityTable.querySelectorAll("[data-quotation-module-view]").forEach((button) => button.addEventListener("click", () => {
+    const quotation = state.quotations.find((item) => String(item.id) === String(button.dataset.quotationModuleView));
+    if (quotation) printQuotation(quotation);
+  }));
   opportunityTable.querySelectorAll("[data-quotation-module-order]").forEach((button) => button.addEventListener("click", () => {
     openControlSalesDetail(button.dataset.quotationModuleOrder, true);
   }));

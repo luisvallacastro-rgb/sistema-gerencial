@@ -18039,7 +18039,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-table-head,
 .quotation-table-row {
   display: grid;
-  grid-template-columns: 110px minmax(210px, 1.45fr) minmax(145px, 1fr) minmax(175px, 1fr) 145px 150px;
+  grid-template-columns: 110px minmax(210px, 1.45fr) minmax(145px, 1fr) minmax(175px, 1fr) 145px 194px;
   align-items: center;
   gap: 16px;
 }
@@ -18140,6 +18140,8 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-record__actions .quotation-action.view-quotation { background: linear-gradient(145deg, #2a5f94, #1c416c); }
 .quotation-record__actions .quotation-action.view-order { border-color: rgba(84, 224, 182, .36); background: linear-gradient(145deg, #24765f, #185443); }
 .quotation-record__actions .quotation-action.view-order:disabled { border-color: rgba(137, 151, 172, .18); background: linear-gradient(145deg, #39475c, #2a3548); filter: grayscale(.55); }
+.quotation-record__actions .quotation-action.edit { border-color: rgba(242, 184, 78, .3); background: linear-gradient(145deg, #8a6328, #68491d); }
+.quotation-record__actions .quotation-action__op { color: #d7fff3; font-size: .72rem; font-weight: 950; letter-spacing: .04em; }
 .quotation-record__actions .quotation-action.danger { background: linear-gradient(145deg, #64445a, #4b3042); }
 .quotation-record__actions .quotation-action:hover:not(:disabled) { transform: translateY(-2px) scale(1.04); filter: brightness(1.15); }
 .quotation-record__actions .quotation-action:disabled { opacity: .35; cursor: not-allowed; }
@@ -18151,7 +18153,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   .quotations-module__toolbar { flex-wrap: wrap; }
   .quotations-module__search { flex-basis: calc(100% - 180px); }
   .quotation-table-head,
-  .quotation-table-row { grid-template-columns: 95px minmax(190px, 1.35fr) minmax(130px, .9fr) minmax(155px, 1fr) 125px 145px; gap: 11px; }
+  .quotation-table-row { grid-template-columns: 95px minmax(180px, 1.25fr) minmax(125px, .85fr) minmax(145px, 1fr) 115px 194px; gap: 10px; }
 }
 
 @media (max-width: 780px) {
