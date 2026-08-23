@@ -3604,6 +3604,13 @@ function quotationOpportunitySellerName(opportunity = {}) {
   return crmOwnerName(opportunity.ownerId) || opportunity.seller || "Sin vendedor asignado";
 }
 
+function quotationOpportunitySource(opportunity = {}) {
+  const isManagement = Boolean(opportunity.migratedToResults) || opportunityMigratedFromCrm(opportunity.id);
+  return isManagement
+    ? { key: "management", label: "Oportunidad Gerencia" }
+    : { key: "seller", label: "Oportunidad Vendedores" };
+}
+
 function openQuotationOpportunityPicker() {
   const opportunities = availableQuotationOpportunities();
   if (!opportunities.length) {
@@ -3635,6 +3642,7 @@ function openQuotationOpportunityPicker() {
   const description = dialog.querySelector("header p");
   const renderPreview = (opportunity) => {
     const seller = quotationOpportunitySellerName(opportunity);
+    const source = quotationOpportunitySource(opportunity);
     searchBox.hidden = true;
     summary.hidden = true;
     footer.hidden = true;
@@ -3643,7 +3651,7 @@ function openQuotationOpportunityPicker() {
     list.innerHTML = `
       <section class="quotation-opportunity-preview">
         <div class="quotation-opportunity-preview__hero">
-          <div><span>Cliente / oportunidad</span><h4>${escapeHtml(opportunity.company || "Oportunidad sin nombre")}</h4><p>${escapeHtml(opportunity.product || "Producto pendiente")}</p></div>
+          <div><span>Cliente / oportunidad</span><h4>${escapeHtml(opportunity.company || "Oportunidad sin nombre")}</h4><p>${escapeHtml(opportunity.product || "Producto pendiente")}</p><em class="quotation-opportunity-source" data-source="${source.key}"><i></i>${source.label}</em></div>
           <strong>${formatMoney(opportunity.estimatedAmount || 0)}</strong>
         </div>
         <div class="quotation-opportunity-preview__grid">
@@ -3681,18 +3689,22 @@ function openQuotationOpportunityPicker() {
     const tokens = normalizeKey(search.value).split(/\s+/).filter(Boolean);
     const visible = opportunities.filter((opportunity) => {
       const seller = quotationOpportunitySellerName(opportunity);
-      const index = normalizeKey(`${opportunity.company || ""} ${seller} ${opportunity.product || ""} ${opportunity.stage?.name || opportunity.stageId || ""} ${opportunity.status || "Vigente"}`);
+      const source = quotationOpportunitySource(opportunity);
+      const index = normalizeKey(`${opportunity.company || ""} ${seller} ${opportunity.product || ""} ${opportunity.stage?.name || opportunity.stageId || ""} ${opportunity.status || "Vigente"} ${source.label}`);
       return tokens.every((token) => index.includes(token));
     });
     count.textContent = String(visible.length);
-    list.innerHTML = visible.length ? visible.map((opportunity) => `
+    list.innerHTML = visible.length ? visible.map((opportunity) => {
+      const source = quotationOpportunitySource(opportunity);
+      return `
       <button type="button" class="quotation-opportunity-option" data-quotation-picker-preview="${escapeHtml(opportunity.id)}" aria-label="Vista preliminar de ${escapeHtml(opportunity.company || "la oportunidad")}">
-        <span class="quotation-opportunity-option__main"><strong>${escapeHtml(opportunity.company || "Oportunidad sin nombre")}</strong><small>${escapeHtml(opportunity.product || "Producto pendiente")}</small></span>
+        <span class="quotation-opportunity-option__main"><strong>${escapeHtml(opportunity.company || "Oportunidad sin nombre")}</strong><small>${escapeHtml(opportunity.product || "Producto pendiente")}</small><em class="quotation-opportunity-source" data-source="${source.key}"><i></i>${source.label}</em></span>
         <span><small>Vendedor</small><strong>${escapeHtml(quotationOpportunitySellerName(opportunity))}</strong></span>
         <span><small>Etapa</small><strong>${escapeHtml(opportunity.stage?.name || opportunity.stageId || "Sin etapa")}</strong></span>
         <span class="quotation-opportunity-option__amount"><small>Monto</small><strong>${formatMoney(opportunity.estimatedAmount || 0)}</strong></span>
         <i aria-hidden="true" title="Vista preliminar">⌕</i>
-      </button>`).join("") : `<div class="quotation-opportunity-picker__empty"><strong>Sin coincidencias</strong><span>Prueba con otro nombre, vendedor, producto o etapa.</span></div>`;
+      </button>`;
+    }).join("") : `<div class="quotation-opportunity-picker__empty"><strong>Sin coincidencias</strong><span>Prueba con otro nombre, vendedor, producto, etapa u origen.</span></div>`;
     list.querySelectorAll("[data-quotation-picker-preview]").forEach((button) => button.addEventListener("click", () => {
       const opportunity = opportunities.find((item) => String(item.id) === String(button.dataset.quotationPickerPreview));
       if (opportunity) renderPreview(opportunity);
