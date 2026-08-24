@@ -17831,14 +17831,23 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotations-module {
   display: grid;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .quotations-module__toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 150px) minmax(166px, auto);
   align-items: center;
   gap: 14px;
+  width: 100%;
+  min-width: 0;
   padding: 4px 2px;
+  box-sizing: border-box;
 }
 
 .quotations-module__search {
@@ -17896,6 +17905,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   justify-content: center;
   gap: 8px;
   flex: 0 0 auto;
+  max-width: 100%;
   min-height: 52px;
   padding: 0 20px;
   border: 1px solid rgba(151, 188, 222, .42);
@@ -18097,9 +18107,12 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-table-head,
 .quotation-table-row {
   display: grid;
-  grid-template-columns: 110px minmax(210px, 1.45fr) minmax(145px, 1fr) minmax(175px, 1fr) 145px 194px;
+  grid-template-columns: minmax(78px, .65fr) minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1.08fr) minmax(92px, .74fr) 190px;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .quotation-table-head {
@@ -18116,9 +18129,14 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-table-body {
   display: grid;
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   max-height: min(58vh, 650px);
-  padding: 12px 8px 12px 0;
+  padding: 12px 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
   scrollbar-color: #58bfb4 rgba(6, 25, 43, .7);
   scrollbar-width: thin;
 }
@@ -18177,6 +18195,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   display: flex;
   justify-content: flex-start;
   gap: 6px;
+  min-width: 0;
 }
 
 .quotation-record__actions .quotation-action {
@@ -18208,15 +18227,18 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-pagination { margin-top: 2px; }
 
 @media (max-width: 1250px) {
-  .quotations-module__toolbar { flex-wrap: wrap; }
-  .quotations-module__search { flex-basis: calc(100% - 180px); }
+  .quotations-module__toolbar { grid-template-columns: minmax(0, 1fr) 126px 158px; gap: 10px; }
+  .quotations-module__total { min-width: 0; }
+  .quotations-module__new { padding-inline: 14px; }
   .quotation-table-head,
-  .quotation-table-row { grid-template-columns: 95px minmax(180px, 1.25fr) minmax(125px, .85fr) minmax(145px, 1fr) 115px 194px; gap: 10px; }
+  .quotation-table-row { grid-template-columns: minmax(72px, .62fr) minmax(0, 1.28fr) minmax(0, .9fr) minmax(0, 1fr) minmax(86px, .7fr) 174px; gap: 8px; padding-inline: 15px; }
+  .quotation-record__actions .quotation-action { width: 39px; height: 39px; border-radius: 11px; }
 }
 
 @media (max-width: 780px) {
-  .quotations-module__toolbar { align-items: stretch; flex-direction: column; }
-  .quotations-module__search { flex: auto; width: 100%; }
+  .quotations-module { overflow: visible; }
+  .quotations-module__toolbar { grid-template-columns: 1fr auto; align-items: stretch; }
+  .quotations-module__search { grid-column: 1 / -1; width: 100%; }
   .quotations-module__total { min-width: 0; }
   .quotation-table-head { display: none; }
   .quotation-table-row { grid-template-columns: 1fr 1fr; gap: 10px 16px; padding: 18px; }
