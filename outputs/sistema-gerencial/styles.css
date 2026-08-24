@@ -5432,10 +5432,67 @@ dialog[open]::backdrop { animation: system-backdrop-in 300ms ease both; backdrop
 }
 
 .app-shell .commercial-panel.opportunity-mode #newOpportunityBtn {
-  width: 150px;
-  min-width: 150px;
+  width: 158px;
+  min-width: 158px;
+  min-height: 44px;
+  gap: 10px;
   justify-content: center;
   justify-self: end;
+  padding: 0 17px 0 10px;
+  border: 1px solid rgba(112, 245, 209, .38) !important;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(43, 72, 103, .82), rgba(31, 55, 82, .9)) !important;
+  color: rgba(247, 251, 255, .96) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 9px 22px rgba(3, 12, 27, .18);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.app-shell .commercial-panel.opportunity-mode #newOpportunityBtn strong {
+  font: inherit;
+  font-weight: 850;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+.app-shell .commercial-panel.opportunity-mode #newOpportunityBtn .new-opportunity-icon {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(116, 241, 212, .36);
+  border-radius: 9px;
+  background: rgba(100, 222, 195, .12) !important;
+  color: #76efd3;
+  box-shadow: none;
+}
+
+.app-shell .commercial-panel.opportunity-mode #newOpportunityBtn .new-opportunity-icon svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.app-shell .commercial-panel.opportunity-mode #newOpportunityBtn:hover {
+  border-color: rgba(118, 239, 211, .62) !important;
+  background: linear-gradient(135deg, rgba(49, 82, 113, .94), rgba(32, 64, 86, .96)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 11px 26px rgba(3, 12, 27, .24);
+  transform: translateY(-1px);
+}
+
+.app-shell .commercial-panel.opportunity-mode #newOpportunityBtn:focus-visible {
+  outline: 2px solid rgba(118, 239, 211, .82);
+  outline-offset: 3px;
+}
+
+.app-shell .commercial-panel.opportunity-mode #newOpportunityBtn:active {
+  transform: translateY(0);
 }
 
 @media (max-width: 1050px) {
@@ -5445,8 +5502,9 @@ dialog[open]::backdrop { animation: system-backdrop-in 300ms ease both; backdrop
   }
 
   .app-shell .commercial-panel.opportunity-mode #newOpportunityBtn {
-    width: 136px;
-    min-width: 136px;
+    width: 150px;
+    min-width: 150px;
+    padding-right: 13px;
   }
 
   .app-shell .opportunity-total strong {
