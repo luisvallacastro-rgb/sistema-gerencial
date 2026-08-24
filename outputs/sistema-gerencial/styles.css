@@ -18252,13 +18252,17 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   .quotation-record__actions { grid-column: 1 / -1; }
 }
 
-/* Gerencia: cinco registros compactos por página, sin scroll interno. */
+/* Listados continuos: todos los registros filtrados viven en un único scroll. */
 .app-shell .dashboard.opportunity-focus .opportunity-table-body {
-  flex: 0 0 auto !important;
+  flex: 1 1 auto !important;
   gap: 6px !important;
-  max-height: none !important;
-  overflow: visible !important;
-  padding-right: 0 !important;
+  min-height: 0 !important;
+  max-height: min(62vh, 720px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding-right: 6px !important;
+  scrollbar-color: rgba(91, 205, 190, .72) rgba(7, 25, 47, .26);
+  scrollbar-width: thin;
 }
 
 .app-shell .dashboard.opportunity-focus .opportunity-table-body .opportunity-row,
@@ -18290,8 +18294,6 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   text-overflow: clip;
   white-space: nowrap;
 }
-.app-shell .dashboard.opportunity-focus .opportunity-pagination { margin-top: 6px; }
-
 /* La navegación CRM siempre permanece visible; únicamente se desplaza la lista. */
 .app-shell .dashboard.opportunity-focus .commercial-panel.crm-opportunity-tabs .opportunity-table-body {
   flex: 1 1 auto !important;
@@ -18299,12 +18301,31 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   overflow-y: auto !important;
 }
 
-.app-shell .dashboard.opportunity-focus .commercial-panel.crm-opportunity-tabs .opportunity-pagination {
-  display: flex !important;
-  flex: 0 0 auto !important;
-  position: relative;
-  z-index: 5;
-  margin-top: 6px !important;
+.app-shell .financial-orders-table-wrap,
+.app-shell .crm-customer-table-wrap,
+.app-shell .control-sales-summary-wrap,
+.app-shell .purchase-orders-list,
+.app-shell .quotation-table-body {
+  max-height: min(62vh, 720px);
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-color: rgba(91, 205, 190, .72) rgba(7, 25, 47, .26);
+  scrollbar-width: thin;
+}
+
+.app-shell .crm-customer-table-wrap,
+.app-shell .control-sales-summary-wrap,
+.app-shell .financial-orders-table-wrap {
+  overflow-x: auto;
+}
+
+.app-shell .crm-customer-head,
+.app-shell .financial-order-row.header,
+.app-shell .accounts-receivable-row.header,
+.app-shell .control-sales-summary-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 4;
 }
 
 /* Gerencia: acciones compactas; la etiqueta permanece en title/aria-label. */

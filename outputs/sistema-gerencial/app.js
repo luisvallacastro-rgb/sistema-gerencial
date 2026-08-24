@@ -2581,11 +2581,6 @@ function purchaseOrderSummary(rows = state.purchaseOrders) {
 function renderPurchaseOrderList() {
   const rows = filteredPurchaseOrders();
   const totals = purchaseOrderSummary(rows);
-  const pageSize = 10;
-  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
-  state.purchaseOrderPage = Math.max(1, Math.min(state.purchaseOrderPage, pageCount));
-  const start = (state.purchaseOrderPage - 1) * pageSize;
-  const pagedRows = rows.slice(start, start + pageSize);
   return `<section class="purchase-orders-shell">
     <div class="purchase-orders-hero">
       <article><span>Monto</span><strong>${formatMoney(totals.amount)}</strong><small>${totals.count} órdenes según filtro actual</small></article>
@@ -2601,7 +2596,7 @@ function renderPurchaseOrderList() {
       <button type="button" data-purchase-order-new>+ Nueva orden</button>
     </div>
     <div class="purchase-orders-list">
-      ${pagedRows.map((order) => {
+      ${rows.map((order) => {
         const deadline = purchaseOrderDeadline(order);
         return `<article class="purchase-order-card">
           <div class="purchase-order-identity"><span>#${escapeHtml(order.orderNumber)}</span><strong>${escapeHtml(order.customerName)}</strong><small>${escapeHtml(order.description || "Sin descripción")}</small></div>
@@ -2612,7 +2607,6 @@ function renderPurchaseOrderList() {
         </article>`;
       }).join("") || `<div class="empty-state">No hay órdenes para este filtro.</div>`}
     </div>
-    <div class="opportunity-pagination financial-orders-pagination"><span>Mostrando ${rows.length ? start + 1 : 0}-${Math.min(start + pageSize, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" data-purchase-order-page="prev" ${state.purchaseOrderPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.purchaseOrderPage} de ${pageCount}</strong><button class="ghost-btn compact-btn" data-purchase-order-page="next" ${state.purchaseOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>
   </section>`;
 }
 
@@ -2726,16 +2720,11 @@ function renderPurchaseOrderHistory() {
   let rows = state.purchaseOrders.filter((order) => !purchaseOrderHasBalance(order));
   if (query) rows = rows.filter((order) => Object.values(order).some((value) => searchTokenMatches(value, query)));
   const totals = purchaseOrderSummary(rows);
-  const pageSize = 10;
-  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
-  state.purchaseOrderPage = Math.max(1, Math.min(state.purchaseOrderPage, pageCount));
-  const start = (state.purchaseOrderPage - 1) * pageSize;
-  const pagedRows = rows.slice(start, start + pageSize);
   return `<section class="purchase-orders-shell purchase-orders-history">
     <div class="purchase-orders-history-head"><div><span>Archivo financiero</span><h4>Órdenes liquidadas</h4><small>Registros conservados automáticamente al alcanzar saldo $0.</small></div><strong>${rows.length}<small>órdenes históricas</small></strong></div>
     <div class="purchase-orders-toolbar history-toolbar"><label><span>⌕</span><input data-purchase-order-search type="search" value="${escapeHtml(state.purchaseOrderQuery)}" placeholder="Buscar orden, cliente, producto o responsable..."></label><div class="history-total"><small>Monto histórico</small><strong>${formatMoney(totals.amount)}</strong></div></div>
     <div class="purchase-orders-list">
-      ${pagedRows.map((order) => `<article class="purchase-order-card historical">
+      ${rows.map((order) => `<article class="purchase-order-card historical">
         <div class="purchase-order-identity"><span>#${escapeHtml(order.orderNumber)}</span><strong>${escapeHtml(order.customerName)}</strong><small>${escapeHtml(order.description || "Sin descripción")}</small></div>
         <div class="purchase-order-dates"><small>Ingreso · ${formatDate(order.entryDate)}</small><strong>${formatDate(order.balancePaymentDate || order.dueDate) || "Sin fecha de liquidación"}</strong><em class="delivered">Liquidada</em></div>
         <div class="purchase-order-finance"><small>Monto histórico</small><strong>${formatMoney(order.amount)}</strong><span>Saldo ${formatMoney(order.remaining)}</span></div>
@@ -2747,7 +2736,6 @@ function renderPurchaseOrderHistory() {
         </div>
       </article>`).join("") || `<div class="empty-state">No hay órdenes liquidadas para esta búsqueda.</div>`}
     </div>
-    <div class="opportunity-pagination financial-orders-pagination"><span>Mostrando ${rows.length ? start + 1 : 0}-${Math.min(start + pageSize, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" data-purchase-order-page="prev" ${state.purchaseOrderPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.purchaseOrderPage} de ${pageCount}</strong><button class="ghost-btn compact-btn" data-purchase-order-page="next" ${state.purchaseOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>
   </section>`;
 }
 
@@ -3025,11 +3013,6 @@ function renderControlSales() {
     state.controlSalesPeriodYear,
     ...state.controlSales.map((order) => controlSalesEffectiveDate(order).slice(0, 4)).filter((year) => /^\d{4}$/.test(year))
   ])].sort((a, b) => Number(b) - Number(a));
-  const pageSize = 15;
-  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
-  state.controlSalesPage = Math.min(Math.max(state.controlSalesPage, 1), pages);
-  const start = (state.controlSalesPage - 1) * pageSize;
-  const visible = rows.slice(start, start + pageSize);
   const total = rows.reduce((sum, order) => sum + Number(order.totalCents || 0), 0);
   return `<section class="control-sales-shell">
     <header class="control-sales-period-summary">
@@ -3046,7 +3029,7 @@ function renderControlSales() {
     <div class="control-sales-summary-wrap">
       <table class="control-sales-summary-table">
         <thead><tr><th>N.º de orden</th><th>Vendedor</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th></tr></thead>
-        <tbody>${visible.map((order) => `<tr data-control-sales-matrix-view="${escapeHtml(order.id)}" tabindex="0" title="Ver detalle de la venta">
+        <tbody>${rows.map((order) => `<tr data-control-sales-matrix-view="${escapeHtml(order.id)}" tabindex="0" title="Ver detalle de la venta">
           <th><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Pedido heredado"}</small></th>
           <td>${escapeHtml(controlSalesResponsibleSeller(order))}</td>
           <td>${formatDate(controlSalesEffectiveDate(order))}</td>
@@ -3055,9 +3038,8 @@ function renderControlSales() {
           <td class="money">${formatControlSalesMoney(order.totalCents || 0)}</td>
         </tr>`).join("")}</tbody>
       </table>
-      ${visible.length ? "" : `<div class="empty-state">No hay órdenes para el mes seleccionado.</div>`}
+      ${rows.length ? "" : `<div class="empty-state">No hay órdenes para el mes seleccionado.</div>`}
     </div>
-    <footer class="control-sales-pagination"><span>Mostrando ${rows.length ? start + 1 : 0}-${Math.min(start + pageSize, rows.length)} de ${rows.length}</span><div><button type="button" data-control-sales-page="prev" ${state.controlSalesPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.controlSalesPage} de ${pages}</strong><button type="button" data-control-sales-page="next" ${state.controlSalesPage >= pages ? "disabled" : ""}>Siguiente</button></div></footer>
   </section>`;
 }
 
@@ -3779,13 +3761,6 @@ function renderQuotationsModule() {
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
   const hasAvailableOpportunities = availableQuotationOpportunities().length > 0;
   const visibleTotal = rows.reduce((sum, quotation) => sum + Number(quotation.totalCents || 0), 0);
-  const pageCount = Math.max(1, Math.ceil(rows.length / quotationModulePageSize));
-  state.quotationModulePage = Math.min(Math.max(Number(state.quotationModulePage) || 1, 1), pageCount);
-  const pageStart = (state.quotationModulePage - 1) * quotationModulePageSize;
-  const pageEnd = pageStart + quotationModulePageSize;
-  const visibleStart = rows.length ? pageStart + 1 : 0;
-  const pagedRows = rows.slice(pageStart, pageEnd);
-  const emptyRowCount = quotationModulePageSize - pagedRows.length;
   return `
     <section class="quotations-module" aria-label="Módulo de cotizaciones">
       <header class="quotations-module__toolbar">
@@ -3799,7 +3774,7 @@ function renderQuotationsModule() {
         <strong>Vendedor</strong><strong>Detalle</strong><strong>Total</strong><strong>Acciones</strong>
       </div>
       <div class="quotation-table-body">
-        ${pagedRows.map((quotation) => {
+        ${rows.map((quotation) => {
           const linkedOrder = quotationLinkedOrder(quotation);
           return `
           <article class="quotation-table-row ${linkedOrder ? "has-order" : "quotation-only"}">
@@ -3816,9 +3791,8 @@ function renderQuotationsModule() {
             </div>
           </article>`;
         }).join("")}
-        ${Array.from({ length: emptyRowCount }, (_, index) => `<div class="quotation-table-row quotation-table-row--placeholder${!rows.length && index === 0 ? " has-message" : ""}" aria-hidden="true">${!rows.length && index === 0 ? `<span>No hay cotizaciones que coincidan con esta vista.</span>` : ""}</div>`).join("")}
+        ${rows.length ? "" : `<div class="quotation-table-row quotation-table-row--placeholder has-message" aria-hidden="true"><span>No hay cotizaciones que coincidan con esta vista.</span></div>`}
       </div>
-      <div class="opportunity-pagination quotation-pagination" aria-label="Paginación de cotizaciones"><span>Mostrando ${visibleStart}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span><div><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="prev" ${state.quotationModulePage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.quotationModulePage} de ${pageCount}</strong><button class="ghost-btn compact-btn" type="button" data-quotation-module-page="next" ${state.quotationModulePage >= pageCount ? "disabled" : ""}>Siguiente</button></div></div>
     </section>`;
 }
 
@@ -3840,10 +3814,6 @@ function wireQuotationsModule() {
     input?.focus();
     input?.setSelectionRange(input.value.length, input.value.length);
   });
-  opportunityTable.querySelectorAll("[data-quotation-module-page]").forEach((button) => button.addEventListener("click", () => {
-    state.quotationModulePage += button.dataset.quotationModulePage === "next" ? 1 : -1;
-    renderCommercialSubmenu(areas.comercializacion);
-  }));
   opportunityTable.querySelector("[data-quotation-module-create]")?.addEventListener("click", () => {
     openQuotationOpportunityPicker();
   });
@@ -5410,12 +5380,6 @@ function renderFinancialOrderList() {
       .map((order) => [String(order.financialOrderId), order])
   );
   const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
-  const pageSize = 10;
-  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
-  state.financialOrderPage = Math.max(1, Math.min(state.financialOrderPage, pageCount));
-  const pageStart = (state.financialOrderPage - 1) * pageSize;
-  const pageEnd = pageStart + pageSize;
-  const pagedRows = rows.slice(pageStart, pageEnd);
   return `
     <section class="financial-orders-shell">
       <div class="financial-orders-toolbar">
@@ -5427,7 +5391,7 @@ function renderFinancialOrderList() {
       <div class="financial-orders-table-wrap">
       <div class="financial-orders-table">
         <div class="financial-order-row header"><span>Fecha</span><span>#</span><span>Venta</span><span>Vendedor</span><span>Clientes</span><span>Acciones</span></div>
-        ${pagedRows.map((order) => {
+        ${rows.map((order) => {
           const approvedControlOrder = order.approvedControlSales
             ? state.controlSales.find((item) => item.id === order.controlSalesOrderId)
             : null;
@@ -5453,14 +5417,6 @@ function renderFinancialOrderList() {
           </article>
         `; }).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
       </div>
-      </div>
-      <div class="opportunity-pagination financial-orders-pagination" aria-label="Paginacion de pedidos">
-        <span>Mostrando ${rows.length ? pageStart + 1 : 0}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
-        <div>
-          <button class="ghost-btn compact-btn" type="button" data-financial-order-page="prev" ${state.financialOrderPage <= 1 ? "disabled" : ""}>Anterior</button>
-          <strong>Pagina ${state.financialOrderPage} de ${pageCount}</strong>
-          <button class="ghost-btn compact-btn" type="button" data-financial-order-page="next" ${state.financialOrderPage >= pageCount ? "disabled" : ""}>Siguiente</button>
-        </div>
       </div>
     </section>`;
 }
@@ -5892,12 +5848,6 @@ function calculateReceivableBalance() {
 
 function renderAccountsReceivableList() {
   const rows = filteredAccountsReceivable();
-  const pageSize = 10;
-  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
-  state.accountsReceivablePage = Math.max(1, Math.min(state.accountsReceivablePage, pageCount));
-  const pageStart = (state.accountsReceivablePage - 1) * pageSize;
-  const pageEnd = pageStart + pageSize;
-  const pagedRows = rows.slice(pageStart, pageEnd);
   const total = rows.reduce((sum, item) => sum + Number(item.balance || 0), 0);
   const statusTabs = [
     ["pending", "Pendientes"],
@@ -5918,7 +5868,7 @@ function renderAccountsReceivableList() {
       <div class="financial-orders-table-wrap">
         <div class="financial-orders-table accounts-receivable-table">
           <div class="accounts-receivable-row header"><span>Fecha</span><span>Factura</span><span>Cliente</span><span>Vendedor</span><span>Días</span><span>Saldo</span><span>Acciones</span></div>
-          ${pagedRows.map((item) => {
+          ${rows.map((item) => {
             const status = receivableStatus(item);
             return `<article class="accounts-receivable-row">
               <span>${formatDate(item.invoiceDate)}</span>
@@ -5930,14 +5880,6 @@ function renderAccountsReceivableList() {
               <span class="financial-order-actions"><button type="button" data-accounts-receivable-edit="${item.id}">Editar</button><button class="danger" type="button" data-accounts-receivable-delete="${item.id}">Eliminar</button></span>
             </article>`;
           }).join("") || `<div class="empty-state">No hay cuentas por cobrar para este filtro.</div>`}
-        </div>
-      </div>
-      <div class="opportunity-pagination financial-orders-pagination" aria-label="Paginación de cuentas por cobrar">
-        <span>Mostrando ${rows.length ? pageStart + 1 : 0}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
-        <div>
-          <button class="ghost-btn compact-btn" type="button" data-accounts-receivable-page="prev" ${state.accountsReceivablePage <= 1 ? "disabled" : ""}>Anterior</button>
-          <strong>Página ${state.accountsReceivablePage} de ${pageCount}</strong>
-          <button class="ghost-btn compact-btn" type="button" data-accounts-receivable-page="next" ${state.accountsReceivablePage >= pageCount ? "disabled" : ""}>Siguiente</button>
         </div>
       </div>
     </section>`;
@@ -7474,11 +7416,6 @@ function renderCrmDashboard() {
   );
   if (state.crmOpportunitiesView === "history") return renderCrmHistory();
   if (state.crmOpportunitiesView === "seller-kpi") return renderCrmSellerKpi(rows);
-  const pageCount = Math.max(1, Math.ceil(rows.length / crmOpportunityPageSize));
-  state.crmOpportunityPage = Math.min(Math.max(Number(state.crmOpportunityPage) || 1, 1), pageCount);
-  const pageStart = (state.crmOpportunityPage - 1) * crmOpportunityPageSize;
-  const pageEnd = pageStart + crmOpportunityPageSize;
-  const pagedRows = rows.slice(pageStart, pageEnd);
   return `
     <div class="opportunity-row opportunity-header">
       <strong>Fecha</strong>
@@ -7490,7 +7427,7 @@ function renderCrmDashboard() {
       <strong>Acciones</strong>
     </div>
     <div class="opportunity-table-body">
-      ${pagedRows.length ? pagedRows.map((opportunity) => {
+      ${rows.length ? rows.map((opportunity) => {
         const probability = crmTemperatureToProbability(opportunity.temperature);
         const canManage = canManageCrmOpportunity(opportunity);
         return `
@@ -7509,14 +7446,6 @@ function renderCrmDashboard() {
           </div>
         `;
       }).join("") : `<div class="empty-state">No hay oportunidades vigentes para este filtro.</div>`}
-    </div>
-    <div class="opportunity-pagination" aria-label="Paginacion de oportunidades CRM">
-      <span>Mostrando ${rows.length ? pageStart + 1 : 0}-${Math.min(pageEnd, rows.length)} de ${rows.length}</span>
-      <div>
-        <button class="ghost-btn compact-btn" type="button" data-crm-page="prev" ${state.crmOpportunityPage <= 1 ? "disabled" : ""}>Anterior</button>
-        <strong>Pagina ${state.crmOpportunityPage} de ${pageCount}</strong>
-        <button class="ghost-btn compact-btn" type="button" data-crm-page="next" ${state.crmOpportunityPage >= pageCount ? "disabled" : ""}>Siguiente</button>
-      </div>
     </div>
   `;
 }
@@ -8389,11 +8318,6 @@ function renderCrmClients() {
     });
   const requiredFields = ["commercialName", "legalName", "contactName", "phone", "email", "taxId", "businessActivity", "address", "department", "paymentTerms"];
   const completeness = (client) => Math.round(requiredFields.filter((field) => String(client[field] || "").trim()).length / requiredFields.length * 100);
-  const pageSize = 8;
-  const pageCount = Math.max(1, Math.ceil(clients.length / pageSize));
-  state.crmCustomerPage = Math.min(Math.max(1, state.crmCustomerPage || 1), pageCount);
-  const pageStart = (state.crmCustomerPage - 1) * pageSize;
-  const pageRows = clients.slice(pageStart, pageStart + pageSize);
   const activeCount = allClients.filter((client) => client.active !== false).length;
   const completeCount = allClients.filter((client) => client.active !== false && completeness(client) >= 80).length;
   const archivedCount = allClients.filter((client) => client.active === false).length;
@@ -8415,7 +8339,7 @@ function renderCrmClients() {
       </div>
       <div class="crm-customer-table-wrap"><div class="crm-customer-table">
         <div class="crm-customer-row crm-customer-head"><span>ID cliente</span><span>Cliente</span><span>Contacto</span><span>Ubicación</span><span>Acciones</span></div>
-        ${pageRows.map((client) => `
+        ${clients.map((client) => `
           <article class="crm-customer-row">
             <span class="crm-customer-number"><strong>${escapeHtml(client.clientNumber || "—")}</strong></span>
             <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.customerCode || "Sin código"))}</small></span>
@@ -8428,7 +8352,6 @@ function renderCrmClients() {
           </article>
         `).join("") || `<div class="empty-state">No hay clientes que coincidan con esta vista.</div>`}
       </div></div>
-      <footer class="crm-customer-pagination"><span>Mostrando ${clients.length ? pageStart + 1 : 0}-${Math.min(pageStart + pageSize, clients.length)} de ${clients.length}</span><div><button type="button" data-crm-customer-page="${state.crmCustomerPage - 1}" ${state.crmCustomerPage <= 1 ? "disabled" : ""}>Anterior</button><strong>Página ${state.crmCustomerPage} de ${pageCount}</strong><button type="button" data-crm-customer-page="${state.crmCustomerPage + 1}" ${state.crmCustomerPage >= pageCount ? "disabled" : ""}>Siguiente</button></div></footer>
     </section>
   `;
 }
@@ -9056,12 +8979,6 @@ function renderCommercialSubmenu(area) {
   ));
   const visibleTotal = displayRows.reduce((sum, row) => sum + Number(row.item.amount || 0), 0);
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(visibleTotal);
-  const effectivePageSize = isClosedView ? 5 : opportunityManagementPageSize;
-  const pageCount = Math.max(1, Math.ceil(displayRows.length / effectivePageSize));
-  state.opportunityPage = Math.min(Math.max(Number(state.opportunityPage) || 1, 1), pageCount);
-  const pageStart = (state.opportunityPage - 1) * effectivePageSize;
-  const pageEnd = pageStart + effectivePageSize;
-  const pagedRows = displayRows.slice(pageStart, pageEnd);
   commercialSubmenuStatus.textContent = "";
 
   if (!opportunitySubmenu.items.length) {
@@ -9136,7 +9053,7 @@ function renderCommercialSubmenu(area) {
       <strong>Acciones</strong>
     </div>
     <div class="opportunity-table-body">
-      ${displayRows.length ? pagedRows.map(({ item, result, isInherited, isHistory, isPendingOrder, isImportedHistory }) => `
+      ${displayRows.length ? displayRows.map(({ item, result, isInherited, isHistory, isPendingOrder, isImportedHistory }) => `
         <div class="opportunity-row ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
           <span>${formatDate(item.date)}</span>
           <strong class="company-cell">
@@ -9190,14 +9107,6 @@ function renderCommercialSubmenu(area) {
           ${isClosedView ? "No hay oportunidades cerradas dentro del rango seleccionado." : "No hay oportunidades vigentes para este periodo."}
         </div>
       `}
-    </div>
-    <div class="opportunity-pagination" aria-label="Paginacion de oportunidades">
-      <span>Mostrando ${displayRows.length ? pageStart + 1 : 0}-${Math.min(pageEnd, displayRows.length)} de ${displayRows.length}</span>
-      <div>
-        <button class="ghost-btn compact-btn" type="button" data-opportunity-page="prev" ${state.opportunityPage <= 1 ? "disabled" : ""}>Anterior</button>
-        <strong>Pagina ${state.opportunityPage} de ${pageCount}</strong>
-        <button class="ghost-btn compact-btn" type="button" data-opportunity-page="next" ${state.opportunityPage >= pageCount ? "disabled" : ""}>Siguiente</button>
-      </div>
     </div>
     `}
   `;
