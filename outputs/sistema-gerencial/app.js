@@ -8598,17 +8598,38 @@ function numericBankPasteValue(value) {
   return Number.isFinite(parsed) ? (negative ? -parsed : parsed) : 0;
 }
 
+function splitBankPasteLine(line) {
+  if (line.includes("\t")) return line.split("\t");
+  const cells = []; let current = ""; let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') { current += '"'; index += 1; }
+      else quoted = !quoted;
+    } else if (character === "," && !quoted) { cells.push(current); current = ""; }
+    else current += character;
+  }
+  cells.push(current);
+  return cells;
+}
+
+function detectBankPasteAccount(raw) {
+  const match = String(raw || "").match(/(?:N[uú]mero de Cuenta\s*:\s*)?(10000000022339|10000000022347)/i);
+  return { "10000000022339": "bank-azul-laboral", "10000000022347": "bank-azul-fiscal" }[match?.[1]] || "";
+}
+
 function parseBankPasteBlock(raw, editableFields, allFields = editableFields) {
-  const rows = String(raw || "").split(/\r?\n/).map((line) => line.split("\t")).filter((cells) => cells.some((cell) => cell.trim()));
+  const rows = String(raw || "").replace(/^\uFEFF+/, "").split(/\r?\n/).map(splitBankPasteLine).filter((cells) => cells.some((cell) => String(cell).trim()));
   if (!rows.length) return [];
   const normalizedFields = editableFields.map((field) => normalizeKey(field));
-  const first = rows[0].map((cell) => normalizeKey(cell));
-  const hasHeader = first.some((cell) => normalizedFields.includes(cell));
-  const headers = hasHeader ? first : normalizedFields;
-  return rows.slice(hasHeader ? 1 : 0).map((cells) => {
+  const headerIndex = rows.findIndex((cells) => cells.map((cell) => normalizeKey(cell)).filter((cell) => normalizedFields.includes(cell)).length >= Math.min(2, normalizedFields.length));
+  const hasHeader = headerIndex >= 0;
+  const headers = hasHeader ? rows[headerIndex].map((cell) => normalizeKey(cell)) : normalizedFields;
+  const fieldsToRead = hasHeader ? allFields : editableFields;
+  return rows.slice(hasHeader ? headerIndex + 1 : 0).map((cells) => {
     const data = {};
     const positionalFields = cells.length > editableFields.length ? allFields : editableFields;
-    editableFields.forEach((field, fieldIndex) => {
+    fieldsToRead.forEach((field) => {
       const sourceIndex = hasHeader ? headers.indexOf(normalizeKey(field)) : positionalFields.indexOf(field);
       let value = sourceIndex >= 0 ? String(cells[sourceIndex] ?? "").trim() : "";
       if (bankFieldType(field) === "number") value = numericBankPasteValue(value);
@@ -8635,8 +8656,8 @@ async function openBankMaintenance(accountId) {
     const olderRecord = editing ? records[editingIndex + 1] : records[0];
     const openingBalance = olderRecord ? Number(olderRecord.balance || 0) : editing ? Number(editing.balance || 0) - Number(editing.data[inflowField] || 0) + Number(editing.data[outflowField] || 0) : 0;
     dialog.innerHTML = `<div class="bank-maintenance-shell"><header><div><span>Movimientos bancarios</span><h2>${escapeHtml(account.bank)}</h2><p>${escapeHtml(account.account)} · ${records.length} movimientos</p></div><button type="button" data-bank-close aria-label="Cerrar">×</button></header>
-      <section class="bank-maintenance-summary"><div><small>Último saldo</small><strong>${formatMoney((records[0] || account.latest)?.balance || 0)}</strong><span>${records[0] ? formatDate(records[0].date) : "Sin movimientos"}</span></div><aside><button type="button" data-bank-paste>▦ Pegar desde Excel</button><button type="button" data-bank-new>＋ Agregar línea</button></aside></section>
-      ${bulkOpen ? `<form class="bank-bulk-form"><header><div><h3>Pegar movimientos desde Excel</h3><p>Pega las filas completas del estado de cuenta. Hora/Correlativo y Saldo se ignorarán porque el sistema los calcula.</p></div><strong data-bank-paste-count>0 líneas detectadas</strong></header><textarea data-bank-paste-input placeholder="Copia las filas en Excel y pégalas aquí" required></textarea><footer><label>Orden del bloque<select data-bank-paste-order><option value="newest">Más reciente arriba</option><option value="oldest">Más antigua arriba</option></select></label><span>Campos: ${account.fields.map(escapeHtml).join(" · ")}</span><div><button type="button" data-bank-paste-cancel>Cancelar</button><button type="submit">Importar bloque</button></div></footer></form>` : ""}
+      <section class="bank-maintenance-summary"><div><small>Último saldo</small><strong>${formatMoney((records[0] || account.latest)?.balance || 0)}</strong><span>${records[0] ? formatDate(records[0].date) : "Sin movimientos"}</span></div><aside><button type="button" data-bank-paste>▦ Pegar bloque</button><button type="button" data-bank-new>＋ Agregar línea</button></aside></section>
+      ${bulkOpen ? `<form class="bank-bulk-form"><header><div><h3>Pegar movimientos desde Excel o CSV</h3><p>Pega el contenido completo. El sistema reconoce encabezados, descarta movimientos ya registrados y calcula correlativo y saldo.</p></div><strong data-bank-paste-count>0 líneas detectadas</strong></header><textarea data-bank-paste-input placeholder="Copia las filas o abre el CSV y pega su contenido aquí" required></textarea><footer><label>Orden del bloque<select data-bank-paste-order><option value="newest">Más reciente arriba</option><option value="oldest">Más antigua arriba</option></select></label><span>Campos: ${account.fields.map(escapeHtml).join(" · ")}</span><div><button type="button" data-bank-paste-cancel>Cancelar</button><button type="submit">Importar pendientes</button></div></footer></form>` : ""}
       ${formOpen ? `<form class="bank-record-form bank-inline-form"><div class="bank-inline-form-title"><h3>${editing ? "Editar línea" : "Nueva línea"}</h3>${autoCorrelative ? `<span>Correlativo automático${editing ? ` · ${escapeHtml(editing.data.Correlativo ?? editing.sequence ?? "")}` : ""}</span>` : ""}</div><div class="bank-inline-entry" style="grid-template-columns:${editableFields.map((field) => `${bankFieldWeight(field)}fr`).join(" ")} 12fr auto">${editableFields.map((field) => {
           const type = bankFieldType(field); const required = field === account.balanceField || field === "Fecha" || field === "Fecha Transaccion";
           return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} value="${escapeHtml(editing?.data?.[field] ?? "")}" ${required ? "required" : ""}></label>`;
@@ -8672,6 +8693,11 @@ async function openBankMaintenance(accountId) {
     pasteInput?.focus();
     dialog.querySelector(".bank-bulk-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
+      const detectedAccount = detectBankPasteAccount(pasteInput.value);
+      if (detectedAccount && detectedAccount !== account.id) {
+        const sourceName = detectedAccount === "bank-azul-laboral" ? "Azul Laboral" : "Azul Fiscal";
+        alert(`El CSV corresponde a ${sourceName}. Ábrelo desde esa cuenta para evitar una carga incorrecta.`); return;
+      }
       const sourceRows = parseBankPasteBlock(pasteInput.value, editableFields, account.fields);
       const parsedRows = dialog.querySelector("[data-bank-paste-order]")?.value === "newest" ? [...sourceRows].reverse() : sourceRows;
       if (!parsedRows.length) { alert("No se detectaron líneas válidas para importar."); return; }
@@ -8682,7 +8708,8 @@ async function openBankMaintenance(accountId) {
         const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`);
         records.splice(0, records.length, ...refreshed);
         render();
-        alert(`${response.count} movimientos importados correctamente.`);
+        if (!response.count) alert(`No había movimientos pendientes. ${response.skipped || 0} ya estaban registrados.`);
+        else alert(`${response.count} movimientos pendientes importados. ${response.skipped || 0} ya registrados fueron descartados.`);
       } catch (error) {
         alert(error.message || "No se pudo importar el bloque. Revisa las columnas y valores.");
       }

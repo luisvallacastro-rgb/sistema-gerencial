@@ -3357,6 +3357,33 @@ def next_bank_correlative(conn, account_id):
     return current + 1
 
 
+def normalized_bank_identity(value):
+    return " ".join(text(value).casefold().split())
+
+
+def bank_record_identities(account_id, record_date, values, balance=None):
+    """Return stable, account-scoped identities without trusting the calculated correlativo."""
+    inflow_field, outflow_field = bank_flow_fields(account_id)
+    inflow = round(numeric_bank_value(values.get(inflow_field)), 2)
+    outflow = round(numeric_bank_value(values.get(outflow_field)), 2)
+    reference = normalized_bank_identity(values.get("Referencia") or values.get("No. Doc") or values.get("Número de referencia"))
+    description = normalized_bank_identity(values.get("Descripción") or values.get("Transaccion") or values.get("description"))
+    source_balance = balance
+    if source_balance is None:
+        for field in ("Saldo disponible($)", "Saldo (US$)", "Saldo", "Balance"):
+            if values.get(field) not in (None, ""):
+                source_balance = numeric_bank_value(values.get(field))
+                break
+    identities = set()
+    if reference:
+        identities.add(("reference", account_id, reference))
+    if source_balance is not None:
+        identities.add(("balance", account_id, inflow, outflow, round(float(source_balance), 2)))
+    if description:
+        identities.add(("movement", account_id, record_date, description, inflow, outflow))
+    return identities
+
+
 def insert_bank_records_bulk(conn, account_id, rows, created_by):
     account = conn.execute("SELECT * FROM bank_accounts WHERE id = ?", (account_id,)).fetchone()
     if not account:
@@ -3366,15 +3393,34 @@ def insert_bank_records_bulk(conn, account_id, rows, created_by):
     if len(rows) > 500:
         raise ValueError("El bloque no puede superar 500 movimientos")
     inflow_field, outflow_field = bank_flow_fields(account_id)
+    existing_identity_counts = {}
+    for existing in conn.execute("SELECT record_date, balance, data FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchall():
+        values = json.loads(existing["data"] or "{}")
+        for identity in bank_record_identities(account_id, existing["record_date"], values, existing["balance"]):
+            existing_identity_counts[identity] = existing_identity_counts.get(identity, 0) + 1
+    batch_identity_counts = {}
     prepared = []
+    skipped = 0
     for position, item in enumerate(rows, start=1):
-        values = item.get("data") if isinstance(item.get("data"), dict) else {}
+        values = dict(item.get("data")) if isinstance(item.get("data"), dict) else {}
         record_date = text(item.get("date") or values.get("Fecha Transaccion") or values.get("Fecha"))
         if not record_date:
             raise ValueError(f"La fila {position} no tiene una fecha valida")
         if numeric_bank_value(values.get(inflow_field)) > 0 and numeric_bank_value(values.get(outflow_field)) > 0:
             raise ValueError(f"La fila {position} contiene abono y cargo; utiliza solamente uno")
+        identities = bank_record_identities(account_id, record_date, values)
+        is_duplicate = False
+        for identity in identities:
+            occurrence = batch_identity_counts.get(identity, 0) + 1
+            batch_identity_counts[identity] = occurrence
+            if occurrence <= existing_identity_counts.get(identity, 0):
+                is_duplicate = True
+        if is_duplicate:
+            skipped += 1
+            continue
         prepared.append((record_date, values))
+    if not prepared:
+        return {"imported": 0, "skipped": skipped}
     opening_balance = bank_opening_balance(conn, account_id)
     sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
     correlative = next_bank_correlative(conn, account_id)
@@ -3386,7 +3432,7 @@ def insert_bank_records_bulk(conn, account_id, rows, created_by):
             (str(uuid.uuid4()), account_id, record_date, sequence + offset, json.dumps(values, ensure_ascii=False), text(created_by, "Sistema Gerencial")),
         )
     recalculate_bank_balances(conn, account_id, opening_balance)
-    return len(prepared)
+    return {"imported": len(prepared), "skipped": skipped}
 
 
 def seed_bank_availability(conn):
@@ -4252,13 +4298,13 @@ class AppHandler(BaseHTTPRequestHandler):
             rows = data.get("rows") if isinstance(data.get("rows"), list) else []
             try:
                 with connect() as conn:
-                    count = insert_bank_records_bulk(conn, account_id, rows, data.get("createdBy"))
+                    result = insert_bank_records_bulk(conn, account_id, rows, data.get("createdBy"))
                     payload = bank_availability_payload(conn)
             except LookupError as error:
                 self.send_json({"error": str(error)}, status=404); return
             except ValueError as error:
                 self.send_json({"error": str(error)}, status=400); return
-            self.send_json({"ok": True, "count": count, "availability": payload}, status=201)
+            self.send_json({"ok": True, "count": result["imported"], "skipped": result["skipped"], "availability": payload}, status=201)
             return
 
         if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "records":
