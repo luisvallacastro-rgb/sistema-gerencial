@@ -3295,6 +3295,7 @@ def bank_flow_fields(account_id):
         "bank-agricola": ("Abono", "Cargo"),
         "bank-hipotecario": ("Abono (US$)", "Cargo (US$)"),
         "bank-bac": ("Créditos", "Débitos"),
+        "bank-bac-ahorro": ("Créditos", "Débitos"),
         "bank-azul-laboral": ("Abono($)", "Cargo($)"),
         "bank-azul-fiscal": ("Abono($)", "Cargo($)"),
     }.get(account_id, ("Abono", "Cargo"))
@@ -3415,6 +3416,61 @@ def seed_bank_availability(conn):
     if not imported:
         conn.execute("INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES ('bank_availability_reconciled_xlsx_v3', 'completed', CURRENT_TIMESTAMP)")
     normalize_bank_correlatives(conn)
+
+
+def seed_bac_savings_account(conn):
+    migration_key = "bank_availability.bac_savings.2026-08-25.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    account_id = "bank-bac-ahorro"
+    fields = ["Fecha", "Referencia", "Correlativo", "Código", "Descripción", "Columna1", "Columna2", "Débitos", "Créditos", "Balance*", "Comentario"]
+    conn.execute(
+        """INSERT INTO bank_accounts (id, bank, account, balance_field, fields)
+           VALUES (?, 'BAC Ahorro', 'Cuenta de ahorro', 'Balance*', ?)
+           ON CONFLICT(id) DO UPDATE SET bank=excluded.bank, account=excluded.account,
+             balance_field=excluded.balance_field, fields=excluded.fields, active=1, updated_at=CURRENT_TIMESTAMP""",
+        (account_id, json.dumps(fields, ensure_ascii=False)),
+    )
+    existing = conn.execute("SELECT COUNT(*) FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()[0]
+    source_rows = [
+        ("2026-05-12", "205019506", "DP", "DEP.RAPIBAC 035899", 0, 200.00),
+        ("2026-05-13", "912404154", "TM", "T365 DE: KONFI INVERSIONES SA", 0, 5000.00),
+        ("2026-05-13", "912404313", "TM", "T365 DE: KONFI INVERSIONES SA", 0, 4081.25),
+        ("2026-05-13", "912404540", "TM", "T365 DE: KONFI INVERSIONES SA", 0, 1197.86),
+        ("2026-05-13", "205418862", "TF", "TEF A : 201448677", 5000.00, 0),
+        ("2026-05-22", "912428220", "TM", "T365 A: JOSE ALFARO", 911.50, 0),
+        ("2026-05-22", "912428545", "TM", "T365 A: JOSE ALFARO", 1367.26, 0),
+        ("2026-05-22", "205448081", "TF", "TEF DE: 201448677", 0, 1367.26),
+        ("2026-05-22", "205448254", "TF", "TEF DE: 201448677", 0, 911.50),
+        ("2026-05-22", "205404931", "TF", "TEF DE: 201448677", 0, 1072.17),
+        ("2026-05-28", "205447020", "TF", "TEF A : 201371820", 2232.14, 0),
+        ("2026-05-29", "205484654", "TF", "TEF A : 201564366", 214.70, 0),
+        ("2026-05-29", "205486057", "TF", "TEF A : 200960730", 305.73, 0),
+        ("2026-05-30", "205438112", "TF", "TEF A : 119022309", 559.35, 0),
+        ("2026-05-30", "205439523", "TF", "TEF A : 201448677", 2720.05, 0),
+        ("2026-06-26", "912407708", "TM", "T365 DE: KONFI INVERSIONES SOC", 0, 80.00),
+        ("2026-06-26", "912408176", "TM", "T365 DE: KONFI INVERSIONES SOC", 0, 1261.72),
+        ("2026-06-26", "205451498", "TF", "TEF DE: 201448677", 0, 450.00),
+        ("2026-07-27", "912435736", "TM", "T365 A: KONFI INVERSIONES SA D", 1267.03, 0),
+    ]
+    if not existing:
+        for sequence, (record_date, reference, code, description, debit, credit) in enumerate(source_rows, start=1):
+            values = {
+                "Fecha": record_date, "Referencia": reference, "Correlativo": sequence,
+                "Código": code, "Descripción": description, "Columna1": "", "Columna2": "",
+                "Débitos": debit, "Créditos": credit, "Balance*": 0, "Comentario": "",
+            }
+            conn.execute(
+                """INSERT INTO bank_balance_records
+                   (id, account_id, record_date, sequence, balance, data, created_by)
+                   VALUES (?, ?, ?, ?, 0, ?, ?)""",
+                (f"bac-ahorro-import-{sequence:03d}", account_id, record_date, sequence, json.dumps(values, ensure_ascii=False), "Importación Transacciones del mes.xls"),
+            )
+        recalculate_bank_balances(conn, account_id, 0)
+    conn.execute(
+        "INSERT INTO app_state (key, value) VALUES (?, ?)",
+        (migration_key, json.dumps({"records": 0 if existing else len(source_rows), "latestBalance": 1044.00})),
+    )
 
 
 def init_db():
@@ -3789,6 +3845,7 @@ def init_db():
         grant_johanna_minutes_permissions(conn)
         seed_accounts_receivable(conn)
         seed_bank_availability(conn)
+        seed_bac_savings_account(conn)
         seed_purchase_orders(conn)
         recover_purchase_orders_if_empty(conn)
         grant_purchase_order_permissions(conn)

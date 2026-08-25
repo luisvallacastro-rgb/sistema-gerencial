@@ -8531,7 +8531,7 @@ function renderBankAvailability() {
   const balanceFor = (...ids) => accounts.filter((item) => ids.includes(item.id)).reduce((sum, item) => sum + Number(item.latest?.balance || 0), 0);
   const summaries = [
     { label: "Disponibilidad Operativa", detail: "BAC + Agrícola", value: balanceFor("bank-bac", "bank-agricola"), className: "operating", icon: "↗" },
-    { label: "Cuentas de Reserva", detail: "Azul Laboral + Azul Fiscal", value: balanceFor("bank-azul-laboral", "bank-azul-fiscal"), className: "reserve", icon: "◇" },
+    { label: "Cuentas de Reserva", detail: "Azul Laboral + Azul Fiscal + BAC Ahorro", value: balanceFor("bank-azul-laboral", "bank-azul-fiscal", "bank-bac-ahorro"), className: "reserve", icon: "◇" },
     { label: "Cuenta de Inventario", detail: "Hipotecario", value: balanceFor("bank-hipotecario"), className: "inventory", icon: "▦" }
   ];
   const rows = accounts.map((item) => {
@@ -8577,7 +8577,7 @@ function bankColumnsMarkup(fields) {
 function bankFlowFields(accountId) {
   return {
     "bank-agricola": ["Abono", "Cargo"], "bank-hipotecario": ["Abono (US$)", "Cargo (US$)"],
-    "bank-bac": ["Créditos", "Débitos"], "bank-azul-laboral": ["Abono($)", "Cargo($)"],
+    "bank-bac": ["Créditos", "Débitos"], "bank-bac-ahorro": ["Créditos", "Débitos"], "bank-azul-laboral": ["Abono($)", "Cargo($)"],
     "bank-azul-fiscal": ["Abono($)", "Cargo($)"]
   }[accountId] || ["Abono", "Cargo"];
 }
