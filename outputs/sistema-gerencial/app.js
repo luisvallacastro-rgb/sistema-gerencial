@@ -8542,7 +8542,15 @@ function renderBankAvailability() {
     const percentage = total ? item.value / total * 100 : 0;
     return `<article class="availability-summary-card ${item.className}"><header><div><h3>${escapeHtml(item.label)}</h3><small>${escapeHtml(item.detail)}</small></div><strong>${formatMoney(item.value)}</strong></header><div class="availability-summary-progress"><i style="width:${percentage.toFixed(2)}%"></i></div><footer><span>${percentage.toFixed(2)}%</span></footer></article>`;
   }).join("");
-  return `<section class="bank-availability-module"><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div></section>`;
+  const pendingExpenses = [
+    ["Planilla", 16500], ["Comisiones", 2800.68],
+    ["Reintegro Bodega ARTE Y COLOR (POR FACTURAR) J.A.A.", 1799.28],
+    ["Reservas Fiscal", 857.31], ["Caja Chica", 473.49],
+    ["Reserva Laboral", 461.62], ["Inventario", 214.22]
+  ];
+  const pendingExpensesTotal = pendingExpenses.reduce((sum, item) => sum + item[1], 0);
+  const pendingExpensesMarkup = pendingExpenses.map(([costCenter, amount]) => `<tr><td>${escapeHtml(costCenter)}</td><td class="money">${formatMoney(amount)}</td></tr>`).join("");
+  return `<section class="bank-availability-module"><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><strong>${formatMoney(pendingExpensesTotal)}</strong></header><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Monto a pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${formatMoney(pendingExpensesTotal)}</th></tr></tfoot></table></div></section></section>`;
 }
 
 function bankFieldType(field) {
