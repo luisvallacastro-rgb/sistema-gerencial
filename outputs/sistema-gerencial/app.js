@@ -8582,7 +8582,7 @@ async function openBankMaintenance(accountId) {
   const dialog = document.createElement("dialog");
   dialog.id = "bankMaintenanceDialog";
   dialog.className = "bank-maintenance-dialog";
-  const autoCorrelative = ["bank-bac", "bank-azul-laboral", "bank-azul-fiscal"].includes(account.id);
+  const autoCorrelative = true;
   const render = (formOpen = false, editing = null) => {
     const [inflowField, outflowField] = bankFlowFields(account.id);
     const editableFields = account.fields.filter((field) => field !== account.balanceField && !(autoCorrelative && field === "Correlativo"));

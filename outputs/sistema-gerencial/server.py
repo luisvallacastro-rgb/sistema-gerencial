@@ -3184,8 +3184,8 @@ def repair_edgar_admin_seller_assignments_once(conn):
 
 
 BANK_AVAILABILITY_SEED = [
-    {"id": "bank-agricola", "bank": "Banco Agrícola", "account": "Cuenta corriente", "balanceField": "Saldo", "fields": ["Fecha Transaccion", "Fecha Aplicada", "Hora", "Transaccion", "Canal", "Referencia", "Cargo", "Abono", "Saldo", "Comentario"], "record": {"Fecha Transaccion": "2026-08-24", "Fecha Aplicada": "2026-08-24", "Hora": "16:55", "Transaccion": "PAGO DE CHEQUE", "Canal": "AGENCIA SOYAPANGO", "Referencia": "8479", "Cargo": 220.61, "Abono": 0, "Saldo": 5394.66, "Comentario": ""}},
-    {"id": "bank-hipotecario", "bank": "Banco Hipotecario", "account": "Cuenta bancaria", "balanceField": "Saldo (US$)", "fields": ["No.", "Fecha", "Tipo", "Descripción", "No. Doc", "Cargo (US$)", "Abono (US$)", "Saldo (US$)", "Comentario"], "record": {"No.": 165, "Fecha": "2026-08-21", "Tipo": "AB", "Descripción": "NOTA DE CREDITO DE CAJERO LBTR · TRASLADO DE FONDOS ENTRE CUENTAS", "No. Doc": "", "Cargo (US$)": 0, "Abono (US$)": 407.64, "Saldo (US$)": 41627.95, "Comentario": ""}},
+    {"id": "bank-agricola", "bank": "Banco Agrícola", "account": "Cuenta corriente", "balanceField": "Saldo", "fields": ["Fecha Transaccion", "Fecha Aplicada", "Correlativo", "Transaccion", "Canal", "Referencia", "Cargo", "Abono", "Saldo", "Comentario"], "record": {"Fecha Transaccion": "2026-08-24", "Fecha Aplicada": "2026-08-24", "Correlativo": 1655, "Transaccion": "PAGO DE CHEQUE", "Canal": "AGENCIA SOYAPANGO", "Referencia": "8479", "Cargo": 220.61, "Abono": 0, "Saldo": 5394.66, "Comentario": ""}},
+    {"id": "bank-hipotecario", "bank": "Banco Hipotecario", "account": "Cuenta bancaria", "balanceField": "Saldo (US$)", "fields": ["Correlativo", "Fecha", "Tipo", "Descripción", "No. Doc", "Cargo (US$)", "Abono (US$)", "Saldo (US$)", "Comentario"], "record": {"Correlativo": 165, "Fecha": "2026-08-21", "Tipo": "AB", "Descripción": "NOTA DE CREDITO DE CAJERO LBTR · TRASLADO DE FONDOS ENTRE CUENTAS", "No. Doc": "", "Cargo (US$)": 0, "Abono (US$)": 407.64, "Saldo (US$)": 41627.95, "Comentario": ""}},
     {"id": "bank-bac", "bank": "BAC", "account": "Cuenta bancaria", "balanceField": "Balance*", "fields": ["Fecha", "Referencia", "Correlativo", "Código", "Descripción", "Columna1", "Columna2", "Débitos", "Créditos", "Balance*", "Comentario"], "record": {"Fecha": "2026-08-22", "Referencia": "205479908", "Correlativo": 323, "Código": "TF", "Descripción": "TEF DE: CORPORACION TRINYPLASTI", "Columna1": "", "Columna2": "", "Débitos": 0, "Créditos": 1284.24, "Balance*": 6789.45, "Comentario": ""}},
     {"id": "bank-azul-laboral", "bank": "Banco Azul", "account": "Provisiones laborales", "balanceField": "Saldo disponible($)", "fields": ["Fecha", "Descripción", "Referencia", "Abono($)", "Cargo($)", "Saldo disponible($)", "Correlativo"], "record": {"Fecha": "2026-08-20", "Descripción": "Traslado Provisiones Laborales Agosto 2026", "Referencia": "", "Abono($)": 0, "Cargo($)": 0, "Saldo disponible($)": 30046.55, "Correlativo": 116}},
     {"id": "bank-azul-fiscal", "bank": "Banco Azul", "account": "Provisiones fiscales", "balanceField": "Saldo disponible($)", "fields": ["Fecha", "Descripción", "Referencia", "Abono($)", "Cargo($)", "Saldo disponible($)", "Correlativo"], "record": {"Fecha": "2026-08-20", "Descripción": "Traslado Provisiones Fiscales Agosto 2026", "Referencia": "FT26231JVPN2", "Abono($)": 3537.29, "Cargo($)": 0, "Saldo disponible($)": 17951.21, "Correlativo": 110}},
@@ -3245,6 +3245,32 @@ def recalculate_bank_balances(conn, account_id, opening_balance):
         conn.execute("UPDATE bank_balance_records SET balance = ?, data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (running, json.dumps(data, ensure_ascii=False), row["id"]))
 
 
+def normalize_bank_correlatives(conn):
+    legacy_fields = {"bank-agricola": "Hora", "bank-hipotecario": "No."}
+    for account_id, legacy_field in legacy_fields.items():
+        account = conn.execute("SELECT fields FROM bank_accounts WHERE id = ?", (account_id,)).fetchone()
+        if not account:
+            continue
+        fields = ["Correlativo" if field == legacy_field else field for field in json.loads(account["fields"] or "[]")]
+        conn.execute("UPDATE bank_accounts SET fields = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (json.dumps(fields, ensure_ascii=False), account_id))
+        rows = conn.execute("SELECT id, data, sequence FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchall()
+        for row in rows:
+            values = json.loads(row["data"] or "{}")
+            if "Correlativo" not in values:
+                values["Correlativo"] = values.get(legacy_field) or row["sequence"]
+            values.pop(legacy_field, None)
+            conn.execute("UPDATE bank_balance_records SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (json.dumps(values, ensure_ascii=False), row["id"]))
+
+
+def next_bank_correlative(conn, account_id):
+    current = 0
+    rows = conn.execute("SELECT data FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchall()
+    for row in rows:
+        value = numeric_bank_value(json.loads(row["data"] or "{}").get("Correlativo"))
+        current = max(current, int(value))
+    return current + 1
+
+
 def seed_bank_availability(conn):
     seed = {"accounts": BANK_AVAILABILITY_SEED}
     if BANK_AVAILABILITY_SEED_PATH.exists():
@@ -3271,6 +3297,7 @@ def seed_bank_availability(conn):
                 (record["id"], account["id"], record["date"], int(record.get("sequence") or 0), float(record.get("balance") or 0), json.dumps(record.get("data") or {}, ensure_ascii=False), "Importación Bancos.xlsx"))
     if not imported:
         conn.execute("INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES ('bank_availability_reconciled_xlsx_v3', 'completed', CURRENT_TIMESTAMP)")
+    normalize_bank_correlatives(conn)
 
 
 def init_db():
@@ -4041,8 +4068,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "Registra el movimiento como abono o como cargo, no ambos"}, status=400); return
                 record_id = text(data.get("id")) or str(uuid.uuid4())
                 sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
-                if account_id in {"bank-bac", "bank-azul-laboral", "bank-azul-fiscal"}:
-                    values["Correlativo"] = sequence
+                values["Correlativo"] = next_bank_correlative(conn, account_id)
                 conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, 0, ?, ?)", (record_id, account_id, record_date, sequence, json.dumps(values, ensure_ascii=False), text(data.get("createdBy"), "Sistema Gerencial")))
                 recalculate_bank_balances(conn, account_id, opening_balance)
                 payload = bank_availability_payload(conn)
