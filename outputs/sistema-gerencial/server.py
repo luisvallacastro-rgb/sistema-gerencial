@@ -3212,7 +3212,7 @@ def seed_bank_availability(conn):
             seed = json.loads(BANK_AVAILABILITY_SEED_PATH.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             pass
-    imported = conn.execute("SELECT 1 FROM app_state WHERE key = 'bank_availability_full_xlsx_v1'").fetchone()
+    imported = conn.execute("SELECT 1 FROM app_state WHERE key = 'bank_availability_reconciled_xlsx_v2'").fetchone()
     if not imported:
         conn.execute("DELETE FROM bank_balance_records WHERE id LIKE 'bank-%-seed'")
     for account in seed.get("accounts", []):
@@ -3221,10 +3221,16 @@ def seed_bank_availability(conn):
             balance_field = excluded.balance_field, fields = excluded.fields, updated_at = CURRENT_TIMESTAMP""",
             (account["id"], account["bank"], account["account"], account["balanceField"], json.dumps(account["fields"], ensure_ascii=False)))
         records = account.get("records") or ([{"id": f'{account["id"]}-seed', "date": account["record"].get("Fecha Transaccion") or account["record"].get("Fecha"), "sequence": 0, "balance": account["record"].get(account["balanceField"], 0), "data": account["record"]}] if account.get("record") else [])
+        if imported:
+            continue
         for record in records:
-            conn.execute("INSERT OR IGNORE INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)", (record["id"], account["id"], record["date"], int(record.get("sequence") or 0), float(record.get("balance") or 0), json.dumps(record.get("data") or {}, ensure_ascii=False), "Importación Bancos.xlsx"))
+            conn.execute("""INSERT INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET account_id = excluded.account_id, record_date = excluded.record_date,
+                sequence = excluded.sequence, balance = excluded.balance, data = excluded.data,
+                updated_at = CURRENT_TIMESTAMP""",
+                (record["id"], account["id"], record["date"], int(record.get("sequence") or 0), float(record.get("balance") or 0), json.dumps(record.get("data") or {}, ensure_ascii=False), "Importación Bancos.xlsx"))
     if not imported:
-        conn.execute("INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES ('bank_availability_full_xlsx_v1', 'completed', CURRENT_TIMESTAMP)")
+        conn.execute("INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES ('bank_availability_reconciled_xlsx_v2', 'completed', CURRENT_TIMESTAMP)")
 
 
 def init_db():

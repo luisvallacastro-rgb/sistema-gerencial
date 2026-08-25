@@ -6,6 +6,8 @@
       "bank": "Agrícola",
       "account": "Cuenta corriente",
       "balanceField": "Saldo",
+      "inflowField": "Abono",
+      "outflowField": "Cargo",
       "fields": [
         "Fecha Transaccion",
         "Fecha Aplicada",
@@ -49,7 +51,7 @@
             "Transaccion": "Transfer365 YOLANDA YESENIA HE",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416785557,
-            "Cargo": 1037.98,
+            "Cargo": 16021.54,
             "Abono": "",
             "Saldo": 2875.46,
             "Comentario": "Yolanda Herrera Elaboración de jeans"
@@ -175,8 +177,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA SANTA ELENA                 ANTIGUO CUSCAT",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 244.71,
+            "Cargo": 2199.77,
+            "Abono": "",
             "Saldo": 22732.07,
             "Comentario": "Canc Sacra Hermandad de Juayua"
           }
@@ -391,8 +393,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA LA MASCOTA                  SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 300,
+            "Cargo": 13963.65,
+            "Abono": "",
             "Saldo": 25345.05,
             "Comentario": "Anticipo Fray Spessotto"
           }
@@ -572,7 +574,7 @@
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 843.36,
+            "Abono": 49905.41,
             "Saldo": 53818.85,
             "Comentario": "Cancelación Sherwin William"
           }
@@ -679,7 +681,7 @@
             "Transaccion": "PAGO SERVICIO: TIGO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 5926249,
-            "Cargo": 29.99,
+            "Cargo": 13523.14,
             "Abono": "",
             "Saldo": 10870.68,
             "Comentario": "Pago Serv Telemovil"
@@ -716,7 +718,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 4044.56,
+            "Abono": 1825.1,
             "Saldo": 24312.46,
             "Comentario": "Traslado de Fondos desde Banco Azul CTA Laboral"
           }
@@ -788,7 +790,7 @@
             "Canal": "AGENCIA LA MASCOTA                  SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1620.57,
+            "Abono": 9120.32,
             "Saldo": 34165.37,
             "Comentario": "Cancelación Luis Pastor Argueta"
           }
@@ -895,8 +897,8 @@
             "Transaccion": "Transfer365 KONFI SA DE CV",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416770016,
-            "Cargo": 2056.35,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 17328.78,
             "Saldo": 37596.68,
             "Comentario": "Banco Azul Traslado Provisiones"
           }
@@ -985,8 +987,8 @@
             "Transaccion": "Transfer365 ALCANCE INTEGRAL E",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 234.77,
+            "Cargo": 20718.11,
+            "Abono": "",
             "Saldo": 11826.69,
             "Comentario": "Cancelación Alcance Integral"
           }
@@ -1111,7 +1113,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 7526,
-            "Cargo": 722.2,
+            "Cargo": 9800.77,
             "Abono": "",
             "Saldo": 29852.26,
             "Comentario": "J.A.A Compras Diversas M.M"
@@ -1237,8 +1239,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 7221,
-            "Cargo": 160.19,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 24469.47,
             "Saldo": 36061.39,
             "Comentario": "J.A.A Reintegro Gastos M.M"
           }
@@ -1453,8 +1455,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 7775,
-            "Cargo": 1183.22,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 624.98,
             "Saldo": 31199.44,
             "Comentario": "J.A.A Reintegro Gastos"
           }
@@ -1471,7 +1473,7 @@
             "Transaccion": "Transfer365 ALCALDIA MUNICIPAL",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416728197,
-            "Cargo": 441.68,
+            "Cargo": 5647.12,
             "Abono": "",
             "Saldo": 30574.46,
             "Comentario": "Ajuste Impuestos Municipales"
@@ -1616,7 +1618,7 @@
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1600,
+            "Abono": 867.59,
             "Saldo": 53843.08,
             "Comentario": "Abono Luis Pastor Angueta"
           }
@@ -1687,8 +1689,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA LA MASCOTA                  SAN SALVADOR",
             "Referencia": 6696,
-            "Cargo": 299.64,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 46088.25,
             "Saldo": 51482.91,
             "Comentario": "Jose Amadeo Alfaro Reintegro MM"
           }
@@ -2678,7 +2680,7 @@
             "Canal": "COMPENSACION ELECTRONICA ACH        SAN SALVADOR",
             "Referencia": 807010318,
             "Cargo": "",
-            "Abono": 714,
+            "Abono": 33683,
             "Saldo": 44583.67,
             "Comentario": "Cancelación Visión Mundial"
           }
@@ -2821,7 +2823,7 @@
             "Transaccion": "PAGO SERVICIO: AFP CRECER S.A.",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 5913668,
-            "Cargo": 2224.04,
+            "Cargo": 27558.21,
             "Abono": "",
             "Saldo": 16311.46,
             "Comentario": "Pago AFP CRECER"
@@ -2857,8 +2859,8 @@
             "Transaccion": "TRANSF. SHERWIN WILLIAMS DE CE",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 230652536,
-            "Cargo": "",
-            "Abono": 1867.45,
+            "Cargo": 7996.14,
+            "Abono": "",
             "Saldo": 43786.41,
             "Comentario": "Cancelcion Sherwin Williams"
           }
@@ -2912,7 +2914,7 @@
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 823.95,
+            "Abono": 8798.09,
             "Saldo": 50717.05,
             "Comentario": "Cancelación Colegio Lorenzini"
           }
@@ -4226,7 +4228,7 @@
             "Canal": "AGENCIA CLINICAS MEDICAS            SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 165.1,
+            "Abono": "",
             "Saldo": 19109.44,
             "Comentario": "Cancelación Colegio Mnos de Jesus"
           }
@@ -4387,8 +4389,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 8231,
-            "Cargo": 337.48,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 10783.75,
             "Saldo": 29319.25,
             "Comentario": "JA.A Reintegro Gastos"
           }
@@ -4423,7 +4425,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA LA MASCOTA                  SAN SALVADOR",
             "Referencia": 7943,
-            "Cargo": 1641.48,
+            "Cargo": 14267.29,
             "Abono": "",
             "Saldo": 18115.37,
             "Comentario": "J.A.A Reintegro Gastos M.M"
@@ -4531,8 +4533,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 7758,
-            "Cargo": 873.36,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 13332.77,
             "Saldo": 42989.5,
             "Comentario": "Red de Contadores de El Salvador"
           }
@@ -4585,8 +4587,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA CLINICAS MEDICAS            SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 2000,
+            "Cargo": 2651.68,
+            "Abono": "",
             "Saldo": 28364.46,
             "Comentario": "Anticipo Alcaldia Municipal de la Libertad Norte"
           }
@@ -4639,8 +4641,8 @@
             "Transaccion": "NOTA DE CARGO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 200915951,
-            "Cargo": 3365.53,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 10390.75,
             "Saldo": 36755.21,
             "Comentario": "Pago ISSS Febrero"
           }
@@ -4711,8 +4713,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA LA MASCOTA                  SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 1902.9,
+            "Cargo": 28372.09,
+            "Abono": "",
             "Saldo": 23870.99,
             "Comentario": "Cancelación C.E..C San Jose CF 176"
           }
@@ -4730,7 +4732,7 @@
             "Canal": "CANALES EXTERNOS                    SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 364.32,
+            "Abono": 30274.99,
             "Saldo": 52243.08,
             "Comentario": "INS San Antonio los Ranchos"
           }
@@ -4837,7 +4839,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA PLAZA LEON                  SAN SALVADOR",
             "Referencia": 8205,
-            "Cargo": 116.45,
+            "Cargo": 24207.24,
             "Abono": "",
             "Saldo": 25685.86,
             "Comentario": "Jose Amadeo Alfaro Reintegro Gastos"
@@ -4982,7 +4984,7 @@
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 500,
+            "Abono": 78891.23,
             "Saldo": 104693.54,
             "Comentario": "Cancelación Colegio Nuevo Milenio"
           }
@@ -6656,7 +6658,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 977.79,
+            "Abono": 47549.2,
             "Saldo": 67306.05,
             "Comentario": "Can Alcance Integral"
           }
@@ -6691,7 +6693,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 7931,
-            "Cargo": 514.12,
+            "Cargo": 46672.21,
             "Abono": "",
             "Saldo": 19656.05,
             "Comentario": "J.A.A Reintegro Gastos M.M"
@@ -6745,7 +6747,7 @@
             "Transaccion": "TRANSF. COMERCIALIZADORA GILTO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 218415622,
-            "Cargo": 497.95,
+            "Cargo": 31548.61,
             "Abono": "",
             "Saldo": 12334.25,
             "Comentario": "Comercializadora Gilton Compra Materiales"
@@ -6817,8 +6819,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA CLINICAS MEDICAS            SAN SALVADOR",
             "Referencia": 7732,
-            "Cargo": 511.65,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 17899.4,
             "Saldo": 30731.6,
             "Comentario": "Jose Amadeo Alfaro Reintegro Gastos"
           }
@@ -6871,8 +6873,8 @@
             "Transaccion": "TRANSF. CLAUDIA GLENDA GARCIA",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 24,
+            "Cargo": 29518.18,
+            "Abono": "",
             "Saldo": 10602.56,
             "Comentario": "Cancelación Claudia Garcia FF153"
           }
@@ -7052,7 +7054,7 @@
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 329.68,
+            "Abono": 25802.18,
             "Saldo": 36380.74,
             "Comentario": "Cancelación Tabernaculo Tierra de Mi Bendición"
           }
@@ -7087,8 +7089,8 @@
             "Transaccion": "-VISION MUNDIAL EL SALVADOR",
             "Canal": "COMPENSACION ELECTRONICA ACH        SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 2467.5,
+            "Cargo": 40622.2,
+            "Abono": "",
             "Saldo": 11256.56,
             "Comentario": "Cancelacion Vision MundiL"
           }
@@ -7196,7 +7198,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416005200,
             "Cargo": "",
-            "Abono": 1362.2,
+            "Abono": 39941.7,
             "Saldo": 48730.76,
             "Comentario": "Anticipo Iglesia Mision Central"
           }
@@ -7285,8 +7287,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA ROOSEVELT SAN SALVADOR      SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 311.3,
+            "Cargo": 96496.22,
+            "Abono": "",
             "Saldo": 7697.32,
             "Comentario": "Canc. C.E. Canton el Pajal"
           }
@@ -7412,7 +7414,7 @@
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 12,
+            "Abono": 137208.27,
             "Saldo": 144594.29,
             "Comentario": "TRANSF. REINA ISABEL ESCOBAR E"
           }
@@ -8185,8 +8187,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 1950,
+            "Cargo": 15417.59,
+            "Abono": "",
             "Saldo": 4752.58,
             "Comentario": "Ant. C.E.C Espiritu Santo Zacatecoluca"
           }
@@ -8275,8 +8277,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 304.25,
+            "Cargo": 16609.26,
+            "Abono": "",
             "Saldo": 19441.8,
             "Comentario": "Cancelacion San Jose Villanueva"
           }
@@ -8347,7 +8349,7 @@
             "Transaccion": "TRANSF. TEXVASA,S,A. DE C.V.",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 200425243,
-            "Cargo": 311.6,
+            "Cargo": 8939.57,
             "Abono": "",
             "Saldo": 38428.99,
             "Comentario": "Compra Materiales"
@@ -8473,7 +8475,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 7191,
-            "Cargo": 1354.48,
+            "Cargo": 110963.91,
             "Abono": "",
             "Saldo": 33618.38,
             "Comentario": "J.A.A Reintegro Gastos M.M"
@@ -8582,7 +8584,7 @@
             "Canal": "COMPENSACION ELECTRONICA ACH        SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1575.84,
+            "Abono": 122292.02,
             "Saldo": 141450.27,
             "Comentario": "Cancelación Union Comercial"
           }
@@ -8924,7 +8926,7 @@
             "Canal": "AGENCIA CLINICAS MEDICAS            SAN SALVADOR",
             "Referencia": 40712143,
             "Cargo": "",
-            "Abono": "",
+            "Abono": 944.17,
             "Saldo": 11161.34,
             "Comentario": "Cancelación Salvador Salazar Arrue"
           }
@@ -9104,7 +9106,7 @@
             "Canal": "AGENCIA CLINICAS MEDICAS            SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 351.68,
+            "Abono": 916.68,
             "Saldo": 17931.95,
             "Comentario": "Cancelación Colegio Padre Arrupe"
           }
@@ -9697,8 +9699,8 @@
             "Transaccion": "Transfer365 ALCALDIA MUNICIPAL",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416700004,
-            "Cargo": 429.05,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 11687.69,
             "Saldo": 28076.71,
             "Comentario": "Alcaldia Municipal Pago Impuestos Municipales"
           }
@@ -10364,7 +10366,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 2855.08,
+            "Abono": 8111.35,
             "Saldo": 27248.9,
             "Comentario": "Cancelación Multidisciplinas Merlos"
           }
@@ -10381,8 +10383,8 @@
             "Transaccion": "Transfer365 JORGE SAMUEL",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 100,
+            "Cargo": 19603.04,
+            "Abono": "",
             "Saldo": 19137.55,
             "Comentario": "Abono Carlos Luis Falllas"
           }
@@ -10471,8 +10473,8 @@
             "Transaccion": "TRANSF. OVIDIO ANTONIO GUERRER",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 200211609,
-            "Cargo": 120,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 4144.36,
             "Saldo": 39117.22,
             "Comentario": "Ovidio Antonio Guerrero Chavez"
           }
@@ -10561,8 +10563,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 7189,
-            "Cargo": 735.15,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 402.28,
             "Saldo": 31645.53,
             "Comentario": "Cancelacion Office Spaces"
           }
@@ -10850,7 +10852,7 @@
             "Canal": "AGENCIA LA MASCOTA                  SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 820,
+            "Abono": 851.75,
             "Saldo": 32765.13,
             "Comentario": "Anticipo I.N La Palma"
           }
@@ -10867,7 +10869,7 @@
             "Transaccion": "Transfer365 LUIS ANTONIO VALLA",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416760727,
-            "Cargo": 858.33,
+            "Cargo": 890.08,
             "Abono": "",
             "Saldo": 31913.38,
             "Comentario": "Luis Antonio Valladares Castro Sueldo"
@@ -12217,7 +12219,7 @@
             "Transaccion": "TRANSF. JOSE AMADEO ALFARO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 201954903,
-            "Cargo": 1367.26,
+            "Cargo": 21707.48,
             "Abono": "",
             "Saldo": 17529.74,
             "Comentario": "Jose Amadeo Alfaro Alquiler Maquinaria"
@@ -12379,8 +12381,8 @@
             "Transaccion": "TRANSF. ATYPICAL GROUP EL SALV",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 199974531,
-            "Cargo": 360,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 9851.92,
             "Saldo": 41941.06,
             "Comentario": "Honorarios Serv Cumplimiento"
           }
@@ -12433,7 +12435,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 7176,
-            "Cargo": 113.81,
+            "Cargo": 114355.72,
             "Abono": "",
             "Saldo": 25518.71,
             "Comentario": "J.A.A Reintegro Gastos M.M"
@@ -12452,7 +12454,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 500,
+            "Abono": 97573.37,
             "Saldo": 139874.43,
             "Comentario": "Abono Carlos Luis Fallas"
           }
@@ -13783,8 +13785,8 @@
             "Transaccion": "TRANSF. GRACIELA YAMILETH PALA",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 513.58,
+            "Cargo": 353.63,
+            "Abono": "",
             "Saldo": 24915.49,
             "Comentario": "Anticipo C.E. Santa Sofia"
           }
@@ -14162,7 +14164,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 96.14,
+            "Abono": 5990.43,
             "Saldo": 25027.98,
             "Comentario": "Anticipo Colegio Cefas"
           }
@@ -14179,7 +14181,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA UNICENTRO                   SOYAPANGO",
             "Referencia": 7914,
-            "Cargo": 120.7,
+            "Cargo": 6594.97,
             "Abono": "",
             "Saldo": 19037.55,
             "Comentario": "Monica Michel Sifontes"
@@ -14305,8 +14307,8 @@
             "Transaccion": "Transfer365 AVELIN",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 58.51,
+            "Cargo": 108793.53,
+            "Abono": "",
             "Saldo": 30580.9,
             "Comentario": "Cancelación Evelyn Perez"
           }
@@ -14324,7 +14326,7 @@
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 900,
+            "Abono": 108852.04,
             "Saldo": 139374.43,
             "Comentario": "Anticipo Comercializadora"
           }
@@ -15781,8 +15783,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA UNICENTRO                   SOYAPANGO",
             "Referencia": 6863,
-            "Cargo": 230.81,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 1715.36,
             "Saldo": 33025.55,
             "Comentario": "Cancelación Col Aventista Chalatenango"
           }
@@ -16699,7 +16701,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 6711,
-            "Cargo": 226.94,
+            "Cargo": 99392.67,
             "Abono": "",
             "Saldo": 39081.76,
             "Comentario": "JAA Reintegro Gsatos"
@@ -18140,7 +18142,7 @@
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 4136.55,
+            "Abono": 17997,
             "Saldo": 33506.05,
             "Comentario": "Canc Alcaldia Sonsonate"
           }
@@ -18266,7 +18268,7 @@
             "Canal": "COMPENSACION ELECTRONICA ACH        SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 127.14,
+            "Abono": 3063.21,
             "Saldo": 16885.16,
             "Comentario": "Traslado Banco Azul"
           }
@@ -18283,8 +18285,8 @@
             "Transaccion": "Envio transfer365",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416791001,
-            "Cargo": 2066.5,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 10402.79,
             "Saldo": 13821.95,
             "Comentario": "Traslado Banco Hipotecario"
           }
@@ -18517,7 +18519,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA CLINICAS MEDICAS            SAN SALVADOR",
             "Referencia": 5390,
-            "Cargo": 967.66,
+            "Cargo": 16589.1,
             "Abono": "",
             "Saldo": 7522.16,
             "Comentario": "J.A.A Reintegro Gastos M.M"
@@ -18590,7 +18592,7 @@
             "Canal": "AGENCIA UNICENTRO                   SOYAPANGO",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1294.4,
+            "Abono": 5691.23,
             "Saldo": 11365.04,
             "Comentario": "Canc. Colegio Arce Jeriel"
           }
@@ -18751,8 +18753,8 @@
             "Transaccion": "Pago KONFI INVERSIONES SA DE C",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416000469,
-            "Cargo": "",
-            "Abono": 5000,
+            "Cargo": 10633.59,
+            "Abono": "",
             "Saldo": 12528.89,
             "Comentario": "Traslado de Saldos desde BAC"
           }
@@ -20371,7 +20373,7 @@
             "Transaccion": "ACREDITACION CHEQUE NUESTRO",
             "Canal": "AGENCIA PLAZA MUNDO                 SOYAPANGO",
             "Referencia": 5972,
-            "Cargo": 3754.19,
+            "Cargo": 17614.64,
             "Abono": "",
             "Saldo": 11754.86,
             "Comentario": "Maria de Jesus Menjvar"
@@ -20462,7 +20464,7 @@
             "Canal": "AGENCIA CLINICAS MEDICAS            SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 34.18,
+            "Abono": 14558.17,
             "Saldo": 30446.62,
             "Comentario": "Can. Bordados Susana Peña "
           }
@@ -20515,8 +20517,8 @@
             "Transaccion": "TRANSF. PROSER,S.A. DE C.V.",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 177381534,
-            "Cargo": 53.17,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 3131.97,
             "Saldo": 16437.57,
             "Comentario": "PROSER S.A de C.V"
           }
@@ -20569,8 +20571,8 @@
             "Transaccion": "NOTA DE CARGO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 170878603,
-            "Cargo": 3795.67,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 10617.76,
             "Saldo": 19107.58,
             "Comentario": "PAGO SERVICIO: ISSS"
           }
@@ -20803,7 +20805,7 @@
             "Transaccion": "TRANSF. ACAC DE LOS TRABAJADOR",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 164565924,
-            "Cargo": 13167.6,
+            "Cargo": 7864.61,
             "Abono": "",
             "Saldo": 2206.03,
             "Comentario": "CACTIUSA DE R.L(pago Planilla Sueldos)"
@@ -20839,8 +20841,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 68,
+            "Cargo": 3010.22,
+            "Abono": "",
             "Saldo": 10740.12,
             "Comentario": "Canc Specialty Foods S.A. de C.V"
           }
@@ -20912,7 +20914,7 @@
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1232.71,
+            "Abono": 17386.72,
             "Saldo": 24915.61,
             "Comentario": "Canc Santimoni"
           }
@@ -20966,7 +20968,7 @@
             "Canal": "AGENCIA UNICENTRO                   SOYAPANGO",
             "Referencia": 450110431,
             "Cargo": "",
-            "Abono": 78.58,
+            "Abono": 1488.4,
             "Saldo": 7376.47,
             "Comentario": "Canc.Servicios de Artes Graficas"
           }
@@ -22675,7 +22677,7 @@
             "Transaccion": "Envio transfer365",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416792093,
-            "Cargo": 10000,
+            "Cargo": 27106.84,
             "Abono": "",
             "Saldo": 3305.6,
             "Comentario": "Banco Azul(Traslado Saldos)"
@@ -22730,7 +22732,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1524.61,
+            "Abono": 26917.82,
             "Saldo": 43408.56,
             "Comentario": "Anticipo CINTER"
           }
@@ -22784,7 +22786,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 32.5,
+            "Abono": 5109.44,
             "Saldo": 28012.69,
             "Comentario": "Canc. Negocios Ortez"
           }
@@ -22820,7 +22822,7 @@
             "Canal": "AGENCIA UNICENTRO                   SOYAPANGO",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 20418.55,
+            "Abono": 6975.58,
             "Saldo": 22349.21,
             "Comentario": "Canc. Alcaldia Municipal Cuscatlan Sur"
           }
@@ -22891,8 +22893,8 @@
             "Transaccion": "Pago KONFI INVERSIONES SA DE C",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416000797,
-            "Cargo": "",
-            "Abono": 6000,
+            "Cargo": 7702.55,
+            "Abono": "",
             "Saldo": 15980.35,
             "Comentario": "Traslado Saldos Banco America Central"
           }
@@ -23000,7 +23002,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1191.17,
+            "Abono": 31455.54,
             "Saldo": 38753.43,
             "Comentario": "Anticipo Fundación Educativa Liceo Catilla"
           }
@@ -23017,7 +23019,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA ROOSEVELT SAN SALVADOR      SAN SALVADOR",
             "Referencia": 4562,
-            "Cargo": 560,
+            "Cargo": 5051.23,
             "Abono": "",
             "Saldo": 7297.89,
             "Comentario": ""
@@ -23792,7 +23794,7 @@
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 24,
+            "Abono": 22.13,
             "Saldo": 27519.74,
             "Comentario": "Servicio Claro"
           }
@@ -23953,7 +23955,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA CENTRO DE GOBIERNO          SAN SALVADOR",
             "Referencia": 5401,
-            "Cargo": 918.89,
+            "Cargo": 39383.68,
             "Abono": "",
             "Saldo": 2500.27,
             "Comentario": "J.A.A Reintegro Gastos M.M"
@@ -23989,8 +23991,8 @@
             "Transaccion": "PAGO SERVICIO: AFP CONFIA, S.",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 4958464,
-            "Cargo": 3242.19,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 30963.6,
             "Saldo": 40943.95,
             "Comentario": "Pago Afp Confia"
           }
@@ -24043,8 +24045,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 131.76,
+            "Cargo": 28577.74,
+            "Abono": "",
             "Saldo": 8984.52,
             "Comentario": "Canc.Complejo Educ San Frnacisco"
           }
@@ -24170,7 +24172,7 @@
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 275.7,
+            "Abono": 43137.59,
             "Saldo": 50995.48,
             "Comentario": "Canc Iglesia Meseatica Temeroso de Dios"
           }
@@ -24223,8 +24225,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 80208283,
-            "Cargo": "",
-            "Abono": 291.24,
+            "Cargo": 8114.47,
+            "Abono": "",
             "Saldo": 7818.89,
             "Comentario": ""
           }
@@ -24871,7 +24873,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SAN JOSE DE LA MONTANA      SAN SALVADOR",
             "Referencia": 5042,
-            "Cargo": 284.08,
+            "Cargo": 694.25,
             "Abono": "",
             "Saldo": 24756.29,
             "Comentario": "J.A.A Reintegro Gastos M.M"
@@ -25249,7 +25251,7 @@
             "Transaccion": "NOTA DE CARGO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 158608959,
-            "Cargo": 3172.68,
+            "Cargo": 23247.56,
             "Abono": "",
             "Saldo": 20938.58,
             "Comentario": "Pago Planilla ISSS Julio 2025"
@@ -25285,7 +25287,7 @@
             "Transaccion": "Transfer365 ALCALDIA MUNICIPAL",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416703020,
-            "Cargo": 281.82,
+            "Cargo": 24544.77,
             "Abono": "",
             "Saldo": 3435.42,
             "Comentario": "Pago Impuestos municiáles"
@@ -25339,8 +25341,8 @@
             "Transaccion": "PAGO SERVICIO: AFP CRECER S.A.",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 4758298,
-            "Cargo": 2667.39,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 24139.03,
             "Saldo": 26069.69,
             "Comentario": "Planilla AFP Crecer"
           }
@@ -25375,7 +25377,7 @@
             "Transaccion": "ACREDITACION CHEQUE NUESTRO",
             "Canal": "CAJA CORPORATIVA GRUPO ROBLE        SAN SALVADOR",
             "Referencia": 5617,
-            "Cargo": 375,
+            "Cargo": 48507.3,
             "Abono": "",
             "Saldo": 2212.48,
             "Comentario": "Rene Ramirez de la O"
@@ -25394,7 +25396,7 @@
             "Canal": "COMPENSACION ELECTRONICA ACH        SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 6448.21,
+            "Abono": 40762.21,
             "Saldo": 50719.78,
             "Comentario": "Aticipo  Distribuidora Escolar"
           }
@@ -26545,7 +26547,7 @@
             "Transaccion": "Envio transfer365",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416797841,
-            "Cargo": 282.78,
+            "Cargo": 15269.52,
             "Abono": "",
             "Saldo": 13467.56,
             "Comentario": "PROSER(Mtto Aire Acondicionado)"
@@ -26636,7 +26638,7 @@
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1026.65,
+            "Abono": 5616.66,
             "Saldo": 8204.14,
             "Comentario": "Anticipo Colegio Bautista S.S"
           }
@@ -26707,7 +26709,7 @@
             "Transaccion": "Envio transfer365",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416700294,
-            "Cargo": 7173.57,
+            "Cargo": 40665.51,
             "Abono": "",
             "Saldo": 3606.06,
             "Comentario": "Traslado de Fondos"
@@ -26798,7 +26800,7 @@
             "Canal": "COMPENSACION ELECTRONICA ACH        SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 17832.41,
+            "Abono": 26018.33,
             "Saldo": 51089.65,
             "Comentario": "Canc Union Comercial"
           }
@@ -27787,8 +27789,8 @@
             "Transaccion": "Envio transfer365",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416791185,
-            "Cargo": 217.64,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 1738.93,
             "Saldo": 5456.17,
             "Comentario": "Luis Enrique Sandoval(Salario)"
           }
@@ -27823,7 +27825,7 @@
             "Transaccion": "NOTA DE CARGO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 183021376,
-            "Cargo": 3943.02,
+            "Cargo": 595.88,
             "Abono": "",
             "Saldo": 6581.61,
             "Comentario": "Pago Planilla ISSS Noviembre 2025"
@@ -27913,7 +27915,7 @@
             "Transaccion": "Envio transfer365",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416766317,
-            "Cargo": 601.19,
+            "Cargo": 3577.27,
             "Abono": "",
             "Saldo": 7202.36,
             "Comentario": "Banco Azul(Traslado Saldos)"
@@ -27932,7 +27934,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 12,
+            "Abono": 3251.98,
             "Saldo": 10779.63,
             "Comentario": "Canc.Priscila Cañas"
           }
@@ -27967,8 +27969,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA ROOSEVELT SAN SALVADOR      SAN SALVADOR",
             "Referencia": 100612244,
-            "Cargo": "",
-            "Abono": 1666.6,
+            "Cargo": 2602.07,
+            "Abono": "",
             "Saldo": 7922.56,
             "Comentario": ""
           }
@@ -28021,8 +28023,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 805,
+            "Cargo": 2440.15,
+            "Abono": "",
             "Saldo": 5363.4,
             "Comentario": "Anticipo Colegio Jeshua"
           }
@@ -28147,7 +28149,7 @@
             "Transaccion": "Envio transfer365",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416768607,
-            "Cargo": 461.94,
+            "Cargo": 2215.16,
             "Abono": "",
             "Saldo": 6637.6,
             "Comentario": "Intexport"
@@ -28165,8 +28167,8 @@
             "Transaccion": "-DISTRIBUIDORA ESCOLAR GL, S.A",
             "Canal": "COMPENSACION ELECTRONICA ACH        SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 3312.36,
+            "Cargo": 24404.48,
+            "Abono": "",
             "Saldo": 8852.76,
             "Comentario": "Ant. Distribuidora Escolar"
           }
@@ -28184,7 +28186,7 @@
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1769.7,
+            "Abono": 27001.28,
             "Saldo": 33257.24,
             "Comentario": "Ant ACAYCCOMAC"
           }
@@ -28310,7 +28312,7 @@
             "Canal": "CANALES EXTERNOS                    SAN SALVADOR",
             "Referencia": 2515606924,
             "Cargo": "",
-            "Abono": 100,
+            "Abono": 14560.03,
             "Saldo": 19118.43,
             "Comentario": ""
           }
@@ -28436,7 +28438,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416000742,
             "Cargo": "",
-            "Abono": 9705.62,
+            "Abono": 4845.72,
             "Saldo": 11945.26,
             "Comentario": "Banco Azul Traslado Aginaldos/Indemnización "
           }
@@ -28507,8 +28509,8 @@
             "Transaccion": "REMESA EN CTA.CTE.",
             "Canal": "AGENCIA CENTRO DE GOBIERNO          SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 561.5,
+            "Cargo": 4884.11,
+            "Abono": "",
             "Saldo": 5883.52,
             "Comentario": "Canc. Colegio Victor Hugo"
           }
@@ -28526,7 +28528,7 @@
             "Canal": "AGENCIA CLINICAS MEDICAS            SAN SALVADOR",
             "Referencia": 40810421,
             "Cargo": "",
-            "Abono": 7173.57,
+            "Abono": 5227.23,
             "Saldo": 10767.63,
             "Comentario": "50% EPC Regional S.A de C.V"
           }
@@ -28597,7 +28599,7 @@
             "Transaccion": "NOTA DE CARGO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 163490687,
-            "Cargo": 3799.93,
+            "Cargo": 2654.61,
             "Abono": "",
             "Saldo": 28832.93,
             "Comentario": "Instituto Salvadoreño Seguro Social"
@@ -28652,7 +28654,7 @@
             "Canal": "COMPENSACION ELECTRONICA ACH        SAN SALVADOR",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 2081.66,
+            "Abono": 11919.76,
             "Saldo": 30938.19,
             "Comentario": "Canc, La Secretaria de la Integración Social"
           }
@@ -28795,8 +28797,8 @@
             "Transaccion": "TRANSF. ATYPICAL GROUP EL SALV",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 145612969,
-            "Cargo": 416.5,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 23159.56,
             "Saldo": 25399.2,
             "Comentario": ""
           }
@@ -28921,8 +28923,8 @@
             "Transaccion": "TRANSF. JOSE AMADEO ALFARO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 182282155,
-            "Cargo": 1367.26,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 9158.05,
             "Saldo": 14480.07,
             "Comentario": "J.A.A Arendamiento Maquinaria"
           }
@@ -28939,8 +28941,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA UNICENTRO                   SOYAPANGO",
             "Referencia": 5879,
-            "Cargo": 183.45,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 1727.96,
             "Saldo": 5322.02,
             "Comentario": "Kevin Ramos (Salario)"
           }
@@ -28993,8 +28995,8 @@
             "Transaccion": "Pago JOSE",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 323.41,
+            "Cargo": 11186.83,
+            "Abono": "",
             "Saldo": 21446.03,
             "Comentario": "Canc. Liceo Castilla"
           }
@@ -29048,7 +29050,7 @@
             "Canal": "OPERACIONES VARIAS",
             "Referencia": "Operativo ",
             "Cargo": "",
-            "Abono": 1000,
+            "Abono": 3738.19,
             "Saldo": 32594.72,
             "Comentario": "Anticipo Colegio Samuel Christian School"
           }
@@ -29101,7 +29103,7 @@
             "Transaccion": "TRANSF. CORPORACION DE CONTADO",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 151206208,
-            "Cargo": 80,
+            "Cargo": 823.46,
             "Abono": "",
             "Saldo": 24992.24,
             "Comentario": "Corporación de Contadores de El Salvador"
@@ -29191,8 +29193,8 @@
             "Transaccion": "ACREDITACION CHEQUE RESERVADO",
             "Canal": "AGENCIA CUSCATLAN                   SAN SALVADOR",
             "Referencia": 4501,
-            "Cargo": 2062.25,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 11385.34,
             "Saldo": 27232.67,
             "Comentario": ""
           }
@@ -29299,7 +29301,7 @@
             "Transaccion": "TRANSF. HIDROSAL,S.A. DE C.V.",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 182039833,
-            "Cargo": 106.3,
+            "Cargo": 2109.53,
             "Abono": "",
             "Saldo": 19013.09,
             "Comentario": "Mtto de Filtros"
@@ -29317,8 +29319,8 @@
             "Transaccion": "Pago KONFI INVERSIONES SA DE C",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416041262,
-            "Cargo": "",
-            "Abono": 10000,
+            "Cargo": 10472.1,
+            "Abono": "",
             "Saldo": 21122.62,
             "Comentario": "Traslado Desde Banco Azul"
           }
@@ -29371,7 +29373,7 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA SOYAPANGO                   SOYAPANGO",
             "Referencia": 5270,
-            "Cargo": 73.66,
+            "Cargo": 9444.88,
             "Abono": "",
             "Saldo": 15627.36,
             "Comentario": "FSV"
@@ -29425,8 +29427,8 @@
             "Transaccion": "TRANSF. ERICA ALEJANDRA CIENFU",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": "Operativo ",
-            "Cargo": "",
-            "Abono": 24,
+            "Cargo": 4199.6,
+            "Abono": "",
             "Saldo": 25095.32,
             "Comentario": "Canc, Erica Alejandra Cienfuegos"
           }
@@ -29534,7 +29536,7 @@
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 2883702237,
             "Cargo": "",
-            "Abono": 266.5,
+            "Abono": 8776.54,
             "Saldo": 27895.93,
             "Comentario": ""
           }
@@ -29605,8 +29607,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA CENTRO DE GOBIERNO          SAN SALVADOR",
             "Referencia": 6188,
-            "Cargo": 498.46,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 17158.55,
             "Saldo": 22664.02,
             "Comentario": "Marco Antonio Velado Mojica"
           }
@@ -29623,7 +29625,7 @@
             "Transaccion": "TRANSF. ATYPICAL GROUP EL SALV",
             "Canal": "INTERNET, PORTAL ELECTRONICO, SAN SALVADOR",
             "Referencia": 175511111,
-            "Cargo": 382.6,
+            "Cargo": 5617.15,
             "Abono": "",
             "Saldo": 5505.47,
             "Comentario": "Honorarios Cumplimiento"
@@ -29731,7 +29733,7 @@
             "Transaccion": "Envio transfer365",
             "Canal": "OPERACIONES VARIAS",
             "Referencia": 1416784670,
-            "Cargo": 1282.88,
+            "Cargo": 4634.78,
             "Abono": "",
             "Saldo": 11066.24,
             "Comentario": "Banco Azul(Traslado Saldos)"
@@ -29749,8 +29751,8 @@
             "Transaccion": "PAGO DE CHEQUE",
             "Canal": "AGENCIA UNICENTRO                   SOYAPANGO",
             "Referencia": 5193,
-            "Cargo": 232.34,
-            "Abono": "",
+            "Cargo": "",
+            "Abono": 5028.9,
             "Saldo": 15701.02,
             "Comentario": "Jose Rodolfo Rivas(salario)"
           }
@@ -29816,6 +29818,8 @@
       "bank": "Hipotecario",
       "account": "Cuenta bancaria",
       "balanceField": "Saldo (US$)",
+      "inflowField": "Abono (US$)",
+      "outflowField": "Cargo (US$)",
       "fields": [
         "No.",
         "Fecha",
@@ -29856,8 +29860,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 189,
-            "Cargo (US$)": 1321.64,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 6327.47,
+            "Abono (US$)": "",
             "Saldo (US$)": 44129.79,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -29873,8 +29877,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 184,
-            "Cargo (US$)": 5558.08,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 12246.34,
             "Saldo (US$)": 50457.26,
             "Comentario": "Rayones de El Salvador(Compra Materiales)"
           }
@@ -29924,8 +29928,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 173,
-            "Cargo (US$)": 111.82,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 14996.38,
+            "Abono (US$)": "",
             "Saldo (US$)": 41018.96,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -29941,8 +29945,8 @@
             "Tipo": "AB",
             "Descripción": "NOTA DE CREDITO DE CAJERO LBTR IDLOTE :13104443 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 0,
-            "Abono (US$)": 3739.7,
+            "Cargo (US$)": "",
+            "Abono (US$)": 14884.56,
             "Saldo (US$)": 56015.34,
             "Comentario": "Traslado Banco Agricola"
           }
@@ -30009,8 +30013,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 170,
-            "Cargo (US$)": 1197.07,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 2639.3,
             "Saldo (US$)": 44267.25,
             "Comentario": "Polyfilsa Compra Materiales"
           }
@@ -30349,8 +30353,8 @@
             "Tipo": "CA",
             "Descripción": "NOTA DE DEBITO TERMINALISTA LBTR IDLOTE :14172883 COMPRA DE TELA",
             "No. Doc": "",
-            "Cargo (US$)": 10289.26,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 2060.15,
+            "Abono (US$)": "",
             "Saldo (US$)": 36873.62,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -30366,8 +30370,8 @@
             "Tipo": "AB",
             "Descripción": "NOTA DE CREDITO DE CAJERO LBTR IDLOTE :13485553 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 0,
-            "Abono (US$)": 10926.67,
+            "Cargo (US$)": 8229.11,
+            "Abono (US$)": "",
             "Saldo (US$)": 38933.77,
             "Comentario": "Traslado Desde Banco Agricola"
           }
@@ -30400,8 +30404,8 @@
             "Tipo": "CA",
             "Descripción": "NOTA DE DEBITO TERMINALISTA LBTR IDLOTE :14125489 COMPRA DE TELA",
             "No. Doc": "",
-            "Cargo (US$)": 420.47,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 2629.78,
+            "Abono (US$)": "",
             "Saldo (US$)": 42834.54,
             "Comentario": "Textiles lafayet Compra Tela"
           }
@@ -30417,8 +30421,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 166,
-            "Cargo (US$)": 6177.32,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 2209.31,
             "Saldo (US$)": 45464.32,
             "Comentario": "Rayones de El Salvador(Compra Materiales)"
           }
@@ -30587,8 +30591,8 @@
             "Tipo": "CA",
             "Descripción": "NOTA DE DEBITO TERMINALISTA LBTR IDLOTE :13948423 COMPRA DE TELA",
             "No. Doc": "",
-            "Cargo (US$)": 1383.96,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 28875.14,
+            "Abono (US$)": "",
             "Saldo (US$)": 16576.29,
             "Comentario": "Almacenes Pacifico Hasbun"
           }
@@ -30604,8 +30608,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 188,
-            "Cargo (US$)": 356.53,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 6824.21,
+            "Abono (US$)": "",
             "Saldo (US$)": 45451.43,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -30621,8 +30625,8 @@
             "Tipo": "AB",
             "Descripción": "NOTA DE CREDITO DE CAJERO LBTR IDLOTE :13086976 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 0,
-            "Abono (US$)": 7803.98,
+            "Cargo (US$)": "",
+            "Abono (US$)": 634,
             "Saldo (US$)": 52275.64,
             "Comentario": "Traslado Banco Agricola"
           }
@@ -30655,8 +30659,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUE PROPIO RECIBIDO",
             "No. Doc": 165,
-            "Cargo (US$)": 3351.93,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 10331.32,
+            "Abono (US$)": "",
             "Saldo (US$)": 11917.96,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -30774,8 +30778,8 @@
             "Tipo": "CA",
             "Descripción": "NOTA DE DEBITO TERMINALISTA LBTR IDLOTE :13749983 ANT P ELABORACION DE CAJAS",
             "No. Doc": "",
-            "Cargo (US$)": 734.5,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 18874.04,
+            "Abono (US$)": "",
             "Saldo (US$)": 26933.92,
             "Comentario": "Protectores Corrugados"
           }
@@ -30808,8 +30812,8 @@
             "Tipo": "AB",
             "Descripción": "NOTA DE CREDITO C.CTES. LBTR IDLOTE :13274176 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 0,
-            "Abono (US$)": 1141.4,
+            "Cargo (US$)": "",
+            "Abono (US$)": 31161.03,
             "Saldo (US$)": 46430.92,
             "Comentario": "Traslado Desde Banco Agricola"
           }
@@ -30842,8 +30846,8 @@
             "Tipo": "CA",
             "Descripción": "NOTA DE DEBITO TERMINALISTA LBTR IDLOTE :12872662 TRASLADO DE FONDOS ENTRE CUENTAS POR ABONO DE UNIF",
             "No. Doc": "",
-            "Cargo (US$)": 4008.98,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 11898.53,
+            "Abono (US$)": "",
             "Saldo (US$)": 15769.89,
             "Comentario": "Traslado Banco Agricola"
           }
@@ -31046,8 +31050,8 @@
             "Tipo": "CA",
             "Descripción": "NOTA DE DEBITO C.CTES. LBTR IDLOTE :13514896 COMPRA DE TELA",
             "No. Doc": "",
-            "Cargo (US$)": 278.68,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 5816.57,
+            "Abono (US$)": "",
             "Saldo (US$)": 38655.09,
             "Comentario": "Textiles Lafayet"
           }
@@ -31063,8 +31067,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 181,
-            "Cargo (US$)": 2493.8,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 16464.56,
             "Saldo (US$)": 44471.66,
             "Comentario": "Texvasa S.A de C.V"
           }
@@ -31250,8 +31254,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 190,
-            "Cargo (US$)": 961.86,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 413.71,
+            "Abono (US$)": "",
             "Saldo (US$)": 46551.75,
             "Comentario": "Polyfil S.A de C,V"
           }
@@ -31267,8 +31271,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 183,
-            "Cargo (US$)": 617.32,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 1675.94,
             "Saldo (US$)": 46965.46,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -31403,8 +31407,8 @@
             "Tipo": "CA",
             "Descripción": "NOTA DE DEBITO C.CTES. LBTR IDLOTE :13146772 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 5788.91,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 26708.1,
             "Saldo (US$)": 44668.35,
             "Comentario": "Traslado de Saldos a Banco America Central"
           }
@@ -31437,8 +31441,8 @@
             "Tipo": "CA",
             "Descripción": "NOTA DE DEBITO TERMINALISTA LBTR IDLOTE :13910300 COMPRA DE TELA",
             "No. Doc": "",
-            "Cargo (US$)": 745.49,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 26078.99,
+            "Abono (US$)": "",
             "Saldo (US$)": 21503.79,
             "Comentario": "Distribuidora Ponce"
           }
@@ -31607,8 +31611,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 177,
-            "Cargo (US$)": 575.04,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 17857.01,
             "Saldo (US$)": 37635.88,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -31709,8 +31713,8 @@
             "Tipo": "AB",
             "Descripción": "NOTA DE CREDITO DE CAJERO LBTR IDLOTE :12786601 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 0,
-            "Abono (US$)": 7771.47,
+            "Cargo (US$)": "",
+            "Abono (US$)": 13635.05,
             "Saldo (US$)": 15269.89,
             "Comentario": "Traslado a Banco Agricola por pago Banco"
           }
@@ -31743,8 +31747,8 @@
             "Tipo": "AB",
             "Descripción": "NOTA DE CREDITO C.CTES. LBTR IDLOTE :  00 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 0,
-            "Abono (US$)": 2066.5,
+            "Cargo (US$)": 1459.01,
+            "Abono (US$)": "",
             "Saldo (US$)": 6509.03,
             "Comentario": "Traslado Desde Banco Agricola"
           }
@@ -31760,8 +31764,8 @@
             "Tipo": "AB",
             "Descripción": "NOTA DE CREDITO DE CAJERO LBTR IDLOTE :12528479 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 0,
-            "Abono (US$)": 6333.2,
+            "Cargo (US$)": 14007.04,
+            "Abono (US$)": "",
             "Saldo (US$)": 7968.04,
             "Comentario": "Traslado de Fondos desde Agricola"
           }
@@ -31777,8 +31781,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 146,
-            "Cargo (US$)": 899.1,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 17532.55,
             "Saldo (US$)": 21975.08,
             "Comentario": "Texvasa S.A de C.V"
           }
@@ -32032,8 +32036,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 152,
-            "Cargo (US$)": 148.57,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 1428.08,
+            "Abono (US$)": "",
             "Saldo (US$)": 18715.25,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -32083,8 +32087,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 147,
-            "Cargo (US$)": 805.06,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 3784.66,
+            "Abono (US$)": "",
             "Saldo (US$)": 21170.02,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -32236,8 +32240,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 139,
-            "Cargo (US$)": 689.14,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 3901.28,
+            "Abono (US$)": "",
             "Saldo (US$)": 14962.54,
             "Comentario": "Almacenes Pacifico Hasbun"
           }
@@ -32253,8 +32257,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 151,
-            "Cargo (US$)": 1279.51,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 2666.12,
             "Saldo (US$)": 18863.82,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -32389,8 +32393,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 136,
-            "Cargo (US$)": 1991.72,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 215.37,
             "Saldo (US$)": 20358.7,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -32406,8 +32410,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 150,
-            "Cargo (US$)": 5004.66,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 2207.09,
+            "Abono (US$)": "",
             "Saldo (US$)": 20143.33,
             "Comentario": "Jorge Pcifico Hasbun Materiales"
           }
@@ -32491,8 +32495,8 @@
             "Tipo": "CA",
             "Descripción": "NOTA DE DEBITO TERMINALISTA LBTR IDLOTE :11546970 COMPRA DE TELA",
             "No. Doc": "",
-            "Cargo (US$)": 5061.6,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 13861.57,
+            "Abono (US$)": "",
             "Saldo (US$)": 11286.42,
             "Comentario": "Almacenes Pacifico Hasbun"
           }
@@ -32508,8 +32512,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 149,
-            "Cargo (US$)": 12847.31,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 2273.81,
             "Saldo (US$)": 25147.99,
             "Comentario": "Industrias Sinteticas S.A de C.V"
           }
@@ -32525,8 +32529,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 145,
-            "Cargo (US$)": 2080.5,
-            "Abono (US$)": 0,
+            "Cargo (US$)": "",
+            "Abono (US$)": 6526.16,
             "Saldo (US$)": 22874.18,
             "Comentario": "Alamcenes Pacifico(compra materiales)"
           }
@@ -32559,8 +32563,8 @@
             "Tipo": "AB",
             "Descripción": "NOTA DE CREDITO DE CAJERO LBTR IDLOTE :11444871 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 0,
-            "Abono (US$)": 1281.46,
+            "Cargo (US$)": 26515.6,
+            "Abono (US$)": "",
             "Saldo (US$)": 11479.7,
             "Comentario": ""
           }
@@ -32593,8 +32597,8 @@
             "Tipo": "AB",
             "Descripción": "NOTA DE CREDITO DE CAJERO LBTR IDLOTE :12246460 TRASLADO DE FONDOS ENTRE CUENTAS",
             "No. Doc": "",
-            "Cargo (US$)": 0,
-            "Abono (US$)": 5004.66,
+            "Cargo (US$)": "",
+            "Abono (US$)": 17649.57,
             "Saldo (US$)": 25147.99,
             "Comentario": "Traslado Desde Banco Agricola"
           }
@@ -32610,8 +32614,8 @@
             "Tipo": "CA",
             "Descripción": "CHEQUES COMPENSACION",
             "No. Doc": 162,
-            "Cargo (US$)": 469.62,
-            "Abono (US$)": 0,
+            "Cargo (US$)": 8153.26,
+            "Abono (US$)": "",
             "Saldo (US$)": 7498.42,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -32640,6 +32644,8 @@
       "bank": "BAC",
       "account": "Cuenta bancaria",
       "balanceField": "Balance*",
+      "inflowField": "Créditos",
+      "outflowField": "Débitos",
       "fields": [
         "Fecha",
         "Referencia",
@@ -32705,8 +32711,8 @@
             "Descripción": "DEPOSITO JOSE ALFARO",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 727.67,
+            "Débitos": "",
+            "Créditos": 3874.52,
             "Balance*": 8756.2,
             "Comentario": "Cancelación Colegio Mejicanos"
           }
@@ -32724,8 +32730,8 @@
             "Descripción": "CHEQUE :     000000165",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 739.61,
-            "Créditos": 0,
+            "Débitos": 3146.85,
+            "Créditos": "",
             "Balance*": 4881.68,
             "Comentario": "J.A.A(Reintegro M-M)"
           }
@@ -32762,8 +32768,8 @@
             "Descripción": "T365 DE: KONFI INVERSIONES SOC",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 7000,
+            "Débitos": "",
+            "Créditos": 3370.6,
             "Balance*": 8316.13,
             "Comentario": "Traslado de Saldos Planilla Salario"
           }
@@ -32800,8 +32806,8 @@
             "Descripción": "TEF DE:VEGA VEGA ASOCIADOS SA",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 778.45,
+            "Débitos": "",
+            "Créditos": 4912,
             "Balance*": 6228.13,
             "Comentario": "Cancelación Vega y Vega"
           }
@@ -32819,8 +32825,8 @@
             "Descripción": "DEPOSITO MILEIDY JIMEN",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 1056.84,
+            "Débitos": 16537.73,
+            "Créditos": "",
             "Balance*": 1316.13,
             "Comentario": "Antoicipo GHrupoi Fenix El Salvador"
           }
@@ -32857,8 +32863,8 @@
             "Descripción": "T365 DE: KONFI INVERSIONES SOC",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 4044.56,
+            "Débitos": "",
+            "Créditos": 1064.41,
             "Balance*": 7853.86,
             "Comentario": "Traslado Saldos Planilla Vacacion"
           }
@@ -33275,8 +33281,8 @@
             "Descripción": "CHEQUE :     000000192",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 229.32,
-            "Créditos": 0,
+            "Débitos": 6722.16,
+            "Créditos": "",
             "Balance*": 3951.23,
             "Comentario": "Salario Maria Frncisca Flores Asencio"
           }
@@ -33294,8 +33300,8 @@
             "Descripción": "T365 DE: KONFI INVERSIONES SA",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 10400,
+            "Débitos": "",
+            "Créditos": 6492.84,
             "Balance*": 10673.39,
             "Comentario": "Traslado Fondos Banco Azul"
           }
@@ -33845,8 +33851,8 @@
             "Descripción": "CHEQUE :     000000187",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 270,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 12745.39,
             "Balance*": 16554.69,
             "Comentario": "Flor de Maria Torres Siguenza Salario"
           }
@@ -33921,8 +33927,8 @@
             "Descripción": "T365 DE: KONFI INVERSIONES SA",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 10400,
+            "Débitos": 2575.84,
+            "Créditos": "",
             "Balance*": 14248.85,
             "Comentario": "Traslado desde Banco Azul Cta Laboral"
           }
@@ -34168,8 +34174,8 @@
             "Descripción": "CHEQUE :     000000185",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 270,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 410,
             "Balance*": 2123.52,
             "Comentario": "Pago salario 1q Flor de María Torres Siguenza"
           }
@@ -34510,8 +34516,8 @@
             "Descripción": "CHEQUE :     000000182",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 196.67,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 112.01,
             "Balance*": 2676.87,
             "Comentario": "Blanca Nohemi Rivera"
           }
@@ -34814,8 +34820,8 @@
             "Descripción": "TEF DE: 201638533",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 2720.05,
+            "Débitos": 579.82,
+            "Créditos": "",
             "Balance*": 3677.23,
             "Comentario": "Traslado de Fondos"
           }
@@ -34852,8 +34858,8 @@
             "Descripción": "PAGO DE PLANILLA",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 13284.68,
-            "Créditos": 0,
+            "Débitos": 13765.62,
+            "Créditos": "",
             "Balance*": 3550.8,
             "Comentario": "Pago Planilla Salario"
           }
@@ -35251,8 +35257,8 @@
             "Descripción": "TEF DE: 201638533",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 5000,
+            "Débitos": "",
+            "Créditos": 8308.24,
             "Balance*": 13929.53,
             "Comentario": "Traslado Pago Planilla Salarios"
           }
@@ -35270,8 +35276,8 @@
             "Descripción": "TEF DE:PAMPANITOS SA DE CV",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 4504.5,
+            "Débitos": "",
+            "Créditos": 5362,
             "Balance*": 5621.29,
             "Comentario": "Cancelación Pampanitos"
           }
@@ -35555,8 +35561,8 @@
             "Descripción": "PAGO DE PLANILLA",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 11776.83,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 2228.18,
             "Balance*": 6077.03,
             "Comentario": "Pago Planilla Salario"
           }
@@ -35574,8 +35580,8 @@
             "Descripción": "PAGO DE PLANILLA",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0.53,
-            "Créditos": 0,
+            "Débitos": 215.41,
+            "Créditos": "",
             "Balance*": 3848.85,
             "Comentario": "Pruba Pago Personal"
           }
@@ -35612,8 +35618,8 @@
             "Descripción": "TEF A : 110589611",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 138.99,
-            "Créditos": 0,
+            "Débitos": 643.14,
+            "Créditos": "",
             "Balance*": 4806.54,
             "Comentario": "Ochoa Company Compra Trofeos"
           }
@@ -35783,8 +35789,8 @@
             "Descripción": "T365 DE: KONFI INVERSIONES, S.",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 5788.91,
+            "Débitos": "",
+            "Créditos": 9553.8,
             "Balance*": 10670.59,
             "Comentario": "Traslado desde Banco Hipotecario"
           }
@@ -35973,8 +35979,8 @@
             "Descripción": "W/T-S18171 EMBROIDERY CAM C",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 10385,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 15,
             "Balance*": 288.39,
             "Comentario": "Embroidery Compra Maquina Bordadora"
           }
@@ -35992,8 +35998,8 @@
             "Descripción": "CHEQUE :     000000163",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 568.59,
-            "Créditos": 0,
+            "Débitos": 199.91,
+            "Créditos": "",
             "Balance*": 273.39,
             "Comentario": "Carlos Amir Romero Reintegro M.M"
           }
@@ -36030,8 +36036,8 @@
             "Descripción": "Pago Tigo 0207000029990699",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 29.99,
-            "Créditos": 0,
+            "Débitos": 8276.09,
+            "Créditos": "",
             "Balance*": 701.29,
             "Comentario": "Telemovil El Salvador"
           }
@@ -36068,8 +36074,8 @@
             "Descripción": "27048 PORTAL W 3084739/1",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 7987.56,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 7487.81,
             "Balance*": 11584.51,
             "Comentario": "Pago Iva Junio 2025"
           }
@@ -36106,8 +36112,8 @@
             "Descripción": "TRANSFER365 A:5080063283",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 5000,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 6254.72,
             "Balance*": 7096.7,
             "Comentario": "Transf Fondos"
           }
@@ -36277,8 +36283,8 @@
             "Descripción": "TEF DE:SUSANA MABEL SURIA ROCH",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 22,
+            "Débitos": 2548.93,
+            "Créditos": "",
             "Balance*": 623.31,
             "Comentario": "SUSANA MABEL SURIA ROCH  "
           }
@@ -36296,8 +36302,8 @@
             "Descripción": "CHEQUE :     000000148",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 657.73,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 3028.54,
             "Balance*": 3172.24,
             "Comentario": "Jose Amadeo Alfaro(Reintegro M-M)"
           }
@@ -36315,8 +36321,8 @@
             "Descripción": "CHEQUE :     000000142",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 141.81,
-            "Créditos": 0,
+            "Débitos": 19428.37,
+            "Créditos": "",
             "Balance*": 143.7,
             "Comentario": "J.A.A(Reintegro M-M)"
           }
@@ -36334,8 +36340,8 @@
             "Descripción": "DEPOSITO CAJA DE CREDI",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 17104.93,
+            "Débitos": "",
+            "Créditos": 19435.46,
             "Balance*": 19572.07,
             "Comentario": "Canc. caja de Credito de Sonsonate"
           }
@@ -36562,8 +36568,8 @@
             "Descripción": "CHEQUE :     000000144",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 45,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 2841.73,
             "Balance*": 3127.24,
             "Comentario": "Marjorie Morales"
           }
@@ -36600,8 +36606,8 @@
             "Descripción": "TRANSFER365 A:5080063283",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 6000,
-            "Créditos": 0,
+            "Débitos": 1899.81,
+            "Créditos": "",
             "Balance*": 567.33,
             "Comentario": "Traslado Saldos"
           }
@@ -36638,8 +36644,8 @@
             "Descripción": "TEF DE:PANAMERICAN SCHOOL SA D",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 1343.82,
+            "Débitos": "",
+            "Créditos": 591.72,
             "Balance*": 2724.22,
             "Comentario": "Canc. Panamerican School"
           }
@@ -36695,8 +36701,8 @@
             "Descripción": "DEPOSITO MELISA RACHEL",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 19,
+            "Débitos": 3667.27,
+            "Créditos": "",
             "Balance*": 162.7,
             "Comentario": "Canc Inversiones Anthonys"
           }
@@ -36733,8 +36739,8 @@
             "Descripción": "Pago Tigo 0207000029990699",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 29.99,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 2677.56,
             "Balance*": 4057.96,
             "Comentario": "Tigo S.A. de C.V"
           }
@@ -36790,8 +36796,8 @@
             "Descripción": "CHEQUE :     000000123",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 1026.46,
-            "Créditos": 0,
+            "Débitos": 8797.5,
+            "Créditos": "",
             "Balance*": 3299.2,
             "Comentario": "M.M(Reintegro)"
           }
@@ -36809,8 +36815,8 @@
             "Descripción": "PPROV BAN BAN SA DE CV",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 10058.16,
+            "Débitos": "",
+            "Créditos": 3801.88,
             "Balance*": 12096.7,
             "Comentario": "Canc Ban Ban"
           }
@@ -37436,8 +37442,8 @@
             "Descripción": "ANTICIPO COMPRA DE CAMISAS",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 5000,
+            "Débitos": "",
+            "Créditos": 1100.8,
             "Balance*": 5473.3,
             "Comentario": "Ant  LGB El Salvador"
           }
@@ -37455,8 +37461,8 @@
             "Descripción": "COMPLEMENTO DE PAGO",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 3000,
+            "Débitos": "",
+            "Créditos": 3641.22,
             "Balance*": 4372.5,
             "Comentario": "Canc. LGB El Salvador"
           }
@@ -37968,8 +37974,8 @@
             "Descripción": "TRANSF365 ENT: 201448677",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 7987.56,
+            "Débitos": "",
+            "Créditos": 15592.44,
             "Balance*": 16964.94,
             "Comentario": "Traslado desde Banco Azul"
           }
@@ -37987,8 +37993,8 @@
             "Descripción": "TEF A : 111611992",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 84.75,
-            "Créditos": 0,
+            "Débitos": 2953.16,
+            "Créditos": "",
             "Balance*": 1372.5,
             "Comentario": "Legalización de Libros Compras"
           }
@@ -38006,8 +38012,8 @@
             "Descripción": "TRANSFER365 A:000700001049",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 5064,
-            "Créditos": 0,
+            "Débitos": 27004.89,
+            "Créditos": "",
             "Balance*": 4325.66,
             "Comentario": "Traslado Cta INV"
           }
@@ -38272,8 +38278,8 @@
             "Descripción": "TEF A : 200992931",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 767.87,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 1871.58,
             "Balance*": 3328.83,
             "Comentario": "Cuota Pago Ploter"
           }
@@ -38291,8 +38297,8 @@
             "Descripción": "CHEQUE :     000000146",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 300,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 855.94,
             "Balance*": 1457.25,
             "Comentario": "J.A.A(Celebración Vendedores)"
           }
@@ -38310,8 +38316,8 @@
             "Descripción": "PP UNI CATHOLIC RELIEF",
             "Columna1": "",
             "Columna2": "Operativo ",
-            "Débitos": 0,
-            "Créditos": 464.7,
+            "Débitos": 5966.02,
+            "Créditos": "",
             "Balance*": 601.31,
             "Comentario": "Cancelación Catholic Rilief"
           }
@@ -38329,8 +38335,8 @@
             "Descripción": "TRANSFER365 A:3040007327",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 213.51,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 4528.79,
             "Balance*": 6567.33,
             "Comentario": "Gema Elizabeth Vides"
           }
@@ -38405,8 +38411,8 @@
             "Descripción": "DEPOSITO JUAN BELTRAN",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 764.99,
+            "Débitos": "",
+            "Créditos": 2125.79,
             "Balance*": 3883.04,
             "Comentario": ""
           }
@@ -38424,8 +38430,8 @@
             "Descripción": "CHEQUE :     000000145",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 172.13,
-            "Créditos": 0,
+            "Débitos": 5023.59,
+            "Créditos": "",
             "Balance*": 1757.25,
             "Comentario": "Pago Alojamiento Pag Web"
           }
@@ -38481,8 +38487,8 @@
             "Descripción": "TRANSFER365 A:5080005855",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 565.8,
-            "Créditos": 0,
+            "Débitos": 6656.47,
+            "Créditos": "",
             "Balance*": 2733.19,
             "Comentario": "Rayones de El Salvador Compra Tela"
           }
@@ -38500,8 +38506,8 @@
             "Descripción": "CHEQUE :     000000121",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 1754.97,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 7460.28,
             "Balance*": 9389.66,
             "Comentario": "Coplasa S.A de C.V"
           }
@@ -38519,8 +38525,8 @@
             "Descripción": "CHEQUE :     000000143",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 203.12,
-            "Créditos": 0,
+            "Débitos": 1369.61,
+            "Créditos": "",
             "Balance*": 1929.38,
             "Comentario": "J.A.A(Reintegro M-M)"
           }
@@ -38538,8 +38544,8 @@
             "Descripción": "CHEQUE :     000000141",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 79.94,
-            "Créditos": 0,
+            "Débitos": 7845.64,
+            "Créditos": "",
             "Balance*": 3298.99,
             "Comentario": "Edwin Alexander(Salario)"
           }
@@ -38633,8 +38639,8 @@
             "Descripción": "CHEQUE :     000000122",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 1047.74,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 20540.32,
             "Balance*": 23658.37,
             "Comentario": "J.A.A(Reintegro)"
           }
@@ -38652,8 +38658,8 @@
             "Descripción": "DEPOSITO JUAN BELTRAN",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 1591.84,
+            "Débitos": 21588.06,
+            "Créditos": "",
             "Balance*": 3118.05,
             "Comentario": ""
           }
@@ -38709,8 +38715,8 @@
             "Descripción": "CHEQUE :     000000119",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 2161.96,
-            "Créditos": 0,
+            "Débitos": "",
+            "Créditos": 27642.38,
             "Balance*": 29168.59,
             "Comentario": "MAV(Comisiones)"
           }
@@ -38728,8 +38734,8 @@
             "Descripción": "TEF DE:ELEVADORES TRANSNACIONA",
             "Columna1": "",
             "Columna2": "",
-            "Débitos": 0,
-            "Créditos": 122.44,
+            "Débitos": 1852.72,
+            "Créditos": "",
             "Balance*": 1526.21,
             "Comentario": ""
           }
@@ -38798,6 +38804,8 @@
       "bank": "Azul Laboral",
       "account": "Provisiones laborales",
       "balanceField": "Saldo disponible($)",
+      "inflowField": "Abono($)",
+      "outflowField": "Cargo($)",
       "fields": [
         "Fecha",
         "Descripción",
@@ -38818,7 +38826,7 @@
             "Descripción": "Reintegro Apert ura de Cta Bac",
             "Referencia": "FT26132CSKDY",
             "Abono($)": "",
-            "Cargo($)": 200,
+            "Cargo($)": 4034.26,
             "Saldo disponible($)": 19596.56,
             "Correlativo": 93
           }
@@ -38832,7 +38840,7 @@
             "Fecha": "2026-12-02",
             "Descripción": "Traslado Provisiones Laborales Febrero 2026(4)",
             "Referencia": "FT26042B4FR6",
-            "Abono($)": 1107.28,
+            "Abono($)": 6587.31,
             "Cargo($)": "",
             "Saldo disponible($)": 23630.82,
             "Correlativo": 74
@@ -38847,7 +38855,7 @@
             "Fecha": "2026-12-01",
             "Descripción": "Trasalado Provisiones Laborales Enero 2026",
             "Referencia": "FT26012ND4PT",
-            "Abono($)": 443.51,
+            "Abono($)": 290.29,
             "Cargo($)": "",
             "Saldo disponible($)": 17043.51,
             "Correlativo": 66
@@ -38863,7 +38871,7 @@
             "Descripción": "Traslado a Banco Agricola",
             "Referencia": "FT2610LYMLM",
             "Abono($)": "",
-            "Cargo($)": 4044.56,
+            "Cargo($)": 5770.32,
             "Saldo disponible($)": 16753.22,
             "Correlativo": 88
           }
@@ -38877,8 +38885,8 @@
             "Fecha": "2026-09-02",
             "Descripción": "Traslado Provisiones Laborales Febrero 2026(3)",
             "Referencia": "FT26040RXCDN",
-            "Abono($)": 1436.28,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 7523.01,
             "Saldo disponible($)": 22523.54,
             "Correlativo": 73
           }
@@ -38892,7 +38900,7 @@
             "Fecha": "2026-08-20",
             "Descripción": "Taslado Provisiones Laborales Agosto 2026",
             "Referencia": "",
-            "Abono($)": "",
+            "Abono($)": 1904.69,
             "Cargo($)": "",
             "Saldo disponible($)": 30046.55,
             "Correlativo": 116
@@ -38907,8 +38915,8 @@
             "Fecha": "2026-08-17",
             "Descripción": "Cheque 0030",
             "Referencia": "TT262290MNTS",
-            "Abono($)": 225.96,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 225.96,
             "Saldo disponible($)": 28141.86,
             "Correlativo": 115
           }
@@ -38923,7 +38931,7 @@
             "Descripción": "Transferencia Pago Vacaciones ",
             "Referencia": "FT26224L7F3T",
             "Abono($)": "",
-            "Cargo($)": "A",
+            "Cargo($)": 4246.71,
             "Saldo disponible($)": 28367.82,
             "Correlativo": 114
           }
@@ -38967,7 +38975,7 @@
             "Fecha": "2026-08-01",
             "Descripción": "Capitalización de Intereses Agosto 2026",
             "Referencia": "AAACT2621319HVH8WN",
-            "Abono($)": 3.03,
+            "Abono($)": 15380.98,
             "Cargo($)": "",
             "Saldo disponible($)": 31980.98,
             "Correlativo": 111
@@ -38983,7 +38991,7 @@
             "Descripción": "Banco de America Central Traslado",
             "Referencia": "FT26008ZBNCM",
             "Abono($)": "",
-            "Cargo($)": 10400,
+            "Cargo($)": 15377.95,
             "Saldo disponible($)": 16600,
             "Correlativo": 65
           }
@@ -39012,7 +39020,7 @@
             "Fecha": "2026-07-13",
             "Descripción": "Traslado Provisiones laborales Julio 2026",
             "Referencia": "FT26194B0X8X",
-            "Abono($)": 1659.2,
+            "Abono($)": 7833.89,
             "Cargo($)": "",
             "Saldo disponible($)": 28631.67,
             "Correlativo": 109
@@ -39028,7 +39036,7 @@
             "Descripción": "Traslado Banco America Central",
             "Referencia": "FT26097JPDXH",
             "Abono($)": "",
-            "Cargo($)": 10400,
+            "Cargo($)": 6174.69,
             "Saldo disponible($)": 20797.78,
             "Correlativo": 87
           }
@@ -39057,8 +39065,8 @@
             "Fecha": "2026-07-01",
             "Descripción": "Capitalización de Intereses Julio 2026",
             "Referencia": "AAACT261827XRBT4KV",
-            "Abono($)": 1.74,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 27.36,
             "Saldo disponible($)": 26972.64,
             "Correlativo": 107
           }
@@ -39072,7 +39080,7 @@
             "Fecha": "2026-07-01",
             "Descripción": "Traslado de Saldos Provisiones Laborales Compra Maquina",
             "Referencia": "FT26007893Y4",
-            "Abono($)": 15036.81,
+            "Abono($)": 29.1,
             "Cargo($)": "",
             "Saldo disponible($)": 27000,
             "Correlativo": 64
@@ -39087,7 +39095,7 @@
             "Fecha": "2026-06-26",
             "Descripción": "Traslado Provisiones laborales Junio 2026 (2)",
             "Referencia": "FT26177GJYWM",
-            "Abono($)": 162117,
+            "Abono($)": 1621.17,
             "Cargo($)": "",
             "Saldo disponible($)": 26970.9,
             "Correlativo": 106
@@ -39132,7 +39140,7 @@
             "Fecha": "2026-06-08",
             "Descripción": "Traslado Provisiones Laborales Mayo Junio 2026",
             "Referencia": "FT26160GNKYC",
-            "Abono($)": 6576.84,
+            "Abono($)": 6577.98,
             "Cargo($)": "",
             "Saldo disponible($)": 16003.5,
             "Correlativo": 103
@@ -39207,8 +39215,8 @@
             "Fecha": "2026-05-13",
             "Descripción": "Traslado de Fondos BAC Ahorro de energia",
             "Referencia": "",
-            "Abono($)": 1197.86,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 1197.86,
             "Saldo disponible($)": 9317.45,
             "Correlativo": 96
           }
@@ -39222,8 +39230,8 @@
             "Fecha": "2026-05-13",
             "Descripción": "Traslado de Fondos BAC Tramites de Bordadora",
             "Referencia": "FT26133L7P7C",
-            "Abono($)": 4081.25,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 4081.25,
             "Saldo disponible($)": 10515.31,
             "Correlativo": 95
           }
@@ -39237,8 +39245,8 @@
             "Fecha": "2026-05-13",
             "Descripción": "Traslado de Fondos BAC  Pago Planilla",
             "Referencia": "FT26133B55K",
-            "Abono($)": 5000,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 6490.7,
             "Saldo disponible($)": 14596.56,
             "Correlativo": 94
           }
@@ -39252,7 +39260,7 @@
             "Fecha": "2026-05-02",
             "Descripción": "Traslado Provisiones Laborales Febrero 2026(2)",
             "Referencia": "FT26035DZYWM",
-            "Abono($)": 686.94,
+            "Abono($)": 1292.45,
             "Cargo($)": "",
             "Saldo disponible($)": 21087.26,
             "Correlativo": 72
@@ -39282,8 +39290,8 @@
             "Fecha": "2026-04-14",
             "Descripción": "Tras.Provisiones Laborales Abril 2026",
             "Referencia": "FT2610327400",
-            "Abono($)": 1934.86,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 12507.27,
             "Saldo disponible($)": 18688.08,
             "Correlativo": 89
           }
@@ -39357,7 +39365,7 @@
             "Fecha": "2026-03-03",
             "Descripción": "Trasalado Provisiones Laborales MARZO 2026",
             "Referencia": "FT26062S6QN4",
-            "Abono($)": 1300.13,
+            "Abono($)": 1301.69,
             "Cargo($)": "",
             "Saldo disponible($)": 25832.5,
             "Correlativo": 80
@@ -39402,8 +39410,8 @@
             "Fecha": "2026-02-16",
             "Descripción": "Traslado Saldos Banco Agricola",
             "Referencia": "FT260470M348",
-            "Abono($)": "",
-            "Cargo($)": 2118.75,
+            "Abono($)": 1113.05,
+            "Cargo($)": "",
             "Saldo disponible($)": 21512.07,
             "Correlativo": 75
           }
@@ -39447,7 +39455,7 @@
             "Fecha": "2026-01-20",
             "Descripción": "Tras.Provisiones Enero 2026",
             "Referencia": "FT26019RVBBL",
-            "Abono($)": 558.96,
+            "Abono($)": 8175.81,
             "Cargo($)": "",
             "Saldo disponible($)": 17602.47,
             "Correlativo": 67
@@ -39477,8 +39485,8 @@
             "Fecha": "2026-01-06",
             "Descripción": "Capitalización de Intereses Junio 2026",
             "Referencia": "AAACT26152YQNV0BN4",
-            "Abono($)": 1.27,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 10369.77,
             "Saldo disponible($)": 9426.79,
             "Correlativo": 101
           }
@@ -39507,8 +39515,8 @@
             "Fecha": "2026-01-05",
             "Descripción": "Capitalización de Intereses Mayo 2026",
             "Referencia": "AAACT26121V504JTS0",
-            "Abono($)": 1.94,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 11401.03,
             "Saldo disponible($)": 19796.75,
             "Correlativo": 91
           }
@@ -39537,7 +39545,7 @@
             "Fecha": "2026-01-04",
             "Descripción": "Capitalización de Intereses Abril 2026",
             "Referencia": "AAACT260910W2PHWR4",
-            "Abono($)": 2.7,
+            "Abono($)": 6665.68,
             "Cargo($)": "",
             "Saldo disponible($)": 31198.05,
             "Correlativo": 85
@@ -39567,7 +39575,7 @@
             "Fecha": "2026-01-03",
             "Descripción": "Capitalización de Intereses Marzo 2026",
             "Referencia": "AAACT260604Z1809R4",
-            "Abono($)": 1.73,
+            "Abono($)": 4132.22,
             "Cargo($)": "",
             "Saldo disponible($)": 24532.54,
             "Correlativo": 78
@@ -39597,7 +39605,7 @@
             "Fecha": "2026-01-02",
             "Descripción": "Capitalización de Intereses Febrero 2026",
             "Referencia": "AAACT26032H67XL9B8",
-            "Abono($)": 1.44,
+            "Abono($)": 8437.27,
             "Cargo($)": "",
             "Saldo disponible($)": 20400.46,
             "Correlativo": 70
@@ -39642,8 +39650,8 @@
             "Fecha": "2025-12-20",
             "Descripción": "Traslado Provisiones Laborales Diciembre 2025",
             "Referencia": "FT25354XXJRS",
-            "Abono($)": 10529.61,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 18121.79,
             "Saldo disponible($)": 11962.55,
             "Correlativo": 61
           }
@@ -39657,7 +39665,7 @@
             "Fecha": "2025-12-11",
             "Descripción": "Devolucion por Pago Erroneo EPC Regional",
             "Referencia": "FT25316L1GH9",
-            "Abono($)": 7173.57,
+            "Abono($)": 11330.57,
             "Cargo($)": "",
             "Saldo disponible($)": 30084.34,
             "Correlativo": 44
@@ -39673,7 +39681,7 @@
             "Descripción": "Traslado Konfi Inversiones S.A de C.V",
             "Referencia": "FT25224TXTGS",
             "Abono($)": "",
-            "Cargo($)": 4016.83,
+            "Cargo($)": 16524.35,
             "Saldo disponible($)": 18753.77,
             "Correlativo": 11
           }
@@ -39793,7 +39801,7 @@
             "Descripción": "Pago  Proyecto Paneles Solares Nov.",
             "Referencia": "FT25317GX3B7",
             "Abono($)": "",
-            "Cargo($)": 7173.57,
+            "Cargo($)": "",
             "Saldo disponible($)": 22910.77,
             "Correlativo": 45
           }
@@ -39807,8 +39815,8 @@
             "Fecha": "2025-11-11",
             "Descripción": "Pago EPC Regional S.A de C,V",
             "Referencia": "FT25315D5C0D",
-            "Abono($)": "",
-            "Cargo($)": 7173.57,
+            "Abono($)": 4950.81,
+            "Cargo($)": "",
             "Saldo disponible($)": 22910.77,
             "Correlativo": 43
           }
@@ -40002,8 +40010,8 @@
             "Fecha": "2025-10-13",
             "Descripción": "Traslado Konfi Inversiones S.A de C.V Cta Agricola Prestamo",
             "Referencia": "FT25286CCXKY",
-            "Abono($)": 10000,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 1458.77,
             "Saldo disponible($)": 28625.57,
             "Correlativo": 25
           }
@@ -40032,8 +40040,8 @@
             "Fecha": "2025-10-11",
             "Descripción": "Traslado por Prestamo Interno Konfi S.A. de C.V",
             "Referencia": "FT25314GWB3V",
-            "Abono($)": 10000,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 12618.56,
             "Saldo disponible($)": 28562.39,
             "Correlativo": 41
           }
@@ -40077,7 +40085,7 @@
             "Fecha": "2025-09-16",
             "Descripción": "T365 a Cuenta Cte Traslado Provisiones",
             "Referencia": "FT25259PB646",
-            "Abono($)": 1706.01,
+            "Abono($)": 17371.29,
             "Cargo($)": "",
             "Saldo disponible($)": 40141.89,
             "Correlativo": 17
@@ -40092,8 +40100,8 @@
             "Fecha": "2025-09-08",
             "Descripción": "Pago de Cheque Propio",
             "Referencia": "TT252217KJDC",
-            "Abono($)": "",
-            "Cargo($)": 191.36,
+            "Abono($)": 4505.35,
+            "Cargo($)": "",
             "Saldo disponible($)": 22770.6,
             "Correlativo": 10
           }
@@ -40108,7 +40116,7 @@
             "Descripción": "Pago Cheque",
             "Referencia": "TT25239N0DQ8",
             "Abono($)": "",
-            "Cargo($)": 488.52,
+            "Cargo($)": 4695.04,
             "Saldo disponible($)": 18265.25,
             "Correlativo": 12
           }
@@ -40122,7 +40130,7 @@
             "Fecha": "2025-07-18",
             "Descripción": "Abono Transfer365 de KONFI INVE Provision",
             "Referencia": "FT25199ZDK87",
-            "Abono($)": 1525.94,
+            "Abono($)": 21527.35,
             "Cargo($)": "",
             "Saldo disponible($)": 22960.29,
             "Correlativo": 7
@@ -40138,7 +40146,7 @@
             "Descripción": "Jose Amadeo Alfaro Energia(Panelkes Solares)",
             "Referencia": "FT253405G24L",
             "Abono($)": "",
-            "Cargo($)": 130.71,
+            "Cargo($)": 17129.45,
             "Saldo disponible($)": 1432.94,
             "Correlativo": 60
           }
@@ -40152,7 +40160,7 @@
             "Fecha": "2025-06-11",
             "Descripción": "Traslado Provisiones Laborales Noviembre 2025_2",
             "Referencia": "FT253104B2SQ",
-            "Abono($)": 601.19,
+            "Abono($)": 16998.74,
             "Cargo($)": "",
             "Saldo disponible($)": 18562.39,
             "Correlativo": 40
@@ -40168,7 +40176,7 @@
             "Descripción": "Traslado de Fondos P/ Aguin/Indem adm Fabri",
             "Referencia": "FT25338Z957M",
             "Abono($)": "",
-            "Cargo($)": 9705.62,
+            "Cargo($)": 36872.23,
             "Saldo disponible($)": 1563.65,
             "Correlativo": 59
           }
@@ -40182,8 +40190,8 @@
             "Fecha": "2025-04-09",
             "Descripción": "T365 a Cuenta Cte",
             "Referencia": "FT252477CXNC",
-            "Abono($)": "",
-            "Cargo($)": 17500,
+            "Abono($)": 20569.97,
+            "Cargo($)": "",
             "Saldo disponible($)": 38435.88,
             "Correlativo": 16
           }
@@ -40197,8 +40205,8 @@
             "Fecha": "2025-04-06",
             "Descripción": "Abono Transfer365 de KONFI INVE NA",
             "Referencia": "FT25155CGT9M",
-            "Abono($)": 2364.03,
-            "Cargo($)": 0,
+            "Abono($)": 6596.64,
+            "Cargo($)": "",
             "Saldo disponible($)": 17865.91,
             "Correlativo": 3
           }
@@ -40213,7 +40221,7 @@
             "Descripción": "Traslado de Fondos P/ Aguin/Indem Ventas",
             "Referencia": "FT253378CJ9V",
             "Abono($)": "",
-            "Cargo($)": 7471.6,
+            "Cargo($)": 10165.08,
             "Saldo disponible($)": 11269.27,
             "Correlativo": 58
           }
@@ -40227,7 +40235,7 @@
             "Fecha": "2025-03-07",
             "Descripción": "Abono Transfer365 de KONFI INVE JULIO",
             "Referencia": "FT25155CGT9M",
-            "Abono($)": 3567.14,
+            "Abono($)": 2593.48,
             "Cargo($)": "",
             "Saldo disponible($)": 21434.35,
             "Correlativo": 6
@@ -40243,7 +40251,7 @@
             "Descripción": "Traslado de Fondos P/ Aguinaldos Producción",
             "Referencia": "FT253374ZHCP",
             "Abono($)": "",
-            "Cargo($)": 6362.33,
+            "Cargo($)": 6262.33,
             "Saldo disponible($)": 18840.87,
             "Correlativo": 57
           }
@@ -40257,8 +40265,8 @@
             "Fecha": "2025-02-12",
             "Descripción": "Traslado de Fondos P/ Indemnización Producción",
             "Referencia": "FT253361MZMS",
-            "Abono($)": "",
-            "Cargo($)": 12724.65,
+            "Abono($)": 6477.63,
+            "Cargo($)": "",
             "Saldo disponible($)": 25103.2,
             "Correlativo": 56
           }
@@ -40273,7 +40281,7 @@
             "Descripción": "Traslado Konfi Inversiones S.A de C.V Cta Agricola",
             "Referencia": "FT252752JM6Y",
             "Abono($)": "",
-            "Cargo($)": 10000,
+            "Cargo($)": 19202.28,
             "Saldo disponible($)": 18625.57,
             "Correlativo": 24
           }
@@ -40317,7 +40325,7 @@
             "Fecha": "2025-01-12",
             "Descripción": "Pago Provisiones Laborales Corresp Diciembre 2025",
             "Referencia": "FT25335P1VP9",
-            "Abono($)": 2547.11,
+            "Abono($)": 19864.03,
             "Cargo($)": "",
             "Saldo disponible($)": 37825.23,
             "Correlativo": 53
@@ -40347,8 +40355,8 @@
             "Fecha": "2025-01-11",
             "Descripción": "Capitalizacion de intereses Noviembre 2025",
             "Referencia": "AAACT25305GVHW164X",
-            "Abono($)": 1.38,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 10664.23,
             "Saldo disponible($)": 17961.34,
             "Correlativo": 38
           }
@@ -40407,7 +40415,7 @@
             "Fecha": "2025-01-10",
             "Descripción": "T365 a Cuenta Cte Traslado Provisiones Septiembre",
             "Referencia": "FT252740YF6L",
-            "Abono($)": 1282.88,
+            "Abono($)": 21527.95,
             "Cargo($)": "",
             "Saldo disponible($)": 42463.83,
             "Correlativo": 20
@@ -40452,8 +40460,8 @@
             "Fecha": "2025-01-09",
             "Descripción": "Abono Transfer365 de KONFI INVE Provision Agosto",
             "Referencia": "FT25244FYMN2",
-            "Abono($)": 2669.09,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 2027.62,
             "Saldo disponible($)": 20934.34,
             "Correlativo": 13
           }
@@ -40482,7 +40490,7 @@
             "Fecha": "2025-01-08",
             "Descripción": "Capitalizacion de intereses Agosto 2025",
             "Referencia": "AAACT252137RCJPNK5",
-            "Abono($)": 1.86,
+            "Abono($)": 5094.94,
             "Cargo($)": "",
             "Saldo disponible($)": 22962.15,
             "Correlativo": 8
@@ -40512,7 +40520,7 @@
             "Fecha": "2025-01-07",
             "Descripción": "Capitalizacion de intereses julio 2025",
             "Referencia": "AAACT251825BG4THNX",
-            "Abono($)": 1.45,
+            "Abono($)": 2365.48,
             "Cargo($)": "",
             "Saldo disponible($)": 17867.36,
             "Correlativo": 4
@@ -40555,6 +40563,8 @@
       "bank": "Azul Fiscal",
       "account": "Provisiones fiscales",
       "balanceField": "Saldo disponible($)",
+      "inflowField": "Abono($)",
+      "outflowField": "Cargo($)",
       "fields": [
         "Fecha",
         "Descripción",
@@ -40575,7 +40585,7 @@
             "Descripción": "Ministerio de Hacienda Pago PAC  Abril 2026",
             "Referencia": "FT26132HW1X5",
             "Abono($)": "",
-            "Cargo($)": 2944.86,
+            "Cargo($)": 16468.77,
             "Saldo disponible($)": 7250.42,
             "Correlativo": 88
           }
@@ -40589,8 +40599,8 @@
             "Fecha": "2026-12-02",
             "Descripción": "Traslado de Provisiones Fiscles Febrero 2026(4)",
             "Referencia": "FT2604213W67",
-            "Abono($)": 2056.35,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 27219.76,
             "Saldo disponible($)": 23719.19,
             "Correlativo": 66
           }
@@ -40604,7 +40614,7 @@
             "Fecha": "2026-12-01",
             "Descripción": "Trasalado Provisiones Fiscales Enero 2026",
             "Referencia": "FT260125BCMC",
-            "Abono($)": 1012.81,
+            "Abono($)": 24523.5,
             "Cargo($)": "",
             "Saldo disponible($)": 50938.95,
             "Correlativo": 53
@@ -40619,7 +40629,7 @@
             "Fecha": "2026-10-08",
             "Descripción": "Traslado de Provisiones Fiscles Julio 2026 (4)",
             "Referencia": "FT262221Z705",
-            "Abono($)": 1177.13,
+            "Abono($)": 4752.61,
             "Cargo($)": "",
             "Saldo disponible($)": 26415.45,
             "Correlativo": 107
@@ -40649,8 +40659,8 @@
             "Fecha": "2026-10-02",
             "Descripción": "Ministerio de Hacienda Pago Iva Enero 2025",
             "Referencia": "FT26041468GM",
-            "Abono($)": "",
-            "Cargo($)": 5091.77,
+            "Abono($)": 6988.97,
+            "Cargo($)": "",
             "Saldo disponible($)": 24962.42,
             "Correlativo": 64
           }
@@ -40665,7 +40675,7 @@
             "Descripción": "Ministerio de Hacienda Pago IVA Mayo 2026",
             "Referencia": "FT26160YXYF7",
             "Abono($)": "",
-            "Cargo($)": 3517.42,
+            "Cargo($)": 12080.74,
             "Saldo disponible($)": 17973.45,
             "Correlativo": 96
           }
@@ -40679,7 +40689,7 @@
             "Fecha": "2026-09-02",
             "Descripción": "Traslado de Provisiones Fiscles Febrero 2026(3)",
             "Referencia": "FT260408ZJG8",
-            "Abono($)": 2667.38,
+            "Abono($)": 12102.98,
             "Cargo($)": "",
             "Saldo disponible($)": 30054.19,
             "Correlativo": 63
@@ -40710,7 +40720,7 @@
             "Descripción": "Ministerio de Hacienda Pago PAC Julio 2026",
             "Referencia": "FT2623142382",
             "Abono($)": "",
-            "Cargo($)": 3545.445,
+            "Cargo($)": 3545.55,
             "Saldo disponible($)": 14413.92,
             "Correlativo": 109
           }
@@ -40725,7 +40735,7 @@
             "Descripción": "Ministerio de Hacienda IVA  Julio 2026 ",
             "Referencia": "FT2631CH80G",
             "Abono($)": "",
-            "Cargo($)": 8455.98,
+            "Cargo($)": 7279.06,
             "Saldo disponible($)": 17959.47,
             "Correlativo": 108
           }
@@ -40739,7 +40749,7 @@
             "Fecha": "2026-08-08",
             "Descripción": "Capaitalización de Intereses Agosto  2026",
             "Referencia": "AAACT26213HYP7N778",
-            "Abono($)": 2.1,
+            "Abono($)": 1285.43,
             "Cargo($)": "",
             "Saldo disponible($)": 25238.53,
             "Correlativo": 105
@@ -40769,8 +40779,8 @@
             "Fecha": "2026-08-06",
             "Descripción": "Traslado Provisiones Fiscales Junio 2026(1)",
             "Referencia": "FT26160CRC4N",
-            "Abono($)": 9518.75,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 3978.69,
             "Saldo disponible($)": 21257.74,
             "Correlativo": 93
           }
@@ -40784,8 +40794,8 @@
             "Fecha": "2026-07-20",
             "Descripción": "Traslado de Provisiones Fiscles Junlo 2026 (2)",
             "Referencia": "FT26201Z4SN7",
-            "Abono($)": 6257.95,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 213.28,
             "Saldo disponible($)": 25236.43,
             "Correlativo": 104
           }
@@ -40799,8 +40809,8 @@
             "Fecha": "2026-07-15",
             "Descripción": "Ministerio de Hacienda Pago PAC  Junio 2026",
             "Referencia": "FT26195T01TV",
-            "Abono($)": "",
-            "Cargo($)": 2974.51,
+            "Abono($)": 6471.23,
+            "Cargo($)": "",
             "Saldo disponible($)": 25449.71,
             "Correlativo": 102
           }
@@ -40815,7 +40825,7 @@
             "Descripción": "Ministerio de Hacienda Pago IVA Junio 2026",
             "Referencia": "FT26195TKDR4",
             "Abono($)": "",
-            "Cargo($)": 6471.23,
+            "Cargo($)": 9445.74,
             "Saldo disponible($)": 18978.48,
             "Correlativo": 103
           }
@@ -40829,7 +40839,7 @@
             "Fecha": "2026-07-13",
             "Descripción": "Traslado de Provisiones Fiscles Ju lio 2026 ",
             "Referencia": "FT26194B4R6F",
-            "Abono($)": 3081.39,
+            "Abono($)": 13067.81,
             "Cargo($)": "",
             "Saldo disponible($)": 28424.22,
             "Correlativo": 101
@@ -40845,7 +40855,7 @@
             "Descripción": "Traslado Banco Agricola",
             "Referencia": "FT260960T22X",
             "Abono($)": "",
-            "Cargo($)": 13259.26,
+            "Cargo($)": 5891.68,
             "Saldo disponible($)": 15356.41,
             "Correlativo": 81
           }
@@ -40875,7 +40885,7 @@
             "Descripción": "Pago Iva Febrero 2026",
             "Referencia": "FT26066PHS65",
             "Abono($)": "",
-            "Cargo($)": 6547.61,
+            "Cargo($)": 170.38,
             "Saldo disponible($)": 25171.07,
             "Correlativo": 74
           }
@@ -40904,7 +40914,7 @@
             "Fecha": "2026-06-19",
             "Descripción": "Traslado de Provisiones Fiscles Junio 2026 (3)",
             "Referencia": "FT26170ZYP2B",
-            "Abono($)": 4357.26,
+            "Abono($)": 839.84,
             "Cargo($)": "",
             "Saldo disponible($)": 22330.71,
             "Correlativo": 97
@@ -40919,8 +40929,8 @@
             "Fecha": "2026-06-09",
             "Descripción": "Ministerio de Hacienda Pago PAC  Mayo 2026",
             "Referencia": "FT26160G0B47",
-            "Abono($)": "",
-            "Cargo($)": 2462.23,
+            "Abono($)": 9752.63,
+            "Cargo($)": "",
             "Saldo disponible($)": 21490.87,
             "Correlativo": 95
           }
@@ -40950,7 +40960,7 @@
             "Descripción": "Ministerio de Hacienda Pago IVA Abril 2026",
             "Referencia": "FT26132SSR1S",
             "Abono($)": "",
-            "Cargo($)": 1216.33,
+            "Cargo($)": 21352.72,
             "Saldo disponible($)": 6034.09,
             "Correlativo": 89
           }
@@ -40964,7 +40974,7 @@
             "Fecha": "2026-05-02",
             "Descripción": "Traslado de Provisiones Fiscles Febrero 2026(2)",
             "Referencia": "FT26035S6FV2",
-            "Abono($)": 1275.76,
+            "Abono($)": 17192.65,
             "Cargo($)": "",
             "Saldo disponible($)": 27386.81,
             "Correlativo": 62
@@ -41024,8 +41034,8 @@
             "Fecha": "2026-04-14",
             "Descripción": "Traslado Provisiones Fiscales Abril 2026",
             "Referencia": "FT261033CXTH",
-            "Abono($)": 3593.28,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 9665.98,
             "Saldo disponible($)": 18949.69,
             "Correlativo": 82
           }
@@ -41099,8 +41109,8 @@
             "Fecha": "2026-03-17",
             "Descripción": "Traslado Provisiones Fiscales Marzo 2026 1",
             "Referencia": "FT26075D13",
-            "Abono($)": 2676.35,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 7794.24,
             "Saldo disponible($)": 23924.44,
             "Correlativo": 76
           }
@@ -41205,7 +41215,7 @@
             "Descripción": "Ministerio de Hacoienda Complemento Iva",
             "Referencia": "FT26044RRS8T",
             "Abono($)": "",
-            "Cargo($)": 8.14,
+            "Cargo($)": 2400,
             "Saldo disponible($)": 23711.05,
             "Correlativo": 67
           }
@@ -41310,7 +41320,7 @@
             "Descripción": "Dirección General de Tesoreria",
             "Referencia": "TT26014NW684",
             "Abono($)": "",
-            "Cargo($)": 15509.44,
+            "Cargo($)": 46122422.77,
             "Saldo disponible($)": 30644.23,
             "Correlativo": 55
           }
@@ -41324,8 +41334,8 @@
             "Fecha": "2026-01-15",
             "Descripción": "Ministerio de Hacienda PAC 2025",
             "Referencia": "FT26014QS29X",
-            "Abono($)": "",
-            "Cargo($)": 4785.28,
+            "Abono($)": 46127828.68,
+            "Cargo($)": "",
             "Saldo disponible($)": 46153067,
             "Correlativo": 54
           }
@@ -41340,7 +41350,7 @@
             "Descripción": "Retencion ISR Capitalizacioón Agosto 2026",
             "Referencia": "AAACT26213HYP7N7BK",
             "Abono($)": "",
-            "Cargo($)": 0.21,
+            "Cargo($)": 104.51,
             "Saldo disponible($)": 25238.32,
             "Correlativo": 106
           }
@@ -41369,7 +41379,7 @@
             "Fecha": "2026-01-07",
             "Descripción": "Capaitalización de Intereses Julio  2026",
             "Referencia": "AAACT261827XRBT3B5",
-            "Abono($)": 1.53,
+            "Abono($)": 13603.99,
             "Cargo($)": "",
             "Saldo disponible($)": 25342.98,
             "Correlativo": 99
@@ -41399,7 +41409,7 @@
             "Fecha": "2026-01-06",
             "Descripción": "Capaitalización de Intereses Junio  2026",
             "Referencia": "AAACT26152YQNV09XJ",
-            "Abono($)": 0.83,
+            "Abono($)": 1543.79,
             "Cargo($)": "",
             "Saldo disponible($)": 11739.07,
             "Correlativo": 91
@@ -41429,8 +41439,8 @@
             "Fecha": "2026-01-05",
             "Descripción": "Capaitalización de Intereses Abril  2026",
             "Referencia": "AAACT26121V504JR5D",
-            "Abono($)": 1.25,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 2835.32,
             "Saldo disponible($)": 10195.41,
             "Correlativo": 86
           }
@@ -41444,8 +41454,8 @@
             "Fecha": "2025-12-20",
             "Descripción": "Traslado Provisiones Fiscales Diciembre 2025",
             "Referencia": "FT25354BNSHM",
-            "Abono($)": 11257.41,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 6052.86,
             "Saldo disponible($)": 13030.73,
             "Correlativo": 49
           }
@@ -41460,7 +41470,7 @@
             "Descripción": "Traslade de Fondos a Bnco Agricola NOV.2025",
             "Referencia": "FT25316TLN16",
             "Abono($)": "",
-            "Cargo($)": 2936.07,
+            "Cargo($)": 4274.91,
             "Saldo disponible($)": 19083.59,
             "Correlativo": 41
           }
@@ -41489,8 +41499,8 @@
             "Fecha": "2025-12-06",
             "Descripción": "Pago por Banca en Línea Ministerio de Hacienda - Empresas",
             "Referencia": "FT251639XYJN",
-            "Abono($)": 0,
-            "Cargo($)": 5257.68,
+            "Abono($)": 20996.67,
+            "Cargo($)": "",
             "Saldo disponible($)": 26564.52,
             "Correlativo": 4
           }
@@ -41505,7 +41515,7 @@
             "Descripción": "Ministerio de Hacienda Pago Iva Noviembre 2025",
             "Referencia": "FT253388LRNJ",
             "Abono($)": "",
-            "Cargo($)": 11398.5,
+            "Cargo($)": 11398.67,
             "Saldo disponible($)": 5567.85,
             "Correlativo": 47
           }
@@ -41565,7 +41575,7 @@
             "Descripción": "Transferencia de Fondos a Banco Agricola Plla",
             "Referencia": "FT25316B5FTB",
             "Abono($)": "",
-            "Cargo($)": 10000,
+            "Cargo($)": 18947.18,
             "Saldo disponible($)": 9083.59,
             "Correlativo": 42
           }
@@ -41609,8 +41619,8 @@
             "Fecha": "2025-10-20",
             "Descripción": "Tras. Provisiones ",
             "Referencia": "FT2529312C5M",
-            "Abono($)": 3985.58,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 5949.36,
             "Saldo disponible($)": 16070.3,
             "Correlativo": 34
           }
@@ -41639,8 +41649,8 @@
             "Fecha": "2025-10-11",
             "Descripción": "Pago a Cuenta Correspondiente Noviembre 2025",
             "Referencia": "FT25314VW16F",
-            "Abono($)": "",
-            "Cargo($)": 4095.38,
+            "Abono($)": 11654.5,
+            "Cargo($)": "",
             "Saldo disponible($)": 23936.84,
             "Correlativo": 39
           }
@@ -41670,7 +41680,7 @@
             "Descripción": "Pago por Banca en Línea Ministerio de Hacienda - Empresas agosto IVA",
             "Referencia": "FT2525324R19",
             "Abono($)": "",
-            "Cargo($)": 3249.27,
+            "Cargo($)": 6939.41,
             "Saldo disponible($)": 15342.93,
             "Correlativo": 26
           }
@@ -41684,8 +41694,8 @@
             "Fecha": "2025-09-18",
             "Descripción": "Traslado Konfi Inversiones S.A de C.V Agricola Prestamo Interno",
             "Referencia": "FT2526119W62",
-            "Abono($)": 10000,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 9995.97,
             "Saldo disponible($)": 22282.34,
             "Correlativo": 28
           }
@@ -41699,8 +41709,8 @@
             "Fecha": "2025-09-07",
             "Descripción": "Abono Transfer365 de KONFI INVE LIQUIDACION DE CTA COBRAR",
             "Referencia": "FT251908850M",
-            "Abono($)": "",
-            "Cargo($)": 13832.41,
+            "Abono($)": 20360.13,
+            "Cargo($)": "",
             "Saldo disponible($)": 32278.31,
             "Correlativo": 11
           }
@@ -41760,7 +41770,7 @@
             "Descripción": "Traslado Konfi Inversiones S.A de C.V",
             "Referencia": "FT25224C9464",
             "Abono($)": "",
-            "Cargo($)": 10000,
+            "Cargo($)": 9998.18,
             "Saldo disponible($)": 15500.32,
             "Correlativo": 19
           }
@@ -41834,8 +41844,8 @@
             "Fecha": "2025-07-14",
             "Descripción": "BLE TRANSFER 365 A CUENTA CORRIENTE  KONFI INVERSIONES S.A. DE C.V IVA",
             "Referencia": "FT251959628Z",
-            "Abono($)": "",
-            "Cargo($)": 7987.56,
+            "Abono($)": 12206.03,
+            "Cargo($)": "",
             "Saldo disponible($)": 24290.75,
             "Correlativo": 12
           }
@@ -41879,7 +41889,7 @@
             "Fecha": "2025-07-10",
             "Descripción": "Traslado de Fondos Desde Banco Agricola",
             "Referencia": "FT252805BFMP",
-            "Abono($)": 7173.57,
+            "Abono($)": 19931.19,
             "Cargo($)": "",
             "Saldo disponible($)": 29457.28,
             "Correlativo": 31
@@ -41909,8 +41919,8 @@
             "Fecha": "2025-06-25",
             "Descripción": "BLE TRANSFER 365 A CUENTA CORRIENTE  KONFI INVERSIONES S.A. DE C.V.",
             "Referencia": "FT25176ZNFC7",
-            "Abono($)": 0,
-            "Cargo($)": 9000,
+            "Abono($)": 12585.18,
+            "Cargo($)": "",
             "Saldo disponible($)": 14358.5,
             "Correlativo": 6
           }
@@ -41925,7 +41935,7 @@
             "Descripción": "Ministerio de Hacienda Pago PAC Noviembre 2025",
             "Referencia": "FT2533807108",
             "Abono($)": "",
-            "Cargo($)": 3794.53,
+            "Cargo($)": 30048.88,
             "Saldo disponible($)": 1773.32,
             "Correlativo": 48
           }
@@ -41939,8 +41949,8 @@
             "Fecha": "2025-04-06",
             "Descripción": "Abono Transfer365 de KONFI INVE NA",
             "Referencia": "FT251557XZ67",
-            "Abono($)": 5910.06,
-            "Cargo($)": 0,
+            "Abono($)": 13376.3,
+            "Cargo($)": "",
             "Saldo disponible($)": 31822.2,
             "Correlativo": 3
           }
@@ -41954,8 +41964,8 @@
             "Fecha": "2025-03-07",
             "Descripción": "Abono Transfer365 de KONFI INVE JULIO",
             "Referencia": "FT25184RQZSD",
-            "Abono($)": 8917.89,
-            "Cargo($)": 0,
+            "Abono($)": 1479.55,
+            "Cargo($)": "",
             "Saldo disponible($)": 18445.9,
             "Correlativo": 10
           }
@@ -41970,7 +41980,7 @@
             "Descripción": "Debito por Acuerdo Retencion ISR Cap. Cuenta Diciembre",
             "Referencia": "AAACT25335CFW65ZG4",
             "Abono($)": "",
-            "Cargo($)": 0.17,
+            "Cargo($)": 11065.87,
             "Saldo disponible($)": 16966.35,
             "Correlativo": 46
           }
@@ -41999,7 +42009,7 @@
             "Fecha": "2025-01-11",
             "Descripción": "Capitalizacion de intereses Novirmbre 2025",
             "Referencia": "AAACT25305FGW4K8VQ",
-            "Abono($)": 1.61,
+            "Abono($)": 5748.67,
             "Cargo($)": "",
             "Saldo disponible($)": 28032.38,
             "Correlativo": 37
@@ -42029,7 +42039,7 @@
             "Fecha": "2025-01-10",
             "Descripción": "Capitalizacion de intereses Octubre 2025",
             "Referencia": "AAACT25274NPGM4KCT",
-            "Abono($)": 1.52,
+            "Abono($)": 3691.66,
             "Cargo($)": "",
             "Saldo disponible($)": 22283.86,
             "Correlativo": 29
@@ -42074,8 +42084,8 @@
             "Fecha": "2025-01-09",
             "Descripción": "Abono Transfer365 de KONFI INVE Provision Agosto",
             "Referencia": "FT252440XRND",
-            "Abono($)": 6672.73,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 6909.41,
             "Saldo disponible($)": 18590.91,
             "Correlativo": 23
           }
@@ -42104,8 +42114,8 @@
             "Fecha": "2025-01-08",
             "Descripción": "Capitalizacion de intereses Agosto 2025",
             "Referencia": "AAACT25213TJZXW77C",
-            "Abono($)": 2.02,
-            "Cargo($)": 0,
+            "Abono($)": "",
+            "Cargo($)": 24425.62,
             "Saldo disponible($)": 25500.52,
             "Correlativo": 17
           }
@@ -42119,8 +42129,8 @@
             "Fecha": "2025-01-07",
             "Descripción": "Traslado Provisiones Fiscales 2025 Pago de Impuestos",
             "Referencia": "FT26007ZYKGW",
-            "Abono($)": "",
-            "Cargo($)": 36894.83,
+            "Abono($)": 40398.13,
+            "Cargo($)": "",
             "Saldo disponible($)": 49926.14,
             "Correlativo": 52
           }
@@ -42149,8 +42159,8 @@
             "Fecha": "2025-01-07",
             "Descripción": "Capitalizacion de intereses Julio 2025",
             "Referencia": "AAACT25182BVQS3SR9",
-            "Abono($)": 2.13,
-            "Cargo($)": "",
+            "Abono($)": "",
+            "Cargo($)": 16383.92,
             "Saldo disponible($)": 9528.22,
             "Correlativo": 8
           }
@@ -42179,8 +42189,8 @@
             "Fecha": "2025-01-06",
             "Descripción": "Capitalizacion de intereses Enero 2025",
             "Referencia": "AAACT25152P7B064QP",
-            "Abono($)": 2.56,
-            "Cargo($)": 0,
+            "Abono($)": 12881.09,
+            "Cargo($)": "",
             "Saldo disponible($)": 25912.4,
             "Correlativo": 1
           }
