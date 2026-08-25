@@ -616,7 +616,8 @@ def read_crm_data(conn):
     origin_links_changed = repair_result_opportunity_origin_links(conn, data)
     data, migration_changed = sync_crm_result_migrations(conn, data)
     data, closure_changed = sync_crm_result_closures(conn, data)
-    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed
+    seller_sync_changed = sync_operational_users_to_crm(conn, data)
+    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -665,6 +666,50 @@ def linked_crm_seller(data, account):
         if len(tokens) >= 2 and all(token in combined_identity for token in tokens):
             return seller
     return None
+
+
+def sync_operational_users_to_crm(conn, data):
+    """Ensure every operational CRM user has one stable seller record."""
+    changed = False
+    rows = conn.execute("""
+        SELECT id, name, username, email, role, password,
+               permissions, permissions_customized, admin
+        FROM users
+        WHERE role = 'operativos' AND admin = 0
+    """).fetchall()
+    for row in rows:
+        account = user_payload(row)
+        permissions = set(account.get("permissions") or [])
+        if not permissions.intersection({"comercializacion:crm", "comercializacion:crm-seguimiento"}):
+            continue
+        if linked_crm_seller(data, account):
+            continue
+        seller_id = f"u-system-{crm_key(account.get('id') or account.get('username'))}"
+        seller = {
+            "id": seller_id,
+            **normalize_crm_user({
+                "name": account.get("name"),
+                "email": account.get("email"),
+                "username": account.get("username"),
+                "roleId": "sales_exec",
+                "status": "Activo",
+            }),
+        }
+        data.setdefault("users", []).append(seller)
+        changed = True
+    return changed
+
+
+def crm_data_for_seller(data, seller_id):
+    opportunities = [item for item in data.get("opportunities", []) if text(item.get("ownerId")) == seller_id]
+    opportunity_ids = {text(item.get("id")) for item in opportunities}
+    return {
+        **data,
+        "users": [item for item in data.get("users", []) if text(item.get("id")) == seller_id],
+        "opportunities": opportunities,
+        "agenda": [item for item in data.get("agenda", []) if text(item.get("ownerId")) == seller_id or text(item.get("opportunityId")) in opportunity_ids],
+        "gestiones": [item for item in data.get("gestiones", []) if text(item.get("ownerId")) == seller_id or text(item.get("opportunityId")) in opportunity_ids],
+    }
 
 
 def crm_customer_from_opportunity(opportunity):
@@ -4811,20 +4856,26 @@ class AppHandler(BaseHTTPRequestHandler):
             is_restricted_operator = bool(request_user and request_user.get("role") == "operativos" and not request_user.get("admin"))
             request_linked_seller = linked_crm_seller(data, request_user) if is_restricted_operator else None
 
+            def response_model():
+                if not is_restricted_operator:
+                    return build_crm_view_model(data)
+                seller_id = text((request_linked_seller or {}).get("id"))
+                return build_crm_view_model(crm_data_for_seller(data, seller_id))
+
             if resource == "bootstrap" and self.command == "GET":
-                self.send_json(build_crm_view_model(data))
+                self.send_json(response_model())
                 return
 
             if resource == "kpis" and self.command == "GET":
-                self.send_json(build_crm_view_model(data)["kpis"])
+                self.send_json(response_model()["kpis"])
                 return
 
             if resource == "pipeline" and self.command == "GET":
-                self.send_json(build_crm_view_model(data)["pipeline"])
+                self.send_json(response_model()["pipeline"])
                 return
 
             if resource == "agenda" and self.command == "GET":
-                self.send_json(build_crm_view_model(data)["agenda"])
+                self.send_json(response_model()["agenda"])
                 return
 
             if resource == "auth" and item_id == "login" and self.command == "POST":
@@ -5051,7 +5102,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
             if resource == "opportunities":
                 if self.command == "GET" and not item_id:
-                    self.send_json(build_crm_view_model(data)["opportunities"])
+                    self.send_json(response_model()["opportunities"])
                     return
                 if self.command == "POST" and not item_id:
                     payload = self.read_json()
@@ -5068,7 +5119,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     data.setdefault("opportunities", []).append(opportunity)
                     upsert_crm_agenda(data, opportunity, payload)
                     write_crm_data(conn, data)
-                    self.send_json(build_crm_view_model(data), status=201)
+                    self.send_json(response_model(), status=201)
                     return
                 if item_id:
                     index = next((i for i, item in enumerate(data.get("opportunities", [])) if item.get("id") == item_id), -1)
@@ -5308,7 +5359,7 @@ class AppHandler(BaseHTTPRequestHandler):
                             write_crm_data(conn, data)
                         persisted_results = read_result_opportunities(conn)
                         self.send_json({
-                            "crm": build_crm_view_model(data),
+                            "crm": response_model(),
                             "opportunities": persisted_results,
                             "resultOpportunity": result,
                             "resultOpportunities": linked_results,
@@ -5323,7 +5374,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         data["opportunities"][index] = opportunity
                         upsert_crm_agenda(data, opportunity, payload)
                         write_crm_data(conn, data)
-                        self.send_json(build_crm_view_model(data))
+                        self.send_json(response_model())
                         return
                     if self.command == "DELETE":
                         self.send_json({"error": "Use la anulacion con razon para conservar la bitacora"}, status=409)
@@ -5350,7 +5401,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
             if resource == "gestiones":
                 if self.command == "GET" and not item_id:
-                    self.send_json(build_crm_view_model(data)["gestiones"])
+                    self.send_json(response_model()["gestiones"])
                     return
                 if self.command == "POST" and not item_id:
                     payload = self.read_json()
@@ -5396,7 +5447,7 @@ class AppHandler(BaseHTTPRequestHandler):
                             "place": text(payload.get("place"), payload.get("note") or "Por definir"),
                         })
                     write_crm_data(conn, data)
-                    self.send_json(build_crm_view_model(data), status=201)
+                    self.send_json(response_model(), status=201)
                     return
                 if item_id:
                     gestion_index = next((i for i, item in enumerate(data.get("gestiones", [])) if text(item.get("id")) == item_id), -1)
