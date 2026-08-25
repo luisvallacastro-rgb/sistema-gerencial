@@ -1365,7 +1365,7 @@ def normalize_user(data, index=0):
     permissions_customized = bool(item.get("permissionsCustomized") or item.get("permissions_customized"))
     permissions = (
         list(ALL_PERMISSIONS)
-        if admin or role == "gerencias"
+        if admin
         else normalize_permissions(item.get("permissions"), role)
         if permissions_customized
         else default_permissions_for_role(role)
@@ -1395,7 +1395,7 @@ def user_payload(row):
         else default_permissions_for_role(data["role"])
     )
     data["admin"] = bool(data.get("admin")) or data.get("email") == ADMIN_EMAIL
-    if data["admin"] or data["role"] == "gerencias":
+    if data["admin"]:
         data["role"] = "gerencias"
         data["permissions"] = list(ALL_PERMISSIONS)
     return data
@@ -3694,6 +3694,22 @@ def init_db():
 
 
 class AppHandler(BaseHTTPRequestHandler):
+    def require_permission(self, permission):
+        actor_id = text(self.headers.get("X-System-User-Id"))
+        with connect() as conn:
+            row = conn.execute(
+                "SELECT id, name, username, email, role, password, permissions, permissions_customized, admin FROM users WHERE id = ? LIMIT 1",
+                (actor_id,),
+            ).fetchone() if actor_id else None
+        if not row:
+            self.send_json({"error": "Debes iniciar sesión para consultar este módulo"}, status=401)
+            return False
+        actor = user_payload(row)
+        if actor.get("admin") or permission in actor.get("permissions", []):
+            return True
+        self.send_json({"error": "Tu usuario no tiene permiso para consultar Disponibilidad"}, status=403)
+        return False
+
     def send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
@@ -3798,12 +3814,16 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/api/bank-availability":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
             with connect() as conn:
                 self.send_json(bank_availability_payload(conn))
             return
 
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
         if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "records":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
             account_id = unquote(bank_parts[2])
             with connect() as conn:
                 rows = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC", (account_id,)).fetchall()
@@ -4050,6 +4070,8 @@ class AppHandler(BaseHTTPRequestHandler):
 
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
         if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "records":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
             account_id = unquote(bank_parts[2])
             data = self.read_json()
             with connect() as conn:
@@ -4288,6 +4310,8 @@ class AppHandler(BaseHTTPRequestHandler):
 
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
         if len(bank_parts) == 4 and bank_parts[:3] == ["api", "bank-availability", "records"]:
+            if not self.require_permission("financiera:disponibilidad"):
+                return
             record_id = unquote(bank_parts[3])
             data = self.read_json()
             with connect() as conn:
@@ -4568,6 +4592,8 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_api_delete(self):
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
         if len(bank_parts) == 4 and bank_parts[:3] == ["api", "bank-availability", "records"]:
+            if not self.require_permission("financiera:disponibilidad"):
+                return
             record_id = unquote(bank_parts[3])
             with connect() as conn:
                 result = conn.execute("DELETE FROM bank_balance_records WHERE id = ?", (record_id,))

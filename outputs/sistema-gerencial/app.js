@@ -1153,7 +1153,7 @@ function canViewAdminMinuteHistory(user = state.currentUser) {
 
 function userPermissions(user = state.currentUser) {
   if (!user) return new Set();
-  if (isAdminUser(user) || user.role === "gerencias") return new Set(allPermissionKeys());
+  if (isAdminUser(user)) return new Set(allPermissionKeys());
   return new Set(normalizePermissionList(user.permissions, user.role));
 }
 
@@ -9757,7 +9757,7 @@ function adminUserInitials(user) {
 function renderAdminPermissionControls(existingUser = null) {
   if (!adminPermissionGrid) return;
   const role = adminUserRole?.value || existingUser?.role || "gerencias";
-  const fullAccessProfile = role === "gerencias";
+  const fullAccessProfile = isAdminUser(existingUser);
   const selected = userPermissions({
     ...(existingUser || {}),
     role,
@@ -9880,8 +9880,8 @@ async function saveAdminUserFromForm(event) {
     email,
     role,
     admin,
-    permissionsCustomized: role !== "gerencias",
-    permissions: (admin || role === "gerencias") ? allPermissionKeys() : collectAdminPermissions()
+    permissionsCustomized: !admin,
+    permissions: admin ? allPermissionKeys() : collectAdminPermissions()
   };
   if (passwordChanged) payload.password = newPassword;
 
@@ -10177,7 +10177,7 @@ function renderAdminPermissionsPanel() {
             const permissions = userPermissions(user);
             const activeCount = permissionColumns.filter((column) => permissions.has(column.key)).length;
             const isProtected = isAdminUser(user);
-            const permissionsLocked = isProtected || user.role === "gerencias";
+            const permissionsLocked = isProtected;
             return `<tr class="permission-access-row ${permissionsLocked ? "admin-owner" : ""}">
               <th class="permission-access-user" scope="row">
                 <div class="permission-access-user-inner">
@@ -11073,7 +11073,7 @@ function normalizeUsers(items) {
         || normalizedEmail === "financiera@empresa.local",
       admin,
       permissionsCustomized: Boolean(item.permissionsCustomized),
-      permissions: (admin || role === "gerencias")
+      permissions: admin
         ? allPermissionKeys()
         : item.permissionsCustomized
           ? normalizePermissionList(item.permissions, role)
@@ -11401,7 +11401,7 @@ registerForm.addEventListener("submit", (event) => {
     password: registerPassword.value,
     admin,
     permissionsCustomized: false,
-    permissions: (admin || role === "gerencias") ? allPermissionKeys() : defaultPermissionsForRole(role)
+    permissions: admin ? allPermissionKeys() : defaultPermissionsForRole(role)
   };
   systemUsers.push(user);
   saveUsers();
