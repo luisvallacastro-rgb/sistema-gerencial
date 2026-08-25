@@ -8582,6 +8582,42 @@ function bankFlowFields(accountId) {
   }[accountId] || ["Abono", "Cargo"];
 }
 
+function normalizeBankPasteDate(value) {
+  const source = String(value ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(source)) return source;
+  const match = source.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (!match) return source;
+  return `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}`;
+}
+
+function numericBankPasteValue(value) {
+  const source = String(value ?? "").trim().replace(/\s/g, "");
+  if (!source) return 0;
+  const negative = /^\(.*\)$/.test(source);
+  const parsed = Number(source.replace(/[()$]/g, "").replace(/,/g, ""));
+  return Number.isFinite(parsed) ? (negative ? -parsed : parsed) : 0;
+}
+
+function parseBankPasteBlock(raw, editableFields) {
+  const rows = String(raw || "").split(/\r?\n/).map((line) => line.split("\t")).filter((cells) => cells.some((cell) => cell.trim()));
+  if (!rows.length) return [];
+  const normalizedFields = editableFields.map((field) => normalizeKey(field));
+  const first = rows[0].map((cell) => normalizeKey(cell));
+  const hasHeader = first.some((cell) => normalizedFields.includes(cell));
+  const headers = hasHeader ? first : normalizedFields;
+  return rows.slice(hasHeader ? 1 : 0).map((cells) => {
+    const data = {};
+    editableFields.forEach((field, fieldIndex) => {
+      const sourceIndex = hasHeader ? headers.indexOf(normalizeKey(field)) : fieldIndex;
+      let value = sourceIndex >= 0 ? String(cells[sourceIndex] ?? "").trim() : "";
+      if (bankFieldType(field) === "number") value = numericBankPasteValue(value);
+      if (/fecha/i.test(field)) value = normalizeBankPasteDate(value);
+      data[field] = value;
+    });
+    return data;
+  }).filter((data) => Object.values(data).some((value) => value !== "" && value !== 0));
+}
+
 async function openBankMaintenance(accountId) {
   const account = (state.bankAvailability.accounts || []).find((item) => item.id === accountId);
   if (!account) return;
@@ -8591,14 +8627,15 @@ async function openBankMaintenance(accountId) {
   dialog.id = "bankMaintenanceDialog";
   dialog.className = "bank-maintenance-dialog";
   const autoCorrelative = true;
-  const render = (formOpen = false, editing = null) => {
+  const render = (formOpen = false, editing = null, bulkOpen = false) => {
     const [inflowField, outflowField] = bankFlowFields(account.id);
     const editableFields = account.fields.filter((field) => field !== account.balanceField && !(autoCorrelative && field === "Correlativo"));
     const editingIndex = editing ? records.findIndex((record) => record.id === editing.id) : -1;
     const olderRecord = editing ? records[editingIndex + 1] : records[0];
     const openingBalance = olderRecord ? Number(olderRecord.balance || 0) : editing ? Number(editing.balance || 0) - Number(editing.data[inflowField] || 0) + Number(editing.data[outflowField] || 0) : 0;
     dialog.innerHTML = `<div class="bank-maintenance-shell"><header><div><span>Movimientos bancarios</span><h2>${escapeHtml(account.bank)}</h2><p>${escapeHtml(account.account)} · ${records.length} movimientos</p></div><button type="button" data-bank-close aria-label="Cerrar">×</button></header>
-      <section class="bank-maintenance-summary"><div><small>Último saldo</small><strong>${formatMoney((records[0] || account.latest)?.balance || 0)}</strong><span>${records[0] ? formatDate(records[0].date) : "Sin movimientos"}</span></div><button type="button" data-bank-new>＋ Agregar línea</button></section>
+      <section class="bank-maintenance-summary"><div><small>Último saldo</small><strong>${formatMoney((records[0] || account.latest)?.balance || 0)}</strong><span>${records[0] ? formatDate(records[0].date) : "Sin movimientos"}</span></div><aside><button type="button" data-bank-paste>▦ Pegar desde Excel</button><button type="button" data-bank-new>＋ Agregar línea</button></aside></section>
+      ${bulkOpen ? `<form class="bank-bulk-form"><header><div><h3>Pegar movimientos desde Excel</h3><p>Columnas esperadas: ${editableFields.map(escapeHtml).join(" · ")}. Puedes incluir los encabezados.</p></div><strong data-bank-paste-count>0 líneas detectadas</strong></header><textarea data-bank-paste-input placeholder="Copia las filas en Excel y pégalas aquí" required></textarea><footer><label>Orden del bloque<select data-bank-paste-order><option value="newest">Más reciente arriba</option><option value="oldest">Más antigua arriba</option></select></label><span>El correlativo y el saldo se calcularán automáticamente.</span><div><button type="button" data-bank-paste-cancel>Cancelar</button><button type="submit">Importar bloque</button></div></footer></form>` : ""}
       ${formOpen ? `<form class="bank-record-form bank-inline-form"><div class="bank-inline-form-title"><h3>${editing ? "Editar línea" : "Nueva línea"}</h3>${autoCorrelative ? `<span>Correlativo automático${editing ? ` · ${escapeHtml(editing.data.Correlativo ?? editing.sequence ?? "")}` : ""}</span>` : ""}</div><div class="bank-inline-entry" style="grid-template-columns:${editableFields.map((field) => `${bankFieldWeight(field)}fr`).join(" ")} 12fr auto">${editableFields.map((field) => {
           const type = bankFieldType(field); const required = field === account.balanceField || field === "Fecha" || field === "Fecha Transaccion";
           return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} value="${escapeHtml(editing?.data?.[field] ?? "")}" ${required ? "required" : ""}></label>`;
@@ -8607,6 +8644,8 @@ async function openBankMaintenance(accountId) {
     </div>`;
     dialog.querySelector("[data-bank-close]").onclick = () => dialog.close();
     dialog.querySelector("[data-bank-new]").onclick = () => render(true, null);
+    dialog.querySelector("[data-bank-paste]").onclick = () => render(false, null, true);
+    dialog.querySelector("[data-bank-paste-cancel]")?.addEventListener("click", () => render(false));
     dialog.querySelector("[data-bank-cancel]")?.addEventListener("click", () => render(false));
     dialog.querySelectorAll("[data-bank-record-edit]").forEach((button) => button.addEventListener("click", () => render(true, records.find((record) => record.id === button.dataset.bankRecordEdit))));
     const movementForm = dialog.querySelector("form");
@@ -8621,6 +8660,32 @@ async function openBankMaintenance(accountId) {
     };
     [inflowField, outflowField].forEach((field) => movementForm?.elements.namedItem(field)?.addEventListener("input", () => refreshCalculatedBalance(field)));
     refreshCalculatedBalance();
+    const pasteInput = dialog.querySelector("[data-bank-paste-input]");
+    const refreshPasteCount = () => {
+      const count = parseBankPasteBlock(pasteInput?.value, editableFields).length;
+      const output = dialog.querySelector("[data-bank-paste-count]");
+      if (output) output.textContent = `${count} ${count === 1 ? "línea detectada" : "líneas detectadas"}`;
+      return count;
+    };
+    pasteInput?.addEventListener("input", refreshPasteCount);
+    pasteInput?.focus();
+    dialog.querySelector(".bank-bulk-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const sourceRows = parseBankPasteBlock(pasteInput.value, editableFields);
+      const parsedRows = dialog.querySelector("[data-bank-paste-order]")?.value === "newest" ? [...sourceRows].reverse() : sourceRows;
+      if (!parsedRows.length) { alert("No se detectaron líneas válidas para importar."); return; }
+      const rows = parsedRows.map((values) => ({ date: values["Fecha Transaccion"] || values.Fecha, data: values }));
+      try {
+        const response = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records/bulk`, { method: "POST", body: JSON.stringify({ rows, createdBy: state.currentUser?.name || "Sistema Gerencial" }) });
+        state.bankAvailability = response.availability;
+        const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`);
+        records.splice(0, records.length, ...refreshed);
+        render();
+        alert(`${response.count} movimientos importados correctamente.`);
+      } catch (error) {
+        alert(error.message || "No se pudo importar el bloque. Revisa las columnas y valores.");
+      }
+    });
     dialog.querySelector("form")?.addEventListener("submit", async (event) => {
       event.preventDefault(); const values = { ...(editing?.data || {}), ...Object.fromEntries(new FormData(event.currentTarget).entries()) };
       editableFields.forEach((field) => { if (bankFieldType(field) === "number") values[field] = Number(values[field] || 0); });
