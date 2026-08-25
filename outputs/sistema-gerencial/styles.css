@@ -18221,6 +18221,15 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-record__actions .quotation-action.view-quotation { border-color: rgba(148, 133, 255, .34); background: linear-gradient(145deg, #6756a8, #473978); }
 .quotation-record__actions .quotation-action.view-order { border-color: rgba(84, 224, 182, .36); background: linear-gradient(145deg, #24765f, #185443); }
 .quotation-record__actions .quotation-action.view-order:disabled { border-color: rgba(137, 151, 172, .18); background: linear-gradient(145deg, #39475c, #2a3548); filter: grayscale(.55); }
+.quotation-record__actions .quotation-action.convert-order {
+  border-color: rgba(84, 224, 182, .52);
+  background: linear-gradient(145deg, #238a6b, #17604d);
+  color: #d9fff3;
+  font-size: .82rem;
+  font-weight: 900;
+}
+.quotation-record__actions .quotation-action.convert-order.is-busy span { animation: quotation-convert-pulse .8s ease-in-out infinite alternate; }
+@keyframes quotation-convert-pulse { to { transform: translateX(4px); opacity: .55; } }
 .quotation-record__actions .quotation-action.edit { border-color: rgba(242, 184, 78, .3); background: linear-gradient(145deg, #8a6328, #68491d); }
 .quotation-record__actions .quotation-action.danger { background: linear-gradient(145deg, #64445a, #4b3042); }
 .quotation-record__actions .quotation-action:hover:not(:disabled) { transform: translateY(-2px) scale(1.04); filter: brightness(1.15); }

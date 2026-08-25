@@ -3800,7 +3800,9 @@ function renderQuotationsModule() {
               <button type="button" class="quotation-action view-detail" data-quotation-module-detail="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Ver detalle" title="Ver detalle"><span aria-hidden="true">👁</span></button>
               <button type="button" class="quotation-action edit" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Editar cotización" title="Editar cotización"><span aria-hidden="true">✏️</span></button>
               <button type="button" class="quotation-action view-quotation" data-quotation-module-document="${escapeHtml(quotation.id)}" aria-label="Ver documento de cotización" title="Ver documento de cotización"><span aria-hidden="true">🧾</span></button>
-              <button type="button" class="quotation-action view-order" ${linkedOrder ? `data-quotation-module-order="${escapeHtml(linkedOrder.id)}"` : "disabled"} aria-label="${linkedOrder ? "Ver orden de pedido" : "Orden de pedido pendiente"}" title="${linkedOrder ? "Ver orden de pedido" : "Aún no existe una orden de pedido"}"><span aria-hidden="true">📋</span></button>
+              ${linkedOrder
+                ? `<button type="button" class="quotation-action view-order" data-quotation-module-order="${escapeHtml(linkedOrder.id)}" aria-label="Ver orden de pedido" title="Ver orden de pedido"><span aria-hidden="true">📋</span></button>`
+                : `<button type="button" class="quotation-action convert-order" data-quotation-module-convert="${escapeHtml(quotation.id)}" aria-label="Convertir en orden de pedido" title="Convertir en orden de pedido"><span aria-hidden="true">OP</span></button>`}
             </div>
           </article>`;
         }).join("")}
@@ -3816,6 +3818,35 @@ function quotationLinkedOrder(quotation = {}) {
       || String(order.sourceQuotationId || "") === String(quotation.id || "")
     )
   )) || null;
+}
+
+function quotationSourceOpportunity(quotation = {}) {
+  const crmRows = state.crmData?.opportunities || [];
+  const crmById = new Map(crmRows.map((opportunity) => [String(opportunity.id), opportunity]));
+  const crmOpportunity = crmById.get(String(quotation.opportunityId || ""));
+  const managementItem = getOpportunitySubmenu().items.find((item) => (
+    String(item.id || "") === String(quotation.opportunityId || "")
+    || String(item.crmOpportunityId || "") === String(quotation.opportunityId || "")
+  ));
+  if (managementItem) {
+    const opportunity = quotationOpportunityFromManagementItem(managementItem, crmById);
+    return { ...opportunity, amount:Number(managementItem.amount ?? opportunity.estimatedAmount ?? 0) };
+  }
+  if (crmOpportunity) {
+    return {
+      ...crmOpportunity,
+      amount:Number(crmOpportunity.estimatedAmount || 0),
+      seller:quotation.seller || crmOwnerName(crmOpportunity.ownerId)
+    };
+  }
+  return {
+    id:quotation.opportunityId || `quotation-${quotation.id}`,
+    company:quotation.customerData?.commercialName || quotation.client || "Cliente sin nombre",
+    seller:quotation.seller || "Sin vendedor",
+    amount:Number(quotation.totalCents || 0) / 100,
+    segment:(quotation.lines || []).find((line) => line.type !== "title")?.description || "",
+    customerId:quotation.customerId || quotation.customerData?.customerId || ""
+  };
 }
 
 function wireQuotationsModule() {
@@ -3842,6 +3873,30 @@ function wireQuotationsModule() {
   }));
   opportunityTable.querySelectorAll("[data-quotation-module-order]").forEach((button) => button.addEventListener("click", () => {
     openControlSalesDetail(button.dataset.quotationModuleOrder, true);
+  }));
+  opportunityTable.querySelectorAll("[data-quotation-module-convert]").forEach((button) => button.addEventListener("click", async () => {
+    const quotation = state.quotations.find((item) => String(item.id) === String(button.dataset.quotationModuleConvert));
+    if (!quotation) return;
+    const linkedOrder = quotationLinkedOrder(quotation);
+    if (linkedOrder) {
+      openControlSalesDetail(linkedOrder.id, true);
+      return;
+    }
+    button.disabled = true;
+    button.classList.add("is-busy");
+    button.setAttribute("aria-label", "Preparando orden de pedido");
+    try {
+      const opportunity = quotationSourceOpportunity(quotation);
+      await prepareQuotationOrderConversion(opportunity, quotation, (syncedOpportunity, syncedQuotation) => {
+        openControlSalesForm(null, null, syncedOpportunity, true, syncedQuotation);
+      });
+    } catch (error) {
+      alert(error.message || "No fue posible preparar la orden de pedido.");
+    } finally {
+      button.disabled = false;
+      button.classList.remove("is-busy");
+      button.setAttribute("aria-label", "Convertir en orden de pedido");
+    }
   }));
   opportunityTable.querySelectorAll("[data-quotation-module-delete]").forEach((button) => button.addEventListener("click", async () => {
     const quotation = state.quotations.find((item) => item.id === button.dataset.quotationModuleDelete);
