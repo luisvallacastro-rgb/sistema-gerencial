@@ -24,6 +24,7 @@ CRM_SEED_PATH = ROOT / "crm-seed.json"
 ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
 PURCHASE_ORDERS_SEED_PATH = ROOT / "purchase-orders-seed.json"
 CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
+BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
@@ -3195,7 +3196,7 @@ def bank_availability_payload(conn):
     accounts = []
     rows = conn.execute("SELECT * FROM bank_accounts WHERE active = 1 ORDER BY bank, account").fetchall()
     for row in rows:
-        latest = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY record_date DESC, created_at DESC LIMIT 1", (row["id"],)).fetchone()
+        latest = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1", (row["id"],)).fetchone()
         accounts.append({
             "id": row["id"], "bank": row["bank"], "account": row["account"],
             "balanceField": row["balance_field"], "fields": json.loads(row["fields"] or "[]"),
@@ -3205,11 +3206,25 @@ def bank_availability_payload(conn):
 
 
 def seed_bank_availability(conn):
-    for account in BANK_AVAILABILITY_SEED:
-        conn.execute("INSERT OR IGNORE INTO bank_accounts (id, bank, account, balance_field, fields) VALUES (?, ?, ?, ?, ?)", (account["id"], account["bank"], account["account"], account["balanceField"], json.dumps(account["fields"], ensure_ascii=False)))
-        if not conn.execute("SELECT 1 FROM bank_balance_records WHERE account_id = ? LIMIT 1", (account["id"],)).fetchone():
-            record = account["record"]
-            conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?)", (f'{account["id"]}-seed', account["id"], record.get("Fecha Transaccion") or record.get("Fecha"), float(record.get(account["balanceField"]) or 0), json.dumps(record, ensure_ascii=False), "Importación Bancos.xlsx"))
+    seed = {"accounts": BANK_AVAILABILITY_SEED}
+    if BANK_AVAILABILITY_SEED_PATH.exists():
+        try:
+            seed = json.loads(BANK_AVAILABILITY_SEED_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    imported = conn.execute("SELECT 1 FROM app_state WHERE key = 'bank_availability_full_xlsx_v1'").fetchone()
+    if not imported:
+        conn.execute("DELETE FROM bank_balance_records WHERE id LIKE 'bank-%-seed'")
+    for account in seed.get("accounts", []):
+        conn.execute("""INSERT INTO bank_accounts (id, bank, account, balance_field, fields) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET bank = excluded.bank, account = excluded.account,
+            balance_field = excluded.balance_field, fields = excluded.fields, updated_at = CURRENT_TIMESTAMP""",
+            (account["id"], account["bank"], account["account"], account["balanceField"], json.dumps(account["fields"], ensure_ascii=False)))
+        records = account.get("records") or ([{"id": f'{account["id"]}-seed', "date": account["record"].get("Fecha Transaccion") or account["record"].get("Fecha"), "sequence": 0, "balance": account["record"].get(account["balanceField"], 0), "data": account["record"]}] if account.get("record") else [])
+        for record in records:
+            conn.execute("INSERT OR IGNORE INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)", (record["id"], account["id"], record["date"], int(record.get("sequence") or 0), float(record.get("balance") or 0), json.dumps(record.get("data") or {}, ensure_ascii=False), "Importación Bancos.xlsx"))
+    if not imported:
+        conn.execute("INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES ('bank_availability_full_xlsx_v1', 'completed', CURRENT_TIMESTAMP)")
 
 
 def init_db():
@@ -3295,12 +3310,15 @@ def init_db():
         conn.execute("""
             CREATE TABLE IF NOT EXISTS bank_balance_records (
                 id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES bank_accounts(id),
-                record_date TEXT NOT NULL, balance REAL NOT NULL DEFAULT 0,
+                record_date TEXT NOT NULL, sequence INTEGER NOT NULL DEFAULT 0, balance REAL NOT NULL DEFAULT 0,
                 data TEXT NOT NULL DEFAULT '{}', created_by TEXT DEFAULT 'Sistema Gerencial',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_balance_latest ON bank_balance_records(account_id, record_date DESC, created_at DESC)")
+        bank_record_columns = {row["name"] for row in conn.execute("PRAGMA table_info(bank_balance_records)").fetchall()}
+        if "sequence" not in bank_record_columns:
+            conn.execute("ALTER TABLE bank_balance_records ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_balance_latest ON bank_balance_records(account_id, record_date DESC, sequence DESC, created_at DESC)")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS financial_orders (
                 id TEXT PRIMARY KEY,
@@ -3715,8 +3733,8 @@ class AppHandler(BaseHTTPRequestHandler):
         if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "records":
             account_id = unquote(bank_parts[2])
             with connect() as conn:
-                rows = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY record_date DESC, created_at DESC", (account_id,)).fetchall()
-            self.send_json([{"id": row["id"], "accountId": row["account_id"], "date": row["record_date"], "balance": row["balance"], "data": json.loads(row["data"] or "{}"), "createdBy": row["created_by"]} for row in rows])
+                rows = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC", (account_id,)).fetchall()
+            self.send_json([{"id": row["id"], "accountId": row["account_id"], "date": row["record_date"], "sequence": row["sequence"], "balance": row["balance"], "data": json.loads(row["data"] or "{}"), "createdBy": row["created_by"]} for row in rows])
             return
 
         if self.path == "/api/financial-orders":
@@ -3971,7 +3989,8 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "La fecha del movimiento es requerida"}, status=400); return
                 balance = float(data.get("balance") or values.get(account["balance_field"]) or 0)
                 record_id = text(data.get("id")) or str(uuid.uuid4())
-                conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?)", (record_id, account_id, record_date, balance, json.dumps(values, ensure_ascii=False), text(data.get("createdBy"), "Sistema Gerencial")))
+                sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
+                conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)", (record_id, account_id, record_date, sequence, balance, json.dumps(values, ensure_ascii=False), text(data.get("createdBy"), "Sistema Gerencial")))
                 payload = bank_availability_payload(conn)
             self.send_json({"ok": True, "availability": payload}, status=201)
             return
