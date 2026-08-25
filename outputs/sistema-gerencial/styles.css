@@ -19931,3 +19931,33 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 
 /* Disponibilidad debe desplazarse completa: evita cortar el cuadro de gastos. */
 .app-shell .commercial-panel.bank-availability-mode{overflow-x:hidden!important;overflow-y:auto!important;scrollbar-gutter:stable;padding-bottom:28px}.app-shell .commercial-panel.bank-availability-mode .opportunity-table{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}.app-shell .commercial-panel.bank-availability-mode .bank-availability-module{height:auto;min-height:max-content;padding-bottom:8px}.pending-expenses-panel{min-height:max-content}.pending-expenses-table{overflow:visible}
+
+/* La vista exclusiva fija la altura del panel: el contenido interno debe desplazarse. */
+.app-shell .dashboard.opportunity-focus .commercial-panel.bank-availability-mode{
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.app-shell .dashboard.opportunity-focus .commercial-panel.bank-availability-mode>.opportunity-table{
+  display:block!important;
+  flex:1 1 auto!important;
+  width:100%;
+  height:100%!important;
+  min-height:0!important;
+  max-height:100%!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+  padding-bottom:28px;
+}
+.app-shell .dashboard.opportunity-focus .commercial-panel.bank-availability-mode .bank-availability-module{
+  height:auto!important;
+  min-height:max-content!important;
+  padding-bottom:12px;
+}
+.app-shell .dashboard.opportunity-focus .commercial-panel.bank-availability-mode .pending-expenses-panel,
+.app-shell .dashboard.opportunity-focus .commercial-panel.bank-availability-mode .pending-expenses-table{
+  height:auto!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
