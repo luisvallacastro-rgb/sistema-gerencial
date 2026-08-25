@@ -8598,7 +8598,7 @@ function numericBankPasteValue(value) {
   return Number.isFinite(parsed) ? (negative ? -parsed : parsed) : 0;
 }
 
-function parseBankPasteBlock(raw, editableFields) {
+function parseBankPasteBlock(raw, editableFields, allFields = editableFields) {
   const rows = String(raw || "").split(/\r?\n/).map((line) => line.split("\t")).filter((cells) => cells.some((cell) => cell.trim()));
   if (!rows.length) return [];
   const normalizedFields = editableFields.map((field) => normalizeKey(field));
@@ -8607,8 +8607,9 @@ function parseBankPasteBlock(raw, editableFields) {
   const headers = hasHeader ? first : normalizedFields;
   return rows.slice(hasHeader ? 1 : 0).map((cells) => {
     const data = {};
+    const positionalFields = cells.length > editableFields.length ? allFields : editableFields;
     editableFields.forEach((field, fieldIndex) => {
-      const sourceIndex = hasHeader ? headers.indexOf(normalizeKey(field)) : fieldIndex;
+      const sourceIndex = hasHeader ? headers.indexOf(normalizeKey(field)) : positionalFields.indexOf(field);
       let value = sourceIndex >= 0 ? String(cells[sourceIndex] ?? "").trim() : "";
       if (bankFieldType(field) === "number") value = numericBankPasteValue(value);
       if (/fecha/i.test(field)) value = normalizeBankPasteDate(value);
@@ -8635,7 +8636,7 @@ async function openBankMaintenance(accountId) {
     const openingBalance = olderRecord ? Number(olderRecord.balance || 0) : editing ? Number(editing.balance || 0) - Number(editing.data[inflowField] || 0) + Number(editing.data[outflowField] || 0) : 0;
     dialog.innerHTML = `<div class="bank-maintenance-shell"><header><div><span>Movimientos bancarios</span><h2>${escapeHtml(account.bank)}</h2><p>${escapeHtml(account.account)} · ${records.length} movimientos</p></div><button type="button" data-bank-close aria-label="Cerrar">×</button></header>
       <section class="bank-maintenance-summary"><div><small>Último saldo</small><strong>${formatMoney((records[0] || account.latest)?.balance || 0)}</strong><span>${records[0] ? formatDate(records[0].date) : "Sin movimientos"}</span></div><aside><button type="button" data-bank-paste>▦ Pegar desde Excel</button><button type="button" data-bank-new>＋ Agregar línea</button></aside></section>
-      ${bulkOpen ? `<form class="bank-bulk-form"><header><div><h3>Pegar movimientos desde Excel</h3><p>Columnas esperadas: ${editableFields.map(escapeHtml).join(" · ")}. Puedes incluir los encabezados.</p></div><strong data-bank-paste-count>0 líneas detectadas</strong></header><textarea data-bank-paste-input placeholder="Copia las filas en Excel y pégalas aquí" required></textarea><footer><label>Orden del bloque<select data-bank-paste-order><option value="newest">Más reciente arriba</option><option value="oldest">Más antigua arriba</option></select></label><span>El correlativo y el saldo se calcularán automáticamente.</span><div><button type="button" data-bank-paste-cancel>Cancelar</button><button type="submit">Importar bloque</button></div></footer></form>` : ""}
+      ${bulkOpen ? `<form class="bank-bulk-form"><header><div><h3>Pegar movimientos desde Excel</h3><p>Pega las filas completas del estado de cuenta. Hora/Correlativo y Saldo se ignorarán porque el sistema los calcula.</p></div><strong data-bank-paste-count>0 líneas detectadas</strong></header><textarea data-bank-paste-input placeholder="Copia las filas en Excel y pégalas aquí" required></textarea><footer><label>Orden del bloque<select data-bank-paste-order><option value="newest">Más reciente arriba</option><option value="oldest">Más antigua arriba</option></select></label><span>Campos: ${account.fields.map(escapeHtml).join(" · ")}</span><div><button type="button" data-bank-paste-cancel>Cancelar</button><button type="submit">Importar bloque</button></div></footer></form>` : ""}
       ${formOpen ? `<form class="bank-record-form bank-inline-form"><div class="bank-inline-form-title"><h3>${editing ? "Editar línea" : "Nueva línea"}</h3>${autoCorrelative ? `<span>Correlativo automático${editing ? ` · ${escapeHtml(editing.data.Correlativo ?? editing.sequence ?? "")}` : ""}</span>` : ""}</div><div class="bank-inline-entry" style="grid-template-columns:${editableFields.map((field) => `${bankFieldWeight(field)}fr`).join(" ")} 12fr auto">${editableFields.map((field) => {
           const type = bankFieldType(field); const required = field === account.balanceField || field === "Fecha" || field === "Fecha Transaccion";
           return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} value="${escapeHtml(editing?.data?.[field] ?? "")}" ${required ? "required" : ""}></label>`;
@@ -8662,7 +8663,7 @@ async function openBankMaintenance(accountId) {
     refreshCalculatedBalance();
     const pasteInput = dialog.querySelector("[data-bank-paste-input]");
     const refreshPasteCount = () => {
-      const count = parseBankPasteBlock(pasteInput?.value, editableFields).length;
+      const count = parseBankPasteBlock(pasteInput?.value, editableFields, account.fields).length;
       const output = dialog.querySelector("[data-bank-paste-count]");
       if (output) output.textContent = `${count} ${count === 1 ? "línea detectada" : "líneas detectadas"}`;
       return count;
@@ -8671,7 +8672,7 @@ async function openBankMaintenance(accountId) {
     pasteInput?.focus();
     dialog.querySelector(".bank-bulk-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const sourceRows = parseBankPasteBlock(pasteInput.value, editableFields);
+      const sourceRows = parseBankPasteBlock(pasteInput.value, editableFields, account.fields);
       const parsedRows = dialog.querySelector("[data-bank-paste-order]")?.value === "newest" ? [...sourceRows].reverse() : sourceRows;
       if (!parsedRows.length) { alert("No se detectaron líneas válidas para importar."); return; }
       const rows = parsedRows.map((values) => ({ date: values["Fecha Transaccion"] || values.Fecha, data: values }));
