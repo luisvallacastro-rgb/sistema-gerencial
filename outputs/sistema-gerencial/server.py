@@ -36,8 +36,8 @@ CRM_SELLER_ACCOUNT_LINKS = {
     "asesorayc konfinversiones com": "u-xlsx-gabriela-amador",
     "asesorayc": "u-xlsx-gabriela-amador",
     "marjorie morales": "u-xlsx-marjorie-morales",
-    "asesor arteycolor gmail com": "u-xlsx-marjorie-morales",
-    "asesor arteycolor": "u-xlsx-marjorie-morales",
+    "asesor3 arteycolor gmail com": "u-xlsx-marjorie-morales",
+    "asesor3 arteycolor": "u-xlsx-marjorie-morales",
 }
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
@@ -2685,6 +2685,30 @@ def grant_johanna_minutes_permissions(conn):
         )
 
 
+def correct_marjorie_account_email_once(conn):
+    """Correct Marjorie's login email without changing access or CRM ownership."""
+    migration_key = "maintenance.correct-marjorie-email.2026-08-25.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    rows = conn.execute("SELECT id, name, username, email FROM users").fetchall()
+    for row in rows:
+        identity = " ".join([
+            crm_identity_key(row["name"]),
+            crm_identity_key(row["username"]),
+            crm_identity_key(row["email"]),
+        ])
+        if "marjorie" not in identity or "morales" not in identity:
+            continue
+        conn.execute(
+            "UPDATE users SET email = ? WHERE id = ?",
+            ("asesor3.arteycolor@gmail.com", row["id"]),
+        )
+    conn.execute(
+        "INSERT INTO app_state (key, value) VALUES (?, ?)",
+        (migration_key, "completed"),
+    )
+
+
 def purge_luis_valladares_test_flow_once(conn):
     """Remove the existing Luis Valladares test flow once, preserving his user account."""
     marker_key = "maintenance.purge-luis-valladares-flow.2026-08-07.v1"
@@ -3738,6 +3762,7 @@ def init_db():
         grant_purchase_order_permissions(conn)
         seed_control_sales(conn)
         grant_control_sales_permissions(conn)
+        correct_marjorie_account_email_once(conn)
         for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
             if row["role"] not in {"gerencias", "jefaturas"}:
                 continue
