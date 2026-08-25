@@ -11036,7 +11036,7 @@ function restoreNavigationState(user = state.currentUser) {
 
 function normalizeUsers(items) {
   const source = Array.isArray(items) && items.length ? items : defaultUsers;
-  const byCredential = new Map();
+  const byId = new Map();
 
   const addUser = (item, index) => {
     const email = String(item.email || "").trim();
@@ -11066,16 +11066,18 @@ function normalizeUsers(items) {
           ? normalizePermissionList(item.permissions, role)
           : defaultPermissionsForRole(role)
     };
-    byCredential.set(normalizedEmail || normalizedUsername || user.id, user);
+    // El correo puede repetirse en registros heredados. La cuenta del sistema
+    // se identifica por su id para no ocultar usuarios distintos en el panel.
+    byId.set(String(user.id), user);
   };
 
   source.forEach(addUser);
 
-  if (![...byCredential.values()].some((user) => normalizeKey(user.email) === adminEmail)) {
+  if (![...byId.values()].some((user) => normalizeKey(user.email) === adminEmail)) {
     addUser(defaultUsers[0], source.length);
   }
 
-  return [...byCredential.values()];
+  return [...byId.values()];
 }
 
 function loadUsers() {
@@ -11373,12 +11375,12 @@ registerForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const username = registerUser.value.trim();
   const email = registerEmail.value.trim();
-  const exists = systemUsers.some((user) =>
-    normalizeKey(user.username) === normalizeKey(username) ||
-    normalizeKey(user.email) === normalizeKey(email)
-  );
-  if (exists) {
-    alert("Este usuario ya existe.");
+  const usernameOwner = systemUsers.find((user) => normalizeKey(user.username) === normalizeKey(username));
+  const emailOwner = systemUsers.find((user) => normalizeKey(user.email) === normalizeKey(email));
+  const conflict = usernameOwner || emailOwner;
+  if (conflict) {
+    const field = usernameOwner ? "usuario" : "correo";
+    alert(`El ${field} ya está registrado en la cuenta de ${conflict.name}. Solicita el restablecimiento de contraseña desde Administración → Usuarios.`);
     return;
   }
 
