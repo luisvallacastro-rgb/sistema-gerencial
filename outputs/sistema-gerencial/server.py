@@ -27,7 +27,7 @@ CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-production-schedule-range-v2"
+API_VERSION = "kmi-bank-availability-v1"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -41,7 +41,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "crm-seguimiento", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi"],
-    "financiera": ["resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
+    "financiera": ["disponibilidad", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal"],
     "rrhh": [],
 }
@@ -1315,6 +1315,7 @@ def default_permissions_for_role(role):
             *[f"comercializacion:{section}" for section in AREA_SECTION_KEYS["comercializacion"]],
             "financiera:resultados",
             "comercializacion:resultados-pedidos",
+            "financiera:disponibilidad",
             "financiera:resultados-cuentas-por-cobrar",
             "financiera:resultados-ordenes-de-pedido",
             *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
@@ -3181,6 +3182,36 @@ def repair_edgar_admin_seller_assignments_once(conn):
     print(f"Reparación de vendedor administrativo completada: {summary}")
 
 
+BANK_AVAILABILITY_SEED = [
+    {"id": "bank-agricola", "bank": "Banco Agrícola", "account": "Cuenta corriente", "balanceField": "Saldo", "fields": ["Fecha Transaccion", "Fecha Aplicada", "Hora", "Transaccion", "Canal", "Referencia", "Cargo", "Abono", "Saldo", "Comentario"], "record": {"Fecha Transaccion": "2026-08-24", "Fecha Aplicada": "2026-08-24", "Hora": "16:55", "Transaccion": "PAGO DE CHEQUE", "Canal": "AGENCIA SOYAPANGO", "Referencia": "8479", "Cargo": 220.61, "Abono": 0, "Saldo": 5394.66, "Comentario": ""}},
+    {"id": "bank-hipotecario", "bank": "Banco Hipotecario", "account": "Cuenta bancaria", "balanceField": "Saldo (US$)", "fields": ["No.", "Fecha", "Tipo", "Descripción", "No. Doc", "Cargo (US$)", "Abono (US$)", "Saldo (US$)", "Comentario"], "record": {"No.": 165, "Fecha": "2026-08-21", "Tipo": "AB", "Descripción": "NOTA DE CREDITO DE CAJERO LBTR · TRASLADO DE FONDOS ENTRE CUENTAS", "No. Doc": "", "Cargo (US$)": 0, "Abono (US$)": 407.64, "Saldo (US$)": 41627.95, "Comentario": ""}},
+    {"id": "bank-bac", "bank": "BAC", "account": "Cuenta bancaria", "balanceField": "Balance*", "fields": ["Fecha", "Referencia", "Correlativo", "Código", "Descripción", "Columna1", "Columna2", "Débitos", "Créditos", "Balance*", "Comentario"], "record": {"Fecha": "2026-08-22", "Referencia": "205479908", "Correlativo": 323, "Código": "TF", "Descripción": "TEF DE: CORPORACION TRINYPLASTI", "Columna1": "", "Columna2": "", "Débitos": 0, "Créditos": 1284.24, "Balance*": 6789.45, "Comentario": ""}},
+    {"id": "bank-azul-laboral", "bank": "Banco Azul", "account": "Provisiones laborales", "balanceField": "Saldo disponible($)", "fields": ["Fecha", "Descripción", "Referencia", "Abono($)", "Cargo($)", "Saldo disponible($)", "Correlativo"], "record": {"Fecha": "2026-08-20", "Descripción": "Traslado Provisiones Laborales Agosto 2026", "Referencia": "", "Abono($)": 0, "Cargo($)": 0, "Saldo disponible($)": 30046.55, "Correlativo": 116}},
+    {"id": "bank-azul-fiscal", "bank": "Banco Azul", "account": "Provisiones fiscales", "balanceField": "Saldo disponible($)", "fields": ["Fecha", "Descripción", "Referencia", "Abono($)", "Cargo($)", "Saldo disponible($)", "Correlativo"], "record": {"Fecha": "2026-08-20", "Descripción": "Traslado Provisiones Fiscales Agosto 2026", "Referencia": "FT26231JVPN2", "Abono($)": 3537.29, "Cargo($)": 0, "Saldo disponible($)": 17951.21, "Correlativo": 110}},
+]
+
+
+def bank_availability_payload(conn):
+    accounts = []
+    rows = conn.execute("SELECT * FROM bank_accounts WHERE active = 1 ORDER BY bank, account").fetchall()
+    for row in rows:
+        latest = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY record_date DESC, created_at DESC LIMIT 1", (row["id"],)).fetchone()
+        accounts.append({
+            "id": row["id"], "bank": row["bank"], "account": row["account"],
+            "balanceField": row["balance_field"], "fields": json.loads(row["fields"] or "[]"),
+            "latest": ({"id": latest["id"], "date": latest["record_date"], "balance": latest["balance"], "data": json.loads(latest["data"] or "{}")}) if latest else None,
+        })
+    return {"accounts": accounts, "total": round(sum(float((item.get("latest") or {}).get("balance") or 0) for item in accounts), 2)}
+
+
+def seed_bank_availability(conn):
+    for account in BANK_AVAILABILITY_SEED:
+        conn.execute("INSERT OR IGNORE INTO bank_accounts (id, bank, account, balance_field, fields) VALUES (?, ?, ?, ?, ?)", (account["id"], account["bank"], account["account"], account["balanceField"], json.dumps(account["fields"], ensure_ascii=False)))
+        if not conn.execute("SELECT 1 FROM bank_balance_records WHERE account_id = ? LIMIT 1", (account["id"],)).fetchone():
+            record = account["record"]
+            conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?)", (f'{account["id"]}-seed', account["id"], record.get("Fecha Transaccion") or record.get("Fecha"), float(record.get(account["balanceField"]) or 0), json.dumps(record, ensure_ascii=False), "Importación Bancos.xlsx"))
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -3253,6 +3284,23 @@ def init_db():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_accounts_receivable_customer ON accounts_receivable(customer_name)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_accounts_receivable_invoice ON accounts_receivable(invoice_number)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS bank_accounts (
+                id TEXT PRIMARY KEY, bank TEXT NOT NULL, account TEXT NOT NULL,
+                balance_field TEXT NOT NULL, fields TEXT NOT NULL DEFAULT '[]',
+                active INTEGER NOT NULL DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS bank_balance_records (
+                id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES bank_accounts(id),
+                record_date TEXT NOT NULL, balance REAL NOT NULL DEFAULT 0,
+                data TEXT NOT NULL DEFAULT '{}', created_by TEXT DEFAULT 'Sistema Gerencial',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_balance_latest ON bank_balance_records(account_id, record_date DESC, created_at DESC)")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS financial_orders (
                 id TEXT PRIMARY KEY,
@@ -3532,6 +3580,7 @@ def init_db():
         migrate_consolidated_permissions(conn)
         grant_johanna_minutes_permissions(conn)
         seed_accounts_receivable(conn)
+        seed_bank_availability(conn)
         seed_purchase_orders(conn)
         recover_purchase_orders_if_empty(conn)
         grant_purchase_order_permissions(conn)
@@ -3655,6 +3704,19 @@ class AppHandler(BaseHTTPRequestHandler):
                              days_outstanding DESC, invoice_date DESC, invoice_number DESC
                 """).fetchall()
             self.send_json([receivable_payload(row) for row in rows])
+            return
+
+        if self.path == "/api/bank-availability":
+            with connect() as conn:
+                self.send_json(bank_availability_payload(conn))
+            return
+
+        bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
+        if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "records":
+            account_id = unquote(bank_parts[2])
+            with connect() as conn:
+                rows = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY record_date DESC, created_at DESC", (account_id,)).fetchall()
+            self.send_json([{"id": row["id"], "accountId": row["account_id"], "date": row["record_date"], "balance": row["balance"], "data": json.loads(row["data"] or "{}"), "createdBy": row["created_by"]} for row in rows])
             return
 
         if self.path == "/api/financial-orders":
@@ -3895,6 +3957,25 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
+        bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
+        if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "records":
+            account_id = unquote(bank_parts[2])
+            data = self.read_json()
+            with connect() as conn:
+                account = conn.execute("SELECT * FROM bank_accounts WHERE id = ?", (account_id,)).fetchone()
+                if not account:
+                    self.send_json({"error": "Cuenta bancaria no encontrada"}, status=404); return
+                values = data.get("data") if isinstance(data.get("data"), dict) else {}
+                record_date = text(data.get("date") or values.get("Fecha Transaccion") or values.get("Fecha"))
+                if not record_date:
+                    self.send_json({"error": "La fecha del movimiento es requerida"}, status=400); return
+                balance = float(data.get("balance") or values.get(account["balance_field"]) or 0)
+                record_id = text(data.get("id")) or str(uuid.uuid4())
+                conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?)", (record_id, account_id, record_date, balance, json.dumps(values, ensure_ascii=False), text(data.get("createdBy"), "Sistema Gerencial")))
+                payload = bank_availability_payload(conn)
+            self.send_json({"ok": True, "availability": payload}, status=201)
+            return
+
         if self.path == "/api/quotations":
             data = self.read_json()
             try:
@@ -4104,6 +4185,22 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": "No se pudo generar el identificador interno de la cotizacion"}, status=409)
                 return
             self.send_json({"ok": True, "item": item})
+            return
+
+        bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
+        if len(bank_parts) == 4 and bank_parts[:3] == ["api", "bank-availability", "records"]:
+            record_id = unquote(bank_parts[3])
+            data = self.read_json()
+            with connect() as conn:
+                row = conn.execute("SELECT r.*, a.balance_field FROM bank_balance_records r JOIN bank_accounts a ON a.id = r.account_id WHERE r.id = ?", (record_id,)).fetchone()
+                if not row:
+                    self.send_json({"error": "Movimiento bancario no encontrado"}, status=404); return
+                values = data.get("data") if isinstance(data.get("data"), dict) else {}
+                record_date = text(data.get("date") or values.get("Fecha Transaccion") or values.get("Fecha") or row["record_date"])
+                balance = float(data.get("balance") or values.get(row["balance_field"]) or 0)
+                conn.execute("UPDATE bank_balance_records SET record_date = ?, balance = ?, data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (record_date, balance, json.dumps(values, ensure_ascii=False), record_id))
+                payload = bank_availability_payload(conn)
+            self.send_json({"ok": True, "availability": payload})
             return
 
         if self.path == "/api/opportunities":
@@ -4365,6 +4462,16 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def handle_api_delete(self):
+        bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
+        if len(bank_parts) == 4 and bank_parts[:3] == ["api", "bank-availability", "records"]:
+            record_id = unquote(bank_parts[3])
+            with connect() as conn:
+                result = conn.execute("DELETE FROM bank_balance_records WHERE id = ?", (record_id,))
+                if not result.rowcount:
+                    self.send_json({"error": "Movimiento bancario no encontrado"}, status=404); return
+                payload = bank_availability_payload(conn)
+            self.send_json({"ok": True, "availability": payload})
+            return
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
             return

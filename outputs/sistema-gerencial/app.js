@@ -67,6 +67,7 @@ const areas = {
     nav: "Financiera",
     status: "Controlado",
     submenus: [
+      { key: "disponibilidad", label: "Disponibilidad", status: "Saldos bancarios consolidados", items: [] },
       { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
       { key: "resultados-ordenes-de-pedido", label: "Órdenes de Pedido", status: "Control de producción y entregas", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
@@ -298,6 +299,8 @@ const state = {
   operationsPresentationYear: String(new Date().getFullYear()),
   operationsPresentationSection: 0,
   financialPresentationSection: 0,
+  bankAvailability: { accounts: [], total: 0 },
+  bankAvailabilityQuery: "",
   financialOrders: [],
   financialOrderQuery: "",
   financialOrderPage: 1,
@@ -1082,6 +1085,7 @@ function defaultPermissionsForRole(role) {
       ...areaPermissionSections("comercializacion")
         .map((section) => permissionKey("comercializacion", section.key)),
       permissionKey("comercializacion", "resultados-pedidos"),
+      permissionKey("financiera", "disponibilidad"),
       permissionKey("financiera", "resultados-cuentas-por-cobrar"),
       permissionKey("financiera", "resultados-ordenes-de-pedido"),
       ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
@@ -5086,6 +5090,15 @@ function wirePurchaseOrders() {
   });
 }
 
+function loadBankAvailability() {
+  if (!apiEnabled) return Promise.resolve(state.bankAvailability);
+  return apiJson("/api/bank-availability").then((payload) => {
+    state.bankAvailability = payload && Array.isArray(payload.accounts) ? payload : { accounts: [], total: 0 };
+    if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
+    return state.bankAvailability;
+  }).catch(() => state.bankAvailability);
+}
+
 function loadAccountsReceivable() {
   if (!apiEnabled) return;
   apiJson("/api/accounts-receivable")
@@ -8504,6 +8517,77 @@ function openOpportunityReportDialog() {
   refreshPreview();
 }
 
+function renderBankAvailability() {
+  const query = normalizeKey(state.bankAvailabilityQuery || "");
+  const accounts = (state.bankAvailability.accounts || []).filter((item) => normalizeKey(`${item.bank} ${item.account}`).includes(query));
+  const rows = accounts.map((item) => `<article class="bank-availability-row">
+    <div class="bank-availability-identity"><span class="bank-logo-mark">${escapeHtml(item.bank.split(" ").map((word) => word[0]).join("").slice(0, 2))}</span><div><strong>${escapeHtml(item.bank)}</strong><small>${escapeHtml(item.account)}</small></div></div>
+    <div><small>Última actualización</small><strong>${item.latest ? formatDate(item.latest.date) : "Sin movimientos"}</strong></div>
+    <div class="bank-availability-balance"><small>Saldo disponible</small><strong>${formatMoney(item.latest?.balance || 0)}</strong></div>
+    <button class="bank-maintenance-btn" type="button" data-bank-maintenance="${escapeHtml(item.id)}" aria-label="Administrar movimientos de ${escapeHtml(item.bank)}"><span>↗</span> Administrar</button>
+  </article>`).join("");
+  return `<section class="bank-availability-module">
+    <header class="bank-availability-hero"><div><span class="eyebrow">Tesorería · Bancos</span><h2>Disponibilidad</h2><p>Último saldo registrado por cuenta bancaria.</p></div><article><small>Disponibilidad total</small><strong>${formatMoney(state.bankAvailability.total || 0)}</strong><span>${state.bankAvailability.accounts?.length || 0} cuentas consolidadas</span></article></header>
+    <div class="bank-availability-toolbar"><label>⌕<input type="search" data-bank-search value="${escapeHtml(state.bankAvailabilityQuery)}" placeholder="Buscar banco o cuenta..."></label><button type="button" data-bank-refresh>↻ Actualizar saldos</button></div>
+    <div class="bank-availability-head"><span>Banco / cuenta</span><span>Última fecha</span><span>Saldo</span><span>Acciones</span></div>
+    <div class="bank-availability-list">${rows || `<p class="bank-empty">No hay cuentas que coincidan con la búsqueda.</p>`}</div>
+    <footer><span><i></i> Fuente inicial: Bancos.xlsx</span><strong>${accounts.length} de ${state.bankAvailability.accounts?.length || 0} cuentas</strong></footer>
+  </section>`;
+}
+
+function bankFieldType(field) {
+  if (/fecha/i.test(field)) return "date";
+  if (/cargo|abono|saldo|balance|d[eé]bito|cr[eé]dito/i.test(field)) return "number";
+  if (/hora/i.test(field)) return "time";
+  return "text";
+}
+
+async function openBankMaintenance(accountId) {
+  const account = (state.bankAvailability.accounts || []).find((item) => item.id === accountId);
+  if (!account) return;
+  const records = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`).catch(() => []);
+  document.querySelector("#bankMaintenanceDialog")?.remove();
+  const dialog = document.createElement("dialog");
+  dialog.id = "bankMaintenanceDialog";
+  dialog.className = "bank-maintenance-dialog";
+  const render = (editing = null) => {
+    const data = editing?.data || {};
+    dialog.innerHTML = `<form class="bank-maintenance-shell"><header><div><span>Disponibilidad · ${escapeHtml(account.bank)}</span><h2>${escapeHtml(account.account)}</h2><p>Mantenimiento con la estructura original de esta cuenta.</p></div><button type="button" data-bank-close aria-label="Cerrar">×</button></header>
+      <section class="bank-maintenance-summary"><div><small>Saldo actual</small><strong>${formatMoney((records[0] || account.latest)?.balance || 0)}</strong></div><button type="button" data-bank-new>＋ Nuevo movimiento</button></section>
+      <div class="bank-maintenance-body">
+        <section class="bank-record-form ${editing ? "is-editing" : "is-new"}"><h3>${editing ? "Editar movimiento" : "Nuevo movimiento"}</h3><input type="hidden" name="recordId" value="${escapeHtml(editing?.id || "")}"><div class="bank-field-grid">${account.fields.map((field) => {
+          const type = bankFieldType(field); const value = data[field] ?? ""; const required = field === account.balanceField || field === "Fecha" || field === "Fecha Transaccion";
+          return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} value="${escapeHtml(value)}" ${required ? "required" : ""}></label>`;
+        }).join("")}</div><div class="bank-form-actions"><button type="button" data-bank-cancel>Limpiar</button><button type="submit">${editing ? "Guardar cambios" : "Agregar movimiento"}</button></div></section>
+        <section class="bank-record-history"><div><h3>Historial registrado</h3><span>${records.length} movimientos</span></div><div class="bank-record-scroll">${records.map((record) => `<article><div><strong>${formatDate(record.date)}</strong><small>${escapeHtml(record.data.Transaccion || record.data.Descripción || record.data.Descripcion || "Movimiento bancario")}</small></div><strong>${formatMoney(record.balance)}</strong><div><button type="button" data-bank-record-edit="${escapeHtml(record.id)}" title="Editar">✎</button><button type="button" data-bank-record-delete="${escapeHtml(record.id)}" title="Eliminar">⌫</button></div></article>`).join("") || "<p>Sin movimientos registrados.</p>"}</div></section>
+      </div></form>`;
+    dialog.querySelector("[data-bank-close]").onclick = () => dialog.close();
+    dialog.querySelector("[data-bank-new]").onclick = () => render();
+    dialog.querySelector("[data-bank-cancel]").onclick = () => render();
+    dialog.querySelectorAll("[data-bank-record-edit]").forEach((button) => button.onclick = () => render(records.find((item) => item.id === button.dataset.bankRecordEdit)));
+    dialog.querySelectorAll("[data-bank-record-delete]").forEach((button) => button.onclick = async () => {
+      if (!confirm("¿Eliminar este movimiento bancario?")) return;
+      await apiJson(`/api/bank-availability/records/${encodeURIComponent(button.dataset.bankRecordDelete)}`, { method: "DELETE" });
+      const index = records.findIndex((item) => item.id === button.dataset.bankRecordDelete); if (index >= 0) records.splice(index, 1);
+      await loadBankAvailability(); render();
+    });
+    dialog.querySelector("form").onsubmit = async (event) => {
+      event.preventDefault(); const form = event.currentTarget; const values = Object.fromEntries(new FormData(form).entries()); const recordId = values.recordId; delete values.recordId;
+      account.fields.forEach((field) => { if (bankFieldType(field) === "number") values[field] = Number(values[field] || 0); });
+      const date = values["Fecha Transaccion"] || values.Fecha; const balance = Number(values[account.balanceField] || 0);
+      const response = await apiJson(recordId ? `/api/bank-availability/records/${encodeURIComponent(recordId)}` : `/api/bank-availability/${encodeURIComponent(account.id)}/records`, { method: recordId ? "PUT" : "POST", body: JSON.stringify({ date, balance, data: values, createdBy: state.currentUser?.name || "Sistema Gerencial" }) });
+      state.bankAvailability = response.availability; const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`); records.splice(0, records.length, ...refreshed); render();
+    };
+  };
+  document.body.append(dialog); dialog.addEventListener("close", () => { dialog.remove(); renderCommercialSubmenu(areas.financiera); }, { once: true }); render(); dialog.showModal();
+}
+
+function wireBankAvailability() {
+  document.querySelector("[data-bank-search]")?.addEventListener("input", (event) => { state.bankAvailabilityQuery = event.target.value; renderCommercialSubmenu(areas.financiera); const input = document.querySelector("[data-bank-search]"); input?.focus(); input?.setSelectionRange(input.value.length, input.value.length); });
+  document.querySelector("[data-bank-refresh]")?.addEventListener("click", loadBankAvailability);
+  document.querySelectorAll("[data-bank-maintenance]").forEach((button) => button.addEventListener("click", () => openBankMaintenance(button.dataset.bankMaintenance)));
+}
+
 function renderCommercialSubmenu(area) {
   if (!Array.isArray(area.submenus)) {
     commercialPanel.classList.add("hidden");
@@ -8535,6 +8619,13 @@ function renderCommercialSubmenu(area) {
     opportunityTable.innerHTML = renderQuotationsModule();
     wireQuotationsModule();
     return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "disponibilidad") {
+    newOpportunityBtn.classList.add("hidden"); newRiskBtn.classList.add("hidden"); newManagementRequestBtn.classList.add("hidden"); goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = `${state.bankAvailability.accounts?.length || 0} cuentas · ${formatMoney(state.bankAvailability.total || 0)}`;
+    opportunityTable.innerHTML = renderBankAvailability(); wireBankAvailability(); return;
   }
 
   if (state.activeArea === "comercializacion" && submenu.key === "autorizacion-pedidos") {
@@ -12585,6 +12676,7 @@ loadFinancialOrderFilters();
 loadControlSalesPeriod();
 loadFinancialOrders();
 syncFinancialOrdersWithApi();
+loadBankAvailability();
 loadAccountsReceivable();
 loadPurchaseOrders();
 loadControlSales();
