@@ -366,7 +366,7 @@ const adminConsolidatedPermissionSections = [
 ];
 const adminManagementPermissionSections = [
   { key: "permisos", label: "Asignación de permisos" },
-  { key: "vendedores", label: "Administración de vendedores" }
+  { key: "vendedores", label: "Administración de usuarios" }
 ];
 areas[adminAreaKey] = {
   label: "Administracion",
@@ -374,7 +374,7 @@ areas[adminAreaKey] = {
   status: "Usuarios",
   submenus: [
     { key: "permisos", label: "Permisos" },
-    { key: "vendedores", label: "Vendedores" },
+    { key: "vendedores", label: "Usuarios" },
     { key: "actas", label: "Actas" },
     { key: "riesgos", label: "Riesgos", status: "Consolidado de todas las gerencias" },
     { key: "solicitudes", label: "Solicitudes", status: "Consolidado de todas las gerencias" },
@@ -10273,53 +10273,32 @@ function adminSellerInitials(name = "") {
 }
 
 function renderAdminSellersPanel() {
-  const sellers = [...crmMasterSalesUsers({ includeInactive: true })].sort((a, b) => {
-    return Number(isActiveCrmSeller(b)) - Number(isActiveCrmSeller(a)) || String(a.name).localeCompare(String(b.name));
-  });
+  const users = [...systemUsers].sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const query = normalizeKey(state.adminSellerQuery);
-  const filtered = sellers.filter((seller) => {
-    const accessUser = crmSellerLinkedSystemUser(seller);
-    return !query || normalizeKey([seller.name, seller.email, seller.username, seller.phone, seller.territory, accessUser?.name, accessUser?.email, accessUser?.username].join(" ")).includes(query);
-  });
-  const editing = sellers.find((seller) => seller.id === state.adminSellerEditingId) || null;
-  const activeCount = sellers.filter(isActiveCrmSeller).length;
-  const references = editing ? crmSellerReferenceCount(editing.id) : 0;
-  const linkedSystemUser = editing ? crmSellerLinkedSystemUser(editing) : null;
+  const filtered = users.filter((user) => !query || normalizeKey([user.name, user.email, user.username, roleDisplayName(user.role)].join(" ")).includes(query));
+  const selected = users.find((user) => user.id === state.adminSellerEditingId) || filtered[0] || null;
+  const sellerCount = users.filter((user) => user.role === "vendedores").length;
+  const linkedSeller = selected ? crmMasterSalesUsers({ includeInactive: true }).find((seller) => crmSellerLinkedSystemUser(seller)?.id === selected.id) : null;
   return `<section class="seller-admin-shell">
     <header class="seller-admin-hero">
-      <div><span>Catálogo maestro</span><h2>Vendedores</h2><p>Una sola fuente para oportunidades, seguimiento, cotizaciones, pedidos y filtros.</p></div>
-      <div class="seller-admin-stats"><span><strong>${activeCount}</strong>Activos</span><span><strong>${sellers.length - activeCount}</strong>Inactivos</span><span><strong>${sellers.length}</strong>Total</span></div>
+      <div><span>Control de acceso</span><h2>Usuarios</h2><p>Cuentas registradas, perfiles y administración segura de contraseñas.</p></div>
+      <div class="seller-admin-stats"><span><strong>${users.length}</strong>Total</span><span><strong>${sellerCount}</strong>Vendedores</span><span><strong>${users.length - sellerCount}</strong>Otros perfiles</span></div>
     </header>
     <div class="seller-admin-layout">
       <aside class="seller-admin-directory">
-        <div class="seller-admin-tools"><label><span>⌕</span><input id="adminSellerSearch" type="search" value="${escapeHtml(state.adminSellerQuery)}" placeholder="Buscar vendedor..."></label><button type="button" data-seller-action="new">+ Nuevo</button></div>
-        <div class="seller-admin-list">${filtered.length ? filtered.map((seller) => {
-          const linked = crmSellerReferenceCount(seller.id);
-          const accessUser = crmSellerLinkedSystemUser(seller);
-          return `<button type="button" class="seller-admin-item ${editing?.id === seller.id ? "is-selected" : ""} ${isActiveCrmSeller(seller) ? "" : "is-inactive"}" data-seller-action="edit" data-seller-id="${escapeHtml(seller.id)}">
-            <i>${escapeHtml(adminSellerInitials(seller.name))}</i><span><strong>${escapeHtml(seller.name)}</strong><small>${escapeHtml(accessUser?.username || seller.email || seller.phone || "Sin contacto")}</small></span>
-            <em class="${accessUser ? "has-access" : "no-access"}">${accessUser ? "Usuario registrado" : linked ? `${linked} vínculos` : "Sin acceso"}</em>
+        <div class="seller-admin-tools"><label><span>⌕</span><input id="adminSellerSearch" type="search" value="${escapeHtml(state.adminSellerQuery)}" placeholder="Buscar usuario..."></label><button type="button" data-user-directory-action="new">+ Nuevo</button></div>
+        <div class="seller-admin-list">${filtered.length ? filtered.map((user) => {
+          return `<button type="button" class="seller-admin-item ${selected?.id === user.id ? "is-selected" : ""}" data-user-directory-action="select" data-user-id="${escapeHtml(user.id)}">
+            <i>${escapeHtml(adminUserInitials(user))}</i><span><strong>${escapeHtml(user.name)}</strong><small>${escapeHtml(user.username || user.email || "Sin usuario")}</small></span>
+            <em class="has-access">${escapeHtml(roleDisplayName(user.role))}</em>
           </button>`;
-        }).join("") : `<div class="seller-admin-empty">No hay vendedores con ese criterio.</div>`}</div>
+        }).join("") : `<div class="seller-admin-empty">No hay usuarios con ese criterio.</div>`}</div>
       </aside>
-      <form class="seller-admin-form" id="adminSellerForm" data-seller-id="${escapeHtml(editing?.id || "")}">
-        <div class="seller-admin-form-head"><div><span>${editing ? "Mantenimiento" : "Nuevo registro"}</span><h3>${editing ? escapeHtml(editing.name) : "Agregar vendedor"}</h3></div>${editing && references ? `<b>Vinculado a ${references} movimientos</b>` : ""}</div>
-        ${state.adminSellerNotice ? `<div class="seller-admin-notice">${escapeHtml(state.adminSellerNotice)}</div>` : ""}
-        ${linkedSystemUser ? `<section class="seller-access-card"><header><div><span>Acceso al sistema</span><strong>Usuario registrado</strong></div><button type="button" data-seller-action="reset-password" data-user-id="${escapeHtml(linkedSystemUser.id)}">Restablecer contraseña</button></header><dl><div><dt>Nombre de la cuenta</dt><dd>${escapeHtml(linkedSystemUser.name || "—")}</dd></div><div><dt>Usuario</dt><dd>${escapeHtml(linkedSystemUser.username || "—")}</dd></div><div><dt>Correo</dt><dd>${escapeHtml(linkedSystemUser.email || "—")}</dd></div><div><dt>Perfil</dt><dd>${escapeHtml(roleDisplayName(linkedSystemUser.role))}</dd></div></dl><small>La contraseña actual no se muestra. Puedes sustituirla mediante el botón de restablecimiento.</small></section>` : editing ? `<div class="seller-admin-notice seller-access-missing">Este vendedor no tiene una cuenta de acceso vinculada. Puedes crearla desde Administración → Permisos usando el mismo correo o usuario.</div>` : ""}
-        <div class="seller-admin-fields">
-          <label class="wide"><span>Nombre completo</span><input name="name" required value="${escapeHtml(editing?.name || "")}" placeholder="Nombre y apellido"></label>
-          <label><span>Teléfono</span><input name="phone" value="${escapeHtml(editing?.phone || "")}" placeholder="+503 ..."></label>
-          <label><span>Correo</span><input name="email" type="email" value="${escapeHtml(editing?.email || "")}" placeholder="correo@empresa.com"></label>
-          <label><span>Usuario CRM</span><input name="username" value="${escapeHtml(editing?.username || "")}" placeholder="usuario"></label>
-          <label><span>Territorio / zona</span><input name="territory" value="${escapeHtml(editing?.territory || "")}" placeholder="Zona asignada"></label>
-          <label><span>Estado</span><select name="status"><option value="Activo" ${isActiveCrmSeller(editing || {}) ? "selected" : ""}>Activo</option><option value="Inactivo" ${editing && !isActiveCrmSeller(editing) ? "selected" : ""}>Inactivo</option></select></label>
-        </div>
-        <p class="seller-admin-rule">Los vendedores con movimientos no se eliminan: se desactivan para conservar oportunidades, cotizaciones y pedidos. Marjorie y Gabriela mantienen sus registros e identificadores actuales.</p>
-        <div class="seller-admin-actions">
-          ${editing ? `<button class="seller-danger" type="button" data-seller-action="delete">${references ? "Eliminar vendedor y vínculos" : "Eliminar"}</button>` : ""}
-          <span></span><button type="button" data-seller-action="cancel">Cancelar</button><button class="seller-primary" type="submit">${editing ? "Guardar cambios" : "Crear vendedor"}</button>
-        </div>
-      </form>
+      <article class="seller-admin-form user-directory-detail">${selected ? `
+        <div class="seller-admin-form-head"><div><span>Cuenta registrada</span><h3>${escapeHtml(selected.name)}</h3></div><b>${escapeHtml(roleDisplayName(selected.role))}</b></div>
+        <section class="seller-access-card"><header><div><span>Estado de acceso</span><strong>Usuario habilitado</strong></div></header><dl><div><dt>Nombre</dt><dd>${escapeHtml(selected.name || "—")}</dd></div><div><dt>Usuario</dt><dd>${escapeHtml(selected.username || "—")}</dd></div><div><dt>Correo</dt><dd>${escapeHtml(selected.email || "—")}</dd></div><div><dt>Perfil</dt><dd>${escapeHtml(roleDisplayName(selected.role))}</dd></div><div><dt>Contraseña</dt><dd>••••••••</dd></div><div><dt>Permisos</dt><dd>${userPermissions(selected).size}</dd></div><div><dt>Vendedor CRM</dt><dd>${escapeHtml(linkedSeller?.name || (selected.role === "vendedores" ? "Pendiente de sincronizar" : "No aplica"))}</dd></div></dl><small>Por seguridad la contraseña actual no se revela. Puedes definir una clave temporal y el usuario podrá cambiarla después de ingresar.</small></section>
+        <div class="user-directory-actions"><button type="button" data-user-directory-action="edit" data-user-id="${escapeHtml(selected.id)}">Editar usuario y permisos</button><button class="seller-primary" type="button" data-user-directory-action="password" data-user-id="${escapeHtml(selected.id)}">Cambiar contraseña</button></div>
+      ` : `<div class="seller-admin-empty">Selecciona un usuario para consultar su información.</div>`}</article>
     </div>
   </section>`;
 }
@@ -10329,11 +10308,10 @@ function wireAdminSellersPanel() {
     state.adminSellerQuery = event.target.value;
     renderAdminPanel();
   });
-  adminPanel.querySelectorAll("[data-seller-action='edit']").forEach((button) => button.addEventListener("click", () => {
-    state.adminSellerEditingId = button.dataset.sellerId;
-    state.adminSellerNotice = "";
-    renderAdminPanel();
-  }));
+  adminPanel.querySelectorAll("[data-user-directory-action='select']").forEach((button) => button.addEventListener("click", () => { state.adminSellerEditingId = button.dataset.userId; renderAdminPanel(); }));
+  adminPanel.querySelector("[data-user-directory-action='new']")?.addEventListener("click", () => openAdminUserDialog());
+  adminPanel.querySelector("[data-user-directory-action='edit']")?.addEventListener("click", (event) => openAdminUserDialog(event.currentTarget.dataset.userId));
+  adminPanel.querySelector("[data-user-directory-action='password']")?.addEventListener("click", (event) => openAdminPasswordDialog(event.currentTarget.dataset.userId));
   adminPanel.querySelector("[data-seller-action='new']")?.addEventListener("click", () => {
     state.adminSellerEditingId = "";
     state.adminSellerNotice = "";
