@@ -8245,11 +8245,6 @@ function openDirectOrderFlow() {
   requestAnimationFrame(() => search.focus());
 }
 
-function quotationMasterCustomer(opportunity = {}, quotation = {}) {
-  const explicitId = quotation.customerId || quotation.customerData?.customerId || opportunity.customerId || "";
-  return crmMasterCustomers(true).find((customer) => String(customer.id) === String(explicitId)) || null;
-}
-
 function masterCustomerQuotationData(customer, quotation = {}) {
   return {
     ...(quotation.customerData || {}),
@@ -8316,7 +8311,7 @@ function ensureOrderCustomerDialog() {
   dialog.id = "orderCustomerRequirementDialog";
   dialog.className = "direct-order-customer-dialog";
   dialog.innerHTML = `<section class="direct-order-customer-card">
-    <header><div><span>REQUISITO PARA ORDEN DE PEDIDO</span><h3>Vincular cliente registrado</h3><p>La oportunidad fue creada con un nombre libre. Selecciona el cliente real del banco de Clientes para completar sus datos y emitir la orden.</p></div><button type="button" data-order-customer-close aria-label="Cerrar">×</button></header>
+    <header><div><span>REQUISITO PARA ORDEN DE PEDIDO</span><h3>Validar cliente registrado</h3><p>Revisa el catálogo y selecciona personalmente el cliente real que heredará la orden de pedido.</p></div><button type="button" data-order-customer-close aria-label="Cerrar">×</button></header>
     <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-order-customer-search placeholder="Buscar nombre, razón social, NIT o contacto..."><button type="button" data-order-customer-toggle aria-label="Mostrar clientes">⌄</button></label></div>
     <div class="direct-order-customer-list" data-order-customer-list></div>
   </section>`;
@@ -8350,24 +8345,18 @@ function ensureOrderCustomerDialog() {
 function renderOrderRequirementCustomers(search = "") {
   const dialog = ensureOrderCustomerDialog();
   const query = normalizeKey(search);
-  const customers = crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query)).slice(0, 12);
+  const customers = crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query));
   dialog.querySelector("[data-order-customer-list]").innerHTML = customers.map((customer) => `<button type="button" class="direct-order-customer-option" data-order-required-customer="${escapeHtml(customer.id)}"><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customer.clientNumber || "—")} · ${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em><b>Seleccionar →</b></button>`).join("") || `<div class="direct-order-customer-empty">No encontramos clientes con ese criterio. Regístralo primero en Comercialización → Clientes.</div>`;
 }
 
 async function prepareQuotationOrderConversion(opportunity, quotation, onReady) {
-  const customer = quotationMasterCustomer(opportunity, quotation);
-  if (customer) {
-    const synced = await bindMasterCustomerForOrder(opportunity, quotation, customer);
-    onReady(synced.opportunity, synced.quotation);
-    return;
-  }
   const dialog = ensureOrderCustomerDialog();
   dialog.pendingConversion = { opportunity, quotation, onReady };
   const search = dialog.querySelector("[data-order-customer-search]");
-  search.value = opportunity.company || quotation.client || "";
-  renderOrderRequirementCustomers(search.value);
+  search.value = "";
+  renderOrderRequirementCustomers("");
   dialog.showModal();
-  requestAnimationFrame(() => { search.focus(); search.select(); });
+  requestAnimationFrame(() => search.focus());
 }
 
 function renderCrmClients() {
