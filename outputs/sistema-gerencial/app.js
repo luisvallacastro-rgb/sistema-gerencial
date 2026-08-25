@@ -8541,6 +8541,21 @@ function bankMovementCell(field, value) {
   return Number.isFinite(number) ? formatMoney(number) : escapeHtml(value);
 }
 
+function bankFieldWeight(field) {
+  if (/descripci[oó]n|transaccion/i.test(field)) return 24;
+  if (/comentario|canal/i.test(field)) return 13;
+  if (/fecha/i.test(field)) return 9;
+  if (/referencia|no\. doc/i.test(field)) return 10;
+  if (/cargo|abono|saldo|balance|d[eé]bito|cr[eé]dito/i.test(field)) return 9;
+  if (/^no\.|hora|tipo|c[oó]digo|correlativo/i.test(field)) return 6;
+  return 8;
+}
+
+function bankColumnsMarkup(fields) {
+  const weights = fields.map(bankFieldWeight); const total = weights.reduce((sum, weight) => sum + weight, 0);
+  return `<colgroup>${weights.map((weight) => `<col style="width:${(weight / total * 100).toFixed(2)}%">`).join("")}</colgroup>`;
+}
+
 async function openBankMaintenance(accountId) {
   const account = (state.bankAvailability.accounts || []).find((item) => item.id === accountId);
   if (!account) return;
@@ -8556,7 +8571,7 @@ async function openBankMaintenance(accountId) {
           const type = bankFieldType(field); const required = field === account.balanceField || field === "Fecha" || field === "Fecha Transaccion";
           return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} ${required ? "required" : ""}></label>`;
         }).join("")}</div><div class="bank-form-actions"><button type="button" data-bank-cancel>Cancelar</button><button type="submit">Guardar línea</button></div></form>` : ""}
-      <section class="bank-movements-table"><table><thead><tr>${account.fields.map((field) => `<th>${escapeHtml(field)}</th>`).join("")}</tr></thead><tbody>${records.map((record) => `<tr>${account.fields.map((field) => `<td class="${bankFieldType(field) === "number" ? "money" : ""}">${bankMovementCell(field, record.data[field])}</td>`).join("")}</tr>`).join("")}</tbody></table></section>
+      <section class="bank-movements-table"><table>${bankColumnsMarkup(account.fields)}<thead><tr>${account.fields.map((field) => `<th>${escapeHtml(field)}</th>`).join("")}</tr></thead><tbody>${records.map((record) => `<tr>${account.fields.map((field) => `<td class="${bankFieldType(field) === "number" ? "money" : ""}">${bankMovementCell(field, record.data[field])}</td>`).join("")}</tr>`).join("")}</tbody></table></section>
     </div>`;
     dialog.querySelector("[data-bank-close]").onclick = () => dialog.close();
     dialog.querySelector("[data-bank-new]").onclick = () => render(true);
