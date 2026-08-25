@@ -815,8 +815,14 @@ const loginView = document.querySelector("#loginView");
 const appShell = document.querySelector("#appShell");
 const loginForm = document.querySelector("#loginForm");
 const registerForm = document.querySelector("#registerForm");
+const loginPasswordChangeForm = document.querySelector("#loginPasswordChangeForm");
 const loginUserSelect = document.querySelector("#loginUserSelect");
 const loginPassword = document.querySelector("#loginPassword");
+const loginPasswordEmail = document.querySelector("#loginPasswordEmail");
+const loginPasswordCurrent = document.querySelector("#loginPasswordCurrent");
+const loginPasswordNew = document.querySelector("#loginPasswordNew");
+const loginPasswordConfirm = document.querySelector("#loginPasswordConfirm");
+const loginPasswordChangeError = document.querySelector("#loginPasswordChangeError");
 const registerName = document.querySelector("#registerName");
 const registerUser = document.querySelector("#registerUser");
 const registerEmail = document.querySelector("#registerEmail");
@@ -9837,8 +9843,8 @@ function openAdminUserDialog(userId = "") {
     .map(([key, label]) => `<option value="${key}">${label}</option>`)
     .join("");
   adminUserRole.value = user?.role || "gerencias";
-  adminUserPassword.value = user?.password || "";
-  adminUserPassword.dataset.originalPassword = user?.password || "";
+  adminUserPassword.value = "";
+  adminUserPassword.placeholder = user ? "Dejar vacío para conservar la contraseña" : "Crea una contraseña";
   adminUserPassword.required = !user;
   renderAdminPermissionControls(user || null);
   adminUserDialog.showModal();
@@ -9874,7 +9880,7 @@ async function saveAdminUserFromForm(event) {
   const admin = normalizeKey(email) === adminEmail;
   const role = admin ? "gerencias" : adminUserRole.value;
   const newPassword = adminUserPassword.value;
-  const passwordChanged = !existing || newPassword !== (adminUserPassword.dataset.originalPassword || "");
+  const passwordChanged = Boolean(newPassword);
   const payload = {
     id: userId || crypto.randomUUID(),
     name: adminUserName.value.trim(),
@@ -11261,8 +11267,70 @@ function setAuthMode(mode) {
   });
   if (isRegister) {
     registerName.focus();
+  } else if (mode === "change-password") {
+    loginPasswordChangeForm?.reset();
+    loginPasswordChangeError?.classList.add("hidden");
+    loginPasswordEmail?.focus();
   } else {
     loginUserSelect.focus();
+  }
+}
+
+function showLoginPasswordChangeError(message) {
+  loginPasswordChangeError.textContent = message;
+  loginPasswordChangeError.classList.remove("hidden");
+}
+
+async function changePasswordFromLogin(event) {
+  event.preventDefault();
+  const credential = loginPasswordEmail.value.trim();
+  const currentPassword = loginPasswordCurrent.value;
+  const newPassword = loginPasswordNew.value;
+  const confirmation = loginPasswordConfirm.value;
+  const usernameUser = systemUsers.find((item) => normalizeKey(item.username) === normalizeKey(credential));
+  const emailUsers = systemUsers.filter((item) => normalizeKey(item.email) === normalizeKey(credential));
+  const user = usernameUser || (emailUsers.length === 1 ? emailUsers[0] : null);
+  loginPasswordChangeError.classList.add("hidden");
+  if (!usernameUser && emailUsers.length > 1) {
+    showLoginPasswordChangeError("Ese correo está vinculado a más de una cuenta. Ingresa tu nombre de usuario para identificarla.");
+    return;
+  }
+  if (!user) {
+    showLoginPasswordChangeError("No existe una cuenta registrada con ese correo o usuario.");
+    return;
+  }
+  if (newPassword !== confirmation) {
+    showLoginPasswordChangeError("La confirmación no coincide con la nueva contraseña.");
+    return;
+  }
+  if (newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+    showLoginPasswordChangeError("La nueva contraseña debe tener 8 caracteres, una letra y un número.");
+    return;
+  }
+  if (newPassword === currentPassword) {
+    showLoginPasswordChangeError("La nueva contraseña debe ser diferente de la actual.");
+    return;
+  }
+  try {
+    let savedUser;
+    if (apiEnabled) {
+      const result = await apiJson(`/api/users/${encodeURIComponent(user.id)}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      savedUser = result.user;
+    } else {
+      if (user.password !== currentPassword) throw new Error("current-password");
+      savedUser = { ...user, password: newPassword };
+    }
+    systemUsers = systemUsers.map((item) => item.id === savedUser.id ? savedUser : item);
+    saveUsers({ sync: false });
+    loginPasswordChangeForm.reset();
+    loginUserSelect.value = savedUser.email || savedUser.username;
+    setAuthMode("login");
+    alert("Contraseña actualizada. Ya puedes ingresar con tu correo y la nueva contraseña.");
+  } catch (error) {
+    showLoginPasswordChangeError("La contraseña actual o temporal no es correcta.");
   }
 }
 
@@ -11405,6 +11473,8 @@ registerForm.addEventListener("submit", (event) => {
   setAuthMode("login");
   openApp(user);
 });
+
+loginPasswordChangeForm?.addEventListener("submit", changePasswordFromLogin);
 
 logoutBtn.addEventListener("click", () => {
   clearSession();

@@ -22,7 +22,7 @@
             Contrasena
             <input id="loginPassword" type="password" placeholder="Contrasena" autocomplete="current-password" required>
           </label>
-          <p class="auth-switch-copy">No tienes usuario? <button type="button" data-auth-mode="register">Registrarse</button></p>
+          <p class="auth-switch-copy">No tienes usuario? <button type="button" data-auth-mode="register">Registrarse</button> · <button type="button" data-auth-mode="change-password">Cambiar contraseña</button></p>
           <button class="primary-btn" type="submit">Ingresar</button>
         </form>
         <form class="login-form auth-form hidden" id="registerForm" data-auth-panel="register">
@@ -52,6 +52,32 @@
           </label>
           <p class="auth-switch-copy">Ya tienes usuario? <button type="button" data-auth-mode="login">Ingresar</button></p>
           <button class="primary-btn" type="submit">Crear usuario</button>
+        </form>
+        <form class="login-form auth-form hidden" id="loginPasswordChangeForm" data-auth-panel="change-password">
+          <div class="auth-form-title">
+            <p class="eyebrow">Seguridad de la cuenta</p>
+            <h3>Cambiar contraseña</h3>
+          </div>
+          <label>
+            Correo o usuario
+            <input id="loginPasswordEmail" type="text" placeholder="correo@empresa.com o usuario" autocomplete="username" required>
+          </label>
+          <label>
+            Contraseña actual o temporal
+            <input id="loginPasswordCurrent" type="password" autocomplete="current-password" required>
+          </label>
+          <label>
+            Nueva contraseña
+            <input id="loginPasswordNew" type="password" autocomplete="new-password" minlength="8" required>
+          </label>
+          <label>
+            Confirmar nueva contraseña
+            <input id="loginPasswordConfirm" type="password" autocomplete="new-password" minlength="8" required>
+          </label>
+          <p class="password-requirements">Mínimo 8 caracteres, con al menos una letra y un número.</p>
+          <p class="form-error hidden" id="loginPasswordChangeError" role="alert"></p>
+          <p class="auth-switch-copy">¿Ya puedes ingresar? <button type="button" data-auth-mode="login">Volver al inicio</button></p>
+          <button class="primary-btn" type="submit">Guardar nueva contraseña</button>
         </form>
         <p class="hint">Los permisos se asignan segun la gerencia vinculada al usuario.</p>
       </section>
