@@ -300,6 +300,7 @@ const state = {
   operationsPresentationSection: 0,
   financialPresentationSection: 0,
   bankAvailability: { accounts: [], total: 0 },
+  pendingExpenses: [],
   bankAvailabilityQuery: "",
   financialOrders: [],
   financialOrderQuery: "",
@@ -5100,8 +5101,10 @@ function wirePurchaseOrders() {
 
 function loadBankAvailability() {
   if (!apiEnabled) return Promise.resolve(state.bankAvailability);
-  return apiJson("/api/bank-availability").then((payload) => {
+  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => [])]).then(([payload, expenses]) => {
     state.bankAvailability = payload && Array.isArray(payload.accounts) ? payload : { accounts: [], total: 0 };
+    state.pendingExpenses = Array.isArray(expenses) && expenses.length ? expenses : pendingExpenseSeed();
+    if (!expenses.length) savePendingExpenses().catch(() => {});
     if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
     return state.bankAvailability;
   }).catch(() => state.bankAvailability);
@@ -8545,7 +8548,7 @@ function renderBankAvailability() {
   const groups = pendingExpenseGroups();
   const pendingExpensesTotal = groups.reduce((sum, group) => sum + group.total, 0);
   const pendingExpensesMarkup = groups.map((group, index) => `<tr class="${index ? "" : "is-active"}" tabindex="0" role="button" data-pending-expense="${escapeHtml(group.name)}"><td>${escapeHtml(group.name)}</td><td class="money">${formatMoney(group.total)}</td></tr>`).join("");
-  return `<section class="bank-availability-module"><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><strong>${formatMoney(pendingExpensesTotal)}</strong></header><div class="pending-expenses-grid"><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Montos a Pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${formatMoney(pendingExpensesTotal)}</th></tr></tfoot></table></div><aside class="pending-expense-detail" data-pending-expense-detail>${pendingExpenseDetailMarkup(groups[0])}</aside></div></section></section>`;
+  return `<section class="bank-availability-module"><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><div class="pending-expenses-head-actions"><strong>${formatMoney(pendingExpensesTotal)}</strong><button type="button" data-pending-expenses-manage>Administrar gastos</button></div></header><div class="pending-expenses-grid"><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Montos a Pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${formatMoney(pendingExpensesTotal)}</th></tr></tfoot></table></div><aside class="pending-expense-detail" data-pending-expense-detail>${pendingExpenseDetailMarkup(groups[0])}</aside></div></section></section>`;
 }
 
 function pendingExpenseGroups() {
@@ -8558,10 +8561,33 @@ function pendingExpenseGroups() {
     ["Reserva Laboral", [["19/08/2026","Reserva laboral",140.01],["20/08/2026","Reserva laboral",67.49],["20/08/2026","Reserva laboral",28.40],["24/08/2026","Reserva laboral",103.47],["25/08/2026","Reserva laboral",122.25]]],
     ["Inventario", [["21/08/2026","Reintegro bodega KONFI",214.22]]]
   ];
-  return groups.map(([name, details]) => ({ name, details, total:details.reduce((sum, row) => sum + row[2], 0) }));
+  const seed = groups.flatMap(([costCenter, details], groupIndex) => details.map(([date, detail, amount], rowIndex) => ({ id:`seed-${groupIndex}-${rowIndex}`, costCenter, date, detail, amount })));
+  const items = state.pendingExpenses.length ? state.pendingExpenses : seed;
+  const grouped = new Map();
+  items.forEach((item) => { if (!grouped.has(item.costCenter)) grouped.set(item.costCenter, []); grouped.get(item.costCenter).push([item.date, item.detail, Number(item.amount || 0)]); });
+  return [...grouped].map(([name, details]) => ({ name, details, total:details.reduce((sum, row) => sum + row[2], 0) }));
+}
+
+function pendingExpenseSeed() {
+  const current = state.pendingExpenses; state.pendingExpenses = [];
+  const groups = pendingExpenseGroups(); state.pendingExpenses = current;
+  return groups.flatMap((group, groupIndex) => group.details.map(([date, detail, amount], rowIndex) => ({ id:`seed-${groupIndex}-${rowIndex}`, costCenter:group.name, date, detail, amount })));
+}
+
+function savePendingExpenses() {
+  if (!apiEnabled) return Promise.resolve(state.pendingExpenses);
+  return apiJson("/api/pending-expenses", { method:"PUT", body:JSON.stringify({ items:state.pendingExpenses }) }).then((response) => { state.pendingExpenses = response.items || state.pendingExpenses; return state.pendingExpenses; });
+}
+
+function toDateInputValue(value) {
+  const raw = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return match ? `${match[3]}-${match[2].padStart(2,"0")}-${match[1].padStart(2,"0")}` : "";
 }
 
 function pendingExpenseDetailMarkup(group) {
+  if (!group) return `<div class="empty-state">No hay gastos pendientes registrados.</div>`;
   const rows = group.details.map(([date, detail, amount]) => `<tr><td>${escapeHtml(date)}</td><td>${escapeHtml(detail)}</td><td class="money">${formatMoney(amount)}</td></tr>`).join("");
   return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong></header><div class="pending-expense-detail-table"><table><thead><tr><th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
 }
@@ -8747,8 +8773,28 @@ async function openBankMaintenance(accountId) {
   document.body.append(dialog); dialog.addEventListener("close", () => { dialog.remove(); renderCommercialSubmenu(areas.financiera); }, { once: true }); render(); dialog.showModal();
 }
 
+function openPendingExpensesCrud() {
+  let query = ""; let editingId = "";
+  const dialog = document.createElement("dialog"); dialog.className = "pending-expenses-dialog";
+  const render = () => {
+    const editing = state.pendingExpenses.find((item) => item.id === editingId);
+    const normalized = query.trim().toLocaleLowerCase("es");
+    const rows = state.pendingExpenses.filter((item) => !normalized || [item.costCenter,item.date,item.detail,item.amount].some((value) => String(value).toLocaleLowerCase("es").includes(normalized))).sort((a,b) => String(b.date).localeCompare(String(a.date)) || String(a.costCenter).localeCompare(String(b.costCenter),"es"));
+    dialog.innerHTML = `<section class="pending-expenses-crud"><header><div><span>Mantenimiento financiero</span><h2>Gastos pendientes</h2><p>Administra cada movimiento que compone los centros de costo.</p></div><button type="button" data-expense-close aria-label="Cerrar">×</button></header><div class="pending-expenses-crud-toolbar"><label><span>⌕</span><input type="search" data-expense-search value="${escapeHtml(query)}" placeholder="Buscar centro, fecha, detalle o monto..."></label><button type="button" data-expense-new>+ Nuevo registro</button></div><form class="pending-expense-form ${editingId === "new" || editing ? "is-open" : ""}" data-expense-form><input type="hidden" name="id" value="${escapeHtml(editing?.id || "")}"><label><span>Fecha a pagar</span><input name="date" type="date" required value="${escapeHtml(toDateInputValue(editing?.date || ""))}"></label><label><span>Centro de costo</span><input name="costCenter" list="pendingExpenseCenters" required value="${escapeHtml(editing?.costCenter || "")}" placeholder="Ej. Comisiones"></label><label class="detail"><span>Detalle</span><input name="detail" required value="${escapeHtml(editing?.detail || "")}" placeholder="Descripción del gasto"></label><label><span>Monto</span><input name="amount" type="number" min="0.01" step="0.01" required value="${editing ? Number(editing.amount || 0).toFixed(2) : ""}"></label><div><button type="button" data-expense-cancel>Cancelar</button><button type="submit">${editing ? "Guardar cambios" : "Agregar fila"}</button></div><datalist id="pendingExpenseCenters">${pendingExpenseGroups().map((group) => `<option value="${escapeHtml(group.name)}">`).join("")}</datalist></form><div class="pending-expenses-crud-list"><table><thead><tr><th>Fecha</th><th>Centro / costo</th><th>Detalle</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>${rows.map((item) => `<tr><td>${escapeHtml(item.date)}</td><td><strong>${escapeHtml(item.costCenter)}</strong></td><td>${escapeHtml(item.detail)}</td><td class="money">${formatMoney(item.amount)}</td><td><button type="button" data-expense-edit="${escapeHtml(item.id)}" title="Editar">✎</button><button class="danger" type="button" data-expense-delete="${escapeHtml(item.id)}" title="Eliminar">⌫</button></td></tr>`).join("") || `<tr><td colspan="5" class="empty-state">No se encontraron movimientos.</td></tr>`}</tbody></table></div><footer><span>${rows.length} registros visibles</span><strong>${formatMoney(rows.reduce((sum,item) => sum + Number(item.amount || 0),0))}</strong></footer></section>`;
+    dialog.querySelector("[data-expense-close]").addEventListener("click", () => dialog.close());
+    dialog.querySelector("[data-expense-new]").addEventListener("click", () => { editingId = "new"; render(); dialog.querySelector("[name=date]")?.focus(); });
+    dialog.querySelector("[data-expense-cancel]")?.addEventListener("click", () => { editingId = ""; render(); });
+    dialog.querySelector("[data-expense-search]").addEventListener("input", (event) => { query = event.target.value; render(); const input = dialog.querySelector("[data-expense-search]"); input.focus(); input.setSelectionRange(query.length,query.length); });
+    dialog.querySelectorAll("[data-expense-edit]").forEach((button) => button.addEventListener("click", () => { editingId = button.dataset.expenseEdit; render(); }));
+    dialog.querySelectorAll("[data-expense-delete]").forEach((button) => button.addEventListener("click", async () => { const item = state.pendingExpenses.find((row) => row.id === button.dataset.expenseDelete); if (!item || !confirm(`¿Eliminar ${item.detail} por ${formatMoney(item.amount)}?`)) return; state.pendingExpenses = state.pendingExpenses.filter((row) => row.id !== item.id); await savePendingExpenses(); render(); renderCommercialSubmenu(areas.financiera); }));
+    dialog.querySelector("[data-expense-form]")?.addEventListener("submit", async (event) => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries()); const item = { id:values.id || `expense-${Date.now()}`, date:formatDate(values.date), costCenter:values.costCenter.trim(), detail:values.detail.trim(), amount:Number(values.amount) }; const index = state.pendingExpenses.findIndex((row) => row.id === item.id); if (index >= 0) state.pendingExpenses[index] = item; else state.pendingExpenses.push(item); await savePendingExpenses(); editingId = ""; render(); renderCommercialSubmenu(areas.financiera); });
+  };
+  document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once:true }); render(); dialog.showModal();
+}
+
 function wireBankAvailability() {
   document.querySelectorAll("[data-bank-maintenance]").forEach((button) => button.addEventListener("click", () => openBankMaintenance(button.dataset.bankMaintenance)));
+  document.querySelector("[data-pending-expenses-manage]")?.addEventListener("click", openPendingExpensesCrud);
   const selectExpense = (row) => {
     const group = pendingExpenseGroups().find((item) => item.name === row.dataset.pendingExpense);
     const detail = document.querySelector("[data-pending-expense-detail]");
