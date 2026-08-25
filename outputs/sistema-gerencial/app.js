@@ -6667,7 +6667,7 @@ const crmSellerAccountLinks = new Map([
   ["gabriela natalie amador flores", "u-xlsx-gabriela-amador"],
   ["gabriela amador", "u-xlsx-gabriela-amador"],
   ["marjorie morales", "u-xlsx-marjorie-morales"],
-  ["asesor arteycolor", "u-xlsx-marjorie-morales"]
+  ["asesor3 arteycolor", "u-xlsx-marjorie-morales"]
 ]);
 
 function isCrmArchivedOpportunity(opportunity = {}) {
@@ -6688,6 +6688,9 @@ function crmLinkedSellerId(data = state.crmData, user = state.currentUser) {
   const identities = [user.name, user.username, String(user.email || "").split("@")[0]]
     .map(crmIdentityKey)
     .filter(Boolean);
+  const exactName = crmIdentityKey(user.name);
+  const exactSeller = (data.users || []).find((candidate) => candidate.roleId === "sales_exec" && crmIdentityKey(candidate.name) === exactName);
+  if (exactSeller) return exactSeller.id;
   for (const identity of identities) {
     const linkedId = crmSellerAccountLinks.get(identity);
     if (linkedId && data.users?.some((seller) => seller.id === linkedId)) return linkedId;

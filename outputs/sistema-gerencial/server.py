@@ -600,6 +600,7 @@ def read_crm_data(conn):
         ensure_crm_customer_numbers(data)
         migrate_existing_seller_roles(conn, data)
         sync_seller_users_to_crm(conn, data)
+        repair_elizabeth_merino_ownership(conn, data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -620,7 +621,8 @@ def read_crm_data(conn):
     data, closure_changed = sync_crm_result_closures(conn, data)
     migrate_existing_seller_roles(conn, data)
     seller_sync_changed = sync_seller_users_to_crm(conn, data)
-    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed
+    elizabeth_repair_changed = repair_elizabeth_merino_ownership(conn, data)
+    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -648,6 +650,14 @@ def crm_identity_key(value):
 
 
 def linked_crm_seller(data, account):
+    account_name = crm_identity_key(account.get("name"))
+    if account_name:
+        exact_seller = next((
+            item for item in data.get("users", [])
+            if item.get("roleId") == "sales_exec" and crm_identity_key(item.get("name")) == account_name
+        ), None)
+        if exact_seller:
+            return exact_seller
     identities = [
         text(account.get("name")),
         text(account.get("username")),
@@ -711,6 +721,52 @@ def sync_seller_users_to_crm(conn, data):
         }
         data.setdefault("users", []).append(seller)
         changed = True
+    return changed
+
+
+def repair_elizabeth_merino_ownership(conn, data):
+    """Separate Elizabeth from Marjorie and preserve records created by each seller."""
+    accounts = conn.execute("""
+        SELECT id, name, username, email, role, password,
+               permissions, permissions_customized, admin
+        FROM users
+        WHERE role = 'vendedores' AND admin = 0
+    """).fetchall()
+    elizabeth_account = next((
+        user_payload(row) for row in accounts
+        if "elizabeth" in crm_identity_key(row["name"]) and "merino" in crm_identity_key(row["name"])
+    ), None)
+    if not elizabeth_account:
+        return False
+    elizabeth_seller = linked_crm_seller(data, elizabeth_account)
+    if not elizabeth_seller:
+        return False
+    quote_rows = conn.execute("""
+        SELECT id, opportunity_id, seller, created_by
+        FROM quotations
+        WHERE lower(trim(created_by)) = lower(trim(?))
+           OR lower(trim(seller)) = lower('Elizabeth Merino')
+    """, (elizabeth_account.get("name"),)).fetchall()
+    opportunity_ids = {text(row["opportunity_id"]) for row in quote_rows if text(row["opportunity_id"])}
+    changed = False
+    for row in quote_rows:
+        if crm_identity_key(row["seller"]) != crm_identity_key(elizabeth_account.get("name")):
+            conn.execute("UPDATE quotations SET seller = ? WHERE id = ?", (elizabeth_account.get("name"), row["id"]))
+            changed = True
+    for opportunity in data.get("opportunities", []):
+        linked_ids = {text(opportunity.get(key)) for key in ("id", "resultOpportunityId", "crmOpportunityId") if text(opportunity.get(key))}
+        belongs_to_elizabeth = bool(linked_ids & opportunity_ids) or crm_identity_key(opportunity.get("seller")) == crm_identity_key(elizabeth_account.get("name"))
+        if not belongs_to_elizabeth:
+            continue
+        if text(opportunity.get("ownerId")) != text(elizabeth_seller.get("id")):
+            opportunity["ownerId"] = elizabeth_seller.get("id")
+            opportunity["seller"] = elizabeth_seller.get("name")
+            changed = True
+    for collection in ("agenda", "gestiones"):
+        for item in data.get(collection, []):
+            if text(item.get("opportunityId")) in opportunity_ids and text(item.get("ownerId")) != text(elizabeth_seller.get("id")):
+                item["ownerId"] = elizabeth_seller.get("id")
+                changed = True
     return changed
 
 
