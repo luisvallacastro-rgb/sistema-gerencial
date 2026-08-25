@@ -3996,6 +3996,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 balance = float(data.get("balance") or values.get(account["balance_field"]) or 0)
                 record_id = text(data.get("id")) or str(uuid.uuid4())
                 sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
+                if account_id in {"bank-bac", "bank-azul-laboral", "bank-azul-fiscal"}:
+                    values["Correlativo"] = sequence
                 conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)", (record_id, account_id, record_date, sequence, balance, json.dumps(values, ensure_ascii=False), text(data.get("createdBy"), "Sistema Gerencial")))
                 payload = bank_availability_payload(conn)
             self.send_json({"ok": True, "availability": payload}, status=201)
@@ -4220,7 +4222,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 row = conn.execute("SELECT r.*, a.balance_field FROM bank_balance_records r JOIN bank_accounts a ON a.id = r.account_id WHERE r.id = ?", (record_id,)).fetchone()
                 if not row:
                     self.send_json({"error": "Movimiento bancario no encontrado"}, status=404); return
-                values = data.get("data") if isinstance(data.get("data"), dict) else {}
+                existing_values = json.loads(row["data"] or "{}")
+                values = {**existing_values, **(data.get("data") if isinstance(data.get("data"), dict) else {})}
                 record_date = text(data.get("date") or values.get("Fecha Transaccion") or values.get("Fecha") or row["record_date"])
                 balance = float(data.get("balance") or values.get(row["balance_field"]) or 0)
                 conn.execute("UPDATE bank_balance_records SET record_date = ?, balance = ?, data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (record_date, balance, json.dumps(values, ensure_ascii=False), record_id))

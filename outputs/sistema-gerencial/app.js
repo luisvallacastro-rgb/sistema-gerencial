@@ -8540,7 +8540,6 @@ function renderBankAvailability() {
 function bankFieldType(field) {
   if (/fecha/i.test(field)) return "date";
   if (/cargo|abono|saldo|balance|d[eé]bito|cr[eé]dito/i.test(field)) return "number";
-  if (/hora/i.test(field)) return "time";
   return "text";
 }
 
@@ -8552,6 +8551,7 @@ function bankMovementCell(field, value) {
 }
 
 function bankFieldWeight(field) {
+  if (/^editar$/i.test(field)) return 5;
   if (/descripci[oó]n|transaccion/i.test(field)) return 24;
   if (/comentario|canal/i.test(field)) return 13;
   if (/fecha/i.test(field)) return 9;
@@ -8574,23 +8574,27 @@ async function openBankMaintenance(accountId) {
   const dialog = document.createElement("dialog");
   dialog.id = "bankMaintenanceDialog";
   dialog.className = "bank-maintenance-dialog";
-  const render = (adding = false) => {
+  const autoCorrelative = ["bank-bac", "bank-azul-laboral", "bank-azul-fiscal"].includes(account.id);
+  const render = (formOpen = false, editing = null) => {
+    const editableFields = account.fields.filter((field) => !(autoCorrelative && field === "Correlativo"));
     dialog.innerHTML = `<div class="bank-maintenance-shell"><header><div><span>Movimientos bancarios</span><h2>${escapeHtml(account.bank)}</h2><p>${escapeHtml(account.account)} · ${records.length} movimientos</p></div><button type="button" data-bank-close aria-label="Cerrar">×</button></header>
       <section class="bank-maintenance-summary"><div><small>Último saldo</small><strong>${formatMoney((records[0] || account.latest)?.balance || 0)}</strong><span>${records[0] ? formatDate(records[0].date) : "Sin movimientos"}</span></div><button type="button" data-bank-new>＋ Agregar línea</button></section>
-      ${adding ? `<form class="bank-record-form"><h3>Nueva línea</h3><div class="bank-field-grid">${account.fields.map((field) => {
+      ${formOpen ? `<form class="bank-record-form"><h3>${editing ? "Editar línea" : "Nueva línea"}</h3>${autoCorrelative ? `<p class="bank-auto-correlative">Correlativo automático${editing ? ` · ${escapeHtml(editing.data.Correlativo ?? editing.sequence ?? "")}` : ""}</p>` : ""}<div class="bank-field-grid">${editableFields.map((field) => {
           const type = bankFieldType(field); const required = field === account.balanceField || field === "Fecha" || field === "Fecha Transaccion";
-          return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} ${required ? "required" : ""}></label>`;
-        }).join("")}</div><div class="bank-form-actions"><button type="button" data-bank-cancel>Cancelar</button><button type="submit">Guardar línea</button></div></form>` : ""}
-      <section class="bank-movements-table"><table>${bankColumnsMarkup(account.fields)}<thead><tr>${account.fields.map((field) => `<th>${escapeHtml(field)}</th>`).join("")}</tr></thead><tbody>${records.map((record) => `<tr>${account.fields.map((field) => `<td class="${bankFieldType(field) === "number" ? "money" : ""}">${bankMovementCell(field, record.data[field])}</td>`).join("")}</tr>`).join("")}</tbody></table></section>
+          return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} value="${escapeHtml(editing?.data?.[field] ?? "")}" ${required ? "required" : ""}></label>`;
+        }).join("")}</div><div class="bank-form-actions"><button type="button" data-bank-cancel>Cancelar</button><button type="submit">${editing ? "Guardar cambios" : "Guardar línea"}</button></div></form>` : ""}
+      <section class="bank-movements-table"><table>${bankColumnsMarkup([...account.fields, "Editar"])}<thead><tr>${account.fields.map((field) => `<th>${escapeHtml(field)}</th>`).join("")}<th>Editar</th></tr></thead><tbody>${records.map((record) => `<tr>${account.fields.map((field) => `<td class="${bankFieldType(field) === "number" ? "money" : ""}">${bankMovementCell(field, record.data[field])}</td>`).join("")}<td class="bank-line-action"><button type="button" data-bank-record-edit="${escapeHtml(record.id)}" aria-label="Editar movimiento" title="Editar">✎</button></td></tr>`).join("")}</tbody></table></section>
     </div>`;
     dialog.querySelector("[data-bank-close]").onclick = () => dialog.close();
-    dialog.querySelector("[data-bank-new]").onclick = () => render(true);
+    dialog.querySelector("[data-bank-new]").onclick = () => render(true, null);
     dialog.querySelector("[data-bank-cancel]")?.addEventListener("click", () => render(false));
+    dialog.querySelectorAll("[data-bank-record-edit]").forEach((button) => button.addEventListener("click", () => render(true, records.find((record) => record.id === button.dataset.bankRecordEdit))));
     dialog.querySelector("form")?.addEventListener("submit", async (event) => {
-      event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries());
-      account.fields.forEach((field) => { if (bankFieldType(field) === "number") values[field] = Number(values[field] || 0); });
+      event.preventDefault(); const values = { ...(editing?.data || {}), ...Object.fromEntries(new FormData(event.currentTarget).entries()) };
+      editableFields.forEach((field) => { if (bankFieldType(field) === "number") values[field] = Number(values[field] || 0); });
       const date = values["Fecha Transaccion"] || values.Fecha; const balance = Number(values[account.balanceField] || 0);
-      const response = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`, { method: "POST", body: JSON.stringify({ date, balance, data: values, createdBy: state.currentUser?.name || "Sistema Gerencial" }) });
+      const path = editing ? `/api/bank-availability/records/${encodeURIComponent(editing.id)}` : `/api/bank-availability/${encodeURIComponent(account.id)}/records`;
+      const response = await apiJson(path, { method: editing ? "PUT" : "POST", body: JSON.stringify({ date, balance, data: values, createdBy: state.currentUser?.name || "Sistema Gerencial" }) });
       state.bankAvailability = response.availability; const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`); records.splice(0, records.length, ...refreshed); render();
     });
   };
