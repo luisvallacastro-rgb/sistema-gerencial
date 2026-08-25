@@ -10277,7 +10277,10 @@ function renderAdminSellersPanel() {
     return Number(isActiveCrmSeller(b)) - Number(isActiveCrmSeller(a)) || String(a.name).localeCompare(String(b.name));
   });
   const query = normalizeKey(state.adminSellerQuery);
-  const filtered = sellers.filter((seller) => !query || normalizeKey([seller.name, seller.email, seller.username, seller.phone, seller.territory].join(" ")).includes(query));
+  const filtered = sellers.filter((seller) => {
+    const accessUser = crmSellerLinkedSystemUser(seller);
+    return !query || normalizeKey([seller.name, seller.email, seller.username, seller.phone, seller.territory, accessUser?.name, accessUser?.email, accessUser?.username].join(" ")).includes(query);
+  });
   const editing = sellers.find((seller) => seller.id === state.adminSellerEditingId) || null;
   const activeCount = sellers.filter(isActiveCrmSeller).length;
   const references = editing ? crmSellerReferenceCount(editing.id) : 0;
@@ -10292,16 +10295,17 @@ function renderAdminSellersPanel() {
         <div class="seller-admin-tools"><label><span>⌕</span><input id="adminSellerSearch" type="search" value="${escapeHtml(state.adminSellerQuery)}" placeholder="Buscar vendedor..."></label><button type="button" data-seller-action="new">+ Nuevo</button></div>
         <div class="seller-admin-list">${filtered.length ? filtered.map((seller) => {
           const linked = crmSellerReferenceCount(seller.id);
+          const accessUser = crmSellerLinkedSystemUser(seller);
           return `<button type="button" class="seller-admin-item ${editing?.id === seller.id ? "is-selected" : ""} ${isActiveCrmSeller(seller) ? "" : "is-inactive"}" data-seller-action="edit" data-seller-id="${escapeHtml(seller.id)}">
-            <i>${escapeHtml(adminSellerInitials(seller.name))}</i><span><strong>${escapeHtml(seller.name)}</strong><small>${escapeHtml(seller.email || seller.phone || "Sin contacto")}</small></span>
-            <em>${linked ? `${linked} vínculos` : isActiveCrmSeller(seller) ? "Activo" : "Inactivo"}</em>
+            <i>${escapeHtml(adminSellerInitials(seller.name))}</i><span><strong>${escapeHtml(seller.name)}</strong><small>${escapeHtml(accessUser?.username || seller.email || seller.phone || "Sin contacto")}</small></span>
+            <em class="${accessUser ? "has-access" : "no-access"}">${accessUser ? "Usuario registrado" : linked ? `${linked} vínculos` : "Sin acceso"}</em>
           </button>`;
         }).join("") : `<div class="seller-admin-empty">No hay vendedores con ese criterio.</div>`}</div>
       </aside>
       <form class="seller-admin-form" id="adminSellerForm" data-seller-id="${escapeHtml(editing?.id || "")}">
         <div class="seller-admin-form-head"><div><span>${editing ? "Mantenimiento" : "Nuevo registro"}</span><h3>${editing ? escapeHtml(editing.name) : "Agregar vendedor"}</h3></div>${editing && references ? `<b>Vinculado a ${references} movimientos</b>` : ""}</div>
         ${state.adminSellerNotice ? `<div class="seller-admin-notice">${escapeHtml(state.adminSellerNotice)}</div>` : ""}
-        ${linkedSystemUser ? `<div class="seller-admin-notice">Usuario operativo vinculado: <strong>${escapeHtml(linkedSystemUser.name || linkedSystemUser.email || linkedSystemUser.username)}</strong>. Se conserva el mismo vendedor, identificador e historial.</div>` : ""}
+        ${linkedSystemUser ? `<section class="seller-access-card"><header><div><span>Acceso al sistema</span><strong>Usuario registrado</strong></div><button type="button" data-seller-action="reset-password" data-user-id="${escapeHtml(linkedSystemUser.id)}">Restablecer contraseña</button></header><dl><div><dt>Nombre de la cuenta</dt><dd>${escapeHtml(linkedSystemUser.name || "—")}</dd></div><div><dt>Usuario</dt><dd>${escapeHtml(linkedSystemUser.username || "—")}</dd></div><div><dt>Correo</dt><dd>${escapeHtml(linkedSystemUser.email || "—")}</dd></div><div><dt>Perfil</dt><dd>${escapeHtml(roleDisplayName(linkedSystemUser.role))}</dd></div></dl><small>La contraseña actual no se muestra. Puedes sustituirla mediante el botón de restablecimiento.</small></section>` : editing ? `<div class="seller-admin-notice seller-access-missing">Este vendedor no tiene una cuenta de acceso vinculada. Puedes crearla desde Administración → Permisos usando el mismo correo o usuario.</div>` : ""}
         <div class="seller-admin-fields">
           <label class="wide"><span>Nombre completo</span><input name="name" required value="${escapeHtml(editing?.name || "")}" placeholder="Nombre y apellido"></label>
           <label><span>Teléfono</span><input name="phone" value="${escapeHtml(editing?.phone || "")}" placeholder="+503 ..."></label>
@@ -10339,6 +10343,9 @@ function wireAdminSellersPanel() {
     state.adminSellerEditingId = "";
     state.adminSellerNotice = "";
     renderAdminPanel();
+  });
+  adminPanel.querySelector("[data-seller-action='reset-password']")?.addEventListener("click", (event) => {
+    openAdminPasswordDialog(event.currentTarget.dataset.userId);
   });
   adminPanel.querySelector("#adminSellerForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
