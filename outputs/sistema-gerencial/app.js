@@ -8542,15 +8542,28 @@ function renderBankAvailability() {
     const percentage = total ? item.value / total * 100 : 0;
     return `<article class="availability-summary-card ${item.className}"><header><div><h3>${escapeHtml(item.label)}</h3><small>${escapeHtml(item.detail)}</small></div><strong>${formatMoney(item.value)}</strong></header><div class="availability-summary-progress"><i style="width:${percentage.toFixed(2)}%"></i></div><footer><span>${percentage.toFixed(2)}%</span></footer></article>`;
   }).join("");
-  const pendingExpenses = [
-    ["Planilla", 16500], ["Comisiones", 2800.68],
-    ["Reintegro Bodega ARTE Y COLOR (POR FACTURAR) J.A.A.", 1799.28],
-    ["Reservas Fiscal", 857.31], ["Caja Chica", 473.49],
-    ["Reserva Laboral", 461.62], ["Inventario", 214.22]
+  const groups = pendingExpenseGroups();
+  const pendingExpensesTotal = groups.reduce((sum, group) => sum + group.total, 0);
+  const pendingExpensesMarkup = groups.map((group, index) => `<tr class="${index ? "" : "is-active"}" tabindex="0" role="button" data-pending-expense="${escapeHtml(group.name)}"><td>${escapeHtml(group.name)}</td><td class="money">${formatMoney(group.total)}</td></tr>`).join("");
+  return `<section class="bank-availability-module"><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><strong>${formatMoney(pendingExpensesTotal)}</strong></header><div class="pending-expenses-grid"><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Montos a Pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${formatMoney(pendingExpensesTotal)}</th></tr></tfoot></table></div><aside class="pending-expense-detail" data-pending-expense-detail>${pendingExpenseDetailMarkup(groups[0])}</aside></div></section></section>`;
+}
+
+function pendingExpenseGroups() {
+  const groups = [
+    ["Planilla", [["24/08/2026","Planilla Sueldos 2Q Agosto 2026",16500]]],
+    ["Comisiones", [["30/07/2026","OMV",20.29],["31/07/2026","OMV",38.83],["10/08/2026","OMV",33.62],["11/08/2026","OMV",43.87],["14/08/2026","OMV",12.09],["19/08/2026","OMV",40],["20/08/2026","OMV",10.04],["24/08/2026","OMV",29.35],["25/08/2026","OMV",28.63],["30/07/2026","GAG",40.57],["31/07/2026","GAG",23.31],["10/08/2026","GAG",2.90],["11/08/2026","GAG",12.71],["14/08/2026","GAG",24.18],["18/08/2026","GAG",61.59],["18/08/2026","GAG",123.18],["24/08/2026","GAG",13.94],["25/08/2026","GAG",2.90],["31/07/2026","MMM",54.36],["10/08/2026","MMM",64.33],["11/08/2026","MMM",75.02],["25/08/2026","MMM",54.36],["31/07/2026","JAA",31.37],["10/08/2026","JAA",1228.32],["11/08/2026","JAA",97.05],["12/08/2026","JAA",25.76],["18/08/2026","JAA",235.29],["25/08/2026","JAA",28.35],["14/08/2026","MAV 7%",47.84],["19/08/2026","MAV 7%",100.01],["20/08/2026","MAV 7%",32.34],["20/08/2026","MAV 7%",28.40],["14/08/2026","MAV 2%",13.67],["19/08/2026","MAV 2%",40],["20/08/2026","MAV 2%",9.24],["20/08/2026","MAV 2%",8.11],["20/08/2026","ERO",20.09],["24/08/2026","YEM",44.77]]],
+    ["Reintegro Bodega ARTE Y COLOR (POR FACTURAR) J.A.A.", [["03/06/2026","Bodega Arte y Color",90],["08/06/2026","Bodega Arte y Color",1709.28]]],
+    ["Reservas Fiscal", [["19/08/2026","Reserva Fiscal",260.02],["20/08/2026","Reserva Fiscal",125.34],["20/08/2026","Reserva Fiscal",52.74],["24/08/2026","Reserva Fiscal",192.17],["25/08/2026","Reserva Fiscal",227.04]]],
+    ["Caja Chica", [["25/08/2026","Reintegro de caja chica Mary",210],["25/08/2026","Reintegro de caja chica Mary",263.49]]],
+    ["Reserva Laboral", [["19/08/2026","Reserva laboral",140.01],["20/08/2026","Reserva laboral",67.49],["20/08/2026","Reserva laboral",28.40],["24/08/2026","Reserva laboral",103.47],["25/08/2026","Reserva laboral",122.25]]],
+    ["Inventario", [["21/08/2026","Reintegro bodega KONFI",214.22]]]
   ];
-  const pendingExpensesTotal = pendingExpenses.reduce((sum, item) => sum + item[1], 0);
-  const pendingExpensesMarkup = pendingExpenses.map(([costCenter, amount]) => `<tr><td>${escapeHtml(costCenter)}</td><td class="money">${formatMoney(amount)}</td></tr>`).join("");
-  return `<section class="bank-availability-module"><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><strong>${formatMoney(pendingExpensesTotal)}</strong></header><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Montos a Pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${formatMoney(pendingExpensesTotal)}</th></tr></tfoot></table></div></section></section>`;
+  return groups.map(([name, details]) => ({ name, details, total:details.reduce((sum, row) => sum + row[2], 0) }));
+}
+
+function pendingExpenseDetailMarkup(group) {
+  const rows = group.details.map(([date, detail, amount]) => `<tr><td>${escapeHtml(date)}</td><td>${escapeHtml(detail)}</td><td class="money">${formatMoney(amount)}</td></tr>`).join("");
+  return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong></header><div class="pending-expense-detail-table"><table><thead><tr><th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
 }
 
 function bankFieldType(field) {
@@ -8736,6 +8749,17 @@ async function openBankMaintenance(accountId) {
 
 function wireBankAvailability() {
   document.querySelectorAll("[data-bank-maintenance]").forEach((button) => button.addEventListener("click", () => openBankMaintenance(button.dataset.bankMaintenance)));
+  const selectExpense = (row) => {
+    const group = pendingExpenseGroups().find((item) => item.name === row.dataset.pendingExpense);
+    const detail = document.querySelector("[data-pending-expense-detail]");
+    if (!group || !detail) return;
+    document.querySelectorAll("[data-pending-expense]").forEach((item) => item.classList.toggle("is-active", item === row));
+    detail.innerHTML = pendingExpenseDetailMarkup(group);
+  };
+  document.querySelectorAll("[data-pending-expense]").forEach((row) => {
+    row.addEventListener("click", () => selectExpense(row));
+    row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectExpense(row); } });
+  });
 }
 
 function renderCommercialSubmenu(area) {
