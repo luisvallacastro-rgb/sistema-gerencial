@@ -8566,6 +8566,14 @@ function bankColumnsMarkup(fields) {
   return `<colgroup>${weights.map((weight) => `<col style="width:${(weight / total * 100).toFixed(2)}%">`).join("")}</colgroup>`;
 }
 
+function bankFlowFields(accountId) {
+  return {
+    "bank-agricola": ["Abono", "Cargo"], "bank-hipotecario": ["Abono (US$)", "Cargo (US$)"],
+    "bank-bac": ["Créditos", "Débitos"], "bank-azul-laboral": ["Abono($)", "Cargo($)"],
+    "bank-azul-fiscal": ["Abono($)", "Cargo($)"]
+  }[accountId] || ["Abono", "Cargo"];
+}
+
 async function openBankMaintenance(accountId) {
   const account = (state.bankAvailability.accounts || []).find((item) => item.id === accountId);
   if (!account) return;
@@ -8576,23 +8584,39 @@ async function openBankMaintenance(accountId) {
   dialog.className = "bank-maintenance-dialog";
   const autoCorrelative = ["bank-bac", "bank-azul-laboral", "bank-azul-fiscal"].includes(account.id);
   const render = (formOpen = false, editing = null) => {
-    const editableFields = account.fields.filter((field) => !(autoCorrelative && field === "Correlativo"));
+    const [inflowField, outflowField] = bankFlowFields(account.id);
+    const editableFields = account.fields.filter((field) => field !== account.balanceField && !(autoCorrelative && field === "Correlativo"));
+    const editingIndex = editing ? records.findIndex((record) => record.id === editing.id) : -1;
+    const olderRecord = editing ? records[editingIndex + 1] : records[0];
+    const openingBalance = olderRecord ? Number(olderRecord.balance || 0) : editing ? Number(editing.balance || 0) - Number(editing.data[inflowField] || 0) + Number(editing.data[outflowField] || 0) : 0;
     dialog.innerHTML = `<div class="bank-maintenance-shell"><header><div><span>Movimientos bancarios</span><h2>${escapeHtml(account.bank)}</h2><p>${escapeHtml(account.account)} · ${records.length} movimientos</p></div><button type="button" data-bank-close aria-label="Cerrar">×</button></header>
       <section class="bank-maintenance-summary"><div><small>Último saldo</small><strong>${formatMoney((records[0] || account.latest)?.balance || 0)}</strong><span>${records[0] ? formatDate(records[0].date) : "Sin movimientos"}</span></div><button type="button" data-bank-new>＋ Agregar línea</button></section>
       ${formOpen ? `<form class="bank-record-form"><h3>${editing ? "Editar línea" : "Nueva línea"}</h3>${autoCorrelative ? `<p class="bank-auto-correlative">Correlativo automático${editing ? ` · ${escapeHtml(editing.data.Correlativo ?? editing.sequence ?? "")}` : ""}</p>` : ""}<div class="bank-field-grid">${editableFields.map((field) => {
           const type = bankFieldType(field); const required = field === account.balanceField || field === "Fecha" || field === "Fecha Transaccion";
           return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} value="${escapeHtml(editing?.data?.[field] ?? "")}" ${required ? "required" : ""}></label>`;
-        }).join("")}</div><div class="bank-form-actions"><button type="button" data-bank-cancel>Cancelar</button><button type="submit">${editing ? "Guardar cambios" : "Guardar línea"}</button></div></form>` : ""}
+        }).join("")}</div><div class="bank-calculated-balance"><span>Saldo calculado</span><strong data-bank-calculated-balance>${formatMoney(openingBalance)}</strong><small>Saldo anterior + abono − cargo</small></div><div class="bank-form-actions"><button type="button" data-bank-cancel>Cancelar</button><button type="submit">${editing ? "Guardar cambios" : "Guardar línea"}</button></div></form>` : ""}
       <section class="bank-movements-table"><table>${bankColumnsMarkup([...account.fields, "Editar"])}<thead><tr>${account.fields.map((field) => `<th>${escapeHtml(field)}</th>`).join("")}<th>Editar</th></tr></thead><tbody>${records.map((record) => `<tr>${account.fields.map((field) => `<td class="${bankFieldType(field) === "number" ? "money" : ""}">${bankMovementCell(field, record.data[field])}</td>`).join("")}<td class="bank-line-action"><button type="button" data-bank-record-edit="${escapeHtml(record.id)}" aria-label="Editar movimiento" title="Editar">✎</button></td></tr>`).join("")}</tbody></table></section>
     </div>`;
     dialog.querySelector("[data-bank-close]").onclick = () => dialog.close();
     dialog.querySelector("[data-bank-new]").onclick = () => render(true, null);
     dialog.querySelector("[data-bank-cancel]")?.addEventListener("click", () => render(false));
     dialog.querySelectorAll("[data-bank-record-edit]").forEach((button) => button.addEventListener("click", () => render(true, records.find((record) => record.id === button.dataset.bankRecordEdit))));
+    const movementForm = dialog.querySelector("form");
+    const refreshCalculatedBalance = (changedField = "") => {
+      if (!movementForm) return openingBalance;
+      const inflowInput = movementForm.elements.namedItem(inflowField); const outflowInput = movementForm.elements.namedItem(outflowField);
+      if (changedField === inflowField && Number(inflowInput?.value || 0) > 0 && outflowInput) outflowInput.value = "";
+      if (changedField === outflowField && Number(outflowInput?.value || 0) > 0 && inflowInput) inflowInput.value = "";
+      const calculated = Math.round((openingBalance + Number(inflowInput?.value || 0) - Number(outflowInput?.value || 0)) * 100) / 100;
+      const output = dialog.querySelector("[data-bank-calculated-balance]"); if (output) output.textContent = formatMoney(calculated);
+      return calculated;
+    };
+    [inflowField, outflowField].forEach((field) => movementForm?.elements.namedItem(field)?.addEventListener("input", () => refreshCalculatedBalance(field)));
+    refreshCalculatedBalance();
     dialog.querySelector("form")?.addEventListener("submit", async (event) => {
       event.preventDefault(); const values = { ...(editing?.data || {}), ...Object.fromEntries(new FormData(event.currentTarget).entries()) };
       editableFields.forEach((field) => { if (bankFieldType(field) === "number") values[field] = Number(values[field] || 0); });
-      const date = values["Fecha Transaccion"] || values.Fecha; const balance = Number(values[account.balanceField] || 0);
+      const date = values["Fecha Transaccion"] || values.Fecha; const balance = refreshCalculatedBalance(); values[account.balanceField] = balance;
       const path = editing ? `/api/bank-availability/records/${encodeURIComponent(editing.id)}` : `/api/bank-availability/${encodeURIComponent(account.id)}/records`;
       const response = await apiJson(path, { method: editing ? "PUT" : "POST", body: JSON.stringify({ date, balance, data: values, createdBy: state.currentUser?.name || "Sistema Gerencial" }) });
       state.bankAvailability = response.availability; const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`); records.splice(0, records.length, ...refreshed); render();

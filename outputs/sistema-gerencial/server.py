@@ -3205,6 +3205,46 @@ def bank_availability_payload(conn):
     return {"accounts": accounts, "total": round(sum(float((item.get("latest") or {}).get("balance") or 0) for item in accounts), 2)}
 
 
+def bank_flow_fields(account_id):
+    return {
+        "bank-agricola": ("Abono", "Cargo"),
+        "bank-hipotecario": ("Abono (US$)", "Cargo (US$)"),
+        "bank-bac": ("Créditos", "Débitos"),
+        "bank-azul-laboral": ("Abono($)", "Cargo($)"),
+        "bank-azul-fiscal": ("Abono($)", "Cargo($)"),
+    }.get(account_id, ("Abono", "Cargo"))
+
+
+def numeric_bank_value(value):
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def bank_opening_balance(conn, account_id):
+    row = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY sequence ASC, created_at ASC LIMIT 1", (account_id,)).fetchone()
+    if not row:
+        return 0.0
+    data = json.loads(row["data"] or "{}")
+    inflow_field, outflow_field = bank_flow_fields(account_id)
+    return round(float(row["balance"] or 0) - numeric_bank_value(data.get(inflow_field)) + numeric_bank_value(data.get(outflow_field)), 2)
+
+
+def recalculate_bank_balances(conn, account_id, opening_balance):
+    account = conn.execute("SELECT balance_field FROM bank_accounts WHERE id = ?", (account_id,)).fetchone()
+    if not account:
+        return
+    inflow_field, outflow_field = bank_flow_fields(account_id)
+    running = float(opening_balance or 0)
+    rows = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY sequence ASC, created_at ASC", (account_id,)).fetchall()
+    for row in rows:
+        data = json.loads(row["data"] or "{}")
+        running = round(running + numeric_bank_value(data.get(inflow_field)) - numeric_bank_value(data.get(outflow_field)), 2)
+        data[account["balance_field"]] = running
+        conn.execute("UPDATE bank_balance_records SET balance = ?, data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (running, json.dumps(data, ensure_ascii=False), row["id"]))
+
+
 def seed_bank_availability(conn):
     seed = {"accounts": BANK_AVAILABILITY_SEED}
     if BANK_AVAILABILITY_SEED_PATH.exists():
@@ -3212,7 +3252,7 @@ def seed_bank_availability(conn):
             seed = json.loads(BANK_AVAILABILITY_SEED_PATH.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             pass
-    imported = conn.execute("SELECT 1 FROM app_state WHERE key = 'bank_availability_reconciled_xlsx_v2'").fetchone()
+    imported = conn.execute("SELECT 1 FROM app_state WHERE key = 'bank_availability_reconciled_xlsx_v3'").fetchone()
     if not imported:
         conn.execute("DELETE FROM bank_balance_records WHERE id LIKE 'bank-%-seed'")
     for account in seed.get("accounts", []):
@@ -3230,7 +3270,7 @@ def seed_bank_availability(conn):
                 updated_at = CURRENT_TIMESTAMP""",
                 (record["id"], account["id"], record["date"], int(record.get("sequence") or 0), float(record.get("balance") or 0), json.dumps(record.get("data") or {}, ensure_ascii=False), "Importación Bancos.xlsx"))
     if not imported:
-        conn.execute("INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES ('bank_availability_reconciled_xlsx_v2', 'completed', CURRENT_TIMESTAMP)")
+        conn.execute("INSERT OR REPLACE INTO app_state (key, value, updated_at) VALUES ('bank_availability_reconciled_xlsx_v3', 'completed', CURRENT_TIMESTAMP)")
 
 
 def init_db():
@@ -3993,12 +4033,18 @@ class AppHandler(BaseHTTPRequestHandler):
                 record_date = text(data.get("date") or values.get("Fecha Transaccion") or values.get("Fecha"))
                 if not record_date:
                     self.send_json({"error": "La fecha del movimiento es requerida"}, status=400); return
-                balance = float(data.get("balance") or values.get(account["balance_field"]) or 0)
+                opening_balance = bank_opening_balance(conn, account_id)
+                inflow_field, outflow_field = bank_flow_fields(account_id)
+                inflow = numeric_bank_value(values.get(inflow_field))
+                outflow = numeric_bank_value(values.get(outflow_field))
+                if inflow > 0 and outflow > 0:
+                    self.send_json({"error": "Registra el movimiento como abono o como cargo, no ambos"}, status=400); return
                 record_id = text(data.get("id")) or str(uuid.uuid4())
                 sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
                 if account_id in {"bank-bac", "bank-azul-laboral", "bank-azul-fiscal"}:
                     values["Correlativo"] = sequence
-                conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)", (record_id, account_id, record_date, sequence, balance, json.dumps(values, ensure_ascii=False), text(data.get("createdBy"), "Sistema Gerencial")))
+                conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, 0, ?, ?)", (record_id, account_id, record_date, sequence, json.dumps(values, ensure_ascii=False), text(data.get("createdBy"), "Sistema Gerencial")))
+                recalculate_bank_balances(conn, account_id, opening_balance)
                 payload = bank_availability_payload(conn)
             self.send_json({"ok": True, "availability": payload}, status=201)
             return
@@ -4222,11 +4268,15 @@ class AppHandler(BaseHTTPRequestHandler):
                 row = conn.execute("SELECT r.*, a.balance_field FROM bank_balance_records r JOIN bank_accounts a ON a.id = r.account_id WHERE r.id = ?", (record_id,)).fetchone()
                 if not row:
                     self.send_json({"error": "Movimiento bancario no encontrado"}, status=404); return
+                opening_balance = bank_opening_balance(conn, row["account_id"])
                 existing_values = json.loads(row["data"] or "{}")
                 values = {**existing_values, **(data.get("data") if isinstance(data.get("data"), dict) else {})}
                 record_date = text(data.get("date") or values.get("Fecha Transaccion") or values.get("Fecha") or row["record_date"])
-                balance = float(data.get("balance") or values.get(row["balance_field"]) or 0)
-                conn.execute("UPDATE bank_balance_records SET record_date = ?, balance = ?, data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (record_date, balance, json.dumps(values, ensure_ascii=False), record_id))
+                inflow_field, outflow_field = bank_flow_fields(row["account_id"])
+                if numeric_bank_value(values.get(inflow_field)) > 0 and numeric_bank_value(values.get(outflow_field)) > 0:
+                    self.send_json({"error": "Registra el movimiento como abono o como cargo, no ambos"}, status=400); return
+                conn.execute("UPDATE bank_balance_records SET record_date = ?, data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (record_date, json.dumps(values, ensure_ascii=False), record_id))
+                recalculate_bank_balances(conn, row["account_id"], opening_balance)
                 payload = bank_availability_payload(conn)
             self.send_json({"ok": True, "availability": payload})
             return
