@@ -46,7 +46,7 @@ AREA_SECTION_KEYS = {
     "operaciones": ["resultados-control-ventas", "produccion-semanal"],
     "rrhh": [],
 }
-VALID_ROLES = {"gerencias", "jefaturas", "operativos", "accionistas"}
+VALID_ROLES = {"gerencias", "jefaturas", "vendedores", "operativos", "accionistas"}
 ADMIN_MANAGEMENT_PERMISSION_KEYS = [
     "administracion:permisos",
     "administracion:vendedores",
@@ -598,6 +598,8 @@ def read_crm_data(conn):
         data, _ = sync_crm_result_migrations(conn, data)
         data, _ = sync_crm_result_closures(conn, data)
         ensure_crm_customer_numbers(data)
+        migrate_existing_seller_roles(conn, data)
+        sync_seller_users_to_crm(conn, data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -616,7 +618,8 @@ def read_crm_data(conn):
     origin_links_changed = repair_result_opportunity_origin_links(conn, data)
     data, migration_changed = sync_crm_result_migrations(conn, data)
     data, closure_changed = sync_crm_result_closures(conn, data)
-    seller_sync_changed = sync_operational_users_to_crm(conn, data)
+    migrate_existing_seller_roles(conn, data)
+    seller_sync_changed = sync_seller_users_to_crm(conn, data)
     changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed
     if changed:
         write_crm_data(conn, data)
@@ -668,9 +671,8 @@ def linked_crm_seller(data, account):
     return None
 
 
-def sync_operational_users_to_crm(conn, data):
-    """Ensure every operational CRM user has one stable seller record."""
-    changed = False
+def migrate_existing_seller_roles(conn, data):
+    """Move previously linked operational sellers to the dedicated role."""
     rows = conn.execute("""
         SELECT id, name, username, email, role, password,
                permissions, permissions_customized, admin
@@ -679,9 +681,21 @@ def sync_operational_users_to_crm(conn, data):
     """).fetchall()
     for row in rows:
         account = user_payload(row)
-        permissions = set(account.get("permissions") or [])
-        if not permissions.intersection({"comercializacion:crm", "comercializacion:crm-seguimiento"}):
-            continue
+        if linked_crm_seller(data, account):
+            conn.execute("UPDATE users SET role = 'vendedores' WHERE id = ?", (row["id"],))
+
+
+def sync_seller_users_to_crm(conn, data):
+    """Ensure every user with the seller role has one stable CRM record."""
+    changed = False
+    rows = conn.execute("""
+        SELECT id, name, username, email, role, password,
+               permissions, permissions_customized, admin
+        FROM users
+        WHERE role = 'vendedores' AND admin = 0
+    """).fetchall()
+    for row in rows:
+        account = user_payload(row)
         if linked_crm_seller(data, account):
             continue
         seller_id = f"u-system-{crm_key(account.get('id') or account.get('username'))}"
@@ -1351,11 +1365,13 @@ def build_crm_view_model(data, include_private=False):
 
 
 def default_permissions_for_role(role):
-    if role == "operativos":
+    if role == "vendedores":
         return [
             f"comercializacion:{section}"
             for section in ["crm", "crm-seguimiento", "cotizaciones"]
         ]
+    if role == "operativos":
+        return []
     if role == "jefaturas":
         return [
             *[f"comercializacion:{section}" for section in AREA_SECTION_KEYS["comercializacion"]],
@@ -4853,7 +4869,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 LIMIT 1
             """, (request_user_id,)).fetchone() if request_user_id else None
             request_user = dict(request_user_row) if request_user_row else None
-            is_restricted_operator = bool(request_user and request_user.get("role") == "operativos" and not request_user.get("admin"))
+            is_restricted_operator = bool(request_user and request_user.get("role") == "vendedores" and not request_user.get("admin"))
             request_linked_seller = linked_crm_seller(data, request_user) if is_restricted_operator else None
 
             def response_model():
@@ -4896,10 +4912,10 @@ class AppHandler(BaseHTTPRequestHandler):
                 system_user = dict(system_row) if system_row else None
                 linked_seller = linked_crm_seller(data, system_user) if system_user else None
                 system_role = text(system_user.get("role")) if system_user else ""
-                if system_user and system_role not in {"operativos", "gerencias", "jefaturas"}:
+                if system_user and system_role not in {"vendedores", "operativos", "gerencias", "jefaturas"}:
                     self.send_json({"error": "Perfil sin acceso a la app movil"}, status=403)
                     return
-                if system_user and system_role == "operativos" and not linked_seller:
+                if system_user and system_role == "vendedores" and not linked_seller:
                     self.send_json({"error": "Usuario sin vendedor CRM vinculado"}, status=403)
                     return
                 active_user = linked_seller or crm_user

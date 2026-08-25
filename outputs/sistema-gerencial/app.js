@@ -747,6 +747,7 @@ const defaultUsers = [
 const accessRoles = [
   ["gerencias", "Gerencias"],
   ["jefaturas", "Jefaturas"],
+  ["vendedores", "Vendedores"],
   ["operativos", "Operativos"],
   ["accionistas", "Accionistas"]
 ];
@@ -1076,10 +1077,11 @@ function operationalPermissionKeys() {
 }
 
 function defaultPermissionsForRole(role) {
-  if (role === "operativos") {
+  if (role === "vendedores") {
     return ["crm", "crm-seguimiento", "cotizaciones"]
       .map((sectionKey) => permissionKey("comercializacion", sectionKey));
   }
+  if (role === "operativos") return [];
   if (role === "jefaturas") {
     return [
       ...areaPermissionSections("comercializacion")
@@ -3572,7 +3574,7 @@ function savedQuotationRows() {
 }
 
 function canManageQuotation(quotation) {
-  if (state.currentUser?.role !== "operativos") return true;
+  if (state.currentUser?.role !== "vendedores") return true;
   const opportunity = crmOpportunityForQuotation(quotation.opportunityId);
   return Boolean(opportunity && canManageCrmOpportunity(opportunity));
 }
@@ -3623,7 +3625,7 @@ function quotationOpportunityFromManagementItem(item = {}, crmById = null) {
 }
 
 function canManageQuotationOpportunity(opportunity = {}) {
-  if (state.currentUser?.role !== "operativos" || isAdminUser()) return true;
+  if (state.currentUser?.role !== "vendedores" || isAdminUser()) return true;
   if (opportunity.ownerId) return canManageCrmOpportunity(opportunity);
   const linkedSellerId = crmLinkedSellerId();
   const linkedSeller = (state.crmData?.sellers || state.crmData?.users || []).find((seller) => String(seller.id) === String(linkedSellerId));
@@ -6674,7 +6676,7 @@ function crmIdentityKey(value) {
 }
 
 function crmLinkedSellerId(data = state.crmData, user = state.currentUser) {
-  if (!data || !user || user.role !== "operativos" || isAdminUser(user)) return "";
+  if (!data || !user || user.role !== "vendedores" || isAdminUser(user)) return "";
   const identities = [user.name, user.username, String(user.email || "").split("@")[0]]
     .map(crmIdentityKey)
     .filter(Boolean);
@@ -7110,7 +7112,7 @@ async function syncLostCrmOpportunities() {
 }
 
 function canManageCrmOpportunity(opportunity = {}) {
-  if (state.currentUser?.role !== "operativos" || isAdminUser()) return true;
+  if (state.currentUser?.role !== "vendedores" || isAdminUser()) return true;
   const linkedSellerId = crmLinkedSellerId();
   return Boolean(linkedSellerId && opportunity.ownerId === linkedSellerId);
 }
