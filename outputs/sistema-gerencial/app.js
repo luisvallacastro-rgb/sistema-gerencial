@@ -11309,6 +11309,11 @@ function openApp(userOrRole, options = {}) {
   appShell.classList.remove("hidden");
   startPresence();
   renderDashboard();
+  if (userPermissions(user).has(permissionKey("financiera", "disponibilidad"))) {
+    loadBankAvailability();
+  } else {
+    state.bankAvailability = { accounts: [], total: 0 };
+  }
 }
 
 window.addEventListener("pagehide", persistNavigationState);
@@ -12720,7 +12725,6 @@ loadFinancialOrderFilters();
 loadControlSalesPeriod();
 loadFinancialOrders();
 syncFinancialOrdersWithApi();
-loadBankAvailability();
 loadAccountsReceivable();
 loadPurchaseOrders();
 loadControlSales();
