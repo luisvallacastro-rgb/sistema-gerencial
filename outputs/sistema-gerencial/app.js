@@ -8534,7 +8534,7 @@ function renderBankAvailability() {
     const percentage = total ? item.value / total * 100 : 0;
     return `<article class="availability-summary-card ${item.className}"><header><div><h3>${escapeHtml(item.label)}</h3><small>${escapeHtml(item.detail)}</small></div><strong>${formatMoney(item.value)}</strong></header><div class="availability-summary-progress"><i style="width:${percentage.toFixed(2)}%"></i></div><footer><span>${percentage.toFixed(2)}%</span></footer></article>`;
   }).join("");
-  return `<section class="bank-availability-module"><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Acción</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div></section>`;
+  return `<section class="bank-availability-module"><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div></section>`;
 }
 
 function bankFieldType(field) {
