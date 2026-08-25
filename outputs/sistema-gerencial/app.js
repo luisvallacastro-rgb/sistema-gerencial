@@ -8520,11 +8520,21 @@ function openOpportunityReportDialog() {
 function renderBankAvailability() {
   const accounts = [...(state.bankAvailability.accounts || [])].sort((a, b) => Number(b.latest?.balance || 0) - Number(a.latest?.balance || 0));
   const total = Number(state.bankAvailability.total || 0);
+  const balanceFor = (...ids) => accounts.filter((item) => ids.includes(item.id)).reduce((sum, item) => sum + Number(item.latest?.balance || 0), 0);
+  const summaries = [
+    { label: "Disponibilidad Operativa", detail: "BAC + Agrícola", value: balanceFor("bank-bac", "bank-agricola"), className: "operating", icon: "↗" },
+    { label: "Cuentas de Reserva", detail: "Azul Laboral + Azul Fiscal", value: balanceFor("bank-azul-laboral", "bank-azul-fiscal"), className: "reserve", icon: "◇" },
+    { label: "Cuenta de Inventario", detail: "Hipotecario", value: balanceFor("bank-hipotecario"), className: "inventory", icon: "▦" }
+  ];
   const rows = accounts.map((item) => {
     const balance = Number(item.latest?.balance || 0); const percentage = total ? balance / total * 100 : 0;
     return `<tr><td><strong>${escapeHtml(item.bank)}</strong></td><td>${item.latest ? formatDate(item.latest.date) : "—"}</td><td class="money">${formatMoney(balance)}</td><td class="percentage">${percentage.toFixed(2)}%</td><td><button class="bank-view-btn" type="button" data-bank-maintenance="${escapeHtml(item.id)}" aria-label="Ver movimientos de ${escapeHtml(item.bank)}" title="Ver movimientos">◉</button></td></tr>`;
   }).join("");
-  return `<section class="bank-availability-module"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Acción</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div></section>`;
+  const summaryMarkup = summaries.map((item) => {
+    const percentage = total ? item.value / total * 100 : 0;
+    return `<article class="availability-summary-card ${item.className}"><header><span class="availability-summary-icon">${item.icon}</span><div><small>${escapeHtml(item.detail)}</small><h3>${escapeHtml(item.label)}</h3></div></header><strong>${formatMoney(item.value)}</strong><div class="availability-summary-progress"><i style="width:${percentage.toFixed(2)}%"></i></div><footer><span>${percentage.toFixed(2)}% del disponible</span><b>${item.className === "operating" ? "Liquidez inmediata" : item.className === "reserve" ? "Fondos protegidos" : "Capital de inventario"}</b></footer></article>`;
+  }).join("");
+  return `<section class="bank-availability-module"><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Acción</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><span>Distribución consolidada</span><h2>Resumen de disponibilidad</h2><p>Composición del efectivo por destino financiero.</p></header><div>${summaryMarkup}</div><footer><span>Total consolidado</span><strong>${formatMoney(total)}</strong></footer></aside></div></section>`;
 }
 
 function bankFieldType(field) {
