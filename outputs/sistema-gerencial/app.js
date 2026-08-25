@@ -8760,6 +8760,15 @@ function wireBankAvailability() {
     row.addEventListener("click", () => selectExpense(row));
     row.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectExpense(row); } });
   });
+  const mainScroller = document.querySelector(".commercial-panel.bank-availability-mode > .opportunity-table");
+  document.querySelectorAll(".pending-expenses-table, .pending-expense-detail-table").forEach((scroller) => scroller.addEventListener("wheel", (event) => {
+    if (!mainScroller || !event.deltaY) return;
+    const atTop = scroller.scrollTop <= 0 && event.deltaY < 0;
+    const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1 && event.deltaY > 0;
+    if (!atTop && !atBottom) return;
+    event.preventDefault();
+    mainScroller.scrollTop += event.deltaY;
+  }, { passive:false }));
 }
 
 function renderCommercialSubmenu(area) {
