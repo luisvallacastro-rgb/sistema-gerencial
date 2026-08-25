@@ -4301,6 +4301,39 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
+        if self.path == "/api/pending-expenses/settle":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            data = self.read_json(); expense_ids = {text(value) for value in (data.get("expenseIds") or []) if text(value)}
+            account_id = text(data.get("accountId")); record_date = text(data.get("date"))
+            if not expense_ids or not account_id or not record_date:
+                self.send_json({"error": "Selecciona gastos, cuenta bancaria y fecha"}, status=400); return
+            with connect() as conn:
+                account = conn.execute("SELECT * FROM bank_accounts WHERE id = ? AND active = 1", (account_id,)).fetchone()
+                if not account:
+                    self.send_json({"error": "Cuenta bancaria no encontrada"}, status=404); return
+                state_row = conn.execute("SELECT value FROM app_state WHERE key = 'pending_expenses'").fetchone()
+                try: expenses = json.loads(state_row["value"] or "[]") if state_row else []
+                except json.JSONDecodeError: expenses = []
+                selected = [item for item in expenses if text(item.get("id")) in expense_ids]
+                if len(selected) != len(expense_ids):
+                    self.send_json({"error": "Uno o más gastos ya no están disponibles"}, status=409); return
+                amount = round(sum(float(item.get("amount") or 0) for item in selected), 2)
+                latest = conn.execute("SELECT balance FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1", (account_id,)).fetchone()
+                available = float(latest["balance"] or 0) if latest else 0
+                if amount <= 0 or amount > available:
+                    self.send_json({"error": "El saldo bancario no cubre la liquidación seleccionada"}, status=409); return
+                inflow_field, outflow_field = bank_flow_fields(account_id); description = text(data.get("description"), "Liquidación de gastos pendientes")
+                values = {inflow_field:0, outflow_field:amount, "Descripción":description, "Transaccion":description, "Detalle":description, "Comentario":text(data.get("reference"), "Liquidación desde Disponibilidad"), "Referencia":text(data.get("reference")), "Correlativo":next_bank_correlative(conn, account_id)}
+                sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
+                conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, 0, ?, ?)", (str(uuid.uuid4()), account_id, record_date, sequence, json.dumps(values, ensure_ascii=False), text(data.get("createdBy"), "Sistema Gerencial")))
+                recalculate_bank_balances(conn, account_id, bank_opening_balance(conn, account_id))
+                remaining = [item for item in expenses if text(item.get("id")) not in expense_ids]
+                conn.execute("UPDATE app_state SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = 'pending_expenses'", (json.dumps(remaining, ensure_ascii=False),))
+                availability = bank_availability_payload(conn)
+            self.send_json({"ok":True, "amount":amount, "items":remaining, "availability":availability}, status=201)
+            return
+
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
         if len(bank_parts) == 5 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3:] == ["records", "bulk"]:
             if not self.require_permission("financiera:disponibilidad"):
