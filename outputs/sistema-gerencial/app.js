@@ -3822,7 +3822,7 @@ function renderQuotationsModule() {
               <button type="button" class="quotation-action edit" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Editar cotización" title="Editar cotización"><span aria-hidden="true">✏️</span></button>
               <button type="button" class="quotation-action view-quotation" data-quotation-module-document="${escapeHtml(quotation.id)}" aria-label="Ver documento de cotización" title="Ver documento de cotización"><span aria-hidden="true">🧾</span></button>
               ${linkedOrder
-                ? `<button type="button" class="quotation-action view-order" data-quotation-module-order="${escapeHtml(linkedOrder.id)}" aria-label="Ver orden de pedido" title="Ver orden de pedido"><span aria-hidden="true">📋</span></button>`
+                ? `<button type="button" class="quotation-action view-order" data-quotation-module-order="${escapeHtml(linkedOrder.id)}" aria-label="Imprimir nota de pedido" title="Imprimir nota de pedido"><span aria-hidden="true">📋</span></button>`
                 : `<button type="button" class="quotation-action convert-order" data-quotation-module-convert="${escapeHtml(quotation.id)}" aria-label="Convertir en orden de pedido" title="Convertir en orden de pedido"><span aria-hidden="true">OP</span></button>`}
             </div>
           </article>`;
@@ -3895,7 +3895,12 @@ function wireQuotationsModule() {
     if (quotation) printQuotation(quotation);
   }));
   opportunityTable.querySelectorAll("[data-quotation-module-order]").forEach((button) => button.addEventListener("click", () => {
-    openControlSalesDetail(button.dataset.quotationModuleOrder, true);
+    const order = state.controlSales.find((item) => String(item.id || "") === String(button.dataset.quotationModuleOrder || "") && !item.archived);
+    if (!order) {
+      alert("No se encontró la nota de pedido vinculada. Actualiza la página e inténtalo nuevamente.");
+      return;
+    }
+    printControlSalesProforma(order);
   }));
   opportunityTable.querySelectorAll("[data-quotation-module-convert]").forEach((button) => button.addEventListener("click", async () => {
     const quotation = state.quotations.find((item) => String(item.id) === String(button.dataset.quotationModuleConvert));
