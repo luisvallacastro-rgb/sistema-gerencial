@@ -8785,7 +8785,7 @@ function renderCrmCustomerRequests() {
         <span class="crm-customer-name"><strong>${escapeHtml(request.commercialName || request.legalName || "Sin nombre")}</strong><small>${escapeHtml(request.taxId || request.legalName || "Identificación pendiente")}</small></span>
         <span><strong>${escapeHtml(request.requestedByName || "Usuario")}</strong><small>${escapeHtml(request.contactName || request.email || "Sin contacto")}</small></span>
         <span><strong class="crm-request-status ${escapeHtml(statusKey)}">${statusLabel[statusKey] || "Pendiente"}</strong><small>${statusKey === "aprobada" ? `ID ${escapeHtml(request.assignedClientNumber || "asignado")}` : (statusKey === "borrador" ? "Sin enviar" : escapeHtml(request.reviewedByName || "Por validar"))}</small></span>
-        <span class="crm-row-actions"><button type="button" data-crm-customer-request-review="${escapeHtml(request.id)}" title="${statusKey === "borrador" ? "Continuar borrador" : "Revisar y autorizar solicitud"}" aria-label="${statusKey === "borrador" ? "Continuar borrador" : "Revisar y autorizar solicitud"}">${statusKey === "borrador" ? "✎" : "⌕"}</button>${isCustomerRequestSigned(request) ? `<button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Ver documento firmado" aria-label="Ver documento firmado">▤</button>` : ""}</span>
+        <span class="crm-row-actions"><button type="button" data-crm-customer-request-review="${escapeHtml(request.id)}" title="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}" aria-label="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}">${statusKey === "borrador" ? "✎" : "⌕"}</button>${isCustomerRequestSigned(request) ? `<button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Ver documento firmado" aria-label="Ver documento firmado">▤</button>` : ""}${statusKey === "pendiente" && isCustomerRequestSigned(request) ? `<button type="button" class="assign-client-id" data-crm-customer-request-approve="${escapeHtml(request.id)}" title="Autorizar y asignar ID de cliente">Asignar ID</button>` : ""}</span>
       </article>`; }).join("") || `<div class="empty-state">No hay solicitudes que coincidan con la búsqueda.</div>`}
     </div></div>
   </section>`;
@@ -9545,6 +9545,24 @@ function renderCommercialSubmenu(area) {
     opportunityTable.querySelectorAll("[data-crm-customer-request-print]").forEach((button) => button.addEventListener("click", () => {
       const request = (state.crmData?.customerRequests || []).find((item) => String(item.id) === String(button.dataset.crmCustomerRequestPrint));
       if (request) printCustomerRequestSheet(request);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-customer-request-approve]").forEach((button) => button.addEventListener("click", async () => {
+      const request = (state.crmData?.customerRequests || []).find((item) => String(item.id) === String(button.dataset.crmCustomerRequestApprove));
+      if (!request || !confirm(`¿Autorizar ${request.requestNumber || "esta solicitud"} y asignar el siguiente ID de cliente?`)) return;
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = "Asignando…";
+      try {
+        const model = await crmApi(`/customer-requests/${encodeURIComponent(request.id)}/approve`, { method: "POST", body: "{}" });
+        const approved = (model.customerRequests || []).find((item) => String(item.id) === String(request.id));
+        state.crmCustomerView = "master";
+        renderCommercialSubmenu(areas.comercializacion);
+        alert(`Cliente autorizado con ID ${approved?.assignedClientNumber || "asignado"}.`);
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+        alert(error.message || "No fue posible autorizar la solicitud y asignar el ID.");
+      }
     }));
     opportunityTable.querySelector("[data-crm-customer-new]")?.addEventListener("click", () => openCrmCustomerDialog());
     opportunityTable.querySelectorAll("[data-crm-customer-edit]").forEach((button) => button.addEventListener("click", () => {
