@@ -8293,12 +8293,13 @@ function isCustomerRequestValidated(request = {}) {
 }
 
 function printCustomerRequestSheet(request = {}) {
-  if (!isCustomerRequestValidated(request)) {
-    alert("La ficha final solo puede imprimirse después de validar y firmar la solicitud.");
+  if (!request.id && !request.commercialName && !request.legalName) {
+    alert("Guarda la solicitud antes de imprimirla.");
     return;
   }
   const requesterName = request.requestedByName || state.currentUser?.name || "Vendedor solicitante";
   const signature = request.electronicSignature || {};
+  const isValidated = isCustomerRequestValidated(request);
   const signedDate = signature.signedAt ? formatDate(String(signature.signedAt).slice(0, 10)) : "";
   const logoUrl = new URL("assets/konfi-logo.png", window.location.href).href;
   const rows = [
@@ -8311,7 +8312,7 @@ function printCustomerRequestSheet(request = {}) {
   ];
   const printWindow = window.open("", "_blank", "width=980,height=760");
   if (!printWindow) return alert("Permite las ventanas emergentes para imprimir la ficha.");
-  printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(request.requestNumber || "Solicitud de cliente")}</title><style>body{font:14px Arial;color:#17233a;margin:36px}header{border-bottom:3px solid #27a98b;padding-bottom:14px;margin-bottom:22px}.header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:32px}.brand-logo{display:block;width:150px;height:auto;object-fit:contain;margin-top:2px}h1{margin:4px 0;font-size:28px}small{color:#64748b}.meta{display:flex;gap:28px;margin-top:10px}.data-table{width:100%;border:1px solid #cbd5e1;border-collapse:collapse;table-layout:fixed}.data-table th,.data-table td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}.data-table tr:last-child th,.data-table tr:last-child td{border-bottom:0}.data-table th{width:29%;border-right:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;text-align:left;text-transform:uppercase}.data-table td{width:71%;font-size:13px;font-weight:600;overflow-wrap:anywhere}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:58px}.signature{border-top:1px solid #334155;padding-top:8px;text-align:center}.signature strong,.signature span,.signature small{display:block}.signature span{margin-top:3px;color:#475569;font-size:12px}.signature small{margin-top:5px;color:#64748b;font-size:10px}@media print{body{margin:15mm}.data-table tr{break-inside:avoid}}</style></head><body><header><div class="header-top"><div><small>COMERCIALIZACIÓN · SOLICITUD DE CLIENTE</small><h1>Ficha de solicitud de cliente</h1></div><img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="KONFI"></div><div class="meta"><span><b>No.</b> ${escapeHtml(request.requestNumber || "Borrador")}</span><span><b>Estado:</b> ${escapeHtml(request.status || "Borrador")}</span><span><b>Solicita:</b> ${escapeHtml(requesterName)}</span></div></header><table class="data-table"><tbody>${rows.map(([label, value]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value || "—")}</td></tr>`).join("")}</tbody></table><div class="signatures"><div class="signature"><strong>${escapeHtml(requesterName)}</strong><span>Solicitante</span></div><div class="signature"><strong>${escapeHtml(signature.signerName || "Odaliz Valencia")}</strong><span>Autorizado por · ${escapeHtml(signature.signerRole || "Gerente de Comercialización")}</span><small>Firma electrónica ${escapeHtml(signature.signatureCode || "")}${signedDate ? ` · ${escapeHtml(signedDate)}` : ""}</small></div></div><script>window.onload=()=>window.print()<\/script></body></html>`);
+  printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(request.requestNumber || "Solicitud de cliente")}</title><style>body{font:14px Arial;color:#17233a;margin:36px}header{border-bottom:3px solid #27a98b;padding-bottom:14px;margin-bottom:22px}.header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:32px}.brand-logo{display:block;width:150px;height:auto;object-fit:contain;margin-top:2px}h1{margin:4px 0;font-size:28px}small{color:#64748b}.meta{display:flex;gap:28px;margin-top:10px}.data-table{width:100%;border:1px solid #cbd5e1;border-collapse:collapse;table-layout:fixed}.data-table th,.data-table td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}.data-table tr:last-child th,.data-table tr:last-child td{border-bottom:0}.data-table th{width:29%;border-right:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;text-align:left;text-transform:uppercase}.data-table td{width:71%;font-size:13px;font-weight:600;overflow-wrap:anywhere}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:58px}.signature{border-top:1px solid #334155;padding-top:8px;text-align:center}.signature strong,.signature span,.signature small{display:block}.signature span{margin-top:3px;color:#475569;font-size:12px}.signature small{margin-top:5px;color:#64748b;font-size:10px}@media print{body{margin:15mm}.data-table tr{break-inside:avoid}}</style></head><body><header><div class="header-top"><div><small>COMERCIALIZACIÓN · SOLICITUD DE CLIENTE</small><h1>Ficha de solicitud de cliente</h1></div><img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="KONFI"></div><div class="meta"><span><b>No.</b> ${escapeHtml(request.requestNumber || "Borrador")}</span><span><b>Estado:</b> ${escapeHtml(request.status || "Borrador")}</span><span><b>Solicita:</b> ${escapeHtml(requesterName)}</span></div></header><table class="data-table"><tbody>${rows.map(([label, value]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value || "—")}</td></tr>`).join("")}</tbody></table><div class="signatures"><div class="signature"><strong>${escapeHtml(requesterName)}</strong><span>Solicitante</span></div><div class="signature"><strong>${escapeHtml(isValidated ? (signature.signerName || "Odaliz Valencia") : "Pendiente de validación")}</strong><span>${isValidated ? `Autorizado por · ${escapeHtml(signature.signerRole || "Gerente de Comercialización")}` : "Autorización de Gerencia de Comercialización"}</span><small>${isValidated ? `Firma electrónica ${escapeHtml(signature.signatureCode || "")}${signedDate ? ` · ${escapeHtml(signedDate)}` : ""}` : "Documento preliminar"}</small></div></div><script>window.onload=()=>window.print()<\/script></body></html>`);
   printWindow.document.close();
 }
 
@@ -8405,7 +8406,8 @@ function openCustomerRequestDialog(request = null, review = false) {
   draftButton.classList.toggle("hidden", review || !isDraft);
   draftButton.textContent = current.id ? "Guardar cambios" : "Guardar borrador";
   dialog.querySelector("[data-customer-request-review-save]").classList.toggle("hidden", !review || !isPending || !canValidate);
-  dialog.querySelector("[data-customer-request-print]").classList.toggle("hidden", !isValidated);
+  dialog.querySelector("[data-customer-request-print]").classList.toggle("hidden", !current.id);
+  dialog.querySelector("[data-customer-request-print]").textContent = isValidated ? "Imprimir ficha firmada" : "Imprimir solicitud";
   dialog.querySelector("[data-customer-request-approve]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.querySelector("[data-customer-request-reject]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.showModal();
@@ -8443,7 +8445,7 @@ function openCustomerRequestListDialog() {
         <div><small>${escapeHtml(request.requestNumber || "BORRADOR")}</small><strong>${escapeHtml(request.commercialName || request.legalName || "Cliente sin nombre")}</strong><span>${escapeHtml(request.contactName || request.taxId || "Datos por completar")}</span></div>
         <div><small>Última actualización</small><strong>${date ? escapeHtml(formatDate(String(date).slice(0, 10))) : "—"}</strong></div>
         <div><small>Estado</small><span class="crm-request-status ${statusKey}">${escapeHtml(request.status || "Borrador")}</span>${request.assignedClientNumber ? `<em>ID ${escapeHtml(request.assignedClientNumber)}</em>` : ""}</div>
-        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">${isDraft ? "Continuar" : "Ver detalle"}</button>${isCustomerRequestValidated(request) ? `<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" aria-label="Imprimir ficha firmada" title="Imprimir ficha firmada">▤</button>` : ""}</div>
+        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">${isDraft ? "Editar" : "Ver detalle"}</button><button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="Imprimir solicitud">Imprimir</button>${isDraft ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}">Enviar</button>` : ""}</div>
       </article>`;
     }).join("") || `<div class="customer-request-list-empty"><strong>Sin solicitudes</strong><span>${requests.length ? "No hay coincidencias con esa búsqueda." : "Cuando guardes o envíes una solicitud, aparecerá aquí."}</span></div>`;
     rows.querySelectorAll("[data-customer-request-list-open]").forEach((button) => button.addEventListener("click", () => {
@@ -8455,6 +8457,16 @@ function openCustomerRequestListDialog() {
     rows.querySelectorAll("[data-customer-request-list-print]").forEach((button) => button.addEventListener("click", () => {
       const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListPrint));
       if (request) printCustomerRequestSheet(request);
+    }));
+    rows.querySelectorAll("[data-customer-request-list-send]").forEach((button) => button.addEventListener("click", async () => {
+      const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListSend));
+      if (!request || !confirm(`¿Enviar ${request.requestNumber || "esta solicitud"} al panel de Clientes para validación?`)) return;
+      try {
+        await crmApi(`/customer-requests/${encodeURIComponent(request.id)}`, { method: "PATCH", body: JSON.stringify({ ...request, status: "Pendiente" }) });
+        dialog.close();
+        renderCurrentArea();
+        alert("Solicitud enviada. Ya está disponible en Clientes → Solicitudes.");
+      } catch (error) { alert(error.message || "No fue posible enviar la solicitud."); }
     }));
   };
   dialog.querySelector("[data-customer-request-list-search]").addEventListener("input", (event) => renderRows(event.target.value));
