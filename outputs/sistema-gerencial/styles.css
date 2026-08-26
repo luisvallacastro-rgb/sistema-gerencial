@@ -17892,7 +17892,42 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   box-sizing: border-box;
 }
 
-.quotations-module__request { white-space: nowrap; border-color: rgba(100, 231, 203, .5) !important; color: #bffff0 !important; }
+.quotations-module__request {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid rgba(99, 226, 196, .42);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(23, 67, 86, .9), rgba(17, 50, 72, .96));
+  color: #bffff0;
+  font: inherit;
+  font-size: .86rem;
+  font-weight: 850;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+.quotations-module__request > span {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border: 1px solid rgba(105, 235, 205, .48);
+  border-radius: 8px;
+  background: rgba(81, 220, 186, .12);
+  color: #70e9cd;
+  font-size: 1rem;
+  line-height: 1;
+}
+.quotations-module__request:hover {
+  transform: translateY(-1px);
+  border-color: #6ee4d0;
+  background: linear-gradient(145deg, rgba(28, 83, 99, .96), rgba(20, 61, 79, .98));
+}
 .crm-customer-head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .crm-customer-view-tabs { display: inline-flex; gap: 5px; padding: 5px; border: 1px solid rgba(104, 143, 184, .25); border-radius: 14px; background: rgba(8, 29, 57, .45); }
 .crm-customer-view-tabs button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: #91a3bc; font-weight: 850; }
