@@ -8292,6 +8292,15 @@ function isCustomerRequestValidated(request = {}) {
   return normalizeKey(request.status || "") === "aprobada" && request.electronicSignature?.signed === true;
 }
 
+function isCustomerRequestSigned(request = {}) {
+  return request.electronicSignature?.signed === true;
+}
+
+function isOdalizValenciaUser() {
+  const identity = normalizeKey(`${state.currentUser?.id || ""} ${state.currentUser?.name || ""} ${state.currentUser?.username || ""} ${state.currentUser?.email || ""}`);
+  return identity.includes("odaliz") && identity.includes("valencia");
+}
+
 function renderCurrentArea() {
   renderCommercialSubmenu(areas[state.activeArea] || areas.comercializacion);
 }
@@ -8304,6 +8313,7 @@ function printCustomerRequestSheet(request = {}) {
   const requesterName = request.requestedByName || state.currentUser?.name || "Vendedor solicitante";
   const signature = request.electronicSignature || {};
   const isValidated = isCustomerRequestValidated(request);
+  const isSigned = isCustomerRequestSigned(request);
   const signedDate = signature.signedAt ? formatDate(String(signature.signedAt).slice(0, 10)) : "";
   const logoUrl = new URL("assets/konfi-logo.png", window.location.href).href;
   const rows = [
@@ -8316,7 +8326,7 @@ function printCustomerRequestSheet(request = {}) {
   ];
   const printWindow = window.open("", "_blank", "width=980,height=760");
   if (!printWindow) return alert("Permite las ventanas emergentes para imprimir la ficha.");
-  printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(request.requestNumber || "Solicitud de cliente")}</title><style>body{font:14px Arial;color:#17233a;margin:36px}header{border-bottom:3px solid #27a98b;padding-bottom:14px;margin-bottom:22px}.header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:32px}.brand-logo{display:block;width:150px;height:auto;object-fit:contain;margin-top:2px}h1{margin:4px 0;font-size:28px}small{color:#64748b}.meta{display:flex;gap:28px;margin-top:10px}.data-table{width:100%;border:1px solid #cbd5e1;border-collapse:collapse;table-layout:fixed}.data-table th,.data-table td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}.data-table tr:last-child th,.data-table tr:last-child td{border-bottom:0}.data-table th{width:29%;border-right:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;text-align:left;text-transform:uppercase}.data-table td{width:71%;font-size:13px;font-weight:600;overflow-wrap:anywhere}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:58px}.signature{border-top:1px solid #334155;padding-top:8px;text-align:center}.signature strong,.signature span,.signature small{display:block}.signature span{margin-top:3px;color:#475569;font-size:12px}.signature small{margin-top:5px;color:#64748b;font-size:10px}@media print{body{margin:15mm}.data-table tr{break-inside:avoid}}</style></head><body><header><div class="header-top"><div><small>COMERCIALIZACIÓN · SOLICITUD DE CLIENTE</small><h1>Ficha de solicitud de cliente</h1></div><img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="KONFI"></div><div class="meta"><span><b>No.</b> ${escapeHtml(request.requestNumber || "Borrador")}</span><span><b>Estado:</b> ${escapeHtml(request.status || "Borrador")}</span><span><b>Solicita:</b> ${escapeHtml(requesterName)}</span></div></header><table class="data-table"><tbody>${rows.map(([label, value]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value || "—")}</td></tr>`).join("")}</tbody></table><div class="signatures"><div class="signature"><strong>${escapeHtml(requesterName)}</strong><span>Solicitante</span></div><div class="signature"><strong>${escapeHtml(isValidated ? (signature.signerName || "Odaliz Valencia") : "Pendiente de validación")}</strong><span>${isValidated ? `Autorizado por · ${escapeHtml(signature.signerRole || "Gerente de Comercialización")}` : "Autorización de Gerencia de Comercialización"}</span><small>${isValidated ? `Firma electrónica ${escapeHtml(signature.signatureCode || "")}${signedDate ? ` · ${escapeHtml(signedDate)}` : ""}` : "Documento preliminar"}</small></div></div><script>window.onload=()=>window.print()<\/script></body></html>`);
+  printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(request.requestNumber || "Solicitud de cliente")}</title><style>body{font:14px Arial;color:#17233a;margin:36px}header{border-bottom:3px solid #27a98b;padding-bottom:14px;margin-bottom:22px}.header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:32px}.brand-logo{display:block;width:150px;height:auto;object-fit:contain;margin-top:2px}h1{margin:4px 0;font-size:28px}small{color:#64748b}.meta{display:flex;gap:28px;margin-top:10px}.data-table{width:100%;border:1px solid #cbd5e1;border-collapse:collapse;table-layout:fixed}.data-table th,.data-table td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}.data-table tr:last-child th,.data-table tr:last-child td{border-bottom:0}.data-table th{width:29%;border-right:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;text-align:left;text-transform:uppercase}.data-table td{width:71%;font-size:13px;font-weight:600;overflow-wrap:anywhere}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:58px}.signature{border-top:1px solid #334155;padding-top:8px;text-align:center}.signature strong,.signature span,.signature small{display:block}.signature span{margin-top:3px;color:#475569;font-size:12px}.signature small{margin-top:5px;color:#64748b;font-size:10px}@media print{body{margin:15mm}.data-table tr{break-inside:avoid}}</style></head><body><header><div class="header-top"><div><small>COMERCIALIZACIÓN · SOLICITUD DE CLIENTE</small><h1>Ficha de solicitud de cliente</h1></div><img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="KONFI"></div><div class="meta"><span><b>No.</b> ${escapeHtml(request.requestNumber || "Borrador")}</span><span><b>Estado:</b> ${escapeHtml(request.status || "Borrador")}</span><span><b>Solicita:</b> ${escapeHtml(requesterName)}</span></div></header><table class="data-table"><tbody>${rows.map(([label, value]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value || "—")}</td></tr>`).join("")}</tbody></table><div class="signatures"><div class="signature"><strong>${escapeHtml(requesterName)}</strong><span>Solicitante</span></div><div class="signature"><strong>${escapeHtml(isSigned ? (signature.signerName || "Odaliz Valencia") : "Pendiente de firma")}</strong><span>${isSigned ? `Firmado por · ${escapeHtml(signature.signerRole || "Autorización comercial")}` : "Firma electrónica de Odaliz Valencia"}</span><small>${isSigned ? `Firma electrónica ${escapeHtml(signature.signatureCode || "")}${signedDate ? ` · ${escapeHtml(signedDate)}` : ""}` : "Documento sin firmar"}</small></div></div><script>window.onload=()=>window.print()<\/script></body></html>`);
   printWindow.document.close();
 }
 
@@ -8333,11 +8343,27 @@ function ensureCustomerRequestDialog() {
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<input id="customerRequestTaxpayerType"></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento / municipio<input id="customerRequestDepartment"></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
-    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir ficha firmada</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Validar y firmar</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
+    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir solicitud firmada</button><button type="button" class="customer-request-sign-btn hidden" data-customer-request-sign>Firmar electrónicamente</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y crear cliente</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
   dialog.querySelectorAll("[data-customer-request-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   dialog.querySelector("[data-customer-request-print]").addEventListener("click", () => printCustomerRequestSheet({ ...dialog.currentRequest, ...customerRequestFormPayload(dialog) }));
+  dialog.querySelector("[data-customer-request-sign]").addEventListener("click", async (event) => {
+    if (!dialog.currentRequest?.id || !confirm("¿Firmar electrónicamente esta solicitud como Odaliz Valencia?")) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = "Firmando…";
+    try {
+      const model = await crmApi(`/customer-requests/${encodeURIComponent(dialog.currentRequest.id)}/sign`, { method: "POST", body: "{}" });
+      dialog.currentRequest = (model.customerRequests || []).find((item) => String(item.id) === String(dialog.currentRequest.id)) || dialog.currentRequest;
+      button.classList.add("hidden");
+      dialog.querySelector("[data-customer-request-print]").classList.remove("hidden");
+      dialog.querySelector("[data-customer-request-status]").innerHTML = "<i></i> Firmada · Lista para imprimir y enviar";
+    } catch (error) {
+      button.textContent = "Firmar electrónicamente";
+      alert(error.message || "No fue posible firmar la solicitud.");
+    } finally { button.disabled = false; }
+  });
   dialog.querySelector("[data-customer-request-draft]").addEventListener("click", async (event) => {
     const button = event.currentTarget;
     const payload = { ...customerRequestFormPayload(dialog), status: "Borrador" };
@@ -8407,6 +8433,7 @@ function openCustomerRequestDialog(request = null, review = false) {
   const isDraft = statusKey === "borrador";
   const isPending = statusKey === "pendiente";
   const isValidated = isCustomerRequestValidated(current);
+  const isSigned = isCustomerRequestSigned(current);
   const canValidate = normalizeKey(state.currentUser?.role || "") === "gerencias" || isAdminUser();
   const canEdit = review ? (isPending && canValidate) : (!current.id || isDraft);
   customerRequestFields.forEach(([suffix]) => { dialog.querySelector(`#customerRequest${suffix}`).disabled = !canEdit; });
@@ -8417,8 +8444,10 @@ function openCustomerRequestDialog(request = null, review = false) {
   draftButton.classList.toggle("hidden", review || !isDraft);
   draftButton.textContent = current.id ? "Guardar cambios" : "Guardar borrador";
   dialog.querySelector("[data-customer-request-review-save]").classList.toggle("hidden", !review || !isPending || !canValidate);
-  dialog.querySelector("[data-customer-request-print]").classList.toggle("hidden", !current.id);
-  dialog.querySelector("[data-customer-request-print]").textContent = isValidated ? "Imprimir ficha firmada" : "Imprimir solicitud";
+  dialog.querySelector("[data-customer-request-sign]").classList.toggle("hidden", !current.id || !isDraft || isSigned || !isOdalizValenciaUser());
+  dialog.querySelector("[data-customer-request-sign]").textContent = "Firmar electrónicamente";
+  dialog.querySelector("[data-customer-request-print]").classList.toggle("hidden", !isSigned);
+  dialog.querySelector("[data-customer-request-print]").textContent = isValidated ? "Imprimir ficha aprobada" : "Imprimir solicitud firmada";
   dialog.querySelector("[data-customer-request-approve]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.querySelector("[data-customer-request-reject]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.showModal();
@@ -8451,12 +8480,13 @@ function openCustomerRequestListDialog() {
     rows.innerHTML = visible.map((request) => {
       const statusKey = normalizeKey(request.status || "borrador");
       const isDraft = statusKey === "borrador";
+      const isSigned = isCustomerRequestSigned(request);
       const date = request.updatedAt || request.requestedAt || request.createdAt || "";
       return `<article class="customer-request-list-row">
         <div><small>${escapeHtml(request.requestNumber || "BORRADOR")}</small><strong>${escapeHtml(request.commercialName || request.legalName || "Cliente sin nombre")}</strong><span>${escapeHtml(request.contactName || request.taxId || "Datos por completar")}</span></div>
         <div><small>Última actualización</small><strong>${date ? escapeHtml(formatDate(String(date).slice(0, 10))) : "—"}</strong></div>
         <div><small>Estado</small><span class="crm-request-status ${statusKey}">${escapeHtml(request.status || "Borrador")}</span>${request.assignedClientNumber ? `<em>ID ${escapeHtml(request.assignedClientNumber)}</em>` : ""}</div>
-        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">${isDraft ? "Editar" : "Ver detalle"}</button><button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="Imprimir solicitud">Imprimir</button>${isDraft ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}">Enviar</button>` : ""}</div>
+        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">${isDraft ? "Editar" : "Ver detalle"}</button>${isDraft && !isSigned && isOdalizValenciaUser() ? `<button type="button" class="sign" data-customer-request-list-sign="${escapeHtml(request.id)}">Firmar</button>` : ""}<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="${isSigned ? "Imprimir solicitud firmada" : "Pendiente de firma"}" ${isSigned ? "" : "disabled"}>Imprimir</button>${isDraft ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}" ${isSigned ? "" : "disabled"}>Enviar</button>` : ""}</div>
       </article>`;
     }).join("") || `<div class="customer-request-list-empty"><strong>Sin solicitudes</strong><span>${requests.length ? "No hay coincidencias con esa búsqueda." : "Cuando guardes o envíes una solicitud, aparecerá aquí."}</span></div>`;
     rows.querySelectorAll("[data-customer-request-list-open]").forEach((button) => button.addEventListener("click", () => {
@@ -8468,6 +8498,16 @@ function openCustomerRequestListDialog() {
     rows.querySelectorAll("[data-customer-request-list-print]").forEach((button) => button.addEventListener("click", () => {
       const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListPrint));
       if (request) printCustomerRequestSheet(request);
+    }));
+    rows.querySelectorAll("[data-customer-request-list-sign]").forEach((button) => button.addEventListener("click", async () => {
+      const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListSign));
+      if (!request || !confirm(`¿Firmar electrónicamente ${request.requestNumber || "esta solicitud"} como Odaliz Valencia?`)) return;
+      try {
+        await crmApi(`/customer-requests/${encodeURIComponent(request.id)}/sign`, { method: "POST", body: "{}" });
+        dialog.close();
+        renderCurrentArea();
+        alert("Solicitud firmada. Ya puede imprimirse y enviarse.");
+      } catch (error) { alert(error.message || "No fue posible firmar la solicitud."); }
     }));
     rows.querySelectorAll("[data-customer-request-list-send]").forEach((button) => button.addEventListener("click", async () => {
       const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListSend));

@@ -82,6 +82,19 @@ def is_commercial_management_user(user):
         for character in unicodedata.normalize("NFD", text(user.get("name")).lower())
         if unicodedata.category(character) != "Mn"
     )
+
+
+def is_odaliz_valencia_user(user):
+    if not user:
+        return False
+    identity = " ".join((
+        text(user.get("id")), text(user.get("name")), text(user.get("username")), text(user.get("email"))
+    )).lower()
+    normalized = "".join(
+        character for character in unicodedata.normalize("NFD", identity)
+        if unicodedata.category(character) != "Mn"
+    )
+    return "odaliz" in normalized and "valencia" in normalized
     return (
         user_id == "user-comercial"
         or username == "comercializacion"
@@ -5537,12 +5550,43 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_json({"error": "Solicitud no encontrada"}, status=404)
                         return
                     request = requests[index]
+                    if action == "sign" and self.command == "POST":
+                        if not is_odaliz_valencia_user(request_user):
+                            self.send_json({"error": "Solo el usuario de Odaliz Valencia puede firmar esta solicitud"}, status=403)
+                            return
+                        if text(request.get("status"), "Borrador").lower() != "borrador":
+                            self.send_json({"error": "Solo se puede firmar una solicitud en borrador"}, status=409)
+                            return
+                        if not text(request.get("commercialName")):
+                            self.send_json({"error": "Complete y guarde el nombre comercial antes de firmar"}, status=400)
+                            return
+                        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        signature_code = f"KONFI-{text(request.get('requestNumber'), 'SOL')}-{time.strftime('%Y%m%d%H%M%S', time.gmtime())}"
+                        requests[index] = {
+                            **request,
+                            "electronicSignature": {
+                                "signed": True,
+                                "signerName": "Odaliz Valencia",
+                                "signerRole": "Autorización comercial",
+                                "signedAt": now,
+                                "signedByUserId": text(request_user.get("id")),
+                                "signedByName": text(request_user.get("name"), "Odaliz Valencia"),
+                                "signatureCode": signature_code,
+                            },
+                            "updatedAt": now,
+                        }
+                        write_crm_data(conn, data)
+                        self.send_json(build_crm_view_model(data))
+                        return
                     if action == "approve" and self.command == "POST":
                         if not is_commercial_management_user(request_user):
                             self.send_json({"error": "No tiene permiso para aprobar solicitudes"}, status=403)
                             return
                         if text(request.get("status")).lower() != "pendiente":
                             self.send_json({"error": "La solicitud ya fue procesada"}, status=409)
+                            return
+                        if request.get("electronicSignature", {}).get("signed") is not True:
+                            self.send_json({"error": "La solicitud debe estar firmada electrónicamente por Odaliz Valencia"}, status=409)
                             return
                         payload = {**request, **self.read_json()}
                         if duplicate_crm_customer(data, payload):
@@ -5555,7 +5599,6 @@ class AppHandler(BaseHTTPRequestHandler):
                         }
                         data.setdefault("customers", []).append(customer)
                         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                        signature_code = f"KONFI-{text(request.get('requestNumber'), 'SOL')}-{time.strftime('%Y%m%d%H%M%S', time.gmtime())}"
                         requests[index] = {
                             **request,
                             **normalize_crm_customer_request(payload, request),
@@ -5565,15 +5608,7 @@ class AppHandler(BaseHTTPRequestHandler):
                             "reviewedByName": text((request_user or {}).get("name"), "Usuario"),
                             "approvedCustomerId": customer["id"],
                             "assignedClientNumber": customer["clientNumber"],
-                            "electronicSignature": {
-                                "signed": True,
-                                "signerName": "Odaliz Valencia",
-                                "signerRole": "Gerente de Comercialización",
-                                "signedAt": now,
-                                "signedByUserId": text((request_user or {}).get("id")),
-                                "signedByName": text((request_user or {}).get("name"), "Usuario"),
-                                "signatureCode": signature_code,
-                            },
+                            "electronicSignature": request.get("electronicSignature"),
                         }
                         write_crm_data(conn, data)
                         response = build_crm_view_model(data)
@@ -5605,6 +5640,9 @@ class AppHandler(BaseHTTPRequestHandler):
                         if target_status == "pendiente" and not text(payload.get("commercialName") or request.get("commercialName")):
                             self.send_json({"error": "El nombre comercial es obligatorio para enviar la solicitud"}, status=400)
                             return
+                        if target_status == "pendiente" and request.get("electronicSignature", {}).get("signed") is not True:
+                            self.send_json({"error": "Odaliz Valencia debe firmar electrónicamente la solicitud antes de enviarla"}, status=409)
+                            return
                         if target_status == "borrador" and not customer_request_has_content({**request, **payload}):
                             self.send_json({"error": "Ingrese al menos un dato antes de guardar el borrador"}, status=400)
                             return
@@ -5616,6 +5654,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         if target_status == "borrador":
                             updated["status"] = "Borrador"
                             updated["requestedAt"] = ""
+                            updated.pop("electronicSignature", None)
                             updated.pop("reviewedAt", None)
                             updated.pop("reviewedByUserId", None)
                             updated.pop("reviewedByName", None)

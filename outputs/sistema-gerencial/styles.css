@@ -18008,6 +18008,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 #customerRequestDialog .customer-request-save-btn:hover { border-color: #8ddcff; background: #2d709c; }
 #customerRequestDialog .customer-request-save-btn:focus-visible { outline: 3px solid rgba(111, 207, 255, .3); outline-offset: 2px; }
 #customerRequestDialog .customer-request-save-btn:disabled { cursor: wait; opacity: .72; }
+#customerRequestDialog .customer-request-sign-btn { border: 1px solid rgba(244, 191, 88, .65); background: #74551d; color: #fff6d8; font: inherit; font-weight: 900; }
 
 #customerRequestListDialog.customer-request-list-dialog {
   width: min(1040px, calc(100vw - 34px));
@@ -18041,7 +18042,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .customer-request-list-summary i { width: 7px; height: 7px; border-radius: 50%; background: #f3bf58; }
 .customer-request-list-summary i.draft { background: #91a7c1; }
 .customer-request-list-rows { display: grid; align-content: start; gap: 9px; min-height: 0; padding: 0 28px 25px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #55d8bb #102a43; }
-.customer-request-list-row { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(125px, .55fr) minmax(130px, .6fr) minmax(285px, auto); align-items: center; gap: 16px; padding: 15px 17px; border: 1px solid rgba(123, 162, 201, .23); border-radius: 15px; background: rgba(20, 51, 82, .82); }
+.customer-request-list-row { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(125px, .55fr) minmax(130px, .6fr) minmax(375px, auto); align-items: center; gap: 16px; padding: 15px 17px; border: 1px solid rgba(123, 162, 201, .23); border-radius: 15px; background: rgba(20, 51, 82, .82); }
 .customer-request-list-row > div { display: grid; gap: 4px; min-width: 0; }
 .customer-request-list-row small { color: #91a5bd; font-size: .65rem; font-weight: 850; text-transform: uppercase; }
 .customer-request-list-row strong { overflow: hidden; color: #f6f9ff; text-overflow: ellipsis; white-space: nowrap; }
@@ -18050,6 +18051,8 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .customer-request-list-row__actions { display: flex !important; justify-content: flex-end; gap: 8px; min-width: 0; }
 .customer-request-list-row__actions button { flex: 0 0 auto; min-width: 82px; min-height: 38px; padding: 0 13px; border: 1px solid rgba(118, 168, 209, .34); border-radius: 10px; background: #254c73; color: #eff6ff; font: inherit; font-size: .75rem; font-weight: 850; white-space: nowrap; }
 .customer-request-list-row__actions button.send { border-color: rgba(104, 231, 203, .45); background: #176b5a; }
+.customer-request-list-row__actions button.sign { border-color: rgba(244, 191, 88, .55); background: #74551d; color: #fff6d8; }
+.customer-request-list-row__actions button:disabled { cursor: not-allowed; opacity: .42; }
 @media (max-width: 1120px) {
   .customer-request-list-row { grid-template-columns: minmax(0, 1fr) minmax(125px, .55fr) minmax(130px, .6fr); }
   .customer-request-list-row__actions { grid-column: 1 / -1; justify-content: flex-end; }
