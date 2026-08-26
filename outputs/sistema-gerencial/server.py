@@ -2412,6 +2412,10 @@ def control_sales_validate(data, existing=None):
     allowed_strategies = ("", "Retención", "Expansión", "Atracción", "Recuperación")
     if strategy not in allowed_strategies:
         raise ValueError("Estrategia de venta no valida")
+    apply_vat = bool(raw_proforma.get(
+        "applyVat",
+        current_proforma.get("applyVat", document_type == "CCF"),
+    ))
     proforma_data = {
         "commercialName": text(raw_proforma.get("commercialName"), current_proforma.get("commercialName") or client),
         "legalName": text(raw_proforma.get("legalName"), current_proforma.get("legalName") or ""),
@@ -2426,6 +2430,7 @@ def control_sales_validate(data, existing=None):
         "deliveryDate": text(raw_proforma.get("deliveryDate"), current_proforma.get("deliveryDate") or ""),
         "paymentTerms": text(raw_proforma.get("paymentTerms"), current_proforma.get("paymentTerms") or ""),
         "perceptionEnabled": bool(raw_proforma.get("perceptionEnabled", current_proforma.get("perceptionEnabled", False))),
+        "applyVat": apply_vat,
         "strategy": strategy,
         "customerCode": text(raw_proforma.get("customerCode"), current_proforma.get("customerCode") or ""),
         "generalNotes": text(raw_proforma.get("generalNotes"), current_proforma.get("generalNotes") or ""),
@@ -2453,7 +2458,7 @@ def control_sales_validate(data, existing=None):
         if unit_price_cents < 0:
             raise ValueError("El precio unitario debe ser mayor o igual a cero")
         base_cents = int((quantity * Decimal(unit_price_cents)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-        vat_cents = int((Decimal(base_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) if document_type == "CCF" else 0
+        vat_cents = int((Decimal(base_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) if apply_vat else 0
         line_total_cents = base_cents + vat_cents
         subtotal_cents += base_cents
         vat_total_cents += vat_cents

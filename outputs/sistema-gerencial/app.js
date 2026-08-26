@@ -3099,7 +3099,8 @@ function ensureControlSalesDialogs() {
           <label class="span-4">Observaciones generales<textarea id="controlSalesGeneralNotes" rows="3"></textarea></label>
         </div>
       </details>
-      <fieldset class="control-sales-tax-mode"><legend>Tipo de comprobante</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · sin IVA detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · agrega 13% de IVA</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
+      <fieldset class="control-sales-tax-mode"><legend>Presentación del comprobante impreso</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · IVA no detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · IVA detallado</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
+      <fieldset class="control-sales-tax-mode"><legend>IVA de la orden de pedido</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesVatMode" value="without" checked><span class="control-sales-tax-card"><b>Mantener sin IVA</b><small>Conserva el total de la cotización</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesVatMode" value="with"><span class="control-sales-tax-card"><b>Agregar IVA 13%</b><small>Calcula el IVA sobre cada línea</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
       <section class="control-sales-lines"><div class="control-sales-lines-title"><div><span>Detalle de productos</span><strong>Líneas dinámicas</strong></div><button type="button" data-control-sales-add-line>+ Agregar línea</button></div><div id="controlSalesLines"></div></section>
       <section class="control-sales-proforma-totals">
         <article><span>Subtotal</span><strong id="controlSalesSubtotal">$0.00</strong></article>
@@ -3109,7 +3110,7 @@ function ensureControlSalesDialogs() {
       </section>
       <section id="controlSalesReconciliation" class="control-sales-reconciliation" data-state="empty">
         <article><span>Monto del pedido</span><strong id="controlSalesExpectedTotal">$0.00</strong><small>Valor a liquidar</small></article>
-        <article><span>Total detallado</span><strong id="controlSalesDetailedTotal">$0.00</strong><small>Según CF o CCF</small></article>
+        <article><span>Total detallado</span><strong id="controlSalesDetailedTotal">$0.00</strong><small>Según IVA seleccionado</small></article>
         <article><span>Diferencia</span><strong id="controlSalesVariance">$0.00</strong><small id="controlSalesReconciliationMessage">Selecciona un pedido para conciliar.</small></article>
       </section>
       <details class="control-sales-proforma-block control-sales-financial-annex" open>
@@ -3205,7 +3206,7 @@ function ensureControlSalesDialogs() {
     }
   });
   formDialog.addEventListener("change", (event) => {
-    if (event.target.matches('input[name="controlSalesDocumentType"], #controlSalesPerceptionEnabled')) updateControlSalesFormTotal();
+    if (event.target.matches('input[name="controlSalesDocumentType"], input[name="controlSalesVatMode"], #controlSalesPerceptionEnabled')) updateControlSalesFormTotal();
     if (event.target.matches("#controlSalesDate")) {
       if (!document.querySelector("#controlSalesId").value) {
         document.querySelector("#controlSalesNumber").value = nextControlSalesOrderNumber(event.target.value);
@@ -3470,6 +3471,7 @@ function collectControlSalesProformaData() {
     document.querySelector(`#${id}`)?.value.trim() || ""
   ]));
   data.perceptionEnabled = Boolean(document.querySelector("#controlSalesPerceptionEnabled")?.checked);
+  data.applyVat = document.querySelector('input[name="controlSalesVatMode"]:checked')?.value === "with";
   if (document.querySelector("#controlSalesDialog")?.dataset.directOrderFlow === "true") data.workflow = "direct-final-only";
   return data;
 }
@@ -3481,6 +3483,8 @@ function fillControlSalesProformaData(data = {}, order = null) {
   });
   const perception = document.querySelector("#controlSalesPerceptionEnabled");
   if (perception) perception.checked = Boolean(data.perceptionEnabled);
+  const vatMode = document.querySelector(`input[name="controlSalesVatMode"][value="${data.applyVat ? "with" : "without"}"]`);
+  if (vatMode) vatMode.checked = true;
 }
 
 function controlSalesLinkedFinancialOrderIds(currentOrderId = "") {
@@ -4695,12 +4699,12 @@ function updateControlSalesReconciliation(totalCents = null) {
 function updateControlSalesFormTotal() {
   let subtotalCents = 0;
   let vatCents = 0;
-  const documentType = document.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF";
+  const applyVat = document.querySelector('input[name="controlSalesVatMode"]:checked')?.value === "with";
   document.querySelectorAll("#controlSalesLines .control-sales-line").forEach((line) => {
     const quantity = parseControlSalesDecimal(line.querySelector("[data-line-quantity]").value);
     const price = Math.round(Number(line.querySelector("[data-line-price]").value || 0) * 100);
     const base = Math.round(quantity * price);
-    const lineVat = documentType === "CCF" ? Math.round(base * 0.13) : 0;
+    const lineVat = applyVat ? Math.round(base * 0.13) : 0;
     const lineTotal = base + lineVat;
     subtotalCents += base;
     vatCents += lineVat;
@@ -4720,7 +4724,7 @@ function updateControlSalesFormTotal() {
 }
 
 function controlSalesDraftFromForm() {
-  const documentType = document.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF";
+  const applyVat = document.querySelector('input[name="controlSalesVatMode"]:checked')?.value === "with";
   let subtotalCents = 0;
   let vatTotalCents = 0;
   const details = [...document.querySelectorAll("#controlSalesLines .control-sales-line")].map((line) => {
@@ -4728,7 +4732,7 @@ function controlSalesDraftFromForm() {
     const quantityValue = parseControlSalesDecimal(quantity);
     const unitPriceCents = Math.round(Number(line.querySelector("[data-line-price]").value || 0) * 100);
     const baseCents = Math.round(quantityValue * unitPriceCents);
-    const vatCents = documentType === "CCF" ? Math.round(baseCents * 0.13) : 0;
+    const vatCents = applyVat ? Math.round(baseCents * 0.13) : 0;
     subtotalCents += baseCents;
     vatTotalCents += vatCents;
     return {
@@ -4804,9 +4808,13 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   const quotationData = sourceQuotation ? {
     ...(sourceQuotation.customerData || {}),
     paymentTerms: sourceQuotation.paymentTerms || "",
-    generalNotes: sourceQuotation.commercialNotes || ""
+    generalNotes: sourceQuotation.commercialNotes || "",
+    applyVat: false
   } : {};
-  fillControlSalesProformaData(order?.proformaData || quotationData, order || sourceOrder);
+  const inheritedProforma = order
+    ? { ...(order.proformaData || {}), applyVat: order.proformaData?.applyVat ?? Number(order.vatTotalCents || 0) > 0 }
+    : quotationData;
+  fillControlSalesProformaData(inheritedProforma, order || sourceOrder);
   fillControlSalesFinancialData(sourceOrder || {}, order || {
     number: document.querySelector("#controlSalesNumber").value,
     date: document.querySelector("#controlSalesDate").value,
@@ -4883,6 +4891,11 @@ function printControlSalesProformaInline(order) {
     ? `OP-${rawOrderNumber.padStart(4, "0")}`
     : rawOrderNumber;
   const invoiceType = order.documentType === "CCF" ? "Credito fiscal" : "Consumidor final";
+  const detailedVat = order.documentType === "CCF";
+  const taxPrintLegend = detailedVat ? "IVA detallado" : "Precio final · IVA no detallado";
+  const printedTotals = detailedVat
+    ? `<tr><th>SUMAS</th><td>${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>1% PERCEPCION</th><td>${formatControlSalesMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${formatControlSalesMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`
+    : `<tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`;
   const strategies = [
     ["RETENCION", "Retención"],
     ["EXPANSION", "Expansión"],
@@ -4906,7 +4919,7 @@ function printControlSalesProformaInline(order) {
 </style></head><body><main class="sheet">
   <header class="top">
     <div class="brand-panel"><img src="${brandUrl}" alt="Konfi y Arte y Color"><time>${value(formatDate(order.date))}</time></div>
-    <div class="order-panel"><h1>ORDEN DE PEDIDO</h1><strong class="order-number">No. ${value(printableOrderNumber)}</strong><p>Tipo de Factura: ${value(invoiceType)}</p></div>
+    <div class="order-panel"><h1>ORDEN DE PEDIDO</h1><strong class="order-number">No. ${value(printableOrderNumber)}</strong><p>Tipo de Factura: ${value(invoiceType)}</p><p>${value(taxPrintLegend)}</p></div>
   </header>
   <section class="fields">
     <div class="field"><label>Vendedor:</label><strong>${value(controlSalesResponsibleSeller(order))}</strong></div>
@@ -4926,7 +4939,7 @@ function printControlSalesProformaInline(order) {
   <table class="items"><thead><tr><th>CANTIDAD</th><th>DESCRIPCION</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${lineRows}${blankRows}</tbody></table>
   <section class="closing">
     <div class="notes">Observaciones:<span>${value(data.generalNotes)}</span></div>
-    <table class="totals"><tbody><tr><th>SUMAS</th><td>${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>1% PERCEPCION</th><td>${formatControlSalesMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${formatControlSalesMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr></tbody></table>
+    <table class="totals"><tbody>${printedTotals}</tbody></table>
   </section>
   <section class="strategy-row">
     ${strategies.map(([label, stored]) => `<div class="strategy-item"><span>${label}</span><i class="check">${data.strategy === stored ? "X" : ""}</i></div>`).join("")}
