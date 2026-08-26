@@ -8781,7 +8781,7 @@ function renderCrmCustomerRequests() {
     <div class="crm-customer-table-wrap"><div class="crm-customer-table crm-customer-request-table">
       <div class="crm-customer-row crm-customer-head"><span>Solicitud</span><span>Cliente solicitado</span><span>Solicitante</span><span>Estado</span><span>Acciones</span></div>
       ${requests.map((request) => { const statusKey = normalizeKey(request.status || "pendiente"); return `<article class="crm-customer-row">
-        <span class="crm-customer-number"><strong>${escapeHtml(request.requestNumber || "—")}</strong><small>${escapeHtml(formatDisplayDate(request.requestedAt || request.createdAt || ""))}</small></span>
+        <span class="crm-customer-number"><strong>${escapeHtml(request.requestNumber || "—")}</strong><small>${escapeHtml(formatDate(String(request.requestedAt || request.createdAt || "").slice(0, 10)))}</small></span>
         <span class="crm-customer-name"><strong>${escapeHtml(request.commercialName || request.legalName || "Sin nombre")}</strong><small>${escapeHtml(request.taxId || request.legalName || "Identificación pendiente")}</small></span>
         <span><strong>${escapeHtml(request.requestedByName || "Usuario")}</strong><small>${escapeHtml(request.contactName || request.email || "Sin contacto")}</small></span>
         <span><strong class="crm-request-status ${escapeHtml(statusKey)}">${statusLabel[statusKey] || "Pendiente"}</strong><small>${statusKey === "aprobada" ? `ID ${escapeHtml(request.assignedClientNumber || "asignado")}` : (statusKey === "borrador" ? "Sin enviar" : escapeHtml(request.reviewedByName || "Por validar"))}</small></span>
