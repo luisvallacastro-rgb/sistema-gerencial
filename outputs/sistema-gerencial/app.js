@@ -3781,6 +3781,8 @@ function renderQuotationsModule() {
     })
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
   const hasAvailableOpportunities = availableQuotationOpportunities().length > 0;
+  const customerRequests = state.crmData?.customerRequests || [];
+  const openCustomerRequests = customerRequests.filter((request) => ["borrador", "pendiente"].includes(normalizeKey(request.status || ""))).length;
   const visibleTotal = rows.reduce((sum, quotation) => sum + Number(quotation.totalCents || 0), 0);
   return `
     <section class="quotations-module" aria-label="Módulo de cotizaciones">
@@ -3788,6 +3790,7 @@ function renderQuotationsModule() {
         <label class="quotations-module__search"><span aria-hidden="true">⌕</span><input type="search" data-quotation-module-search value="${escapeHtml(state.quotationModuleQuery)}" placeholder="Buscar cliente, vendedor, estado, fecha o producto..."></label>
         <div class="quotations-module__total"><small>TOTAL</small><strong>${formatControlSalesMoney(visibleTotal)}</strong></div>
         <button type="button" class="quotations-module__request" data-customer-request-create><span aria-hidden="true">＋</span>Solicitud de cliente</button>
+        <button type="button" class="quotations-module__requests-list" data-customer-request-list><span aria-hidden="true">▤</span><span>Mis solicitudes<small>${customerRequests.length}${openCustomerRequests ? ` · ${openCustomerRequests} abiertas` : ""}</small></span></button>
         <button type="button" class="quotations-module__new" data-quotation-module-create ${hasAvailableOpportunities ? "" : "disabled"}><span aria-hidden="true">＋</span>Nueva cotización</button>
       </header>
       <div class="quotation-table-head">
@@ -3871,6 +3874,7 @@ function wireQuotationsModule() {
     openQuotationOpportunityPicker();
   });
   opportunityTable.querySelector("[data-customer-request-create]")?.addEventListener("click", () => openCustomerRequestDialog());
+  opportunityTable.querySelector("[data-customer-request-list]")?.addEventListener("click", () => openCustomerRequestListDialog());
   opportunityTable.querySelectorAll("[data-quotation-module-open]").forEach((button) => button.addEventListener("click", () => (
     openQuotationDialog(button.dataset.opportunityId, button.dataset.quotationModuleOpen)
   )));
@@ -8368,6 +8372,62 @@ function openCustomerRequestDialog(request = null, review = false) {
   dialog.querySelector("[data-customer-request-approve]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.querySelector("[data-customer-request-reject]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.showModal();
+}
+
+function openCustomerRequestListDialog() {
+  document.querySelector("#customerRequestListDialog")?.remove();
+  const dialog = document.createElement("dialog");
+  dialog.id = "customerRequestListDialog";
+  dialog.className = "customer-request-list-dialog";
+  dialog.innerHTML = `<section class="customer-request-list-card">
+    <header><div><p>Solicitudes comerciales</p><h3>Mis solicitudes de clientes</h3><span>Consulta lo enviado, revisa su estado o continúa un borrador.</span></div><button type="button" data-customer-request-list-close aria-label="Cerrar">×</button></header>
+    <div class="customer-request-list-toolbar"><label><span aria-hidden="true">⌕</span><input type="search" data-customer-request-list-search placeholder="Buscar solicitud, cliente, NIT, contacto o estado..."></label><button type="button" data-customer-request-list-new>＋ Nueva solicitud</button></div>
+    <div class="customer-request-list-summary" data-customer-request-list-summary></div>
+    <div class="customer-request-list-rows" data-customer-request-list-rows></div>
+  </section>`;
+  document.body.appendChild(dialog);
+  const requests = [...(state.crmData?.customerRequests || [])].sort((a, b) => String(b.updatedAt || b.createdAt || b.requestedAt || "").localeCompare(String(a.updatedAt || a.createdAt || a.requestedAt || "")));
+  const rows = dialog.querySelector("[data-customer-request-list-rows]");
+  const summary = dialog.querySelector("[data-customer-request-list-summary]");
+  const renderRows = (query = "") => {
+    const tokens = normalizeKey(query).split(/\s+/).filter(Boolean);
+    const visible = requests.filter((request) => {
+      const index = normalizeKey(`${request.requestNumber || ""} ${request.commercialName || ""} ${request.legalName || ""} ${request.taxId || ""} ${request.contactName || ""} ${request.status || ""} ${request.assignedClientNumber || ""}`);
+      return tokens.every((token) => index.includes(token));
+    });
+    const pending = visible.filter((request) => normalizeKey(request.status || "") === "pendiente").length;
+    const drafts = visible.filter((request) => normalizeKey(request.status || "") === "borrador").length;
+    summary.innerHTML = `<span><b>${visible.length}</b> ${visible.length === 1 ? "solicitud" : "solicitudes"}</span><span><i class="draft"></i>${drafts} borrador${drafts === 1 ? "" : "es"}</span><span><i class="pending"></i>${pending} pendiente${pending === 1 ? "" : "s"}</span>`;
+    rows.innerHTML = visible.map((request) => {
+      const statusKey = normalizeKey(request.status || "borrador");
+      const isDraft = statusKey === "borrador";
+      const date = request.updatedAt || request.requestedAt || request.createdAt || "";
+      return `<article class="customer-request-list-row">
+        <div><small>${escapeHtml(request.requestNumber || "BORRADOR")}</small><strong>${escapeHtml(request.commercialName || request.legalName || "Cliente sin nombre")}</strong><span>${escapeHtml(request.contactName || request.taxId || "Datos por completar")}</span></div>
+        <div><small>Última actualización</small><strong>${date ? escapeHtml(formatDate(String(date).slice(0, 10))) : "—"}</strong></div>
+        <div><small>Estado</small><span class="crm-request-status ${statusKey}">${escapeHtml(request.status || "Borrador")}</span>${request.assignedClientNumber ? `<em>ID ${escapeHtml(request.assignedClientNumber)}</em>` : ""}</div>
+        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">${isDraft ? "Continuar" : "Ver detalle"}</button><button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" aria-label="Imprimir ficha" title="Imprimir ficha">▤</button></div>
+      </article>`;
+    }).join("") || `<div class="customer-request-list-empty"><strong>Sin solicitudes</strong><span>${requests.length ? "No hay coincidencias con esa búsqueda." : "Cuando guardes o envíes una solicitud, aparecerá aquí."}</span></div>`;
+    rows.querySelectorAll("[data-customer-request-list-open]").forEach((button) => button.addEventListener("click", () => {
+      const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListOpen));
+      if (!request) return;
+      dialog.close();
+      openCustomerRequestDialog(request, normalizeKey(request.status || "") !== "borrador");
+    }));
+    rows.querySelectorAll("[data-customer-request-list-print]").forEach((button) => button.addEventListener("click", () => {
+      const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListPrint));
+      if (request) printCustomerRequestSheet(request);
+    }));
+  };
+  dialog.querySelector("[data-customer-request-list-search]").addEventListener("input", (event) => renderRows(event.target.value));
+  dialog.querySelector("[data-customer-request-list-new]").addEventListener("click", () => { dialog.close(); openCustomerRequestDialog(); });
+  dialog.querySelector("[data-customer-request-list-close]").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  renderRows();
+  dialog.showModal();
+  dialog.querySelector("[data-customer-request-list-search]").focus();
 }
 
 function ensureDirectOrderCustomerDialog() {
