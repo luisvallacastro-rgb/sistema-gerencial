@@ -4806,6 +4806,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   });
   const financialAnnex = dialog.querySelector(".control-sales-financial-annex");
   const financialAnnexReadOnly = !directOrderFlow && !financialCompletionOnly && state.activeArea !== "financiera";
+  financialAnnex.classList.toggle("hidden", financialAnnexReadOnly);
   financialAnnex.classList.toggle("is-readonly", financialAnnexReadOnly);
   financialAnnex.querySelectorAll("input, select, textarea").forEach((field) => {
     field.disabled = financialAnnexReadOnly;
