@@ -12134,6 +12134,8 @@ opportunityTable.addEventListener("click", (event) => {
   fillOpportunityOptions();
   opportunityId.value = item.id;
   opportunityCrmSourceId.value = item.crmOpportunityId || "";
+  opportunityCustomerId.value = item.customerId || "";
+  refreshOpportunityCustomerOptions(item.customerId || "", item.company || "");
   opportunityDate.value = item.date;
   opportunityCompany.value = item.company;
   ensureSelectOption(opportunitySeller, item.seller);
@@ -12627,11 +12629,24 @@ opportunityForm.addEventListener("submit", (event) => {
   const id = opportunityId.value || crypto.randomUUID();
   const currentIndex = submenu.items.findIndex((item) => item.id === id);
   const createdTime = currentTimeValue();
+  const typedCustomerName = opportunityCustomerSearch.value.trim();
+  if (!typedCustomerName) {
+    alert("Escriba el nombre del cliente.");
+    opportunityCustomerSearch.focus();
+    return;
+  }
+  const selectedCustomer = crmMasterCustomers(true).find(
+    (customer) => String(customer.id) === String(opportunityCustomerId.value)
+  );
+  if (selectedCustomer) inheritCustomerInOpportunity(selectedCustomer.id);
   const payload = {
     id,
     date: opportunityDate.value,
     time: currentIndex >= 0 ? submenu.items[currentIndex].time || createdTime : createdTime,
-    company: opportunityCompany.value.trim(),
+    customerId: selectedCustomer?.id || "",
+    company: selectedCustomer
+      ? (selectedCustomer.commercialName || selectedCustomer.legalName || typedCustomerName)
+      : typedCustomerName,
     seller: opportunitySeller.value.trim(),
     contact: opportunityContact.value.trim(),
     phone: opportunityPhone.value.trim(),
