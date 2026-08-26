@@ -90,7 +90,7 @@ function renderProforma(order) {
   const strategies = [["RETENCION", "Retención"], ["EXPANSION", "Expansión"], ["ATRACCION", "Atracción"], ["RECUPERACION", "Recuperación"]];
   const lineRows = details.map((detail) => {
     const baseCents = Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0);
-    const description = [detail.product, detail.size ? `Talla ${detail.size}` : "", detail.notes].filter(Boolean).join(" - ");
+    const description = [detail.product, detail.size ? `Talla ${detail.size}` : ""].filter(Boolean).join(" - ");
     return `<tr><td class="qty">${printValue(detail.quantity)}</td><td>${printValue(description)}</td><td class="money">${printMoney(detail.unitPriceCents)}</td><td class="money">${printMoney(baseCents)}</td></tr>`;
   });
 

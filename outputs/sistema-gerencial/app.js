@@ -4533,6 +4533,7 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
       const response = await apiJson(draft.id ? `/api/quotations/${encodeURIComponent(draft.id)}` : "/api/quotations", { method:draft.id ? "PUT" : "POST", body:JSON.stringify(draft) });
       saved = response.item;
       await loadQuotations();
+      await loadControlSales();
       const opportunityItems = await apiJson("/api/opportunities");
       getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(Array.isArray(opportunityItems) ? opportunityItems : []));
       localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
@@ -5047,7 +5048,7 @@ function printControlSalesProformaInline(order) {
   ];
   const lineRows = order.details.map((detail) => {
     const baseCents = Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0);
-    const description = [detail.product, detail.size ? `Talla ${detail.size}` : "", detail.notes].filter(Boolean).join(" - ");
+    const description = [detail.product, detail.size ? `Talla ${detail.size}` : ""].filter(Boolean).join(" - ");
     return `<tr><td class="qty">${value(detail.quantity)}</td><td>${value(description)}</td><td class="money">${formatControlSalesMoney(detail.unitPriceCents || 0)}</td><td class="money">${formatControlSalesMoney(baseCents)}</td></tr>`;
   }).join("");
   const blankRows = Array.from(

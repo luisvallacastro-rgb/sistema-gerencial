@@ -2872,6 +2872,42 @@ def save_quotation(conn, data, existing_row=None):
         existing.get("createdBy", actor) if existing else actor, actor,
         existing.get("createdAt", now) if existing else now, now,
     ))
+    if converted_order_id:
+        linked_order_row = conn.execute(
+            "SELECT * FROM control_sales_orders WHERE id = ? AND archived = 0",
+            (converted_order_id,),
+        ).fetchone()
+        if linked_order_row:
+            linked_order = control_sales_order_payload(conn, linked_order_row)
+            linked_proforma = dict(linked_order.get("proformaData") or {})
+            linked_proforma.update(item["customerData"])
+            linked_proforma.update({
+                "paymentTerms": item["paymentTerms"],
+                "generalNotes": item["commercialNotes"],
+                "applyVat": item["documentType"] == "CCF",
+            })
+            linked_details = [{
+                "id": text(line.get("id"), f"cvd-{uuid.uuid4()}"),
+                "product": text(line.get("description")),
+                "size": text(line.get("size")),
+                "quantity": line.get("quantity"),
+                "unitPriceCents": line.get("unitPriceCents"),
+                "notes": text(line.get("notes")),
+            } for line in item["lines"] if text(line.get("type")).lower() != "title"]
+            save_control_sales_order(conn, {
+                "financialOrderId": linked_order.get("financialOrderId"),
+                "sourceOpportunityId": linked_order.get("sourceOpportunityId") or item["opportunityId"],
+                "sourceQuotationId": quote_id,
+                "number": linked_order.get("number"),
+                "date": linked_order.get("date"),
+                "seller": item["seller"],
+                "client": item["client"],
+                "status": linked_order.get("status"),
+                "documentType": item["documentType"],
+                "proformaData": linked_proforma,
+                "details": linked_details,
+                "updatedBy": actor,
+            }, linked_order_row)
     sync_opportunity_amount_from_latest_quotation(conn, item["opportunityId"])
     row = conn.execute("SELECT * FROM quotations WHERE id=?", (quote_id,)).fetchone()
     return quotation_payload(row)
