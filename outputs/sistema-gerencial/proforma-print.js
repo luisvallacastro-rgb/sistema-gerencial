@@ -100,10 +100,11 @@ function renderProforma(order) {
     return `<tr><td class="qty">${printValue(detail.quantity)}</td><td>${printValue(description)}</td><td class="money">${printMoney(detail.unitPriceCents)}</td><td class="money">${printMoney(baseCents)}</td></tr>`;
   });
 
-  // Carta vertical: máximo contractual de 24 filas por hoja. Se balancean las
-  // filas para que la última página conserve espacio estable para totales y firmas.
+  // Carta vertical: hasta 18 líneas compactas caben junto con totales y firmas.
+  // Solo se divide cuando el pedido realmente necesita una página adicional.
+  const MAX_SINGLE_PAGE_ROWS = 18;
   const MAX_ROWS_PER_PAGE = 24;
-  const pageCount = details.length <= 12 ? 1 : Math.max(2, Math.ceil(details.length / MAX_ROWS_PER_PAGE));
+  const pageCount = details.length <= MAX_SINGLE_PAGE_ROWS ? 1 : Math.max(2, Math.ceil(details.length / MAX_ROWS_PER_PAGE));
   const baseRows = Math.floor(lineRows.length / pageCount);
   const extraRows = lineRows.length % pageCount;
   const pages = [];
