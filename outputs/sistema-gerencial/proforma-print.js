@@ -64,12 +64,17 @@ function renderProforma(order) {
   const details = Array.isArray(order.details) ? order.details : [];
   const subtotalCents = Number(order.subtotalCents || 0);
   const perceptionCents = Number(order.perceptionCents || 0);
-  const vatCents = Number(order.vatCents || 0);
-  const rawOrderNumber = String(order.orderNumber || "").trim();
+  const vatCents = Number(order.vatTotalCents ?? order.vatCents ?? 0);
+  const rawOrderNumber = String(order.number || order.orderNumber || "").trim();
   const printableOrderNumber = rawOrderNumber.toUpperCase().startsWith("OP-")
     ? rawOrderNumber.slice(3)
     : rawOrderNumber;
   const invoiceType = order.documentType === "CCF" ? "Credito fiscal" : "Consumidor final";
+  const detailedVat = order.documentType === "CCF";
+  const taxPrintLegend = detailedVat ? "IVA detallado" : "Precio final · IVA no detallado";
+  const printedTotals = detailedVat
+    ? `<tr><th>SUMAS</th><td>${printMoney(subtotalCents)}</td></tr><tr><th>1% PERCEPCION</th><td>${printMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${printMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${printMoney(order.totalCents)}</td></tr>`
+    : `<tr><th>TOTAL</th><td>${printMoney(order.totalCents)}</td></tr>`;
   const commercialSignature = order.commercialApprovalStatus === "Autorizada" ? `
     <section class="electronic-signature">
       <span class="electronic-signature__seal">✓</span>
@@ -110,12 +115,12 @@ function renderProforma(order) {
       <tbody>${rows.join("")}${Array.from({ length: blankCount }, () => `<tr class="blank"><td>&nbsp;</td><td></td><td></td><td></td></tr>`).join("")}</tbody>
     </table>`;
   const firstPageHeader = `
-    <header class="top"><div class="brand-panel"><img src="assets/proforma-konfi-arte-color-transparent.png?v=20260803-transparent-v2" alt="Konfi y Arte y Color"><time>${printValue(printDate(order.date))}</time></div><div class="order-panel"><h1>ORDEN DE PEDIDO</h1><strong class="order-number">No. ${printValue(printableOrderNumber)}</strong><p>Tipo de Factura: ${printValue(invoiceType)}</p></div></header>
+    <header class="top"><div class="brand-panel"><img src="assets/proforma-konfi-arte-color-transparent.png?v=20260803-transparent-v2" alt="Konfi y Arte y Color"><time>${printValue(printDate(order.date))}</time></div><div class="order-panel"><h1>ORDEN DE PEDIDO</h1><strong class="order-number">No. ${printValue(printableOrderNumber)}</strong><p>Tipo de Factura: ${printValue(invoiceType)}</p><p>${printValue(taxPrintLegend)}</p></div></header>
     <section class="fields">
       <div class="field"><label>Vendedor:</label><strong>${printValue(order.seller)}</strong></div><div class="field"><label>Nombre Comercial:</label><strong>${printValue(data.commercialName || order.client)}</strong></div><div class="field"><label>Razon Social:</label><strong>${printValue(data.legalName)}</strong></div><div class="field"><label>Giro:</label><strong>${printValue(data.businessActivity)}</strong></div><div class="field"><label>Encargado/a:</label><strong>${printValue(data.contactName)}</strong></div><div class="field"><label>Telefono:</label><strong>${printValue(data.phone)}</strong></div><div class="field"><label>Direccion:</label><strong>${printValue(data.address)}</strong></div><div class="field"><label>Email:</label><strong>${printValue(data.email)}</strong></div><div class="field"><label>NIT No.:</label><strong>${printValue(data.taxId)}</strong></div><div class="field"><label>Registro No.:</label><strong>${printValue(data.registrationNumber)}</strong></div><div class="field"><label>Tipo de Contribuyente:</label><strong>${printValue(data.taxpayerType)}</strong></div><div class="field"><label>Fecha de Entrega:</label><strong>${printValue(printDate(data.deliveryDate))}</strong></div><div class="field"><label>Condiciones de Pago:</label><strong>${printValue(data.paymentTerms)}</strong></div>
     </section>`;
   const closing = `
-    <section class="closing"><div class="notes">Observaciones:<span>${printValue(data.generalNotes)}</span></div><table class="totals"><tbody><tr><th>SUMAS</th><td>${printMoney(subtotalCents)}</td></tr><tr><th>1% PERCEPCION</th><td>${printMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${printMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${printMoney(order.totalCents)}</td></tr></tbody></table></section>
+    <section class="closing"><div class="notes">Observaciones:<span>${printValue(data.generalNotes)}</span></div><table class="totals"><tbody>${printedTotals}</tbody></table></section>
     <section class="strategy-row">${strategies.map(([label, stored]) => `<div class="strategy-item"><span>${label}</span><i class="check">${data.strategy === stored ? "X" : ""}</i></div>`).join("")}<div class="customer-code"><span>CODIGO DE CLIENTE NO.:</span><span>${printValue(data.customerCode)}</span></div></section>
     ${commercialSignature || financeSignature ? `<section class="electronic-signatures-print">${commercialSignature}${financeSignature}</section>` : ""}
     <section class="signatures"><div class="signature">CLIENTE O RESPONSABLE</div><div class="signature">REPRESENTANTE</div></section>`;
