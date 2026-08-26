@@ -4137,7 +4137,7 @@ function ensureQuotationDialog() {
     <section id="quotationHistory" class="quotation-history"></section>
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
     <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label></section>
-    <div id="quotationInheritedData" hidden aria-hidden="true"><input id="quotationCommercialName"><input id="quotationContactName"><input id="quotationEmail"><input id="quotationSeller"><input id="quotationSellerPhone"><input id="quotationSellerEmail"></div>
+    <div id="quotationInheritedData" hidden aria-hidden="true"><input id="quotationCommercialName"><input id="quotationLegalName"><input id="quotationContactName"><input id="quotationPhone"><input id="quotationEmail"><input id="quotationAddress"><input id="quotationBusinessActivity"><input id="quotationTaxId"><input id="quotationRegistrationNumber"><input id="quotationTaxpayerType"><input id="quotationCustomerCode"><input id="quotationStrategy"><input id="quotationClientType"><input id="quotationDepartment"><input id="quotationDocumentType"><input id="quotationSeller"><input id="quotationSellerPhone"><input id="quotationSellerEmail"></div>
     <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><div class="quotation-line-actions"><label>Insertar línea de título<select id="quotationTitlePosition" aria-label="Ubicación de la línea de título"><option value="end">Al final, después de todas las líneas</option></select></label><button type="button" class="quotation-title-add-btn" data-quotation-add-title>+ Línea de título</button><button type="button" data-quotation-add-line>+ Agregar línea</button></div></div><div id="quotationLines"></div></section>
     <section class="quotation-totals">
       <div class="quotation-totals-comparison"><article class="quotation-reference"><span>Monto original de la oportunidad</span><strong id="quotationReference" data-reference-cents="0">$0.00</strong></article><article class="quotation-variation" id="quotationVariationCard" data-variation="neutral"><span id="quotationVariationLabel">Saldo pendiente por cotizar</span><strong id="quotationVariation">$0.00</strong><small>Calculado contra el subtotal acumulado de las líneas</small></article></div>
@@ -4298,7 +4298,7 @@ function quotationDraftFromForm() {
   const vatCents = applyVat ? Math.round(subtotalCents * .13) : 0;
   const customerId = document.querySelector("#quotationCustomerId").value;
   return { id:document.querySelector("#quotationId").value, opportunityId:document.querySelector("#quotationOpportunityId").value, customerId, number:document.querySelector("#quotationNumber").value, date:document.querySelector("#quotationDate").value, validDays:Number(document.querySelector("#quotationValidDays").value || 30), seller:document.querySelector("#quotationSeller").value.trim(), client:document.querySelector("#quotationCommercialName").value.trim(), status:document.querySelector("#quotationStatus").value,
-    customerData:{ customerId, commercialName:document.querySelector("#quotationCommercialName").value.trim(), contactName:document.querySelector("#quotationContactName").value.trim(), email:document.querySelector("#quotationEmail").value.trim(), sellerPhone:document.querySelector("#quotationSellerPhone").value.trim(), sellerEmail:document.querySelector("#quotationSellerEmail").value.trim(), sellerRole:"Ejecutivo/a de ventas" },
+    customerData:{ customerId, commercialName:document.querySelector("#quotationCommercialName").value.trim(), legalName:document.querySelector("#quotationLegalName").value.trim(), contactName:document.querySelector("#quotationContactName").value.trim(), phone:document.querySelector("#quotationPhone").value.trim(), email:document.querySelector("#quotationEmail").value.trim(), address:document.querySelector("#quotationAddress").value.trim(), businessActivity:document.querySelector("#quotationBusinessActivity").value.trim(), taxId:document.querySelector("#quotationTaxId").value.trim(), registrationNumber:document.querySelector("#quotationRegistrationNumber").value.trim(), taxpayerType:document.querySelector("#quotationTaxpayerType").value.trim(), customerCode:document.querySelector("#quotationCustomerCode").value.trim(), strategy:document.querySelector("#quotationStrategy").value.trim(), clientType:document.querySelector("#quotationClientType").value.trim(), department:document.querySelector("#quotationDepartment").value.trim(), documentType:document.querySelector("#quotationDocumentType").value.trim() || "CF", sellerPhone:document.querySelector("#quotationSellerPhone").value.trim(), sellerEmail:document.querySelector("#quotationSellerEmail").value.trim(), sellerRole:"Ejecutivo/a de ventas" },
     paymentTerms:document.querySelector("#quotationPaymentTerms").value.trim(), deliveryTerms:document.querySelector("#quotationDeliveryTerms").value.trim(), warrantyNote:document.querySelector("#quotationWarrantyNote").value.trim(), commercialNotes:document.querySelector("#quotationCommercialNotes").value.trim(), specialSizesNote:document.querySelector("#quotationSpecialSizesNote").value.trim(), applyVat, subtotalCents, vatCents, totalCents:subtotalCents + vatCents, lines, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
 }
 
@@ -4351,7 +4351,7 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
   const values = {
     quotationId:quote?.id || "", quotationNumber:quote?.number || "", quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
     quotationCommercialName:customer.commercialName || customer.name || quote?.client || opportunity?.company || "", quotationLegalName:customer.legalName || "", quotationContactName:customer.contactName || customer.manager || opportunity?.contact || "", quotationPhone:customer.phone || opportunity?.phone || "", quotationEmail:customer.email || "", quotationAddress:customer.address || opportunity?.location || "", quotationBusinessActivity:customer.businessActivity || customer.businessLine || opportunity?.segment || "", quotationTaxId:customer.taxId || customer.nit || "", quotationRegistrationNumber:customer.registrationNumber || customer.nrc || "", quotationTaxpayerType:customer.taxpayerType || "", quotationCustomerCode:customer.customerCode || customer.code || "", quotationStrategy:customer.strategy || opportunity?.strategy || "", quotationSeller:quote?.seller || seller.name || opportunity?.seller || state.currentUser?.name || "", quotationSellerPhone:customer.sellerPhone || seller.phone || "", quotationSellerEmail:customer.sellerEmail || seller.email || state.currentUser?.email || "",
-    quotationPaymentTerms:quote?.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:quote?.commercialNotes || "Precios unitarios no incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
+    quotationClientType:customer.clientType || "", quotationDepartment:customer.department || "", quotationDocumentType:customer.documentType === "CCF" ? "CCF" : "CF", quotationPaymentTerms:quote?.paymentTerms || customer.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:quote?.commercialNotes || "Precios unitarios no incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
   };
   const legacyQuotationValues = {
     quotationPaymentTerms:{ "50% de anticipo - 50% contra entrega":"50% anticipo, 50% previo a la entrega del pedido" }
@@ -4851,7 +4851,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
     document.querySelector("#controlSalesCommercialName").value = sourceWin.company || "";
   }
   document.querySelector("#controlSalesOrderStatus").value = order?.status === "Histórica" ? "Activa" : (order?.status || "Activa");
-  const documentType = order?.documentType === "CCF" ? "CCF" : "CF";
+  const documentType = (order?.documentType || quotationData.documentType) === "CCF" ? "CCF" : "CF";
   document.querySelector(`input[name="controlSalesDocumentType"][value="${documentType}"]`).checked = true;
   const initialDetails = order?.details?.length
     ? order.details
@@ -8222,12 +8222,13 @@ function ensureCrmCustomerDialog() {
         <label>NIT / identificación fiscal<input id="crmCustomerTaxId" maxlength="40" placeholder="Número de identificación"></label>
         <label>NRC / registro<input id="crmCustomerRegistration" maxlength="40" placeholder="Número de registro"></label>
         <label>Tipo de contribuyente<input id="crmCustomerTaxpayerType" maxlength="80" placeholder="Grande, mediano, otro"></label>
+        <label>Tipo de factura<select id="crmCustomerDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label>
         <label>Giro / actividad económica<input id="crmCustomerBusiness" maxlength="120" placeholder="Actividad principal"></label>
       </div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Información reutilizable en órdenes y pedidos.</small></div></div><div class="crm-customer-fields">
         <label class="span-2">Dirección<input id="crmCustomerAddress" maxlength="220" placeholder="Dirección completa"></label>
         <label>Departamento / municipio<input id="crmCustomerDepartment" maxlength="100" placeholder="Ubicación"></label>
-        <label>Condiciones de pago<input id="crmCustomerTerms" maxlength="160" placeholder="Ej. crédito a 30 días"></label>
+        <label>Condiciones de pago<select id="crmCustomerTerms"><option value="">Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label>
         <label class="span-2">Estrategia comercial<input id="crmCustomerStrategy" maxlength="100" placeholder="Enfoque o estrategia asignada"></label>
       </div></section>
     </div>
@@ -8244,7 +8245,7 @@ function ensureCrmCustomerDialog() {
       customerCode: value("#crmCustomerCode"), taxId: value("#crmCustomerTaxId"), registrationNumber: value("#crmCustomerRegistration"),
       taxpayerType: value("#crmCustomerTaxpayerType"), contactName: value("#crmCustomerContact"), phone: value("#crmCustomerPhone"),
       email: value("#crmCustomerEmail"), businessActivity: value("#crmCustomerBusiness"), address: value("#crmCustomerAddress"),
-      department: value("#crmCustomerDepartment"), clientType: value("#crmCustomerType"), paymentTerms: value("#crmCustomerTerms"), strategy: value("#crmCustomerStrategy")
+      department: value("#crmCustomerDepartment"), clientType: value("#crmCustomerType"), documentType: value("#crmCustomerDocumentType"), paymentTerms: value("#crmCustomerTerms"), strategy: value("#crmCustomerStrategy")
     };
     try {
       const response = await crmApi(id ? `/customers/${encodeURIComponent(id)}` : "/customers", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
@@ -8270,7 +8271,8 @@ function openCrmCustomerDialog(customer = {}) {
   set("#crmCustomerCode", customer.customerCode); set("#crmCustomerTaxId", customer.taxId); set("#crmCustomerRegistration", customer.registrationNumber);
   set("#crmCustomerTaxpayerType", customer.taxpayerType); set("#crmCustomerContact", customer.contactName || customer.manager); set("#crmCustomerPhone", customer.phone);
   set("#crmCustomerEmail", customer.email); set("#crmCustomerBusiness", customer.businessActivity || customer.businessLine); set("#crmCustomerAddress", customer.address);
-  set("#crmCustomerDepartment", customer.department); set("#crmCustomerType", customer.clientType); set("#crmCustomerTerms", customer.paymentTerms); set("#crmCustomerStrategy", customer.strategy);
+  set("#crmCustomerDepartment", customer.department); set("#crmCustomerType", customer.clientType); set("#crmCustomerDocumentType", customer.documentType || "CF");
+  const terms = customer.paymentTerms || ""; const termsSelect = dialog.querySelector("#crmCustomerTerms"); if (terms && !Array.from(termsSelect.options).some((option) => option.value === terms)) termsSelect.add(new Option(terms, terms)); set("#crmCustomerTerms", terms); set("#crmCustomerStrategy", customer.strategy);
   dialog.querySelector("#crmCustomerDialogTitle").textContent = customer.id ? "Editar cliente" : "Nuevo cliente";
   dialog.showModal();
 }
@@ -8278,7 +8280,7 @@ function openCrmCustomerDialog(customer = {}) {
 const customerRequestFields = [
   ["CommercialName", "commercialName"], ["LegalName", "legalName"], ["CustomerCode", "customerCode"], ["Type", "clientType"],
   ["Contact", "contactName"], ["Phone", "phone"], ["Email", "email"], ["TaxId", "taxId"],
-  ["Registration", "registrationNumber"], ["TaxpayerType", "taxpayerType"], ["Business", "businessActivity"],
+  ["Registration", "registrationNumber"], ["TaxpayerType", "taxpayerType"], ["DocumentType", "documentType"], ["Business", "businessActivity"],
   ["Address", "address"], ["Department", "department"], ["Terms", "paymentTerms"], ["Strategy", "strategy"]
 ];
 
@@ -8293,6 +8295,7 @@ function printCustomerRequestSheet(request = {}) {
     ["Nombre comercial", request.commercialName], ["Razón social", request.legalName], ["Tipo de cliente", request.clientType],
     ["Contacto principal", request.contactName], ["Teléfono", request.phone], ["Correo", request.email],
     ["NIT / identificación fiscal", request.taxId], ["NRC / registro", request.registrationNumber], ["Tipo de contribuyente", request.taxpayerType],
+    ["Tipo de factura", request.documentType === "CCF" ? "Crédito fiscal" : "Consumidor final"],
     ["Giro / actividad económica", request.businessActivity], ["Dirección", request.address], ["Departamento / municipio", request.department],
     ["Condiciones de pago", request.paymentTerms], ["Estrategia comercial", request.strategy]
   ];
@@ -8313,7 +8316,7 @@ function ensureCustomerRequestDialog() {
     <input type="hidden" id="customerRequestId"><div class="crm-customer-dialog-body">
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Código interno solicitado<input id="customerRequestCustomerCode"></label><label>Tipo de cliente<input id="customerRequestType"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
-      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<input id="customerRequestTaxpayerType"></label><label>Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<input id="customerRequestTaxpayerType"></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento / municipio<input id="customerRequestDepartment"></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
     </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn" data-customer-request-print>Imprimir ficha</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y asignar ID</button><button type="button" class="ghost-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
@@ -8543,7 +8546,11 @@ function masterCustomerQuotationData(customer, quotation = {}) {
     registrationNumber: customer.registrationNumber || customer.nrc || "",
     taxpayerType: customer.taxpayerType || "",
     customerCode: customer.customerCode || customer.code || "",
-    strategy: customer.strategy || ""
+    strategy: customer.strategy || "",
+    clientType: customer.clientType || "",
+    department: customer.department || "",
+    paymentTerms: customer.paymentTerms || quotation.paymentTerms || "",
+    documentType: customer.documentType === "CCF" ? "CCF" : "CF"
   };
 }
 
