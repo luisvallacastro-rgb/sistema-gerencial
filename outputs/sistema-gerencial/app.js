@@ -4137,6 +4137,49 @@ function commercialPaymentTermOptions() {
   return commercialPaymentTerms.map((term) => `<option value="${escapeHtml(term)}">${escapeHtml(term)}</option>`).join("");
 }
 
+const customerMunicipalitiesByDepartment = Object.freeze({
+  "Ahuachapán": ["Norte", "Centro", "Sur"],
+  "Santa Ana": ["Norte", "Centro", "Este", "Oeste"],
+  "Sonsonate": ["Norte", "Centro", "Este", "Oeste"],
+  "Chalatenango": ["Norte", "Centro", "Sur"],
+  "La Libertad": ["Norte", "Centro", "Oeste", "Este", "Costa", "Sur"],
+  "San Salvador": ["Norte", "Oeste", "Este", "Centro", "Sur"],
+  "Cuscatlán": ["Norte", "Sur"],
+  "La Paz": ["Oeste", "Centro", "Este"],
+  "Cabañas": ["Este", "Oeste"],
+  "San Vicente": ["Norte", "Sur"],
+  "Usulután": ["Norte", "Este", "Oeste"],
+  "San Miguel": ["Norte", "Centro", "Oeste"],
+  "Morazán": ["Norte", "Sur"],
+  "La Unión": ["Norte", "Sur"]
+});
+
+function customerDepartmentOptions() {
+  return `<option value="">Seleccionar departamento</option>${Object.keys(customerMunicipalitiesByDepartment).map((department) => `<option value="${escapeHtml(department)}">${escapeHtml(department)}</option>`).join("")}`;
+}
+
+function refreshCustomerMunicipalitySelect(departmentSelect, municipalitySelect, selectedMunicipality = "") {
+  const department = departmentSelect?.value || "";
+  const municipalities = customerMunicipalitiesByDepartment[department] || [];
+  municipalitySelect.innerHTML = `<option value="">${department ? "Seleccionar municipio" : "Selecciona primero el departamento"}</option>${municipalities.map((municipality) => `<option value="${escapeHtml(municipality)}">${escapeHtml(municipality)}</option>`).join("")}`;
+  if (selectedMunicipality && !municipalities.includes(selectedMunicipality)) municipalitySelect.add(new Option(selectedMunicipality, selectedMunicipality));
+  municipalitySelect.value = selectedMunicipality || "";
+  municipalitySelect.disabled = !department;
+}
+
+function wireCustomerLocationFields(departmentSelect, municipalitySelect) {
+  if (!departmentSelect || !municipalitySelect || departmentSelect.dataset.locationWired === "true") return;
+  departmentSelect.dataset.locationWired = "true";
+  departmentSelect.addEventListener("change", () => refreshCustomerMunicipalitySelect(departmentSelect, municipalitySelect));
+  refreshCustomerMunicipalitySelect(departmentSelect, municipalitySelect);
+}
+
+function setCustomerLocationFields(departmentSelect, municipalitySelect, department = "", municipality = "") {
+  if (department && !Array.from(departmentSelect.options).some((option) => option.value === department)) departmentSelect.add(new Option(department, department));
+  departmentSelect.value = department || "";
+  refreshCustomerMunicipalitySelect(departmentSelect, municipalitySelect, municipality || "");
+}
+
 function ensureQuotationDialog() {
   if (document.querySelector("#quotationDialog")) return;
   document.body.insertAdjacentHTML("beforeend", `<dialog id="quotationDialog" class="wide-dialog quotation-dialog"><form id="quotationForm">
@@ -4146,7 +4189,7 @@ function ensureQuotationDialog() {
     <section id="quotationHistory" class="quotation-history"></section>
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
     <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label></section>
-    <div id="quotationInheritedData" hidden aria-hidden="true"><input id="quotationCommercialName"><input id="quotationLegalName"><input id="quotationContactName"><input id="quotationPhone"><input id="quotationEmail"><input id="quotationAddress"><input id="quotationBusinessActivity"><input id="quotationTaxId"><input id="quotationRegistrationNumber"><input id="quotationTaxpayerType"><input id="quotationCustomerCode"><input id="quotationStrategy"><input id="quotationClientType"><input id="quotationDepartment"><input id="quotationDocumentType"><input id="quotationSeller"><input id="quotationSellerPhone"><input id="quotationSellerEmail"></div>
+    <div id="quotationInheritedData" hidden aria-hidden="true"><input id="quotationCommercialName"><input id="quotationLegalName"><input id="quotationContactName"><input id="quotationPhone"><input id="quotationEmail"><input id="quotationAddress"><input id="quotationBusinessActivity"><input id="quotationTaxId"><input id="quotationRegistrationNumber"><input id="quotationTaxpayerType"><input id="quotationCustomerCode"><input id="quotationStrategy"><input id="quotationClientType"><input id="quotationDepartment"><input id="quotationMunicipality"><input id="quotationDocumentType"><input id="quotationSeller"><input id="quotationSellerPhone"><input id="quotationSellerEmail"></div>
     <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><div class="quotation-line-actions"><label>Insertar línea de título<select id="quotationTitlePosition" aria-label="Ubicación de la línea de título"><option value="end">Al final, después de todas las líneas</option></select></label><button type="button" class="quotation-title-add-btn" data-quotation-add-title>+ Línea de título</button><button type="button" data-quotation-add-line>+ Agregar línea</button></div></div><div id="quotationLines"></div></section>
     <section class="quotation-totals">
       <div class="quotation-totals-comparison"><article class="quotation-reference"><span>Monto original de la oportunidad</span><strong id="quotationReference" data-reference-cents="0">$0.00</strong></article><article class="quotation-variation" id="quotationVariationCard" data-variation="neutral"><span id="quotationVariationLabel">Saldo pendiente por cotizar</span><strong id="quotationVariation">$0.00</strong><small>Calculado contra el total acumulado de las líneas</small></article></div>
@@ -4295,7 +4338,7 @@ function quotationDraftFromForm() {
   const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
   const customerId = document.querySelector("#quotationCustomerId").value;
   return { id:document.querySelector("#quotationId").value, opportunityId:document.querySelector("#quotationOpportunityId").value, customerId, number:document.querySelector("#quotationNumber").value, date:document.querySelector("#quotationDate").value, validDays:Number(document.querySelector("#quotationValidDays").value || 30), seller:document.querySelector("#quotationSeller").value.trim(), client:document.querySelector("#quotationCommercialName").value.trim(), status:document.querySelector("#quotationStatus").value,
-    customerData:{ customerId, commercialName:document.querySelector("#quotationCommercialName").value.trim(), legalName:document.querySelector("#quotationLegalName").value.trim(), contactName:document.querySelector("#quotationContactName").value.trim(), phone:document.querySelector("#quotationPhone").value.trim(), email:document.querySelector("#quotationEmail").value.trim(), address:document.querySelector("#quotationAddress").value.trim(), businessActivity:document.querySelector("#quotationBusinessActivity").value.trim(), taxId:document.querySelector("#quotationTaxId").value.trim(), registrationNumber:document.querySelector("#quotationRegistrationNumber").value.trim(), taxpayerType:document.querySelector("#quotationTaxpayerType").value.trim(), customerCode:document.querySelector("#quotationCustomerCode").value.trim(), strategy:document.querySelector("#quotationStrategy").value.trim(), clientType:document.querySelector("#quotationClientType").value.trim(), department:document.querySelector("#quotationDepartment").value.trim(), documentType:document.querySelector("#quotationDocumentType").value.trim() || "CF", sellerPhone:document.querySelector("#quotationSellerPhone").value.trim(), sellerEmail:document.querySelector("#quotationSellerEmail").value.trim(), sellerRole:"Ejecutivo/a de ventas" },
+    customerData:{ customerId, commercialName:document.querySelector("#quotationCommercialName").value.trim(), legalName:document.querySelector("#quotationLegalName").value.trim(), contactName:document.querySelector("#quotationContactName").value.trim(), phone:document.querySelector("#quotationPhone").value.trim(), email:document.querySelector("#quotationEmail").value.trim(), address:document.querySelector("#quotationAddress").value.trim(), businessActivity:document.querySelector("#quotationBusinessActivity").value.trim(), taxId:document.querySelector("#quotationTaxId").value.trim(), registrationNumber:document.querySelector("#quotationRegistrationNumber").value.trim(), taxpayerType:document.querySelector("#quotationTaxpayerType").value.trim(), customerCode:document.querySelector("#quotationCustomerCode").value.trim(), strategy:document.querySelector("#quotationStrategy").value.trim(), clientType:document.querySelector("#quotationClientType").value.trim(), department:document.querySelector("#quotationDepartment").value.trim(), municipality:document.querySelector("#quotationMunicipality").value.trim(), documentType:document.querySelector("#quotationDocumentType").value.trim() || "CF", sellerPhone:document.querySelector("#quotationSellerPhone").value.trim(), sellerEmail:document.querySelector("#quotationSellerEmail").value.trim(), sellerRole:"Ejecutivo/a de ventas" },
     paymentTerms:document.querySelector("#quotationPaymentTerms").value.trim(), deliveryTerms:document.querySelector("#quotationDeliveryTerms").value.trim(), warrantyNote:document.querySelector("#quotationWarrantyNote").value.trim(), commercialNotes:document.querySelector("#quotationCommercialNotes").value.trim(), specialSizesNote:document.querySelector("#quotationSpecialSizesNote").value.trim(), applyVat:false, subtotalCents, vatCents:0, totalCents:subtotalCents, lines, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
 }
 
@@ -4345,7 +4388,7 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
   const values = {
     quotationId:quote?.id || "", quotationNumber:quote?.number || "", quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
     quotationCommercialName:customer.commercialName || customer.name || quote?.client || opportunity?.company || "", quotationLegalName:customer.legalName || "", quotationContactName:customer.contactName || customer.manager || opportunity?.contact || "", quotationPhone:customer.phone || opportunity?.phone || "", quotationEmail:customer.email || "", quotationAddress:customer.address || opportunity?.location || "", quotationBusinessActivity:customer.businessActivity || customer.businessLine || opportunity?.segment || "", quotationTaxId:customer.taxId || customer.nit || "", quotationRegistrationNumber:customer.registrationNumber || customer.nrc || "", quotationTaxpayerType:customer.taxpayerType || "", quotationCustomerCode:customer.customerCode || customer.code || "", quotationStrategy:customer.strategy || opportunity?.strategy || "", quotationSeller:quote?.seller || seller.name || opportunity?.seller || state.currentUser?.name || "", quotationSellerPhone:customer.sellerPhone || seller.phone || "", quotationSellerEmail:customer.sellerEmail || seller.email || state.currentUser?.email || "",
-    quotationClientType:customer.clientType || "", quotationDepartment:customer.department || "", quotationDocumentType:customer.documentType === "CCF" ? "CCF" : "CF", quotationPaymentTerms:quote?.paymentTerms || customer.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:quote?.commercialNotes || "Precios unitarios no incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
+    quotationClientType:customer.clientType || "", quotationDepartment:customer.department || "", quotationMunicipality:customer.municipality || "", quotationDocumentType:customer.documentType === "CCF" ? "CCF" : "CF", quotationPaymentTerms:quote?.paymentTerms || customer.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:quote?.commercialNotes || "Precios unitarios no incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
   };
   const legacyQuotationValues = {
     quotationPaymentTerms:{ "50% de anticipo - 50% contra entrega":"50% anticipo, 50% previo a la entrega del pedido" }
@@ -8248,7 +8291,8 @@ function ensureCrmCustomerDialog() {
       </div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Información reutilizable en órdenes y pedidos.</small></div></div><div class="crm-customer-fields">
         <label class="span-2">Dirección<input id="crmCustomerAddress" maxlength="220" placeholder="Dirección completa"></label>
-        <label>Departamento / municipio<input id="crmCustomerDepartment" maxlength="100" placeholder="Ubicación"></label>
+        <label>Departamento<select id="crmCustomerDepartment">${customerDepartmentOptions()}</select></label>
+        <label>Municipio<select id="crmCustomerMunicipality" disabled><option value="">Selecciona primero el departamento</option></select></label>
         <label>Condiciones de pago<select id="crmCustomerTerms"><option value="">Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label>
         <label class="span-2">Estrategia comercial<input id="crmCustomerStrategy" maxlength="100" placeholder="Enfoque o estrategia asignada"></label>
       </div></section>
@@ -8256,6 +8300,7 @@ function ensureCrmCustomerDialog() {
     <footer class="crm-customer-dialog-actions"><span><i></i> Los datos se reutilizan automáticamente</span><div><button type="button" class="ghost-btn" data-customer-close>Cancelar</button><button type="submit" class="primary-btn">Guardar cliente</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
+  wireCustomerLocationFields(dialog.querySelector("#crmCustomerDepartment"), dialog.querySelector("#crmCustomerMunicipality"));
   dialog.querySelectorAll("[data-customer-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   dialog.querySelector("#crmCustomerForm").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -8266,7 +8311,7 @@ function ensureCrmCustomerDialog() {
       customerCode: value("#crmCustomerCode"), taxId: value("#crmCustomerTaxId"), registrationNumber: value("#crmCustomerRegistration"),
       taxpayerType: value("#crmCustomerTaxpayerType"), contactName: value("#crmCustomerContact"), phone: value("#crmCustomerPhone"),
       email: value("#crmCustomerEmail"), businessActivity: value("#crmCustomerBusiness"), address: value("#crmCustomerAddress"),
-      department: value("#crmCustomerDepartment"), clientType: value("#crmCustomerType"), documentType: value("#crmCustomerDocumentType"), paymentTerms: value("#crmCustomerTerms"), strategy: value("#crmCustomerStrategy")
+      department: value("#crmCustomerDepartment"), municipality: value("#crmCustomerMunicipality"), clientType: value("#crmCustomerType"), documentType: value("#crmCustomerDocumentType"), paymentTerms: value("#crmCustomerTerms"), strategy: value("#crmCustomerStrategy")
     };
     try {
       const response = await crmApi(id ? `/customers/${encodeURIComponent(id)}` : "/customers", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
@@ -8292,7 +8337,8 @@ function openCrmCustomerDialog(customer = {}) {
   set("#crmCustomerCode", customer.customerCode); set("#crmCustomerTaxId", customer.taxId); set("#crmCustomerRegistration", customer.registrationNumber);
   set("#crmCustomerTaxpayerType", customer.taxpayerType); set("#crmCustomerContact", customer.contactName || customer.manager); set("#crmCustomerPhone", customer.phone);
   set("#crmCustomerEmail", customer.email); set("#crmCustomerBusiness", customer.businessActivity || customer.businessLine); set("#crmCustomerAddress", customer.address);
-  set("#crmCustomerDepartment", customer.department); set("#crmCustomerType", customer.clientType); set("#crmCustomerDocumentType", customer.documentType || "CF");
+  setCustomerLocationFields(dialog.querySelector("#crmCustomerDepartment"), dialog.querySelector("#crmCustomerMunicipality"), customer.department, customer.municipality);
+  set("#crmCustomerType", customer.clientType); set("#crmCustomerDocumentType", customer.documentType || "CF");
   const terms = customer.paymentTerms || ""; const termsSelect = dialog.querySelector("#crmCustomerTerms"); if (terms && !Array.from(termsSelect.options).some((option) => option.value === terms)) termsSelect.add(new Option(terms, terms)); set("#crmCustomerTerms", terms); set("#crmCustomerStrategy", customer.strategy);
   dialog.querySelector("#crmCustomerDialogTitle").textContent = customer.id ? "Editar cliente" : "Nuevo cliente";
   dialog.showModal();
@@ -8302,7 +8348,7 @@ const customerRequestFields = [
   ["CommercialName", "commercialName"], ["LegalName", "legalName"], ["CustomerCode", "customerCode"], ["Type", "clientType"],
   ["Contact", "contactName"], ["Phone", "phone"], ["Email", "email"], ["TaxId", "taxId"],
   ["Registration", "registrationNumber"], ["TaxpayerType", "taxpayerType"], ["DocumentType", "documentType"], ["Business", "businessActivity"],
-  ["Address", "address"], ["Department", "department"], ["Terms", "paymentTerms"], ["Strategy", "strategy"]
+  ["Address", "address"], ["Department", "department"], ["Municipality", "municipality"], ["Terms", "paymentTerms"], ["Strategy", "strategy"]
 ];
 
 function customerRequestFormPayload(dialog) {
@@ -8342,7 +8388,7 @@ function printCustomerRequestSheet(request = {}) {
     ["Contacto principal", request.contactName], ["Teléfono", request.phone], ["Correo", request.email],
     ["NIT / identificación fiscal", request.taxId], ["NRC / registro", request.registrationNumber], ["Tipo de contribuyente", request.taxpayerType],
     ["Tipo de factura", request.documentType === "CCF" ? "Crédito fiscal" : "Consumidor final"],
-    ["Giro / actividad económica", request.businessActivity], ["Dirección", request.address], ["Departamento / municipio", request.department],
+    ["Giro / actividad económica", request.businessActivity], ["Dirección", request.address], ["Departamento", request.department], ["Municipio", request.municipality],
     ["Condiciones de pago", request.paymentTerms], ["Estrategia comercial", request.strategy]
   ];
   const printWindow = window.open("", "_blank", "width=980,height=760");
@@ -8363,10 +8409,11 @@ function ensureCustomerRequestDialog() {
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Código interno solicitado<input id="customerRequestCustomerCode"></label><label>Tipo de cliente<input id="customerRequestType"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<input id="customerRequestTaxpayerType"></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
-      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento / municipio<input id="customerRequestDepartment"></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento<select id="customerRequestDepartment">${customerDepartmentOptions()}</select></label><label>Municipio<select id="customerRequestMunicipality" disabled><option value="">Selecciona primero el departamento</option></select></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
     </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir solicitud firmada</button><button type="button" class="customer-request-sign-btn hidden" data-customer-request-sign>Firmar electrónicamente</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y crear cliente</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
+  wireCustomerLocationFields(dialog.querySelector("#customerRequestDepartment"), dialog.querySelector("#customerRequestMunicipality"));
   dialog.querySelectorAll("[data-customer-request-close]").forEach((button) => button.addEventListener("click", () => {
     const returnToList = dialog.returnToRequestList === true;
     dialog.returnToRequestList = false;
@@ -8466,6 +8513,7 @@ function openCustomerRequestDialog(request = null, review = false, returnToList 
     }
     field.value = value;
   });
+  setCustomerLocationFields(dialog.querySelector("#customerRequestDepartment"), dialog.querySelector("#customerRequestMunicipality"), current.department, current.municipality);
   const statusKey = normalizeKey(current.status || "borrador");
   const isDraft = statusKey === "borrador";
   const isPending = statusKey === "pendiente";
@@ -8679,6 +8727,7 @@ function masterCustomerQuotationData(customer, quotation = {}) {
     strategy: customer.strategy || "",
     clientType: customer.clientType || "",
     department: customer.department || "",
+    municipality: customer.municipality || "",
     paymentTerms: customer.paymentTerms || quotation.paymentTerms || "",
     documentType: customer.documentType === "CCF" ? "CCF" : "CF"
   };
@@ -8847,7 +8896,7 @@ function renderCrmClients() {
   const searchable = (client) => [
     client.clientNumber, client.customerCode, client.commercialName, client.legalName, client.contactName,
     client.manager, client.phone, client.email, client.taxId, client.registrationNumber,
-    client.address, client.department, client.businessActivity, client.clientType
+    client.address, client.department, client.municipality, client.businessActivity, client.clientType
   ].some((value) => normalizeKey(value || "").includes(query));
   const clients = allClients
     .filter((client) => {
@@ -8863,7 +8912,7 @@ function renderCrmClients() {
         { sensitivity: "base" }
       );
     });
-  const requiredFields = ["commercialName", "legalName", "contactName", "phone", "email", "taxId", "businessActivity", "address", "department", "paymentTerms"];
+  const requiredFields = ["commercialName", "legalName", "contactName", "phone", "email", "taxId", "businessActivity", "address", "department", "municipality", "paymentTerms"];
   const completeness = (client) => Math.round(requiredFields.filter((field) => String(client[field] || "").trim()).length / requiredFields.length * 100);
   const activeCount = allClients.filter((client) => client.active !== false).length;
   const completeCount = allClients.filter((client) => client.active !== false && completeness(client) >= 80).length;
@@ -8891,7 +8940,7 @@ function renderCrmClients() {
             <span class="crm-customer-number"><strong>${escapeHtml(client.clientNumber || "—")}</strong></span>
             <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.customerCode || "Sin código"))}</small></span>
             <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
-            <span><strong>${escapeHtml(client.department || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
+            <span><strong>${escapeHtml([client.department, client.municipality].filter(Boolean).join(" / ") || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
             <span class="crm-row-actions">
               <button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></button>
               ${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 1.8-8.3L4 10"/></svg></button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m7 7 1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg></button>`}
