@@ -8738,8 +8738,8 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
 function renderCrmCustomerViewTabs(active = "master") {
   const pending = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === "pendiente").length;
   return `<nav class="crm-customer-view-tabs" aria-label="Vistas de clientes">
-    <button type="button" data-crm-customer-view="master" onclick="switchCrmCustomerView('master')" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
-    <button type="button" data-crm-customer-view="requests" onclick="switchCrmCustomerView('requests')" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
+    <button type="button" data-crm-customer-view="master" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
+    <button type="button" data-crm-customer-view="requests" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
   </nav>`;
 }
 
@@ -8747,6 +8747,13 @@ function switchCrmCustomerView(view) {
   state.crmCustomerView = view === "requests" ? "requests" : "master";
   renderCommercialSubmenu(areas.comercializacion);
 }
+
+opportunityTable.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-crm-customer-view]");
+  if (!button || !opportunityTable.contains(button)) return;
+  event.preventDefault();
+  switchCrmCustomerView(button.dataset.crmCustomerView);
+});
 
 function renderCrmCustomerRequests() {
   const query = normalizeKey(state.crmCustomerRequestSearch || "");
