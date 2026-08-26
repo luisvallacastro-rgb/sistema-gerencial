@@ -2649,19 +2649,7 @@ def quotation_validate(data, existing=None):
         })
     if product_line_count < 1:
         raise ValueError("La cotizacion debe contener al menos una linea de producto")
-    raw_apply_vat = data.get("applyVat")
-    if isinstance(raw_apply_vat, bool):
-        apply_vat = raw_apply_vat
-    elif raw_apply_vat is not None:
-        apply_vat = str(raw_apply_vat).strip().lower() in {"1", "true", "yes", "si", "sí", "on"}
-    elif existing:
-        apply_vat = int(current.get("vatCents") or 0) > 0
-    else:
-        apply_vat = True
-    vat_cents = (
-        int((Decimal(subtotal_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-        if apply_vat else 0
-    )
+    vat_cents = 0
     return {
         "opportunityId": opportunity_id, "date": quote_date, "validDays": valid_days,
         "seller": seller, "client": client, "status": status, "customerData": customer,
