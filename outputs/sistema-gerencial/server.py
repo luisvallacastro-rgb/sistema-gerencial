@@ -2607,7 +2607,7 @@ def save_control_sales_order(conn, data, existing_row=None):
                 document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
                 proforma_data=?, commercial_approval_status=?, commercial_approved_by='', commercial_approved_at='', commercial_approval_note='',
                 finance_approval_status='Pendiente', finance_approved_by='', finance_approved_at='', finance_approval_note='', updated_by=?, updated_at=? WHERE id=?
-        """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, "Omitida" if direct_order_flow else "Pendiente", actor, now, order_id))
+        """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, "Pendiente", actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
     else:
@@ -2616,7 +2616,7 @@ def save_control_sales_order(conn, data, existing_row=None):
                 id, source, financial_order_id, source_opportunity_id, source_quotation_id, order_number, order_date, seller, client, status, document_type, total_cents,
                 expected_total_cents, variance_cents, proforma_data, commercial_approval_status, created_by, updated_by, created_at, updated_at
             ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (order_id, financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, "Omitida" if direct_order_flow else "Pendiente", actor, actor, now, now))
+        """, (order_id, financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, "Pendiente", actor, actor, now, now))
         action = "creacion"
     for detail in item["details"]:
         conn.execute("""
@@ -2826,8 +2826,15 @@ def save_quotation(conn, data, existing_row=None):
     existing = quotation_payload(existing_row) if existing_row else None
     item = quotation_validate(data, existing)
     quote_id = existing_row["id"] if existing_row else f"quote-{uuid.uuid4()}"
-    # Identificador técnico aleatorio: evita correlativos y no se muestra al usuario.
-    number = existing["number"] if existing else f"Q-{uuid.uuid4()}"
+    if existing:
+        number = existing["number"]
+    else:
+        highest = 0
+        for row in conn.execute("SELECT quotation_number FROM quotations").fetchall():
+            match = re.fullmatch(r"Q-(\d+)", text(row["quotation_number"]).upper())
+            if match:
+                highest = max(highest, int(match.group(1)))
+        number = f"Q-{highest + 1:04d}"
     actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
     now = time.strftime("%Y-%m-%dT%H:%M:%S")
     converted_order_id = existing.get("convertedOrderId", "") if existing else ""
@@ -2864,6 +2871,8 @@ def save_quotation(conn, data, existing_row=None):
 
 
 def seed_control_sales(conn):
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", ("order-flow-reset-20260826-v1",)).fetchone():
+        return
     try:
         seed = json.loads(CONTROL_SALES_SEED_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -3581,6 +3590,46 @@ def repair_edgar_admin_seller_assignments_once(conn):
     print(f"Reparación de vendedor administrativo completada: {summary}")
 
 
+def reset_order_flow_for_first_elizabeth_order_once(conn):
+    """Clear legacy order data and retain Elizabeth's current quote as Q-0001."""
+    migration_key = "order-flow-reset-20260826-v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    keep = conn.execute("""
+        SELECT id FROM quotations
+        WHERE lower(trim(seller)) = 'elizabeth merino'
+          AND lower(client) LIKE '%trinyplastic%'
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 1
+    """).fetchone()
+    keep_id = text(keep["id"]) if keep else ""
+    conn.execute("DELETE FROM production_schedule")
+    conn.execute("DELETE FROM control_sales_audit")
+    conn.execute("DELETE FROM control_sales_details")
+    conn.execute("DELETE FROM control_sales_orders")
+    conn.execute("DELETE FROM financial_orders")
+    if keep_id:
+        conn.execute("DELETE FROM quotations WHERE id <> ?", (keep_id,))
+        conn.execute("""
+            UPDATE quotations
+            SET quotation_number='Q-0001', status='Guardada', converted_order_id='',
+                converted_at='', updated_by='Reinicio controlado de pedidos',
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+        """, (keep_id,))
+    else:
+        conn.execute("DELETE FROM quotations")
+    conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_source_quotation_active
+        ON control_sales_orders(source_quotation_id)
+        WHERE source_quotation_id <> '' AND archived = 0
+    """)
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (migration_key, json.dumps({"keptQuotationId": keep_id, "quotationNumber": "Q-0001" if keep_id else ""})),
+    )
+
+
 BANK_AVAILABILITY_SEED = [
     {"id": "bank-agricola", "bank": "Banco Agrícola", "account": "Cuenta corriente", "balanceField": "Saldo", "fields": ["Fecha Transaccion", "Fecha Aplicada", "Correlativo", "Transaccion", "Canal", "Referencia", "Cargo", "Abono", "Saldo", "Comentario"], "record": {"Fecha Transaccion": "2026-08-24", "Fecha Aplicada": "2026-08-24", "Correlativo": 1655, "Transaccion": "PAGO DE CHEQUE", "Canal": "AGENCIA SOYAPANGO", "Referencia": "8479", "Cargo": 220.61, "Abono": 0, "Saldo": 5394.66, "Comentario": ""}},
     {"id": "bank-hipotecario", "bank": "Banco Hipotecario", "account": "Cuenta bancaria", "balanceField": "Saldo (US$)", "fields": ["Correlativo", "Fecha", "Tipo", "Descripción", "No. Doc", "Cargo (US$)", "Abono (US$)", "Saldo (US$)", "Comentario"], "record": {"Correlativo": 165, "Fecha": "2026-08-21", "Tipo": "AB", "Descripción": "NOTA DE CREDITO DE CAJERO LBTR · TRASLADO DE FONDOS ENTRE CUENTAS", "No. Doc": "", "Cargo (US$)": 0, "Abono (US$)": 407.64, "Saldo (US$)": 41627.95, "Comentario": ""}},
@@ -4226,6 +4275,7 @@ def init_db():
         restore_asa_order_0296_once(conn)
         restore_asa_quotation_0296_once(conn)
         repair_edgar_admin_seller_assignments_once(conn)
+        reset_order_flow_for_first_elizabeth_order_once(conn)
 
 
 class AppHandler(BaseHTTPRequestHandler):
@@ -5109,10 +5159,13 @@ class AppHandler(BaseHTTPRequestHandler):
                     actor_permissions = json.loads(actor_row["permissions"] or "[]") if actor_row else []
                 except json.JSONDecodeError:
                     actor_permissions = []
+                actor_identity = crm_identity_key(actor_row["name"] if actor_row else "")
+                expected_signer = "odaliz valencia" if stage == "commercial-approval" else "edgar menjivar"
+                is_designated_signer = actor_identity == expected_signer
                 authorized_role = actor_row and text(actor_row["role"]) in {"gerencias", "jefaturas"}
                 authorized_permission = required_permission in actor_permissions
-                if not actor_row or (not actor_row["admin"] and not (authorized_role and authorized_permission)):
-                    self.send_json({"error": "Tu usuario no tiene permiso para registrar este visto bueno"}, status=403)
+                if not actor_row or not is_designated_signer:
+                    self.send_json({"error": f"Esta firma corresponde únicamente a {'Odaliz Valencia' if stage == 'commercial-approval' else 'Edgar Menjivar'}"}, status=403)
                     return
                 row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (item_id,)).fetchone()
                 if not row:
@@ -5130,9 +5183,6 @@ class AppHandler(BaseHTTPRequestHandler):
                     approval_proforma.get("workflow") == "direct-final-only"
                     or text(row["source_opportunity_id"]).startswith("direct-order:")
                 )
-                if stage == "finance-approval" and not direct_order_flow and text(row["commercial_approval_status"]) != "Autorizada":
-                    self.send_json({"error": "La orden requiere primero el visto bueno comercial"}, status=409)
-                    return
                 if stage == "finance-approval" and status == "Aprobada":
                     financial_order_id = text(row["financial_order_id"])
                     financial_row = conn.execute(
@@ -5170,8 +5220,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     conn.execute("""
                         UPDATE control_sales_orders
                         SET commercial_approval_status=?, commercial_approved_by=?, commercial_approved_at=?,
-                            commercial_approval_note=?, finance_approval_status='Pendiente', finance_approved_by='',
-                            finance_approved_at='', finance_approval_note='', updated_by=?, updated_at=?
+                            commercial_approval_note=?, updated_by=?, updated_at=?
                         WHERE id=?
                     """, (status, actor, now, note, actor, now, item_id))
                     action = "autorizacion_comercial" if status == "Autorizada" else "devolucion_comercial"

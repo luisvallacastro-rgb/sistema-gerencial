@@ -3555,14 +3555,18 @@ function isDirectOrderFlow(order = {}) {
 }
 
 function commercialPendingApprovalOrders() {
-  return approvalControlSalesOrders().filter((order) => !isDirectOrderFlow(order) && order.commercialApprovalStatus !== "Autorizada");
+  return approvalControlSalesOrders().filter((order) => order.commercialApprovalStatus !== "Autorizada");
 }
 
 function financePendingApprovalOrders() {
-  return approvalControlSalesOrders().filter((order) => (
-    (isDirectOrderFlow(order) || order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt))
-    && !controlSalesOrderHasAuthorizedSignatures(order)
-  ));
+  return approvalControlSalesOrders().filter((order) => !controlSalesOrderHasAuthorizedSignatures(order));
+}
+
+function currentOrderSignatureStage() {
+  const identity = normalizeKey(`${state.currentUser?.name || ""} ${state.currentUser?.username || ""} ${state.currentUser?.email || ""}`);
+  if (identity.includes("odaliz") && identity.includes("valencia")) return "commercial";
+  if (identity.includes("edgar") && identity.includes("menjivar")) return "finance";
+  return "";
 }
 
 const FINANCIAL_ORDER_REQUIRED_FIELDS = {
@@ -3982,7 +3986,7 @@ function financeApprovalSignatureMarkup(order, compact = false) {
   return `<section class="commercial-electronic-signature finance-electronic-signature${compact ? " is-compact" : ""}" aria-label="Firma electrónica de Gerencia Financiera">
     <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
     <div class="commercial-electronic-signature__copy">
-      <small>Segundo visto bueno · firma electrónica validada</small>
+      <small>Firma electrónica validada · Edgar Menjívar</small>
       <strong>${escapeHtml(order.financeApprovedBy || "Gerencia Financiera")}</strong>
       <span>${escapeHtml(formatCommercialApprovalDateTime(order.financeApprovedAt || order.updatedAt))}</span>
     </div>
@@ -5034,7 +5038,7 @@ function linkedQuotationForControlSalesOrder(order) {
 function controlSalesOrderHasAuthorizedSignatures(order) {
   const commercialSigned = order?.commercialApprovalStatus === "Autorizada" || Boolean(order?.commercialApprovedAt);
   const financeSigned = order?.financeApprovalStatus === "Aprobada" || Boolean(order?.financeApprovedAt);
-  return isDirectOrderFlow(order) ? financeSigned : commercialSigned && financeSigned;
+  return commercialSigned && financeSigned;
 }
 
 async function openControlSalesMatrixDetail(orderId) {
@@ -5347,7 +5351,14 @@ function approvedControlSalesFinancialRows() {
 }
 
 function financialOrderLedgerRows() {
-  return [...approvedControlSalesFinancialRows(), ...state.financialOrders];
+  const linkedControlSalesByFinancialOrderId = new Map(state.controlSales
+    .filter((order) => order.financialOrderId)
+    .map((order) => [String(order.financialOrderId), order]));
+  const approvedFinancialOrders = state.financialOrders.filter((order) => {
+    const linkedOrder = linkedControlSalesByFinancialOrderId.get(String(order.id));
+    return linkedOrder && controlSalesOrderHasAuthorizedSignatures(linkedOrder);
+  });
+  return [...approvedControlSalesFinancialRows(), ...approvedFinancialOrders];
 }
 
 function financialOrdersForSelectedPeriod() {
@@ -5552,9 +5563,9 @@ function renderFinancialOrderNotifications() {
     <section class="financial-order-notifications" aria-label="Notificaciones de pedidos pendientes">
       <header class="financial-order-notifications-head">
         <div>
-          <span>Segundo visto bueno</span>
-          <h4>Órdenes pendientes de autorización final</h4>
-          <p>Incluye órdenes firmadas por Gerencia Comercial y pedidos directos que requieren únicamente el visto bueno final.</p>
+          <span>Bandeja temporal de firmas</span>
+          <h4>Órdenes pendientes de doble autorización</h4>
+          <p>Odaliz Valencia y Edgar Menjívar pueden firmar en cualquier orden. El pedido pasará al listado únicamente cuando tenga ambas firmas.</p>
         </div>
         <div class="financial-order-notifications-summary">
           <small>${pendingHandoffs.length === 1 ? "1 pendiente" : `${pendingHandoffs.length} pendientes`}</small>
@@ -5565,15 +5576,23 @@ function renderFinancialOrderNotifications() {
         ${pendingHandoffs.map((order) => {
           const missingFields = missingFinancialOrderFields(order);
           const financialComplete = missingFields.length === 0;
+          const signerStage = currentOrderSignatureStage();
+          const signerAlreadySigned = signerStage === "commercial"
+            ? order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt)
+            : signerStage === "finance"
+              ? order.financeApprovalStatus === "Aprobada" || Boolean(order.financeApprovedAt)
+              : false;
+          const signerLabel = signerStage === "commercial" ? "Firmar como Odaliz Valencia" : signerStage === "finance" ? "Firmar como Edgar Menjívar" : "Firma reservada a Odaliz y Edgar";
           return `
             <article class="financial-order-notification-card">
               <div class="financial-order-notification-icon" aria-hidden="true">✓</div>
               <div class="financial-order-notification-copy">
-                <small>Orden ${escapeHtml(formatOrderCorrelative(order.number))} · Autorizada ${escapeHtml(formatCommercialApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</small>
+                <small>Orden ${escapeHtml(formatOrderCorrelative(order.number))} · Generada ${escapeHtml(formatCommercialApprovalDateTime(order.createdAt || order.updatedAt))}</small>
                 <strong>${escapeHtml(order.client || "Cliente sin nombre")}</strong>
                 <span>${escapeHtml(controlSalesResponsibleSeller(order))}</span>
                 <em class="financial-record-status ${financialComplete ? "complete" : "incomplete"}">${financialComplete ? "Registro financiero completo" : `Faltan ${missingFields.length} campos: ${escapeHtml(missingFields.join(", "))}`}</em>
                 ${commercialApprovalSignatureMarkup(order, true)}
+                ${financeApprovalSignatureMarkup(order, true)}
               </div>
               <div class="financial-order-notification-amount">
                 <small>Total confirmado</small>
@@ -5583,14 +5602,14 @@ function renderFinancialOrderNotifications() {
                 <button type="button" data-finance-order-view="${escapeHtml(order.id)}">Ver orden</button>
                 <button type="button" class="secondary" data-finance-order-complete="${escapeHtml(order.id)}">${financialComplete ? "Revisar registro" : "Completar registro"}</button>
                 <button type="button" class="secondary" data-finance-order-observe="${escapeHtml(order.id)}">Observar</button>
-                <button type="button" class="primary" data-finance-order-approve="${escapeHtml(order.id)}" ${financialComplete ? "" : `disabled title="Completa primero: ${escapeHtml(missingFields.join(", "))}"`}>✓ Firmar y dar segundo visto bueno</button>
+                <button type="button" class="primary" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="${escapeHtml(signerStage)}" ${financialComplete && signerStage && !signerAlreadySigned ? "" : "disabled"}>${signerAlreadySigned ? "✓ Firma registrada" : `✓ ${signerLabel}`}</button>
               </div>
             </article>`;
         }).join("") || `
           <div class="financial-order-notifications-empty">
             <span aria-hidden="true">✓</span>
             <strong>Todo está al día</strong>
-            <p>No hay órdenes con autorización comercial pendientes de revisión financiera.</p>
+            <p>No hay órdenes pendientes de las firmas de Odaliz Valencia y Edgar Menjívar.</p>
           </div>`}
       </div>
     </section>`;
@@ -5814,17 +5833,27 @@ function wireFinancialOrders() {
       alert(error.message || "No se pudo anular el pedido.");
     }
   }));
-  opportunityTable.querySelectorAll("[data-finance-order-approve]").forEach((button) => button.addEventListener("click", async () => {
-    const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderApprove);
+  opportunityTable.querySelectorAll("[data-order-sign]").forEach((button) => button.addEventListener("click", async () => {
+    const order = state.controlSales.find((item) => item.id === button.dataset.orderSign);
     const missingFields = missingFinancialOrderFields(order);
     if (missingFields.length) {
       alert(`Completa el registro financiero antes de firmar. Faltan: ${missingFields.join(", ")}.`);
       if (order) openControlSalesForm(order);
       return;
     }
-    if (!confirm("¿Confirmas la firma electrónica financiera y el segundo visto bueno de esta orden de pedido?")) return;
+    const stage = button.dataset.orderSignStage;
+    const signerName = stage === "commercial" ? "Odaliz Valencia" : "Edgar Menjívar";
+    if (!stage || !confirm(`¿Confirmas la firma electrónica de ${signerName} para esta orden de pedido?`)) return;
     try {
-      const approvedOrder = await updateControlSalesApproval(button.dataset.financeOrderApprove, "finance", "Aprobada");
+      const approvedOrder = await updateControlSalesApproval(
+        button.dataset.orderSign,
+        stage,
+        stage === "commercial" ? "Autorizada" : "Aprobada"
+      );
+      if (!controlSalesOrderHasAuthorizedSignatures(approvedOrder)) {
+        refreshFinancialOrdersModule();
+        return;
+      }
       const approvedDate = String(controlSalesEffectiveDate(approvedOrder) || approvedOrder.financeApprovedAt || todayISO()).slice(0, 10);
       const [approvedYear, approvedMonth] = approvedDate.split("-").map(Number);
       state.financialOrdersView = "list";
@@ -5834,7 +5863,7 @@ function wireFinancialOrders() {
       saveFinancialOrderFilters();
       refreshFinancialOrdersModule();
     } catch (error) {
-      alert(error.message || "No se pudo aprobar la orden.");
+      alert(error.message || "No se pudo registrar la firma de la orden.");
     }
   }));
   opportunityTable.querySelectorAll("[data-finance-order-observe]").forEach((button) => button.addEventListener("click", async () => {
