@@ -4931,8 +4931,53 @@ function openCrmWonOrder(opportunityId) {
   openControlSalesForm(null, null, win, true, quotation || null);
 }
 
+const CONTROL_SALES_LIVE_CUSTOMER_FIELDS = Object.freeze([
+  "commercialName", "legalName", "businessActivity", "contactName", "phone", "address", "email",
+  "taxId", "registrationNumber", "taxpayerType", "customerCode", "strategy", "paymentTerms",
+  "clientType", "department", "municipality"
+]);
+
+function liveCustomerForControlSalesOrder(order = {}) {
+  const quotation = linkedQuotationForControlSalesOrder(order);
+  const stored = order.proformaData || {};
+  const customers = Array.isArray(state.crmData?.customers) ? state.crmData.customers : crmMasterCustomers(true);
+  const customerId = order.customerId || stored.customerId || quotation?.customerId || quotation?.customerData?.customerId;
+  if (customerId) {
+    const byId = customers.find((customer) => String(customer.id || "") === String(customerId));
+    if (byId) return byId;
+  }
+  const taxId = normalizeKey(stored.taxId || quotation?.customerData?.taxId || "");
+  if (taxId) {
+    const byTaxId = customers.filter((customer) => normalizeKey(customer.taxId || "") === taxId);
+    if (byTaxId.length === 1) return byTaxId[0];
+  }
+  const customerName = normalizeKey(stored.commercialName || order.client || quotation?.client || "");
+  if (!customerName) return null;
+  const byName = customers.filter((customer) => (
+    normalizeKey(customer.commercialName || "") === customerName
+    || normalizeKey(customer.legalName || "") === customerName
+  ));
+  return byName.length === 1 ? byName[0] : null;
+}
+
+function orderWithCurrentCustomerData(order = {}) {
+  const customer = liveCustomerForControlSalesOrder(order);
+  if (!customer) return order;
+  const currentCustomerData = Object.fromEntries(CONTROL_SALES_LIVE_CUSTOMER_FIELDS.map((field) => [field, customer[field] ?? ""]));
+  return {
+    ...order,
+    customerId: customer.id || order.customerId || "",
+    client: customer.commercialName || customer.legalName || order.client || "",
+    proformaData: {
+      ...(order.proformaData || {}),
+      ...currentCustomerData,
+      customerId: customer.id || order.proformaData?.customerId || ""
+    }
+  };
+}
+
 function printControlSalesProformaInline(order) {
-  order = { ...order, seller: controlSalesResponsibleSeller(order) };
+  order = orderWithCurrentCustomerData({ ...order, seller: controlSalesResponsibleSeller(order) });
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
@@ -5009,7 +5054,7 @@ function printControlSalesProformaInline(order) {
 }
 
 function printControlSalesProforma(order) {
-  order = { ...order, seller: controlSalesResponsibleSeller(order) };
+  order = orderWithCurrentCustomerData({ ...order, seller: controlSalesResponsibleSeller(order) });
   const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   localStorage.setItem(printKey, JSON.stringify(order));
   const popup = window.open(
