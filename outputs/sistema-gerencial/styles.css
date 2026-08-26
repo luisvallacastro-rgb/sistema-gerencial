@@ -17279,15 +17279,14 @@ html.macos-render-safe .app-shell .permission-access-user {
 .app-shell .level-week > summary::before { left: 62px; }
 .app-shell .level-week[open] > summary { color: #a9ffe7; background: linear-gradient(90deg,rgba(55,179,146,.13),transparent); }
 .app-shell .receivable-week-table { margin: 0 16px 14px 88px; overflow: hidden; border: 1px solid rgba(111,156,211,.22); border-radius: 14px; }
-.app-shell .receivable-week-row { display: grid; grid-template-columns: 130px minmax(250px,1fr) 140px 140px 150px; align-items: center; gap: 10px; min-height: 58px; padding: 8px 12px; border-top: 1px solid rgba(117,153,199,.16); background: rgba(21,51,82,.38); }
+.app-shell .receivable-week-row { display: grid; grid-template-columns: 130px minmax(250px,1fr) 140px 140px 150px; align-items: center; gap: 10px; min-height: 72px; padding: 8px 12px; border-top: 1px solid rgba(117,153,199,.16); background: rgba(21,51,82,.38); text-align: center; }
 .app-shell .receivable-week-row:first-child { border-top: 0; }
-.app-shell .receivable-week-row.header { min-height: 38px; color: rgba(207,224,242,.59); font-size: 8px; font-weight: 950; letter-spacing: .07em; text-transform: uppercase; background: rgba(25,59,95,.74); }
-.app-shell .receivable-week-row > span:not(.financial-order-actions) { min-width: 0; display: grid; gap: 3px; }
+.app-shell .receivable-week-row > span:not(.financial-order-actions) { min-width: 0; display: grid; justify-items: center; gap: 3px; }
 .app-shell .receivable-week-row > span strong,
 .app-shell .receivable-week-row > span small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-shell .receivable-week-row > span small { color: rgba(188,208,231,.52); font-size: 8px; }
-.app-shell .receivable-week-row > strong { color: #72f5d1; text-align: right; }
-.app-shell .receivable-week-row .financial-order-actions { justify-content: flex-end; }
+.app-shell .receivable-week-row > strong { color: #72f5d1; text-align: center; }
+.app-shell .receivable-week-row .financial-order-actions { justify-content: center; }
 @media (max-width: 980px) {
   .app-shell .accounts-receivable-matrix-wrap { overflow-x: auto; }
 }

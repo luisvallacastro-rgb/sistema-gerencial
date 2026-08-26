@@ -5992,7 +5992,6 @@ function receivableMatrixSummary(label, items, level, hint = "") {
 
 function renderReceivableWeekRows(items) {
   return `<div class="receivable-week-table">
-    <div class="receivable-week-row header"><span>Vencimiento</span><span>Factura / cliente</span><span>1.ª quincena</span><span>2.ª quincena</span><span>Acciones</span></div>
     ${items.map((item) => {
       const firstHalf = Number(String(item.dueDate).slice(8, 10)) <= 15;
       return `<article class="receivable-week-row">
