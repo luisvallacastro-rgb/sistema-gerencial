@@ -2666,6 +2666,8 @@ def quotation_payload(row):
         "number": row["quotation_number"], "date": row["quotation_date"],
         "validDays": row["valid_days"], "seller": row["seller"],
         "client": row["client"], "status": row["status"],
+        "documentType": "CCF" if text(customer.get("documentType"), "CF").upper() == "CCF" else "CF",
+        "applyVat": text(customer.get("documentType"), "CF").upper() == "CCF",
         "customerData": customer, "paymentTerms": row["payment_terms"],
         "deliveryTerms": row["delivery_terms"], "warrantyNote": row["warranty_note"],
         "commercialNotes": row["commercial_notes"], "specialSizesNote": row["special_sizes_note"],
@@ -2692,6 +2694,7 @@ def quotation_validate(data, existing=None):
     raw_customer = data.get("customerData", current.get("customerData") or {})
     if not isinstance(raw_customer, dict):
         raise ValueError("Los datos del cliente no son validos")
+    document_type = "CCF" if text(data.get("documentType") or raw_customer.get("documentType"), current.get("documentType") or "CF").upper() == "CCF" else "CF"
     customer = {
         "customerId": text(raw_customer.get("customerId") or data.get("customerId")),
         "commercialName": text(raw_customer.get("commercialName"), client),
@@ -2707,7 +2710,7 @@ def quotation_validate(data, existing=None):
         "clientType": text(raw_customer.get("clientType")),
         "department": text(raw_customer.get("department")),
         "municipality": text(raw_customer.get("municipality")),
-        "documentType": "CCF" if text(raw_customer.get("documentType"), "CF").upper() == "CCF" else "CF",
+        "documentType": document_type,
         "paymentTerms": text(raw_customer.get("paymentTerms") or data.get("paymentTerms")),
         "strategy": text(raw_customer.get("strategy")),
         "customerCode": text(raw_customer.get("customerCode")),
@@ -2762,14 +2765,16 @@ def quotation_validate(data, existing=None):
         })
     if product_line_count < 1:
         raise ValueError("La cotizacion debe contener al menos una linea de producto")
-    vat_cents = 0
+    vat_cents = int((Decimal(subtotal_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) if document_type == "CCF" else 0
+    commercial_notes = "Precios unitarios no incluyen IVA" if document_type == "CCF" else "Los precios unitarios ya incluyen IVA"
     return {
         "opportunityId": opportunity_id, "date": quote_date, "validDays": valid_days,
-        "seller": seller, "client": client, "status": status, "customerData": customer,
+        "seller": seller, "client": client, "status": status, "documentType": document_type,
+        "applyVat": document_type == "CCF", "customerData": customer,
         "paymentTerms": text(data.get("paymentTerms"), current.get("paymentTerms") or "50% de anticipo - 50% contra entrega"),
         "deliveryTerms": text(data.get("deliveryTerms"), current.get("deliveryTerms") or "30 dias habiles posterior a la orden de compra"),
         "warrantyNote": text(data.get("warrantyNote"), current.get("warrantyNote") or "Todos nuestros productos estan garantizados y elaborados con altos estandares de calidad."),
-        "commercialNotes": text(data.get("commercialNotes"), current.get("commercialNotes") or "Precios unitarios no incluyen IVA"),
+        "commercialNotes": commercial_notes,
         "specialSizesNote": text(data.get("specialSizesNote"), current.get("specialSizesNote") or "Tallas especiales arriba de XXL tienen costo adicional"),
         "subtotalCents": subtotal_cents, "vatCents": vat_cents,
         "totalCents": subtotal_cents + vat_cents, "lines": lines,
