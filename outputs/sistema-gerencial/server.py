@@ -604,6 +604,39 @@ def next_crm_customer_request_number(data):
     return f"SOL-{sequence:04d}"
 
 
+CUSTOMER_REQUEST_CONTENT_FIELDS = (
+    "commercialName", "legalName", "customerCode", "clientType", "contactName",
+    "phone", "email", "taxId", "registrationNumber", "taxpayerType",
+    "businessActivity", "address", "department", "paymentTerms", "strategy",
+)
+
+
+def customer_request_has_content(request):
+    empty_markers = {"", "none", "null", "undefined", "—", "-"}
+    return any(text(request.get(field)).lower() not in empty_markers for field in CUSTOMER_REQUEST_CONTENT_FIELDS)
+
+
+def remove_empty_customer_request_drafts(data):
+    """Remove legacy phantom drafts once and restore the last valid sequence."""
+    version = "remove-empty-drafts-20260826"
+    if text(data.get("customerRequestCleanupVersion")) == version:
+        return False
+    requests = data.setdefault("customerRequests", [])
+    retained = [
+        request for request in requests
+        if text(request.get("status"), "Borrador").lower() != "borrador" or customer_request_has_content(request)
+    ]
+    data["customerRequests"] = retained
+    used = []
+    for request in retained:
+        digits = "".join(char for char in text(request.get("requestNumber")) if char.isdigit())
+        if digits:
+            used.append(int(digits))
+    data["customerRequestSequence"] = max(used, default=0)
+    data["customerRequestCleanupVersion"] = version
+    return True
+
+
 def migrate_customer_request_draft_workflow(data):
     """Return the prematurely submitted SOL-0001 to draft exactly once."""
     version = "draft-gate-20260826"
@@ -635,6 +668,7 @@ def read_crm_data(conn):
         sync_seller_users_to_crm(conn, data)
         repair_elizabeth_merino_ownership(conn, data)
         migrate_customer_request_draft_workflow(data)
+        remove_empty_customer_request_drafts(data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -658,7 +692,8 @@ def read_crm_data(conn):
     seller_sync_changed = sync_seller_users_to_crm(conn, data)
     elizabeth_repair_changed = repair_elizabeth_merino_ownership(conn, data)
     request_workflow_changed = migrate_customer_request_draft_workflow(data)
-    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed
+    empty_request_cleanup_changed = remove_empty_customer_request_drafts(data)
+    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -5473,6 +5508,9 @@ class AppHandler(BaseHTTPRequestHandler):
                     payload = self.read_json()
                     status = text(payload.get("status"), "Pendiente")
                     is_draft = status.lower() == "borrador"
+                    if is_draft and not customer_request_has_content(payload):
+                        self.send_json({"error": "Ingrese al menos un dato antes de guardar el borrador"}, status=400)
+                        return
                     if not is_draft and not text(payload.get("commercialName") or payload.get("name")):
                         self.send_json({"error": "El nombre comercial es obligatorio"}, status=400)
                         return
@@ -5566,6 +5604,9 @@ class AppHandler(BaseHTTPRequestHandler):
                             return
                         if target_status == "pendiente" and not text(payload.get("commercialName") or request.get("commercialName")):
                             self.send_json({"error": "El nombre comercial es obligatorio para enviar la solicitud"}, status=400)
+                            return
+                        if target_status == "borrador" and not customer_request_has_content({**request, **payload}):
+                            self.send_json({"error": "Ingrese al menos un dato antes de guardar el borrador"}, status=400)
                             return
                         if target_status == "rechazada" and not can_manage:
                             self.send_json({"error": "No tiene permiso para rechazar solicitudes"}, status=403)
