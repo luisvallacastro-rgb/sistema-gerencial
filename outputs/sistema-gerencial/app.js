@@ -4158,22 +4158,7 @@ function commercialPaymentTermOptions() {
   return commercialPaymentTerms.map((term) => `<option value="${escapeHtml(term)}">${escapeHtml(term)}</option>`).join("");
 }
 
-const customerMunicipalitiesByDepartment = Object.freeze({
-  "Ahuachapán": ["Norte", "Centro", "Sur"],
-  "Santa Ana": ["Norte", "Centro", "Este", "Oeste"],
-  "Sonsonate": ["Norte", "Centro", "Este", "Oeste"],
-  "Chalatenango": ["Norte", "Centro", "Sur"],
-  "La Libertad": ["Norte", "Centro", "Oeste", "Este", "Costa", "Sur"],
-  "San Salvador": ["Norte", "Oeste", "Este", "Centro", "Sur"],
-  "Cuscatlán": ["Norte", "Sur"],
-  "La Paz": ["Oeste", "Centro", "Este"],
-  "Cabañas": ["Este", "Oeste"],
-  "San Vicente": ["Norte", "Sur"],
-  "Usulután": ["Norte", "Este", "Oeste"],
-  "San Miguel": ["Norte", "Centro", "Oeste"],
-  "Morazán": ["Norte", "Sur"],
-  "La Unión": ["Norte", "Sur"]
-});
+const customerMunicipalitiesByDepartment = Object.freeze({ ...opportunityLocationsByDepartment });
 
 function customerDepartmentOptions() {
   return `<option value="">Seleccionar departamento</option>${Object.keys(customerMunicipalitiesByDepartment).map((department) => `<option value="${escapeHtml(department)}">${escapeHtml(department)}</option>`).join("")}`;
@@ -4190,9 +4175,20 @@ function customerSelectOptions(values, placeholder) {
   return `<option value="">${escapeHtml(placeholder)}</option>${values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`;
 }
 
+function canonicalCustomerMunicipality(department = "", municipality = "") {
+  const departmentName = String(department || "").trim();
+  const municipalityName = String(municipality || "").trim();
+  if (!departmentName || !municipalityName) return municipalityName;
+  const municipalities = customerMunicipalitiesByDepartment[departmentName] || [];
+  if (municipalities.includes(municipalityName)) return municipalityName;
+  const fullName = `${departmentName} ${municipalityName}`;
+  return municipalities.includes(fullName) ? fullName : municipalityName;
+}
+
 function refreshCustomerMunicipalitySelect(departmentSelect, municipalitySelect, selectedMunicipality = "") {
   const department = departmentSelect?.value || "";
   const municipalities = customerMunicipalitiesByDepartment[department] || [];
+  selectedMunicipality = canonicalCustomerMunicipality(department, selectedMunicipality);
   municipalitySelect.innerHTML = `<option value="">${department ? "Seleccionar municipio" : "Selecciona primero el departamento"}</option>${municipalities.map((municipality) => `<option value="${escapeHtml(municipality)}">${escapeHtml(municipality)}</option>`).join("")}`;
   if (selectedMunicipality && !municipalities.includes(selectedMunicipality)) municipalitySelect.add(new Option(selectedMunicipality, selectedMunicipality));
   municipalitySelect.value = selectedMunicipality || "";
@@ -8542,6 +8538,7 @@ function customerRequestWithCurrentCustomerData(request = {}) {
   }
   if (!customer) return request;
   const currentFields = Object.fromEntries(customerRequestFields.map(([, key]) => [key, customer[key] ?? ""]));
+  currentFields.municipality = canonicalCustomerMunicipality(currentFields.department, currentFields.municipality);
   return { ...request, ...currentFields, approvedCustomerId: customer.id || request.approvedCustomerId || "" };
 }
 
@@ -9118,7 +9115,7 @@ function renderCrmClients() {
             <span class="crm-customer-number"><strong>${escapeHtml(client.clientNumber || "—")}</strong></span>
             <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.customerCode || "Sin código"))}</small></span>
             <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
-            <span><strong>${escapeHtml([client.department, client.municipality].filter(Boolean).join(" / ") || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
+            <span><strong>${escapeHtml([client.department, canonicalCustomerMunicipality(client.department, client.municipality)].filter(Boolean).join(" / ") || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
             <span class="crm-row-actions">
               <button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></button>
               ${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 1.8-8.3L4 10"/></svg></button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m7 7 1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg></button>`}
