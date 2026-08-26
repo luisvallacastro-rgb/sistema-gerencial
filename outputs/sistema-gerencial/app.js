@@ -8292,6 +8292,10 @@ function isCustomerRequestValidated(request = {}) {
   return normalizeKey(request.status || "") === "aprobada" && request.electronicSignature?.signed === true;
 }
 
+function renderCurrentArea() {
+  renderCommercialSubmenu(areas[state.activeArea] || areas.comercializacion);
+}
+
 function printCustomerRequestSheet(request = {}) {
   if (!request.id && !request.commercialName && !request.legalName) {
     alert("Guarda la solicitud antes de imprimirla.");
@@ -8329,19 +8333,26 @@ function ensureCustomerRequestDialog() {
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<input id="customerRequestTaxpayerType"></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento / municipio<input id="customerRequestDepartment"></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
-    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir ficha firmada</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Validar y firmar</button><button type="button" class="ghost-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
+    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir ficha firmada</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Validar y firmar</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
   dialog.querySelectorAll("[data-customer-request-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   dialog.querySelector("[data-customer-request-print]").addEventListener("click", () => printCustomerRequestSheet({ ...dialog.currentRequest, ...customerRequestFormPayload(dialog) }));
-  dialog.querySelector("[data-customer-request-draft]").addEventListener("click", async () => {
+  dialog.querySelector("[data-customer-request-draft]").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
     const payload = { ...customerRequestFormPayload(dialog), status: "Borrador" };
     const requestId = dialog.querySelector("#customerRequestId").value;
+    button.disabled = true;
+    button.textContent = "Guardando…";
     try {
       await crmApi(requestId ? `/customer-requests/${encodeURIComponent(requestId)}` : "/customer-requests", { method: requestId ? "PATCH" : "POST", body: JSON.stringify(payload) });
+      button.textContent = "Guardado";
       dialog.close();
       renderCurrentArea();
-    } catch (error) { alert(error.message || "No fue posible guardar el borrador."); }
+    } catch (error) {
+      button.textContent = requestId ? "Guardar cambios" : "Guardar borrador";
+      alert(error.message || "No fue posible guardar el borrador.");
+    } finally { button.disabled = false; }
   });
   dialog.querySelector("[data-customer-request-review-save]").addEventListener("click", async () => {
     const current = dialog.currentRequest || {};

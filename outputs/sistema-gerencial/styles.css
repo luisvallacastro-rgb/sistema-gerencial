@@ -18004,6 +18004,10 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 #customerRequestDialog .crm-customer-dialog-actions > span i { width: 8px; height: 8px; border-radius: 50%; background: #61e6c4; }
 #customerRequestDialog .crm-customer-dialog-actions > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
 #customerRequestDialog .crm-customer-dialog-actions button { min-height: 42px; padding: 0 17px; border-radius: 11px; }
+#customerRequestDialog .customer-request-save-btn { border: 1px solid rgba(111, 207, 255, .55); background: #245c83; color: #f4fbff; font: inherit; font-weight: 850; box-shadow: 0 7px 18px rgba(8, 39, 67, .25); }
+#customerRequestDialog .customer-request-save-btn:hover { border-color: #8ddcff; background: #2d709c; }
+#customerRequestDialog .customer-request-save-btn:focus-visible { outline: 3px solid rgba(111, 207, 255, .3); outline-offset: 2px; }
+#customerRequestDialog .customer-request-save-btn:disabled { cursor: wait; opacity: .72; }
 
 #customerRequestListDialog.customer-request-list-dialog {
   width: min(1040px, calc(100vw - 34px));
