@@ -5444,7 +5444,9 @@ class AppHandler(BaseHTTPRequestHandler):
                     return
                 if self.command == "POST" and not item_id:
                     payload = self.read_json()
-                    if not text(payload.get("commercialName") or payload.get("name")):
+                    status = text(payload.get("status"), "Pendiente")
+                    is_draft = status.lower() == "borrador"
+                    if not is_draft and not text(payload.get("commercialName") or payload.get("name")):
                         self.send_json({"error": "El nombre comercial es obligatorio"}, status=400)
                         return
                     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -5452,8 +5454,8 @@ class AppHandler(BaseHTTPRequestHandler):
                         "id": f"customer-request-{int(time.time() * 1000)}",
                         **normalize_crm_customer_request(payload),
                         "requestNumber": next_crm_customer_request_number(data),
-                        "status": "Pendiente",
-                        "requestedAt": now,
+                        "status": "Borrador" if is_draft else "Pendiente",
+                        "requestedAt": "" if is_draft else now,
                         "requestedByUserId": text((request_user or {}).get("id")),
                         "requestedByName": text((request_user or {}).get("name"), "Usuario"),
                         "requestedBySellerId": text((request_linked_seller or {}).get("id")),
@@ -5509,10 +5511,15 @@ class AppHandler(BaseHTTPRequestHandler):
                             self.send_json({"error": "No tiene permiso para modificar esta solicitud"}, status=403)
                             return
                         status = text(payload.get("status"), request.get("status") or "Pendiente")
+                        if status.lower() == "pendiente" and not text(payload.get("commercialName") or request.get("commercialName")):
+                            self.send_json({"error": "El nombre comercial es obligatorio para enviar la solicitud"}, status=400)
+                            return
                         if status.lower() == "rechazada" and is_restricted_operator:
                             self.send_json({"error": "No tiene permiso para rechazar solicitudes"}, status=403)
                             return
                         updated = {**request, **normalize_crm_customer_request(payload, request), "status": status}
+                        if status.lower() == "pendiente" and not text(request.get("requestedAt")):
+                            updated["requestedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                         if status.lower() == "rechazada":
                             updated["rejectionReason"] = text(payload.get("rejectionReason"))
                             updated["reviewedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())

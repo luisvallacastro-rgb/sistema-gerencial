@@ -4111,6 +4111,19 @@ function setQuotationPanelExpanded(panel, expanded) {
   else content.setAttribute("hidden", "");
 }
 
+const commercialPaymentTerms = Object.freeze([
+  "50% anticipo, 50% previo a la entrega del pedido",
+  "50% anticipo, 50% crédito a 15 días",
+  "50% anticipo, 50% crédito a 30 días",
+  "Crédito de 100% a 15 días",
+  "Crédito de 100% a 30 días",
+  "100% previo a la entrega del pedido"
+]);
+
+function commercialPaymentTermOptions() {
+  return commercialPaymentTerms.map((term) => `<option value="${escapeHtml(term)}">${escapeHtml(term)}</option>`).join("");
+}
+
 function ensureQuotationDialog() {
   if (document.querySelector("#quotationDialog")) return;
   document.body.insertAdjacentHTML("beforeend", `<dialog id="quotationDialog" class="wide-dialog quotation-dialog"><form id="quotationForm">
@@ -4126,7 +4139,7 @@ function ensureQuotationDialog() {
       <div class="quotation-totals-comparison"><article class="quotation-reference"><span>Monto original de la oportunidad</span><strong id="quotationReference" data-reference-cents="0">$0.00</strong></article><article class="quotation-variation" id="quotationVariationCard" data-variation="neutral"><span id="quotationVariationLabel">Saldo pendiente por cotizar</span><strong id="quotationVariation">$0.00</strong><small>Calculado contra el subtotal acumulado de las líneas</small></article></div>
       <div class="quotation-totals-breakdown"><section class="quotation-vat-control"><span class="quotation-vat-copy"><b>Tratamiento fiscal</b><small>Selecciona cómo presentar el total.</small></span><button id="quotationVatMode" class="quotation-vat-segmented" type="button" role="switch" aria-checked="true" data-apply-vat="true"><span data-vat-choice="false">Sin IVA</span><span data-vat-choice="true">IVA 13%</span></button></section><article><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article id="quotationVatCard"><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article class="quotation-grand-total"><span>Total cotización · nuevo valor oportunidad</span><strong id="quotationTotal">$0.00</strong></article></div>
     </section>
-    <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Selecciona pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label><label class="quotation-field-editable">Tiempo de entrega<select id="quotationDeliveryTerms" required><option>30 días hábiles posterior a la orden de compra</option><option>60 días hábiles posterior a la orden de compra</option><option>90 días hábiles posterior a la orden de compra</option></select></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
+    <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Selecciona pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required>${commercialPaymentTermOptions()}</select></label><label class="quotation-field-editable">Tiempo de entrega<select id="quotationDeliveryTerms" required><option>30 días hábiles posterior a la orden de compra</option><option>60 días hábiles posterior a la orden de compra</option><option>90 días hábiles posterior a la orden de compra</option></select></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2"></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
     <footer><button type="button" class="quotation-crud-action quotation-delete-action hidden" data-quotation-delete>Eliminar</button><button type="button" class="quotation-crud-action quotation-print-action" data-quotation-preview aria-label="Vista previa e imprimir" title="Vista previa e imprimir">🖨️</button><button type="button" class="quotation-crud-action quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="quotation-crud-action primary-btn">Guardar</button><button type="button" class="quotation-crud-action primary-btn hidden" data-quotation-direct-convert>Guardar y crear nota de pedido</button><button type="button" class="quotation-crud-action quotation-new-action" data-quotation-new>Nuevo</button></footer>
@@ -8295,15 +8308,26 @@ function ensureCustomerRequestDialog() {
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Código interno solicitado<input id="customerRequestCustomerCode"></label><label>Tipo de cliente<input id="customerRequestType"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<input id="customerRequestTaxpayerType"></label><label>Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
-      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento / municipio<input id="customerRequestDepartment"></label><label>Condiciones de pago<input id="customerRequestTerms"></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
-    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Pendiente de validación</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn" data-customer-request-print>Imprimir ficha</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y asignar ID</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento / municipio<input id="customerRequestDepartment"></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
+    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn" data-customer-request-print>Imprimir ficha</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y asignar ID</button><button type="button" class="ghost-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
   dialog.querySelectorAll("[data-customer-request-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   dialog.querySelector("[data-customer-request-print]").addEventListener("click", () => printCustomerRequestSheet({ ...dialog.currentRequest, ...customerRequestFormPayload(dialog) }));
+  dialog.querySelector("[data-customer-request-draft]").addEventListener("click", async () => {
+    const payload = { ...customerRequestFormPayload(dialog), status: "Borrador" };
+    const requestId = dialog.querySelector("#customerRequestId").value;
+    try {
+      await crmApi(requestId ? `/customer-requests/${encodeURIComponent(requestId)}` : "/customer-requests", { method: requestId ? "PATCH" : "POST", body: JSON.stringify(payload) });
+      dialog.close();
+      renderCurrentArea();
+    } catch (error) { alert(error.message || "No fue posible guardar el borrador."); }
+  });
   dialog.querySelector("#customerRequestForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    try { await crmApi("/customer-requests", { method: "POST", body: JSON.stringify(customerRequestFormPayload(dialog)) }); dialog.close(); renderCurrentArea(); }
+    const requestId = dialog.querySelector("#customerRequestId").value;
+    const payload = { ...customerRequestFormPayload(dialog), status: "Pendiente" };
+    try { await crmApi(requestId ? `/customer-requests/${encodeURIComponent(requestId)}` : "/customer-requests", { method: requestId ? "PATCH" : "POST", body: JSON.stringify(payload) }); dialog.close(); renderCurrentArea(); }
     catch (error) { alert(error.message || "No fue posible enviar la solicitud."); }
   });
   dialog.querySelector("[data-customer-request-approve]").addEventListener("click", async () => {
@@ -8326,10 +8350,19 @@ function openCustomerRequestDialog(request = null, review = false) {
   const current = request || {};
   dialog.currentRequest = current;
   dialog.querySelector("#customerRequestId").value = current.id || "";
-  customerRequestFields.forEach(([suffix, key]) => { dialog.querySelector(`#customerRequest${suffix}`).value = current[key] || ""; });
-  dialog.querySelector("[data-customer-request-title]").textContent = review ? `Validar ${current.requestNumber || "solicitud"}` : "Nueva solicitud de cliente";
-  dialog.querySelector("[data-customer-request-status]").innerHTML = `<i></i> ${escapeHtml(current.status || "Pendiente de validación")}${current.assignedClientNumber ? ` · ID ${escapeHtml(current.assignedClientNumber)}` : ""}`;
+  customerRequestFields.forEach(([suffix, key]) => {
+    const field = dialog.querySelector(`#customerRequest${suffix}`);
+    const value = current[key] || "";
+    if (field instanceof HTMLSelectElement && value && !Array.from(field.options).some((option) => option.value === value)) {
+      field.add(new Option(value, value));
+    }
+    field.value = value;
+  });
+  const isDraft = normalizeKey(current.status || "borrador") === "borrador";
+  dialog.querySelector("[data-customer-request-title]").textContent = review ? `Validar ${current.requestNumber || "solicitud"}` : (current.id ? `Continuar ${current.requestNumber || "borrador"}` : "Nueva solicitud de cliente");
+  dialog.querySelector("[data-customer-request-status]").innerHTML = `<i></i> ${escapeHtml(current.status || "Borrador sin enviar")}${current.assignedClientNumber ? ` · ID ${escapeHtml(current.assignedClientNumber)}` : ""}`;
   dialog.querySelector("[data-customer-request-submit]").classList.toggle("hidden", review);
+  dialog.querySelector("[data-customer-request-draft]").classList.toggle("hidden", review || !isDraft);
   const isPending = normalizeKey(current.status || "pendiente") === "pendiente";
   const canValidate = state.currentUser?.role !== "vendedores" || isAdminUser();
   dialog.querySelector("[data-customer-request-approve]").classList.toggle("hidden", !review || !isPending || !canValidate);
@@ -8548,7 +8581,7 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
 }
 
 function renderCrmCustomerViewTabs(active = "master") {
-  const pending = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === "pendiente").length;
+  const pending = (state.crmData?.customerRequests || []).filter((item) => ["borrador", "pendiente"].includes(normalizeKey(item.status || ""))).length;
   return `<nav class="crm-customer-view-tabs" aria-label="Vistas de clientes">
     <button type="button" data-crm-customer-view="master" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
     <button type="button" data-crm-customer-view="requests" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
@@ -8565,12 +8598,12 @@ function renderCrmCustomerRequests() {
       if (leftPending !== rightPending) return leftPending ? -1 : 1;
       return String(right.requestedAt || right.createdAt || "").localeCompare(String(left.requestedAt || left.createdAt || ""));
     });
-  const statusLabel = { pendiente: "Pendiente", aprobada: "Aprobada", rechazada: "Rechazada" };
+  const statusLabel = { borrador: "Borrador", pendiente: "Pendiente", aprobada: "Aprobada", rechazada: "Rechazada" };
   const count = (status) => (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === status).length;
   return `<section class="crm-shell crm-customers-module crm-customer-requests-module">
     <header class="crm-customers-hero crm-customers-compact-head">
       <div><p class="eyebrow">Validación comercial</p><h3>Solicitudes de clientes</h3></div>
-      <div class="crm-customer-metrics"><span><b>${count("pendiente")}</b> pendientes</span><span><b>${count("aprobada")}</b> aprobadas</span><span><b>${count("rechazada")}</b> rechazadas</span></div>
+      <div class="crm-customer-metrics"><span><b>${count("borrador")}</b> borradores</span><span><b>${count("pendiente")}</b> pendientes</span><span><b>${count("aprobada")}</b> aprobadas</span><span><b>${count("rechazada")}</b> rechazadas</span></div>
       ${renderCrmCustomerViewTabs("requests")}
     </header>
     <div class="crm-customer-toolbar crm-customer-request-toolbar">
@@ -8583,8 +8616,8 @@ function renderCrmCustomerRequests() {
         <span class="crm-customer-number"><strong>${escapeHtml(request.requestNumber || "—")}</strong><small>${escapeHtml(formatDisplayDate(request.requestedAt || request.createdAt || ""))}</small></span>
         <span class="crm-customer-name"><strong>${escapeHtml(request.commercialName || request.legalName || "Sin nombre")}</strong><small>${escapeHtml(request.taxId || request.legalName || "Identificación pendiente")}</small></span>
         <span><strong>${escapeHtml(request.requestedByName || "Usuario")}</strong><small>${escapeHtml(request.contactName || request.email || "Sin contacto")}</small></span>
-        <span><strong class="crm-request-status ${escapeHtml(statusKey)}">${statusLabel[statusKey] || "Pendiente"}</strong><small>${statusKey === "aprobada" ? `ID ${escapeHtml(request.assignedClientNumber || "asignado")}` : escapeHtml(request.reviewedByName || "Por validar")}</small></span>
-        <span class="crm-row-actions"><button type="button" data-crm-customer-request-review="${escapeHtml(request.id)}" title="Revisar solicitud" aria-label="Revisar solicitud">⌕</button><button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Imprimir ficha" aria-label="Imprimir ficha">▤</button></span>
+        <span><strong class="crm-request-status ${escapeHtml(statusKey)}">${statusLabel[statusKey] || "Pendiente"}</strong><small>${statusKey === "aprobada" ? `ID ${escapeHtml(request.assignedClientNumber || "asignado")}` : (statusKey === "borrador" ? "Sin enviar" : escapeHtml(request.reviewedByName || "Por validar"))}</small></span>
+        <span class="crm-row-actions"><button type="button" data-crm-customer-request-review="${escapeHtml(request.id)}" title="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}" aria-label="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}">${statusKey === "borrador" ? "✎" : "⌕"}</button><button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Imprimir ficha" aria-label="Imprimir ficha">▤</button></span>
       </article>`; }).join("") || `<div class="empty-state">No hay solicitudes que coincidan con la búsqueda.</div>`}
     </div></div>
   </section>`;
@@ -9343,7 +9376,7 @@ function renderCommercialSubmenu(area) {
     });
     opportunityTable.querySelectorAll("[data-crm-customer-request-review]").forEach((button) => button.addEventListener("click", () => {
       const request = (state.crmData?.customerRequests || []).find((item) => String(item.id) === String(button.dataset.crmCustomerRequestReview));
-      if (request) openCustomerRequestDialog(request, true);
+      if (request) openCustomerRequestDialog(request, normalizeKey(request.status || "") !== "borrador");
     }));
     opportunityTable.querySelectorAll("[data-crm-customer-request-print]").forEach((button) => button.addEventListener("click", () => {
       const request = (state.crmData?.customerRequests || []).find((item) => String(item.id) === String(button.dataset.crmCustomerRequestPrint));

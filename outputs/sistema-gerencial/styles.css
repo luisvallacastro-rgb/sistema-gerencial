@@ -17936,6 +17936,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .crm-customer-request-toolbar { grid-template-columns: minmax(0, 1fr) auto !important; }
 .crm-customer-request-table .crm-customer-number small { display: block; margin-top: 5px; color: #8fa1ba; }
 .crm-request-status { display: inline-flex; width: max-content; padding: 6px 11px; border-radius: 999px; color: #f6c765; background: rgba(171, 112, 28, .24); }
+.crm-request-status.borrador { color: #b8c9dc; background: rgba(91, 120, 151, .24); }
 .crm-request-status.aprobada { color: #75ebce; background: rgba(22, 135, 102, .26); }
 .crm-request-status.rechazada { color: #ff9bad; background: rgba(153, 53, 78, .25); }
 
@@ -17972,8 +17973,11 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 #customerRequestDialog .crm-customer-fields label { display: grid; gap: 6px; min-width: 0; color: #c5d3e3; font-size: 11px; font-weight: 850; }
 #customerRequestDialog .crm-customer-fields label em { color: #69ebca; font-style: normal; }
 #customerRequestDialog .crm-customer-fields .span-2 { grid-column: 1 / -1; }
-#customerRequestDialog .crm-customer-fields input { box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 13px; border: 1px solid rgba(139, 177, 213, .3); border-radius: 11px; outline: 0; background: #193957; color: #fff; font: inherit; font-weight: 700; }
-#customerRequestDialog .crm-customer-fields input:focus { border-color: #63e2c4; box-shadow: 0 0 0 3px rgba(73, 218, 183, .1); }
+#customerRequestDialog .crm-customer-fields input,
+#customerRequestDialog .crm-customer-fields select { box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 13px; border: 1px solid rgba(139, 177, 213, .3); border-radius: 11px; outline: 0; background: #193957; color: #fff; font: inherit; font-weight: 700; }
+#customerRequestDialog .crm-customer-fields select { cursor: pointer; }
+#customerRequestDialog .crm-customer-fields input:focus,
+#customerRequestDialog .crm-customer-fields select:focus { border-color: #63e2c4; box-shadow: 0 0 0 3px rgba(73, 218, 183, .1); }
 #customerRequestDialog .crm-customer-dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 15px 28px; border-top: 1px solid rgba(126, 188, 210, .2); background: #0b233b; }
 #customerRequestDialog .crm-customer-dialog-actions > span { display: flex; align-items: center; gap: 8px; color: #a8b8ca; font-size: 11px; font-weight: 800; }
 #customerRequestDialog .crm-customer-dialog-actions > span i { width: 8px; height: 8px; border-radius: 50%; background: #61e6c4; }
