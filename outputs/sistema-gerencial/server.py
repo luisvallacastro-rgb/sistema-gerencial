@@ -2871,7 +2871,7 @@ def save_quotation(conn, data, existing_row=None):
 
 
 def seed_control_sales(conn):
-    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", ("order-flow-reset-20260826-v1",)).fetchone():
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", ("order-flow-reset-20260826-v2",)).fetchone():
         return
     try:
         seed = json.loads(CONTROL_SALES_SEED_PATH.read_text(encoding="utf-8"))
@@ -3591,32 +3591,61 @@ def repair_edgar_admin_seller_assignments_once(conn):
 
 
 def reset_order_flow_for_first_elizabeth_order_once(conn):
-    """Clear legacy order data and retain Elizabeth's current quote as Q-0001."""
-    migration_key = "order-flow-reset-20260826-v1"
+    """Keep Elizabeth's first quote/order pending and remove every legacy duplicate."""
+    migration_key = "order-flow-reset-20260826-v2"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
         return
     keep = conn.execute("""
-        SELECT id FROM quotations
+        SELECT id, converted_order_id FROM quotations
         WHERE lower(trim(seller)) = 'elizabeth merino'
           AND lower(client) LIKE '%trinyplastic%'
         ORDER BY updated_at DESC, created_at DESC
         LIMIT 1
     """).fetchone()
     keep_id = text(keep["id"]) if keep else ""
+    keep_order = conn.execute("""
+        SELECT id, financial_order_id FROM control_sales_orders
+        WHERE source_quotation_id = ? OR id = ?
+        ORDER BY updated_at DESC, created_at DESC
+        LIMIT 1
+    """, (keep_id, text(keep["converted_order_id"]) if keep else "")).fetchone() if keep_id else None
+    keep_order_id = text(keep_order["id"]) if keep_order else ""
+    keep_financial_id = text(keep_order["financial_order_id"]) if keep_order else ""
     conn.execute("DELETE FROM production_schedule")
     conn.execute("DELETE FROM control_sales_audit")
-    conn.execute("DELETE FROM control_sales_details")
-    conn.execute("DELETE FROM control_sales_orders")
-    conn.execute("DELETE FROM financial_orders")
+    if keep_order_id:
+        conn.execute("DELETE FROM control_sales_details WHERE order_id <> ?", (keep_order_id,))
+        conn.execute("DELETE FROM control_sales_orders WHERE id <> ?", (keep_order_id,))
+        conn.execute("DELETE FROM financial_orders WHERE id <> ?", (keep_financial_id,))
+        conn.execute("""
+            UPDATE control_sales_orders
+            SET order_number='2026080001', archived=0, status='Activa',
+                commercial_approval_status='Pendiente', commercial_approved_by='', commercial_approved_at='', commercial_approval_note='',
+                finance_approval_status='Pendiente', finance_approved_by='', finance_approved_at='', finance_approval_note='',
+                updated_by='Reinicio controlado de pedidos', updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+        """, (keep_order_id,))
+        if keep_financial_id:
+            conn.execute("""
+                UPDATE financial_orders
+                SET number='1', order_number='2026080001', deleted=0,
+                    updated_by='Reinicio controlado de pedidos', updated_at=CURRENT_TIMESTAMP
+                WHERE id=?
+            """, (keep_financial_id,))
+    else:
+        conn.execute("DELETE FROM control_sales_details")
+        conn.execute("DELETE FROM control_sales_orders")
+        conn.execute("DELETE FROM financial_orders")
     if keep_id:
         conn.execute("DELETE FROM quotations WHERE id <> ?", (keep_id,))
         conn.execute("""
-            UPDATE quotations
-            SET quotation_number='Q-0001', status='Guardada', converted_order_id='',
-                converted_at='', updated_by='Reinicio controlado de pedidos',
+            UPDATE quotations SET quotation_number='Q-0001',
+                status=?, converted_order_id=?, converted_at=?,
+                updated_by='Reinicio controlado de pedidos',
                 updated_at=CURRENT_TIMESTAMP
             WHERE id=?
-        """, (keep_id,))
+        """, ("Convertida" if keep_order_id else "Guardada", keep_order_id,
+              time.strftime("%Y-%m-%dT%H:%M:%S") if keep_order_id else "", keep_id))
     else:
         conn.execute("DELETE FROM quotations")
     conn.execute("""
@@ -3626,7 +3655,10 @@ def reset_order_flow_for_first_elizabeth_order_once(conn):
     """)
     conn.execute(
         "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-        (migration_key, json.dumps({"keptQuotationId": keep_id, "quotationNumber": "Q-0001" if keep_id else ""})),
+        (migration_key, json.dumps({"keptQuotationId": keep_id, "keptOrderId": keep_order_id,
+                                    "keptFinancialOrderId": keep_financial_id,
+                                    "quotationNumber": "Q-0001" if keep_id else "",
+                                    "orderNumber": "2026080001" if keep_order_id else ""})),
     )
 
 
