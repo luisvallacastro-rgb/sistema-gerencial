@@ -5894,8 +5894,30 @@ function receivableStatus(item) {
   const balance = Number(item.balance || 0);
   if (balance < -0.009) return { key: "credit", label: "Saldo a favor", className: "credit" };
   if (balance <= 0.009) return { key: "settled", label: "Saldada", className: "settled" };
-  if (Number(item.daysOutstanding || 0) > 30) return { key: "overdue", label: "Vencida", className: "overdue" };
+  if (item.dueDate && item.dueDate < todayISO()) return { key: "overdue", label: "Vencida", className: "overdue" };
   return { key: "pending", label: "Pendiente", className: "pending" };
+}
+
+function calculateReceivableDueDate(invoiceDate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(invoiceDate || ""))) return "";
+  const date = new Date(`${invoiceDate}T12:00:00`);
+  date.setDate(date.getDate() + 30);
+  return `${date.getFullYear()}-${padded(date.getMonth() + 1)}-${padded(date.getDate())}`;
+}
+
+function calculateReceivableDaysOutstanding(invoiceDate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(invoiceDate || ""))) return 0;
+  const start = new Date(`${invoiceDate}T12:00:00`);
+  const today = new Date(`${todayISO()}T12:00:00`);
+  return Math.max(0, Math.floor((today - start) / 86400000));
+}
+
+function syncReceivableDates() {
+  const invoiceDate = document.querySelector("#accountsReceivableInvoiceDate")?.value || "";
+  const dueDate = document.querySelector("#accountsReceivableDueDate");
+  const days = document.querySelector("#accountsReceivableDaysOutstanding");
+  if (dueDate) dueDate.value = calculateReceivableDueDate(invoiceDate);
+  if (days) days.value = String(calculateReceivableDaysOutstanding(invoiceDate));
 }
 
 function filteredAccountsReceivable() {
@@ -5926,6 +5948,7 @@ function resetAccountsReceivableForm(item = null) {
     document.querySelector("#accountsReceivableCreditNotes").value = "0";
     document.querySelector("#accountsReceivableBalance").value = "0";
   }
+  syncReceivableDates();
 }
 
 function calculateReceivableBalance() {
@@ -5934,6 +5957,93 @@ function calculateReceivableBalance() {
   const creditNotes = Number(document.querySelector("#accountsReceivableCreditNotes")?.value || 0);
   const balanceInput = document.querySelector("#accountsReceivableBalance");
   if (balanceInput) balanceInput.value = (amount - payments - creditNotes).toFixed(2);
+}
+
+function receivableISOWeek(dateValue) {
+  const date = new Date(`${dateValue}T12:00:00`);
+  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((utc - yearStart) / 86400000) + 1) / 7);
+  const start = new Date(`${dateValue}T12:00:00`);
+  start.setDate(start.getDate() - ((start.getDay() || 7) - 1));
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const short = (value) => `${padded(value.getDate())}/${padded(value.getMonth() + 1)}/${value.getFullYear()}`;
+  return { week, year: utc.getUTCFullYear(), start: short(start), end: short(end) };
+}
+
+function receivablePeriodTotals(items) {
+  return items.reduce((totals, item) => {
+    const amount = Number(item.balance || 0);
+    const day = Number(String(item.dueDate || "").slice(8, 10));
+    if (day <= 15) totals.first += amount;
+    else totals.second += amount;
+    totals.total += amount;
+    return totals;
+  }, { first: 0, second: 0, total: 0 });
+}
+
+function receivableMatrixSummary(label, items, level, hint = "") {
+  const totals = receivablePeriodTotals(items);
+  return `<span class="receivable-matrix-label"><b>${escapeHtml(label)}</b>${hint ? `<small>${escapeHtml(hint)}</small>` : ""}</span><strong>${formatMoney(totals.first)}</strong><strong>${formatMoney(totals.second)}</strong><strong>${formatMoney(totals.total)}</strong>`;
+}
+
+function renderReceivableWeekRows(items) {
+  return `<div class="receivable-week-table">
+    <div class="receivable-week-row header"><span>Vencimiento</span><span>Factura / cliente</span><span>1.ª quincena</span><span>2.ª quincena</span><span>Acciones</span></div>
+    ${items.map((item) => {
+      const firstHalf = Number(String(item.dueDate).slice(8, 10)) <= 15;
+      return `<article class="receivable-week-row">
+        <span><strong>${formatDate(item.dueDate)}</strong><small>Factura: ${formatDate(item.invoiceDate)}</small></span>
+        <span><strong>${escapeHtml(item.invoiceNumber)}</strong><small>${escapeHtml(item.customerName)} · ${escapeHtml(item.seller || "Sin vendedor")}</small></span>
+        <strong>${firstHalf ? formatMoney(item.balance) : "—"}</strong>
+        <strong>${firstHalf ? "—" : formatMoney(item.balance)}</strong>
+        <span class="financial-order-actions"><button type="button" data-accounts-receivable-edit="${escapeHtml(item.id)}">Editar</button><button class="danger" type="button" data-accounts-receivable-delete="${escapeHtml(item.id)}">Eliminar</button></span>
+      </article>`;
+    }).join("")}
+  </div>`;
+}
+
+function renderAccountsReceivableMatrix(rows) {
+  const monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const sorted = [...rows].map((item) => ({ ...item, dueDate: item.dueDate || calculateReceivableDueDate(item.invoiceDate) }))
+    .filter((item) => item.dueDate)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || String(a.invoiceNumber).localeCompare(String(b.invoiceNumber), "es", { numeric: true }));
+  const years = new Map();
+  sorted.forEach((item) => {
+    const year = item.dueDate.slice(0, 4);
+    const month = Number(item.dueDate.slice(5, 7));
+    const week = receivableISOWeek(item.dueDate);
+    if (!years.has(year)) years.set(year, new Map());
+    const months = years.get(year);
+    if (!months.has(month)) months.set(month, new Map());
+    const weeks = months.get(month);
+    const weekKey = `${week.year}-${week.week}`;
+    if (!weeks.has(weekKey)) weeks.set(weekKey, { ...week, items: [] });
+    weeks.get(weekKey).items.push(item);
+  });
+  if (!sorted.length) return `<div class="empty-state">No hay cuentas por cobrar para este filtro.</div>`;
+  return `<div class="receivable-matrix">
+    <div class="receivable-matrix-head"><span>Vencimiento</span><span>1.ª quincena</span><span>2.ª quincena</span><span>Total</span></div>
+    ${[...years.entries()].map(([year, months], yearIndex) => {
+      const yearItems = [...months.values()].flatMap((weeks) => [...weeks.values()].flatMap((week) => week.items));
+      return `<details class="receivable-matrix-group level-year" ${yearIndex === 0 ? "open" : ""}>
+        <summary>${receivableMatrixSummary(year, yearItems, "year")}</summary>
+        <div class="receivable-matrix-children">${[...months.entries()].map(([month, weeks]) => {
+          const monthItems = [...weeks.values()].flatMap((week) => week.items);
+          return `<details class="receivable-matrix-group level-month">
+            <summary>${receivableMatrixSummary(monthNames[month - 1], monthItems, "month")}</summary>
+            <div class="receivable-matrix-children">${[...weeks.values()].map((week) => `<details class="receivable-matrix-group level-week">
+              <summary>${receivableMatrixSummary(`Semana ${week.week}`, week.items, "week", `${week.start} – ${week.end}`)}</summary>
+              ${renderReceivableWeekRows(week.items)}
+            </details>`).join("")}</div>
+          </details>`;
+        }).join("")}</div>
+      </details>`;
+    }).join("")}
+  </div>`;
 }
 
 function renderAccountsReceivableList() {
@@ -5955,23 +6065,7 @@ function renderAccountsReceivableList() {
       <div class="accounts-receivable-status-tabs" role="tablist" aria-label="Estado de cartera">
         ${statusTabs.map(([key, label]) => `<button type="button" role="tab" data-accounts-receivable-status="${key}" class="${state.accountsReceivableStatus === key ? "active" : ""}" aria-selected="${state.accountsReceivableStatus === key}">${label}</button>`).join("")}
       </div>
-      <div class="financial-orders-table-wrap">
-        <div class="financial-orders-table accounts-receivable-table">
-          <div class="accounts-receivable-row header"><span>Fecha</span><span>Factura</span><span>Cliente</span><span>Vendedor</span><span>Días</span><span>Saldo</span><span>Acciones</span></div>
-          ${rows.map((item) => {
-            const status = receivableStatus(item);
-            return `<article class="accounts-receivable-row">
-              <span>${formatDate(item.invoiceDate)}</span>
-              <span class="accounts-receivable-invoice"><strong>${escapeHtml(item.invoiceNumber)}</strong><small>${escapeHtml(item.referenceNumber || item.customerCode || "Sin referencia")}</small></span>
-              <span class="accounts-receivable-customer"><strong>${escapeHtml(item.customerName)}</strong><small>${escapeHtml(item.description || "Sin descripción")}</small></span>
-              <span>${escapeHtml(item.seller || "Sin asignar")}</span>
-              <span class="accounts-receivable-days"><strong>${Number(item.daysOutstanding || 0)}</strong><small class="accounts-receivable-status ${status.className}">${status.label}</small></span>
-              <strong class="financial-order-sale">${formatMoney(item.balance)}</strong>
-              <span class="financial-order-actions"><button type="button" data-accounts-receivable-edit="${item.id}">Editar</button><button class="danger" type="button" data-accounts-receivable-delete="${item.id}">Eliminar</button></span>
-            </article>`;
-          }).join("") || `<div class="empty-state">No hay cuentas por cobrar para este filtro.</div>`}
-        </div>
-      </div>
+      <div class="accounts-receivable-matrix-wrap">${renderAccountsReceivableMatrix(rows)}</div>
     </section>`;
 }
 
@@ -12978,6 +13072,7 @@ financialOrderForm.addEventListener("submit", async (event) => {
 ["accountsReceivableInvoiceAmount", "accountsReceivablePayments", "accountsReceivableCreditNotes"].forEach((id) => {
   document.querySelector(`#${id}`)?.addEventListener("input", calculateReceivableBalance);
 });
+document.querySelector("#accountsReceivableInvoiceDate")?.addEventListener("change", syncReceivableDates);
 
 accountsReceivableForm.addEventListener("submit", async (event) => {
   event.preventDefault();

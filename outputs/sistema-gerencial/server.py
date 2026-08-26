@@ -8,7 +8,7 @@ import sqlite3
 import time
 import unicodedata
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
@@ -1588,6 +1588,15 @@ def normalize_receivable(data, existing=None):
         provided_balance,
         current.get("balance", invoice_amount - payments - credit_notes),
     )
+    invoice_date = text(payload.get("invoiceDate"), current.get("invoiceDate") or "")
+    if not invoice_date:
+        raise ValueError("La fecha de factura es requerida")
+    try:
+        parsed_invoice_date = datetime.strptime(invoice_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise ValueError("La fecha de factura no es valida")
+    due_date = parsed_invoice_date + timedelta(days=30)
+    days_outstanding = max(0, (datetime.now().date() - parsed_invoice_date).days)
     return {
         "id": text(payload.get("id"), current.get("id") or f"cxc-{int(time.time() * 1000)}"),
         "invoiceNumber": text(payload.get("invoiceNumber"), current.get("invoiceNumber") or ""),
@@ -1595,9 +1604,9 @@ def normalize_receivable(data, existing=None):
         "customerCode": text(payload.get("customerCode"), current.get("customerCode") or ""),
         "customerName": text(payload.get("customerName"), current.get("customerName") or ""),
         "description": text(payload.get("description"), current.get("description") or ""),
-        "invoiceDate": text(payload.get("invoiceDate"), current.get("invoiceDate") or ""),
-        "dueDate": text(payload.get("dueDate"), current.get("dueDate") or ""),
-        "daysOutstanding": whole_number(payload.get("daysOutstanding"), current.get("daysOutstanding", 0)),
+        "invoiceDate": invoice_date,
+        "dueDate": due_date.isoformat(),
+        "daysOutstanding": days_outstanding,
         "invoiceAmount": invoice_amount,
         "payments": payments,
         "creditNotes": credit_notes,
@@ -1670,6 +1679,27 @@ def upsert_receivable(conn, data, existing=None):
             updated_at = excluded.updated_at
     """, item)
     return item
+
+
+def repair_receivable_due_dates(conn):
+    """Keep every due date at exactly 30 calendar days after its invoice date."""
+    today = datetime.now().date()
+    rows = conn.execute(
+        "SELECT id, invoice_date, due_date, days_outstanding FROM accounts_receivable"
+    ).fetchall()
+    for row in rows:
+        try:
+            invoice_date = datetime.strptime(text(row["invoice_date"]), "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        due_date = (invoice_date + timedelta(days=30)).isoformat()
+        days_outstanding = max(0, (today - invoice_date).days)
+        if row["due_date"] == due_date and row["days_outstanding"] == days_outstanding:
+            continue
+        conn.execute(
+            "UPDATE accounts_receivable SET due_date=?, days_outstanding=? WHERE id=?",
+            (due_date, days_outstanding, row["id"]),
+        )
 
 
 def normalize_financial_order(data, existing=None):
@@ -3977,6 +4007,7 @@ def init_db():
         migrate_consolidated_permissions(conn)
         grant_johanna_minutes_permissions(conn)
         seed_accounts_receivable(conn)
+        repair_receivable_due_dates(conn)
         seed_bank_availability(conn)
         seed_bac_savings_account(conn)
         seed_purchase_orders(conn)
@@ -4383,8 +4414,12 @@ class AppHandler(BaseHTTPRequestHandler):
             if not text(data.get("invoiceNumber")) or not text(data.get("customerName")):
                 self.send_json({"error": "Factura y cliente son requeridos"}, status=400)
                 return
-            with connect() as conn:
-                item = upsert_receivable(conn, data)
+            try:
+                with connect() as conn:
+                    item = upsert_receivable(conn, data)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
@@ -4586,14 +4621,18 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/api/accounts-receivable/"):
             item_id = unquote(self.path.rsplit("/", 1)[-1])
             data = self.read_json()
-            with connect() as conn:
-                row = conn.execute("SELECT * FROM accounts_receivable WHERE id = ?", (item_id,)).fetchone()
-                if not row:
-                    self.send_json({"error": "Cuenta por cobrar no encontrada"}, status=404)
-                    return
-                existing = receivable_payload(row)
-                data["id"] = item_id
-                item = upsert_receivable(conn, data, existing)
+            try:
+                with connect() as conn:
+                    row = conn.execute("SELECT * FROM accounts_receivable WHERE id = ?", (item_id,)).fetchone()
+                    if not row:
+                        self.send_json({"error": "Cuenta por cobrar no encontrada"}, status=404)
+                        return
+                    existing = receivable_payload(row)
+                    data["id"] = item_id
+                    item = upsert_receivable(conn, data, existing)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
             self.send_json({"ok": True, "item": item})
             return
 
