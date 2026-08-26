@@ -5017,8 +5017,64 @@ function orderWithCurrentCustomerData(order = {}) {
   };
 }
 
+function printableControlSalesDescription(detail = {}) {
+  let product = String(detail.product || "").trim();
+  const notes = String(detail.notes || "").trim();
+  if (notes) {
+    const duplicateAt = product.indexOf(notes);
+    if (duplicateAt >= 0) product = product.slice(0, duplicateAt).replace(/[\s,;:\-–—]+$/, "").trim();
+  }
+  return [product, detail.size ? `Talla ${detail.size}` : ""].filter(Boolean).join(" - ");
+}
+
+function orderWithCurrentQuotationData(order = {}) {
+  const quotation = linkedQuotationForControlSalesOrder(order);
+  const lines = Array.isArray(quotation?.lines)
+    ? quotation.lines.filter((line) => String(line.type || "").toLowerCase() !== "title")
+    : [];
+  if (!quotation || !lines.length) return order;
+  const documentType = quotation.documentType === "CCF" ? "CCF" : "CF";
+  const details = lines.map((line, index) => {
+    const quantity = Number(String(line.quantity ?? 0).replace(",", ".")) || 0;
+    const unitPriceCents = Number(line.unitPriceCents || 0);
+    const baseCents = Number(line.lineTotalCents ?? Math.round(quantity * unitPriceCents));
+    const vatCents = documentType === "CCF" ? Math.round(baseCents * 0.13) : 0;
+    return {
+      id: line.id || `quotation-print-line-${index + 1}`,
+      product: String(line.description || line.product || "").trim(),
+      size: String(line.size || "").trim(),
+      quantity: String(line.quantity ?? ""),
+      unitPriceCents,
+      vatCents,
+      lineTotalCents: baseCents + vatCents,
+      notes: String(line.notes || "").trim()
+    };
+  });
+  const subtotalCents = Number(quotation.subtotalCents ?? details.reduce((sum, detail) => sum + detail.lineTotalCents - detail.vatCents, 0));
+  const vatTotalCents = documentType === "CCF" ? Number(quotation.vatCents ?? Math.round(subtotalCents * 0.13)) : 0;
+  const totalCents = Number(quotation.totalCents ?? subtotalCents + vatTotalCents);
+  return {
+    ...order,
+    client: quotation.client || order.client || "",
+    seller: quotation.seller || order.seller || "",
+    documentType,
+    details,
+    subtotalCents,
+    vatTotalCents,
+    perceptionCents: 0,
+    totalCents,
+    proformaData: {
+      ...(order.proformaData || {}),
+      ...(quotation.customerData || {}),
+      paymentTerms: quotation.paymentTerms || order.proformaData?.paymentTerms || "",
+      generalNotes: quotation.commercialNotes || "",
+      applyVat: documentType === "CCF"
+    }
+  };
+}
+
 function printControlSalesProformaInline(order) {
-  order = orderWithCurrentCustomerData({ ...order, seller: controlSalesResponsibleSeller(order) });
+  order = orderWithCurrentCustomerData(orderWithCurrentQuotationData({ ...order, seller: controlSalesResponsibleSeller(order) }));
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
@@ -5048,7 +5104,7 @@ function printControlSalesProformaInline(order) {
   ];
   const lineRows = order.details.map((detail) => {
     const baseCents = Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0);
-    const description = [detail.product, detail.size ? `Talla ${detail.size}` : ""].filter(Boolean).join(" - ");
+    const description = printableControlSalesDescription(detail);
     return `<tr><td class="qty">${value(detail.quantity)}</td><td>${value(description)}</td><td class="money">${formatControlSalesMoney(detail.unitPriceCents || 0)}</td><td class="money">${formatControlSalesMoney(baseCents)}</td></tr>`;
   }).join("");
   const blankRows = Array.from(
@@ -5095,7 +5151,7 @@ function printControlSalesProformaInline(order) {
 }
 
 function printControlSalesProforma(order) {
-  order = orderWithCurrentCustomerData({ ...order, seller: controlSalesResponsibleSeller(order) });
+  order = orderWithCurrentCustomerData(orderWithCurrentQuotationData({ ...order, seller: controlSalesResponsibleSeller(order) }));
   const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   localStorage.setItem(printKey, JSON.stringify(order));
   const popup = window.open(

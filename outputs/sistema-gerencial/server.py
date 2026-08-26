@@ -2872,11 +2872,13 @@ def save_quotation(conn, data, existing_row=None):
         existing.get("createdBy", actor) if existing else actor, actor,
         existing.get("createdAt", now) if existing else now, now,
     ))
-    if converted_order_id:
-        linked_order_row = conn.execute(
-            "SELECT * FROM control_sales_orders WHERE id = ? AND archived = 0",
-            (converted_order_id,),
-        ).fetchone()
+    if converted_order_id or existing:
+        linked_order_row = conn.execute("""
+            SELECT * FROM control_sales_orders
+            WHERE archived = 0 AND (id = ? OR source_quotation_id = ?)
+            ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+            LIMIT 1
+        """, (converted_order_id, quote_id, converted_order_id)).fetchone()
         if linked_order_row:
             linked_order = control_sales_order_payload(conn, linked_order_row)
             linked_proforma = dict(linked_order.get("proformaData") or {})
