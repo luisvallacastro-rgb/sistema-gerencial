@@ -8323,7 +8323,12 @@ function ensureCustomerRequestDialog() {
     </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir solicitud firmada</button><button type="button" class="customer-request-sign-btn hidden" data-customer-request-sign>Firmar electrónicamente</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y crear cliente</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
-  dialog.querySelectorAll("[data-customer-request-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelectorAll("[data-customer-request-close]").forEach((button) => button.addEventListener("click", () => {
+    const returnToList = dialog.returnToRequestList === true;
+    dialog.returnToRequestList = false;
+    dialog.close();
+    if (returnToList) openCustomerRequestListDialog();
+  }));
   dialog.querySelector("[data-customer-request-print]").addEventListener("click", () => printCustomerRequestSheet({ ...dialog.currentRequest, ...customerRequestFormPayload(dialog) }));
   dialog.querySelector("[data-customer-request-sign]").addEventListener("click", async (event) => {
     if (!dialog.currentRequest?.id || !confirm("¿Firmar electrónicamente esta solicitud como Odaliz Valencia?")) return;
@@ -8348,10 +8353,16 @@ function ensureCustomerRequestDialog() {
     button.disabled = true;
     button.textContent = "Guardando…";
     try {
-      await crmApi(requestId ? `/customer-requests/${encodeURIComponent(requestId)}` : "/customer-requests", { method: requestId ? "PATCH" : "POST", body: JSON.stringify(payload) });
+      const model = await crmApi(requestId ? `/customer-requests/${encodeURIComponent(requestId)}` : "/customer-requests", { method: requestId ? "PATCH" : "POST", body: JSON.stringify(payload) });
+      const savedId = requestId || model.selectedCustomerRequestId;
+      const saved = (model.customerRequests || []).find((item) => String(item.id) === String(savedId));
+      if (saved) dialog.currentRequest = saved;
+      dialog.querySelector("#customerRequestId").value = savedId || "";
+      dialog.querySelector("[data-customer-request-title]").textContent = `Continuar ${saved?.requestNumber || "borrador"}`;
+      dialog.querySelector("[data-customer-request-status]").innerHTML = "<i></i> Borrador guardado";
+      dialog.querySelector("[data-customer-request-sign]").classList.toggle("hidden", !savedId || !isOdalizValenciaUser());
+      dialog.querySelector("[data-customer-request-print]").classList.add("hidden");
       button.textContent = "Guardado";
-      dialog.close();
-      renderCurrentArea();
     } catch (error) {
       button.textContent = requestId ? "Guardar cambios" : "Guardar borrador";
       alert(error.message || "No fue posible guardar el borrador.");
@@ -8364,14 +8375,18 @@ function ensureCustomerRequestDialog() {
       const model = await crmApi(`/customer-requests/${encodeURIComponent(current.id)}`, { method: "PATCH", body: JSON.stringify({ ...customerRequestFormPayload(dialog), status: "Pendiente" }) });
       dialog.currentRequest = (model.customerRequests || []).find((item) => String(item.id) === String(current.id)) || current;
       dialog.querySelector("[data-customer-request-status]").innerHTML = "<i></i> Pendiente · Correcciones guardadas";
-      renderCurrentArea();
     } catch (error) { alert(error.message || "No fue posible guardar las correcciones."); }
   });
   dialog.querySelector("#customerRequestForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const requestId = dialog.querySelector("#customerRequestId").value;
     const payload = { ...customerRequestFormPayload(dialog), status: "Pendiente" };
-    try { await crmApi(requestId ? `/customer-requests/${encodeURIComponent(requestId)}` : "/customer-requests", { method: requestId ? "PATCH" : "POST", body: JSON.stringify(payload) }); dialog.close(); renderCurrentArea(); }
+    try {
+      await crmApi(requestId ? `/customer-requests/${encodeURIComponent(requestId)}` : "/customer-requests", { method: requestId ? "PATCH" : "POST", body: JSON.stringify(payload) });
+      dialog.returnToRequestList = false;
+      dialog.close();
+      openCustomerRequestListDialog();
+    }
     catch (error) { alert(error.message || "No fue posible enviar la solicitud."); }
   });
   dialog.querySelector("[data-customer-request-approve]").addEventListener("click", async () => {
@@ -8393,8 +8408,9 @@ function ensureCustomerRequestDialog() {
   return dialog;
 }
 
-function openCustomerRequestDialog(request = null, review = false) {
+function openCustomerRequestDialog(request = null, review = false, returnToList = false) {
   const dialog = ensureCustomerRequestDialog();
+  dialog.returnToRequestList = returnToList;
   const current = request || {};
   dialog.currentRequest = current;
   dialog.querySelector("#customerRequestId").value = current.id || "";
@@ -8470,7 +8486,7 @@ function openCustomerRequestListDialog() {
       const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListOpen));
       if (!request) return;
       dialog.close();
-      openCustomerRequestDialog(request, normalizeKey(request.status || "") !== "borrador");
+      openCustomerRequestDialog(request, normalizeKey(request.status || "") !== "borrador", true);
     }));
     rows.querySelectorAll("[data-customer-request-list-print]").forEach((button) => button.addEventListener("click", () => {
       const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListPrint));
@@ -8481,8 +8497,7 @@ function openCustomerRequestListDialog() {
       if (!request || !confirm(`¿Firmar electrónicamente ${request.requestNumber || "esta solicitud"} como Odaliz Valencia?`)) return;
       try {
         await crmApi(`/customer-requests/${encodeURIComponent(request.id)}/sign`, { method: "POST", body: "{}" });
-        dialog.close();
-        renderCurrentArea();
+        openCustomerRequestListDialog();
         alert("Solicitud firmada. Ya puede imprimirse y enviarse.");
       } catch (error) { alert(error.message || "No fue posible firmar la solicitud."); }
     }));
@@ -8491,14 +8506,13 @@ function openCustomerRequestListDialog() {
       if (!request || !confirm(`¿Enviar ${request.requestNumber || "esta solicitud"} al panel de Clientes para validación?`)) return;
       try {
         await crmApi(`/customer-requests/${encodeURIComponent(request.id)}`, { method: "PATCH", body: JSON.stringify({ ...request, status: "Pendiente" }) });
-        dialog.close();
-        renderCurrentArea();
+        openCustomerRequestListDialog();
         alert("Solicitud enviada. Ya está disponible en Clientes → Solicitudes.");
       } catch (error) { alert(error.message || "No fue posible enviar la solicitud."); }
     }));
   };
   dialog.querySelector("[data-customer-request-list-search]").addEventListener("input", (event) => renderRows(event.target.value));
-  dialog.querySelector("[data-customer-request-list-new]").addEventListener("click", () => { dialog.close(); openCustomerRequestDialog(); });
+  dialog.querySelector("[data-customer-request-list-new]").addEventListener("click", () => { dialog.close(); openCustomerRequestDialog(null, false, true); });
   dialog.querySelector("[data-customer-request-list-close]").addEventListener("click", () => dialog.close());
   dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
   dialog.addEventListener("close", () => dialog.remove(), { once: true });
