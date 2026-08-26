@@ -4158,6 +4158,16 @@ function customerDepartmentOptions() {
   return `<option value="">Seleccionar departamento</option>${Object.keys(customerMunicipalitiesByDepartment).map((department) => `<option value="${escapeHtml(department)}">${escapeHtml(department)}</option>`).join("")}`;
 }
 
+const customerTaxpayerTypes = Object.freeze(["Pequeño", "Mediano", "Grande", "Otros"]);
+const customerClientTypes = Object.freeze([
+  "Comercial", "Servicios", "Industrial", "Agropecuaria", "Construcción", "Transporte",
+  "Turismo", "Financiera", "Tecnología", "Educación", "Salud", "Inmobiliaria", "Otros"
+]);
+
+function customerSelectOptions(values, placeholder) {
+  return `<option value="">${escapeHtml(placeholder)}</option>${values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`;
+}
+
 function refreshCustomerMunicipalitySelect(departmentSelect, municipalitySelect, selectedMunicipality = "") {
   const department = departmentSelect?.value || "";
   const municipalities = customerMunicipalitiesByDepartment[department] || [];
@@ -8275,7 +8285,7 @@ function ensureCrmCustomerDialog() {
         <label>Nombre comercial <em>*</em><input id="crmCustomerCommercialName" maxlength="120" placeholder="Ej. Industrias Konfi" required></label>
         <label>Razón social<input id="crmCustomerLegalName" maxlength="160" placeholder="Nombre legal de la empresa"></label>
         <label>Código de cliente<input id="crmCustomerCode" maxlength="40" placeholder="Código interno (opcional)"></label>
-        <label>Tipo de cliente<input id="crmCustomerType" maxlength="80" placeholder="Empresa privada, gobierno..."></label>
+        <label>Tipo de cliente<select id="crmCustomerType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label>
       </div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales para dar seguimiento comercial.</small></div></div><div class="crm-customer-fields">
         <label>Contacto principal<input id="crmCustomerContact" maxlength="100" placeholder="Nombre completo"></label>
@@ -8285,7 +8295,7 @@ function ensureCrmCustomerDialog() {
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Identificación para cotizaciones y documentación.</small></div></div><div class="crm-customer-fields">
         <label>NIT / identificación fiscal<input id="crmCustomerTaxId" maxlength="40" placeholder="Número de identificación"></label>
         <label>NRC / registro<input id="crmCustomerRegistration" maxlength="40" placeholder="Número de registro"></label>
-        <label>Tipo de contribuyente<input id="crmCustomerTaxpayerType" maxlength="80" placeholder="Grande, mediano, otro"></label>
+        <label>Tipo de contribuyente<select id="crmCustomerTaxpayerType">${customerSelectOptions(customerTaxpayerTypes, "Seleccionar tipo de contribuyente")}</select></label>
         <label>Tipo de factura<select id="crmCustomerDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label>
         <label>Giro / actividad económica<input id="crmCustomerBusiness" maxlength="120" placeholder="Actividad principal"></label>
       </div></section>
@@ -8335,9 +8345,11 @@ function openCrmCustomerDialog(customer = {}) {
   const set = (selector, value) => { dialog.querySelector(selector).value = value || ""; };
   set("#crmCustomerId", customer.id); set("#crmCustomerCommercialName", customer.commercialName); set("#crmCustomerLegalName", customer.legalName);
   set("#crmCustomerCode", customer.customerCode); set("#crmCustomerTaxId", customer.taxId); set("#crmCustomerRegistration", customer.registrationNumber);
+  ensureSelectOption(dialog.querySelector("#crmCustomerTaxpayerType"), customer.taxpayerType || "");
   set("#crmCustomerTaxpayerType", customer.taxpayerType); set("#crmCustomerContact", customer.contactName || customer.manager); set("#crmCustomerPhone", customer.phone);
   set("#crmCustomerEmail", customer.email); set("#crmCustomerBusiness", customer.businessActivity || customer.businessLine); set("#crmCustomerAddress", customer.address);
   setCustomerLocationFields(dialog.querySelector("#crmCustomerDepartment"), dialog.querySelector("#crmCustomerMunicipality"), customer.department, customer.municipality);
+  ensureSelectOption(dialog.querySelector("#crmCustomerType"), customer.clientType || "");
   set("#crmCustomerType", customer.clientType); set("#crmCustomerDocumentType", customer.documentType || "CF");
   const terms = customer.paymentTerms || ""; const termsSelect = dialog.querySelector("#crmCustomerTerms"); if (terms && !Array.from(termsSelect.options).some((option) => option.value === terms)) termsSelect.add(new Option(terms, terms)); set("#crmCustomerTerms", terms); set("#crmCustomerStrategy", customer.strategy);
   dialog.querySelector("#crmCustomerDialogTitle").textContent = customer.id ? "Editar cliente" : "Nuevo cliente";
@@ -8406,9 +8418,9 @@ function ensureCustomerRequestDialog() {
   dialog.innerHTML = `<form class="dialog-card crm-customer-glass" id="customerRequestForm">
     <header class="crm-customer-dialog-head"><div><p class="eyebrow">Solicitud comercial</p><h3 data-customer-request-title>Nueva solicitud de cliente</h3><p>La solicitud será validada antes de crear el cliente y asignar su ID.</p></div><button type="button" class="crm-customer-close" data-customer-request-close aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <input type="hidden" id="customerRequestId"><div class="crm-customer-dialog-body">
-      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Código interno solicitado<input id="customerRequestCustomerCode"></label><label>Tipo de cliente<input id="customerRequestType"></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Código interno solicitado<input id="customerRequestCustomerCode"></label><label>Tipo de cliente<select id="customerRequestType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
-      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<input id="customerRequestTaxpayerType"></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<select id="customerRequestTaxpayerType">${customerSelectOptions(customerTaxpayerTypes, "Seleccionar tipo de contribuyente")}</select></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento<select id="customerRequestDepartment">${customerDepartmentOptions()}</select></label><label>Municipio<select id="customerRequestMunicipality" disabled><option value="">Selecciona primero el departamento</option></select></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
     </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir solicitud firmada</button><button type="button" class="customer-request-sign-btn hidden" data-customer-request-sign>Firmar electrónicamente</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y crear cliente</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
