@@ -8523,6 +8523,28 @@ function isOdalizValenciaUser() {
   return identity.includes("odaliz") && identity.includes("valencia");
 }
 
+function customerRequestWithCurrentCustomerData(request = {}) {
+  const customers = Array.isArray(state.crmData?.customers) ? state.crmData.customers : [];
+  let customer = request.approvedCustomerId
+    ? customers.find((item) => String(item.id || "") === String(request.approvedCustomerId))
+    : null;
+  if (!customer && request.taxId) {
+    const matches = customers.filter((item) => normalizeKey(item.taxId || "") === normalizeKey(request.taxId || ""));
+    if (matches.length === 1) customer = matches[0];
+  }
+  if (!customer && (request.commercialName || request.legalName)) {
+    const requestName = normalizeKey(request.commercialName || request.legalName || "");
+    const matches = customers.filter((item) => (
+      normalizeKey(item.commercialName || "") === requestName
+      || normalizeKey(item.legalName || "") === requestName
+    ));
+    if (matches.length === 1) customer = matches[0];
+  }
+  if (!customer) return request;
+  const currentFields = Object.fromEntries(customerRequestFields.map(([, key]) => [key, customer[key] ?? ""]));
+  return { ...request, ...currentFields, approvedCustomerId: customer.id || request.approvedCustomerId || "" };
+}
+
 function renderCurrentArea() {
   renderCommercialSubmenu(areas[state.activeArea] || areas.comercializacion);
 }
@@ -8532,6 +8554,7 @@ function printCustomerRequestSheet(request = {}) {
     alert("Guarda la solicitud antes de imprimirla.");
     return;
   }
+  request = customerRequestWithCurrentCustomerData(request);
   const requesterName = request.requestedByName || state.currentUser?.name || "Vendedor solicitante";
   const signature = request.electronicSignature || {};
   const isValidated = isCustomerRequestValidated(request);

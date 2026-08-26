@@ -5966,6 +5966,13 @@ class AppHandler(BaseHTTPRequestHandler):
                             customers[index].get("clientNumber") or next_crm_customer_number(data)
                         )
                         customers[index] = updated_customer
+                        for request_index, customer_request in enumerate(data.setdefault("customerRequests", [])):
+                            if text(customer_request.get("approvedCustomerId")) != item_id:
+                                continue
+                            data["customerRequests"][request_index] = normalize_crm_customer_request(
+                                updated_customer,
+                                customer_request,
+                            )
                         synchronize_linked_company_name(
                             conn,
                             data,
