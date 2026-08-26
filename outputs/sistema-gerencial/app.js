@@ -343,6 +343,8 @@ const state = {
   crmTrackingView: "active",
   crmCustomerSearch: "",
   crmCustomerStatus: "active",
+  crmCustomerView: "master",
+  crmCustomerRequestSearch: "",
   crmCustomerPage: 1,
   crmWonDateFrom: "",
   crmWonDateTo: "",
@@ -3785,7 +3787,8 @@ function renderQuotationsModule() {
       <header class="quotations-module__toolbar">
         <label class="quotations-module__search"><span aria-hidden="true">⌕</span><input type="search" data-quotation-module-search value="${escapeHtml(state.quotationModuleQuery)}" placeholder="Buscar cliente, vendedor, estado, fecha o producto..."></label>
         <div class="quotations-module__total"><small>TOTAL</small><strong>${formatControlSalesMoney(visibleTotal)}</strong></div>
-        <button type="button" class="quotations-module__new" data-quotation-module-create ${hasAvailableOpportunities ? "" : "disabled"}><span aria-hidden="true">＋</span>Nuevo registro</button>
+        <button type="button" class="quotations-module__request" data-customer-request-create><span aria-hidden="true">＋</span>Solicitud de cliente</button>
+        <button type="button" class="quotations-module__new" data-quotation-module-create ${hasAvailableOpportunities ? "" : "disabled"}><span aria-hidden="true">＋</span>Nueva cotización</button>
       </header>
       <div class="quotation-table-head">
         <strong>Fecha</strong>
@@ -3867,6 +3870,7 @@ function wireQuotationsModule() {
   opportunityTable.querySelector("[data-quotation-module-create]")?.addEventListener("click", () => {
     openQuotationOpportunityPicker();
   });
+  opportunityTable.querySelector("[data-customer-request-create]")?.addEventListener("click", () => openCustomerRequestDialog());
   opportunityTable.querySelectorAll("[data-quotation-module-open]").forEach((button) => button.addEventListener("click", () => (
     openQuotationDialog(button.dataset.opportunityId, button.dataset.quotationModuleOpen)
   )));
@@ -6822,7 +6826,7 @@ function wireFinancialPresentations(root = opportunityTable) {
   root.querySelector("[data-financial-close-fullscreen]")?.addEventListener("click", closeOperationsPresentationFullscreen);
 }
 
-const emptyCrmData = { users: [], opportunities: [], agenda: [], gestiones: [], pipeline: [], customers: [], kpis: {} };
+const emptyCrmData = { users: [], opportunities: [], agenda: [], gestiones: [], pipeline: [], customers: [], customerRequests: [], kpis: {} };
 const crmSellerAccountLinks = new Map([
   ["gabriela natalie amador flores", "u-xlsx-gabriela-amador"],
   ["gabriela amador", "u-xlsx-gabriela-amador"],
@@ -8254,6 +8258,85 @@ function openCrmCustomerDialog(customer = {}) {
   dialog.showModal();
 }
 
+const customerRequestFields = [
+  ["CommercialName", "commercialName"], ["LegalName", "legalName"], ["CustomerCode", "customerCode"], ["Type", "clientType"],
+  ["Contact", "contactName"], ["Phone", "phone"], ["Email", "email"], ["TaxId", "taxId"],
+  ["Registration", "registrationNumber"], ["TaxpayerType", "taxpayerType"], ["Business", "businessActivity"],
+  ["Address", "address"], ["Department", "department"], ["Terms", "paymentTerms"], ["Strategy", "strategy"]
+];
+
+function customerRequestFormPayload(dialog) {
+  return Object.fromEntries(customerRequestFields.map(([suffix, key]) => [key, dialog.querySelector(`#customerRequest${suffix}`)?.value.trim() || ""]));
+}
+
+function printCustomerRequestSheet(request = {}) {
+  const rows = [
+    ["Nombre comercial", request.commercialName], ["Razón social", request.legalName], ["Tipo de cliente", request.clientType],
+    ["Contacto principal", request.contactName], ["Teléfono", request.phone], ["Correo", request.email],
+    ["NIT / identificación fiscal", request.taxId], ["NRC / registro", request.registrationNumber], ["Tipo de contribuyente", request.taxpayerType],
+    ["Giro / actividad económica", request.businessActivity], ["Dirección", request.address], ["Departamento / municipio", request.department],
+    ["Condiciones de pago", request.paymentTerms], ["Estrategia comercial", request.strategy]
+  ];
+  const printWindow = window.open("", "_blank", "width=980,height=760");
+  if (!printWindow) return alert("Permite las ventanas emergentes para imprimir la ficha.");
+  printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(request.requestNumber || "Solicitud de cliente")}</title><style>body{font:14px Arial;color:#17233a;margin:36px}header{border-bottom:3px solid #27a98b;padding-bottom:14px;margin-bottom:22px}h1{margin:4px 0;font-size:28px}small{color:#64748b}.meta{display:flex;gap:28px;margin-top:10px}.grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #cbd5e1}.cell{padding:12px 14px;border-bottom:1px solid #e2e8f0;min-height:42px}.cell:nth-child(odd){border-right:1px solid #e2e8f0}.cell b{display:block;font-size:10px;text-transform:uppercase;color:#64748b;margin-bottom:5px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:80px}.line{border-top:1px solid #334155;padding-top:8px;text-align:center}@media print{body{margin:18mm}}</style></head><body><header><small>COMERCIALIZACIÓN · SOLICITUD DE CLIENTE</small><h1>Ficha de solicitud de cliente</h1><div class="meta"><span><b>No.</b> ${escapeHtml(request.requestNumber || "Borrador")}</span><span><b>Estado:</b> ${escapeHtml(request.status || "Borrador")}</span><span><b>Solicita:</b> ${escapeHtml(request.requestedByName || state.currentUser?.name || "")}</span></div></header><div class="grid">${rows.map(([label, value]) => `<div class="cell"><b>${escapeHtml(label)}</b>${escapeHtml(value || "—")}</div>`).join("")}</div><div class="signatures"><div class="line">Firma del solicitante</div><div class="line">Validación / asignación de ID</div></div><script>window.onload=()=>window.print()<\/script></body></html>`);
+  printWindow.document.close();
+}
+
+function ensureCustomerRequestDialog() {
+  let dialog = document.querySelector("#customerRequestDialog");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "customerRequestDialog";
+  dialog.className = "crm-customer-dialog customer-request-dialog";
+  dialog.innerHTML = `<form class="dialog-card crm-customer-glass" id="customerRequestForm">
+    <header class="crm-customer-dialog-head"><div><p class="eyebrow">Solicitud comercial</p><h3 data-customer-request-title>Nueva solicitud de cliente</h3><p>La solicitud será validada antes de crear el cliente y asignar su ID.</p></div><button type="button" class="crm-customer-close" data-customer-request-close aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <input type="hidden" id="customerRequestId"><div class="crm-customer-dialog-body">
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Código interno solicitado<input id="customerRequestCustomerCode"></label><label>Tipo de cliente<input id="customerRequestType"></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<input id="customerRequestTaxpayerType"></label><label>Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento / municipio<input id="customerRequestDepartment"></label><label>Condiciones de pago<input id="customerRequestTerms"></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
+    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Pendiente de validación</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn" data-customer-request-print>Imprimir ficha</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y asignar ID</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
+  </form>`;
+  document.body.appendChild(dialog);
+  dialog.querySelectorAll("[data-customer-request-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelector("[data-customer-request-print]").addEventListener("click", () => printCustomerRequestSheet({ ...dialog.currentRequest, ...customerRequestFormPayload(dialog) }));
+  dialog.querySelector("#customerRequestForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try { await crmApi("/customer-requests", { method: "POST", body: JSON.stringify(customerRequestFormPayload(dialog)) }); dialog.close(); renderCurrentArea(); }
+    catch (error) { alert(error.message || "No fue posible enviar la solicitud."); }
+  });
+  dialog.querySelector("[data-customer-request-approve]").addEventListener("click", async () => {
+    if (!dialog.currentRequest?.id || !confirm("¿Aprobar la solicitud y asignar el siguiente ID de cliente?")) return;
+    try { await crmApi(`/customer-requests/${encodeURIComponent(dialog.currentRequest.id)}/approve`, { method: "POST", body: JSON.stringify(customerRequestFormPayload(dialog)) }); dialog.close(); renderCurrentArea(); }
+    catch (error) { alert(error.message || "No fue posible aprobar la solicitud."); }
+  });
+  dialog.querySelector("[data-customer-request-reject]").addEventListener("click", async () => {
+    if (!dialog.currentRequest?.id) return;
+    const reason = prompt("Motivo del rechazo:");
+    if (reason === null) return;
+    try { await crmApi(`/customer-requests/${encodeURIComponent(dialog.currentRequest.id)}`, { method: "PATCH", body: JSON.stringify({ status: "Rechazada", rejectionReason: reason }) }); dialog.close(); renderCurrentArea(); }
+    catch (error) { alert(error.message || "No fue posible rechazar la solicitud."); }
+  });
+  return dialog;
+}
+
+function openCustomerRequestDialog(request = null, review = false) {
+  const dialog = ensureCustomerRequestDialog();
+  const current = request || {};
+  dialog.currentRequest = current;
+  dialog.querySelector("#customerRequestId").value = current.id || "";
+  customerRequestFields.forEach(([suffix, key]) => { dialog.querySelector(`#customerRequest${suffix}`).value = current[key] || ""; });
+  dialog.querySelector("[data-customer-request-title]").textContent = review ? `Validar ${current.requestNumber || "solicitud"}` : "Nueva solicitud de cliente";
+  dialog.querySelector("[data-customer-request-status]").innerHTML = `<i></i> ${escapeHtml(current.status || "Pendiente de validación")}${current.assignedClientNumber ? ` · ID ${escapeHtml(current.assignedClientNumber)}` : ""}`;
+  dialog.querySelector("[data-customer-request-submit]").classList.toggle("hidden", review);
+  const isPending = normalizeKey(current.status || "pendiente") === "pendiente";
+  const canValidate = state.currentUser?.role !== "vendedores" || isAdminUser();
+  dialog.querySelector("[data-customer-request-approve]").classList.toggle("hidden", !review || !isPending || !canValidate);
+  dialog.querySelector("[data-customer-request-reject]").classList.toggle("hidden", !review || !isPending || !canValidate);
+  dialog.showModal();
+}
+
 function ensureDirectOrderCustomerDialog() {
   let dialog = document.querySelector("#directOrderCustomerDialog");
   if (dialog) return dialog;
@@ -8464,7 +8547,51 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
   requestAnimationFrame(() => search.focus());
 }
 
+function renderCrmCustomerViewTabs(active = "master") {
+  const pending = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === "pendiente").length;
+  return `<nav class="crm-customer-view-tabs" aria-label="Vistas de clientes">
+    <button type="button" data-crm-customer-view="master" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
+    <button type="button" data-crm-customer-view="requests" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
+  </nav>`;
+}
+
+function renderCrmCustomerRequests() {
+  const query = normalizeKey(state.crmCustomerRequestSearch || "");
+  const requests = (state.crmData?.customerRequests || [])
+    .filter((item) => !query || [item.requestNumber, item.commercialName, item.legalName, item.contactName, item.requestedByName, item.taxId, item.email, item.status].some((value) => normalizeKey(value || "").includes(query)))
+    .sort((left, right) => {
+      const leftPending = normalizeKey(left.status || "") === "pendiente";
+      const rightPending = normalizeKey(right.status || "") === "pendiente";
+      if (leftPending !== rightPending) return leftPending ? -1 : 1;
+      return String(right.requestedAt || right.createdAt || "").localeCompare(String(left.requestedAt || left.createdAt || ""));
+    });
+  const statusLabel = { pendiente: "Pendiente", aprobada: "Aprobada", rechazada: "Rechazada" };
+  const count = (status) => (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === status).length;
+  return `<section class="crm-shell crm-customers-module crm-customer-requests-module">
+    <header class="crm-customers-hero crm-customers-compact-head">
+      <div><p class="eyebrow">Validación comercial</p><h3>Solicitudes de clientes</h3></div>
+      <div class="crm-customer-metrics"><span><b>${count("pendiente")}</b> pendientes</span><span><b>${count("aprobada")}</b> aprobadas</span><span><b>${count("rechazada")}</b> rechazadas</span></div>
+      ${renderCrmCustomerViewTabs("requests")}
+    </header>
+    <div class="crm-customer-toolbar crm-customer-request-toolbar">
+      <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-request-search value="${escapeHtml(state.crmCustomerRequestSearch || "")}" placeholder="Buscar solicitud, cliente, NIT, contacto o vendedor..."></label>
+      <div class="crm-customer-result"><strong>${requests.length}</strong><span>solicitudes</span></div>
+    </div>
+    <div class="crm-customer-table-wrap"><div class="crm-customer-table crm-customer-request-table">
+      <div class="crm-customer-row crm-customer-head"><span>Solicitud</span><span>Cliente solicitado</span><span>Solicitante</span><span>Estado</span><span>Acciones</span></div>
+      ${requests.map((request) => { const statusKey = normalizeKey(request.status || "pendiente"); return `<article class="crm-customer-row">
+        <span class="crm-customer-number"><strong>${escapeHtml(request.requestNumber || "—")}</strong><small>${escapeHtml(formatDisplayDate(request.requestedAt || request.createdAt || ""))}</small></span>
+        <span class="crm-customer-name"><strong>${escapeHtml(request.commercialName || request.legalName || "Sin nombre")}</strong><small>${escapeHtml(request.taxId || request.legalName || "Identificación pendiente")}</small></span>
+        <span><strong>${escapeHtml(request.requestedByName || "Usuario")}</strong><small>${escapeHtml(request.contactName || request.email || "Sin contacto")}</small></span>
+        <span><strong class="crm-request-status ${escapeHtml(statusKey)}">${statusLabel[statusKey] || "Pendiente"}</strong><small>${statusKey === "aprobada" ? `ID ${escapeHtml(request.assignedClientNumber || "asignado")}` : escapeHtml(request.reviewedByName || "Por validar")}</small></span>
+        <span class="crm-row-actions"><button type="button" data-crm-customer-request-review="${escapeHtml(request.id)}" title="Revisar solicitud" aria-label="Revisar solicitud">⌕</button><button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Imprimir ficha" aria-label="Imprimir ficha">▤</button></span>
+      </article>`; }).join("") || `<div class="empty-state">No hay solicitudes que coincidan con la búsqueda.</div>`}
+    </div></div>
+  </section>`;
+}
+
 function renderCrmClients() {
+  if ((state.crmCustomerView || "master") === "requests") return renderCrmCustomerRequests();
   const allClients = crmMasterCustomers(true);
   const query = normalizeKey(state.crmCustomerSearch || "");
   const status = state.crmCustomerStatus || "active";
@@ -8505,7 +8632,7 @@ function renderCrmClients() {
           <span><b>${completeCount}</b> completos</span>
           <span><b>${archivedCount}</b> archivados</span>
         </div>
-        <button class="primary-btn" type="button" data-crm-customer-new>+ Nuevo cliente</button>
+        <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs("master")}<button class="primary-btn" type="button" data-crm-customer-new>+ Nuevo cliente</button></div>
       </header>
       <div class="crm-customer-toolbar">
         <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar ID, cliente, contacto, NIT, teléfono o ubicación..."></label>
@@ -9203,6 +9330,25 @@ function renderCommercialSubmenu(area) {
     opportunityTable.innerHTML = renderCrmModule(submenu.key);
     opportunityTable.querySelector("[data-crm-refresh]")?.addEventListener("click", loadCrmData);
     opportunityTable.querySelector("[data-crm-new]")?.addEventListener("click", () => openCrmOpportunityDialog());
+    opportunityTable.querySelectorAll("[data-crm-customer-view]").forEach((button) => button.addEventListener("click", () => {
+      state.crmCustomerView = button.dataset.crmCustomerView;
+      renderCommercialSubmenu(areas.comercializacion);
+    }));
+    opportunityTable.querySelector("[data-crm-customer-request-search]")?.addEventListener("input", (event) => {
+      state.crmCustomerRequestSearch = event.target.value;
+      renderCommercialSubmenu(areas.comercializacion);
+      const input = opportunityTable.querySelector("[data-crm-customer-request-search]");
+      input?.focus();
+      input?.setSelectionRange(input.value.length, input.value.length);
+    });
+    opportunityTable.querySelectorAll("[data-crm-customer-request-review]").forEach((button) => button.addEventListener("click", () => {
+      const request = (state.crmData?.customerRequests || []).find((item) => String(item.id) === String(button.dataset.crmCustomerRequestReview));
+      if (request) openCustomerRequestDialog(request, true);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-customer-request-print]").forEach((button) => button.addEventListener("click", () => {
+      const request = (state.crmData?.customerRequests || []).find((item) => String(item.id) === String(button.dataset.crmCustomerRequestPrint));
+      if (request) printCustomerRequestSheet(request);
+    }));
     opportunityTable.querySelector("[data-crm-customer-new]")?.addEventListener("click", () => openCrmCustomerDialog());
     opportunityTable.querySelectorAll("[data-crm-customer-edit]").forEach((button) => button.addEventListener("click", () => {
       const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerEdit));

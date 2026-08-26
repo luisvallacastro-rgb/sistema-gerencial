@@ -167,6 +167,7 @@ def load_crm_seed():
     # New installations start with an empty explicit customer master. Legacy
     # opportunities retain their embedded client information independently.
     data["customers"] = []
+    data["customerRequests"] = []
     data["customerMasterResetVersion"] = "clean-master-20260812"
     return data
 
@@ -591,6 +592,18 @@ def next_crm_customer_number(data):
     return format_crm_customer_number(sequence)
 
 
+def next_crm_customer_request_number(data):
+    requests = data.setdefault("customerRequests", [])
+    used = []
+    for request in requests:
+        digits = "".join(char for char in text(request.get("requestNumber")) if char.isdigit())
+        if digits:
+            used.append(int(digits))
+    sequence = max(int(data.get("customerRequestSequence") or 0), max(used, default=0)) + 1
+    data["customerRequestSequence"] = sequence
+    return f"SOL-{sequence:04d}"
+
+
 def read_crm_data(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
     if not row:
@@ -606,6 +619,7 @@ def read_crm_data(conn):
     data = json.loads(row["value"])
     data.setdefault("gestiones", [])
     data.setdefault("customers", [])
+    data.setdefault("customerRequests", [])
     # One-time reset of the customer master. Historical opportunities and
     # documents keep their own snapshots, but the reusable directory starts
     # empty so authorized users can build a clean catalog from scratch.
@@ -779,6 +793,7 @@ def crm_data_for_seller(data, seller_id):
         "opportunities": opportunities,
         "agenda": [item for item in data.get("agenda", []) if text(item.get("ownerId")) == seller_id or text(item.get("opportunityId")) in opportunity_ids],
         "gestiones": [item for item in data.get("gestiones", []) if text(item.get("ownerId")) == seller_id or text(item.get("opportunityId")) in opportunity_ids],
+        "customerRequests": [item for item in data.get("customerRequests", []) if text(item.get("requestedBySellerId")) == seller_id],
     }
 
 
@@ -823,6 +838,12 @@ def normalize_crm_customer(payload, existing=None):
         "createdAt": text(existing.get("createdAt"), now),
         "updatedAt": now,
     }
+
+
+def normalize_crm_customer_request(payload, existing=None):
+    request = normalize_crm_customer(payload, existing)
+    request.pop("active", None)
+    return request
 
 
 def duplicate_crm_customer(data, payload, current_id=""):
@@ -1398,6 +1419,7 @@ def build_crm_view_model(data, include_private=False):
         "roles": roles,
         "users": users if include_private else [public_crm_user(user) for user in users],
         "customers": customer_catalog,
+        "customerRequests": data.get("customerRequests", []),
         "stages": stages,
         "forms": data.get("forms", []),
         "opportunities": opportunities,
@@ -5413,6 +5435,92 @@ class AppHandler(BaseHTTPRequestHandler):
                         data["users"].pop(index)
                         write_crm_data(conn, data)
                         self.send_json(build_crm_view_model(data))
+                        return
+
+            if resource == "customer-requests":
+                requests = data.setdefault("customerRequests", [])
+                if self.command == "GET" and not item_id:
+                    self.send_json(response_model().get("customerRequests", []))
+                    return
+                if self.command == "POST" and not item_id:
+                    payload = self.read_json()
+                    if not text(payload.get("commercialName") or payload.get("name")):
+                        self.send_json({"error": "El nombre comercial es obligatorio"}, status=400)
+                        return
+                    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                    request = {
+                        "id": f"customer-request-{int(time.time() * 1000)}",
+                        **normalize_crm_customer_request(payload),
+                        "requestNumber": next_crm_customer_request_number(data),
+                        "status": "Pendiente",
+                        "requestedAt": now,
+                        "requestedByUserId": text((request_user or {}).get("id")),
+                        "requestedByName": text((request_user or {}).get("name"), "Usuario"),
+                        "requestedBySellerId": text((request_linked_seller or {}).get("id")),
+                    }
+                    requests.append(request)
+                    write_crm_data(conn, data)
+                    response = response_model()
+                    response["selectedCustomerRequestId"] = request["id"]
+                    self.send_json(response, status=201)
+                    return
+                if item_id:
+                    index = next((i for i, item in enumerate(requests) if text(item.get("id")) == item_id), -1)
+                    if index == -1:
+                        self.send_json({"error": "Solicitud no encontrada"}, status=404)
+                        return
+                    request = requests[index]
+                    if action == "approve" and self.command == "POST":
+                        if is_restricted_operator:
+                            self.send_json({"error": "No tiene permiso para aprobar solicitudes"}, status=403)
+                            return
+                        if text(request.get("status")).lower() != "pendiente":
+                            self.send_json({"error": "La solicitud ya fue procesada"}, status=409)
+                            return
+                        payload = {**request, **self.read_json()}
+                        if duplicate_crm_customer(data, payload):
+                            self.send_json({"error": "El cliente ya existe; revise nombre, NIT o código"}, status=409)
+                            return
+                        customer = {
+                            "id": f"customer-{int(time.time() * 1000)}",
+                            **normalize_crm_customer(payload),
+                            "clientNumber": next_crm_customer_number(data),
+                        }
+                        data.setdefault("customers", []).append(customer)
+                        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        requests[index] = {
+                            **request,
+                            **normalize_crm_customer_request(payload, request),
+                            "status": "Aprobada",
+                            "reviewedAt": now,
+                            "reviewedByUserId": text((request_user or {}).get("id")),
+                            "reviewedByName": text((request_user or {}).get("name"), "Usuario"),
+                            "approvedCustomerId": customer["id"],
+                            "assignedClientNumber": customer["clientNumber"],
+                        }
+                        write_crm_data(conn, data)
+                        response = build_crm_view_model(data)
+                        response["selectedCustomerId"] = customer["id"]
+                        self.send_json(response, status=201)
+                        return
+                    if self.command in {"PUT", "PATCH"}:
+                        payload = self.read_json()
+                        if is_restricted_operator and text(request.get("requestedByUserId")) != text((request_user or {}).get("id")):
+                            self.send_json({"error": "No tiene permiso para modificar esta solicitud"}, status=403)
+                            return
+                        status = text(payload.get("status"), request.get("status") or "Pendiente")
+                        if status.lower() == "rechazada" and is_restricted_operator:
+                            self.send_json({"error": "No tiene permiso para rechazar solicitudes"}, status=403)
+                            return
+                        updated = {**request, **normalize_crm_customer_request(payload, request), "status": status}
+                        if status.lower() == "rechazada":
+                            updated["rejectionReason"] = text(payload.get("rejectionReason"))
+                            updated["reviewedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                            updated["reviewedByUserId"] = text((request_user or {}).get("id"))
+                            updated["reviewedByName"] = text((request_user or {}).get("name"), "Usuario")
+                        requests[index] = updated
+                        write_crm_data(conn, data)
+                        self.send_json(response_model())
                         return
 
             if resource == "customers":
