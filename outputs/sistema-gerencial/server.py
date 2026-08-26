@@ -2230,7 +2230,33 @@ def control_sales_validate(data, existing=None):
     }
 
 
+def next_control_sales_order_number(conn, order_date):
+    try:
+        parsed_date = datetime.strptime(text(order_date), "%Y-%m-%d")
+    except ValueError:
+        raise ValueError("La fecha de la orden no es valida")
+    year = str(parsed_date.year)
+    month = f"{parsed_date.month:02d}"
+    highest_sequence = 0
+    for row in conn.execute(
+        "SELECT order_number FROM control_sales_orders WHERE source = 'manual'"
+    ).fetchall():
+        raw_number = text(row["order_number"]).strip()
+        if (
+            len(raw_number) == 10
+            and raw_number.isdigit()
+            and raw_number[:4] == year
+        ):
+            highest_sequence = max(highest_sequence, int(raw_number[-4:]))
+    if highest_sequence >= 9999:
+        raise ValueError(f"Se agoto el correlativo anual de ordenes para {year}")
+    return f"{year}{month}{highest_sequence + 1:04d}"
+
+
 def save_control_sales_order(conn, data, existing_row=None):
+    data = dict(data or {})
+    if not existing_row:
+        data["number"] = next_control_sales_order_number(conn, data.get("date"))
     existing = control_sales_order_payload(conn, existing_row) if existing_row else None
     item = control_sales_validate(data, existing)
     order_id = existing_row["id"] if existing_row else f"cv-{uuid.uuid4()}"
@@ -2325,7 +2351,6 @@ def save_control_sales_order(conn, data, existing_row=None):
         """, (financial_order_id, order_id)).fetchone()
         if linked:
             raise ValueError("Este pedido ya fue ingresado en Control de Ventas")
-        item["number"] = text(financial_order["number"])
         item["seller"] = text(financial_order["seller"])
         item["client"] = text(financial_order["client"])
         expected_total_cents, variance_cents = control_sales_reconciliation_snapshot(
@@ -4489,6 +4514,7 @@ class AppHandler(BaseHTTPRequestHandler):
             data = self.read_json()
             try:
                 with connect() as conn:
+                    conn.execute("BEGIN IMMEDIATE")
                     item = save_control_sales_order(conn, data)
             except ValueError as error:
                 self.send_json({"error": str(error)}, status=400)

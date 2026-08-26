@@ -3075,7 +3075,7 @@ function ensureControlSalesDialogs() {
         </details>
       </section>
       <aside id="controlSalesOpportunityReference" class="control-sales-opportunity-reference hidden" aria-live="polite"></aside>
-      <section class="control-sales-form-head"><label>Número de orden<input id="controlSalesNumber" required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
+      <section class="control-sales-form-head"><label>Número de orden (automático)<input id="controlSalesNumber" readonly required></label><label>Fecha<input id="controlSalesDate" type="date" required></label><label>Vendedor<input id="controlSalesSeller" required></label><label>Cliente<input id="controlSalesClient" required></label><label>Estado<select id="controlSalesOrderStatus"><option>Activa</option><option>En proceso</option><option>Completada</option></select></label></section>
       <details class="control-sales-proforma-block" open>
         <summary><span><b>Datos para proforma</b><small>Información comercial, fiscal, entrega y pago</small></span><i aria-hidden="true">⌄</i></summary>
         <div class="control-sales-proforma-grid">
@@ -3204,7 +3204,12 @@ function ensureControlSalesDialogs() {
   });
   formDialog.addEventListener("change", (event) => {
     if (event.target.matches('input[name="controlSalesDocumentType"], #controlSalesPerceptionEnabled')) updateControlSalesFormTotal();
-    if (event.target.matches("#controlSalesDate")) syncControlSalesFinancialData();
+    if (event.target.matches("#controlSalesDate")) {
+      if (!document.querySelector("#controlSalesId").value) {
+        document.querySelector("#controlSalesNumber").value = nextControlSalesOrderNumber(event.target.value);
+      }
+      syncControlSalesFinancialData();
+    }
   });
   document.querySelector("#controlSalesFinancialOrderPicker").addEventListener("toggle", (event) => {
     if (event.target.open) {
@@ -3245,6 +3250,7 @@ function ensureControlSalesDialogs() {
       const savedOrder = response.item;
       const completedDirectFlow = formDialog.dataset.directOrderFlow === "true";
       document.querySelector("#controlSalesId").value = savedOrder.id;
+      document.querySelector("#controlSalesNumber").value = savedOrder.number;
       document.querySelector("#controlSalesDialogTitle").textContent = `Editar pedido #${savedOrder.number}`;
       submit.textContent = "Guardar cambios";
       await loadControlSales();
@@ -4755,12 +4761,16 @@ function controlSalesDraftFromForm() {
   };
 }
 
-function nextControlSalesOrderNumber() {
-  const highest = state.controlSales.reduce((current, order) => {
+function nextControlSalesOrderNumber(dateValue = todayISO()) {
+  const match = String(dateValue || todayISO()).match(/^(\d{4})-(\d{2})-\d{2}$/);
+  const year = match?.[1] || String(new Date().getFullYear());
+  const month = match?.[2] || padded(new Date().getMonth() + 1);
+  const annualHighest = state.controlSales.reduce((current, order) => {
     const value = String(order.number || "").trim();
-    return /^\d+$/.test(value) ? Math.max(current, Number(value)) : current;
+    const orderMatch = value.match(/^(\d{4})(\d{2})(\d{4})$/);
+    return orderMatch?.[1] === year ? Math.max(current, Number(orderMatch[3])) : current;
   }, 0);
-  return String(highest + 1);
+  return `${year}${month}${String(annualHighest + 1).padStart(4, "0")}`;
 }
 
 function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false, sourceQuotation = null, financialCompletionOnly = false, directOrderFlow = false) {
@@ -4787,8 +4797,9 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   opportunityReference.innerHTML = sourceWin ? `<div><span>Valor estimado de la oportunidad</span><strong>${formatMoney(sourceWin.amount || 0)}</strong></div><p>Solo referencia comercial. No se suma al pedido; el total confirmado se calcula con las cantidades y precios unitarios ingresados abajo.</p>` : "";
   setControlSalesFinancialOrderSelection(sourceOrder);
   document.querySelector("#controlSalesFinancialOrderId").value = order?.financialOrderId || sourceOrder?.id || "";
-  document.querySelector("#controlSalesNumber").value = sourceOrder?.number || order?.number || nextControlSalesOrderNumber();
-  document.querySelector("#controlSalesDate").value = order?.date || sourceQuotation?.date || sourceWin?.date || todayISO();
+  const orderDate = order?.date || sourceQuotation?.date || sourceWin?.date || todayISO();
+  document.querySelector("#controlSalesDate").value = orderDate;
+  document.querySelector("#controlSalesNumber").value = order?.number || nextControlSalesOrderNumber(orderDate);
   document.querySelector("#controlSalesSeller").value = sourceOrder?.seller || (order ? controlSalesResponsibleSeller(order) : "") || sourceQuotation?.seller || sourceWin?.seller || "";
   document.querySelector("#controlSalesClient").value = sourceOrder?.client || order?.client || sourceQuotation?.client || sourceWin?.company || "";
   const quotationData = sourceQuotation ? {
