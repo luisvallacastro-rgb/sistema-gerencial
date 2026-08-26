@@ -604,6 +604,26 @@ def next_crm_customer_request_number(data):
     return f"SOL-{sequence:04d}"
 
 
+def migrate_customer_request_draft_workflow(data):
+    """Return the prematurely submitted SOL-0001 to draft exactly once."""
+    version = "draft-gate-20260826"
+    if text(data.get("customerRequestWorkflowVersion")) == version:
+        return False
+    for request in data.setdefault("customerRequests", []):
+        if text(request.get("requestNumber")).upper() != "SOL-0001":
+            continue
+        if text(request.get("status")).lower() == "pendiente" and not text(request.get("approvedCustomerId")):
+            request["status"] = "Borrador"
+            request["requestedAt"] = ""
+            request.pop("reviewedAt", None)
+            request.pop("reviewedByUserId", None)
+            request.pop("reviewedByName", None)
+            request.pop("rejectionReason", None)
+        break
+    data["customerRequestWorkflowVersion"] = version
+    return True
+
+
 def read_crm_data(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
     if not row:
@@ -614,6 +634,7 @@ def read_crm_data(conn):
         migrate_existing_seller_roles(conn, data)
         sync_seller_users_to_crm(conn, data)
         repair_elizabeth_merino_ownership(conn, data)
+        migrate_customer_request_draft_workflow(data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -636,7 +657,8 @@ def read_crm_data(conn):
     migrate_existing_seller_roles(conn, data)
     seller_sync_changed = sync_seller_users_to_crm(conn, data)
     elizabeth_repair_changed = repair_elizabeth_merino_ownership(conn, data)
-    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed
+    request_workflow_changed = migrate_customer_request_draft_workflow(data)
+    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -5478,7 +5500,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         return
                     request = requests[index]
                     if action == "approve" and self.command == "POST":
-                        if is_restricted_operator:
+                        if not is_commercial_management_user(request_user):
                             self.send_json({"error": "No tiene permiso para aprobar solicitudes"}, status=403)
                             return
                         if text(request.get("status")).lower() != "pendiente":
@@ -5512,20 +5534,44 @@ class AppHandler(BaseHTTPRequestHandler):
                         return
                     if self.command in {"PUT", "PATCH"}:
                         payload = self.read_json()
-                        if is_restricted_operator and text(request.get("requestedByUserId")) != text((request_user or {}).get("id")):
+                        current_status = text(request.get("status"), "Borrador").lower()
+                        status = text(payload.get("status"), request.get("status") or "Borrador")
+                        target_status = status.lower()
+                        is_requester = text(request.get("requestedByUserId")) == text((request_user or {}).get("id"))
+                        can_manage = is_commercial_management_user(request_user)
+                        if current_status == "borrador" and not (is_requester or can_manage):
                             self.send_json({"error": "No tiene permiso para modificar esta solicitud"}, status=403)
                             return
-                        status = text(payload.get("status"), request.get("status") or "Pendiente")
-                        if status.lower() == "pendiente" and not text(payload.get("commercialName") or request.get("commercialName")):
+                        if current_status == "borrador" and target_status not in {"borrador", "pendiente"}:
+                            self.send_json({"error": "Un borrador solo puede guardarse o enviarse a validación"}, status=409)
+                            return
+                        if current_status == "pendiente" and not can_manage:
+                            self.send_json({"error": "La solicitud enviada solo puede ser revisada por Gerencia de Comercialización"}, status=403)
+                            return
+                        if current_status == "pendiente" and target_status not in {"pendiente", "rechazada"}:
+                            self.send_json({"error": "La solicitud pendiente debe revisarse, rechazarse o aprobarse"}, status=409)
+                            return
+                        if current_status in {"aprobada", "rechazada"}:
+                            self.send_json({"error": "La solicitud ya fue procesada y no puede modificarse"}, status=409)
+                            return
+                        if target_status == "pendiente" and not text(payload.get("commercialName") or request.get("commercialName")):
                             self.send_json({"error": "El nombre comercial es obligatorio para enviar la solicitud"}, status=400)
                             return
-                        if status.lower() == "rechazada" and is_restricted_operator:
+                        if target_status == "rechazada" and not can_manage:
                             self.send_json({"error": "No tiene permiso para rechazar solicitudes"}, status=403)
                             return
                         updated = {**request, **normalize_crm_customer_request(payload, request), "status": status}
-                        if status.lower() == "pendiente" and not text(request.get("requestedAt")):
+                        updated["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        if target_status == "borrador":
+                            updated["status"] = "Borrador"
+                            updated["requestedAt"] = ""
+                            updated.pop("reviewedAt", None)
+                            updated.pop("reviewedByUserId", None)
+                            updated.pop("reviewedByName", None)
+                            updated.pop("rejectionReason", None)
+                        if target_status == "pendiente" and not text(request.get("requestedAt")):
                             updated["requestedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                        if status.lower() == "rechazada":
+                        if target_status == "rechazada":
                             updated["rejectionReason"] = text(payload.get("rejectionReason"))
                             updated["reviewedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                             updated["reviewedByUserId"] = text((request_user or {}).get("id"))

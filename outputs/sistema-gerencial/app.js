@@ -8371,9 +8371,11 @@ function openCustomerRequestDialog(request = null, review = false) {
   dialog.querySelector("[data-customer-request-title]").textContent = review ? `Validar ${current.requestNumber || "solicitud"}` : (current.id ? `Continuar ${current.requestNumber || "borrador"}` : "Nueva solicitud de cliente");
   dialog.querySelector("[data-customer-request-status]").innerHTML = `<i></i> ${escapeHtml(current.status || "Borrador sin enviar")}${current.assignedClientNumber ? ` · ID ${escapeHtml(current.assignedClientNumber)}` : ""}`;
   dialog.querySelector("[data-customer-request-submit]").classList.toggle("hidden", review);
-  dialog.querySelector("[data-customer-request-draft]").classList.toggle("hidden", review || !isDraft);
+  const draftButton = dialog.querySelector("[data-customer-request-draft]");
+  draftButton.classList.toggle("hidden", review || !isDraft);
+  draftButton.textContent = current.id ? "Guardar cambios" : "Guardar borrador";
   const isPending = normalizeKey(current.status || "pendiente") === "pendiente";
-  const canValidate = state.currentUser?.role !== "vendedores" || isAdminUser();
+  const canValidate = normalizeKey(state.currentUser?.role || "") === "gerencias" || isAdminUser();
   dialog.querySelector("[data-customer-request-approve]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.querySelector("[data-customer-request-reject]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.showModal();
@@ -8650,7 +8652,7 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
 }
 
 function renderCrmCustomerViewTabs(active = "master") {
-  const pending = (state.crmData?.customerRequests || []).filter((item) => ["borrador", "pendiente"].includes(normalizeKey(item.status || ""))).length;
+  const pending = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === "pendiente").length;
   return `<nav class="crm-customer-view-tabs" aria-label="Vistas de clientes">
     <button type="button" data-crm-customer-view="master" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
     <button type="button" data-crm-customer-view="requests" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
@@ -8659,7 +8661,8 @@ function renderCrmCustomerViewTabs(active = "master") {
 
 function renderCrmCustomerRequests() {
   const query = normalizeKey(state.crmCustomerRequestSearch || "");
-  const requests = (state.crmData?.customerRequests || [])
+  const submittedRequests = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") !== "borrador");
+  const requests = submittedRequests
     .filter((item) => !query || [item.requestNumber, item.commercialName, item.legalName, item.contactName, item.requestedByName, item.taxId, item.email, item.status].some((value) => normalizeKey(value || "").includes(query)))
     .sort((left, right) => {
       const leftPending = normalizeKey(left.status || "") === "pendiente";
@@ -8668,11 +8671,11 @@ function renderCrmCustomerRequests() {
       return String(right.requestedAt || right.createdAt || "").localeCompare(String(left.requestedAt || left.createdAt || ""));
     });
   const statusLabel = { borrador: "Borrador", pendiente: "Pendiente", aprobada: "Aprobada", rechazada: "Rechazada" };
-  const count = (status) => (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === status).length;
+  const count = (status) => submittedRequests.filter((item) => normalizeKey(item.status || "") === status).length;
   return `<section class="crm-shell crm-customers-module crm-customer-requests-module">
     <header class="crm-customers-hero crm-customers-compact-head">
       <div><p class="eyebrow">Validación comercial</p><h3>Solicitudes de clientes</h3></div>
-      <div class="crm-customer-metrics"><span><b>${count("borrador")}</b> borradores</span><span><b>${count("pendiente")}</b> pendientes</span><span><b>${count("aprobada")}</b> aprobadas</span><span><b>${count("rechazada")}</b> rechazadas</span></div>
+      <div class="crm-customer-metrics"><span><b>${count("pendiente")}</b> pendientes</span><span><b>${count("aprobada")}</b> aprobadas</span><span><b>${count("rechazada")}</b> rechazadas</span></div>
       ${renderCrmCustomerViewTabs("requests")}
     </header>
     <div class="crm-customer-toolbar crm-customer-request-toolbar">
