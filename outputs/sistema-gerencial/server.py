@@ -2475,7 +2475,13 @@ def quotation_validate(data, existing=None):
         product_line_count += 1
         quantity_text = control_sales_quantity(raw.get("quantity"))
         quantity = Decimal(quantity_text)
-        unit_price_cents = control_sales_cents(raw.get("unitPrice"), f"Precio unitario de la linea {index}")
+        if raw.get("unitPrice") is None and raw.get("unitPriceCents") is not None:
+            try:
+                unit_price_cents = int(raw.get("unitPriceCents"))
+            except (TypeError, ValueError):
+                raise ValueError(f"Precio unitario de la linea {index} no es valido")
+        else:
+            unit_price_cents = control_sales_cents(raw.get("unitPrice"), f"Precio unitario de la linea {index}")
         if unit_price_cents < 0:
             raise ValueError("El precio unitario debe ser mayor o igual a cero")
         if status in {"Enviada", "Aprobada", "Convertida"} and unit_price_cents <= 0:
