@@ -8288,8 +8288,18 @@ function customerRequestFormPayload(dialog) {
   return Object.fromEntries(customerRequestFields.map(([suffix, key]) => [key, dialog.querySelector(`#customerRequest${suffix}`)?.value.trim() || ""]));
 }
 
+function isCustomerRequestValidated(request = {}) {
+  return normalizeKey(request.status || "") === "aprobada" && request.electronicSignature?.signed === true;
+}
+
 function printCustomerRequestSheet(request = {}) {
+  if (!isCustomerRequestValidated(request)) {
+    alert("La ficha final solo puede imprimirse después de validar y firmar la solicitud.");
+    return;
+  }
   const requesterName = request.requestedByName || state.currentUser?.name || "Vendedor solicitante";
+  const signature = request.electronicSignature || {};
+  const signedDate = signature.signedAt ? formatDate(String(signature.signedAt).slice(0, 10)) : "";
   const logoUrl = new URL("assets/konfi-logo.png", window.location.href).href;
   const rows = [
     ["Nombre comercial", request.commercialName], ["Razón social", request.legalName], ["Tipo de cliente", request.clientType],
@@ -8301,7 +8311,7 @@ function printCustomerRequestSheet(request = {}) {
   ];
   const printWindow = window.open("", "_blank", "width=980,height=760");
   if (!printWindow) return alert("Permite las ventanas emergentes para imprimir la ficha.");
-  printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(request.requestNumber || "Solicitud de cliente")}</title><style>body{font:14px Arial;color:#17233a;margin:36px}header{border-bottom:3px solid #27a98b;padding-bottom:14px;margin-bottom:22px}.header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:32px}.brand-logo{display:block;width:150px;height:auto;object-fit:contain;margin-top:2px}h1{margin:4px 0;font-size:28px}small{color:#64748b}.meta{display:flex;gap:28px;margin-top:10px}.data-table{width:100%;border:1px solid #cbd5e1;border-collapse:collapse;table-layout:fixed}.data-table th,.data-table td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}.data-table tr:last-child th,.data-table tr:last-child td{border-bottom:0}.data-table th{width:29%;border-right:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;text-align:left;text-transform:uppercase}.data-table td{width:71%;font-size:13px;font-weight:600;overflow-wrap:anywhere}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:58px}.signature{border-top:1px solid #334155;padding-top:8px;text-align:center}.signature strong,.signature span{display:block}.signature span{margin-top:3px;color:#475569;font-size:12px}@media print{body{margin:15mm}.data-table tr{break-inside:avoid}}</style></head><body><header><div class="header-top"><div><small>COMERCIALIZACIÓN · SOLICITUD DE CLIENTE</small><h1>Ficha de solicitud de cliente</h1></div><img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="KONFI"></div><div class="meta"><span><b>No.</b> ${escapeHtml(request.requestNumber || "Borrador")}</span><span><b>Estado:</b> ${escapeHtml(request.status || "Borrador")}</span><span><b>Solicita:</b> ${escapeHtml(requesterName)}</span></div></header><table class="data-table"><tbody>${rows.map(([label, value]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value || "—")}</td></tr>`).join("")}</tbody></table><div class="signatures"><div class="signature"><strong>${escapeHtml(requesterName)}</strong><span>Solicitante</span></div><div class="signature"><strong>Odaliz Valencia</strong><span>Autorizado por · Gerente de Comercialización</span></div></div><script>window.onload=()=>window.print()<\/script></body></html>`);
+  printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(request.requestNumber || "Solicitud de cliente")}</title><style>body{font:14px Arial;color:#17233a;margin:36px}header{border-bottom:3px solid #27a98b;padding-bottom:14px;margin-bottom:22px}.header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:32px}.brand-logo{display:block;width:150px;height:auto;object-fit:contain;margin-top:2px}h1{margin:4px 0;font-size:28px}small{color:#64748b}.meta{display:flex;gap:28px;margin-top:10px}.data-table{width:100%;border:1px solid #cbd5e1;border-collapse:collapse;table-layout:fixed}.data-table th,.data-table td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}.data-table tr:last-child th,.data-table tr:last-child td{border-bottom:0}.data-table th{width:29%;border-right:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;text-align:left;text-transform:uppercase}.data-table td{width:71%;font-size:13px;font-weight:600;overflow-wrap:anywhere}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:58px}.signature{border-top:1px solid #334155;padding-top:8px;text-align:center}.signature strong,.signature span,.signature small{display:block}.signature span{margin-top:3px;color:#475569;font-size:12px}.signature small{margin-top:5px;color:#64748b;font-size:10px}@media print{body{margin:15mm}.data-table tr{break-inside:avoid}}</style></head><body><header><div class="header-top"><div><small>COMERCIALIZACIÓN · SOLICITUD DE CLIENTE</small><h1>Ficha de solicitud de cliente</h1></div><img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="KONFI"></div><div class="meta"><span><b>No.</b> ${escapeHtml(request.requestNumber || "Borrador")}</span><span><b>Estado:</b> ${escapeHtml(request.status || "Borrador")}</span><span><b>Solicita:</b> ${escapeHtml(requesterName)}</span></div></header><table class="data-table"><tbody>${rows.map(([label, value]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value || "—")}</td></tr>`).join("")}</tbody></table><div class="signatures"><div class="signature"><strong>${escapeHtml(requesterName)}</strong><span>Solicitante</span></div><div class="signature"><strong>${escapeHtml(signature.signerName || "Odaliz Valencia")}</strong><span>Autorizado por · ${escapeHtml(signature.signerRole || "Gerente de Comercialización")}</span><small>Firma electrónica ${escapeHtml(signature.signatureCode || "")}${signedDate ? ` · ${escapeHtml(signedDate)}` : ""}</small></div></div><script>window.onload=()=>window.print()<\/script></body></html>`);
   printWindow.document.close();
 }
 
@@ -8318,7 +8328,7 @@ function ensureCustomerRequestDialog() {
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<input id="customerRequestTaxpayerType"></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento / municipio<input id="customerRequestDepartment"></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<input id="customerRequestStrategy"></label></div></section>
-    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn" data-customer-request-print>Imprimir ficha</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y asignar ID</button><button type="button" class="ghost-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
+    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir ficha firmada</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Validar y firmar</button><button type="button" class="ghost-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
   dialog.querySelectorAll("[data-customer-request-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
@@ -8332,6 +8342,16 @@ function ensureCustomerRequestDialog() {
       renderCurrentArea();
     } catch (error) { alert(error.message || "No fue posible guardar el borrador."); }
   });
+  dialog.querySelector("[data-customer-request-review-save]").addEventListener("click", async () => {
+    const current = dialog.currentRequest || {};
+    if (!current.id) return;
+    try {
+      const model = await crmApi(`/customer-requests/${encodeURIComponent(current.id)}`, { method: "PATCH", body: JSON.stringify({ ...customerRequestFormPayload(dialog), status: "Pendiente" }) });
+      dialog.currentRequest = (model.customerRequests || []).find((item) => String(item.id) === String(current.id)) || current;
+      dialog.querySelector("[data-customer-request-status]").innerHTML = "<i></i> Pendiente · Correcciones guardadas";
+      renderCurrentArea();
+    } catch (error) { alert(error.message || "No fue posible guardar las correcciones."); }
+  });
   dialog.querySelector("#customerRequestForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const requestId = dialog.querySelector("#customerRequestId").value;
@@ -8340,9 +8360,13 @@ function ensureCustomerRequestDialog() {
     catch (error) { alert(error.message || "No fue posible enviar la solicitud."); }
   });
   dialog.querySelector("[data-customer-request-approve]").addEventListener("click", async () => {
-    if (!dialog.currentRequest?.id || !confirm("¿Aprobar la solicitud y asignar el siguiente ID de cliente?")) return;
-    try { await crmApi(`/customer-requests/${encodeURIComponent(dialog.currentRequest.id)}/approve`, { method: "POST", body: JSON.stringify(customerRequestFormPayload(dialog)) }); dialog.close(); renderCurrentArea(); }
-    catch (error) { alert(error.message || "No fue posible aprobar la solicitud."); }
+    if (!dialog.currentRequest?.id || !confirm("¿Validar la solicitud, firmarla electrónicamente como Odaliz Valencia y asignar el siguiente ID de cliente?")) return;
+    try {
+      const model = await crmApi(`/customer-requests/${encodeURIComponent(dialog.currentRequest.id)}/approve`, { method: "POST", body: JSON.stringify(customerRequestFormPayload(dialog)) });
+      const validated = (model.customerRequests || []).find((item) => String(item.id) === String(dialog.currentRequest.id));
+      dialog.close(); renderCurrentArea();
+      if (validated) printCustomerRequestSheet(validated);
+    } catch (error) { alert(error.message || "No fue posible validar y firmar la solicitud."); }
   });
   dialog.querySelector("[data-customer-request-reject]").addEventListener("click", async () => {
     if (!dialog.currentRequest?.id) return;
@@ -8367,15 +8391,21 @@ function openCustomerRequestDialog(request = null, review = false) {
     }
     field.value = value;
   });
-  const isDraft = normalizeKey(current.status || "borrador") === "borrador";
-  dialog.querySelector("[data-customer-request-title]").textContent = review ? `Validar ${current.requestNumber || "solicitud"}` : (current.id ? `Continuar ${current.requestNumber || "borrador"}` : "Nueva solicitud de cliente");
+  const statusKey = normalizeKey(current.status || "borrador");
+  const isDraft = statusKey === "borrador";
+  const isPending = statusKey === "pendiente";
+  const isValidated = isCustomerRequestValidated(current);
+  const canValidate = normalizeKey(state.currentUser?.role || "") === "gerencias" || isAdminUser();
+  const canEdit = review ? (isPending && canValidate) : (!current.id || isDraft);
+  customerRequestFields.forEach(([suffix]) => { dialog.querySelector(`#customerRequest${suffix}`).disabled = !canEdit; });
+  dialog.querySelector("[data-customer-request-title]").textContent = isValidated ? `Solicitud validada ${current.requestNumber || ""}` : (review ? `Validar ${current.requestNumber || "solicitud"}` : (current.id ? `Continuar ${current.requestNumber || "borrador"}` : "Nueva solicitud de cliente"));
   dialog.querySelector("[data-customer-request-status]").innerHTML = `<i></i> ${escapeHtml(current.status || "Borrador sin enviar")}${current.assignedClientNumber ? ` · ID ${escapeHtml(current.assignedClientNumber)}` : ""}`;
   dialog.querySelector("[data-customer-request-submit]").classList.toggle("hidden", review);
   const draftButton = dialog.querySelector("[data-customer-request-draft]");
   draftButton.classList.toggle("hidden", review || !isDraft);
   draftButton.textContent = current.id ? "Guardar cambios" : "Guardar borrador";
-  const isPending = normalizeKey(current.status || "pendiente") === "pendiente";
-  const canValidate = normalizeKey(state.currentUser?.role || "") === "gerencias" || isAdminUser();
+  dialog.querySelector("[data-customer-request-review-save]").classList.toggle("hidden", !review || !isPending || !canValidate);
+  dialog.querySelector("[data-customer-request-print]").classList.toggle("hidden", !isValidated);
   dialog.querySelector("[data-customer-request-approve]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.querySelector("[data-customer-request-reject]").classList.toggle("hidden", !review || !isPending || !canValidate);
   dialog.showModal();
@@ -8413,7 +8443,7 @@ function openCustomerRequestListDialog() {
         <div><small>${escapeHtml(request.requestNumber || "BORRADOR")}</small><strong>${escapeHtml(request.commercialName || request.legalName || "Cliente sin nombre")}</strong><span>${escapeHtml(request.contactName || request.taxId || "Datos por completar")}</span></div>
         <div><small>Última actualización</small><strong>${date ? escapeHtml(formatDate(String(date).slice(0, 10))) : "—"}</strong></div>
         <div><small>Estado</small><span class="crm-request-status ${statusKey}">${escapeHtml(request.status || "Borrador")}</span>${request.assignedClientNumber ? `<em>ID ${escapeHtml(request.assignedClientNumber)}</em>` : ""}</div>
-        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">${isDraft ? "Continuar" : "Ver detalle"}</button><button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" aria-label="Imprimir ficha" title="Imprimir ficha">▤</button></div>
+        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">${isDraft ? "Continuar" : "Ver detalle"}</button>${isCustomerRequestValidated(request) ? `<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" aria-label="Imprimir ficha firmada" title="Imprimir ficha firmada">▤</button>` : ""}</div>
       </article>`;
     }).join("") || `<div class="customer-request-list-empty"><strong>Sin solicitudes</strong><span>${requests.length ? "No hay coincidencias con esa búsqueda." : "Cuando guardes o envíes una solicitud, aparecerá aquí."}</span></div>`;
     rows.querySelectorAll("[data-customer-request-list-open]").forEach((button) => button.addEventListener("click", () => {
@@ -8689,7 +8719,7 @@ function renderCrmCustomerRequests() {
         <span class="crm-customer-name"><strong>${escapeHtml(request.commercialName || request.legalName || "Sin nombre")}</strong><small>${escapeHtml(request.taxId || request.legalName || "Identificación pendiente")}</small></span>
         <span><strong>${escapeHtml(request.requestedByName || "Usuario")}</strong><small>${escapeHtml(request.contactName || request.email || "Sin contacto")}</small></span>
         <span><strong class="crm-request-status ${escapeHtml(statusKey)}">${statusLabel[statusKey] || "Pendiente"}</strong><small>${statusKey === "aprobada" ? `ID ${escapeHtml(request.assignedClientNumber || "asignado")}` : (statusKey === "borrador" ? "Sin enviar" : escapeHtml(request.reviewedByName || "Por validar"))}</small></span>
-        <span class="crm-row-actions"><button type="button" data-crm-customer-request-review="${escapeHtml(request.id)}" title="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}" aria-label="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}">${statusKey === "borrador" ? "✎" : "⌕"}</button><button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Imprimir ficha" aria-label="Imprimir ficha">▤</button></span>
+        <span class="crm-row-actions"><button type="button" data-crm-customer-request-review="${escapeHtml(request.id)}" title="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}" aria-label="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}">${statusKey === "borrador" ? "✎" : "⌕"}</button>${isCustomerRequestValidated(request) ? `<button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Imprimir ficha firmada" aria-label="Imprimir ficha firmada">▤</button>` : ""}</span>
       </article>`; }).join("") || `<div class="empty-state">No hay solicitudes que coincidan con la búsqueda.</div>`}
     </div></div>
   </section>`;

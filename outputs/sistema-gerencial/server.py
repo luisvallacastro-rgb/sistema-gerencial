@@ -5517,6 +5517,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         }
                         data.setdefault("customers", []).append(customer)
                         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        signature_code = f"KONFI-{text(request.get('requestNumber'), 'SOL')}-{time.strftime('%Y%m%d%H%M%S', time.gmtime())}"
                         requests[index] = {
                             **request,
                             **normalize_crm_customer_request(payload, request),
@@ -5526,6 +5527,15 @@ class AppHandler(BaseHTTPRequestHandler):
                             "reviewedByName": text((request_user or {}).get("name"), "Usuario"),
                             "approvedCustomerId": customer["id"],
                             "assignedClientNumber": customer["clientNumber"],
+                            "electronicSignature": {
+                                "signed": True,
+                                "signerName": "Odaliz Valencia",
+                                "signerRole": "Gerente de Comercialización",
+                                "signedAt": now,
+                                "signedByUserId": text((request_user or {}).get("id")),
+                                "signedByName": text((request_user or {}).get("name"), "Usuario"),
+                                "signatureCode": signature_code,
+                            },
                         }
                         write_crm_data(conn, data)
                         response = build_crm_view_model(data)
