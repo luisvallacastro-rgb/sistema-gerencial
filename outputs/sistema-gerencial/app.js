@@ -4118,6 +4118,22 @@ function refreshQuotationTitlePositionMenu(preferredPosition = "") {
   menu.value = Array.from(menu.options).some((option) => option.value === current) ? current : "end";
 }
 
+function insertQuotationLineAtSelectedPosition(line = {}) {
+  const container = document.querySelector("#quotationLines");
+  const menu = document.querySelector("#quotationTitlePosition");
+  if (!container) return null;
+  const placement = menu?.value || "end";
+  const [direction, targetId = ""] = placement.split(":");
+  const targetRow = [...container.children].find((row) => row.dataset.quotationLineId === targetId);
+  if (placement === "end" || !targetRow) container.insertAdjacentHTML("beforeend", quotationLineTemplate(line));
+  else targetRow.insertAdjacentHTML(direction === "before" ? "beforebegin" : "afterend", quotationLineTemplate(line));
+  const insertedRow = placement === "end" || !targetRow
+    ? container.lastElementChild
+    : direction === "before" ? targetRow.previousElementSibling : targetRow.nextElementSibling;
+  refreshQuotationTitlePositionMenu(placement);
+  return insertedRow;
+}
+
 function setQuotationPanelExpanded(panel, expanded) {
   if (!panel) return;
   const trigger = panel.querySelector("[data-quotation-panel-toggle]");
@@ -4206,7 +4222,7 @@ function ensureQuotationDialog() {
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
     <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label><label class="quotation-field-editable">Tipo de comprobante<select id="quotationDocumentType" required><option value="CF">Consumidor final · IVA incluido</option><option value="CCF">Crédito fiscal · agregar IVA 13%</option></select></label></section>
     <div id="quotationInheritedData" hidden aria-hidden="true"><input id="quotationCommercialName"><input id="quotationLegalName"><input id="quotationContactName"><input id="quotationPhone"><input id="quotationEmail"><input id="quotationAddress"><input id="quotationBusinessActivity"><input id="quotationTaxId"><input id="quotationRegistrationNumber"><input id="quotationTaxpayerType"><input id="quotationCustomerCode"><input id="quotationStrategy"><input id="quotationClientType"><input id="quotationDepartment"><input id="quotationMunicipality"><input id="quotationSeller"><input id="quotationSellerPhone"><input id="quotationSellerEmail"></div>
-    <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><div class="quotation-line-actions"><label>Insertar línea de título<select id="quotationTitlePosition" aria-label="Ubicación de la línea de título"><option value="end">Al final, después de todas las líneas</option></select></label><button type="button" class="quotation-title-add-btn" data-quotation-add-title>+ Línea de título</button><button type="button" data-quotation-add-line>+ Agregar línea</button></div></div><div id="quotationLines"></div></section>
+    <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div class="quotation-section-title"><div><span>2 · Detalle económico</span><h4>Productos y servicios</h4></div><div class="quotation-line-actions"><label>Posición de inserción<select id="quotationTitlePosition" aria-label="Posición de la nueva línea"><option value="end">Al final, después de todas las líneas</option></select></label><button type="button" class="quotation-title-add-btn" data-quotation-add-title>+ Línea de título</button><button type="button" data-quotation-add-line>+ Agregar línea</button></div></div><div id="quotationLines"></div></section>
     <section class="quotation-totals">
       <div class="quotation-totals-comparison"><article class="quotation-reference"><span>Monto original de la oportunidad</span><strong id="quotationReference" data-reference-cents="0">$0.00</strong></article><article class="quotation-variation" id="quotationVariationCard" data-variation="neutral"><span id="quotationVariationLabel">Saldo pendiente por cotizar</span><strong id="quotationVariation">$0.00</strong><small>Calculado contra el total acumulado de las líneas</small></article></div>
       <div class="quotation-totals-breakdown"><article id="quotationSubtotalCard" class="hidden"><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article id="quotationVatCard" class="hidden"><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article class="quotation-grand-total"><span>Total cotización · nuevo valor oportunidad</span><strong id="quotationTotal">$0.00</strong></article></div>
@@ -4240,18 +4256,13 @@ function ensureQuotationDialog() {
 
   dialog.addEventListener("click", async (event) => {
     if (event.target.matches("[data-quotation-close]")) dialog.close();
-    if (event.target.matches("[data-quotation-add-line]")) { document.querySelector("#quotationLines").insertAdjacentHTML("beforeend", quotationLineTemplate()); refreshQuotationTitlePositionMenu(); updateQuotationTotals(); }
-    if (event.target.matches("[data-quotation-add-title]")) {
-      const container = document.querySelector("#quotationLines");
-      const placement = document.querySelector("#quotationTitlePosition").value || "end";
-      const [direction, targetId = ""] = placement.split(":");
-      const targetRow = [...container.children].find((row) => row.dataset.quotationLineId === targetId);
-      if (placement === "end" || !targetRow) container.insertAdjacentHTML("beforeend", quotationLineTemplate({ type:"title" }));
-      else targetRow.insertAdjacentHTML(direction === "before" ? "beforebegin" : "afterend", quotationLineTemplate({ type:"title" }));
-      const insertedRow = placement === "end" || !targetRow
-        ? container.lastElementChild
-        : direction === "before" ? targetRow.previousElementSibling : targetRow.nextElementSibling;
-      refreshQuotationTitlePositionMenu("end");
+    if (event.target.closest("[data-quotation-add-line]")) {
+      const insertedRow = insertQuotationLineAtSelectedPosition();
+      insertedRow?.querySelector("[data-quotation-description]")?.focus();
+      updateQuotationTotals();
+    }
+    if (event.target.closest("[data-quotation-add-title]")) {
+      const insertedRow = insertQuotationLineAtSelectedPosition({ type:"title" });
       insertedRow?.querySelector("[data-quotation-title]")?.focus();
     }
     if (event.target.matches("[data-quotation-remove-line]")) {
