@@ -3296,10 +3296,11 @@ function ensureControlSalesDialogs() {
       saveStatus.innerHTML = `<span aria-hidden="true">✓</span><div><strong>${id ? "Cambios guardados" : "Pedido guardado"} correctamente</strong><small>Puedes continuar editando o imprimir el pedido.</small></div>`;
       saveStatus.classList.remove("hidden");
     } catch (error) {
-      saveStatus.innerHTML = `<span aria-hidden="true">!</span><div><strong>No se pudieron guardar los cambios</strong><small>Revisa los campos e inténtalo nuevamente.</small></div>`;
+      const message = error.message || "No fue posible guardar la orden.";
+      saveStatus.innerHTML = `<span aria-hidden="true">!</span><div><strong>No se pudieron guardar los cambios</strong><small>${escapeHtml(message)}</small></div>`;
       saveStatus.classList.remove("hidden");
       saveStatus.dataset.tone = "error";
-      alert("No fue posible guardar la orden. Verifica los campos, precios y que el número no esté repetido.");
+      alert(message);
     } finally { submit.disabled = false; }
   });
   const detailDialog = document.querySelector("#controlSalesDetailDialog");

@@ -2550,30 +2550,10 @@ def save_control_sales_order(conn, data, existing_row=None):
                 "Antes de crear la orden de pedido debes vincular la cotizacion "
                 "con un cliente registrado en el banco de Clientes"
             )
+        # La conversión explícita desde Cotizaciones / OP ya representa la
+        # confirmación comercial. El requisito indispensable es que la
+        # cotización esté vinculada con un cliente real del maestro.
         source_opportunity_id = source_opportunity_id or text(quotation["opportunity_id"])
-        if not existing_row:
-            source_ids = {
-                value for value in (
-                    text(source_opportunity_id),
-                    text(quotation["opportunity_id"]),
-                ) if value
-            }
-            crm_data = read_crm_data(conn)
-            is_won_opportunity = any(
-                source_ids.intersection({
-                    value for value in (
-                        text(win.get("id")),
-                        text(win.get("opportunityId")),
-                        text(win.get("crmOpportunityId")),
-                    ) if value
-                })
-                for win in crm_data.get("resultWins", [])
-            )
-            if not is_won_opportunity and not direct_order_flow:
-                raise ValueError(
-                    "La cotizacion solo puede convertirse en pedido desde Seguimiento, "
-                    "despues de confirmar la oportunidad como ganada"
-                )
     if financial_order_id:
         financial_order = conn.execute(
             "SELECT * FROM financial_orders WHERE id = ? AND deleted = 0",
