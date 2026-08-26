@@ -100,9 +100,9 @@ function renderProforma(order) {
     return `<tr><td class="qty">${printValue(detail.quantity)}</td><td>${printValue(description)}</td><td class="money">${printMoney(detail.unitPriceCents)}</td><td class="money">${printMoney(baseCents)}</td></tr>`;
   });
 
-  // Carta vertical: hasta 18 líneas compactas caben junto con totales y firmas.
+  // Carta vertical: hasta 16 líneas legibles caben junto con totales y firmas.
   // Solo se divide cuando el pedido realmente necesita una página adicional.
-  const MAX_SINGLE_PAGE_ROWS = 18;
+  const MAX_SINGLE_PAGE_ROWS = 16;
   const MAX_ROWS_PER_PAGE = 24;
   const pageCount = details.length <= MAX_SINGLE_PAGE_ROWS ? 1 : Math.max(2, Math.ceil(details.length / MAX_ROWS_PER_PAGE));
   const baseRows = Math.floor(lineRows.length / pageCount);

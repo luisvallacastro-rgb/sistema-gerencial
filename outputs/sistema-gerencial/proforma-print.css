@@ -136,19 +136,21 @@ body {
 }
 
 .items th {
-  height: 42px;
+  height: 44px;
   border: 1px solid #202b43;
-  padding: 5px 8px;
+  padding: 6px 8px;
   color: #39455a;
-  font-size: 10px;
+  font-size: 11.5px;
+  line-height: 1.15;
   text-align: center;
 }
 
 .items td {
-  height: 22px;
+  height: 25px;
   border: 1px solid #9ba6b7;
-  padding: 3px 6px;
-  font-size: 10px;
+  padding: 4px 7px;
+  font-size: 11.5px;
+  line-height: 1.2;
 }
 
 .items th:nth-child(1) {
@@ -177,7 +179,7 @@ body {
 }
 
 .items tr.blank td {
-  height: 22px;
+  height: 25px;
 }
 
 .closing {
@@ -210,10 +212,10 @@ body {
 
 .totals th,
 .totals td {
-  height: 18px;
+  height: 21px;
   border: 1px solid #a9b2c0;
-  padding: 3px 7px;
-  font-size: 10px;
+  padding: 4px 7px;
+  font-size: 11.5px;
 }
 
 .totals th {
@@ -228,7 +230,7 @@ body {
 
 .totals tr:last-child th,
 .totals tr:last-child td {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 900;
 }
 
@@ -238,7 +240,7 @@ body {
   gap: 10px;
   margin-top: 10px;
   color: #465166;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
 }
 
@@ -316,7 +318,7 @@ body {
   gap: 28mm;
   margin: 24mm 8mm 0;
   text-align: center;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
 }
 
