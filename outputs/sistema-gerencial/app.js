@@ -4724,6 +4724,7 @@ function updateControlSalesFormTotal() {
 }
 
 function controlSalesDraftFromForm() {
+  const documentType = document.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF";
   const applyVat = document.querySelector('input[name="controlSalesVatMode"]:checked')?.value === "with";
   let subtotalCents = 0;
   let vatTotalCents = 0;
