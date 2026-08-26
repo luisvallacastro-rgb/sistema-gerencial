@@ -781,6 +781,17 @@ def migrate_customer_request_draft_workflow(data):
     return True
 
 
+def reset_customer_master_for_first_approved_request(data):
+    """Clear the legacy customer directory once so the first approved request receives 0001."""
+    version = "first-approved-request-20260826"
+    if text(data.get("customerApprovalMasterVersion")) == version:
+        return False
+    data["customers"] = []
+    data["customerSequence"] = 0
+    data["customerApprovalMasterVersion"] = version
+    return True
+
+
 def read_crm_data(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
     if not row:
@@ -791,6 +802,7 @@ def read_crm_data(conn):
         migrate_existing_seller_roles(conn, data)
         sync_seller_users_to_crm(conn, data)
         repair_elizabeth_merino_ownership(conn, data)
+        reset_customer_master_for_first_approved_request(data)
         migrate_customer_request_draft_workflow(data)
         remove_empty_customer_request_drafts(data)
         reconcile_linked_opportunity_names(conn, data)
@@ -809,6 +821,7 @@ def read_crm_data(conn):
     if customer_reset_changed:
         data["customers"] = []
         data["customerMasterResetVersion"] = customer_reset_version
+    approval_master_reset_changed = reset_customer_master_for_first_approved_request(data)
     numbering_changed = ensure_crm_customer_numbers(data)
     origin_links_changed = repair_result_opportunity_origin_links(conn, data)
     data, migration_changed = sync_crm_result_migrations(conn, data)
@@ -819,7 +832,7 @@ def read_crm_data(conn):
     request_workflow_changed = migrate_customer_request_draft_workflow(data)
     empty_request_cleanup_changed = remove_empty_customer_request_drafts(data)
     linked_names_changed = reconcile_linked_opportunity_names(conn, data)
-    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed
+    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed
     if changed:
         write_crm_data(conn, data)
     return data

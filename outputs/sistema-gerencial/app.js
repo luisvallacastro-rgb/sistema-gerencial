@@ -8390,7 +8390,7 @@ function ensureCustomerRequestDialog() {
     catch (error) { alert(error.message || "No fue posible enviar la solicitud."); }
   });
   dialog.querySelector("[data-customer-request-approve]").addEventListener("click", async () => {
-    if (!dialog.currentRequest?.id || !confirm("¿Validar la solicitud, firmarla electrónicamente como Odaliz Valencia y asignar el siguiente ID de cliente?")) return;
+    if (!dialog.currentRequest?.id || !confirm("¿Autorizar esta solicitud firmada y asignar el siguiente ID de cliente?")) return;
     try {
       const model = await crmApi(`/customer-requests/${encodeURIComponent(dialog.currentRequest.id)}/approve`, { method: "POST", body: JSON.stringify(customerRequestFormPayload(dialog)) });
       const validated = (model.customerRequests || []).find((item) => String(item.id) === String(dialog.currentRequest.id));
@@ -8738,9 +8738,14 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
 function renderCrmCustomerViewTabs(active = "master") {
   const pending = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === "pendiente").length;
   return `<nav class="crm-customer-view-tabs" aria-label="Vistas de clientes">
-    <button type="button" data-crm-customer-view="master" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
-    <button type="button" data-crm-customer-view="requests" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
+    <button type="button" data-crm-customer-view="master" onclick="switchCrmCustomerView('master')" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
+    <button type="button" data-crm-customer-view="requests" onclick="switchCrmCustomerView('requests')" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
   </nav>`;
+}
+
+function switchCrmCustomerView(view) {
+  state.crmCustomerView = view === "requests" ? "requests" : "master";
+  renderCommercialSubmenu(areas.comercializacion);
 }
 
 function renderCrmCustomerRequests() {
@@ -8773,7 +8778,7 @@ function renderCrmCustomerRequests() {
         <span class="crm-customer-name"><strong>${escapeHtml(request.commercialName || request.legalName || "Sin nombre")}</strong><small>${escapeHtml(request.taxId || request.legalName || "Identificación pendiente")}</small></span>
         <span><strong>${escapeHtml(request.requestedByName || "Usuario")}</strong><small>${escapeHtml(request.contactName || request.email || "Sin contacto")}</small></span>
         <span><strong class="crm-request-status ${escapeHtml(statusKey)}">${statusLabel[statusKey] || "Pendiente"}</strong><small>${statusKey === "aprobada" ? `ID ${escapeHtml(request.assignedClientNumber || "asignado")}` : (statusKey === "borrador" ? "Sin enviar" : escapeHtml(request.reviewedByName || "Por validar"))}</small></span>
-        <span class="crm-row-actions"><button type="button" data-crm-customer-request-review="${escapeHtml(request.id)}" title="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}" aria-label="${statusKey === "borrador" ? "Continuar borrador" : "Revisar solicitud"}">${statusKey === "borrador" ? "✎" : "⌕"}</button>${isCustomerRequestValidated(request) ? `<button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Imprimir ficha firmada" aria-label="Imprimir ficha firmada">▤</button>` : ""}</span>
+        <span class="crm-row-actions"><button type="button" data-crm-customer-request-review="${escapeHtml(request.id)}" title="${statusKey === "borrador" ? "Continuar borrador" : "Revisar y autorizar solicitud"}" aria-label="${statusKey === "borrador" ? "Continuar borrador" : "Revisar y autorizar solicitud"}">${statusKey === "borrador" ? "✎" : "⌕"}</button>${isCustomerRequestSigned(request) ? `<button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Ver documento firmado" aria-label="Ver documento firmado">▤</button>` : ""}</span>
       </article>`; }).join("") || `<div class="empty-state">No hay solicitudes que coincidan con la búsqueda.</div>`}
     </div></div>
   </section>`;
@@ -9519,10 +9524,6 @@ function renderCommercialSubmenu(area) {
     opportunityTable.innerHTML = renderCrmModule(submenu.key);
     opportunityTable.querySelector("[data-crm-refresh]")?.addEventListener("click", loadCrmData);
     opportunityTable.querySelector("[data-crm-new]")?.addEventListener("click", () => openCrmOpportunityDialog());
-    opportunityTable.querySelectorAll("[data-crm-customer-view]").forEach((button) => button.addEventListener("click", () => {
-      state.crmCustomerView = button.dataset.crmCustomerView;
-      renderCommercialSubmenu(areas.comercializacion);
-    }));
     opportunityTable.querySelector("[data-crm-customer-request-search]")?.addEventListener("input", (event) => {
       state.crmCustomerRequestSearch = event.target.value;
       renderCommercialSubmenu(areas.comercializacion);
