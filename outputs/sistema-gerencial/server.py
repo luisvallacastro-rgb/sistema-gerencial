@@ -301,6 +301,117 @@ def write_result_opportunities(conn, items):
     """, (json.dumps(items, ensure_ascii=True),))
 
 
+def synchronize_linked_company_name(conn, crm_data, company_name, crm_opportunity_id="", result_opportunity_id="", customer_id="", result_items=None):
+    """Propagate an exact linked customer name without matching unrelated records by text."""
+    company_name = text(company_name)
+    if not company_name:
+        return False
+    crm_ids = {text(crm_opportunity_id)} if text(crm_opportunity_id) else set()
+    if customer_id:
+        crm_ids.update(
+            text(item.get("id")) for item in crm_data.get("opportunities", [])
+            if text(item.get("customerId")) == text(customer_id)
+        )
+        for customer in crm_data.get("customers", []):
+            if text(customer.get("id")) == text(customer_id):
+                customer["commercialName"] = company_name
+                customer["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    crm_ids.discard("")
+    for opportunity in crm_data.get("opportunities", []):
+        if text(opportunity.get("id")) in crm_ids:
+            opportunity["company"] = company_name
+    for collection_name in ("gestiones",):
+        for item in crm_data.get(collection_name, []):
+            if text(item.get("opportunityId")) in crm_ids:
+                item["company"] = company_name
+
+    results = result_items if result_items is not None else read_result_opportunities(conn)
+    result_ids = {text(result_opportunity_id)} if text(result_opportunity_id) else set()
+    for result in results:
+        if text(result.get("crmOpportunityId")) in crm_ids or text(result.get("id")) in result_ids:
+            result["company"] = company_name
+            result_ids.add(text(result.get("id")))
+            linked_crm_id = text(result.get("crmOpportunityId"))
+            if linked_crm_id:
+                crm_ids.add(linked_crm_id)
+    result_ids.discard("")
+
+    linked_ids = tuple(crm_ids | result_ids)
+    quotation_ids = set()
+    if linked_ids:
+        placeholders = ",".join("?" for _ in linked_ids)
+        rows = conn.execute(
+            f"SELECT id, customer_data FROM quotations WHERE opportunity_id IN ({placeholders})",
+            linked_ids,
+        ).fetchall()
+        for row in rows:
+            quotation_ids.add(text(row["id"]))
+            try:
+                customer_data = json.loads(row["customer_data"] or "{}")
+            except (json.JSONDecodeError, TypeError):
+                customer_data = {}
+            customer_data["commercialName"] = company_name
+            conn.execute(
+                "UPDATE quotations SET client = ?, customer_data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (company_name, json.dumps(customer_data, ensure_ascii=False), row["id"]),
+            )
+        conn.execute(
+            f"UPDATE financial_orders SET client = ?, updated_at = CURRENT_TIMESTAMP WHERE source_opportunity_id IN ({placeholders})",
+            (company_name, *linked_ids),
+        )
+        order_rows = conn.execute(
+            f"SELECT id, proforma_data FROM control_sales_orders WHERE source_opportunity_id IN ({placeholders})",
+            linked_ids,
+        ).fetchall()
+        for row in order_rows:
+            try:
+                proforma = json.loads(row["proforma_data"] or "{}")
+            except (json.JSONDecodeError, TypeError):
+                proforma = {}
+            proforma["client"] = company_name
+            proforma["commercialName"] = company_name
+            conn.execute(
+                "UPDATE control_sales_orders SET client = ?, proforma_data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (company_name, json.dumps(proforma, ensure_ascii=False), row["id"]),
+            )
+    if quotation_ids:
+        placeholders = ",".join("?" for _ in quotation_ids)
+        conn.execute(
+            f"UPDATE control_sales_orders SET client = ?, updated_at = CURRENT_TIMESTAMP WHERE source_quotation_id IN ({placeholders})",
+            (company_name, *quotation_ids),
+        )
+    if result_items is None:
+        write_result_opportunities(conn, results)
+    return True
+
+
+def reconcile_linked_opportunity_names(conn, crm_data):
+    version = "linked-company-names-20260826"
+    if text(crm_data.get("linkedCompanyNameVersion")) == version:
+        return False
+    results = read_result_opportunities(conn)
+    customers = {text(item.get("id")): item for item in crm_data.get("customers", [])}
+    for opportunity in crm_data.get("opportunities", []):
+        customer = customers.get(text(opportunity.get("customerId")), {})
+        authoritative_name = text(
+            customer.get("commercialName") or customer.get("legalName"),
+            opportunity.get("company"),
+        )
+        if not authoritative_name:
+            continue
+        synchronize_linked_company_name(
+            conn,
+            crm_data,
+            authoritative_name,
+            crm_opportunity_id=opportunity.get("id"),
+            customer_id=opportunity.get("customerId"),
+            result_items=results,
+        )
+    write_result_opportunities(conn, results)
+    crm_data["linkedCompanyNameVersion"] = version
+    return True
+
+
 def repair_future_dated_result_migrations(conn):
     """Restore migrations dated with UTC instead of El Salvador local time."""
     row = conn.execute("SELECT value FROM app_state WHERE key = 'opportunities'").fetchone()
@@ -682,6 +793,7 @@ def read_crm_data(conn):
         repair_elizabeth_merino_ownership(conn, data)
         migrate_customer_request_draft_workflow(data)
         remove_empty_customer_request_drafts(data)
+        reconcile_linked_opportunity_names(conn, data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -706,7 +818,8 @@ def read_crm_data(conn):
     elizabeth_repair_changed = repair_elizabeth_merino_ownership(conn, data)
     request_workflow_changed = migrate_customer_request_draft_workflow(data)
     empty_request_cleanup_changed = remove_empty_customer_request_drafts(data)
-    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed
+    linked_names_changed = reconcile_linked_opportunity_names(conn, data)
+    changed = changed or customer_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -4854,13 +4967,27 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": "Se esperaba una lista"}, status=400)
                 return
             with connect() as conn:
-                conn.execute("""
-                    INSERT INTO app_state (key, value, updated_at)
-                    VALUES ('opportunities', ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(key) DO UPDATE SET
-                        value = excluded.value,
-                        updated_at = CURRENT_TIMESTAMP
-                """, (json.dumps(data, ensure_ascii=True),))
+                previous_items = read_result_opportunities(conn)
+                previous_by_id = {text(item.get("id")): item for item in previous_items}
+                crm_data = read_crm_data(conn)
+                for item in data:
+                    previous = previous_by_id.get(text(item.get("id")), {})
+                    if previous and text(previous.get("company")) != text(item.get("company")):
+                        source = next((
+                            opportunity for opportunity in crm_data.get("opportunities", [])
+                            if text(opportunity.get("id")) == text(item.get("crmOpportunityId"))
+                        ), {})
+                        synchronize_linked_company_name(
+                            conn,
+                            crm_data,
+                            item.get("company"),
+                            crm_opportunity_id=item.get("crmOpportunityId"),
+                            result_opportunity_id=item.get("id"),
+                            customer_id=item.get("customerId") or source.get("customerId"),
+                            result_items=data,
+                        )
+                write_result_opportunities(conn, data)
+                write_crm_data(conn, crm_data)
                 repair_missing_result_migrations(conn)
                 repair_converted_result_opportunities(conn)
                 reconciled = read_result_opportunities(conn)
@@ -5715,6 +5842,12 @@ class AppHandler(BaseHTTPRequestHandler):
                             customers[index].get("clientNumber") or next_crm_customer_number(data)
                         )
                         customers[index] = updated_customer
+                        synchronize_linked_company_name(
+                            conn,
+                            data,
+                            updated_customer.get("commercialName") or updated_customer.get("legalName"),
+                            customer_id=item_id,
+                        )
                         write_crm_data(conn, data)
                         response = build_crm_view_model(data)
                         response["selectedCustomerId"] = item_id
@@ -6001,9 +6134,18 @@ class AppHandler(BaseHTTPRequestHandler):
                         payload = inherit_crm_customer_fields(data, payload)
                         if request_linked_seller:
                             payload["ownerId"] = request_linked_seller.get("id")
+                        previous = data["opportunities"][index]
                         opportunity = normalize_crm_opportunity(payload, data["opportunities"][index])
                         data["opportunities"][index] = opportunity
                         upsert_crm_agenda(data, opportunity, payload)
+                        if text(previous.get("company")) != text(opportunity.get("company")):
+                            synchronize_linked_company_name(
+                                conn,
+                                data,
+                                opportunity.get("company"),
+                                crm_opportunity_id=item_id,
+                                customer_id=opportunity.get("customerId"),
+                            )
                         write_crm_data(conn, data)
                         self.send_json(response_model())
                         return
