@@ -9218,6 +9218,7 @@ function renderCrmClients() {
             <span><strong>${escapeHtml([client.department, canonicalCustomerMunicipality(client.department, client.municipality)].filter(Boolean).join(" / ") || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
             <span class="crm-row-actions">
               <button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></button>
+              ${(state.crmData?.customerRequests || []).some((request) => String(request.approvedCustomerId || "") === String(client.id)) ? `<button type="button" data-crm-customer-print="${escapeHtml(client.id)}" aria-label="Reimprimir ficha actualizada" title="Reimprimir ficha actualizada">▤</button>` : ""}
               ${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 1.8-8.3L4 10"/></svg></button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m7 7 1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg></button>`}
             </span>
           </article>
@@ -9936,6 +9937,12 @@ function renderCommercialSubmenu(area) {
     opportunityTable.querySelectorAll("[data-crm-customer-edit]").forEach((button) => button.addEventListener("click", () => {
       const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerEdit));
       if (customer) openCrmCustomerDialog(customer);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-customer-print]").forEach((button) => button.addEventListener("click", () => {
+      const customerId = String(button.dataset.crmCustomerPrint || "");
+      const request = (state.crmData?.customerRequests || []).find((item) => String(item.approvedCustomerId || "") === customerId);
+      if (request) printCustomerRequestSheet(request);
+      else alert("Este cliente no tiene una ficha de solicitud aprobada vinculada.");
     }));
     opportunityTable.querySelectorAll("[data-crm-customer-delete]").forEach((button) => button.addEventListener("click", async () => {
       if (!confirm("¿Archivar este cliente? Sus documentos y oportunidades conservarán la relación.")) return;
