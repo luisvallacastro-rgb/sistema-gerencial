@@ -729,7 +729,7 @@ def next_crm_customer_request_number(data):
 
 
 CUSTOMER_REQUEST_CONTENT_FIELDS = (
-    "commercialName", "legalName", "sellerId", "sellerName", "clientType", "contactName",
+    "commercialName", "legalName", "sellerId", "sellerName", "clientType", "personhood", "contactName",
     "phone", "email", "taxId", "registrationNumber", "taxpayerType",
     "businessActivity", "address", "department", "paymentTerms", "strategy",
 )
@@ -1061,6 +1061,7 @@ def normalize_crm_customer(payload, existing=None):
         "sellerId": text(payload.get("sellerId"), existing.get("sellerId")),
         "sellerName": text(payload.get("sellerName"), existing.get("sellerName")),
         "clientType": text(payload.get("clientType"), existing.get("clientType")),
+        "personhood": text(payload.get("personhood"), existing.get("personhood")),
         "documentType": "CCF" if text(payload.get("documentType"), existing.get("documentType") or "CF").upper() == "CCF" else "CF",
         "paymentTerms": text(payload.get("paymentTerms"), existing.get("paymentTerms")),
         "strategy": text(payload.get("strategy"), existing.get("strategy")),

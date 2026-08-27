@@ -4165,6 +4165,7 @@ function customerDepartmentOptions() {
 }
 
 const customerTaxpayerTypes = Object.freeze(["Pequeño", "Mediano", "Grande", "Otros"]);
+const customerPersonhoodTypes = Object.freeze(["Natural", "Jurídica"]);
 const customerClientTypes = Object.freeze([
   "Comercial", "Servicios", "Industrial", "Agropecuaria", "Construcción", "Transporte",
   "Turismo", "Financiera", "Tecnología", "Educación", "Salud", "Inmobiliaria", "Otros"
@@ -8485,6 +8486,7 @@ function ensureCrmCustomerDialog() {
         <label>Razón social<input id="crmCustomerLegalName" maxlength="160" placeholder="Nombre legal de la empresa"></label>
         <label>Vendedor<select id="crmCustomerSeller">${customerSellerOptions()}</select></label>
         <label>Tipo de cliente<select id="crmCustomerType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label>
+        <label>Personería<select id="crmCustomerPersonhood">${customerSelectOptions(customerPersonhoodTypes, "Seleccionar personería")}</select></label>
       </div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales para dar seguimiento comercial.</small></div></div><div class="crm-customer-fields">
         <label>Contacto principal<input id="crmCustomerContact" maxlength="100" placeholder="Nombre completo"></label>
@@ -8520,7 +8522,7 @@ function ensureCrmCustomerDialog() {
       sellerId: value("#crmCustomerSeller"), sellerName: dialog.querySelector("#crmCustomerSeller").selectedOptions[0]?.textContent.trim() || "", taxId: value("#crmCustomerTaxId"), registrationNumber: value("#crmCustomerRegistration"),
       taxpayerType: value("#crmCustomerTaxpayerType"), contactName: value("#crmCustomerContact"), phone: value("#crmCustomerPhone"),
       email: value("#crmCustomerEmail"), businessActivity: value("#crmCustomerBusiness"), address: value("#crmCustomerAddress"),
-      department: value("#crmCustomerDepartment"), municipality: value("#crmCustomerMunicipality"), clientType: value("#crmCustomerType"), documentType: value("#crmCustomerDocumentType"), paymentTerms: value("#crmCustomerTerms"), strategy: value("#crmCustomerStrategy")
+      department: value("#crmCustomerDepartment"), municipality: value("#crmCustomerMunicipality"), clientType: value("#crmCustomerType"), personhood: value("#crmCustomerPersonhood"), documentType: value("#crmCustomerDocumentType"), paymentTerms: value("#crmCustomerTerms"), strategy: value("#crmCustomerStrategy")
     };
     try {
       const response = await crmApi(id ? `/customers/${encodeURIComponent(id)}` : "/customers", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
@@ -8549,7 +8551,7 @@ function openCrmCustomerDialog(customer = {}) {
   set("#crmCustomerEmail", customer.email); set("#crmCustomerBusiness", customer.businessActivity || customer.businessLine); set("#crmCustomerAddress", customer.address);
   setCustomerLocationFields(dialog.querySelector("#crmCustomerDepartment"), dialog.querySelector("#crmCustomerMunicipality"), customer.department, customer.municipality);
   ensureSelectOption(dialog.querySelector("#crmCustomerType"), customer.clientType || "");
-  set("#crmCustomerType", customer.clientType); set("#crmCustomerDocumentType", customer.documentType || "CF");
+  set("#crmCustomerType", customer.clientType); ensureSelectOption(dialog.querySelector("#crmCustomerPersonhood"), customer.personhood || ""); set("#crmCustomerPersonhood", customer.personhood); set("#crmCustomerDocumentType", customer.documentType || "CF");
   const terms = customer.paymentTerms || ""; const termsSelect = dialog.querySelector("#crmCustomerTerms"); if (terms && !Array.from(termsSelect.options).some((option) => option.value === terms)) termsSelect.add(new Option(terms, terms)); set("#crmCustomerTerms", terms);
   ensureSelectOption(dialog.querySelector("#crmCustomerStrategy"), customer.strategy || ""); set("#crmCustomerStrategy", customer.strategy);
   dialog.querySelector("#crmCustomerDialogTitle").textContent = customer.id ? "Editar cliente" : "Nuevo cliente";
@@ -8557,7 +8559,7 @@ function openCrmCustomerDialog(customer = {}) {
 }
 
 const customerRequestFields = [
-  ["CommercialName", "commercialName"], ["LegalName", "legalName"], ["Seller", "sellerId"], ["Type", "clientType"],
+  ["CommercialName", "commercialName"], ["LegalName", "legalName"], ["Seller", "sellerId"], ["Type", "clientType"], ["Personhood", "personhood"],
   ["Contact", "contactName"], ["Phone", "phone"], ["Email", "email"], ["TaxId", "taxId"],
   ["Registration", "registrationNumber"], ["TaxpayerType", "taxpayerType"], ["DocumentType", "documentType"], ["Business", "businessActivity"],
   ["Address", "address"], ["Department", "department"], ["Municipality", "municipality"], ["Terms", "paymentTerms"], ["Strategy", "strategy"]
@@ -8623,7 +8625,7 @@ function printCustomerRequestSheet(request = {}) {
   const signedDate = signature.signedAt ? formatDate(String(signature.signedAt).slice(0, 10)) : "";
   const logoUrl = new URL("assets/konfi-logo.png", window.location.href).href;
   const rows = [
-    ["Nombre comercial", request.commercialName], ["Razón social", request.legalName], ["Vendedor", request.sellerName || crmOwnerName(request.sellerId || "")], ["Tipo de cliente", request.clientType],
+    ["Nombre comercial", request.commercialName], ["Razón social", request.legalName], ["Vendedor", request.sellerName || crmOwnerName(request.sellerId || "")], ["Tipo de cliente", request.clientType], ["Personería", request.personhood],
     ["Contacto principal", request.contactName], ["Teléfono", request.phone], ["Correo", request.email],
     ["NIT / identificación fiscal", request.taxId], ["NRC / registro", request.registrationNumber], ["Tipo de contribuyente", request.taxpayerType],
     ["Tipo de factura", request.documentType === "CCF" ? "Crédito fiscal" : "Consumidor final"],
@@ -8645,7 +8647,7 @@ function ensureCustomerRequestDialog() {
   dialog.innerHTML = `<form class="dialog-card crm-customer-glass" id="customerRequestForm">
     <header class="crm-customer-dialog-head"><div><p class="eyebrow">Solicitud comercial</p><h3 data-customer-request-title>Nueva solicitud de cliente</h3><p>La solicitud será validada antes de crear el cliente y asignar su ID.</p></div><button type="button" class="crm-customer-close" data-customer-request-close aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <input type="hidden" id="customerRequestId"><div class="crm-customer-dialog-body">
-      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Vendedor<select id="customerRequestSeller">${customerSellerOptions()}</select></label><label>Tipo de cliente<select id="customerRequestType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Vendedor<select id="customerRequestSeller">${customerSellerOptions()}</select></label><label>Tipo de cliente<select id="customerRequestType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label><label>Personería<select id="customerRequestPersonhood">${customerSelectOptions(customerPersonhoodTypes, "Seleccionar personería")}</select></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<select id="customerRequestTaxpayerType">${customerSelectOptions(customerTaxpayerTypes, "Seleccionar tipo de contribuyente")}</select></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento<select id="customerRequestDepartment">${customerDepartmentOptions()}</select></label><label>Municipio<select id="customerRequestMunicipality" disabled><option value="">Selecciona primero el departamento</option></select></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<select id="customerRequestStrategy">${customerSelectOptions(customerCommercialStrategies, "Seleccionar estrategia comercial")}</select></label></div></section>
@@ -9135,7 +9137,7 @@ function renderCrmClients() {
   };
   const searchable = (client) => [
     client.clientNumber, client.customerCode, client.sellerName, client.commercialName, client.legalName, client.contactName,
-    client.manager, client.phone, client.email, client.taxId, client.registrationNumber,
+    client.manager, client.phone, client.email, client.taxId, client.registrationNumber, client.personhood,
     client.address, client.department, client.municipality, client.businessActivity, client.clientType
   ].some((value) => normalizeKey(value || "").includes(query));
   const clients = allClients
