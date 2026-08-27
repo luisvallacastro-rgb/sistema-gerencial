@@ -827,12 +827,13 @@ def read_crm_data(conn):
     data, migration_changed = sync_crm_result_migrations(conn, data)
     data, closure_changed = sync_crm_result_closures(conn, data)
     migrate_existing_seller_roles(conn, data)
+    operational_reassignment_changed = repair_requested_operational_reassignments(conn, data)
     seller_sync_changed = sync_seller_users_to_crm(conn, data)
     elizabeth_repair_changed = repair_elizabeth_merino_ownership(conn, data)
     request_workflow_changed = migrate_customer_request_draft_workflow(data)
     empty_request_cleanup_changed = remove_empty_customer_request_drafts(data)
     linked_names_changed = reconcile_linked_opportunity_names(conn, data)
-    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed
+    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -892,31 +893,60 @@ def linked_crm_seller(data, account):
 
 
 def migrate_existing_seller_roles(conn, data):
-    """Move previously linked operational sellers to the dedicated role."""
+    """Legacy hook retained without overriding roles assigned by administrators."""
+    return False
+
+
+def repair_requested_operational_reassignments(conn, data):
+    """Restore the two role changes reverted by the former legacy hook."""
+    marker_key = "maintenance.restore-operational-users-20260827.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return False
+    targets = {"judith esmeralda rivera privado", "guadalupe herrera"}
     rows = conn.execute("""
         SELECT id, name, username, email, role, password,
                permissions, permissions_customized, admin
         FROM users
-        WHERE role = 'operativos' AND admin = 0
+        WHERE admin = 0
     """).fetchall()
+    changed = False
     for row in rows:
-        account = user_payload(row)
-        if linked_crm_seller(data, account):
-            conn.execute("UPDATE users SET role = 'vendedores' WHERE id = ?", (row["id"],))
+        if crm_identity_key(row["name"]) not in targets:
+            continue
+        if text(row["role"]) != "operativos":
+            conn.execute("UPDATE users SET role = 'operativos' WHERE id = ?", (row["id"],))
+            changed = True
+        seller = linked_crm_seller(data, user_payload(row))
+        if seller and text(seller.get("status")) != "Inactivo":
+            seller["status"] = "Inactivo"
+            changed = True
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps({"users": sorted(targets)}, ensure_ascii=True)),
+    )
+    return changed
 
 
 def sync_seller_users_to_crm(conn, data):
-    """Ensure every user with the seller role has one stable CRM record."""
+    """Mirror the current user role in the active CRM seller directory."""
     changed = False
     rows = conn.execute("""
         SELECT id, name, username, email, role, password,
                permissions, permissions_customized, admin
         FROM users
-        WHERE role = 'vendedores' AND admin = 0
+        WHERE admin = 0
     """).fetchall()
     for row in rows:
         account = user_payload(row)
-        if linked_crm_seller(data, account):
+        linked_seller = linked_crm_seller(data, account)
+        should_be_active = text(account.get("role")) == "vendedores"
+        if linked_seller:
+            desired_status = "Activo" if should_be_active else "Inactivo"
+            if text(linked_seller.get("status"), "Activo") != desired_status:
+                linked_seller["status"] = desired_status
+                changed = True
+            continue
+        if not should_be_active:
             continue
         seller_id = f"u-system-{crm_key(account.get('id') or account.get('username'))}"
         seller = {
