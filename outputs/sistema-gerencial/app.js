@@ -5768,12 +5768,9 @@ function renderFinancialOrderNotifications() {
           const missingFields = missingFinancialOrderFields(order);
           const financialComplete = missingFields.length === 0;
           const signerStage = currentOrderSignatureStage();
-          const signerAlreadySigned = signerStage === "commercial"
-            ? order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt)
-            : signerStage === "finance"
-              ? order.financeApprovalStatus === "Aprobada" || Boolean(order.financeApprovedAt)
-              : false;
-          const signerLabel = signerStage === "commercial" ? "Firmar como Odaliz Valencia" : signerStage === "finance" ? "Firmar como Edgar Menjívar" : "Firma reservada a Odaliz y Edgar";
+          const commercialSigned = order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt);
+          const financeSigned = order.financeApprovalStatus === "Aprobada" || Boolean(order.financeApprovedAt);
+          const quotation = linkedQuotationForControlSalesOrder(order);
           return `
             <article class="financial-order-notification-card">
               <div class="financial-order-notification-icon" aria-hidden="true">✓</div>
@@ -5782,8 +5779,10 @@ function renderFinancialOrderNotifications() {
                 <strong>${escapeHtml(order.client || "Cliente sin nombre")}</strong>
                 <span>${escapeHtml(controlSalesResponsibleSeller(order))}</span>
                 <em class="financial-record-status ${financialComplete ? "complete" : "incomplete"}">${financialComplete ? "Registro financiero completo" : `Faltan ${missingFields.length} campos: ${escapeHtml(missingFields.join(", "))}`}</em>
-                ${commercialApprovalSignatureMarkup(order, true)}
-                ${financeApprovalSignatureMarkup(order, true)}
+                <div class="financial-order-signature-status" aria-label="Estado de firmas">
+                  <span class="${commercialSigned ? "is-signed" : "is-pending"}"><i>${commercialSigned ? "✓" : "1"}</i><b>Odaliz Valencia</b><small>${commercialSigned ? "Firmado" : "Pendiente"}</small></span>
+                  <span class="${financeSigned ? "is-signed" : "is-pending"}"><i>${financeSigned ? "✓" : "2"}</i><b>Edgar Menjívar</b><small>${financeSigned ? "Firmado" : "Pendiente"}</small></span>
+                </div>
               </div>
               <div class="financial-order-notification-amount">
                 <small>Total confirmado</small>
@@ -5791,9 +5790,11 @@ function renderFinancialOrderNotifications() {
               </div>
               <div class="financial-order-notification-actions">
                 <button type="button" data-finance-order-view="${escapeHtml(order.id)}">Ver orden</button>
+                ${quotation ? `<button type="button" class="quotation" data-finance-order-quotation="${escapeHtml(quotation.id)}">Ver cotización</button>` : ""}
                 <button type="button" class="secondary" data-finance-order-complete="${escapeHtml(order.id)}">${financialComplete ? "Revisar registro" : "Completar registro"}</button>
-                <button type="button" class="secondary" data-finance-order-observe="${escapeHtml(order.id)}">Observar</button>
-                <button type="button" class="primary" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="${escapeHtml(signerStage)}" ${financialComplete && signerStage && !signerAlreadySigned ? "" : "disabled"}>${signerAlreadySigned ? "✓ Firma registrada" : `✓ ${signerLabel}`}</button>
+                <button type="button" class="secondary observation" data-finance-order-observe="${escapeHtml(order.id)}" ${signerStage === "finance" ? "" : "disabled"}>Agregar observación</button>
+                <button type="button" class="signature commercial ${commercialSigned ? "is-signed" : ""}" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="commercial" ${financialComplete && signerStage === "commercial" && !commercialSigned ? "" : "disabled"}>${commercialSigned ? "✓ Odaliz firmó" : "Firma Odaliz Valencia"}</button>
+                <button type="button" class="signature finance ${financeSigned ? "is-signed" : ""}" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="finance" ${financialComplete && signerStage === "finance" && !financeSigned ? "" : "disabled"}>${financeSigned ? "✓ Edgar firmó" : "Firma Edgar Menjívar"}</button>
               </div>
             </article>`;
         }).join("") || `
@@ -5991,10 +5992,59 @@ function refreshFinancialOrdersModule() {
   renderCommercialSubmenu(areas.comercializacion);
 }
 
+function ensureFinancialOrderObservationDialog() {
+  let dialog = document.querySelector("#financialOrderObservationDialog");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "financialOrderObservationDialog";
+  dialog.className = "financial-order-observation-dialog";
+  dialog.innerHTML = `<form method="dialog" data-financial-order-observation-form>
+    <header><div><small>Revisión financiera</small><h3>Registrar observación</h3><p>Describe claramente el ajuste que debe atender Comercialización.</p></div><button type="button" data-observation-close aria-label="Cerrar">×</button></header>
+    <section class="financial-order-observation-context"><span>Orden</span><strong data-observation-order>—</strong><small data-observation-client>—</small></section>
+    <label class="financial-order-observation-field"><span>Observación para Comercialización</span><textarea rows="5" maxlength="800" required data-observation-note placeholder="Ej. Corregir condición de pago o validar el monto antes de continuar."></textarea><small>Esta nota quedará registrada en el historial del pedido.</small></label>
+    <footer><button type="button" data-observation-close>Cancelar</button><button type="submit" class="primary">Guardar observación</button></footer>
+  </form>`;
+  document.body.appendChild(dialog);
+  dialog.querySelectorAll("[data-observation-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+  dialog.querySelector("[data-financial-order-observation-form]").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const note = dialog.querySelector("[data-observation-note]").value.trim();
+    if (!note || !dialog.dataset.orderId) return;
+    const submit = dialog.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    try {
+      await updateControlSalesApproval(dialog.dataset.orderId, "finance", "Observada", note);
+      dialog.close();
+      refreshFinancialOrdersModule();
+    } catch (error) {
+      alert(error.message || "No se pudo registrar la observación.");
+    } finally {
+      submit.disabled = false;
+    }
+  });
+  return dialog;
+}
+
+function openFinancialOrderObservationDialog(order = {}) {
+  const dialog = ensureFinancialOrderObservationDialog();
+  dialog.dataset.orderId = order.id || "";
+  dialog.querySelector("[data-observation-order]").textContent = formatOrderCorrelative(order.number || "—");
+  dialog.querySelector("[data-observation-client]").textContent = order.client || "Cliente sin nombre";
+  dialog.querySelector("[data-observation-note]").value = "";
+  dialog.showModal();
+  window.setTimeout(() => dialog.querySelector("[data-observation-note]").focus(), 0);
+}
+
 function wireFinancialOrders() {
   opportunityTable.querySelector("[data-financial-order-report]")?.addEventListener("click", downloadFinancialOrdersExcelReport);
   opportunityTable.querySelectorAll("[data-finance-order-view]").forEach((button) => button.addEventListener("click", () => {
     openControlSalesDetail(button.dataset.financeOrderView);
+  }));
+  opportunityTable.querySelectorAll("[data-finance-order-quotation]").forEach((button) => button.addEventListener("click", () => {
+    const quotation = state.quotations.find((item) => String(item.id || "") === String(button.dataset.financeOrderQuotation || ""));
+    if (quotation) printQuotation(quotation);
+    else alert("No fue posible localizar la cotización vinculada.");
   }));
   opportunityTable.querySelectorAll("[data-finance-order-edit]").forEach((button) => button.addEventListener("click", () => {
     const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderEdit);
@@ -6058,14 +6108,8 @@ function wireFinancialOrders() {
     }
   }));
   opportunityTable.querySelectorAll("[data-finance-order-observe]").forEach((button) => button.addEventListener("click", async () => {
-    const note = prompt("Indica la observación que debe atender Comercialización:");
-    if (note === null || !note.trim()) return;
-    try {
-      await updateControlSalesApproval(button.dataset.financeOrderObserve, "finance", "Observada", note.trim());
-      refreshFinancialOrdersModule();
-    } catch (error) {
-      alert(error.message || "No se pudo registrar la observación.");
-    }
+    const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderObserve);
+    if (order) openFinancialOrderObservationDialog(order);
   }));
   opportunityTable.querySelector("[data-financial-order-new]")?.addEventListener("click", () => {
     openDirectOrderFlow();
@@ -7154,6 +7198,23 @@ function commercialSellerNames({ includeInactive = false } = {}) {
     .map((user) => String(user.name || "").trim())
     .filter(Boolean);
   return names.length ? [...new Set(names)] : [...commercialSellers];
+}
+
+function customerSellerOptions(selectedId = "", selectedName = "") {
+  const sellers = crmMasterSalesUsers().map((user) => ({
+    id: String(user.id || user.name || "").trim(),
+    name: String(user.name || "").trim()
+  })).filter((user) => user.id && user.name);
+  if (selectedId && !sellers.some((user) => user.id === String(selectedId))) {
+    sellers.push({ id: String(selectedId), name: String(selectedName || selectedId) });
+  }
+  return `<option value="">Seleccionar vendedor</option>${sellers.map((user) => `<option value="${escapeHtml(user.id)}"${user.id === String(selectedId) ? " selected" : ""}>${escapeHtml(user.name)}</option>`).join("")}`;
+}
+
+function setCustomerSellerSelect(select, selectedId = "", selectedName = "") {
+  if (!select) return;
+  select.innerHTML = customerSellerOptions(selectedId, selectedName);
+  select.value = selectedId || "";
 }
 
 function crmOwnerName(ownerId) {
@@ -8422,7 +8483,7 @@ function ensureCrmCustomerDialog() {
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales para reconocerlo en todo el sistema.</small></div></div><div class="crm-customer-fields">
         <label>Nombre comercial <em>*</em><input id="crmCustomerCommercialName" maxlength="120" placeholder="Ej. Industrias Konfi" required></label>
         <label>Razón social<input id="crmCustomerLegalName" maxlength="160" placeholder="Nombre legal de la empresa"></label>
-        <label>Código de cliente<input id="crmCustomerCode" maxlength="40" placeholder="Código interno (opcional)"></label>
+        <label>Vendedor<select id="crmCustomerSeller">${customerSellerOptions()}</select></label>
         <label>Tipo de cliente<select id="crmCustomerType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label>
       </div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales para dar seguimiento comercial.</small></div></div><div class="crm-customer-fields">
@@ -8456,7 +8517,7 @@ function ensureCrmCustomerDialog() {
     const value = (selector) => dialog.querySelector(selector).value.trim();
     const payload = {
       commercialName: value("#crmCustomerCommercialName"), legalName: value("#crmCustomerLegalName"),
-      customerCode: value("#crmCustomerCode"), taxId: value("#crmCustomerTaxId"), registrationNumber: value("#crmCustomerRegistration"),
+      sellerId: value("#crmCustomerSeller"), sellerName: dialog.querySelector("#crmCustomerSeller").selectedOptions[0]?.textContent.trim() || "", taxId: value("#crmCustomerTaxId"), registrationNumber: value("#crmCustomerRegistration"),
       taxpayerType: value("#crmCustomerTaxpayerType"), contactName: value("#crmCustomerContact"), phone: value("#crmCustomerPhone"),
       email: value("#crmCustomerEmail"), businessActivity: value("#crmCustomerBusiness"), address: value("#crmCustomerAddress"),
       department: value("#crmCustomerDepartment"), municipality: value("#crmCustomerMunicipality"), clientType: value("#crmCustomerType"), documentType: value("#crmCustomerDocumentType"), paymentTerms: value("#crmCustomerTerms"), strategy: value("#crmCustomerStrategy")
@@ -8482,7 +8543,7 @@ function openCrmCustomerDialog(customer = {}) {
   const dialog = ensureCrmCustomerDialog();
   const set = (selector, value) => { dialog.querySelector(selector).value = value || ""; };
   set("#crmCustomerId", customer.id); set("#crmCustomerCommercialName", customer.commercialName); set("#crmCustomerLegalName", customer.legalName);
-  set("#crmCustomerCode", customer.customerCode); set("#crmCustomerTaxId", customer.taxId); set("#crmCustomerRegistration", customer.registrationNumber);
+  setCustomerSellerSelect(dialog.querySelector("#crmCustomerSeller"), customer.sellerId, customer.sellerName); set("#crmCustomerTaxId", customer.taxId); set("#crmCustomerRegistration", customer.registrationNumber);
   ensureSelectOption(dialog.querySelector("#crmCustomerTaxpayerType"), customer.taxpayerType || "");
   set("#crmCustomerTaxpayerType", customer.taxpayerType); set("#crmCustomerContact", customer.contactName || customer.manager); set("#crmCustomerPhone", customer.phone);
   set("#crmCustomerEmail", customer.email); set("#crmCustomerBusiness", customer.businessActivity || customer.businessLine); set("#crmCustomerAddress", customer.address);
@@ -8496,14 +8557,16 @@ function openCrmCustomerDialog(customer = {}) {
 }
 
 const customerRequestFields = [
-  ["CommercialName", "commercialName"], ["LegalName", "legalName"], ["CustomerCode", "customerCode"], ["Type", "clientType"],
+  ["CommercialName", "commercialName"], ["LegalName", "legalName"], ["Seller", "sellerId"], ["Type", "clientType"],
   ["Contact", "contactName"], ["Phone", "phone"], ["Email", "email"], ["TaxId", "taxId"],
   ["Registration", "registrationNumber"], ["TaxpayerType", "taxpayerType"], ["DocumentType", "documentType"], ["Business", "businessActivity"],
   ["Address", "address"], ["Department", "department"], ["Municipality", "municipality"], ["Terms", "paymentTerms"], ["Strategy", "strategy"]
 ];
 
 function customerRequestFormPayload(dialog) {
-  return Object.fromEntries(customerRequestFields.map(([suffix, key]) => [key, dialog.querySelector(`#customerRequest${suffix}`)?.value.trim() || ""]));
+  const payload = Object.fromEntries(customerRequestFields.map(([suffix, key]) => [key, dialog.querySelector(`#customerRequest${suffix}`)?.value.trim() || ""]));
+  payload.sellerName = dialog.querySelector("#customerRequestSeller")?.selectedOptions[0]?.textContent.trim() || "";
+  return payload;
 }
 
 function isCustomerRequestValidated(request = {}) {
@@ -8538,6 +8601,7 @@ function customerRequestWithCurrentCustomerData(request = {}) {
   }
   if (!customer) return request;
   const currentFields = Object.fromEntries(customerRequestFields.map(([, key]) => [key, customer[key] ?? ""]));
+  currentFields.sellerName = customer.sellerName || crmOwnerName(customer.sellerId || "");
   currentFields.municipality = canonicalCustomerMunicipality(currentFields.department, currentFields.municipality);
   return { ...request, ...currentFields, approvedCustomerId: customer.id || request.approvedCustomerId || "" };
 }
@@ -8559,7 +8623,7 @@ function printCustomerRequestSheet(request = {}) {
   const signedDate = signature.signedAt ? formatDate(String(signature.signedAt).slice(0, 10)) : "";
   const logoUrl = new URL("assets/konfi-logo.png", window.location.href).href;
   const rows = [
-    ["Nombre comercial", request.commercialName], ["Razón social", request.legalName], ["Tipo de cliente", request.clientType],
+    ["Nombre comercial", request.commercialName], ["Razón social", request.legalName], ["Vendedor", request.sellerName || crmOwnerName(request.sellerId || "")], ["Tipo de cliente", request.clientType],
     ["Contacto principal", request.contactName], ["Teléfono", request.phone], ["Correo", request.email],
     ["NIT / identificación fiscal", request.taxId], ["NRC / registro", request.registrationNumber], ["Tipo de contribuyente", request.taxpayerType],
     ["Tipo de factura", request.documentType === "CCF" ? "Crédito fiscal" : "Consumidor final"],
@@ -8581,7 +8645,7 @@ function ensureCustomerRequestDialog() {
   dialog.innerHTML = `<form class="dialog-card crm-customer-glass" id="customerRequestForm">
     <header class="crm-customer-dialog-head"><div><p class="eyebrow">Solicitud comercial</p><h3 data-customer-request-title>Nueva solicitud de cliente</h3><p>La solicitud será validada antes de crear el cliente y asignar su ID.</p></div><button type="button" class="crm-customer-close" data-customer-request-close aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <input type="hidden" id="customerRequestId"><div class="crm-customer-dialog-body">
-      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Código interno solicitado<input id="customerRequestCustomerCode"></label><label>Tipo de cliente<select id="customerRequestType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Vendedor<select id="customerRequestSeller">${customerSellerOptions()}</select></label><label>Tipo de cliente<select id="customerRequestType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>NIT / identificación fiscal<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<select id="customerRequestTaxpayerType">${customerSelectOptions(customerTaxpayerTypes, "Seleccionar tipo de contribuyente")}</select></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento<select id="customerRequestDepartment">${customerDepartmentOptions()}</select></label><label>Municipio<select id="customerRequestMunicipality" disabled><option value="">Selecciona primero el departamento</option></select></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<select id="customerRequestStrategy">${customerSelectOptions(customerCommercialStrategies, "Seleccionar estrategia comercial")}</select></label></div></section>
@@ -8680,6 +8744,7 @@ function openCustomerRequestDialog(request = null, review = false, returnToList 
   const current = request || {};
   dialog.currentRequest = current;
   dialog.querySelector("#customerRequestId").value = current.id || "";
+  setCustomerSellerSelect(dialog.querySelector("#customerRequestSeller"), current.sellerId, current.sellerName);
   customerRequestFields.forEach(([suffix, key]) => {
     const field = dialog.querySelector(`#customerRequest${suffix}`);
     const value = current[key] || "";
@@ -9069,7 +9134,7 @@ function renderCrmClients() {
     return Number.isFinite(sequence) ? sequence : Number.MAX_SAFE_INTEGER;
   };
   const searchable = (client) => [
-    client.clientNumber, client.customerCode, client.commercialName, client.legalName, client.contactName,
+    client.clientNumber, client.customerCode, client.sellerName, client.commercialName, client.legalName, client.contactName,
     client.manager, client.phone, client.email, client.taxId, client.registrationNumber,
     client.address, client.department, client.municipality, client.businessActivity, client.clientType
   ].some((value) => normalizeKey(value || "").includes(query));
@@ -9113,7 +9178,7 @@ function renderCrmClients() {
         ${clients.map((client) => `
           <article class="crm-customer-row">
             <span class="crm-customer-number"><strong>${escapeHtml(client.clientNumber || "—")}</strong></span>
-            <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.customerCode || "Sin código"))}</small></span>
+            <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.sellerName || "Sin vendedor asignado"))}</small></span>
             <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
             <span><strong>${escapeHtml([client.department, canonicalCustomerMunicipality(client.department, client.municipality)].filter(Boolean).join(" / ") || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
             <span class="crm-row-actions">
