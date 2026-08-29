@@ -5302,10 +5302,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     ).fetchone() if financial_order_id else None
                     required_financial_fields = {
                         "number": "Número", "month": "Mes", "year": "Año", "date": "Fecha de ingreso",
-                        "seller": "Vendedor", "order_number": "N.º de orden", "invoice": "Factura",
-                        "conditions": "Condiciones", "client": "Cliente", "client_type": "Tipo de cliente",
-                        "strategy": "Estrategia", "management": "Gestión", "country": "País",
-                        "department": "Departamento",
+                        "seller": "Vendedor", "order_number": "N.º de orden", "client": "Cliente",
                     }
                     missing_fields = list(required_financial_fields.values()) if not financial_row else [
                         label for field, label in required_financial_fields.items() if not text(financial_row[field])
