@@ -301,6 +301,7 @@ const state = {
   financialPresentationSection: 0,
   bankAvailability: { accounts: [], total: 0 },
   pendingExpenses: [],
+  pendingChecks: [],
   bankAvailabilityQuery: "",
   financialOrders: [],
   financialOrderQuery: "",
@@ -5377,10 +5378,11 @@ function wirePurchaseOrders() {
 
 function loadBankAvailability() {
   if (!apiEnabled) return Promise.resolve(state.bankAvailability);
-  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => [])]).then(([payload, expenses]) => {
+  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => []), apiJson("/api/pending-checks").catch(() => [])]).then(([payload, expenses, checks]) => {
     state.bankAvailability = payload && Array.isArray(payload.accounts) ? payload : { accounts: [], total: 0 };
     state.pendingExpenses = Array.isArray(expenses) && expenses.length ? expenses : pendingExpenseSeed();
     if (!expenses.length) savePendingExpenses().catch(() => {});
+    state.pendingChecks = Array.isArray(checks) ? checks : [];
     if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
     return state.bankAvailability;
   }).catch(() => state.bankAvailability);
@@ -9396,7 +9398,10 @@ function renderBankAvailability() {
   const groups = pendingExpenseGroups();
   const pendingExpensesTotal = groups.reduce((sum, group) => sum + group.total, 0);
   const pendingExpensesMarkup = groups.map((group, index) => `<tr class="${index ? "" : "is-active"}" tabindex="0" role="button" data-pending-expense="${escapeHtml(group.name)}"><td>${escapeHtml(group.name)}</td><td class="money">${formatMoney(group.total)}</td></tr>`).join("");
-  return `<section class="bank-availability-module"><div class="bank-report-toolbar"><div><span>Conciliación bancaria</span><small>Saldo anterior, movimientos y saldo actualizado por cuenta</small></div><button type="button" data-bank-availability-report>▤ Reporte de disponibilidad</button></div><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><div class="pending-expenses-head-actions"><strong>${formatMoney(pendingExpensesTotal)}</strong><button type="button" data-pending-expenses-manage>Administrar gastos</button></div></header><div class="pending-expenses-grid"><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Montos a Pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${formatMoney(pendingExpensesTotal)}</th></tr></tfoot></table></div><aside class="pending-expense-detail" data-pending-expense-detail>${pendingExpenseDetailMarkup(groups[0])}</aside></div></section></section>`;
+  const checks = [...state.pendingChecks].sort((a,b) => String(a.date).localeCompare(String(b.date)) || String(a.checkNumber).localeCompare(String(b.checkNumber)));
+  const checksTotal = checks.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const checksMarkup = checks.map((item) => `<tr><td>${escapeHtml(formatDate(item.date))}</td><td>${escapeHtml(item.concept)}</td><td>${escapeHtml(item.checkNumber)}</td><td>${escapeHtml(item.bank)}</td><td class="money">${formatMoney(item.amount)}</td></tr>`).join("") || `<tr><td colspan="5" class="empty-state">No hay cheques pendientes de cobro.</td></tr>`;
+  return `<section class="bank-availability-module"><div class="bank-report-toolbar"><div><span>Conciliación bancaria</span><small>Saldo anterior, movimientos y saldo actualizado por cuenta</small></div><button type="button" data-bank-availability-report>▤ Reporte de disponibilidad</button></div><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><div class="pending-expenses-head-actions"><strong>${formatMoney(pendingExpensesTotal)}</strong><button type="button" data-pending-expenses-manage>Administrar gastos</button></div></header><div class="pending-expenses-grid"><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Montos a Pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${formatMoney(pendingExpensesTotal)}</th></tr></tfoot></table></div><aside class="pending-expense-detail" data-pending-expense-detail>${pendingExpenseDetailMarkup(groups[0])}</aside></div></section><section class="pending-checks-panel"><header><div><span>Documentos por realizar</span><h2>Cheques pendientes de cobro</h2></div><div class="pending-expenses-head-actions"><strong>${formatMoney(checksTotal)}</strong><button type="button" data-pending-checks-manage>Administrar cheques</button></div></header><div class="pending-checks-table"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Número de cheque</th><th>Banco</th><th>Monto</th></tr></thead><tbody>${checksMarkup}</tbody><tfoot><tr><th colspan="4">Total</th><th class="money">${formatMoney(checksTotal)}</th></tr></tfoot></table></div></section></section>`;
 }
 
 async function printBankAvailabilityReport() {
@@ -9448,6 +9453,11 @@ function pendingExpenseSeed() {
 function savePendingExpenses() {
   if (!apiEnabled) return Promise.resolve(state.pendingExpenses);
   return apiJson("/api/pending-expenses", { method:"PUT", body:JSON.stringify({ items:state.pendingExpenses }) }).then((response) => { state.pendingExpenses = response.items || state.pendingExpenses; return state.pendingExpenses; });
+}
+
+function savePendingChecks() {
+  if (!apiEnabled) return Promise.resolve(state.pendingChecks);
+  return apiJson("/api/pending-checks", { method:"PUT", body:JSON.stringify({ items:state.pendingChecks }) }).then((response) => { state.pendingChecks = response.items || []; return state.pendingChecks; });
 }
 
 function toDateInputValue(value) {
@@ -9678,10 +9688,29 @@ function openPendingExpensesCrud() {
   document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once:true }); render(); dialog.showModal();
 }
 
+function openPendingChecksCrud() {
+  let editingId = "";
+  const dialog = document.createElement("dialog"); dialog.className = "pending-expenses-dialog pending-checks-dialog";
+  const render = () => {
+    const editing = state.pendingChecks.find((item) => item.id === editingId);
+    const rows = [...state.pendingChecks].sort((a,b) => String(a.date).localeCompare(String(b.date)) || String(a.checkNumber).localeCompare(String(b.checkNumber)));
+    const total = rows.reduce((sum,item) => sum + Number(item.amount || 0),0);
+    dialog.innerHTML = `<section class="pending-expenses-crud"><header><div><span>Mantenimiento financiero</span><h2>Cheques pendientes de cobro</h2><p>Registra y actualiza los cheques que todavía no han sido cobrados.</p></div><button type="button" data-check-close aria-label="Cerrar">×</button></header><div class="pending-expenses-crud-toolbar"><span class="check-count">${rows.length} ${rows.length === 1 ? "cheque pendiente" : "cheques pendientes"}</span><button type="button" data-check-new>+ Nuevo cheque</button></div><form class="pending-expense-form check-form ${editingId === "new" || editing ? "is-open" : ""}" data-check-form><input type="hidden" name="id" value="${escapeHtml(editing?.id || "")}"><label><span>Fecha</span><input name="date" type="date" required value="${escapeHtml(toDateInputValue(editing?.date || ""))}"></label><label><span>Concepto</span><input name="concept" required value="${escapeHtml(editing?.concept || "")}" placeholder="Concepto del cheque"></label><label><span>Número de cheque</span><input name="checkNumber" required value="${escapeHtml(editing?.checkNumber || "")}" placeholder="Ej. 001245"></label><label><span>Banco</span><input name="bank" required value="${escapeHtml(editing?.bank || "")}" placeholder="Banco emisor"></label><label><span>Monto</span><input name="amount" type="number" min="0.01" step="0.01" required value="${editing ? Number(editing.amount || 0).toFixed(2) : ""}"></label><div><button type="button" data-check-cancel>Cancelar</button><button type="submit">${editing ? "Guardar cambios" : "Guardar cheque"}</button></div></form><div class="pending-expenses-crud-list pending-checks-crud-list"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Número</th><th>Banco</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>${rows.map((item) => `<tr><td>${escapeHtml(formatDate(item.date))}</td><td>${escapeHtml(item.concept)}</td><td>${escapeHtml(item.checkNumber)}</td><td>${escapeHtml(item.bank)}</td><td class="money">${formatMoney(item.amount)}</td><td><button type="button" data-check-edit="${escapeHtml(item.id)}" title="Modificar">✎</button><button class="danger" type="button" data-check-delete="${escapeHtml(item.id)}" title="Eliminar">⌫</button></td></tr>`).join("") || `<tr><td colspan="6" class="empty-state">No hay cheques registrados.</td></tr>`}</tbody></table></div><footer><span>Total pendiente de cobro</span><strong>${formatMoney(total)}</strong></footer></section>`;
+    dialog.querySelector("[data-check-close]").addEventListener("click", () => dialog.close());
+    dialog.querySelector("[data-check-new]").addEventListener("click", () => { editingId = "new"; render(); dialog.querySelector("[name=date]")?.focus(); });
+    dialog.querySelector("[data-check-cancel]")?.addEventListener("click", () => { editingId = ""; render(); });
+    dialog.querySelectorAll("[data-check-edit]").forEach((button) => button.addEventListener("click", () => { editingId = button.dataset.checkEdit; render(); }));
+    dialog.querySelectorAll("[data-check-delete]").forEach((button) => button.addEventListener("click", async () => { const item = state.pendingChecks.find((row) => row.id === button.dataset.checkDelete); if (!item || !confirm(`¿Eliminar el cheque ${item.checkNumber} por ${formatMoney(item.amount)}?`)) return; state.pendingChecks = state.pendingChecks.filter((row) => row.id !== item.id); await savePendingChecks(); editingId = ""; render(); renderCommercialSubmenu(areas.financiera); }));
+    dialog.querySelector("[data-check-form]")?.addEventListener("submit", async (event) => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries()); const item = { id:values.id || `check-${Date.now()}`, date:values.date, concept:values.concept.trim(), checkNumber:values.checkNumber.trim(), bank:values.bank.trim(), amount:Number(values.amount) }; const index = state.pendingChecks.findIndex((row) => row.id === item.id); if (index >= 0) state.pendingChecks[index] = item; else state.pendingChecks.push(item); await savePendingChecks(); editingId = ""; render(); renderCommercialSubmenu(areas.financiera); });
+  };
+  document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once:true }); render(); dialog.showModal();
+}
+
 function wireBankAvailability() {
   document.querySelectorAll("[data-bank-maintenance]").forEach((button) => button.addEventListener("click", () => openBankMaintenance(button.dataset.bankMaintenance)));
   document.querySelector("[data-bank-availability-report]")?.addEventListener("click", () => printBankAvailabilityReport().catch((error) => alert(error.message || "No se pudo generar el reporte.")));
   document.querySelector("[data-pending-expenses-manage]")?.addEventListener("click", openPendingExpensesCrud);
+  document.querySelector("[data-pending-checks-manage]")?.addEventListener("click", openPendingChecksCrud);
   const selectExpense = (row) => {
     const group = pendingExpenseGroups().find((item) => item.name === row.dataset.pendingExpense);
     const detail = document.querySelector("[data-pending-expense-detail]");

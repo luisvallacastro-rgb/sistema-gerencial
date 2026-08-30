@@ -4584,6 +4584,18 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json(items if isinstance(items, list) else [])
             return
 
+        if self.path == "/api/pending-checks":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            with connect() as conn:
+                row = conn.execute("SELECT value FROM app_state WHERE key = 'pending_checks'").fetchone()
+            try:
+                items = json.loads(row["value"] or "[]") if row else []
+            except json.JSONDecodeError:
+                items = []
+            self.send_json(items if isinstance(items, list) else [])
+            return
+
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
         if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "records":
             if not self.require_permission("financiera:disponibilidad"):
@@ -5068,6 +5080,30 @@ class AppHandler(BaseHTTPRequestHandler):
                 clean.append({"id": text(item.get("id")) or str(uuid.uuid4()), "costCenter": text(item.get("costCenter")), "date": text(item.get("date")), "detail": text(item.get("detail")), "amount": amount})
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('pending_expenses', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
+            self.send_json({"ok": True, "items": clean})
+            return
+
+        if self.path == "/api/pending-checks":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            data = self.read_json()
+            items = data.get("items") if isinstance(data.get("items"), list) else None
+            if items is None:
+                self.send_json({"error": "El listado de cheques es requerido"}, status=400)
+                return
+            clean = []
+            for item in items:
+                if not isinstance(item, dict) or not text(item.get("concept")) or not text(item.get("date")) or not text(item.get("checkNumber")) or not text(item.get("bank")):
+                    continue
+                try:
+                    amount = float(item.get("amount") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if amount <= 0:
+                    continue
+                clean.append({"id": text(item.get("id")) or str(uuid.uuid4()), "concept": text(item.get("concept")), "date": text(item.get("date")), "checkNumber": text(item.get("checkNumber")), "bank": text(item.get("bank")), "amount": round(amount, 2)})
+            with connect() as conn:
+                conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('pending_checks', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
             self.send_json({"ok": True, "items": clean})
             return
 
