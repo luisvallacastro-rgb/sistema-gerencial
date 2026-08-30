@@ -3763,6 +3763,43 @@ def bank_availability_payload(conn):
     return {"accounts": accounts, "total": round(sum(float((item.get("latest") or {}).get("balance") or 0) for item in accounts), 2)}
 
 
+def bank_availability_report_payload(conn):
+    accounts = []
+    rows = conn.execute("SELECT * FROM bank_accounts WHERE active = 1 ORDER BY bank, account").fetchall()
+    for account in rows:
+        latest = conn.execute(
+            "SELECT record_date FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1",
+            (account["id"],),
+        ).fetchone()
+        if not latest:
+            accounts.append({"id": account["id"], "bank": account["bank"], "account": account["account"], "date": None, "previousBalance": 0, "charges": 0, "credits": 0, "newBalance": 0, "reconciled": True})
+            continue
+        movements = conn.execute(
+            "SELECT * FROM bank_balance_records WHERE account_id = ? AND record_date = ? ORDER BY sequence ASC, created_at ASC",
+            (account["id"], latest["record_date"]),
+        ).fetchall()
+        inflow_field, outflow_field = bank_flow_fields(account["id"])
+        credits = round(sum(numeric_bank_value(json.loads(row["data"] or "{}").get(inflow_field)) for row in movements), 2)
+        charges = round(sum(numeric_bank_value(json.loads(row["data"] or "{}").get(outflow_field)) for row in movements), 2)
+        first = movements[0]
+        first_data = json.loads(first["data"] or "{}")
+        previous_balance = round(float(first["balance"] or 0) - numeric_bank_value(first_data.get(inflow_field)) + numeric_bank_value(first_data.get(outflow_field)), 2)
+        new_balance = round(float(movements[-1]["balance"] or 0), 2)
+        calculated = round(previous_balance + credits - charges, 2)
+        accounts.append({
+            "id": account["id"], "bank": account["bank"], "account": account["account"], "date": latest["record_date"],
+            "previousBalance": previous_balance, "charges": charges, "credits": credits, "newBalance": new_balance,
+            "movementCount": len(movements), "reconciled": abs(calculated - new_balance) < 0.01,
+        })
+    return {
+        "accounts": accounts,
+        "previousTotal": round(sum(item["previousBalance"] for item in accounts), 2),
+        "chargesTotal": round(sum(item["charges"] for item in accounts), 2),
+        "creditsTotal": round(sum(item["credits"] for item in accounts), 2),
+        "newTotal": round(sum(item["newBalance"] for item in accounts), 2),
+    }
+
+
 def bank_flow_fields(account_id):
     return {
         "bank-agricola": ("Abono", "Cargo"),
@@ -4514,6 +4551,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             with connect() as conn:
                 self.send_json(bank_availability_payload(conn))
+            return
+
+        if self.path == "/api/bank-availability/report":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            with connect() as conn:
+                self.send_json(bank_availability_report_payload(conn))
             return
 
         if self.path == "/api/pending-expenses":
