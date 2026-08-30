@@ -3772,7 +3772,7 @@ def bank_availability_report_payload(conn):
             (account["id"],),
         ).fetchone()
         if not latest:
-            accounts.append({"id": account["id"], "bank": account["bank"], "account": account["account"], "date": None, "previousBalance": 0, "charges": 0, "credits": 0, "newBalance": 0, "reconciled": True})
+            accounts.append({"id": account["id"], "bank": account["bank"], "account": account["account"], "date": None, "previousBalance": 0, "charges": 0, "credits": 0, "newBalance": 0, "reconciled": True, "movements": []})
             continue
         movements = conn.execute(
             "SELECT * FROM bank_balance_records WHERE account_id = ? AND record_date = ? ORDER BY sequence ASC, created_at ASC",
@@ -3786,10 +3786,22 @@ def bank_availability_report_payload(conn):
         previous_balance = round(float(first["balance"] or 0) - numeric_bank_value(first_data.get(inflow_field)) + numeric_bank_value(first_data.get(outflow_field)), 2)
         new_balance = round(float(movements[-1]["balance"] or 0), 2)
         calculated = round(previous_balance + credits - charges, 2)
+        movement_details = []
+        for row in movements:
+            values = json.loads(row["data"] or "{}")
+            movement_details.append({
+                "date": row["record_date"],
+                "description": values.get("Descripción") or values.get("Transaccion") or values.get("Detalle") or values.get("description") or "Movimiento bancario",
+                "reference": values.get("Referencia") or values.get("No. Doc") or values.get("Número de referencia") or "",
+                "charge": round(numeric_bank_value(values.get(outflow_field)), 2),
+                "credit": round(numeric_bank_value(values.get(inflow_field)), 2),
+                "balance": round(float(row["balance"] or 0), 2),
+            })
         accounts.append({
             "id": account["id"], "bank": account["bank"], "account": account["account"], "date": latest["record_date"],
             "previousBalance": previous_balance, "charges": charges, "credits": credits, "newBalance": new_balance,
             "movementCount": len(movements), "reconciled": abs(calculated - new_balance) < 0.01,
+            "movements": movement_details,
         })
     return {
         "accounts": accounts,
