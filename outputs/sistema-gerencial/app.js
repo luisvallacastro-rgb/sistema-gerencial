@@ -9405,7 +9405,8 @@ async function printBankAvailabilityReport() {
   const popup = window.open("", "_blank", "width=1280,height=850");
   if (!popup) { alert("Permite las ventanas emergentes para generar el reporte."); return; }
   const headings = accounts.map((item) => `<th><strong>${escapeHtml(item.bank)}</strong><small>${escapeHtml(item.account)}</small></th>`).join("");
-  const row = (label, key, className = "", expandable = false) => `<tr><th>${label}</th>${accounts.map((item) => { const amount = Number(item[key] || 0); return `<td class="${className}">${key === "date" ? (item.date ? formatDate(item.date) : "—") : `<span class="amount-cell">${formatMoney(amount)}${expandable && amount ? `<button class="expand-btn" type="button" data-open-bank-detail="${escapeHtml(item.id)}-${key}" aria-label="Ver detalle de ${label} de ${escapeHtml(item.bank)}">＋</button>` : ""}</span>`}</td>`; }).join("")}</tr>`;
+  const consolidatedKeys = { previousBalance:"previousTotal", charges:"chargesTotal", credits:"creditsTotal" };
+  const row = (label, key, className = "", expandable = false) => `<tr><th>${label}</th>${accounts.map((item) => { const amount = Number(item[key] || 0); return `<td class="${className}">${key === "date" ? (item.date ? formatDate(item.date) : "—") : `<span class="amount-cell">${formatMoney(amount)}${expandable && amount ? `<button class="expand-btn" type="button" data-open-bank-detail="${escapeHtml(item.id)}-${key}" aria-label="Ver detalle de ${label} de ${escapeHtml(item.bank)}">＋</button>` : ""}</span>`}</td>`; }).join("")}<td class="${className} consolidated">${key === "date" ? "—" : formatMoney(report[consolidatedKeys[key]] || 0)}</td></tr>`;
   const status = accounts.every((item) => item.reconciled) ? "Conciliación verificada" : "Revisar diferencias";
   const detailDialogs = accounts.flatMap((account) => ["charges", "credits"].map((type) => {
     const amountKey = type === "charges" ? "charge" : "credit";
