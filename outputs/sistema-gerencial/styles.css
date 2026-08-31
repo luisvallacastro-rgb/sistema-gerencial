@@ -3315,12 +3315,15 @@ td.empty-state {
 .availability-derived-report > footer { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:17px 22px; background:#122b46; color:#91a7bf; font-size:11px; }
 .availability-derived-report footer button { min-height:40px; padding:0 16px; border:1px solid #51d3b8; border-radius:10px; background:#167c69; color:#fff; font-weight:900; cursor:pointer; box-shadow:0 8px 20px rgba(5,24,43,.22); }
 .availability-derived-report footer button:hover { background:#1b947b; }
-.availability-editable-amount { display:flex; align-items:center; width:100%; max-width:198px; height:34px; margin-left:auto; overflow:hidden; border:1px solid #567895; border-radius:9px; background:#284969; }
+.availability-editable-amount { display:flex; align-items:center; width:126px; height:32px; margin-left:auto; overflow:hidden; border:1px solid #567895; border-radius:8px; background:#284969; }
 .availability-editable-amount b { flex:0 0 25px; color:#9eb2c8; text-align:center; }
 .availability-editable-amount input { min-width:0; flex:1; height:100%; padding:0 7px 0 0; border:0; outline:0; background:transparent; color:#fff; text-align:right; font:inherit; font-weight:850; }
 .availability-editable-amount:focus-within { border-color:#65e4ca; box-shadow:0 0 0 3px rgba(101,228,202,.13); }
 .availability-editable-amount button { align-self:stretch; flex:0 0 61px; padding:0 8px; border:0; border-left:1px solid rgba(101,228,202,.42); background:#167a67; color:#fff; font-size:9px; font-weight:900; cursor:pointer; }
 .availability-editable-amount button:hover { background:#1b947b; }
+.availability-derived-report > footer > span { margin-right:auto; }
+.availability-derived-report footer button.availability-remittances-save { min-height:36px; border-color:#587894; background:#244361; color:#c8d6e5; box-shadow:none; }
+.availability-derived-report footer button.availability-remittances-save:hover { border-color:#68d7c0; background:#2a506b; color:#effffc; }
 
 .crm-shell {
   display: grid;

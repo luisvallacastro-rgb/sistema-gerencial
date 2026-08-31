@@ -9836,6 +9836,14 @@ function wireBankAvailability() {
   }));
   document.querySelectorAll("[data-bank-maintenance]").forEach((button) => button.addEventListener("click", () => openBankMaintenance(button.dataset.bankMaintenance)));
   document.querySelector("[data-bank-availability-report]")?.addEventListener("click", () => printBankAvailabilityReport().catch((error) => alert(error.message || "No se pudo generar el reporte.")));
+  const remittancesSaveButton = document.querySelector("[data-bank-pending-deposits-save]");
+  const reportFooter = document.querySelector(".availability-derived-report > footer");
+  const bankReportButton = reportFooter?.querySelector("[data-bank-availability-report]");
+  if (remittancesSaveButton && reportFooter) {
+    remittancesSaveButton.textContent = "Guardar remesas";
+    remittancesSaveButton.classList.add("availability-remittances-save");
+    bankReportButton ? bankReportButton.before(remittancesSaveButton) : reportFooter.append(remittancesSaveButton);
+  }
   document.querySelector("[data-bank-pending-deposits-save]")?.addEventListener("click", async (event) => {
     const input = document.querySelector("[data-bank-pending-deposits]");
     const button = event.currentTarget;
