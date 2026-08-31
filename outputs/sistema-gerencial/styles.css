@@ -3283,6 +3283,16 @@ button:disabled {
   padding: 14px;
 }
 
+td.empty-state {
+  display: table-cell;
+  min-height: 0;
+  padding: 34px 18px !important;
+  border: 0;
+  border-radius: 0;
+  text-align: center !important;
+  vertical-align: middle;
+}
+
 .crm-shell {
   display: grid;
   gap: 16px;
