@@ -3860,6 +3860,28 @@ def bank_availability_payload(conn, include_daily=True):
     return payload
 
 
+def bank_report_baseline(conn, account_id, latest_record_date):
+    """Return the most recent consolidated balance preceding the current statement data."""
+    same_date_baseline = None
+    snapshots = conn.execute(
+        "SELECT balances FROM bank_daily_availability ORDER BY snapshot_date DESC, completed_at DESC"
+    ).fetchall()
+    for snapshot in snapshots:
+        try:
+            account = json.loads(snapshot["balances"] or "{}").get(account_id) or {}
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        statement_date = text(account.get("statementDate"))
+        if not statement_date:
+            continue
+        baseline = {"date": statement_date, "balance": round(float(account.get("balance") or 0), 2)}
+        if statement_date < latest_record_date:
+            return baseline
+        if statement_date == latest_record_date and same_date_baseline is None:
+            same_date_baseline = baseline
+    return same_date_baseline
+
+
 def bank_availability_report_payload(conn):
     accounts = []
     rows = conn.execute("SELECT * FROM bank_accounts WHERE active = 1 ORDER BY bank, account").fetchall()
@@ -3871,17 +3893,25 @@ def bank_availability_report_payload(conn):
         if not latest:
             accounts.append({"id": account["id"], "bank": account["bank"], "account": account["account"], "date": None, "previousBalance": 0, "charges": 0, "credits": 0, "newBalance": 0, "reconciled": True, "movements": []})
             continue
-        movements = conn.execute(
-            "SELECT * FROM bank_balance_records WHERE account_id = ? AND record_date = ? ORDER BY sequence ASC, created_at ASC",
-            (account["id"], latest["record_date"]),
-        ).fetchall()
         inflow_field, outflow_field = bank_flow_fields(account["id"])
+        baseline = bank_report_baseline(conn, account["id"], latest["record_date"])
+        if baseline:
+            movements = conn.execute(
+                "SELECT * FROM bank_balance_records WHERE account_id = ? AND record_date > ? ORDER BY sequence ASC, created_at ASC",
+                (account["id"], baseline["date"]),
+            ).fetchall()
+            previous_balance = baseline["balance"]
+        else:
+            movements = conn.execute(
+                "SELECT * FROM bank_balance_records WHERE account_id = ? AND record_date = ? ORDER BY sequence ASC, created_at ASC",
+                (account["id"], latest["record_date"]),
+            ).fetchall()
+            first = movements[0]
+            first_data = json.loads(first["data"] or "{}")
+            previous_balance = round(float(first["balance"] or 0) - numeric_bank_value(first_data.get(inflow_field)) + numeric_bank_value(first_data.get(outflow_field)), 2)
         credits = round(sum(numeric_bank_value(json.loads(row["data"] or "{}").get(inflow_field)) for row in movements), 2)
         charges = round(sum(numeric_bank_value(json.loads(row["data"] or "{}").get(outflow_field)) for row in movements), 2)
-        first = movements[0]
-        first_data = json.loads(first["data"] or "{}")
-        previous_balance = round(float(first["balance"] or 0) - numeric_bank_value(first_data.get(inflow_field)) + numeric_bank_value(first_data.get(outflow_field)), 2)
-        new_balance = round(float(movements[-1]["balance"] or 0), 2)
+        new_balance = round(float(movements[-1]["balance"] or 0), 2) if movements else previous_balance
         calculated = round(previous_balance + credits - charges, 2)
         movement_details = []
         for row in movements:
