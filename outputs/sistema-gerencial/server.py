@@ -28,7 +28,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-bank-availability-v1"
+API_VERSION = "kmi-daily-bank-availability-v2"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -3750,7 +3750,61 @@ BANK_AVAILABILITY_SEED = [
 ]
 
 
-def bank_availability_payload(conn):
+def bank_daily_availability_status(conn):
+    account_ids = [row["id"] for row in conn.execute("SELECT id FROM bank_accounts WHERE active = 1 ORDER BY id").fetchall()]
+    marks_row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_daily_update_marks'").fetchone()
+    try:
+        marks = json.loads(marks_row["value"] or "{}") if marks_row else {}
+    except (json.JSONDecodeError, TypeError):
+        marks = {}
+    marks = {account_id: marks[account_id] for account_id in account_ids if account_id in marks}
+    latest = conn.execute("SELECT * FROM bank_daily_availability ORDER BY snapshot_date DESC, created_at DESC LIMIT 1").fetchone()
+    latest_payload = None
+    if latest:
+        latest_payload = {
+            "id": latest["id"], "date": latest["snapshot_date"], "total": round(float(latest["total"] or 0), 2),
+            "balances": json.loads(latest["balances"] or "{}"), "completedAt": latest["completed_at"],
+        }
+    return {"latest": latest_payload, "progress": {"updated": len(marks), "total": len(account_ids), "accountIds": list(marks), "marks": marks}}
+
+
+def register_bank_daily_update(conn, account_id):
+    """Mark one account updated and save a daily snapshot when every active account is ready."""
+    account_ids = [row["id"] for row in conn.execute("SELECT id FROM bank_accounts WHERE active = 1 ORDER BY id").fetchall()]
+    if account_id not in account_ids:
+        return None
+    marks_row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_daily_update_marks'").fetchone()
+    try:
+        marks = json.loads(marks_row["value"] or "{}") if marks_row else {}
+    except (json.JSONDecodeError, TypeError):
+        marks = {}
+    now = datetime.now(ZoneInfo("America/El_Salvador"))
+    marks = {key: value for key, value in marks.items() if key in account_ids}
+    marks[account_id] = now.isoformat(timespec="seconds")
+    if all(key in marks for key in account_ids):
+        availability = bank_availability_payload(conn, include_daily=False)
+        balances = {
+            item["id"]: {"bank": item["bank"], "account": item["account"], "statementDate": (item.get("latest") or {}).get("date"), "balance": round(float((item.get("latest") or {}).get("balance") or 0), 2)}
+            for item in availability["accounts"]
+        }
+        snapshot_date = now.date().isoformat()
+        conn.execute(
+            """INSERT INTO bank_daily_availability (id, snapshot_date, total, balances, update_marks, completed_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(snapshot_date) DO UPDATE SET total=excluded.total, balances=excluded.balances,
+                 update_marks=excluded.update_marks, completed_at=excluded.completed_at, updated_at=CURRENT_TIMESTAMP""",
+            (str(uuid.uuid4()), snapshot_date, availability["total"], json.dumps(balances, ensure_ascii=False), json.dumps(marks, ensure_ascii=False), now.isoformat(timespec="seconds")),
+        )
+        marks = {}
+    conn.execute(
+        """INSERT INTO app_state (key, value, updated_at) VALUES ('bank_daily_update_marks', ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP""",
+        (json.dumps(marks, ensure_ascii=False),),
+    )
+    return bank_daily_availability_status(conn)
+
+
+def bank_availability_payload(conn, include_daily=True):
     accounts = []
     rows = conn.execute("SELECT * FROM bank_accounts WHERE active = 1 ORDER BY bank, account").fetchall()
     for row in rows:
@@ -3760,7 +3814,10 @@ def bank_availability_payload(conn):
             "balanceField": row["balance_field"], "fields": json.loads(row["fields"] or "[]"),
             "latest": ({"id": latest["id"], "date": latest["record_date"], "balance": latest["balance"], "data": json.loads(latest["data"] or "{}")}) if latest else None,
         })
-    return {"accounts": accounts, "total": round(sum(float((item.get("latest") or {}).get("balance") or 0) for item in accounts), 2)}
+    payload = {"accounts": accounts, "total": round(sum(float((item.get("latest") or {}).get("balance") or 0) for item in accounts), 2)}
+    if include_daily:
+        payload["dailyAvailability"] = bank_daily_availability_status(conn)
+    return payload
 
 
 def bank_availability_report_payload(conn):
@@ -4133,6 +4190,15 @@ def init_db():
         if "sequence" not in bank_record_columns:
             conn.execute("ALTER TABLE bank_balance_records ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_balance_latest ON bank_balance_records(account_id, record_date DESC, sequence DESC, created_at DESC)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS bank_daily_availability (
+                id TEXT PRIMARY KEY, snapshot_date TEXT NOT NULL UNIQUE, total REAL NOT NULL DEFAULT 0,
+                balances TEXT NOT NULL DEFAULT '{}', update_marks TEXT NOT NULL DEFAULT '{}',
+                completed_at TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_daily_availability_date ON bank_daily_availability(snapshot_date DESC)")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS financial_orders (
                 id TEXT PRIMARY KEY,
@@ -4877,6 +4943,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 recalculate_bank_balances(conn, account_id, bank_opening_balance(conn, account_id))
                 remaining = [item for item in expenses if text(item.get("id")) not in expense_ids]
                 conn.execute("UPDATE app_state SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = 'pending_expenses'", (json.dumps(remaining, ensure_ascii=False),))
+                register_bank_daily_update(conn, account_id)
                 availability = bank_availability_payload(conn)
             self.send_json({"ok":True, "amount":amount, "items":remaining, "availability":availability}, status=201)
             return
@@ -4891,6 +4958,8 @@ class AppHandler(BaseHTTPRequestHandler):
             try:
                 with connect() as conn:
                     result = insert_bank_records_bulk(conn, account_id, rows, data.get("createdBy"))
+                    if result["imported"]:
+                        register_bank_daily_update(conn, account_id)
                     payload = bank_availability_payload(conn)
             except LookupError as error:
                 self.send_json({"error": str(error)}, status=404); return
@@ -4923,6 +4992,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 values["Correlativo"] = next_bank_correlative(conn, account_id)
                 conn.execute("INSERT INTO bank_balance_records (id, account_id, record_date, sequence, balance, data, created_by) VALUES (?, ?, ?, ?, 0, ?, ?)", (record_id, account_id, record_date, sequence, json.dumps(values, ensure_ascii=False), text(data.get("createdBy"), "Sistema Gerencial")))
                 recalculate_bank_balances(conn, account_id, opening_balance)
+                register_bank_daily_update(conn, account_id)
                 payload = bank_availability_payload(conn)
             self.send_json({"ok": True, "availability": payload}, status=201)
             return
@@ -5208,6 +5278,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "Registra el movimiento como abono o como cargo, no ambos"}, status=400); return
                 conn.execute("UPDATE bank_balance_records SET record_date = ?, data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (record_date, json.dumps(values, ensure_ascii=False), record_id))
                 recalculate_bank_balances(conn, row["account_id"], opening_balance)
+                register_bank_daily_update(conn, row["account_id"])
                 payload = bank_availability_payload(conn)
             self.send_json({"ok": True, "availability": payload})
             return
@@ -5487,9 +5558,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             record_id = unquote(bank_parts[3])
             with connect() as conn:
+                row = conn.execute("SELECT account_id FROM bank_balance_records WHERE id = ?", (record_id,)).fetchone()
+                opening_balance = bank_opening_balance(conn, row["account_id"]) if row else 0
                 result = conn.execute("DELETE FROM bank_balance_records WHERE id = ?", (record_id,))
                 if not result.rowcount:
                     self.send_json({"error": "Movimiento bancario no encontrado"}, status=404); return
+                recalculate_bank_balances(conn, row["account_id"], opening_balance)
+                register_bank_daily_update(conn, row["account_id"])
                 payload = bank_availability_payload(conn)
             self.send_json({"ok": True, "availability": payload})
             return
