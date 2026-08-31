@@ -3302,6 +3302,7 @@ td.empty-state {
 .availability-derived-report header h2 { margin:5px 0 3px; font-size:29px; }
 .availability-derived-report header p { margin:0; color:#b0c1d3; }
 .availability-derived-report header > strong { color:#72efd5; font-size:32px; white-space:nowrap; text-shadow:0 0 22px rgba(84,222,193,.24); }
+.availability-derived-report .negative { color:#ff9b9b !important; }
 .availability-derived-report table { width:100%; border-collapse:collapse; font-size:14px; }
 .availability-derived-report th,.availability-derived-report td { padding:11px 18px; border-bottom:1px solid rgba(111,141,173,.28); }
 .availability-derived-report th { text-align:left; font-weight:750; }
