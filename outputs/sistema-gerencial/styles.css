@@ -6355,6 +6355,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-orders-toolbar input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #f4f8ff; font: inherit; font-size: 13px; font-weight: 750; }
 .app-shell .financial-orders-toolbar input::placeholder { color: rgba(207,222,239,.45); }
 .app-shell .financial-orders-toolbar > strong { color: #72f5d1; font-size: 19px; text-shadow: 0 0 18px rgba(114,245,209,.3); white-space: nowrap; }
+.app-shell .accounts-receivable-toolbar > select { min-height: 42px; border: 1px solid rgba(120,153,190,.42); border-radius: 12px; padding: 0 34px 0 14px; background: #213d60; color: #f4f8ff; font: inherit; font-weight: 850; cursor: pointer; }
 .app-shell .financial-orders-toolbar > button { min-height: 42px; border: 0; border-radius: 12px; padding: 0 16px; background: linear-gradient(135deg,#209a72,#1a755f); color: #fff; font-weight: 900; cursor: pointer; }
 .app-shell .financial-orders-toolbar > .financial-orders-report-button { border: 1px solid rgba(114,245,209,.58); background: rgba(20,65,76,.76); color: #b9ffed; }
 .app-shell .financial-orders-toolbar > .financial-orders-report-button:hover { background: rgba(29,104,99,.88); }

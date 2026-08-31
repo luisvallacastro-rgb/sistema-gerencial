@@ -315,6 +315,7 @@ const state = {
   accountsReceivablePage: 1,
   accountsReceivableView: "list",
   accountsReceivableStatus: "pending",
+  accountsReceivableYearFilter: "all",
   purchaseOrders: [],
   purchaseOrderQuery: "",
   purchaseOrderPage: 1,
@@ -6217,6 +6218,10 @@ function syncReceivableDates() {
 function filteredAccountsReceivable() {
   const query = state.accountsReceivableQuery.trim();
   return state.accountsReceivable.filter((item) => {
+    const dueDate = item.dueDate || calculateReceivableDueDate(item.invoiceDate);
+    const yearMatches = state.accountsReceivableYearFilter === "all"
+      || String(dueDate || "").slice(0, 4) === state.accountsReceivableYearFilter;
+    if (!yearMatches) return false;
     const status = receivableStatus(item).key;
     const statusMatches = state.accountsReceivableStatus === "all"
       || (state.accountsReceivableStatus === "pending" && ["pending", "overdue"].includes(status))
@@ -6342,7 +6347,8 @@ function renderAccountsReceivableMatrix(rows) {
 function printAccountsReceivableFlowReport() {
   const rows = state.accountsReceivable
     .map((item) => ({ ...item, dueDate: item.dueDate || calculateReceivableDueDate(item.invoiceDate) }))
-    .filter((item) => Number(item.balance || 0) > 0.009 && item.dueDate)
+    .filter((item) => Number(item.balance || 0) > 0.009 && item.dueDate
+      && (state.accountsReceivableYearFilter === "all" || item.dueDate.slice(0, 4) === state.accountsReceivableYearFilter))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || String(a.customerName).localeCompare(String(b.customerName), "es"));
   const today = todayISO();
   const buckets = {
@@ -6377,6 +6383,7 @@ function printAccountsReceivableFlowReport() {
 function renderAccountsReceivableList() {
   const rows = filteredAccountsReceivable();
   const total = rows.reduce((sum, item) => sum + Number(item.balance || 0), 0);
+  const years = [...new Set(state.accountsReceivable.map((item) => String(item.dueDate || calculateReceivableDueDate(item.invoiceDate) || "").slice(0, 4)).filter((year) => /^\d{4}$/.test(year)))].sort((a, b) => b.localeCompare(a));
   const statusTabs = [
     ["pending", "Pendientes"],
     ["overdue", "Vencidas"],
@@ -6387,6 +6394,10 @@ function renderAccountsReceivableList() {
     <section class="financial-orders-shell accounts-receivable-shell">
       <div class="financial-orders-toolbar accounts-receivable-toolbar">
         <label><span>⌕</span><input data-accounts-receivable-search type="search" value="${escapeHtml(state.accountsReceivableQuery)}" placeholder="Buscar factura, cliente, vendedor..."></label>
+        <select data-accounts-receivable-year aria-label="Filtrar cuentas por cobrar por año">
+          <option value="all" ${state.accountsReceivableYearFilter === "all" ? "selected" : ""}>Todos los años</option>
+          ${years.map((year) => `<option value="${year}" ${state.accountsReceivableYearFilter === year ? "selected" : ""}>${year}</option>`).join("")}
+        </select>
         <strong>${formatMoney(total)}</strong>
         <button type="button" class="financial-orders-report-button" data-accounts-receivable-report>▤ Reporte</button>
         <button type="button" data-accounts-receivable-new>+ Nueva cuenta</button>
@@ -6462,6 +6473,11 @@ function renderAccountsReceivable() {
 
 function wireAccountsReceivable() {
   opportunityTable.querySelector("[data-accounts-receivable-report]")?.addEventListener("click", printAccountsReceivableFlowReport);
+  opportunityTable.querySelector("[data-accounts-receivable-year]")?.addEventListener("change", (event) => {
+    state.accountsReceivableYearFilter = event.target.value;
+    state.accountsReceivablePage = 1;
+    renderCommercialSubmenu(areas.financiera);
+  });
   opportunityTable.querySelector("[data-accounts-receivable-new]")?.addEventListener("click", () => {
     resetAccountsReceivableForm();
     accountsReceivableDialog.showModal();
