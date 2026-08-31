@@ -17158,12 +17158,20 @@ html.macos-render-safe .app-shell .permission-access-user {
 
 .control-sales-summary-table {
   width: 100%;
-  min-width: 820px;
+  min-width: 1060px;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0 8px;
   color: #dce8f5;
   font-size: 12px;
 }
+
+.control-sales-summary-table col.order { width: 12%; }
+.control-sales-summary-table col.seller { width: 14%; }
+.control-sales-summary-table col.date { width: 10%; }
+.control-sales-summary-table col.client { width: 19%; }
+.control-sales-summary-table col.detail { width: 35%; }
+.control-sales-summary-table col.total { width: 10%; }
 
 .control-sales-summary-table th,
 .control-sales-summary-table td { padding: 13px 16px; text-align: left; vertical-align: middle; }
@@ -17179,6 +17187,9 @@ html.macos-render-safe .app-shell .permission-access-user {
 .control-sales-summary-table tbody th small { margin-top: 3px; color: #8297af; font-size: 9px; }
 .control-sales-summary-table .money { color: #72f5d1; font-weight: 950; text-align: right; white-space: nowrap; }
 .control-sales-product-count { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 9px; border-radius: 999px; background: rgba(92, 139, 195, .2); color: #e8f2fc; font-weight: 900; }
+.control-sales-order-detail { display: -webkit-box; overflow: hidden; color: #dbe8f5; font-size: 11px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.control-sales-order-detail b { color: #72f5d1; white-space: nowrap; }
+.control-sales-order-detail.is-empty { color: #8297af; font-style: italic; }
 
 .control-sales-matrix-dialog { width: min(940px, calc(100vw - 32px)); padding: 0; border: 1px solid rgba(114, 245, 209, .3); border-radius: 22px; background: #142944; color: #edf6ff; }
 .control-sales-matrix-dialog > section { display: grid; gap: 18px; padding: 24px; }

@@ -2997,6 +2997,46 @@ def seed_control_sales(conn):
     """, (json.dumps({"version": version, "orders": seed.get("orderCount"), "details": seed.get("detailCount")}),))
 
 
+def normalize_control_sales_order_descriptions_once(conn):
+    """Use the quotation's short product label in Control de Ventas, never its extended notes."""
+    marker_key = "maintenance.control-sales-short-order-detail.2026-08-31.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+    repaired = 0
+    linked_orders = conn.execute("""
+        SELECT cso.id AS order_id, q.lines
+        FROM control_sales_orders cso
+        JOIN quotations q ON q.id = cso.source_quotation_id
+        WHERE cso.archived = 0 AND cso.source_quotation_id <> ''
+    """).fetchall()
+    for order in linked_orders:
+        try:
+            quotation_lines = [
+                line for line in json.loads(order["lines"] or "[]")
+                if isinstance(line, dict) and text(line.get("type")).lower() != "title"
+            ]
+        except (json.JSONDecodeError, TypeError):
+            quotation_lines = []
+        by_id = {text(line.get("id")): line for line in quotation_lines if text(line.get("id"))}
+        details = conn.execute("""
+            SELECT id, sequence, product FROM control_sales_details
+            WHERE order_id = ? AND active = 1 ORDER BY sequence, rowid
+        """, (order["order_id"],)).fetchall()
+        for index, detail in enumerate(details):
+            source = by_id.get(text(detail["id"])) or (quotation_lines[index] if index < len(quotation_lines) else None)
+            short_description = text((source or {}).get("description"))
+            if short_description and short_description != text(detail["product"]):
+                conn.execute(
+                    "UPDATE control_sales_details SET product = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (short_description, detail["id"]),
+                )
+                repaired += 1
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps({"repaired": repaired, "rule": "quotation-description-only"}, ensure_ascii=False)),
+    )
+
+
 def grant_control_sales_permissions(conn):
     permissions_to_grant = ["operaciones:resultados-control-ventas", "comercializacion:autorizacion-pedidos", "comercializacion:resultados-pedidos"]
     for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
@@ -4485,6 +4525,7 @@ def init_db():
         recover_purchase_orders_if_empty(conn)
         grant_purchase_order_permissions(conn)
         seed_control_sales(conn)
+        normalize_control_sales_order_descriptions_once(conn)
         grant_control_sales_permissions(conn)
         correct_marjorie_account_email_once(conn)
         for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():

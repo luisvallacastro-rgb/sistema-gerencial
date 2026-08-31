@@ -3023,6 +3023,18 @@ function controlSalesFilteredRows() {
   }).sort((a, b) => controlSalesEffectiveDate(b).localeCompare(controlSalesEffectiveDate(a)) || String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
 }
 
+function controlSalesOrderDetailSummary(order) {
+  const details = Array.isArray(order?.details) ? order.details : [];
+  const labels = details.map((detail) => {
+    const product = String(detail?.product || "").trim();
+    const size = String(detail?.size || "").trim();
+    return product ? `${product}${size ? ` · Talla ${size}` : ""}` : "";
+  }).filter(Boolean);
+  if (!labels.length) return `<span class="control-sales-order-detail is-empty">Sin detalle</span>`;
+  const visible = labels.slice(0, 2);
+  return `<span class="control-sales-order-detail" title="${escapeHtml(labels.join(" | "))}">${visible.map(escapeHtml).join("; ")}${labels.length > visible.length ? ` <b>+${labels.length - visible.length}</b>` : ""}</span>`;
+}
+
 function renderControlSales() {
   const rows = controlSalesFilteredRows();
   const years = [...new Set([
@@ -3044,13 +3056,14 @@ function renderControlSales() {
     </header>
     <div class="control-sales-summary-wrap">
       <table class="control-sales-summary-table">
-        <thead><tr><th>N.º de orden</th><th>Vendedor</th><th>Fecha</th><th>Cliente</th><th>Productos</th><th>Total</th></tr></thead>
+        <colgroup><col class="order"><col class="seller"><col class="date"><col class="client"><col class="detail"><col class="total"></colgroup>
+        <thead><tr><th>N.º de orden</th><th>Vendedor</th><th>Fecha</th><th>Cliente</th><th>Detalle de orden</th><th>Total</th></tr></thead>
         <tbody>${rows.map((order) => `<tr data-control-sales-matrix-view="${escapeHtml(order.id)}" tabindex="0" title="Ver detalle de la venta">
           <th><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><small>${order.source === "importado" ? `ID ${escapeHtml(order.externalId)}` : "Pedido heredado"}</small></th>
           <td>${escapeHtml(controlSalesResponsibleSeller(order))}</td>
           <td>${formatDate(controlSalesEffectiveDate(order))}</td>
           <td>${escapeHtml(order.client || "—")}</td>
-          <td><span class="control-sales-product-count">${order.details?.length || 0}</span></td>
+          <td>${controlSalesOrderDetailSummary(order)}</td>
           <td class="money">${formatControlSalesMoney(order.totalCents || 0)}</td>
         </tr>`).join("")}</tbody>
       </table>
