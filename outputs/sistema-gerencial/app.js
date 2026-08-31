@@ -6290,7 +6290,7 @@ function renderReceivableWeekRows(items) {
       const firstHalf = Number(String(item.dueDate).slice(8, 10)) <= 15;
       return `<article class="receivable-week-row">
         <span><strong>${formatDate(item.dueDate)}</strong><small>Factura: ${formatDate(item.invoiceDate)}</small></span>
-        <span><strong>${escapeHtml(item.invoiceNumber)}</strong><small>${escapeHtml(item.customerName)} · ${escapeHtml(item.seller || "Sin vendedor")}</small></span>
+        <span class="receivable-week-customer"><strong title="${escapeHtml(item.customerName)}">${escapeHtml(item.customerName || "Sin cliente")}</strong><small>Factura ${escapeHtml(item.invoiceNumber)} · ${escapeHtml(item.seller || "Sin vendedor")}</small></span>
         <strong>${firstHalf ? formatMoney(item.balance) : "—"}</strong>
         <strong>${firstHalf ? "—" : formatMoney(item.balance)}</strong>
         <span class="financial-order-actions"><button type="button" data-accounts-receivable-edit="${escapeHtml(item.id)}">Editar</button><button class="danger" type="button" data-accounts-receivable-delete="${escapeHtml(item.id)}">Eliminar</button></span>
