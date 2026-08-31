@@ -9453,14 +9453,14 @@ function renderBankAvailabilityDerivedReport(accounts, total) {
   const reserveAccountIds = ["bank-azul-laboral", "bank-azul-fiscal", "bank-bac-ahorro"];
   const checksTotal = state.pendingChecks.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const groups = pendingExpenseGroups();
-  const groupTotal = (text) => groups.filter((group) => normalizeKey(group.name).includes(normalizeKey(text))).reduce((sum, group) => sum + Number(group.total || 0), 0);
+  const reportExpenseCenters = new Set(["comisiones", "reserva laboral", "reserva fiscal"]);
+  const groupTotal = (center) => groups.filter((group) => normalizeKey(group.name) === normalizeKey(center)).reduce((sum, group) => sum + Number(group.total || 0), 0);
   const inventory = balanceFor(...inventoryAccountIds);
   const reserves = balanceFor(...reserveAccountIds);
   const commissions = groupTotal("comisiones");
   const laborReserve = groupTotal("reserva laboral");
   const fiscalReserve = groupTotal("reserva fiscal");
-  const allExpenses = groups.reduce((sum, group) => sum + Number(group.total || 0), 0);
-  const otherExpenses = Math.max(0, allExpenses - commissions - laborReserve - fiscalReserve);
+  const otherExpenses = groups.filter((group) => !reportExpenseCenters.has(normalizeKey(group.name))).reduce((sum, group) => sum + Number(group.total || 0), 0);
   const pendingDeposits = Number(state.bankPendingDeposits || 0);
   const bankBalance = total - pendingDeposits + checksTotal;
   const operatingBalance = bankBalance - inventory - reserves;
