@@ -6339,6 +6339,41 @@ function renderAccountsReceivableMatrix(rows) {
   </div>`;
 }
 
+function printAccountsReceivableFlowReport() {
+  const rows = state.accountsReceivable
+    .map((item) => ({ ...item, dueDate: item.dueDate || calculateReceivableDueDate(item.invoiceDate) }))
+    .filter((item) => Number(item.balance || 0) > 0.009 && item.dueDate)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || String(a.customerName).localeCompare(String(b.customerName), "es"));
+  const today = todayISO();
+  const buckets = {
+    overdue: rows.filter((item) => item.dueDate < today),
+    first: rows.filter((item) => item.dueDate >= today && Number(item.dueDate.slice(8, 10)) <= 15),
+    second: rows.filter((item) => item.dueDate >= today && Number(item.dueDate.slice(8, 10)) > 15)
+  };
+  const totalFor = (items) => items.reduce((sum, item) => sum + Number(item.balance || 0), 0);
+  const monthFormatter = new Intl.DateTimeFormat("es-SV", { month: "long", year: "numeric", timeZone: "UTC" });
+  const grouped = new Map();
+  rows.forEach((item) => {
+    const key = item.dueDate.slice(0, 7);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(item);
+  });
+  const body = [...grouped.entries()].map(([month, items]) => {
+    const label = monthFormatter.format(new Date(`${month}-01T12:00:00Z`));
+    return `<tbody><tr class="month"><th colspan="6">${escapeHtml(label)} <span>${items.length} documentos · ${formatMoney(totalFor(items))}</span></th></tr>${items.map((item) => {
+      const status = item.dueDate < today ? ["Vencida", "overdue"] : Number(item.dueDate.slice(8, 10)) <= 15 ? ["1.ª quincena", "first"] : ["2.ª quincena", "second"];
+      return `<tr><td>${formatDate(item.dueDate)}</td><td><strong>${escapeHtml(item.customerName || "Sin cliente")}</strong><small>${escapeHtml(item.seller || "Sin vendedor")}</small></td><td>${escapeHtml(item.invoiceNumber || "—")}</td><td><span class="status ${status[1]}">${status[0]}</span></td><td>${Math.max(0, Number(item.daysOutstanding || 0))} días</td><td class="money">${formatMoney(item.balance)}</td></tr>`;
+    }).join("")}</tbody>`;
+  }).join("");
+  const popup = window.open("", "_blank", "width=1200,height=850");
+  if (!popup) { alert("Permite las ventanas emergentes para generar el reporte."); return; }
+  const generatedAt = new Intl.DateTimeFormat("es-SV", { dateStyle: "long", timeStyle: "short", timeZone: "America/El_Salvador" }).format(new Date());
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Flujo de cuentas por cobrar</title><style>
+    *{box-sizing:border-box}body{margin:0;background:#eaf0f6;color:#172640;font-family:Inter,Arial,sans-serif}.sheet{width:min(1160px,calc(100% - 32px));margin:24px auto;padding:34px;background:#fff;box-shadow:0 16px 45px rgba(20,42,70,.14)}header{display:flex;justify-content:space-between;align-items:end;gap:20px;padding-bottom:16px;border-bottom:3px solid #20a487}header small{color:#60738c;font-weight:800;text-transform:uppercase;letter-spacing:.08em}h1{margin:5px 0 0;font-size:30px}header time{color:#60738c;font-size:12px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}.card{padding:17px;border:1px solid #d6e0eb;border-radius:13px;background:#f7f9fc}.card span{display:block;color:#60738c;font-size:11px;font-weight:850;text-transform:uppercase}.card strong{display:block;margin-top:7px;font-size:22px}.card small{color:#7890a9}.card.overdue{border-color:#efc2b8;background:#fff7f5}.card.overdue strong{color:#bd3d2b}.card.total{border-color:#9fdacc;background:#effbf7}.card.total strong{color:#08765f}table{width:100%;border-collapse:collapse;font-size:12px}thead th{padding:11px;background:#183557;color:#fff;text-align:left}td{padding:11px;border-bottom:1px solid #dfe6ee;vertical-align:middle}td strong,td small{display:block}td small{margin-top:3px;color:#71849b}.month th{padding:12px 10px;background:#eaf2f8;text-align:left;text-transform:capitalize}.month span{float:right;color:#49637d;font-size:11px}.money{text-align:right;font-size:14px;font-weight:900;color:#08765f;white-space:nowrap}.status{display:inline-block;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:850}.status.overdue{background:#fde2dc;color:#ad3323}.status.first{background:#dff5ee;color:#08765f}.status.second{background:#e6eefb;color:#315f9b}.note{margin:17px 0 0;color:#60738c;font-size:11px}.actions{position:fixed;right:20px;bottom:20px;display:flex;gap:8px}.actions button{padding:11px 16px;border:0;border-radius:10px;background:#183557;color:#fff;font-weight:850;cursor:pointer}.actions button:first-child{background:#168f73}@media print{body{background:#fff}.sheet{width:100%;margin:0;padding:15mm;box-shadow:none}.actions{display:none}@page{size:landscape;margin:8mm}}
+  </style></head><body><main class="sheet"><header><div><small>Financiera · Cuentas por cobrar</small><h1>Flujo por quincena y vencimientos</h1></div><time>Generado ${escapeHtml(generatedAt)}</time></header><section class="cards"><article class="card overdue"><span>Vencido</span><strong>${formatMoney(totalFor(buckets.overdue))}</strong><small>${buckets.overdue.length} documentos</small></article><article class="card"><span>Primera quincena</span><strong>${formatMoney(totalFor(buckets.first))}</strong><small>${buckets.first.length} documentos</small></article><article class="card"><span>Segunda quincena</span><strong>${formatMoney(totalFor(buckets.second))}</strong><small>${buckets.second.length} documentos</small></article><article class="card total"><span>Total por cobrar</span><strong>${formatMoney(totalFor(rows))}</strong><small>${rows.length} documentos abiertos</small></article></section><table><thead><tr><th>Vencimiento</th><th>Cliente</th><th>Factura</th><th>Flujo</th><th>Antigüedad</th><th style="text-align:right">Saldo</th></tr></thead>${body || `<tbody><tr><td colspan="6">No hay cuentas pendientes.</td></tr></tbody>`}</table><p class="note">Lectura: los documentos vencidos requieren atención inmediata; los demás se presentan según la quincena de su fecha de vencimiento.</p></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  popup.document.close();
+}
+
 function renderAccountsReceivableList() {
   const rows = filteredAccountsReceivable();
   const total = rows.reduce((sum, item) => sum + Number(item.balance || 0), 0);
@@ -6353,6 +6388,7 @@ function renderAccountsReceivableList() {
       <div class="financial-orders-toolbar accounts-receivable-toolbar">
         <label><span>⌕</span><input data-accounts-receivable-search type="search" value="${escapeHtml(state.accountsReceivableQuery)}" placeholder="Buscar factura, cliente, vendedor..."></label>
         <strong>${formatMoney(total)}</strong>
+        <button type="button" class="financial-orders-report-button" data-accounts-receivable-report>▤ Reporte</button>
         <button type="button" data-accounts-receivable-new>+ Nueva cuenta</button>
       </div>
       <div class="accounts-receivable-status-tabs" role="tablist" aria-label="Estado de cartera">
@@ -6425,6 +6461,7 @@ function renderAccountsReceivable() {
 }
 
 function wireAccountsReceivable() {
+  opportunityTable.querySelector("[data-accounts-receivable-report]")?.addEventListener("click", printAccountsReceivableFlowReport);
   opportunityTable.querySelector("[data-accounts-receivable-new]")?.addEventListener("click", () => {
     resetAccountsReceivableForm();
     accountsReceivableDialog.showModal();
