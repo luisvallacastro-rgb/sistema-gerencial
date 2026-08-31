@@ -3809,7 +3809,7 @@ def bank_daily_availability_status(conn):
 
 
 def register_bank_daily_update(conn, account_id):
-    """Mark one account updated and save a daily snapshot when every active account is ready."""
+    """Mark one account updated; the availability is closed only by an explicit archive."""
     account_ids = [row["id"] for row in conn.execute("SELECT id FROM bank_accounts WHERE active = 1 ORDER BY id").fetchall()]
     if account_id not in account_ids:
         return None
@@ -3821,21 +3821,6 @@ def register_bank_daily_update(conn, account_id):
     now = datetime.now(ZoneInfo("America/El_Salvador"))
     marks = {key: value for key, value in marks.items() if key in account_ids}
     marks[account_id] = now.isoformat(timespec="seconds")
-    if all(key in marks for key in account_ids):
-        availability = bank_availability_payload(conn, include_daily=False)
-        balances = {
-            item["id"]: {"bank": item["bank"], "account": item["account"], "statementDate": (item.get("latest") or {}).get("date"), "balance": round(float((item.get("latest") or {}).get("balance") or 0), 2)}
-            for item in availability["accounts"]
-        }
-        snapshot_date = now.date().isoformat()
-        conn.execute(
-            """INSERT INTO bank_daily_availability (id, snapshot_date, total, balances, update_marks, completed_at)
-               VALUES (?, ?, ?, ?, ?, ?)
-               ON CONFLICT(snapshot_date) DO UPDATE SET total=excluded.total, balances=excluded.balances,
-                 update_marks=excluded.update_marks, completed_at=excluded.completed_at, updated_at=CURRENT_TIMESTAMP""",
-            (str(uuid.uuid4()), snapshot_date, availability["total"], json.dumps(balances, ensure_ascii=False), json.dumps(marks, ensure_ascii=False), now.isoformat(timespec="seconds")),
-        )
-        marks = {}
     conn.execute(
         """INSERT INTO app_state (key, value, updated_at) VALUES ('bank_daily_update_marks', ?, CURRENT_TIMESTAMP)
            ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP""",
@@ -3860,75 +3845,56 @@ def bank_availability_payload(conn, include_daily=True):
     return payload
 
 
-def capture_bank_report_cutoff(conn, account_id):
-    marks_row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_daily_update_marks'").fetchone()
-    try:
-        marks = json.loads(marks_row["value"] or "{}") if marks_row else {}
-    except (TypeError, json.JSONDecodeError):
-        marks = {}
-    if account_id in marks:
-        return
-    latest = conn.execute(
-        "SELECT record_date, balance FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1",
-        (account_id,),
-    ).fetchone()
-    if not latest:
-        return
-    state_row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_report_cutoffs'").fetchone()
-    try:
-        cutoffs = json.loads(state_row["value"] or "{}") if state_row else {}
-    except (TypeError, json.JSONDecodeError):
-        cutoffs = {}
-    cutoffs[account_id] = {"date": latest["record_date"], "balance": round(float(latest["balance"] or 0), 2)}
+def archive_bank_availability(conn):
+    availability = bank_availability_payload(conn, include_daily=False)
+    now = datetime.now(ZoneInfo("America/El_Salvador"))
+    cutoffs = {}
+    balances = {}
+    for item in availability["accounts"]:
+        latest = conn.execute(
+            "SELECT record_date, sequence, balance FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1",
+            (item["id"],),
+        ).fetchone()
+        if not latest:
+            continue
+        cutoff = {"date": latest["record_date"], "sequence": int(latest["sequence"] or 0), "balance": round(float(latest["balance"] or 0), 2)}
+        cutoffs[item["id"]] = cutoff
+        balances[item["id"]] = {"bank": item["bank"], "account": item["account"], "statementDate": cutoff["date"], "sequence": cutoff["sequence"], "balance": cutoff["balance"]}
     conn.execute(
         """INSERT INTO app_state (key, value, updated_at) VALUES ('bank_report_cutoffs', ?, CURRENT_TIMESTAMP)
            ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP""",
         (json.dumps(cutoffs, ensure_ascii=False),),
     )
+    snapshot_date = now.date().isoformat()
+    conn.execute(
+        """INSERT INTO bank_daily_availability (id, snapshot_date, total, balances, update_marks, completed_at)
+           VALUES (?, ?, ?, ?, '{}', ?)
+           ON CONFLICT(snapshot_date) DO UPDATE SET total=excluded.total, balances=excluded.balances,
+             update_marks='{}', completed_at=excluded.completed_at, updated_at=CURRENT_TIMESTAMP""",
+        (str(uuid.uuid4()), snapshot_date, availability["total"], json.dumps(balances, ensure_ascii=False), now.isoformat(timespec="seconds")),
+    )
+    conn.execute(
+        """INSERT INTO app_state (key, value, updated_at) VALUES ('bank_daily_update_marks', '{}', CURRENT_TIMESTAMP)
+           ON CONFLICT(key) DO UPDATE SET value='{}', updated_at=CURRENT_TIMESTAMP"""
+    )
+    return {"archivedAt": now.isoformat(timespec="seconds"), "cutoffs": cutoffs, "availability": bank_availability_payload(conn)}
 
 
 def bank_report_baseline(conn, account_id, latest_record_date):
-    """Return the most recent consolidated balance preceding the current statement data."""
+    """Return the explicit archived cutoff, or current balance as the initial opening."""
     cutoff_row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_report_cutoffs'").fetchone()
     try:
         cutoff = (json.loads(cutoff_row["value"] or "{}") if cutoff_row else {}).get(account_id) or {}
     except (TypeError, json.JSONDecodeError):
         cutoff = {}
     cutoff_date = text(cutoff.get("date"))
-    if cutoff_date and cutoff_date < latest_record_date:
-        return {"date": cutoff_date, "balance": round(float(cutoff.get("balance") or 0), 2)}
-    same_date_baseline = None
-    snapshots = conn.execute(
-        "SELECT balances FROM bank_daily_availability ORDER BY snapshot_date DESC, completed_at DESC"
-    ).fetchall()
-    for snapshot in snapshots:
-        try:
-            account = json.loads(snapshot["balances"] or "{}").get(account_id) or {}
-        except (TypeError, ValueError, json.JSONDecodeError):
-            continue
-        statement_date = text(account.get("statementDate"))
-        if not statement_date:
-            continue
-        baseline = {"date": statement_date, "balance": round(float(account.get("balance") or 0), 2)}
-        if statement_date < latest_record_date:
-            return baseline
-        if statement_date == latest_record_date and same_date_baseline is None:
-            same_date_baseline = baseline
-    if same_date_baseline:
-        return same_date_baseline
-    newest_batch = conn.execute(
-        "SELECT MAX(created_at) AS created_at FROM bank_balance_records WHERE account_id = ?",
+    if cutoff_date and "sequence" in cutoff:
+        return {"date": cutoff_date, "sequence": int(cutoff.get("sequence") or 0), "balance": round(float(cutoff.get("balance") or 0), 2)}
+    latest = conn.execute(
+        "SELECT record_date, sequence, balance FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1",
         (account_id,),
     ).fetchone()
-    if newest_batch and newest_batch["created_at"]:
-        prior = conn.execute(
-            """SELECT record_date, balance FROM bank_balance_records
-               WHERE account_id = ? AND created_at < ? ORDER BY sequence DESC, created_at DESC LIMIT 1""",
-            (account_id, newest_batch["created_at"]),
-        ).fetchone()
-        if prior and prior["record_date"] < latest_record_date:
-            return {"date": prior["record_date"], "balance": round(float(prior["balance"] or 0), 2)}
-    return None
+    return {"date": latest["record_date"], "sequence": int(latest["sequence"] or 0), "balance": round(float(latest["balance"] or 0), 2)} if latest else None
 
 
 def bank_availability_report_payload(conn):
@@ -3946,8 +3912,8 @@ def bank_availability_report_payload(conn):
         baseline = bank_report_baseline(conn, account["id"], latest["record_date"])
         if baseline:
             movements = conn.execute(
-                "SELECT * FROM bank_balance_records WHERE account_id = ? AND record_date > ? ORDER BY sequence ASC, created_at ASC",
-                (account["id"], baseline["date"]),
+                "SELECT * FROM bank_balance_records WHERE account_id = ? AND sequence > ? ORDER BY sequence ASC, created_at ASC",
+                (account["id"], baseline["sequence"]),
             ).fetchall()
             previous_balance = baseline["balance"]
         else:
@@ -4119,7 +4085,6 @@ def insert_bank_records_bulk(conn, account_id, rows, created_by):
         prepared.append((record_date, values))
     if not prepared:
         return {"imported": 0, "skipped": skipped}
-    capture_bank_report_cutoff(conn, account_id)
     opening_balance = bank_opening_balance(conn, account_id)
     sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
     correlative = next_bank_correlative(conn, account_id)
@@ -4904,6 +4869,14 @@ class AppHandler(BaseHTTPRequestHandler):
             self.handle_crm_api()
             return
 
+        if self.path == "/api/bank-availability/archive":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            with connect() as conn:
+                result = archive_bank_availability(conn)
+            self.send_json({"ok": True, **result}, status=201)
+            return
+
         path = self.path.split("?", 1)[0]
         opportunity_parts = path.strip("/").split("/")
         if (
@@ -5069,7 +5042,6 @@ class AppHandler(BaseHTTPRequestHandler):
                 available = float(latest["balance"] or 0) if latest else 0
                 if amount <= 0 or amount > available:
                     self.send_json({"error": "El saldo bancario no cubre la liquidación seleccionada"}, status=409); return
-                capture_bank_report_cutoff(conn, account_id)
                 inflow_field, outflow_field = bank_flow_fields(account_id); description = text(data.get("description"), "Liquidación de gastos pendientes")
                 values = {inflow_field:0, outflow_field:amount, "Descripción":description, "Transaccion":description, "Detalle":description, "Comentario":text(data.get("reference"), "Liquidación desde Disponibilidad"), "Referencia":text(data.get("reference")), "Correlativo":next_bank_correlative(conn, account_id)}
                 sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
@@ -5121,7 +5093,6 @@ class AppHandler(BaseHTTPRequestHandler):
                 outflow = numeric_bank_value(values.get(outflow_field))
                 if inflow > 0 and outflow > 0:
                     self.send_json({"error": "Registra el movimiento como abono o como cargo, no ambos"}, status=400); return
-                capture_bank_report_cutoff(conn, account_id)
                 record_id = text(data.get("id")) or str(uuid.uuid4())
                 sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
                 values["Correlativo"] = next_bank_correlative(conn, account_id)
