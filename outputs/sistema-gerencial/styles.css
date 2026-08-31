@@ -3305,6 +3305,9 @@ td.empty-state {
 .availability-derived-report table { width:100%; border-collapse:collapse; font-size:14px; }
 .availability-derived-report th,.availability-derived-report td { padding:11px 18px; border-bottom:1px solid rgba(111,141,173,.28); }
 .availability-derived-report th { text-align:left; font-weight:750; }
+.availability-derived-report th > strong { display:block; color:inherit; font:inherit; }
+.availability-derived-report th > small { display:block; margin-top:3px; color:#8fa7c0; font-size:10px; font-weight:700; letter-spacing:.015em; }
+.availability-derived-report tr.subtotal th > small { color:#b8cbe0; }
 .availability-derived-report td:nth-child(2) { width:56px; text-align:center; color:#8fa7c0; font-weight:900; }
 .availability-derived-report td:last-child { width:230px; text-align:right; font-variant-numeric:tabular-nums; }
 .availability-derived-report tbody tr:not(.subtotal):not(.highlight):not(.total):nth-child(even) { background:rgba(45,75,111,.2); }

@@ -9449,11 +9449,13 @@ function openOpportunityReportDialog() {
 
 function renderBankAvailabilityDerivedReport(accounts, total) {
   const balanceFor = (...ids) => accounts.filter((item) => ids.includes(item.id)).reduce((sum, item) => sum + Number(item.latest?.balance || 0), 0);
+  const inventoryAccountIds = ["bank-hipotecario"];
+  const reserveAccountIds = ["bank-azul-laboral", "bank-azul-fiscal", "bank-bac-ahorro"];
   const checksTotal = state.pendingChecks.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const groups = pendingExpenseGroups();
   const groupTotal = (text) => groups.filter((group) => normalizeKey(group.name).includes(normalizeKey(text))).reduce((sum, group) => sum + Number(group.total || 0), 0);
-  const inventory = balanceFor("bank-hipotecario");
-  const reserves = balanceFor("bank-azul-laboral", "bank-azul-fiscal", "bank-bac-ahorro");
+  const inventory = balanceFor(...inventoryAccountIds);
+  const reserves = balanceFor(...reserveAccountIds);
   const commissions = groupTotal("comisiones");
   const laborReserve = groupTotal("reserva laboral");
   const fiscalReserve = groupTotal("reserva fiscal");
@@ -9464,8 +9466,8 @@ function renderBankAvailabilityDerivedReport(accounts, total) {
   const operatingBalance = bankBalance - inventory - reserves;
   const grossAvailability = operatingBalance - commissions - laborReserve - fiscalReserve;
   const netAvailability = grossAvailability - otherExpenses;
-  const row = (label, value, sign = "", className = "", editable = false) => `<tr class="${className}"><th>${escapeHtml(label)}</th><td>${sign}</td><td>${editable ? `<span class="availability-editable-amount"><b>$</b><input type="number" min="0" step="0.01" value="${Number(value || 0).toFixed(2)}" data-bank-pending-deposits aria-label="Remesas pendientes de reflejar en banco"><button type="button" data-bank-pending-deposits-save>Guardar</button></span>` : formatMoney(Math.abs(value))}</td></tr>`;
-  return `<section class="bank-availability-module"><div class="availability-derived-report"><header><div><span>Disponibilidad financiera</span><h2>Reporte de disponibilidad</h2><p>Resumen calculado automáticamente con la información registrada en Datos.</p></div><strong>${formatMoney(netAvailability)}</strong></header><table><tbody>${row("Saldo bancario contable", total)}${row("Remesas pendientes de reflejar en banco", pendingDeposits, "(−)", "", true)}${row("Cheques pendientes de cobro", checksTotal, "(+)")}${row("Saldo de bancos", bankBalance, "", "subtotal")}${row("Cuenta de inventario", inventory, "(−)")}${row("Cuentas de reserva", reserves, "(−)")}${row("Saldo operativo", operatingBalance, "", "subtotal")}${row("Comisiones", commissions, "(−)")}${row("Reserva laboral", laborReserve, "(−)")}${row("Reserva fiscal", fiscalReserve, "(−)")}${row("Disponibilidad bruta", grossAvailability, "", "highlight")}${row("Otros gastos", otherExpenses, "(−)")}${row("Disponibilidad neta", netAvailability, "", "total")}</tbody></table><footer><span>Los valores se recalculan al actualizar bancos, cheques o gastos pendientes.</span><button type="button" data-bank-availability-report>Imprimir detalle bancario</button></footer></div></section>`;
+  const row = (label, value, sign = "", className = "", editable = false, detail = "") => `<tr class="${className}"><th><strong>${escapeHtml(label)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ""}</th><td>${sign}</td><td>${editable ? `<span class="availability-editable-amount"><b>$</b><input type="number" min="0" step="0.01" value="${Number(value || 0).toFixed(2)}" data-bank-pending-deposits aria-label="Remesas pendientes de reflejar en banco"><button type="button" data-bank-pending-deposits-save>Guardar</button></span>` : formatMoney(Math.abs(value))}</td></tr>`;
+  return `<section class="bank-availability-module"><div class="availability-derived-report"><header><div><span>Disponibilidad financiera</span><h2>Reporte de disponibilidad</h2><p>Resumen calculado automáticamente con la información registrada en Datos.</p></div><strong>${formatMoney(netAvailability)}</strong></header><table><tbody>${row("Saldo bancario contable", total)}${row("Remesas pendientes de reflejar en banco", pendingDeposits, "(−)", "", true)}${row("Cheques pendientes de cobro", checksTotal, "(+)")}${row("Saldo de bancos", bankBalance, "", "subtotal")}${row("Cuenta de inventario", inventory, "(−)", "", false, "Saldo de la cuenta Hipotecario")}${row("Cuentas de reserva", reserves, "(−)", "", false, "Azul Laboral + Azul Fiscal + BAC Ahorro")}${row("Saldo operativo", operatingBalance, "", "subtotal", false, "Saldo de bancos − inventario − reservas")}${row("Comisiones", commissions, "(−)")}${row("Reserva laboral", laborReserve, "(−)")}${row("Reserva fiscal", fiscalReserve, "(−)")}${row("Disponibilidad bruta", grossAvailability, "", "highlight")}${row("Otros gastos", otherExpenses, "(−)")}${row("Disponibilidad neta", netAvailability, "", "total")}</tbody></table><footer><span>Los valores se recalculan al actualizar bancos, cheques o gastos pendientes.</span><button type="button" data-bank-availability-report>Imprimir detalle bancario</button></footer></div></section>`;
 }
 
 function renderBankAvailability() {
