@@ -3296,22 +3296,25 @@ td.empty-state {
 .bank-availability-view-tabs { display:flex; width:max-content; gap:5px; margin:0 0 16px; padding:5px; border-radius:13px; background:#122b49; }
 .bank-availability-view-tabs button { min-width:112px; height:40px; border:0; border-radius:10px; background:transparent; color:#9fb1c7; font:inherit; font-weight:900; cursor:pointer; }
 .bank-availability-view-tabs button.active { background:#285374; color:#78edd5; box-shadow:inset 0 0 0 1px rgba(105,229,203,.32); }
-.availability-derived-report { max-width:920px; margin:0 auto; overflow:hidden; border:1px solid #45617e; border-radius:18px; background:#f7f9fc; color:#172640; }
-.availability-derived-report > header { display:flex; align-items:end; justify-content:space-between; gap:24px; padding:22px 26px; border-bottom:3px solid #2baa8d; background:#fff; }
-.availability-derived-report header span { color:#16866d; font-size:11px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+.availability-derived-report { max-width:980px; margin:0 auto; overflow:hidden; border:1px solid rgba(99,226,199,.36); border-radius:20px; background:linear-gradient(145deg,#193657,#102d47); color:#f4f8ff; box-shadow:0 18px 48px rgba(2,13,29,.24); }
+.availability-derived-report > header { display:flex; align-items:end; justify-content:space-between; gap:24px; padding:25px 28px; border-bottom:2px solid #54dec1; background:linear-gradient(120deg,#29456d,#124c51); }
+.availability-derived-report header span { color:#72efd5; font-size:11px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
 .availability-derived-report header h2 { margin:5px 0 3px; font-size:29px; }
-.availability-derived-report header p { margin:0; color:#687990; }
-.availability-derived-report header > strong { color:#08765f; font-size:30px; white-space:nowrap; }
+.availability-derived-report header p { margin:0; color:#b0c1d3; }
+.availability-derived-report header > strong { color:#72efd5; font-size:32px; white-space:nowrap; text-shadow:0 0 22px rgba(84,222,193,.24); }
 .availability-derived-report table { width:100%; border-collapse:collapse; font-size:14px; }
-.availability-derived-report th,.availability-derived-report td { padding:10px 16px; border-bottom:1px solid #d5dee8; }
+.availability-derived-report th,.availability-derived-report td { padding:11px 18px; border-bottom:1px solid rgba(111,141,173,.28); }
 .availability-derived-report th { text-align:left; font-weight:750; }
-.availability-derived-report td:nth-child(2) { width:56px; text-align:center; color:#697b90; font-weight:900; }
+.availability-derived-report td:nth-child(2) { width:56px; text-align:center; color:#8fa7c0; font-weight:900; }
 .availability-derived-report td:last-child { width:190px; text-align:right; font-variant-numeric:tabular-nums; }
-.availability-derived-report tr.subtotal { background:#edf2f7; font-weight:900; }
-.availability-derived-report tr.highlight { background:#dcecf8; color:#075d88; font-size:16px; font-weight:900; }
-.availability-derived-report tr.total { background:#dff4ed; color:#066a55; font-size:18px; font-weight:950; }
-.availability-derived-report > footer { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:16px 22px; background:#fff; color:#697b90; font-size:11px; }
-.availability-derived-report footer button { min-height:39px; padding:0 15px; border:1px solid #238f78; border-radius:10px; background:#147b68; color:#fff; font-weight:900; cursor:pointer; }
+.availability-derived-report tbody tr:not(.subtotal):not(.highlight):not(.total):nth-child(even) { background:rgba(45,75,111,.2); }
+.availability-derived-report tr.subtotal { background:rgba(74,112,153,.3); color:#eaf2ff; font-weight:900; box-shadow:inset 4px 0 #79a9dc; }
+.availability-derived-report tr.highlight { background:rgba(34,139,141,.28); color:#7cf0d7; font-size:16px; font-weight:900; box-shadow:inset 4px 0 #5de2c6; }
+.availability-derived-report tr.total { background:linear-gradient(90deg,rgba(31,148,116,.52),rgba(22,111,99,.35)); color:#e4fff8; font-size:19px; font-weight:950; box-shadow:inset 4px 0 #77f1d7; }
+.availability-derived-report tr.total td:last-child { color:#86f5dc; font-size:21px; }
+.availability-derived-report > footer { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:17px 22px; background:#122b46; color:#91a7bf; font-size:11px; }
+.availability-derived-report footer button { min-height:40px; padding:0 16px; border:1px solid #51d3b8; border-radius:10px; background:#167c69; color:#fff; font-weight:900; cursor:pointer; box-shadow:0 8px 20px rgba(5,24,43,.22); }
+.availability-derived-report footer button:hover { background:#1b947b; }
 
 .crm-shell {
   display: grid;
