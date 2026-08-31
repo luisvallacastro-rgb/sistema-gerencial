@@ -300,6 +300,7 @@ const state = {
   operationsPresentationSection: 0,
   financialPresentationSection: 0,
   bankAvailability: { accounts: [], total: 0 },
+  bankAvailabilityView: "data",
   pendingExpenses: [],
   pendingChecks: [],
   bankAvailabilityQuery: "",
@@ -9444,9 +9445,31 @@ function openOpportunityReportDialog() {
   refreshPreview();
 }
 
+function renderBankAvailabilityDerivedReport(accounts, total) {
+  const balanceFor = (...ids) => accounts.filter((item) => ids.includes(item.id)).reduce((sum, item) => sum + Number(item.latest?.balance || 0), 0);
+  const checksTotal = state.pendingChecks.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const groups = pendingExpenseGroups();
+  const groupTotal = (text) => groups.filter((group) => normalizeKey(group.name).includes(normalizeKey(text))).reduce((sum, group) => sum + Number(group.total || 0), 0);
+  const inventory = balanceFor("bank-hipotecario");
+  const reserves = balanceFor("bank-azul-laboral", "bank-azul-fiscal", "bank-bac-ahorro");
+  const commissions = groupTotal("comisiones");
+  const laborReserve = groupTotal("reserva laboral");
+  const fiscalReserve = groupTotal("reserva fiscal");
+  const allExpenses = groups.reduce((sum, group) => sum + Number(group.total || 0), 0);
+  const otherExpenses = Math.max(0, allExpenses - commissions - laborReserve - fiscalReserve);
+  const pendingDeposits = 0;
+  const bankBalance = total - pendingDeposits + checksTotal;
+  const operatingBalance = bankBalance - inventory - reserves;
+  const grossAvailability = operatingBalance - commissions - laborReserve - fiscalReserve;
+  const netAvailability = grossAvailability - otherExpenses;
+  const row = (label, value, sign = "", className = "") => `<tr class="${className}"><th>${escapeHtml(label)}</th><td>${sign}</td><td>${formatMoney(Math.abs(value))}</td></tr>`;
+  return `<section class="bank-availability-module"><div class="availability-derived-report"><header><div><span>Disponibilidad financiera</span><h2>Reporte de disponibilidad</h2><p>Resumen calculado automáticamente con la información registrada en Datos.</p></div><strong>${formatMoney(netAvailability)}</strong></header><table><tbody>${row("Saldo bancario contable", total)}${row("Remesas pendientes de reflejar en banco", pendingDeposits, "(−)")}${row("Cheques pendientes de cobro", checksTotal, "(+)")}${row("Saldo de bancos", bankBalance, "", "subtotal")}${row("Cuenta de inventario", inventory, "(−)")}${row("Cuentas de reserva", reserves, "(−)")}${row("Saldo operativo", operatingBalance, "", "subtotal")}${row("Comisiones", commissions, "(−)")}${row("Reserva laboral", laborReserve, "(−)")}${row("Reserva fiscal", fiscalReserve, "(−)")}${row("Disponibilidad bruta", grossAvailability, "", "highlight")}${row("Otros gastos", otherExpenses, "(−)")}${row("Disponibilidad neta", netAvailability, "", "total")}</tbody></table><footer><span>Los valores se recalculan al actualizar bancos, cheques o gastos pendientes.</span><button type="button" data-bank-availability-report>Imprimir detalle bancario</button></footer></div></section>`;
+}
+
 function renderBankAvailability() {
   const accounts = [...(state.bankAvailability.accounts || [])].sort((a, b) => Number(b.latest?.balance || 0) - Number(a.latest?.balance || 0));
   const total = Number(state.bankAvailability.total || 0);
+  if (state.bankAvailabilityView === "report") return renderBankAvailabilityDerivedReport(accounts, total);
   const balanceFor = (...ids) => accounts.filter((item) => ids.includes(item.id)).reduce((sum, item) => sum + Number(item.latest?.balance || 0), 0);
   const summaries = [
     { label: "Disponibilidad Operativa", detail: "BAC + Agrícola", value: balanceFor("bank-bac", "bank-agricola"), className: "operating", icon: "↗" },
@@ -9803,6 +9826,12 @@ function openPendingChecksCrud() {
 }
 
 function wireBankAvailability() {
+  const module = document.querySelector(".bank-availability-module");
+  module?.insertAdjacentHTML("afterbegin", `<nav class="bank-availability-view-tabs" aria-label="Vista de disponibilidad"><button type="button" data-bank-availability-view="data" class="${state.bankAvailabilityView === "data" ? "active" : ""}">Datos</button><button type="button" data-bank-availability-view="report" class="${state.bankAvailabilityView === "report" ? "active" : ""}">Reporte</button></nav>`);
+  document.querySelectorAll("[data-bank-availability-view]").forEach((button) => button.addEventListener("click", () => {
+    state.bankAvailabilityView = button.dataset.bankAvailabilityView;
+    renderCommercialSubmenu(areas.financiera);
+  }));
   document.querySelectorAll("[data-bank-maintenance]").forEach((button) => button.addEventListener("click", () => openBankMaintenance(button.dataset.bankMaintenance)));
   document.querySelector("[data-bank-availability-report]")?.addEventListener("click", () => printBankAvailabilityReport().catch((error) => alert(error.message || "No se pudo generar el reporte.")));
   document.querySelector("[data-pending-expenses-manage]")?.addEventListener("click", openPendingExpensesCrud);

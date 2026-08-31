@@ -3293,6 +3293,26 @@ td.empty-state {
   vertical-align: middle;
 }
 
+.bank-availability-view-tabs { display:flex; width:max-content; gap:5px; margin:0 0 16px; padding:5px; border-radius:13px; background:#122b49; }
+.bank-availability-view-tabs button { min-width:112px; height:40px; border:0; border-radius:10px; background:transparent; color:#9fb1c7; font:inherit; font-weight:900; cursor:pointer; }
+.bank-availability-view-tabs button.active { background:#285374; color:#78edd5; box-shadow:inset 0 0 0 1px rgba(105,229,203,.32); }
+.availability-derived-report { max-width:920px; margin:0 auto; overflow:hidden; border:1px solid #45617e; border-radius:18px; background:#f7f9fc; color:#172640; }
+.availability-derived-report > header { display:flex; align-items:end; justify-content:space-between; gap:24px; padding:22px 26px; border-bottom:3px solid #2baa8d; background:#fff; }
+.availability-derived-report header span { color:#16866d; font-size:11px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+.availability-derived-report header h2 { margin:5px 0 3px; font-size:29px; }
+.availability-derived-report header p { margin:0; color:#687990; }
+.availability-derived-report header > strong { color:#08765f; font-size:30px; white-space:nowrap; }
+.availability-derived-report table { width:100%; border-collapse:collapse; font-size:14px; }
+.availability-derived-report th,.availability-derived-report td { padding:10px 16px; border-bottom:1px solid #d5dee8; }
+.availability-derived-report th { text-align:left; font-weight:750; }
+.availability-derived-report td:nth-child(2) { width:56px; text-align:center; color:#697b90; font-weight:900; }
+.availability-derived-report td:last-child { width:190px; text-align:right; font-variant-numeric:tabular-nums; }
+.availability-derived-report tr.subtotal { background:#edf2f7; font-weight:900; }
+.availability-derived-report tr.highlight { background:#dcecf8; color:#075d88; font-size:16px; font-weight:900; }
+.availability-derived-report tr.total { background:#dff4ed; color:#066a55; font-size:18px; font-weight:950; }
+.availability-derived-report > footer { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:16px 22px; background:#fff; color:#697b90; font-size:11px; }
+.availability-derived-report footer button { min-height:39px; padding:0 15px; border:1px solid #238f78; border-radius:10px; background:#147b68; color:#fff; font-weight:900; cursor:pointer; }
+
 .crm-shell {
   display: grid;
   gap: 16px;
