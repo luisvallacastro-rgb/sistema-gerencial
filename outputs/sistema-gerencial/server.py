@@ -4703,6 +4703,18 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json(items if isinstance(items, list) else [])
             return
 
+        if self.path == "/api/bank-availability-adjustments":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            with connect() as conn:
+                row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_availability_adjustments'").fetchone()
+            try:
+                payload = json.loads(row["value"] or "{}") if row else {}
+            except json.JSONDecodeError:
+                payload = {}
+            self.send_json({"pendingDeposits": float(payload.get("pendingDeposits") or 0)})
+            return
+
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
         if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "records":
             if not self.require_permission("financiera:disponibilidad"):
@@ -5216,6 +5228,21 @@ class AppHandler(BaseHTTPRequestHandler):
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('pending_checks', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
             self.send_json({"ok": True, "items": clean})
+            return
+
+        if self.path == "/api/bank-availability-adjustments":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            data = self.read_json()
+            try:
+                pending_deposits = max(0.0, round(float(data.get("pendingDeposits") or 0), 2))
+            except (TypeError, ValueError):
+                self.send_json({"error": "El monto de remesas no es válido"}, status=400)
+                return
+            payload = {"pendingDeposits": pending_deposits}
+            with connect() as conn:
+                conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('bank_availability_adjustments', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""", (json.dumps(payload, ensure_ascii=False),))
+            self.send_json({"ok": True, **payload})
             return
 
         if self.path.startswith("/api/production-schedule/"):

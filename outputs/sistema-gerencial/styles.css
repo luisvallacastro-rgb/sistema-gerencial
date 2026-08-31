@@ -3315,6 +3315,11 @@ td.empty-state {
 .availability-derived-report > footer { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:17px 22px; background:#122b46; color:#91a7bf; font-size:11px; }
 .availability-derived-report footer button { min-height:40px; padding:0 16px; border:1px solid #51d3b8; border-radius:10px; background:#167c69; color:#fff; font-weight:900; cursor:pointer; box-shadow:0 8px 20px rgba(5,24,43,.22); }
 .availability-derived-report footer button:hover { background:#1b947b; }
+.availability-editable-amount { display:flex; align-items:center; justify-content:flex-end; gap:7px; }
+.availability-editable-amount b { color:#87a0ba; }
+.availability-editable-amount input { width:110px; height:32px; padding:0 9px; border:1px solid #54789b; border-radius:8px; outline:0; background:#284969; color:#fff; text-align:right; font:inherit; font-weight:850; }
+.availability-editable-amount input:focus { border-color:#65e4ca; box-shadow:0 0 0 3px rgba(101,228,202,.13); }
+.availability-editable-amount button { height:32px; padding:0 10px; border:1px solid #4ed0b5; border-radius:8px; background:#167a67; color:#fff; font-size:10px; font-weight:900; cursor:pointer; }
 
 .crm-shell {
   display: grid;

@@ -301,6 +301,7 @@ const state = {
   financialPresentationSection: 0,
   bankAvailability: { accounts: [], total: 0 },
   bankAvailabilityView: "data",
+  bankPendingDeposits: 0,
   pendingExpenses: [],
   pendingChecks: [],
   bankAvailabilityQuery: "",
@@ -5393,11 +5394,12 @@ function wirePurchaseOrders() {
 
 function loadBankAvailability() {
   if (!apiEnabled) return Promise.resolve(state.bankAvailability);
-  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => []), apiJson("/api/pending-checks").catch(() => [])]).then(([payload, expenses, checks]) => {
+  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => []), apiJson("/api/pending-checks").catch(() => []), apiJson("/api/bank-availability-adjustments").catch(() => ({ pendingDeposits: 0 }))]).then(([payload, expenses, checks, adjustments]) => {
     state.bankAvailability = payload && Array.isArray(payload.accounts) ? payload : { accounts: [], total: 0 };
     state.pendingExpenses = Array.isArray(expenses) && expenses.length ? expenses : pendingExpenseSeed();
     if (!expenses.length) savePendingExpenses().catch(() => {});
     state.pendingChecks = Array.isArray(checks) ? checks : [];
+    state.bankPendingDeposits = Number(adjustments?.pendingDeposits || 0);
     if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
     return state.bankAvailability;
   }).catch(() => state.bankAvailability);
@@ -9457,13 +9459,13 @@ function renderBankAvailabilityDerivedReport(accounts, total) {
   const fiscalReserve = groupTotal("reserva fiscal");
   const allExpenses = groups.reduce((sum, group) => sum + Number(group.total || 0), 0);
   const otherExpenses = Math.max(0, allExpenses - commissions - laborReserve - fiscalReserve);
-  const pendingDeposits = 0;
+  const pendingDeposits = Number(state.bankPendingDeposits || 0);
   const bankBalance = total - pendingDeposits + checksTotal;
   const operatingBalance = bankBalance - inventory - reserves;
   const grossAvailability = operatingBalance - commissions - laborReserve - fiscalReserve;
   const netAvailability = grossAvailability - otherExpenses;
-  const row = (label, value, sign = "", className = "") => `<tr class="${className}"><th>${escapeHtml(label)}</th><td>${sign}</td><td>${formatMoney(Math.abs(value))}</td></tr>`;
-  return `<section class="bank-availability-module"><div class="availability-derived-report"><header><div><span>Disponibilidad financiera</span><h2>Reporte de disponibilidad</h2><p>Resumen calculado automáticamente con la información registrada en Datos.</p></div><strong>${formatMoney(netAvailability)}</strong></header><table><tbody>${row("Saldo bancario contable", total)}${row("Remesas pendientes de reflejar en banco", pendingDeposits, "(−)")}${row("Cheques pendientes de cobro", checksTotal, "(+)")}${row("Saldo de bancos", bankBalance, "", "subtotal")}${row("Cuenta de inventario", inventory, "(−)")}${row("Cuentas de reserva", reserves, "(−)")}${row("Saldo operativo", operatingBalance, "", "subtotal")}${row("Comisiones", commissions, "(−)")}${row("Reserva laboral", laborReserve, "(−)")}${row("Reserva fiscal", fiscalReserve, "(−)")}${row("Disponibilidad bruta", grossAvailability, "", "highlight")}${row("Otros gastos", otherExpenses, "(−)")}${row("Disponibilidad neta", netAvailability, "", "total")}</tbody></table><footer><span>Los valores se recalculan al actualizar bancos, cheques o gastos pendientes.</span><button type="button" data-bank-availability-report>Imprimir detalle bancario</button></footer></div></section>`;
+  const row = (label, value, sign = "", className = "", editable = false) => `<tr class="${className}"><th>${escapeHtml(label)}</th><td>${sign}</td><td>${editable ? `<span class="availability-editable-amount"><b>$</b><input type="number" min="0" step="0.01" value="${Number(value || 0).toFixed(2)}" data-bank-pending-deposits aria-label="Remesas pendientes de reflejar en banco"><button type="button" data-bank-pending-deposits-save>Guardar</button></span>` : formatMoney(Math.abs(value))}</td></tr>`;
+  return `<section class="bank-availability-module"><div class="availability-derived-report"><header><div><span>Disponibilidad financiera</span><h2>Reporte de disponibilidad</h2><p>Resumen calculado automáticamente con la información registrada en Datos.</p></div><strong>${formatMoney(netAvailability)}</strong></header><table><tbody>${row("Saldo bancario contable", total)}${row("Remesas pendientes de reflejar en banco", pendingDeposits, "(−)", "", true)}${row("Cheques pendientes de cobro", checksTotal, "(+)")}${row("Saldo de bancos", bankBalance, "", "subtotal")}${row("Cuenta de inventario", inventory, "(−)")}${row("Cuentas de reserva", reserves, "(−)")}${row("Saldo operativo", operatingBalance, "", "subtotal")}${row("Comisiones", commissions, "(−)")}${row("Reserva laboral", laborReserve, "(−)")}${row("Reserva fiscal", fiscalReserve, "(−)")}${row("Disponibilidad bruta", grossAvailability, "", "highlight")}${row("Otros gastos", otherExpenses, "(−)")}${row("Disponibilidad neta", netAvailability, "", "total")}</tbody></table><footer><span>Los valores se recalculan al actualizar bancos, cheques o gastos pendientes.</span><button type="button" data-bank-availability-report>Imprimir detalle bancario</button></footer></div></section>`;
 }
 
 function renderBankAvailability() {
@@ -9834,6 +9836,20 @@ function wireBankAvailability() {
   }));
   document.querySelectorAll("[data-bank-maintenance]").forEach((button) => button.addEventListener("click", () => openBankMaintenance(button.dataset.bankMaintenance)));
   document.querySelector("[data-bank-availability-report]")?.addEventListener("click", () => printBankAvailabilityReport().catch((error) => alert(error.message || "No se pudo generar el reporte.")));
+  document.querySelector("[data-bank-pending-deposits-save]")?.addEventListener("click", async (event) => {
+    const input = document.querySelector("[data-bank-pending-deposits]");
+    const button = event.currentTarget;
+    const pendingDeposits = Math.max(0, Number(input?.value || 0));
+    button.disabled = true;
+    try {
+      const response = await apiJson("/api/bank-availability-adjustments", { method: "PUT", body: JSON.stringify({ pendingDeposits }) });
+      state.bankPendingDeposits = Number(response.pendingDeposits || 0);
+      renderCommercialSubmenu(areas.financiera);
+    } catch (error) {
+      alert(error.message || "No se pudo guardar el monto de remesas pendientes.");
+      button.disabled = false;
+    }
+  });
   document.querySelector("[data-pending-expenses-manage]")?.addEventListener("click", openPendingExpensesCrud);
   document.querySelector("[data-pending-checks-manage]")?.addEventListener("click", openPendingChecksCrud);
   const selectExpense = (row) => {
