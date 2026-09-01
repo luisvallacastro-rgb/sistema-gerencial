@@ -4007,15 +4007,32 @@ def bank_availability_signatures_payload(conn):
     return signatures if isinstance(signatures, dict) else {}
 
 
-def bank_report_baseline(conn, account_id, latest_record_date):
-    """Return the explicit archived cutoff, or current balance as the initial opening."""
+def bank_report_baseline(conn, account_id, latest_sequence):
+    """Return the most recent archived cutoff preceding the current bank record."""
+    archive_rows = conn.execute(
+        "SELECT balances FROM bank_daily_availability ORDER BY completed_at DESC, snapshot_date DESC"
+    ).fetchall()
+    for archive_row in archive_rows:
+        try:
+            archived_account = (json.loads(archive_row["balances"] or "{}") or {}).get(account_id) or {}
+        except (TypeError, json.JSONDecodeError):
+            archived_account = {}
+        if "sequence" not in archived_account:
+            continue
+        archived_sequence = int(archived_account.get("sequence") or 0)
+        if archived_sequence < int(latest_sequence or 0):
+            return {
+                "date": text(archived_account.get("statementDate")),
+                "sequence": archived_sequence,
+                "balance": round(float(archived_account.get("balance") or 0), 2),
+            }
     cutoff_row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_report_cutoffs'").fetchone()
     try:
         cutoff = (json.loads(cutoff_row["value"] or "{}") if cutoff_row else {}).get(account_id) or {}
     except (TypeError, json.JSONDecodeError):
         cutoff = {}
     cutoff_date = text(cutoff.get("date"))
-    if cutoff_date and "sequence" in cutoff:
+    if cutoff_date and "sequence" in cutoff and int(cutoff.get("sequence") or 0) < int(latest_sequence or 0):
         return {"date": cutoff_date, "sequence": int(cutoff.get("sequence") or 0), "balance": round(float(cutoff.get("balance") or 0), 2)}
     latest = conn.execute(
         "SELECT record_date, sequence, balance FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1",
@@ -4029,14 +4046,14 @@ def bank_availability_report_payload(conn):
     rows = conn.execute("SELECT * FROM bank_accounts WHERE active = 1 ORDER BY bank, account").fetchall()
     for account in rows:
         latest = conn.execute(
-            "SELECT record_date FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1",
+            "SELECT record_date, sequence FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1",
             (account["id"],),
         ).fetchone()
         if not latest:
             accounts.append({"id": account["id"], "bank": account["bank"], "account": account["account"], "date": None, "previousBalance": 0, "charges": 0, "credits": 0, "newBalance": 0, "reconciled": True, "movements": []})
             continue
         inflow_field, outflow_field = bank_flow_fields(account["id"])
-        baseline = bank_report_baseline(conn, account["id"], latest["record_date"])
+        baseline = bank_report_baseline(conn, account["id"], latest["sequence"])
         if baseline:
             movements = conn.execute(
                 "SELECT * FROM bank_balance_records WHERE account_id = ? AND sequence > ? ORDER BY sequence ASC, created_at ASC",
