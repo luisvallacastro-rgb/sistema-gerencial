@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import parse_qs, unquote, urlparse
 from zoneinfo import ZoneInfo
 
 
@@ -4445,6 +4445,17 @@ def init_db():
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS internal_chat_messages (
+                id TEXT PRIMARY KEY,
+                sender_id TEXT NOT NULL,
+                recipient_id TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                read_at REAL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_participants ON internal_chat_messages(sender_id, recipient_id, created_at)")
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS minutes (
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
@@ -4924,6 +4935,35 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([dict(row) for row in rows])
             return
 
+        if self.path.startswith("/api/chat"):
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            query = parse_qs(urlparse(self.path).query)
+            peer_id = text((query.get("with") or [""])[0])
+            if not actor_id or not peer_id or actor_id == peer_id:
+                self.send_json({"error": "Conversación inválida"}, status=400)
+                return
+            with connect() as conn:
+                actor = conn.execute("SELECT id FROM users WHERE id = ?", (actor_id,)).fetchone()
+                peer = conn.execute("SELECT id, name, role FROM users WHERE id = ?", (peer_id,)).fetchone()
+                if not actor or not peer:
+                    self.send_json({"error": "Usuario no encontrado"}, status=404)
+                    return
+                conn.execute("""
+                    UPDATE internal_chat_messages SET read_at = ?
+                    WHERE sender_id = ? AND recipient_id = ? AND read_at IS NULL
+                """, (time.time(), peer_id, actor_id))
+                rows = conn.execute("""
+                    SELECT message.id, message.sender_id, message.recipient_id, message.body,
+                           message.created_at, message.read_at, sender.name AS sender_name
+                    FROM internal_chat_messages AS message
+                    JOIN users AS sender ON sender.id = message.sender_id
+                    WHERE (message.sender_id = ? AND message.recipient_id = ?)
+                       OR (message.sender_id = ? AND message.recipient_id = ?)
+                    ORDER BY message.created_at DESC LIMIT 100
+                """, (actor_id, peer_id, peer_id, actor_id)).fetchall()
+            self.send_json({"peer": dict(peer), "messages": [dict(row) for row in reversed(rows)]})
+            return
+
         if self.path == "/api/minutes":
             with connect() as conn:
                 rows = conn.execute("""
@@ -5264,6 +5304,35 @@ class AppHandler(BaseHTTPRequestHandler):
                     ORDER BY last_seen DESC, name
                 """).fetchall()
             self.send_json([dict(row) for row in rows])
+            return
+
+        if self.path == "/api/chat":
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            data = self.read_json()
+            recipient_id = text(data.get("recipientId"))
+            body = text(data.get("body"))
+            if not actor_id or not recipient_id or actor_id == recipient_id:
+                self.send_json({"error": "Destinatario inválido"}, status=400)
+                return
+            if not body:
+                self.send_json({"error": "Escribe un mensaje"}, status=400)
+                return
+            if len(body) > 2000:
+                self.send_json({"error": "El mensaje supera 2000 caracteres"}, status=400)
+                return
+            now = time.time()
+            message_id = f"chat-{uuid.uuid4()}"
+            with connect() as conn:
+                actor = conn.execute("SELECT id, name FROM users WHERE id = ?", (actor_id,)).fetchone()
+                recipient = conn.execute("SELECT id FROM users WHERE id = ?", (recipient_id,)).fetchone()
+                if not actor or not recipient:
+                    self.send_json({"error": "Usuario no encontrado"}, status=404)
+                    return
+                conn.execute("""
+                    INSERT INTO internal_chat_messages (id, sender_id, recipient_id, body, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (message_id, actor_id, recipient_id, body, now))
+            self.send_json({"id": message_id, "sender_id": actor_id, "recipient_id": recipient_id, "body": body, "created_at": now, "sender_name": actor["name"]}, status=201)
             return
 
         if self.path == "/api/minutes":

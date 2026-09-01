@@ -776,6 +776,8 @@ const legacyAccessRoleMap = {
 let systemUsers = [];
 let sessionRestored = false;
 let presenceTimer = null;
+let internalChatTimer = null;
+let internalChatPeer = null;
 const apiEnabled = window.location.protocol !== "file:";
 
 async function apiJson(path, options = {}) {
@@ -12679,6 +12681,73 @@ function saveUsers(options = {}) {
   }
 }
 
+function closeInternalChat() {
+  if (internalChatTimer) clearInterval(internalChatTimer);
+  internalChatTimer = null;
+  internalChatPeer = null;
+  document.querySelector("#internalChatWindow")?.remove();
+}
+
+function renderInternalChatMessages(messages = []) {
+  const container = document.querySelector("[data-internal-chat-messages]");
+  if (!container) return;
+  const signature = messages.map((message) => `${message.id}:${message.read_at || ""}`).join("|");
+  if (container.dataset.signature === signature) return;
+  container.dataset.signature = signature;
+  container.innerHTML = messages.length ? messages.map((message) => {
+    const own = String(message.sender_id) === String(state.currentUser?.id);
+    const timestamp = new Date(Number(message.created_at || 0) * 1000).toLocaleString("es-SV", { day: "2-digit", month: "2-digit", hour: "numeric", minute: "2-digit" });
+    return `<div class="internal-chat-message ${own ? "own" : "received"}"><div>${escapeHtml(message.body || "").replace(/\n/g, "<br>")}</div><small>${escapeHtml(timestamp)}${own && message.read_at ? " · Leído" : ""}</small></div>`;
+  }).join("") : `<div class="internal-chat-empty"><strong>Inicia la conversación</strong><span>Los mensajes serán privados entre ambos usuarios.</span></div>`;
+  container.scrollTop = container.scrollHeight;
+}
+
+async function loadInternalChat() {
+  if (!apiEnabled || !internalChatPeer || !state.currentUser) return;
+  try {
+    const payload = await apiJson(`/api/chat?with=${encodeURIComponent(internalChatPeer.user_id)}`);
+    renderInternalChatMessages(payload.messages || []);
+  } catch (error) {
+    const status = document.querySelector("[data-internal-chat-status]");
+    if (status) status.textContent = error.message || "No se pudo actualizar el chat";
+  }
+}
+
+function openInternalChat(user) {
+  if (!user?.user_id || String(user.user_id) === String(state.currentUser?.id)) return;
+  closeInternalChat();
+  internalChatPeer = user;
+  const windowElement = document.createElement("aside");
+  windowElement.id = "internalChatWindow";
+  windowElement.className = "internal-chat-window";
+  windowElement.setAttribute("aria-label", `Chat con ${user.name || "usuario"}`);
+  windowElement.innerHTML = `<header><div><i></i><span><strong>${escapeHtml(user.name || "Usuario")}</strong><small data-internal-chat-status>En línea</small></span></div><button type="button" data-internal-chat-close aria-label="Cerrar chat">×</button></header><div class="internal-chat-messages" data-internal-chat-messages><div class="internal-chat-loading">Cargando conversación…</div></div><form data-internal-chat-form><textarea rows="1" maxlength="2000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><button type="submit" aria-label="Enviar mensaje">➤</button></form>`;
+  document.body.appendChild(windowElement);
+  windowElement.querySelector("[data-internal-chat-close]").addEventListener("click", closeInternalChat);
+  const form = windowElement.querySelector("[data-internal-chat-form]");
+  const input = form.querySelector("textarea");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const body = input.value.trim();
+    if (!body || !internalChatPeer) return;
+    const button = form.querySelector("button");
+    button.disabled = true;
+    try {
+      await apiJson("/api/chat", { method: "POST", body: JSON.stringify({ recipientId: internalChatPeer.user_id, body }) });
+      input.value = "";
+      await loadInternalChat();
+      input.focus();
+    } catch (error) { alert(error.message || "No fue posible enviar el mensaje."); }
+    finally { button.disabled = false; }
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); form.requestSubmit(); }
+  });
+  loadInternalChat();
+  internalChatTimer = setInterval(loadInternalChat, 3000);
+  input.focus();
+}
+
 function renderPresenceList() {
   if (!presenceList || !onlineCount) return;
   const users = state.onlineUsers.length && state.currentUser
@@ -12698,11 +12767,15 @@ function renderPresenceList() {
     return;
   }
   presenceList.innerHTML = users.map((user) => `
-    <div class="presence-user">
+    <button type="button" class="presence-user${String(user.user_id) === String(state.currentUser?.id) ? " current" : ""}" data-presence-chat-user="${escapeHtml(user.user_id || "")}" ${String(user.user_id) === String(state.currentUser?.id) ? "disabled" : ""}>
       <i aria-hidden="true"></i>
-      <span>${escapeHtml(user.name || "Usuario")}</span>
-    </div>
+      <span>${escapeHtml(user.name || "Usuario")}${String(user.user_id) === String(state.currentUser?.id) ? " <small>(Tú)</small>" : ""}</span>
+    </button>
   `).join("");
+  presenceList.querySelectorAll("[data-presence-chat-user]").forEach((button) => button.addEventListener("click", () => {
+    const user = users.find((item) => String(item.user_id) === String(button.dataset.presenceChatUser));
+    if (user) openInternalChat(user);
+  }));
 }
 
 function updatePresence(users = []) {
@@ -12751,6 +12824,7 @@ function clearSession() {
     apiJson(`/api/presence/${encodeURIComponent(userId)}`, { method: "DELETE" }).catch(() => {});
   }
   stopPresence();
+  closeInternalChat();
   localStorage.removeItem(sessionStorageKey);
   sessionRestored = false;
   state.currentUser = null;
