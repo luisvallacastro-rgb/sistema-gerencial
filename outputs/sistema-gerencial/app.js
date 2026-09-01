@@ -786,6 +786,7 @@ async function apiJson(path, options = {}) {
   const { headers: optionHeaders = {}, ...requestOptions } = options;
   const response = await fetch(path, {
     ...requestOptions,
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       "X-System-User-Id": state.currentUser?.id || "",
@@ -12707,7 +12708,7 @@ function renderInternalChatMessages(messages = []) {
 async function loadInternalChat() {
   if (!apiEnabled || !internalChatPeer || !state.currentUser) return;
   try {
-    const payload = await apiJson(`/api/chat?with=${encodeURIComponent(internalChatPeer.user_id)}`);
+    const payload = await apiJson(`/api/chat?with=${encodeURIComponent(internalChatPeer.user_id)}&_=${Date.now()}`);
     renderInternalChatMessages(payload.messages || []);
     loadInternalChatUnread();
   } catch (error) {
@@ -12719,7 +12720,7 @@ async function loadInternalChat() {
 async function loadInternalChatUnread() {
   if (!apiEnabled || !state.currentUser) return;
   try {
-    const payload = await apiJson("/api/chat/unread");
+    const payload = await apiJson(`/api/chat/unread?_=${Date.now()}`);
     internalChatUnreadCounts = Object.fromEntries((payload.unread || []).map((item) => [String(item.sender_id), Number(item.unread_count || 0)]));
     renderPresenceList();
   } catch {}
@@ -12819,6 +12820,13 @@ function startPresence() {
   loadInternalChatUnread();
   presenceTimer = setInterval(sendPresence, 30000);
   internalChatUnreadTimer = setInterval(loadInternalChatUnread, 5000);
+}
+
+function refreshRealtimeState() {
+  if (!state.currentUser || document.hidden) return;
+  sendPresence();
+  loadInternalChatUnread();
+  if (internalChatPeer) loadInternalChat();
 }
 
 function stopPresence() {
@@ -13012,6 +13020,8 @@ function openApp(userOrRole, options = {}) {
 }
 
 window.addEventListener("pagehide", persistNavigationState);
+window.addEventListener("focus", refreshRealtimeState);
+document.addEventListener("visibilitychange", refreshRealtimeState);
 window.addEventListener("popstate", () => {
   restoreNavigationState();
   if (state.currentUser) renderDashboard();
