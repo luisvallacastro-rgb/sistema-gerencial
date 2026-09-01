@@ -8767,7 +8767,7 @@ function ensureCustomerRequestDialog() {
       dialog.currentRequest = (model.customerRequests || []).find((item) => String(item.id) === String(dialog.currentRequest.id)) || dialog.currentRequest;
       button.classList.add("hidden");
       dialog.querySelector("[data-customer-request-print]").classList.remove("hidden");
-      dialog.querySelector("[data-customer-request-status]").innerHTML = "<i></i> Firmada · Lista para imprimir y enviar";
+      dialog.querySelector("[data-customer-request-status]").innerHTML = "<i></i> Firmada electrónicamente · Lista para aprobar y crear cliente";
     } catch (error) {
       button.textContent = "Firmar electrónicamente";
       alert(error.message || "No fue posible firmar la solicitud.");
@@ -8906,7 +8906,7 @@ function openCustomerRequestDialog(request = null, review = false, returnToList 
   dialog.querySelector("[data-customer-request-review-save]").textContent = "Guardar temporalmente";
   dialog.querySelector("[data-customer-request-approved-edit]").classList.toggle("hidden", viewOnly || !isValidated || !current.approvedCustomerId);
   dialog.querySelector("[data-customer-request-approved-save]").classList.add("hidden");
-  dialog.querySelector("[data-customer-request-sign]").classList.toggle("hidden", viewOnly || !current.id || !isDraft || isSigned || !isOdalizValenciaUser());
+  dialog.querySelector("[data-customer-request-sign]").classList.toggle("hidden", !current.id || !(isDraft || isPending) || isSigned || !isOdalizValenciaUser());
   dialog.querySelector("[data-customer-request-sign]").textContent = "Firmar electrónicamente";
   dialog.querySelector("[data-customer-request-print]").classList.toggle("hidden", !current.id);
   dialog.querySelector("[data-customer-request-print]").textContent = isValidated ? "Imprimir ficha aprobada" : (isSigned ? "Imprimir solicitud firmada" : "Imprimir solicitud");
@@ -8948,7 +8948,7 @@ function openCustomerRequestListDialog() {
         <div><small>${escapeHtml(request.requestNumber || "BORRADOR")}</small><strong>${escapeHtml(request.commercialName || request.legalName || "Cliente sin nombre")}</strong><span>${escapeHtml(request.contactName || request.taxId || "Datos por completar")}</span></div>
         <div><small>Última actualización</small><strong>${date ? escapeHtml(formatDate(String(date).slice(0, 10))) : "—"}</strong></div>
         <div><small>Estado</small><span class="crm-request-status ${statusKey}">${escapeHtml(request.status || "Borrador")}</span>${request.assignedClientNumber ? `<em>ID ${escapeHtml(request.assignedClientNumber)}</em>` : ""}</div>
-        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-view="${escapeHtml(request.id)}">Ver ficha</button>${isDraft ? `<button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">Editar</button>` : ""}${isDraft && !isSigned && isOdalizValenciaUser() ? `<button type="button" class="sign" data-customer-request-list-sign="${escapeHtml(request.id)}">Firmar</button>` : ""}<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="${isSigned ? "Imprimir solicitud firmada" : "Imprimir para revisión antes de firma"}">Imprimir solicitud</button>${isDraft ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}" ${isSigned ? "" : "disabled"}>Enviar</button>` : ""}</div>
+        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-view="${escapeHtml(request.id)}">Ver ficha</button>${isDraft ? `<button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">Editar</button>` : ""}${["borrador", "pendiente"].includes(statusKey) && !isSigned && isOdalizValenciaUser() ? `<button type="button" class="sign" data-customer-request-list-sign="${escapeHtml(request.id)}">Firmar electrónicamente</button>` : ""}<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="${isSigned ? "Imprimir solicitud firmada" : "Imprimir para revisión antes de firma"}">Imprimir solicitud</button>${isDraft ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}" ${isSigned ? "" : "disabled"}>Enviar</button>` : ""}</div>
       </article>`;
     }).join("") || `<div class="customer-request-list-empty"><strong>Sin solicitudes</strong><span>${requests.length ? "No hay coincidencias con esa búsqueda." : "Cuando guardes o envíes una solicitud, aparecerá aquí."}</span></div>`;
     rows.querySelectorAll("[data-customer-request-list-open]").forEach((button) => button.addEventListener("click", () => {
@@ -8973,7 +8973,7 @@ function openCustomerRequestListDialog() {
       try {
         await crmApi(`/customer-requests/${encodeURIComponent(request.id)}/sign`, { method: "POST", body: "{}" });
         openCustomerRequestListDialog();
-        alert("Solicitud firmada. Ya puede imprimirse y enviarse.");
+        alert("Solicitud firmada electrónicamente. Ya puede aprobarse para crear el cliente.");
       } catch (error) { alert(error.message || "No fue posible firmar la solicitud."); }
     }));
     rows.querySelectorAll("[data-customer-request-list-send]").forEach((button) => button.addEventListener("click", async () => {

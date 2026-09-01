@@ -6567,8 +6567,9 @@ class AppHandler(BaseHTTPRequestHandler):
                         if not is_odaliz_valencia_user(request_user):
                             self.send_json({"error": "Solo el usuario de Odaliz Valencia puede firmar esta solicitud"}, status=403)
                             return
-                        if text(request.get("status"), "Borrador").lower() != "borrador":
-                            self.send_json({"error": "Solo se puede firmar una solicitud en borrador"}, status=409)
+                        request_status = text(request.get("status"), "Borrador").lower()
+                        if request_status not in {"borrador", "pendiente"}:
+                            self.send_json({"error": "Solo se puede firmar una solicitud en borrador o pendiente"}, status=409)
                             return
                         if not text(request.get("commercialName")):
                             self.send_json({"error": "Complete y guarde el nombre comercial antes de firmar"}, status=400)
