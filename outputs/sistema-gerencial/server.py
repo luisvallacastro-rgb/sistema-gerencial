@@ -4935,6 +4935,42 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([dict(row) for row in rows])
             return
 
+        if urlparse(self.path).path == "/api/chat/events":
+            query = parse_qs(urlparse(self.path).query)
+            actor_id = text((query.get("userId") or [""])[0])
+            with connect() as conn:
+                actor = conn.execute("SELECT id FROM users WHERE id = ?", (actor_id,)).fetchone() if actor_id else None
+            if not actor:
+                self.send_json({"error": "Usuario no encontrado"}, status=404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.send_cors_headers()
+            self.end_headers()
+            try:
+                self.wfile.write((":" + (" " * 2048) + "\n\n").encode("utf-8"))
+                self.wfile.flush()
+                for _ in range(28):
+                    with connect() as conn:
+                        rows = conn.execute("""
+                            SELECT message.sender_id, sender.name AS sender_name, COUNT(*) AS unread_count
+                            FROM internal_chat_messages AS message
+                            JOIN users AS sender ON sender.id = message.sender_id
+                            WHERE message.recipient_id = ? AND message.read_at IS NULL
+                            GROUP BY message.sender_id, sender.name
+                            ORDER BY MAX(message.created_at) DESC
+                        """, (actor_id,)).fetchall()
+                    payload = json.dumps({"unread": [dict(row) for row in rows]}, ensure_ascii=True)
+                    self.wfile.write(f"data: {payload}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+                    time.sleep(2)
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                pass
+            return
+
         if urlparse(self.path).path == "/api/chat/unread":
             actor_id = text(self.headers.get("X-System-User-Id"))
             if not actor_id:

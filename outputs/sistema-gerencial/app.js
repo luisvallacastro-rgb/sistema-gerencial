@@ -778,6 +778,7 @@ let sessionRestored = false;
 let presenceTimer = null;
 let internalChatTimer = null;
 let internalChatUnreadTimer = null;
+let internalChatEventSource = null;
 let internalChatPeer = null;
 let internalChatUnreadCounts = {};
 const apiEnabled = window.location.protocol !== "file:";
@@ -12721,9 +12722,27 @@ async function loadInternalChatUnread() {
   if (!apiEnabled || !state.currentUser) return;
   try {
     const payload = await apiJson(`/api/chat/unread?_=${Date.now()}`);
-    internalChatUnreadCounts = Object.fromEntries((payload.unread || []).map((item) => [String(item.sender_id), Number(item.unread_count || 0)]));
-    renderPresenceList();
+    applyInternalChatUnread(payload.unread || []);
   } catch {}
+}
+
+function applyInternalChatUnread(unread = []) {
+  const previousTotal = Object.values(internalChatUnreadCounts).reduce((sum, count) => sum + Number(count || 0), 0);
+  internalChatUnreadCounts = Object.fromEntries(unread.map((item) => [String(item.sender_id), Number(item.unread_count || 0)]));
+  renderPresenceList();
+  const nextTotal = Object.values(internalChatUnreadCounts).reduce((sum, count) => sum + Number(count || 0), 0);
+  if (internalChatPeer && Number(internalChatUnreadCounts[String(internalChatPeer.user_id)] || 0) > 0) loadInternalChat();
+  if (nextTotal > previousTotal) document.querySelector(".presence-panel")?.setAttribute("open", "");
+}
+
+function startInternalChatEvents() {
+  internalChatEventSource?.close();
+  internalChatEventSource = null;
+  if (!apiEnabled || !state.currentUser || typeof EventSource === "undefined") return;
+  internalChatEventSource = new EventSource(`/api/chat/events?userId=${encodeURIComponent(state.currentUser.id)}&_=${Date.now()}`);
+  internalChatEventSource.addEventListener("message", (event) => {
+    try { applyInternalChatUnread(JSON.parse(event.data || "{}").unread || []); } catch {}
+  });
 }
 
 function openInternalChat(user) {
@@ -12818,6 +12837,7 @@ function startPresence() {
   if (internalChatUnreadTimer) clearInterval(internalChatUnreadTimer);
   sendPresence();
   loadInternalChatUnread();
+  startInternalChatEvents();
   presenceTimer = setInterval(sendPresence, 30000);
   internalChatUnreadTimer = setInterval(loadInternalChatUnread, 5000);
 }
@@ -12832,8 +12852,10 @@ function refreshRealtimeState() {
 function stopPresence() {
   if (presenceTimer) clearInterval(presenceTimer);
   if (internalChatUnreadTimer) clearInterval(internalChatUnreadTimer);
+  internalChatEventSource?.close();
   presenceTimer = null;
   internalChatUnreadTimer = null;
+  internalChatEventSource = null;
 }
 
 function persistSession(user) {
