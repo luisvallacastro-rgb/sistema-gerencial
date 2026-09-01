@@ -317,7 +317,7 @@ const state = {
   accountsReceivable: [],
   accountsReceivableQuery: "",
   accountsReceivablePage: 1,
-  accountsReceivableView: "list",
+  accountsReceivableView: "customers",
   accountsReceivableStatus: "pending",
   accountsReceivableYearFilter: "all",
   purchaseOrders: [],
@@ -6320,30 +6320,22 @@ function renderAccountsReceivableMatrix(rows) {
   sorted.forEach((item) => {
     const year = item.dueDate.slice(0, 4);
     const month = Number(item.dueDate.slice(5, 7));
-    const week = receivableISOWeek(item.dueDate);
     if (!years.has(year)) years.set(year, new Map());
     const months = years.get(year);
-    if (!months.has(month)) months.set(month, new Map());
-    const weeks = months.get(month);
-    const weekKey = `${week.year}-${week.week}`;
-    if (!weeks.has(weekKey)) weeks.set(weekKey, { ...week, items: [] });
-    weeks.get(weekKey).items.push(item);
+    if (!months.has(month)) months.set(month, []);
+    months.get(month).push(item);
   });
   if (!sorted.length) return `<div class="empty-state">No hay cuentas por cobrar para este filtro.</div>`;
   return `<div class="receivable-matrix">
     <div class="receivable-matrix-head"><span>Vencimiento</span><span>1.ª quincena</span><span>2.ª quincena</span><span>Total</span></div>
     ${[...years.entries()].map(([year, months], yearIndex) => {
-      const yearItems = [...months.values()].flatMap((weeks) => [...weeks.values()].flatMap((week) => week.items));
+      const yearItems = [...months.values()].flat();
       return `<details class="receivable-matrix-group level-year" ${yearIndex === 0 ? "open" : ""}>
         <summary>${receivableMatrixSummary(year, yearItems, "year")}</summary>
-        <div class="receivable-matrix-children">${[...months.entries()].map(([month, weeks]) => {
-          const monthItems = [...weeks.values()].flatMap((week) => week.items);
+        <div class="receivable-matrix-children">${[...months.entries()].map(([month, monthItems]) => {
           return `<details class="receivable-matrix-group level-month">
             <summary>${receivableMatrixSummary(monthNames[month - 1], monthItems, "month")}</summary>
-            <div class="receivable-matrix-children">${[...weeks.values()].map((week) => `<details class="receivable-matrix-group level-week">
-              <summary>${receivableMatrixSummary(`Semana ${week.week}`, week.items, "week", `${week.start} – ${week.end}`)}</summary>
-              ${renderReceivableWeekRows(week.items)}
-            </details>`).join("")}</div>
+            <div class="receivable-matrix-children">${renderReceivableWeekRows(monthItems)}</div>
           </details>`;
         }).join("")}</div>
       </details>`;
@@ -6473,7 +6465,6 @@ function renderAccountsReceivableCustomers() {
 }
 
 function renderAccountsReceivable() {
-  if (state.accountsReceivableView === "aging") return renderAccountsReceivableAging();
   if (state.accountsReceivableView === "customers") return renderAccountsReceivableCustomers();
   return renderAccountsReceivableList();
 }
