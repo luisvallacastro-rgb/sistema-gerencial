@@ -776,7 +776,7 @@ def reset_customer_master_for_first_approved_request(data):
 
 def repair_don_bosco_opportunity_name_propagation(conn, data):
     """Restore the historical Don Bosco name after the temporary DIDEA test rename."""
-    version = "repair-don-bosco-individual-rename-20260901-v3"
+    version = "repair-don-bosco-individual-rename-20260901-v4"
     if text(data.get("individualOpportunityNameRepairVersion")) == version:
         return False
     users = {text(user.get("id")): text(user.get("name")) for user in data.get("users", [])}
@@ -793,15 +793,17 @@ def repair_don_bosco_opportunity_name_propagation(conn, data):
     }
     if intended and text(intended.get("customerId")):
         don_bosco_customer_ids.add(text(intended.get("customerId")))
-    if intended and don_bosco_customer_ids:
+    if don_bosco_customer_ids:
         restored_customer_id = sorted(don_bosco_customer_ids)[0]
         affected = [item for item in opportunities
                     if crm_identity_key(item.get("company")) == "didea"
-                    and (item.get("id") == intended.get("id") or text(item.get("customerId")) in don_bosco_customer_ids)]
+                    and ((intended and item.get("id") == intended.get("id"))
+                         or text(item.get("customerId")) in don_bosco_customer_ids
+                         or "marjorie" in crm_identity_key(users.get(text(item.get("ownerId")), "")))]
         results = read_result_opportunities(conn)
         for item in affected:
             item["company"] = "Colegio Don Bosco"
-            if item.get("id") == intended.get("id"):
+            if intended and item.get("id") == intended.get("id"):
                 item["customerId"] = restored_customer_id
             synchronize_linked_company_name(conn, data, "Colegio Don Bosco", crm_opportunity_id=item.get("id"), result_items=results)
         for customer in data.get("customers", []):
