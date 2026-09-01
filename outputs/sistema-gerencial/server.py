@@ -1124,7 +1124,7 @@ def normalize_crm_customer_request(payload, existing=None):
     return request
 
 
-def duplicate_crm_customer(data, payload, current_id=""):
+def matching_crm_customer(data, payload, current_id=""):
     candidate = normalize_crm_customer(payload)
     candidate_tax_id = crm_identity_key(payload.get("taxId") or "")
     candidate_code = crm_identity_key(payload.get("customerCode") or "")
@@ -1136,9 +1136,9 @@ def duplicate_crm_customer(data, payload, current_id=""):
         if text(customer.get("id")) == current_id:
             continue
         if candidate_tax_id and crm_identity_key(customer.get("taxId")) == candidate_tax_id:
-            return "taxId"
+            return customer, "taxId"
         if candidate_code and crm_identity_key(customer.get("customerCode")) == candidate_code:
-            return "customerCode"
+            return customer, "customerCode"
         # El nombre solo identifica un duplicado cuando el nuevo registro no
         # cuenta con NIT ni código. Dos empresas pueden compartir nombre, pero
         # un NIT diferente debe permitir crear y asignar un ID independiente.
@@ -1148,8 +1148,12 @@ def duplicate_crm_customer(data, payload, current_id=""):
                 crm_identity_key(customer.get("legalName")),
             } - {""}
             if candidate_names & customer_names:
-                return "commercialName"
-    return ""
+                return customer, "commercialName"
+    return None, ""
+
+
+def duplicate_crm_customer(data, payload, current_id=""):
+    return matching_crm_customer(data, payload, current_id)[1]
 
 
 def inherit_crm_customer_fields(data, payload):
@@ -6620,15 +6624,27 @@ class AppHandler(BaseHTTPRequestHandler):
                             self.send_json({"error": "La solicitud debe estar firmada electrónicamente por Odaliz Valencia"}, status=409)
                             return
                         payload = {**request, **self.read_json()}
-                        if duplicate_crm_customer(data, payload):
-                            self.send_json({"error": "El cliente ya existe; revise nombre, NIT o código"}, status=409)
-                            return
-                        customer = {
-                            "id": f"customer-{int(time.time() * 1000)}",
-                            **normalize_crm_customer(payload),
-                            "clientNumber": next_crm_customer_number(data),
-                        }
-                        data.setdefault("customers", []).append(customer)
+                        customers = data.setdefault("customers", [])
+                        ensure_crm_customer_numbers(data)
+                        existing_customer, _duplicate_field = matching_crm_customer(data, payload)
+                        if existing_customer:
+                            customer = {
+                                **normalize_crm_customer(payload, existing_customer),
+                                "id": existing_customer["id"],
+                                "clientNumber": existing_customer.get("clientNumber") or next_crm_customer_number(data),
+                            }
+                            customer_index = next(
+                                position for position, item in enumerate(customers)
+                                if text(item.get("id")) == text(existing_customer.get("id"))
+                            )
+                            customers[customer_index] = customer
+                        else:
+                            customer = {
+                                "id": f"customer-{int(time.time() * 1000)}",
+                                **normalize_crm_customer(payload),
+                                "clientNumber": next_crm_customer_number(data),
+                            }
+                            customers.append(customer)
                         now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                         requests[index] = {
                             **request,
