@@ -82,6 +82,27 @@ def is_commercial_management_user(user):
         for character in unicodedata.normalize("NFD", text(user.get("name")).lower())
         if unicodedata.category(character) != "Mn"
     )
+    return (
+        user_id == "user-comercial"
+        or username == "comercializacion"
+        or email == "comercializacion@empresa.local"
+        or ("gerencia" in name and "comercial" in name)
+    )
+
+
+def is_customer_request_reviewer(user):
+    """Authorize the designated reviewer without broadening other CRM permissions."""
+    if is_commercial_management_user(user):
+        return True
+    identity = " ".join((
+        text((user or {}).get("id")), text((user or {}).get("name")),
+        text((user or {}).get("username")), text((user or {}).get("email")),
+    )).lower()
+    normalized = "".join(
+        character for character in unicodedata.normalize("NFD", identity)
+        if unicodedata.category(character) != "Mn"
+    )
+    return "esmeraldar" in normalized or all(token in normalized for token in ("judith", "esmeralda", "rivera"))
 
 
 def is_odaliz_valencia_user(user):
@@ -95,12 +116,6 @@ def is_odaliz_valencia_user(user):
         if unicodedata.category(character) != "Mn"
     )
     return "odaliz" in normalized and "valencia" in normalized
-    return (
-        user_id == "user-comercial"
-        or username == "comercializacion"
-        or email == "comercializacion@empresa.local"
-        or ("gerencia" in name and "comercial" in name)
-    )
 ALL_OPERATIONAL_PERMISSIONS = [
     f"{area}:{section}"
     for area in AREA_KEYS
@@ -6451,7 +6466,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_json(build_crm_view_model(data))
                         return
                     if action == "approve" and self.command == "POST":
-                        if not is_commercial_management_user(request_user):
+                        if not is_customer_request_reviewer(request_user):
                             self.send_json({"error": "No tiene permiso para aprobar solicitudes"}, status=403)
                             return
                         if text(request.get("status")).lower() != "pendiente":
@@ -6493,7 +6508,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         status = text(payload.get("status"), request.get("status") or "Borrador")
                         target_status = status.lower()
                         is_requester = text(request.get("requestedByUserId")) == text((request_user or {}).get("id"))
-                        can_manage = is_commercial_management_user(request_user)
+                        can_manage = is_customer_request_reviewer(request_user)
                         if current_status == "borrador" and not (is_requester or can_manage):
                             self.send_json({"error": "No tiene permiso para modificar esta solicitud"}, status=403)
                             return

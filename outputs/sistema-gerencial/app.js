@@ -8664,6 +8664,15 @@ function isOdalizValenciaUser() {
   return identity.includes("odaliz") && identity.includes("valencia");
 }
 
+function isCustomerRequestReviewer(user = state.currentUser) {
+  if (!user) return false;
+  const identity = normalizeKey(`${user.id || ""} ${user.name || ""} ${user.username || ""} ${user.email || ""}`);
+  return normalizeKey(user.role || "") === "gerencias"
+    || isAdminUser(user)
+    || identity.includes("esmeraldar")
+    || ["judith", "esmeralda", "rivera"].every((token) => identity.includes(token));
+}
+
 function customerRequestWithCurrentCustomerData(request = {}) {
   const customers = Array.isArray(state.crmData?.customers) ? state.crmData.customers : [];
   let customer = request.approvedCustomerId
@@ -8878,7 +8887,7 @@ function openCustomerRequestDialog(request = null, review = false, returnToList 
   const isPending = statusKey === "pendiente";
   const isValidated = isCustomerRequestValidated(current);
   const isSigned = isCustomerRequestSigned(current);
-  const canValidate = normalizeKey(state.currentUser?.role || "") === "gerencias" || isAdminUser();
+  const canValidate = isCustomerRequestReviewer();
   const canEdit = !viewOnly && (review ? (isPending && canValidate) : (!current.id || isDraft));
   customerRequestFields.forEach(([suffix]) => { dialog.querySelector(`#customerRequest${suffix}`).disabled = !canEdit; });
   dialog.querySelector("[data-customer-request-title]").textContent = viewOnly ? `Ficha ${current.requestNumber || "de solicitud"}` : (isValidated ? `Solicitud validada ${current.requestNumber || ""}` : (review ? `Validar ${current.requestNumber || "solicitud"}` : (current.id ? `Continuar ${current.requestNumber || "borrador"}` : "Nueva solicitud de cliente")));
