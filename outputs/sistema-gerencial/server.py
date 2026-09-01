@@ -792,6 +792,35 @@ def reset_customer_master_for_first_approved_request(data):
     return True
 
 
+def repair_don_bosco_opportunity_name_propagation(conn, data):
+    """Undo the accidental bulk rename while preserving the opportunity intentionally renamed DIDEA."""
+    version = "repair-don-bosco-individual-rename-20260901-v1"
+    if text(data.get("individualOpportunityNameRepairVersion")) == version:
+        return False
+    users = {text(user.get("id")): text(user.get("name")) for user in data.get("users", [])}
+    candidates = [item for item in data.get("opportunities", [])
+                  if crm_identity_key(item.get("company")) == "didea"
+                  and "gabriela" in crm_identity_key(users.get(text(item.get("ownerId")), ""))]
+    intended = next((item for item in candidates
+                     if text(item.get("nextDate") or item.get("deadline")) == "2026-07-31"
+                     and abs(float(item.get("estimatedAmount") or 0) - 23549.31) < 0.01), None)
+    if intended and len(candidates) > 1:
+        affected = [item for item in candidates if item.get("id") != intended.get("id")]
+        affected_customer_ids = {text(item.get("customerId")) for item in affected if text(item.get("customerId"))}
+        intended["customerId"] = ""
+        results = read_result_opportunities(conn)
+        for item in affected:
+            item["company"] = "Colegio Don Bosco"
+            synchronize_linked_company_name(conn, data, "Colegio Don Bosco", crm_opportunity_id=item.get("id"), result_items=results)
+        for customer in data.get("customers", []):
+            if text(customer.get("id")) in affected_customer_ids:
+                customer["commercialName"] = "Colegio Don Bosco"
+                customer["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        write_result_opportunities(conn, results)
+    data["individualOpportunityNameRepairVersion"] = version
+    return True
+
+
 def read_crm_data(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
     if not row:
@@ -806,6 +835,7 @@ def read_crm_data(conn):
         migrate_customer_request_draft_workflow(data)
         remove_empty_customer_request_drafts(data)
         reconcile_linked_opportunity_names(conn, data)
+        repair_don_bosco_opportunity_name_propagation(conn, data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -833,7 +863,8 @@ def read_crm_data(conn):
     request_workflow_changed = migrate_customer_request_draft_workflow(data)
     empty_request_cleanup_changed = remove_empty_customer_request_drafts(data)
     linked_names_changed = reconcile_linked_opportunity_names(conn, data)
-    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed
+    individual_name_repair_changed = repair_don_bosco_opportunity_name_propagation(conn, data)
+    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -5572,7 +5603,6 @@ class AppHandler(BaseHTTPRequestHandler):
                             item.get("company"),
                             crm_opportunity_id=item.get("crmOpportunityId"),
                             result_opportunity_id=item.get("id"),
-                            customer_id=item.get("customerId") or source.get("customerId"),
                             result_items=data,
                         )
                 write_result_opportunities(conn, data)
@@ -6740,7 +6770,6 @@ class AppHandler(BaseHTTPRequestHandler):
                                 data,
                                 opportunity.get("company"),
                                 crm_opportunity_id=item_id,
-                                customer_id=opportunity.get("customerId"),
                             )
                         write_crm_data(conn, data)
                         self.send_json(response_model())
