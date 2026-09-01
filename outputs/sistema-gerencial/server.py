@@ -3805,7 +3805,7 @@ def bank_availability_archive_history(conn):
     """Return the rolling 15-day archive used by the availability statistics view."""
     cutoff = (datetime.now(ZoneInfo("America/El_Salvador")).date() - timedelta(days=14)).isoformat()
     rows = conn.execute(
-        """SELECT id, snapshot_date, total, balances, completed_at
+        """SELECT id, snapshot_date, total, balances, report_data, signatures, completed_at
            FROM bank_daily_availability
            WHERE snapshot_date >= ?
            ORDER BY snapshot_date ASC, completed_at ASC""",
@@ -3817,9 +3817,58 @@ def bank_availability_archive_history(conn):
             balances = json.loads(row["balances"] or "{}")
         except (TypeError, json.JSONDecodeError):
             balances = {}
+        try:
+            report_data = json.loads(row["report_data"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            report_data = {}
+        if not report_data:
+            report_data = bank_availability_report_snapshot(conn, balances, float(row["total"] or 0))
+        try:
+            signatures = json.loads(row["signatures"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            signatures = {}
+        if not signatures:
+            signatures = bank_availability_signatures_payload(conn)
         history.append({"id": row["id"], "date": row["snapshot_date"], "total": round(float(row["total"] or 0), 2),
-                        "balances": balances if isinstance(balances, dict) else {}, "completedAt": row["completed_at"]})
+                        "balances": balances if isinstance(balances, dict) else {}, "reportData": report_data,
+                        "signatures": signatures, "completedAt": row["completed_at"]})
     return history
+
+
+def bank_availability_report_snapshot(conn, balances, total):
+    def state_value(key, fallback):
+        row = conn.execute("SELECT value FROM app_state WHERE key = ?", (key,)).fetchone()
+        try:
+            value = json.loads(row["value"] or "null") if row else fallback
+        except (TypeError, json.JSONDecodeError):
+            value = fallback
+        return value
+    def center_key(value):
+        return "".join(character for character in unicodedata.normalize("NFD", text(value).lower()) if unicodedata.category(character) != "Mn").strip()
+    expenses = state_value("pending_expenses", [])
+    checks = state_value("pending_checks", [])
+    adjustments = state_value("bank_availability_adjustments", {})
+    grouped = {}
+    for item in expenses if isinstance(expenses, list) else []:
+        key = center_key(item.get("costCenter"))
+        grouped[key] = grouped.get(key, 0) + float(item.get("amount") or 0)
+    balance_for = lambda *ids: sum(float((balances.get(account_id) or {}).get("balance") or 0) for account_id in ids)
+    checks_total = sum(float(item.get("amount") or 0) for item in checks if isinstance(item, dict)) if isinstance(checks, list) else 0
+    pending_deposits = float(adjustments.get("pendingDeposits") or 0) if isinstance(adjustments, dict) else 0
+    inventory = balance_for("bank-hipotecario")
+    reserves = balance_for("bank-azul-laboral", "bank-azul-fiscal", "bank-bac-ahorro")
+    commissions = grouped.get("comisiones", 0)
+    labor_reserve = grouped.get("reserva laboral", 0)
+    fiscal_reserve = grouped.get("reserva fiscal", 0)
+    other_expenses = sum(value for key, value in grouped.items() if key not in {"comisiones", "reserva laboral", "reserva fiscal"})
+    bank_balance = total - pending_deposits + checks_total
+    operating_balance = bank_balance - inventory - reserves
+    gross_availability = operating_balance - commissions - labor_reserve - fiscal_reserve
+    return {key: round(value, 2) for key, value in {"bankTotal": total, "pendingDeposits": pending_deposits,
+            "checksTotal": checks_total, "bankBalance": bank_balance, "inventory": inventory, "reserves": reserves,
+            "operatingBalance": operating_balance, "commissions": commissions, "laborReserve": labor_reserve,
+            "fiscalReserve": fiscal_reserve, "grossAvailability": gross_availability, "otherExpenses": other_expenses,
+            "netAvailability": gross_availability - other_expenses}.items()}
 
 
 def bank_daily_availability_status(conn):
@@ -3906,12 +3955,15 @@ def archive_bank_availability(conn):
         (json.dumps(cutoffs, ensure_ascii=False),),
     )
     snapshot_date = now.date().isoformat()
+    report_data = bank_availability_report_snapshot(conn, balances, availability["total"])
+    signatures = bank_availability_signatures_payload(conn)
     conn.execute(
-        """INSERT INTO bank_daily_availability (id, snapshot_date, total, balances, update_marks, completed_at)
-           VALUES (?, ?, ?, ?, '{}', ?)
+        """INSERT INTO bank_daily_availability (id, snapshot_date, total, balances, report_data, signatures, update_marks, completed_at)
+           VALUES (?, ?, ?, ?, ?, ?, '{}', ?)
            ON CONFLICT(snapshot_date) DO UPDATE SET total=excluded.total, balances=excluded.balances,
-             update_marks='{}', completed_at=excluded.completed_at, updated_at=CURRENT_TIMESTAMP""",
-        (str(uuid.uuid4()), snapshot_date, availability["total"], json.dumps(balances, ensure_ascii=False), now.isoformat(timespec="seconds")),
+             report_data=excluded.report_data, signatures=excluded.signatures, update_marks='{}', completed_at=excluded.completed_at, updated_at=CURRENT_TIMESTAMP""",
+        (str(uuid.uuid4()), snapshot_date, availability["total"], json.dumps(balances, ensure_ascii=False),
+         json.dumps(report_data, ensure_ascii=False), json.dumps(signatures, ensure_ascii=False), now.isoformat(timespec="seconds")),
     )
     conn.execute(
         """INSERT INTO app_state (key, value, updated_at) VALUES ('bank_daily_update_marks', '{}', CURRENT_TIMESTAMP)
@@ -4329,10 +4381,16 @@ def init_db():
             CREATE TABLE IF NOT EXISTS bank_daily_availability (
                 id TEXT PRIMARY KEY, snapshot_date TEXT NOT NULL UNIQUE, total REAL NOT NULL DEFAULT 0,
                 balances TEXT NOT NULL DEFAULT '{}', update_marks TEXT NOT NULL DEFAULT '{}',
+                report_data TEXT NOT NULL DEFAULT '{}', signatures TEXT NOT NULL DEFAULT '{}',
                 completed_at TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        availability_archive_columns = {row["name"] for row in conn.execute("PRAGMA table_info(bank_daily_availability)").fetchall()}
+        if "report_data" not in availability_archive_columns:
+            conn.execute("ALTER TABLE bank_daily_availability ADD COLUMN report_data TEXT NOT NULL DEFAULT '{}'")
+        if "signatures" not in availability_archive_columns:
+            conn.execute("ALTER TABLE bank_daily_availability ADD COLUMN signatures TEXT NOT NULL DEFAULT '{}'")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_daily_availability_date ON bank_daily_availability(snapshot_date DESC)")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS financial_orders (
