@@ -909,6 +909,7 @@ const purchaseOrderMonthList = document.querySelector("#purchaseOrderMonthList")
 const closePurchaseOrderMonthDialog = document.querySelector("#closePurchaseOrderMonthDialog");
 const opportunityDashboard = document.querySelector("#opportunityDashboard");
 const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
+const opportunitySellerReportBtn = document.querySelector("#opportunitySellerReportBtn");
 const newRiskBtn = document.querySelector("#newRiskBtn");
 const newManagementRequestBtn = document.querySelector("#newManagementRequestBtn");
 const goalsMatrixBtn = document.querySelector("#goalsMatrixBtn");
@@ -9310,6 +9311,18 @@ function renderCrmModule(submenuKey) {
 }
 
 
+function printCrmSellerValidationReport() {
+  const opportunities = crmData().opportunities.filter((item) => !isCrmArchivedOpportunity(item) && String(item.status || "Vigente").toLowerCase() !== "ganada").sort((a, b) => crmOwnerName(a.ownerId).localeCompare(crmOwnerName(b.ownerId), "es") || String(a.nextDate || "").localeCompare(String(b.nextDate || "")) || String(a.company || "").localeCompare(String(b.company || ""), "es"));
+  const groups = Object.entries(opportunities.reduce((result, item) => { const seller = crmOwnerName(item.ownerId); (result[seller] ||= []).push(item); return result; }, {}));
+  let rowNumber = 0;
+  const body = groups.map(([seller, items]) => { const subtotal = items.reduce((sum, item) => sum + Number(item.estimatedAmount || 0), 0); const rows = items.map((item) => `<tr><td>${++rowNumber}</td><td>${escapeHtml(formatDate(item.nextDate || item.deadline))}</td><td><strong>${escapeHtml(item.company || "Sin empresa")}</strong></td><td>${escapeHtml(item.stage?.name || opportunityStages[Math.max(0, Number(item.stageId || 1) - 1)] || "Sin etapa")}</td><td>${escapeHtml(item.temperature || "Sin definir")}</td><td class="money">${formatMoney(item.estimatedAmount || 0)}</td><td>${escapeHtml(item.nextAction || "—")}</td><td></td></tr>`).join(""); return `<tr class="seller"><td colspan="8"><strong>${escapeHtml(seller)}</strong><span>${items.length} oportunidades · ${formatMoney(subtotal)}</span></td></tr>${rows}<tr class="validation"><td colspan="8"><b>Validado por ${escapeHtml(seller)}</b><i></i><small>Firma</small><i></i><small>Fecha</small></td></tr>`; }).join("");
+  const total = opportunities.reduce((sum, item) => sum + Number(item.estimatedAmount || 0), 0);
+  const popup = window.open("", "_blank", "width=1200,height=900");
+  if (!popup) { alert("Permite las ventanas emergentes para generar el reporte."); return; }
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Validación de oportunidades por vendedor</title><style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#e9eef4;color:#172b43;font:11px Arial,sans-serif}.page{width:277mm;min-height:190mm;margin:18px auto;padding:13mm;background:#fff}.head{display:flex;justify-content:space-between;align-items:end;padding-bottom:13px;border-bottom:3px solid #188b78}.head h1{margin:0 0 4px;font-size:24px}.head p{margin:0;color:#64748b}.head strong{color:#087763;font-size:20px}.summary{display:flex;gap:24px;margin:14px 0;padding:11px 14px;background:#eef6f4;border-left:4px solid #188b78}.summary b{color:#087763}table{width:100%;border-collapse:collapse;font-size:9px}th{padding:8px;background:#173b62;color:#fff;text-align:left}td{padding:7px 8px;border-bottom:1px solid #d4dee8}.money{text-align:right;font-weight:800;white-space:nowrap}.seller td{padding:9px 11px;background:#dcefe9;border-top:2px solid #188b78;color:#126452}.seller span{float:right;font-weight:800}.validation td{height:48px;background:#f7fafb}.validation i{display:inline-block;width:145px;margin:0 8px;border-bottom:1px solid #405169}.actions{position:fixed;right:20px;bottom:20px}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#167b68;color:#fff;font-weight:800}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0}.actions{display:none}tr{break-inside:avoid}}</style></head><body><main class="page"><header class="head"><div><h1>Validación de oportunidades por vendedor</h1><p>Oportunidades vigentes ordenadas por responsable</p></div><strong>KONFI</strong></header><section class="summary"><span><b>${opportunities.length}</b> oportunidades</span><span>Monto total: <b>${formatMoney(total)}</b></span><span>Generado: ${escapeHtml(new Date().toLocaleString("es-SV"))}</span></section><table><thead><tr><th>#</th><th>Fecha</th><th>Empresa</th><th>Etapa</th><th>Temperatura</th><th>Monto</th><th>Próxima acción</th><th>Observación del vendedor</th></tr></thead><tbody>${body || `<tr><td colspan="8">No hay oportunidades vigentes.</td></tr>`}</tbody></table></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button></nav></body></html>`);
+  popup.document.close();
+}
+
 function opportunityManagementReportRows(options = {}) {
   const { active, history } = opportunityCycleRows(getOpportunitySubmenu().items);
   const query = normalizeKey(options.query || "");
@@ -10043,6 +10056,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("crm-opportunity-tabs");
   commercialPanel.classList.remove("bank-availability-mode");
   opportunityTotalAmount.classList.add("hidden");
+  opportunitySellerReportBtn?.classList.add("hidden");
   commercialSubmenuTitle.classList.remove("hidden");
   financialOrdersViewTabs?.classList.add("hidden");
   accountsReceivableViewTabs?.classList.add("hidden");
@@ -10233,6 +10247,7 @@ function renderCommercialSubmenu(area) {
       );
     }
     newOpportunityBtn.classList.toggle("hidden", !isCrmOpportunityView);
+    opportunitySellerReportBtn?.classList.toggle("hidden", !isCrmOpportunityView || state.crmOpportunitiesView !== "list");
     crmOpportunitiesViewTabs?.classList.toggle("hidden", !isCrmOpportunityView);
     if (isCrmOpportunityView) {
       crmOpportunitiesViewTabs?.querySelectorAll("[data-crm-opportunities-view]").forEach((button) => {
@@ -13780,6 +13795,7 @@ newOpportunityBtn.addEventListener("click", () => {
     opportunityDialog.showModal();
   }
 });
+opportunitySellerReportBtn?.addEventListener("click", printCrmSellerValidationReport);
 
 closeOpportunityDialog.addEventListener("click", closeOpportunityForm);
 cancelOpportunityEdit.addEventListener("click", closeOpportunityForm);
