@@ -1126,18 +1126,29 @@ def normalize_crm_customer_request(payload, existing=None):
 
 def duplicate_crm_customer(data, payload, current_id=""):
     candidate = normalize_crm_customer(payload)
-    keys = {
-        "commercialName": crm_identity_key(candidate.get("commercialName")),
-        "legalName": crm_identity_key(candidate.get("legalName")),
-        "taxId": crm_identity_key(candidate.get("taxId")),
-        "customerCode": crm_identity_key(candidate.get("customerCode")),
-    }
+    candidate_tax_id = crm_identity_key(payload.get("taxId") or "")
+    candidate_code = crm_identity_key(payload.get("customerCode") or "")
+    candidate_names = {
+        crm_identity_key(candidate.get("commercialName")),
+        crm_identity_key(candidate.get("legalName")),
+    } - {""}
     for customer in data.get("customers", []):
         if text(customer.get("id")) == current_id:
             continue
-        for field, value in keys.items():
-            if value and crm_identity_key(customer.get(field)) == value:
-                return field
+        if candidate_tax_id and crm_identity_key(customer.get("taxId")) == candidate_tax_id:
+            return "taxId"
+        if candidate_code and crm_identity_key(customer.get("customerCode")) == candidate_code:
+            return "customerCode"
+        # El nombre solo identifica un duplicado cuando el nuevo registro no
+        # cuenta con NIT ni código. Dos empresas pueden compartir nombre, pero
+        # un NIT diferente debe permitir crear y asignar un ID independiente.
+        if not candidate_tax_id and not candidate_code:
+            customer_names = {
+                crm_identity_key(customer.get("commercialName")),
+                crm_identity_key(customer.get("legalName")),
+            } - {""}
+            if candidate_names & customer_names:
+                return "commercialName"
     return ""
 
 
