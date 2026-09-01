@@ -3126,6 +3126,17 @@ def grant_johanna_minutes_permissions(conn):
         )
 
 
+def grant_availability_signer_permissions(conn):
+    signer_names = {"guadalupe herrera", "claudia merino", "luis valladares"}
+    for row in conn.execute("SELECT id, name, role, permissions FROM users").fetchall():
+        if text(row["name"]).lower() not in signer_names:
+            continue
+        permissions = normalize_permissions(row["permissions"], row["role"])
+        if "financiera:disponibilidad" not in permissions:
+            permissions.append("financiera:disponibilidad")
+            conn.execute("UPDATE users SET permissions = ?, permissions_customized = 1 WHERE id = ?", (json.dumps(permissions), row["id"]))
+
+
 def correct_marjorie_account_email_once(conn):
     """Correct Marjorie's login email without changing access or CRM ownership."""
     migration_key = "maintenance.correct-marjorie-email.2026-08-25.v1"
@@ -3808,6 +3819,13 @@ def bank_daily_availability_status(conn):
     return {"latest": latest_payload, "progress": {"updated": len(marks), "total": len(account_ids), "accountIds": list(marks), "marks": marks}}
 
 
+def clear_bank_availability_signatures(conn):
+    conn.execute(
+        """INSERT INTO app_state (key, value, updated_at) VALUES ('bank_availability_signatures', '{}', CURRENT_TIMESTAMP)
+           ON CONFLICT(key) DO UPDATE SET value='{}', updated_at=CURRENT_TIMESTAMP"""
+    )
+
+
 def register_bank_daily_update(conn, account_id):
     """Mark one account updated; the availability is closed only by an explicit archive."""
     account_ids = [row["id"] for row in conn.execute("SELECT id FROM bank_accounts WHERE active = 1 ORDER BY id").fetchall()]
@@ -3821,6 +3839,7 @@ def register_bank_daily_update(conn, account_id):
     now = datetime.now(ZoneInfo("America/El_Salvador"))
     marks = {key: value for key, value in marks.items() if key in account_ids}
     marks[account_id] = now.isoformat(timespec="seconds")
+    clear_bank_availability_signatures(conn)
     conn.execute(
         """INSERT INTO app_state (key, value, updated_at) VALUES ('bank_daily_update_marks', ?, CURRENT_TIMESTAMP)
            ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP""",
@@ -3877,7 +3896,17 @@ def archive_bank_availability(conn):
         """INSERT INTO app_state (key, value, updated_at) VALUES ('bank_daily_update_marks', '{}', CURRENT_TIMESTAMP)
            ON CONFLICT(key) DO UPDATE SET value='{}', updated_at=CURRENT_TIMESTAMP"""
     )
+    clear_bank_availability_signatures(conn)
     return {"archivedAt": now.isoformat(timespec="seconds"), "cutoffs": cutoffs, "availability": bank_availability_payload(conn)}
+
+
+def bank_availability_signatures_payload(conn):
+    row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_availability_signatures'").fetchone()
+    try:
+        signatures = json.loads(row["value"] or "{}") if row else {}
+    except (TypeError, json.JSONDecodeError):
+        signatures = {}
+    return signatures if isinstance(signatures, dict) else {}
 
 
 def bank_report_baseline(conn, account_id, latest_record_date):
@@ -4562,6 +4591,7 @@ def init_db():
                 upsert_user(conn, user)
         migrate_consolidated_permissions(conn)
         grant_johanna_minutes_permissions(conn)
+        grant_availability_signer_permissions(conn)
         seed_accounts_receivable(conn)
         repair_receivable_due_dates(conn)
         seed_bank_availability(conn)
@@ -4724,6 +4754,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_json(bank_availability_report_payload(conn))
             return
 
+        if self.path == "/api/bank-availability/signatures":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            with connect() as conn:
+                self.send_json(bank_availability_signatures_payload(conn))
+            return
+
         if self.path == "/api/pending-expenses":
             if not self.require_permission("financiera:disponibilidad"):
                 return
@@ -4875,6 +4912,26 @@ class AppHandler(BaseHTTPRequestHandler):
             with connect() as conn:
                 result = archive_bank_availability(conn)
             self.send_json({"ok": True, **result}, status=201)
+            return
+
+        if self.path == "/api/bank-availability/signatures":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            signer_roles = {"guadalupe herrera": ("prepared", "Elaborado por"), "claudia merino": ("reviewed", "Revisado por"), "luis valladares": ("authorized", "Autorizado por")}
+            with connect() as conn:
+                actor = conn.execute("SELECT id, name FROM users WHERE id = ?", (actor_id,)).fetchone()
+                signer = signer_roles.get(text(actor["name"]).lower()) if actor else None
+                if not signer:
+                    self.send_json({"error": "Tu usuario no está autorizado para firmar esta disponibilidad"}, status=403)
+                    return
+                signatures = bank_availability_signatures_payload(conn)
+                key, role_label = signer
+                if key not in signatures:
+                    now = datetime.now(ZoneInfo("America/El_Salvador"))
+                    signatures[key] = {"signed": True, "signerName": actor["name"], "signerRole": role_label, "signedAt": now.isoformat(timespec="seconds"), "signedByUserId": actor["id"], "signatureCode": f"KONFI-DISP-{key.upper()}-{now.strftime('%Y%m%d%H%M%S')}"}
+                    conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('bank_availability_signatures', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP""", (json.dumps(signatures, ensure_ascii=False),))
+            self.send_json({"ok": True, "signatures": signatures}, status=201)
             return
 
         path = self.path.split("?", 1)[0]
@@ -5256,6 +5313,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 clean.append({"id": text(item.get("id")) or str(uuid.uuid4()), "costCenter": text(item.get("costCenter")), "date": text(item.get("date")), "detail": text(item.get("detail")), "amount": amount})
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('pending_expenses', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
+                clear_bank_availability_signatures(conn)
             self.send_json({"ok": True, "items": clean})
             return
 
@@ -5280,6 +5338,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 clean.append({"id": text(item.get("id")) or str(uuid.uuid4()), "concept": text(item.get("concept")), "date": text(item.get("date")), "checkNumber": text(item.get("checkNumber")), "bank": text(item.get("bank")), "amount": round(amount, 2)})
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('pending_checks', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
+                clear_bank_availability_signatures(conn)
             self.send_json({"ok": True, "items": clean})
             return
 
@@ -5295,6 +5354,7 @@ class AppHandler(BaseHTTPRequestHandler):
             payload = {"pendingDeposits": pending_deposits}
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('bank_availability_adjustments', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""", (json.dumps(payload, ensure_ascii=False),))
+                clear_bank_availability_signatures(conn)
             self.send_json({"ok": True, **payload})
             return
 

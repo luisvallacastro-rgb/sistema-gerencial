@@ -302,6 +302,7 @@ const state = {
   bankAvailability: { accounts: [], total: 0 },
   bankAvailabilityView: "data",
   bankPendingDeposits: 0,
+  bankAvailabilitySignatures: {},
   pendingExpenses: [],
   pendingChecks: [],
   bankAvailabilityQuery: "",
@@ -5394,12 +5395,13 @@ function wirePurchaseOrders() {
 
 function loadBankAvailability() {
   if (!apiEnabled) return Promise.resolve(state.bankAvailability);
-  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => []), apiJson("/api/pending-checks").catch(() => []), apiJson("/api/bank-availability-adjustments").catch(() => ({ pendingDeposits: 0 }))]).then(([payload, expenses, checks, adjustments]) => {
+  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => []), apiJson("/api/pending-checks").catch(() => []), apiJson("/api/bank-availability-adjustments").catch(() => ({ pendingDeposits: 0 })), apiJson("/api/bank-availability/signatures").catch(() => ({}))]).then(([payload, expenses, checks, adjustments, signatures]) => {
     state.bankAvailability = payload && Array.isArray(payload.accounts) ? payload : { accounts: [], total: 0 };
     state.pendingExpenses = Array.isArray(expenses) && expenses.length ? expenses : pendingExpenseSeed();
     if (!expenses.length) savePendingExpenses().catch(() => {});
     state.pendingChecks = Array.isArray(checks) ? checks : [];
     state.bankPendingDeposits = Number(adjustments?.pendingDeposits || 0);
+    state.bankAvailabilitySignatures = signatures || {};
     if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
     return state.bankAvailability;
   }).catch(() => state.bankAvailability);
@@ -9471,6 +9473,11 @@ function renderBankAvailabilityDerivedReport(accounts, total) {
 }
 
 function printBankAvailabilityVerticalReport() {
+  const signatures = state.bankAvailabilitySignatures || {};
+  if (!["prepared", "reviewed", "authorized"].every((key) => signatures[key]?.signed)) {
+    alert("La disponibilidad debe contar con las tres firmas electrónicas antes de imprimirse.");
+    return;
+  }
   const accounts = state.bankAvailability.accounts || [];
   const total = Number(state.bankAvailability.total || 0);
   const balanceFor = (...ids) => accounts.filter((item) => ids.includes(item.id)).reduce((sum, item) => sum + Number(item.latest?.balance || 0), 0);
@@ -9516,7 +9523,18 @@ function printBankAvailabilityVerticalReport() {
     .actions button{background:linear-gradient(90deg,#176b62,#159078);box-shadow:0 8px 22px rgba(14,78,70,.25)}
     @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{border:0;box-shadow:none}.head{margin:-15mm -15mm 0}}
   </style>`);
+  popup.document.querySelector(".signatures").innerHTML = ["prepared", "reviewed", "authorized"].map((key) => {
+    const signature = signatures[key];
+    return `<div class="signature"><strong>${escapeHtml(signature.signerName)}</strong><span>${escapeHtml(signature.signerRole)}</span><small>Firma electrónica ${escapeHtml(signature.signatureCode)}<br>${escapeHtml(new Date(signature.signedAt).toLocaleString("es-SV"))}</small></div>`;
+  }).join("");
   popup.document.close();
+}
+
+function bankAvailabilitySignatureMarkup() {
+  const definitions = [{ key:"prepared", name:"Guadalupe Herrera", role:"Elaborado por" }, { key:"reviewed", name:"Claudia Merino", role:"Revisado por" }, { key:"authorized", name:"Luis Valladares", role:"Autorizado por" }];
+  const signatures = state.bankAvailabilitySignatures || {};
+  const currentName = normalizeKey(state.currentUser?.name || "");
+  return `<section class="availability-signatures"><header><div><span>Firmas electrónicas</span><strong>${definitions.filter((item) => signatures[item.key]?.signed).length} de 3 firmas registradas</strong></div><small>La impresión se habilita al completar las tres firmas.</small></header><div>${definitions.map((item) => { const signature = signatures[item.key]; const canSign = currentName === normalizeKey(item.name) && !signature?.signed; return `<article class="${signature?.signed ? "is-signed" : ""}"><i>${signature?.signed ? "✓" : "○"}</i><div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.role)}</span>${signature?.signed ? `<small>${escapeHtml(signature.signatureCode)} · ${escapeHtml(new Date(signature.signedAt).toLocaleString("es-SV"))}</small>` : `<small>Pendiente de firma</small>`}</div>${canSign ? `<button type="button" data-bank-availability-sign>Firmar electrónicamente</button>` : ""}</article>`; }).join("")}</div></section>`;
 }
 
 function renderBankAvailability() {
@@ -9608,12 +9626,12 @@ const pendingExpenseCostCenters = [
 
 function savePendingExpenses() {
   if (!apiEnabled) return Promise.resolve(state.pendingExpenses);
-  return apiJson("/api/pending-expenses", { method:"PUT", body:JSON.stringify({ items:state.pendingExpenses }) }).then((response) => { state.pendingExpenses = response.items || state.pendingExpenses; return state.pendingExpenses; });
+  return apiJson("/api/pending-expenses", { method:"PUT", body:JSON.stringify({ items:state.pendingExpenses }) }).then((response) => { state.pendingExpenses = response.items || state.pendingExpenses; state.bankAvailabilitySignatures = {}; return state.pendingExpenses; });
 }
 
 function savePendingChecks() {
   if (!apiEnabled) return Promise.resolve(state.pendingChecks);
-  return apiJson("/api/pending-checks", { method:"PUT", body:JSON.stringify({ items:state.pendingChecks }) }).then((response) => { state.pendingChecks = response.items || []; return state.pendingChecks; });
+  return apiJson("/api/pending-checks", { method:"PUT", body:JSON.stringify({ items:state.pendingChecks }) }).then((response) => { state.pendingChecks = response.items || []; state.bankAvailabilitySignatures = {}; return state.pendingChecks; });
 }
 
 function toDateInputValue(value) {
@@ -9789,6 +9807,7 @@ async function openBankMaintenance(accountId) {
       try {
         const response = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records/bulk`, { method: "POST", body: JSON.stringify({ rows, createdBy: state.currentUser?.name || "Sistema Gerencial" }) });
         state.bankAvailability = response.availability;
+        state.bankAvailabilitySignatures = {};
         const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`);
         records.splice(0, records.length, ...refreshed);
         render();
@@ -9804,7 +9823,7 @@ async function openBankMaintenance(accountId) {
       const date = values["Fecha Transaccion"] || values.Fecha; const balance = refreshCalculatedBalance(); values[account.balanceField] = balance;
       const path = editing ? `/api/bank-availability/records/${encodeURIComponent(editing.id)}` : `/api/bank-availability/${encodeURIComponent(account.id)}/records`;
       const response = await apiJson(path, { method: editing ? "PUT" : "POST", body: JSON.stringify({ date, balance, data: values, createdBy: state.currentUser?.name || "Sistema Gerencial" }) });
-      state.bankAvailability = response.availability; const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`); records.splice(0, records.length, ...refreshed); render();
+      state.bankAvailability = response.availability; state.bankAvailabilitySignatures = {}; const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`); records.splice(0, records.length, ...refreshed); render();
     });
   };
   document.body.append(dialog); dialog.addEventListener("close", () => { dialog.remove(); renderCommercialSubmenu(areas.financiera); }, { once: true }); render(); dialog.showModal();
@@ -9819,7 +9838,7 @@ function openPendingExpenseSettlement(expenseIds, parentDialog) {
   dialog.innerHTML = `<form class="expense-settlement"><header><div><span>Liquidación bancaria</span><h2>Confirmar pago de gastos</h2><p>${items.length} movimientos seleccionados</p></div><button type="button" data-settlement-close>×</button></header><div class="expense-settlement-summary"><article><span>Total a liquidar</span><strong>${formatMoney(total)}</strong></article><article><span>Cuenta seleccionada</span><strong data-settlement-balance>—</strong><small data-settlement-result>Selecciona una cuenta</small></article></div><div class="expense-settlement-fields"><label><span>Cuenta bancaria</span><select name="accountId" required><option value="">Seleccionar banco...</option>${accounts.map((account) => `<option value="${escapeHtml(account.id)}" data-balance="${Number(account.latest?.balance || 0)}">${escapeHtml(account.bank)} · ${formatMoney(account.latest?.balance || 0)}</option>`).join("")}</select></label><label><span>Fecha de liquidación</span><input name="date" type="date" required value="${new Date().toISOString().slice(0,10)}"></label><label><span>Referencia</span><input name="reference" placeholder="Cheque, transferencia o comprobante"></label><label class="wide"><span>Descripción bancaria</span><input name="description" value="Liquidación de ${items.length} gastos pendientes"></label></div><div class="expense-settlement-list">${items.map((item) => `<article><div><strong>${escapeHtml(item.costCenter)}</strong><small>${escapeHtml(item.date)} · ${escapeHtml(item.detail)}</small></div><b>${formatMoney(item.amount)}</b></article>`).join("")}</div><footer><button type="button" data-settlement-close>Cancelar</button><button type="submit">Confirmar liquidación</button></footer></form>`;
   const refresh = () => { const option = dialog.querySelector("select").selectedOptions[0]; const balance = Number(option?.dataset.balance || 0); dialog.querySelector("[data-settlement-balance]").textContent = option?.value ? formatMoney(balance) : "—"; const result = dialog.querySelector("[data-settlement-result]"); result.textContent = option?.value ? `Saldo resultante: ${formatMoney(balance-total)}` : "Selecciona una cuenta"; result.classList.toggle("is-danger", option?.value && balance < total); };
   dialog.querySelector("select").addEventListener("change", refresh); dialog.querySelectorAll("[data-settlement-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
-  dialog.querySelector("form").addEventListener("submit", async (event) => { event.preventDefault(); const button = event.submitter; button.disabled = true; try { const values = Object.fromEntries(new FormData(event.currentTarget).entries()); const response = await apiJson("/api/pending-expenses/settle", { method:"POST", body:JSON.stringify({ ...values, expenseIds, createdBy:state.currentUser?.name || "Sistema Gerencial" }) }); state.pendingExpenses = response.items || []; state.bankAvailability = response.availability || state.bankAvailability; dialog.close(); parentDialog.close(); renderCommercialSubmenu(areas.financiera); } catch (error) { alert(error.message || "No se pudo completar la liquidación."); button.disabled = false; } });
+  dialog.querySelector("form").addEventListener("submit", async (event) => { event.preventDefault(); const button = event.submitter; button.disabled = true; try { const values = Object.fromEntries(new FormData(event.currentTarget).entries()); const response = await apiJson("/api/pending-expenses/settle", { method:"POST", body:JSON.stringify({ ...values, expenseIds, createdBy:state.currentUser?.name || "Sistema Gerencial" }) }); state.pendingExpenses = response.items || []; state.bankAvailability = response.availability || state.bankAvailability; state.bankAvailabilitySignatures = {}; dialog.close(); parentDialog.close(); renderCommercialSubmenu(areas.financiera); } catch (error) { alert(error.message || "No se pudo completar la liquidación."); button.disabled = false; } });
   document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once:true }); dialog.showModal(); refresh();
 }
 
@@ -9901,6 +9920,7 @@ function wireBankAvailability() {
     try {
       const response = await apiJson("/api/bank-availability/archive", { method: "POST", body: "{}" });
       state.bankAvailability = response.availability || state.bankAvailability;
+      state.bankAvailabilitySignatures = {};
       alert("Disponibilidad archivada. El próximo reporte partirá de estos saldos.");
       renderCommercialSubmenu(areas.financiera);
     } catch (error) {
@@ -9912,6 +9932,22 @@ function wireBankAvailability() {
   document.querySelector("[data-bank-availability-print]")?.addEventListener("click", printBankAvailabilityVerticalReport);
   const remittancesSaveButton = document.querySelector("[data-bank-pending-deposits-save]");
   const reportFooter = document.querySelector(".availability-derived-report > footer");
+  if (reportFooter) reportFooter.insertAdjacentHTML("beforebegin", bankAvailabilitySignatureMarkup());
+  const printAvailabilityButton = document.querySelector("[data-bank-availability-print]");
+  if (printAvailabilityButton) {
+    const complete = ["prepared", "reviewed", "authorized"].every((key) => state.bankAvailabilitySignatures?.[key]?.signed);
+    printAvailabilityButton.disabled = !complete;
+    printAvailabilityButton.title = complete ? "Imprimir disponibilidad firmada" : "Pendiente de las tres firmas electrónicas";
+  }
+  document.querySelector("[data-bank-availability-sign]")?.addEventListener("click", async (event) => {
+    if (!confirm(`¿Confirmas tu firma electrónica como ${state.currentUser?.name || "usuario"}?`)) return;
+    const button = event.currentTarget; button.disabled = true;
+    try {
+      const response = await apiJson("/api/bank-availability/signatures", { method:"POST", body:"{}" });
+      state.bankAvailabilitySignatures = response.signatures || {};
+      renderCommercialSubmenu(areas.financiera);
+    } catch (error) { alert(error.message || "No fue posible registrar la firma electrónica."); button.disabled = false; }
+  });
   const bankReportButton = reportFooter?.querySelector("[data-bank-availability-report]");
   if (remittancesSaveButton && reportFooter) {
     remittancesSaveButton.textContent = "Guardar remesas";
@@ -9926,6 +9962,7 @@ function wireBankAvailability() {
     try {
       const response = await apiJson("/api/bank-availability-adjustments", { method: "PUT", body: JSON.stringify({ pendingDeposits }) });
       state.bankPendingDeposits = Number(response.pendingDeposits || 0);
+      state.bankAvailabilitySignatures = {};
       renderCommercialSubmenu(areas.financiera);
     } catch (error) {
       alert(error.message || "No se pudo guardar el monto de remesas pendientes.");
