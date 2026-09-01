@@ -12727,12 +12727,9 @@ async function loadInternalChatUnread() {
 }
 
 function applyInternalChatUnread(unread = []) {
-  const previousTotal = Object.values(internalChatUnreadCounts).reduce((sum, count) => sum + Number(count || 0), 0);
   internalChatUnreadCounts = Object.fromEntries(unread.map((item) => [String(item.sender_id), Number(item.unread_count || 0)]));
   renderPresenceList();
-  const nextTotal = Object.values(internalChatUnreadCounts).reduce((sum, count) => sum + Number(count || 0), 0);
   if (internalChatPeer && Number(internalChatUnreadCounts[String(internalChatPeer.user_id)] || 0) > 0) loadInternalChat();
-  if (nextTotal > previousTotal) document.querySelector(".presence-panel")?.setAttribute("open", "");
 }
 
 function startInternalChatEvents() {
@@ -12793,6 +12790,15 @@ function renderPresenceList() {
         }]
       : [];
   onlineCount.textContent = String(users.length);
+  const unreadTotal = Object.values(internalChatUnreadCounts).reduce((sum, count) => sum + Number(count || 0), 0);
+  const unreadTotalElement = document.querySelector("#chatUnreadTotal");
+  if (unreadTotalElement) unreadTotalElement.textContent = String(unreadTotal);
+  const presencePanel = document.querySelector(".presence-panel");
+  presencePanel?.classList.toggle("has-chat-unread", unreadTotal > 0);
+  const presenceHead = presencePanel?.querySelector(".presence-head");
+  const presenceLabel = unreadTotal ? `${unreadTotal} mensajes pendientes. Abrir usuarios conectados` : "Usuarios conectados";
+  presenceHead?.setAttribute("aria-label", presenceLabel);
+  presenceHead?.setAttribute("title", presenceLabel);
   activeUserStatus?.classList.toggle("hidden", !state.currentUser);
   if (!users.length) {
     presenceList.innerHTML = `<span class="presence-empty">Sin usuarios activos</span>`;
@@ -12805,7 +12811,6 @@ function renderPresenceList() {
       ${Number(internalChatUnreadCounts[String(user.user_id)] || 0) ? `<b class="presence-chat-unread" title="Mensajes nuevos">${Number(internalChatUnreadCounts[String(user.user_id)])}</b>` : ""}
     </button>
   `).join("");
-  document.querySelector(".presence-panel")?.classList.toggle("has-chat-unread", Object.values(internalChatUnreadCounts).some((count) => Number(count) > 0));
   presenceList.querySelectorAll("[data-presence-chat-user]").forEach((button) => button.addEventListener("click", () => {
     const user = users.find((item) => String(item.user_id) === String(button.dataset.presenceChatUser));
     if (user) openInternalChat(user);

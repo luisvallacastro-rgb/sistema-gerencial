@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>KMI</title>
-    <link rel="stylesheet" href="styles.css?v=20260901-internal-chat-notifications-v235">
+    <link rel="stylesheet" href="styles.css?v=20260901-chat-envelope-indicator-v236">
     <link id="lightThemeStylesheet" rel="stylesheet" href="light-theme.css?v=20260803-finance-signature-v44" disabled>
   </head>
   <body>
@@ -107,6 +107,7 @@
           <summary class="presence-head" aria-label="Usuarios conectados" title="Ver usuarios conectados">
             <i aria-hidden="true"></i>
             <span id="onlineCount">0</span>
+            <b class="presence-chat-summary" id="chatUnreadIndicator" aria-label="Mensajes pendientes" title="Mensajes pendientes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg><em id="chatUnreadTotal">0</em></b>
           </summary>
           <div class="presence-list" id="presenceList">
             <span class="presence-empty">Sin usuarios activos</span>
@@ -799,7 +800,7 @@
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
     <script src="financial-orders-additions.js?v=20260720-pedidos-270-275-v1"></script>
     <script src="financial-department-locations.js?v=20260808-v1"></script>
-    <script src="app.js?v=20260901-chat-events-v330"></script>
+    <script src="app.js?v=20260901-chat-envelope-indicator-v331"></script>
   <script src="quotation-print-guard.js?v=1"></script>
   <script src="quotation-print-layout-fix.js?v=1"></script>
 <script>
