@@ -5639,23 +5639,24 @@ class AppHandler(BaseHTTPRequestHandler):
             activities = {"Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico", "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido", "Preparación de oferta", "Gestión de cobro"}
             clean = []
             for item in items:
-                if not isinstance(item, dict) or not text(item.get("seller")) or not text(item.get("prospect")):
+                if not isinstance(item, dict) or not text(item.get("seller")):
                     continue
                 start_date = text(item.get("startDate")) or text(item.get("date"))
                 end_date = text(item.get("endDate")) or start_date
                 if not start_date or end_date < start_date:
                     continue
-                source_events = item.get("events") if isinstance(item.get("events"), list) else [{"date": text(item.get("date")) or start_date, "activity": item.get("activity"), "startTime": item.get("startTime") or "07:00", "endTime": item.get("endTime") or "08:00", "result": item.get("result")}]
+                source_events = item.get("events") if isinstance(item.get("events"), list) else [{"date": text(item.get("date")) or start_date, "prospect": item.get("prospect"), "activity": item.get("activity"), "startTime": item.get("startTime") or "07:00", "endTime": item.get("endTime") or "08:00", "result": item.get("result")}]
                 clean_events = []
                 for event in source_events:
                     if not isinstance(event, dict): continue
                     event_date, activity = text(event.get("date")), text(event.get("activity"))
+                    prospect = text(event.get("prospect")) or text(item.get("prospect"))
                     start_time, end_time = text(event.get("startTime")), text(event.get("endTime"))
                     valid_shift = (("07:00" <= start_time < end_time <= "12:00") or ("13:00" <= start_time < end_time <= "17:00"))
-                    if not (start_date <= event_date <= end_date) or activity not in activities or not valid_shift: continue
-                    clean_events.append({"id": text(event.get("id")) or str(uuid.uuid4()), "date": event_date, "activity": activity, "startTime": start_time, "endTime": end_time, "result": text(event.get("result"))})
+                    if not prospect or not (start_date <= event_date <= end_date) or activity not in activities or not valid_shift: continue
+                    clean_events.append({"id": text(event.get("id")) or str(uuid.uuid4()), "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "result": text(event.get("result"))})
                 if not clean_events: continue
-                clean.append({"id": text(item.get("id")) or str(uuid.uuid4()), "startDate": start_date, "endDate": end_date, "seller": text(item.get("seller")), "prospect": text(item.get("prospect")), "description": text(item.get("description")) or text(item.get("objective")), "events": clean_events, "updatedAt": datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")})
+                clean.append({"id": text(item.get("id")) or str(uuid.uuid4()), "startDate": start_date, "endDate": end_date, "seller": text(item.get("seller")), "description": text(item.get("description")) or text(item.get("objective")), "events": clean_events, "updatedAt": datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")})
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key,value,updated_at) VALUES ('commercial_agenda',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
             self.send_json({"ok": True, "items": clean})
