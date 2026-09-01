@@ -6522,11 +6522,12 @@ class AppHandler(BaseHTTPRequestHandler):
                             self.send_json({"error": "No tiene permiso para rechazar solicitudes"}, status=403)
                             return
                         updated = {**request, **normalize_crm_customer_request(payload, request), "status": status}
+                        if request.get("electronicSignature", {}).get("signed") is True:
+                            updated["electronicSignature"] = request["electronicSignature"]
                         updated["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                         if target_status == "borrador":
                             updated["status"] = "Borrador"
                             updated["requestedAt"] = ""
-                            updated.pop("electronicSignature", None)
                             updated.pop("reviewedAt", None)
                             updated.pop("reviewedByUserId", None)
                             updated.pop("reviewedByName", None)
