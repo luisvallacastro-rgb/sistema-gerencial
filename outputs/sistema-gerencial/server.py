@@ -2738,6 +2738,69 @@ def quotation_payload(row):
     }
 
 
+def quotation_content_key(item):
+    """Stable business fingerprint; generated ids and timestamps never create a new quote."""
+    customer = item.get("customerData") if isinstance(item.get("customerData"), dict) else {}
+    lines = item.get("lines") if isinstance(item.get("lines"), list) else []
+    normalized_lines = [{
+        "type": text(line.get("type")).lower(),
+        "description": text(line.get("description") or line.get("title")).casefold(),
+        "size": text(line.get("size")).casefold(),
+        "quantity": text(line.get("quantity")),
+        "unitPriceCents": int(line.get("unitPriceCents") or 0),
+        "lineTotalCents": int(line.get("lineTotalCents") or 0),
+        "notes": text(line.get("notes")).casefold(),
+    } for line in lines if isinstance(line, dict)]
+    content = {
+        "opportunityId": text(item.get("opportunityId")),
+        "date": text(item.get("date")),
+        "seller": text(item.get("seller")).casefold(),
+        "client": text(item.get("client")).casefold(),
+        "status": text(item.get("status")),
+        "documentType": text(item.get("documentType"), "CF").upper(),
+        "validDays": int(item.get("validDays") or 30),
+        "totalCents": int(item.get("totalCents") or 0),
+        "customerData": customer,
+        "paymentTerms": text(item.get("paymentTerms")),
+        "deliveryTerms": text(item.get("deliveryTerms")),
+        "lines": normalized_lines,
+    }
+    return json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def find_identical_quotation(conn, item):
+    expected = quotation_content_key(item)
+    for row in conn.execute("SELECT * FROM quotations ORDER BY datetime(created_at), rowid").fetchall():
+        if quotation_content_key(quotation_payload(row)) == expected:
+            return row
+    return None
+
+
+def deduplicate_identical_quotations(conn):
+    """Remove only byte-for-business-content duplicates, preserving converted/original records."""
+    rows = conn.execute("""
+        SELECT * FROM quotations
+        ORDER BY CASE WHEN converted_order_id <> '' THEN 0 ELSE 1 END, datetime(created_at), rowid
+    """).fetchall()
+    keepers, removed, affected_opportunities = {}, [], set()
+    for row in rows:
+        item = quotation_payload(row)
+        key = quotation_content_key(item)
+        keeper = keepers.get(key)
+        if not keeper:
+            keepers[key] = row
+            continue
+        if text(row["converted_order_id"]):
+            continue
+        conn.execute("DELETE FROM quotations WHERE id = ?", (row["id"],))
+        removed.append(text(row["id"]))
+        if text(row["opportunity_id"]):
+            affected_opportunities.add(text(row["opportunity_id"]))
+    for opportunity_id in affected_opportunities:
+        sync_opportunity_amount_from_latest_quotation(conn, opportunity_id)
+    return removed
+
+
 def quotation_validate(data, existing=None):
     current = dict(existing or {})
     opportunity_id = text(data.get("opportunityId"), current.get("opportunityId") or "")
@@ -2891,6 +2954,10 @@ def sync_opportunity_amount_from_latest_quotation(conn, opportunity_id):
 def save_quotation(conn, data, existing_row=None):
     existing = quotation_payload(existing_row) if existing_row else None
     item = quotation_validate(data, existing)
+    if not existing_row:
+        identical = find_identical_quotation(conn, item)
+        if identical:
+            return quotation_payload(identical)
     quote_id = existing_row["id"] if existing_row else f"quote-{uuid.uuid4()}"
     if existing:
         number = existing["number"]
@@ -4737,6 +4804,9 @@ def init_db():
         purge_orphaned_test_orders_0293_0294_once(conn)
         restore_asa_order_0296_once(conn)
         restore_asa_quotation_0296_once(conn)
+        removed_duplicate_quotations = deduplicate_identical_quotations(conn)
+        if removed_duplicate_quotations:
+            print(f"Cotizaciones duplicadas eliminadas: {len(removed_duplicate_quotations)}")
         repair_edgar_admin_seller_assignments_once(conn)
         agenda_permission = "comercializacion:agenda-comercial"
         for user_row in conn.execute("SELECT id, role, admin, permissions FROM users WHERE role IN ('vendedores','gerencias') OR admin = 1").fetchall():
@@ -4965,6 +5035,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if self.path == "/api/quotations":
             with connect() as conn:
+                deduplicate_identical_quotations(conn)
                 rows = conn.execute("""
                     SELECT * FROM quotations
                     ORDER BY quotation_date DESC, updated_at DESC, quotation_number DESC
@@ -5313,6 +5384,7 @@ class AppHandler(BaseHTTPRequestHandler):
             data = self.read_json()
             try:
                 with connect() as conn:
+                    conn.execute("BEGIN IMMEDIATE")
                     item = save_quotation(conn, data)
             except ValueError as error:
                 self.send_json({"error": str(error)}, status=400)

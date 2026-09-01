@@ -4529,6 +4529,7 @@ async function openQuotationDialog(opportunityId, quoteId = "", opportunityOverr
 
 async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
   const form = document.querySelector("#quotationForm");
+  if (!form || form.dataset.saving === "true") return null;
   const customerPanel = form?.querySelector(".quotation-customer");
   const missingInheritedField = customerPanel
     ? Array.from(customerPanel.querySelectorAll("[required]")).some((field) => !String(field.value || "").trim())
@@ -4551,6 +4552,9 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
   if (["Enviada", "Aprobada", "Convertida"].includes(draft.status)
     && !validateQuotationPricesForFinalAction(draft, "cambiar el estado de la cotización")) return null;
   const status = document.querySelector("#quotationSaveStatus");
+  const saveButtons = form.querySelectorAll('button[type="submit"], [data-quotation-direct-convert]');
+  form.dataset.saving = "true";
+  saveButtons.forEach((button) => { button.disabled = true; });
   try {
     let saved;
     if (apiEnabled) {
@@ -4592,6 +4596,7 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
     alert(changeDetail);
     if (openPreview) printQuotation(saved); return saved;
   } catch (error) { status.textContent = error.message || "No se pudo guardar la cotización."; status.classList.remove("hidden"); status.dataset.tone = "error"; return null; }
+  finally { form.dataset.saving = "false"; saveButtons.forEach((button) => { button.disabled = false; }); }
 }
 
 async function deleteQuotationFromForm() {
