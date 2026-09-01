@@ -8725,13 +8725,13 @@ function ensureCustomerRequestDialog() {
   dialog.id = "customerRequestDialog";
   dialog.className = "crm-customer-dialog customer-request-dialog";
   dialog.innerHTML = `<form class="dialog-card crm-customer-glass" id="customerRequestForm">
-    <header class="crm-customer-dialog-head"><div><p class="eyebrow">Solicitud comercial</p><h3 data-customer-request-title>Nueva solicitud de cliente</h3><p>La solicitud será validada antes de crear el cliente y asignar su ID.</p></div><button type="button" class="crm-customer-close" data-customer-request-close aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <header class="crm-customer-dialog-head"><div><p class="eyebrow">Solicitud comercial</p><h3 data-customer-request-title>Nueva solicitud de cliente</h3><p>Guarda temporalmente las correcciones y valida únicamente cuando la revisión esté completa.</p></div><button type="button" class="crm-customer-close" data-customer-request-close aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
     <input type="hidden" id="customerRequestId"><div class="crm-customer-dialog-body">
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Vendedor<select id="customerRequestSeller">${customerSellerOptions()}</select></label><label>Tipo de cliente<select id="customerRequestType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label><label>Personería<select id="customerRequestPersonhood">${customerSelectOptions(customerPersonhoodTypes, "Seleccionar personería")}</select></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>Tipo de documento<select id="customerRequestIdentityDocumentType">${customerSelectOptions(customerIdentityDocumentTypes, "Seleccionar tipo de documento")}</select></label><label>Número de documento<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<select id="customerRequestTaxpayerType">${customerSelectOptions(customerTaxpayerTypes, "Seleccionar tipo de contribuyente")}</select></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento<select id="customerRequestDepartment">${customerDepartmentOptions()}</select></label><label>Municipio<select id="customerRequestMunicipality" disabled><option value="">Selecciona primero el departamento</option></select></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<select id="customerRequestStrategy">${customerSelectOptions(customerCommercialStrategies, "Seleccionar estrategia comercial")}</select></label></div></section>
-    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir solicitud</button><button type="button" class="customer-request-sign-btn hidden" data-customer-request-sign>Firmar electrónicamente</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="ghost-btn hidden" data-customer-request-approved-edit>Editar datos</button><button type="button" class="customer-request-save-btn hidden" data-customer-request-approved-save>Guardar cliente</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y crear cliente</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
+    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir solicitud</button><button type="button" class="customer-request-sign-btn hidden" data-customer-request-sign>Firmar electrónicamente</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="customer-request-save-btn hidden" data-customer-request-review-save>Guardar temporalmente</button><button type="button" class="ghost-btn hidden" data-customer-request-approved-edit>Editar datos</button><button type="button" class="customer-request-save-btn hidden" data-customer-request-approved-save>Guardar cliente</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y crear cliente</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
   wireCustomerLocationFields(dialog.querySelector("#customerRequestDepartment"), dialog.querySelector("#customerRequestMunicipality"));
@@ -8781,14 +8781,21 @@ function ensureCustomerRequestDialog() {
       alert(error.message || "No fue posible guardar el borrador.");
     } finally { button.disabled = false; }
   });
-  dialog.querySelector("[data-customer-request-review-save]").addEventListener("click", async () => {
+  dialog.querySelector("[data-customer-request-review-save]").addEventListener("click", async (event) => {
     const current = dialog.currentRequest || {};
     if (!current.id) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = "Guardando…";
     try {
       const model = await crmApi(`/customer-requests/${encodeURIComponent(current.id)}`, { method: "PATCH", body: JSON.stringify({ ...customerRequestFormPayload(dialog), status: "Pendiente" }) });
       dialog.currentRequest = (model.customerRequests || []).find((item) => String(item.id) === String(current.id)) || current;
-      dialog.querySelector("[data-customer-request-status]").innerHTML = "<i></i> Pendiente · Correcciones guardadas";
-    } catch (error) { alert(error.message || "No fue posible guardar las correcciones."); }
+      dialog.querySelector("[data-customer-request-status]").innerHTML = "<i></i> Pendiente · Guardado temporal completado · Firma conservada";
+      button.textContent = "Guardado temporalmente";
+    } catch (error) {
+      button.textContent = "Guardar temporalmente";
+      alert(error.message || "No fue posible guardar temporalmente la solicitud.");
+    } finally { button.disabled = false; }
   });
   dialog.querySelector("[data-customer-request-approved-edit]").addEventListener("click", () => {
     dialog.querySelectorAll(".crm-customer-dialog-body input, .crm-customer-dialog-body select, .crm-customer-dialog-body textarea").forEach((field) => { field.disabled = false; });
@@ -8881,6 +8888,7 @@ function openCustomerRequestDialog(request = null, review = false, returnToList 
   draftButton.classList.toggle("hidden", review || viewOnly || !isDraft);
   draftButton.textContent = current.id ? "Guardar cambios" : "Guardar borrador";
   dialog.querySelector("[data-customer-request-review-save]").classList.toggle("hidden", viewOnly || !review || !isPending || !canValidate);
+  dialog.querySelector("[data-customer-request-review-save]").textContent = "Guardar temporalmente";
   dialog.querySelector("[data-customer-request-approved-edit]").classList.toggle("hidden", viewOnly || !isValidated || !current.approvedCustomerId);
   dialog.querySelector("[data-customer-request-approved-save]").classList.add("hidden");
   dialog.querySelector("[data-customer-request-sign]").classList.toggle("hidden", viewOnly || !current.id || !isDraft || isSigned || !isOdalizValenciaUser());

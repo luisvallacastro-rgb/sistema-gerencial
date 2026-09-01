@@ -6512,7 +6512,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         if target_status == "pendiente" and not text(payload.get("commercialName") or request.get("commercialName")):
                             self.send_json({"error": "El nombre comercial es obligatorio para enviar la solicitud"}, status=400)
                             return
-                        if target_status == "pendiente" and request.get("electronicSignature", {}).get("signed") is not True:
+                        if current_status == "borrador" and target_status == "pendiente" and request.get("electronicSignature", {}).get("signed") is not True:
                             self.send_json({"error": "Odaliz Valencia debe firmar electrónicamente la solicitud antes de enviarla"}, status=409)
                             return
                         if target_status == "borrador" and not customer_request_has_content({**request, **payload}):
