@@ -386,28 +386,10 @@ def synchronize_linked_company_name(conn, crm_data, company_name, crm_opportunit
 
 
 def reconcile_linked_opportunity_names(conn, crm_data):
-    version = "linked-company-names-20260826"
+    """Retained only as a migration marker; names are never propagated between records."""
+    version = "independent-opportunity-names-20260901"
     if text(crm_data.get("linkedCompanyNameVersion")) == version:
         return False
-    results = read_result_opportunities(conn)
-    customers = {text(item.get("id")): item for item in crm_data.get("customers", [])}
-    for opportunity in crm_data.get("opportunities", []):
-        customer = customers.get(text(opportunity.get("customerId")), {})
-        authoritative_name = text(
-            customer.get("commercialName") or customer.get("legalName"),
-            opportunity.get("company"),
-        )
-        if not authoritative_name:
-            continue
-        synchronize_linked_company_name(
-            conn,
-            crm_data,
-            authoritative_name,
-            crm_opportunity_id=opportunity.get("id"),
-            customer_id=opportunity.get("customerId"),
-            result_items=results,
-        )
-    write_result_opportunities(conn, results)
     crm_data["linkedCompanyNameVersion"] = version
     return True
 
@@ -6478,12 +6460,6 @@ class AppHandler(BaseHTTPRequestHandler):
                                 updated_customer,
                                 customer_request,
                             )
-                        synchronize_linked_company_name(
-                            conn,
-                            data,
-                            updated_customer.get("commercialName") or updated_customer.get("legalName"),
-                            customer_id=item_id,
-                        )
                         write_crm_data(conn, data)
                         response = build_crm_view_model(data)
                         response["selectedCustomerId"] = item_id
