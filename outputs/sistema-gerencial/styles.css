@@ -18230,6 +18230,8 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .customer-request-list-row__actions button { flex: 0 0 auto; min-width: 82px; min-height: 38px; padding: 0 13px; border: 1px solid rgba(118, 168, 209, .34); border-radius: 10px; background: #254c73; color: #eff6ff; font: inherit; font-size: .75rem; font-weight: 850; white-space: nowrap; }
 .customer-request-list-row__actions button.send { border-color: rgba(104, 231, 203, .45); background: #176b5a; }
 .customer-request-list-row__actions button.sign { border-color: rgba(244, 191, 88, .55); background: #74551d; color: #fff6d8; }
+.customer-request-signature-state { display: inline-flex; align-items: center; min-height: 38px; padding: 0 12px; border: 1px solid rgba(105, 231, 204, .42); border-radius: 10px; background: rgba(23, 107, 90, .52); color: #78efd3 !important; font-size: .72rem !important; font-weight: 900; white-space: nowrap; }
+.customer-request-signature-state.pending { border-color: rgba(244, 191, 88, .42); background: rgba(116, 85, 29, .44); color: #ffd678 !important; }
 .customer-request-list-row__actions button:disabled { cursor: not-allowed; opacity: .42; }
 @media (max-width: 1120px) {
   .customer-request-list-row { grid-template-columns: minmax(0, 1fr) minmax(125px, .55fr) minmax(130px, .6fr); }

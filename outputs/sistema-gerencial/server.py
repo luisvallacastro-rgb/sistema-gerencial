@@ -108,6 +108,8 @@ def is_customer_request_reviewer(user):
 def is_odaliz_valencia_user(user):
     if not user:
         return False
+    username = text(user.get("username")).strip().lower()
+    email = text(user.get("email")).strip().lower()
     identity = " ".join((
         text(user.get("id")), text(user.get("name")), text(user.get("username")), text(user.get("email"))
     )).lower()
@@ -115,7 +117,11 @@ def is_odaliz_valencia_user(user):
         character for character in unicodedata.normalize("NFD", identity)
         if unicodedata.category(character) != "Mn"
     )
-    return "odaliz" in normalized and "valencia" in normalized
+    return (
+        ("odaliz" in normalized and "valencia" in normalized)
+        or username == "gerencia comercial"
+        or email == "gtecomercial.ayc@gmail.com"
+    )
 ALL_OPERATIONAL_PERMISSIONS = [
     f"{area}:{section}"
     for area in AREA_KEYS
