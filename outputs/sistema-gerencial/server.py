@@ -41,7 +41,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 }
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
-    "comercializacion": ["crm", "crm-seguimiento", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi"],
+    "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi"],
     "financiera": ["disponibilidad", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal"],
     "rrhh": [],
@@ -1703,7 +1703,7 @@ def default_permissions_for_role(role):
     if role == "vendedores":
         return [
             f"comercializacion:{section}"
-            for section in ["crm", "crm-seguimiento", "cotizaciones"]
+            for section in ["crm", "agenda-comercial", "crm-seguimiento", "cotizaciones"]
         ]
     if role == "operativos":
         return []
@@ -4721,6 +4721,15 @@ def init_db():
         restore_asa_order_0296_once(conn)
         restore_asa_quotation_0296_once(conn)
         repair_edgar_admin_seller_assignments_once(conn)
+        agenda_permission = "comercializacion:agenda-comercial"
+        for user_row in conn.execute("SELECT id, role, admin, permissions FROM users WHERE role IN ('vendedores','gerencias') OR admin = 1").fetchall():
+            try:
+                user_permissions = json.loads(user_row["permissions"] or "[]")
+            except (TypeError, json.JSONDecodeError):
+                user_permissions = []
+            if agenda_permission not in user_permissions:
+                user_permissions.append(agenda_permission)
+                conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(user_permissions), user_row["id"]))
         reset_order_flow_for_first_elizabeth_order_once(conn)
 
 
@@ -5002,6 +5011,18 @@ class AppHandler(BaseHTTPRequestHandler):
             with connect() as conn:
                 row = conn.execute("SELECT value FROM app_state WHERE key = 'strategic_risks'").fetchone()
             self.send_json(json.loads(row["value"] if row else "{}"))
+            return
+
+        if self.path == "/api/commercial-agenda":
+            if not self.require_permission("comercializacion:agenda-comercial"):
+                return
+            with connect() as conn:
+                row = conn.execute("SELECT value FROM app_state WHERE key = 'commercial_agenda'").fetchone()
+            try:
+                items = json.loads(row["value"] or "[]") if row else []
+            except (TypeError, json.JSONDecodeError):
+                items = []
+            self.send_json(items if isinstance(items, list) else [])
             return
 
         if self.path == "/api/management-requests":
@@ -5605,6 +5626,28 @@ class AppHandler(BaseHTTPRequestHandler):
                 repair_converted_result_opportunities(conn)
                 reconciled = read_result_opportunities(conn)
             self.send_json({"ok": True, "items": reconciled})
+            return
+
+        if self.path == "/api/commercial-agenda":
+            if not self.require_permission("comercializacion:agenda-comercial"):
+                return
+            payload = self.read_json()
+            items = payload.get("items") if isinstance(payload, dict) else None
+            if not isinstance(items, list):
+                self.send_json({"error": "El listado de agenda es requerido"}, status=400)
+                return
+            activities = {"Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico", "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido", "Preparación de oferta", "Gestión de cobro"}
+            clean = []
+            for item in items:
+                if not isinstance(item, dict) or not text(item.get("date")) or not text(item.get("seller")) or not text(item.get("prospect")):
+                    continue
+                activity = text(item.get("activity"))
+                if activity not in activities:
+                    continue
+                clean.append({"id": text(item.get("id")) or str(uuid.uuid4()), "date": text(item.get("date")), "seller": text(item.get("seller")), "prospect": text(item.get("prospect")), "activity": activity, "objective": text(item.get("objective")), "product": text(item.get("product")), "result": text(item.get("result")), "updatedAt": datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")})
+            with connect() as conn:
+                conn.execute("""INSERT INTO app_state (key,value,updated_at) VALUES ('commercial_agenda',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
+            self.send_json({"ok": True, "items": clean})
             return
 
         if self.path == "/api/strategic-risks":

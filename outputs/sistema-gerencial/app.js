@@ -108,6 +108,7 @@ const areas = {
         status: "Operacion comercial",
         items: []
       },
+      { key: "agenda-comercial", label: "Agenda", status: "Planificación y resultados comerciales", items: [] },
       {
         key: "crm-seguimiento",
         label: "Seguimiento",
@@ -304,6 +305,8 @@ const state = {
   bankAvailabilityHistory: [],
   bankPendingDeposits: 0,
   bankAvailabilitySignatures: {},
+  commercialAgenda: [],
+  commercialAgendaLoaded: false,
   pendingExpenses: [],
   pendingChecks: [],
   bankAvailabilityQuery: "",
@@ -10044,6 +10047,27 @@ function wireBankAvailability() {
   }, { passive:false }));
 }
 
+const commercialAgendaActivities = ["Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico", "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido", "Preparación de oferta", "Gestión de cobro"];
+
+function saveCommercialAgenda() { return apiJson("/api/commercial-agenda", { method:"PUT", body:JSON.stringify({items:state.commercialAgenda}) }).then((response) => { state.commercialAgenda = response.items || []; }); }
+function renderCommercialAgenda() {
+  const rows = [...state.commercialAgenda].sort((a,b) => String(b.date).localeCompare(String(a.date)) || String(a.seller).localeCompare(String(b.seller),"es"));
+  return `<section class="commercial-agenda"><header><div><span>Gestión comercial</span><h2>Agenda</h2><p>Planificación, ejecución y resultados de actividades por vendedor.</p></div><div><button type="button" data-commercial-agenda-report>▤ Reporte</button><button type="button" data-commercial-agenda-new>+ Nueva actividad</button></div></header><div class="commercial-agenda-table"><table><thead><tr><th>Fecha</th><th>Vendedor</th><th>Cliente / prospecto</th><th>Actividad</th><th>Objetivo</th><th>Producto</th><th>Resultado</th><th>Acciones</th></tr></thead><tbody>${rows.map((item) => `<tr><td>${escapeHtml(formatDate(item.date))}</td><td><strong>${escapeHtml(item.seller)}</strong></td><td>${escapeHtml(item.prospect)}</td><td><span>${escapeHtml(item.activity)}</span></td><td>${escapeHtml(item.objective || "—")}</td><td>${escapeHtml(item.product || "—")}</td><td>${escapeHtml(item.result || "Pendiente")}</td><td><button type="button" data-commercial-agenda-edit="${escapeHtml(item.id)}" title="Editar">✎</button><button class="danger" type="button" data-commercial-agenda-delete="${escapeHtml(item.id)}" title="Eliminar">⌫</button></td></tr>`).join("") || `<tr><td colspan="8" class="empty-state">No hay actividades registradas.</td></tr>`}</tbody></table></div></section>`;
+}
+function openCommercialAgendaEditor(item = {}) {
+  const dialog = document.createElement("dialog"); dialog.className="commercial-agenda-dialog";
+  const sellers = commercialSellerNames(); const selectedSeller = item.seller || state.currentUser?.name || sellers[0] || "";
+  dialog.innerHTML = `<form method="dialog"><header><div><span>Agenda comercial</span><h2>${item.id ? "Editar actividad" : "Nueva actividad"}</h2></div><button type="button" data-agenda-close>×</button></header><div class="fields"><label><span>Fecha</span><input name="date" type="date" required value="${escapeHtml(item.date || todayISO())}"></label><label><span>Vendedor</span><select name="seller" required>${sellers.map((seller) => `<option ${seller===selectedSeller?"selected":""}>${escapeHtml(seller)}</option>`).join("")}</select></label><label><span>Cliente prospecto</span><input name="prospect" required value="${escapeHtml(item.prospect || "")}"></label><label><span>Actividad</span><select name="activity" required>${commercialAgendaActivities.map((activity) => `<option ${activity===item.activity?"selected":""}>${escapeHtml(activity)}</option>`).join("")}</select></label><label><span>Objetivo</span><textarea name="objective" required>${escapeHtml(item.objective || "")}</textarea></label><label><span>Producto</span><input name="product" required value="${escapeHtml(item.product || "")}"></label><label class="wide"><span>Resultado</span><textarea name="result" placeholder="Pendiente o resultado obtenido">${escapeHtml(item.result || "")}</textarea></label></div><footer><button type="button" data-agenda-close>Cancelar</button><button type="submit">Guardar actividad</button></footer></form>`;
+  document.body.append(dialog); dialog.querySelectorAll("[data-agenda-close]").forEach((button)=>button.addEventListener("click",()=>dialog.close())); dialog.addEventListener("close",()=>dialog.remove(),{once:true});
+  dialog.querySelector("form").addEventListener("submit", async (event)=>{ event.preventDefault(); const values=Object.fromEntries(new FormData(event.currentTarget)); const record={id:item.id||crypto.randomUUID(),...values}; const index=state.commercialAgenda.findIndex((row)=>row.id===record.id); if(index>=0) state.commercialAgenda[index]=record; else state.commercialAgenda.unshift(record); await saveCommercialAgenda(); dialog.close(); renderCommercialSubmenu(areas.comercializacion); }); dialog.showModal();
+}
+function printCommercialAgendaReport() {
+  const rows=[...state.commercialAgenda].sort((a,b)=>String(a.seller).localeCompare(String(b.seller),"es")||String(a.date).localeCompare(String(b.date))); const groups=Object.entries(rows.reduce((g,item)=>{(g[item.seller]||=[]).push(item);return g;},{}));
+  const popup=window.open("","_blank","width=1200,height=900"); if(!popup)return alert("Permite ventanas emergentes para imprimir el reporte.");
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Reporte de agenda comercial</title><style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font:10px Arial;color:#18304b}.head{display:flex;justify-content:space-between;border-bottom:3px solid #188b78;padding-bottom:12px}.head h1{margin:0;font-size:24px}.head strong{color:#087763;font-size:20px}table{width:100%;border-collapse:collapse;margin-top:15px}th{background:#173b62;color:#fff;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #ccd8e3}.seller td{background:#dcefe9;color:#126452;font-weight:900;font-size:12px}.validation td{height:45px;background:#f6f9fb}.validation i{display:inline-block;width:150px;border-bottom:1px solid;margin:0 8px}.actions{position:fixed;right:20px;bottom:20px}.actions button{padding:11px;background:#167b68;color:#fff;border:0;border-radius:8px}@media print{.actions{display:none}tr{break-inside:avoid}}</style></head><body><header class="head"><div><h1>Reporte de agenda comercial</h1><span>Actividades ordenadas por vendedor</span></div><strong>KONFI</strong></header><table><thead><tr><th>Fecha</th><th>Cliente / prospecto</th><th>Actividad</th><th>Objetivo</th><th>Producto</th><th>Resultado</th></tr></thead><tbody>${groups.map(([seller,items])=>`<tr class="seller"><td colspan="6">${escapeHtml(seller)} · ${items.length} actividades</td></tr>${items.map(item=>`<tr><td>${escapeHtml(formatDate(item.date))}</td><td>${escapeHtml(item.prospect)}</td><td>${escapeHtml(item.activity)}</td><td>${escapeHtml(item.objective)}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.result||"Pendiente")}</td></tr>`).join("")}<tr class="validation"><td colspan="6">Validado por ${escapeHtml(seller)} <i></i> Firma <i></i> Fecha</td></tr>`).join("")}</tbody></table><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button></nav></body></html>`); popup.document.close();
+}
+function wireCommercialAgenda(){ opportunityTable.querySelector("[data-commercial-agenda-new]")?.addEventListener("click",()=>openCommercialAgendaEditor()); opportunityTable.querySelector("[data-commercial-agenda-report]")?.addEventListener("click",printCommercialAgendaReport); opportunityTable.querySelectorAll("[data-commercial-agenda-edit]").forEach(button=>button.addEventListener("click",()=>openCommercialAgendaEditor(state.commercialAgenda.find(item=>item.id===button.dataset.commercialAgendaEdit)))); opportunityTable.querySelectorAll("[data-commercial-agenda-delete]").forEach(button=>button.addEventListener("click",async()=>{const item=state.commercialAgenda.find(row=>row.id===button.dataset.commercialAgendaDelete);if(!item||!confirm(`¿Eliminar la actividad de ${item.prospect}?`))return;state.commercialAgenda=state.commercialAgenda.filter(row=>row.id!==item.id);await saveCommercialAgenda();renderCommercialSubmenu(areas.comercializacion);})); }
+
 function renderCommercialSubmenu(area) {
   if (!Array.isArray(area.submenus)) {
     commercialPanel.classList.add("hidden");
@@ -10065,6 +10089,13 @@ function renderCommercialSubmenu(area) {
   opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
+
+  if (state.activeArea === "comercializacion" && submenu.key === "agenda-comercial") {
+    newOpportunityBtn.classList.add("hidden"); newRiskBtn.classList.add("hidden"); newManagementRequestBtn.classList.add("hidden"); goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden"); opportunityTable.innerHTML = renderCommercialAgenda(); wireCommercialAgenda();
+    if (!state.commercialAgendaLoaded) { state.commercialAgendaLoaded=true; apiJson("/api/commercial-agenda").then((items)=>{state.commercialAgenda=Array.isArray(items)?items:[];if(state.activeSubmenu==="agenda-comercial")renderCommercialSubmenu(areas.comercializacion);}).catch(()=>{}); }
+    return;
+  }
 
   if (state.activeArea === "comercializacion" && submenu.key === "cotizaciones") {
     newOpportunityBtn.classList.add("hidden");
