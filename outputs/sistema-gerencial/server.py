@@ -851,6 +851,7 @@ def read_crm_data(conn):
         remove_empty_customer_request_drafts(data)
         reconcile_linked_opportunity_names(conn, data)
         repair_don_bosco_opportunity_name_propagation(conn, data)
+        repair_customer_request_id_collisions(data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -879,7 +880,8 @@ def read_crm_data(conn):
     empty_request_cleanup_changed = remove_empty_customer_request_drafts(data)
     linked_names_changed = reconcile_linked_opportunity_names(conn, data)
     individual_name_repair_changed = repair_don_bosco_opportunity_name_propagation(conn, data)
-    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed
+    customer_id_collision_changed = repair_customer_request_id_collisions(data)
+    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -1124,10 +1126,15 @@ def normalize_crm_customer_request(payload, existing=None):
     return request
 
 
+def meaningful_crm_identity(value):
+    identity = crm_identity_key(value)
+    return "" if identity in {"", "none", "null", "undefined", "n a", "na"} else identity
+
+
 def matching_crm_customer(data, payload, current_id=""):
     candidate = normalize_crm_customer(payload)
-    candidate_tax_id = crm_identity_key(payload.get("taxId") or "")
-    candidate_code = crm_identity_key(payload.get("customerCode") or "")
+    candidate_tax_id = meaningful_crm_identity(payload.get("taxId"))
+    candidate_code = meaningful_crm_identity(payload.get("customerCode"))
     candidate_names = {
         crm_identity_key(candidate.get("commercialName")),
         crm_identity_key(candidate.get("legalName")),
@@ -1135,9 +1142,9 @@ def matching_crm_customer(data, payload, current_id=""):
     for customer in data.get("customers", []):
         if text(customer.get("id")) == current_id:
             continue
-        if candidate_tax_id and crm_identity_key(customer.get("taxId")) == candidate_tax_id:
+        if candidate_tax_id and meaningful_crm_identity(customer.get("taxId")) == candidate_tax_id:
             return customer, "taxId"
-        if candidate_code and crm_identity_key(customer.get("customerCode")) == candidate_code:
+        if candidate_code and meaningful_crm_identity(customer.get("customerCode")) == candidate_code:
             return customer, "customerCode"
         # El nombre solo identifica un duplicado cuando el nuevo registro no
         # cuenta con NIT ni código. Dos empresas pueden compartir nombre, pero
@@ -1154,6 +1161,62 @@ def matching_crm_customer(data, payload, current_id=""):
 
 def duplicate_crm_customer(data, payload, current_id=""):
     return matching_crm_customer(data, payload, current_id)[1]
+
+
+def repair_customer_request_id_collisions(data):
+    version = "approved-request-client-id-collision-20260901-v1"
+    if text(data.get("customerRequestIdCollisionRepairVersion")) == version:
+        return False
+    requests = [
+        item for item in data.get("customerRequests", [])
+        if text(item.get("status")).lower() == "aprobada"
+        and text(item.get("approvedCustomerId"))
+        and text(item.get("assignedClientNumber"))
+    ]
+    groups = {}
+    for request in requests:
+        key = (text(request.get("approvedCustomerId")), text(request.get("assignedClientNumber")))
+        groups.setdefault(key, []).append(request)
+    customers = data.setdefault("customers", [])
+    changed = False
+    for (customer_id, client_number), grouped_requests in groups.items():
+        identities = {
+            meaningful_crm_identity(item.get("taxId"))
+            or meaningful_crm_identity(item.get("commercialName"))
+            for item in grouped_requests
+        } - {""}
+        if len(grouped_requests) < 2 or len(identities) < 2:
+            continue
+        grouped_requests.sort(key=lambda item: (text(item.get("reviewedAt")), text(item.get("requestNumber"))))
+        original_request = grouped_requests[0]
+        existing_index = next((
+            position for position, item in enumerate(customers)
+            if text(item.get("id")) == customer_id
+        ), -1)
+        restored_customer = {
+            **normalize_crm_customer(original_request, customers[existing_index] if existing_index >= 0 else None),
+            "id": customer_id,
+            "clientNumber": client_number,
+            "active": True,
+        }
+        if existing_index >= 0:
+            customers[existing_index] = restored_customer
+        else:
+            customers.append(restored_customer)
+        for offset, request in enumerate(grouped_requests[1:], start=1):
+            new_customer = {
+                "id": f"customer-repaired-{int(time.time() * 1000)}-{offset}",
+                **normalize_crm_customer(request),
+                "clientNumber": next_crm_customer_number(data),
+                "active": True,
+            }
+            customers.append(new_customer)
+            request["approvedCustomerId"] = new_customer["id"]
+            request["assignedClientNumber"] = new_customer["clientNumber"]
+            request["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        changed = True
+    data["customerRequestIdCollisionRepairVersion"] = version
+    return True if changed or text(data.get("customerRequestIdCollisionRepairVersion")) == version else False
 
 
 def inherit_crm_customer_fields(data, payload):
