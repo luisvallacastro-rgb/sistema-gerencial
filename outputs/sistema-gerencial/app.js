@@ -301,6 +301,7 @@ const state = {
   financialPresentationSection: 0,
   bankAvailability: { accounts: [], total: 0 },
   bankAvailabilityView: "data",
+  bankAvailabilityHistory: [],
   bankPendingDeposits: 0,
   bankAvailabilitySignatures: {},
   pendingExpenses: [],
@@ -5395,13 +5396,14 @@ function wirePurchaseOrders() {
 
 function loadBankAvailability() {
   if (!apiEnabled) return Promise.resolve(state.bankAvailability);
-  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => []), apiJson("/api/pending-checks").catch(() => []), apiJson("/api/bank-availability-adjustments").catch(() => ({ pendingDeposits: 0 })), apiJson("/api/bank-availability/signatures").catch(() => ({}))]).then(([payload, expenses, checks, adjustments, signatures]) => {
+  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => []), apiJson("/api/pending-checks").catch(() => []), apiJson("/api/bank-availability-adjustments").catch(() => ({ pendingDeposits: 0 })), apiJson("/api/bank-availability/signatures").catch(() => ({})), apiJson("/api/bank-availability/archive-history").catch(() => [])]).then(([payload, expenses, checks, adjustments, signatures, history]) => {
     state.bankAvailability = payload && Array.isArray(payload.accounts) ? payload : { accounts: [], total: 0 };
     state.pendingExpenses = Array.isArray(expenses) && expenses.length ? expenses : pendingExpenseSeed();
     if (!expenses.length) savePendingExpenses().catch(() => {});
     state.pendingChecks = Array.isArray(checks) ? checks : [];
     state.bankPendingDeposits = Number(adjustments?.pendingDeposits || 0);
     state.bankAvailabilitySignatures = signatures || {};
+    state.bankAvailabilityHistory = Array.isArray(history) ? history : [];
     if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
     return state.bankAvailability;
   }).catch(() => state.bankAvailability);
@@ -9472,6 +9474,35 @@ function renderBankAvailabilityDerivedReport(accounts, total) {
   return `<section class="bank-availability-module"><div class="availability-derived-report"><header><div><span>Disponibilidad financiera</span><h2>Reporte de disponibilidad</h2><p>Resumen calculado automáticamente con la información registrada en Datos.</p></div><strong class="${netAvailability < 0 ? "negative" : ""}">${formatMoney(netAvailability)}</strong></header><table><tbody>${row("Saldo bancario contable", total)}${row("Remesas pendientes de reflejar en banco", pendingDeposits, "(−)", "", true)}${row("Cheques pendientes de cobro", checksTotal, "(+)")}${row("Saldo de bancos", bankBalance, "", "subtotal")}${row("Cuenta de inventario", inventory, "(−)", "", false, "Saldo de la cuenta Hipotecario")}${row("Cuentas de reserva", reserves, "(−)", "", false, "Azul Laboral + Azul Fiscal + BAC Ahorro")}${row("Saldo operativo", operatingBalance, "", "subtotal", false, "Saldo de bancos − inventario − reservas")}${row("Comisiones", commissions, "(−)")}${row("Reserva laboral", laborReserve, "(−)")}${row("Reserva fiscal", fiscalReserve, "(−)")}${row("Disponibilidad bruta", grossAvailability, "", "highlight")}${row("Otros gastos", otherExpenses, "(−)")}${row("Disponibilidad neta", netAvailability, "", "total")}</tbody></table><footer><span>Los valores se recalculan al actualizar bancos, cheques o gastos pendientes.</span><button type="button" data-bank-availability-print>Imprimir disponibilidad</button><button type="button" data-bank-availability-report>Imprimir detalle bancario</button></footer></div></section>`;
 }
 
+function renderBankAvailabilityStatistics() {
+  const history = [...(state.bankAvailabilityHistory || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const width = 920, height = 280, left = 72, right = 28, top = 28, bottom = 54;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const values = history.map((item) => Number(item.total || 0));
+  const rawMin = values.length ? Math.min(...values) : 0, rawMax = values.length ? Math.max(...values) : 0;
+  const padding = Math.max((rawMax - rawMin) * .15, Math.abs(rawMax || 1) * .05, 1);
+  const min = rawMin - padding, max = rawMax + padding;
+  const xFor = (index) => history.length < 2 ? left + plotWidth / 2 : left + index * plotWidth / (history.length - 1);
+  const yFor = (value) => top + (max - Number(value || 0)) / (max - min || 1) * plotHeight;
+  const grid = Array.from({length:5}, (_, index) => { const ratio = index / 4, y = top + ratio * plotHeight, value = max - ratio * (max - min); return `<line x1="${left}" y1="${y}" x2="${width-right}" y2="${y}"/><text x="${left-12}" y="${y+4}" text-anchor="end">${escapeHtml(formatMoney(value))}</text>`; }).join("");
+  const points = history.map((item, index) => `${xFor(index)},${yFor(item.total)}`).join(" ");
+  const labels = history.map((item, index) => `<text x="${xFor(index)}" y="${height-20}" text-anchor="middle">${escapeHtml(new Date(`${item.date}T12:00:00`).toLocaleDateString("es-SV", {day:"2-digit", month:"short"}))}</text>`).join("");
+  const dots = history.map((item, index) => `<g><circle cx="${xFor(index)}" cy="${yFor(item.total)}" r="6"/><title>${escapeHtml(formatDate(item.date))}: ${escapeHtml(formatMoney(item.total))}</title></g>`).join("");
+  const archiveRows = [...history].reverse().map((item) => { const accounts = Object.values(item.balances || {}); return `<tr><td><strong>${escapeHtml(formatDate(item.date))}</strong><small>${item.completedAt ? `Archivada ${escapeHtml(new Date(item.completedAt).toLocaleString("es-SV"))}` : "Corte archivado"}</small></td><td>${accounts.length} ${accounts.length === 1 ? "cuenta" : "cuentas"}</td><td class="money">${formatMoney(item.total)}</td><td><button type="button" data-bank-archive-print="${escapeHtml(item.id)}">Imprimir</button></td></tr>`; }).join("");
+  return `<section class="bank-availability-module"><div class="availability-statistics-shell"><header><div><span>Historial financiero</span><h2>Estadística de disponibilidad</h2><p>Evolución de los saldos bancarios archivados durante los últimos 15 días.</p></div><strong>${history.length} ${history.length === 1 ? "corte" : "cortes"}</strong></header><article class="availability-history-chart"><div class="availability-statistics-title"><div><h3>Saldos de bancos</h3><p>Historial móvil de 15 días</p></div>${history.length ? `<strong>${formatMoney(history.at(-1).total)}<small>Último saldo archivado</small></strong>` : ""}</div>${history.length ? `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gráfico lineal de saldos bancarios archivados"><g class="chart-grid">${grid}</g><polyline class="chart-area-line" points="${points}"/><g class="chart-points">${dots}</g><g class="chart-labels">${labels}</g></svg>${history.length === 1 ? `<p class="availability-chart-note">El gráfico comenzará a mostrar la tendencia cuando se archive el siguiente corte.</p>` : ""}` : `<div class="availability-statistics-empty"><strong>Aún no hay disponibilidades archivadas</strong><span>El primer corte aparecerá aquí al usar “Archivar disponibilidad” en Datos.</span></div>`}</article><section class="availability-archive-list"><header><div><h3>Disponibilidades archivadas</h3><p>Consulta e imprime cualquier corte conservado dentro del historial.</p></div></header>${history.length ? `<div><table><thead><tr><th>Fecha del corte</th><th>Detalle</th><th>Total bancario</th><th>Documento</th></tr></thead><tbody>${archiveRows}</tbody></table></div>` : `<p class="availability-statistics-empty">No hay documentos disponibles para imprimir.</p>`}</section></div></section>`;
+}
+
+function printArchivedBankAvailability(archiveId) {
+  const archive = (state.bankAvailabilityHistory || []).find((item) => item.id === archiveId);
+  if (!archive) { alert("No se encontró la disponibilidad archivada."); return; }
+  const accounts = Object.values(archive.balances || {}).sort((a, b) => String(a.bank).localeCompare(String(b.bank), "es"));
+  const logoUrl = new URL("assets/konfi-logo.png", window.location.href).href;
+  const popup = window.open("", "_blank", "width=900,height=1000");
+  if (!popup) { alert("Permite las ventanas emergentes para imprimir la disponibilidad archivada."); return; }
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Disponibilidad archivada</title><style>@page{size:A4 portrait;margin:14mm}*{box-sizing:border-box}body{margin:0;background:#e9eef4;color:#173552;font:12px Arial,sans-serif}.page{width:190mm;min-height:267mm;margin:18px auto;padding:15mm;background:#fff}.head{display:flex;align-items:center;justify-content:space-between;padding-bottom:15px;border-bottom:2px solid #188b78}.head img{width:145px}.head div{text-align:right}.head h1{margin:0 0 5px;font-size:24px}.head p{margin:2px 0;color:#667b8f}.summary{display:flex;justify-content:space-between;align-items:center;margin:18px 0 14px;padding:15px;border:1px solid #bfd6df;border-left:4px solid #188b78;background:#f4f8fa}.summary strong{color:#087763;font-size:24px}table{width:100%;border-collapse:collapse}th,td{padding:10px 12px;border:1px solid #c8d7e2}th{text-align:left;background:#173b62;color:#fff}tbody tr:nth-child(even){background:#edf3f7}.money{text-align:right;font-weight:800}.total td{background:#176c62;color:#fff;font-size:15px;font-weight:900}.note{margin-top:14px;padding:10px;border-left:3px solid #45b99f;background:#f0f6f6;color:#52647a}.actions{position:fixed;right:20px;bottom:20px}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#167b68;color:#fff;font-weight:800}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0}.actions{display:none}}</style></head><body><main class="page"><header class="head"><img src="${escapeHtml(logoUrl)}" alt="KONFI"><div><h1>Disponibilidad archivada</h1><p>Fecha del corte: ${escapeHtml(formatDate(archive.date))}</p><p>Documento histórico de saldos bancarios</p></div></header><section class="summary"><span>Saldo total de bancos</span><strong>${formatMoney(archive.total)}</strong></section><table><thead><tr><th>Banco</th><th>Cuenta</th><th>Fecha bancaria</th><th>Saldo</th></tr></thead><tbody>${accounts.map((item) => `<tr><td>${escapeHtml(item.bank || "—")}</td><td>${escapeHtml(item.account || "—")}</td><td>${escapeHtml(item.statementDate ? formatDate(item.statementDate) : "—")}</td><td class="money">${formatMoney(item.balance)}</td></tr>`).join("")}<tr class="total"><td colspan="3">Total archivado</td><td class="money">${formatMoney(archive.total)}</td></tr></tbody></table><p class="note">Este documento reproduce los saldos guardados al momento de archivar la disponibilidad y no cambia con actualizaciones posteriores.</p></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button></nav></body></html>`);
+  popup.document.close();
+}
+
 function printBankAvailabilityVerticalReport() {
   const signatures = state.bankAvailabilitySignatures || {};
   if (!["prepared", "reviewed", "authorized"].every((key) => signatures[key]?.signed)) {
@@ -9541,6 +9572,7 @@ function renderBankAvailability() {
   const accounts = [...(state.bankAvailability.accounts || [])].sort((a, b) => Number(b.latest?.balance || 0) - Number(a.latest?.balance || 0));
   const total = Number(state.bankAvailability.total || 0);
   if (state.bankAvailabilityView === "report") return renderBankAvailabilityDerivedReport(accounts, total);
+  if (state.bankAvailabilityView === "statistics") return renderBankAvailabilityStatistics();
   const balanceFor = (...ids) => accounts.filter((item) => ids.includes(item.id)).reduce((sum, item) => sum + Number(item.latest?.balance || 0), 0);
   const summaries = [
     { label: "Disponibilidad Operativa", detail: "BAC + Agrícola", value: balanceFor("bank-bac", "bank-agricola"), className: "operating", icon: "↗" },
@@ -9907,7 +9939,7 @@ function openPendingChecksCrud() {
 
 function wireBankAvailability() {
   const module = document.querySelector(".bank-availability-module");
-  module?.insertAdjacentHTML("afterbegin", `<nav class="bank-availability-view-tabs" aria-label="Vista de disponibilidad"><button type="button" data-bank-availability-view="data" class="${state.bankAvailabilityView === "data" ? "active" : ""}">Datos</button><button type="button" data-bank-availability-view="report" class="${state.bankAvailabilityView === "report" ? "active" : ""}">Reporte</button></nav>`);
+  module?.insertAdjacentHTML("afterbegin", `<nav class="bank-availability-view-tabs" aria-label="Vista de disponibilidad"><button type="button" data-bank-availability-view="data" class="${state.bankAvailabilityView === "data" ? "active" : ""}">Datos</button><button type="button" data-bank-availability-view="report" class="${state.bankAvailabilityView === "report" ? "active" : ""}">Reporte</button><button type="button" data-bank-availability-view="statistics" class="${state.bankAvailabilityView === "statistics" ? "active" : ""}">Estadística</button></nav>`);
   document.querySelectorAll("[data-bank-availability-view]").forEach((button) => button.addEventListener("click", () => {
     state.bankAvailabilityView = button.dataset.bankAvailabilityView;
     renderCommercialSubmenu(areas.financiera);
@@ -9921,6 +9953,7 @@ function wireBankAvailability() {
       const response = await apiJson("/api/bank-availability/archive", { method: "POST", body: "{}" });
       state.bankAvailability = response.availability || state.bankAvailability;
       state.bankAvailabilitySignatures = {};
+      state.bankAvailabilityHistory = await apiJson("/api/bank-availability/archive-history").catch(() => state.bankAvailabilityHistory);
       alert("Disponibilidad archivada. El próximo reporte partirá de estos saldos.");
       renderCommercialSubmenu(areas.financiera);
     } catch (error) {
@@ -9930,6 +9963,7 @@ function wireBankAvailability() {
   });
   document.querySelector("[data-bank-availability-report]")?.addEventListener("click", () => printBankAvailabilityReport().catch((error) => alert(error.message || "No se pudo generar el reporte.")));
   document.querySelector("[data-bank-availability-print]")?.addEventListener("click", printBankAvailabilityVerticalReport);
+  document.querySelectorAll("[data-bank-archive-print]").forEach((button) => button.addEventListener("click", () => printArchivedBankAvailability(button.dataset.bankArchivePrint)));
   const remittancesSaveButton = document.querySelector("[data-bank-pending-deposits-save]");
   const reportFooter = document.querySelector(".availability-derived-report > footer");
   if (reportFooter) reportFooter.insertAdjacentHTML("beforebegin", bankAvailabilitySignatureMarkup());

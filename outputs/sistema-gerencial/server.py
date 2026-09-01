@@ -3801,6 +3801,27 @@ BANK_AVAILABILITY_SEED = [
 ]
 
 
+def bank_availability_archive_history(conn):
+    """Return the rolling 15-day archive used by the availability statistics view."""
+    cutoff = (datetime.now(ZoneInfo("America/El_Salvador")).date() - timedelta(days=14)).isoformat()
+    rows = conn.execute(
+        """SELECT id, snapshot_date, total, balances, completed_at
+           FROM bank_daily_availability
+           WHERE snapshot_date >= ?
+           ORDER BY snapshot_date ASC, completed_at ASC""",
+        (cutoff,),
+    ).fetchall()
+    history = []
+    for row in rows:
+        try:
+            balances = json.loads(row["balances"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            balances = {}
+        history.append({"id": row["id"], "date": row["snapshot_date"], "total": round(float(row["total"] or 0), 2),
+                        "balances": balances if isinstance(balances, dict) else {}, "completedAt": row["completed_at"]})
+    return history
+
+
 def bank_daily_availability_status(conn):
     account_ids = [row["id"] for row in conn.execute("SELECT id FROM bank_accounts WHERE active = 1 ORDER BY id").fetchall()]
     marks_row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_daily_update_marks'").fetchone()
@@ -4759,6 +4780,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             with connect() as conn:
                 self.send_json(bank_availability_signatures_payload(conn))
+            return
+
+        if self.path == "/api/bank-availability/archive-history":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            with connect() as conn:
+                self.send_json(bank_availability_archive_history(conn))
             return
 
         if self.path == "/api/pending-expenses":
