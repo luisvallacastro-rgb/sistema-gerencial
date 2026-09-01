@@ -793,27 +793,37 @@ def reset_customer_master_for_first_approved_request(data):
 
 
 def repair_don_bosco_opportunity_name_propagation(conn, data):
-    """Undo the accidental bulk rename while preserving the opportunity intentionally renamed DIDEA."""
-    version = "repair-don-bosco-individual-rename-20260901-v1"
+    """Restore the historical Don Bosco name after the temporary DIDEA test rename."""
+    version = "repair-don-bosco-individual-rename-20260901-v3"
     if text(data.get("individualOpportunityNameRepairVersion")) == version:
         return False
     users = {text(user.get("id")): text(user.get("name")) for user in data.get("users", [])}
-    candidates = [item for item in data.get("opportunities", [])
-                  if crm_identity_key(item.get("company")) == "didea"
-                  and "gabriela" in crm_identity_key(users.get(text(item.get("ownerId")), ""))]
-    intended = next((item for item in candidates
+    opportunities = data.get("opportunities", [])
+    gabriela_didea = [item for item in opportunities
+                      if crm_identity_key(item.get("company")) == "didea"
+                      and "gabriela" in crm_identity_key(users.get(text(item.get("ownerId")), ""))]
+    intended = next((item for item in gabriela_didea
                      if text(item.get("nextDate") or item.get("deadline")) == "2026-07-31"
                      and abs(float(item.get("estimatedAmount") or 0) - 23549.31) < 0.01), None)
-    if intended and len(candidates) > 1:
-        affected = [item for item in candidates if item.get("id") != intended.get("id")]
-        affected_customer_ids = {text(item.get("customerId")) for item in affected if text(item.get("customerId"))}
-        intended["customerId"] = ""
+    don_bosco_customer_ids = {
+        text(item.get("customerId")) for item in opportunities
+        if crm_identity_key(item.get("company")) == "colegio don bosco" and text(item.get("customerId"))
+    }
+    if intended and text(intended.get("customerId")):
+        don_bosco_customer_ids.add(text(intended.get("customerId")))
+    if intended and don_bosco_customer_ids:
+        restored_customer_id = sorted(don_bosco_customer_ids)[0]
+        affected = [item for item in opportunities
+                    if crm_identity_key(item.get("company")) == "didea"
+                    and (item.get("id") == intended.get("id") or text(item.get("customerId")) in don_bosco_customer_ids)]
         results = read_result_opportunities(conn)
         for item in affected:
             item["company"] = "Colegio Don Bosco"
+            if item.get("id") == intended.get("id"):
+                item["customerId"] = restored_customer_id
             synchronize_linked_company_name(conn, data, "Colegio Don Bosco", crm_opportunity_id=item.get("id"), result_items=results)
         for customer in data.get("customers", []):
-            if text(customer.get("id")) in affected_customer_ids:
+            if text(customer.get("id")) in don_bosco_customer_ids:
                 customer["commercialName"] = "Colegio Don Bosco"
                 customer["updatedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         write_result_opportunities(conn, results)
