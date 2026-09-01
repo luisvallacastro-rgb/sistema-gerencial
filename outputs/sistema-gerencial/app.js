@@ -777,7 +777,9 @@ let systemUsers = [];
 let sessionRestored = false;
 let presenceTimer = null;
 let internalChatTimer = null;
+let internalChatUnreadTimer = null;
 let internalChatPeer = null;
+let internalChatUnreadCounts = {};
 const apiEnabled = window.location.protocol !== "file:";
 
 async function apiJson(path, options = {}) {
@@ -12707,10 +12709,20 @@ async function loadInternalChat() {
   try {
     const payload = await apiJson(`/api/chat?with=${encodeURIComponent(internalChatPeer.user_id)}`);
     renderInternalChatMessages(payload.messages || []);
+    loadInternalChatUnread();
   } catch (error) {
     const status = document.querySelector("[data-internal-chat-status]");
     if (status) status.textContent = error.message || "No se pudo actualizar el chat";
   }
+}
+
+async function loadInternalChatUnread() {
+  if (!apiEnabled || !state.currentUser) return;
+  try {
+    const payload = await apiJson("/api/chat/unread");
+    internalChatUnreadCounts = Object.fromEntries((payload.unread || []).map((item) => [String(item.sender_id), Number(item.unread_count || 0)]));
+    renderPresenceList();
+  } catch {}
 }
 
 function openInternalChat(user) {
@@ -12770,8 +12782,10 @@ function renderPresenceList() {
     <button type="button" class="presence-user${String(user.user_id) === String(state.currentUser?.id) ? " current" : ""}" data-presence-chat-user="${escapeHtml(user.user_id || "")}" ${String(user.user_id) === String(state.currentUser?.id) ? "disabled" : ""}>
       <i aria-hidden="true"></i>
       <span>${escapeHtml(user.name || "Usuario")}${String(user.user_id) === String(state.currentUser?.id) ? " <small>(Tú)</small>" : ""}</span>
+      ${Number(internalChatUnreadCounts[String(user.user_id)] || 0) ? `<b class="presence-chat-unread" title="Mensajes nuevos">${Number(internalChatUnreadCounts[String(user.user_id)])}</b>` : ""}
     </button>
   `).join("");
+  document.querySelector(".presence-panel")?.classList.toggle("has-chat-unread", Object.values(internalChatUnreadCounts).some((count) => Number(count) > 0));
   presenceList.querySelectorAll("[data-presence-chat-user]").forEach((button) => button.addEventListener("click", () => {
     const user = users.find((item) => String(item.user_id) === String(button.dataset.presenceChatUser));
     if (user) openInternalChat(user);
@@ -12800,13 +12814,18 @@ function sendPresence() {
 
 function startPresence() {
   if (presenceTimer) clearInterval(presenceTimer);
+  if (internalChatUnreadTimer) clearInterval(internalChatUnreadTimer);
   sendPresence();
+  loadInternalChatUnread();
   presenceTimer = setInterval(sendPresence, 30000);
+  internalChatUnreadTimer = setInterval(loadInternalChatUnread, 5000);
 }
 
 function stopPresence() {
   if (presenceTimer) clearInterval(presenceTimer);
+  if (internalChatUnreadTimer) clearInterval(internalChatUnreadTimer);
   presenceTimer = null;
+  internalChatUnreadTimer = null;
 }
 
 function persistSession(user) {
@@ -12829,6 +12848,7 @@ function clearSession() {
   sessionRestored = false;
   state.currentUser = null;
   state.onlineUsers = [];
+  internalChatUnreadCounts = {};
   renderPresenceList();
 }
 

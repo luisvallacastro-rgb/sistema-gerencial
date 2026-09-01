@@ -4935,6 +4935,27 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([dict(row) for row in rows])
             return
 
+        if self.path == "/api/chat/unread":
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            if not actor_id:
+                self.send_json({"error": "Usuario requerido"}, status=400)
+                return
+            with connect() as conn:
+                actor = conn.execute("SELECT id FROM users WHERE id = ?", (actor_id,)).fetchone()
+                if not actor:
+                    self.send_json({"error": "Usuario no encontrado"}, status=404)
+                    return
+                rows = conn.execute("""
+                    SELECT message.sender_id, sender.name AS sender_name, COUNT(*) AS unread_count
+                    FROM internal_chat_messages AS message
+                    JOIN users AS sender ON sender.id = message.sender_id
+                    WHERE message.recipient_id = ? AND message.read_at IS NULL
+                    GROUP BY message.sender_id, sender.name
+                    ORDER BY MAX(message.created_at) DESC
+                """, (actor_id,)).fetchall()
+            self.send_json({"unread": [dict(row) for row in rows]})
+            return
+
         if self.path.startswith("/api/chat"):
             actor_id = text(self.headers.get("X-System-User-Id"))
             query = parse_qs(urlparse(self.path).query)
