@@ -8731,7 +8731,7 @@ function ensureCustomerRequestDialog() {
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>Tipo de documento<select id="customerRequestIdentityDocumentType">${customerSelectOptions(customerIdentityDocumentTypes, "Seleccionar tipo de documento")}</select></label><label>Número de documento<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<select id="customerRequestTaxpayerType">${customerSelectOptions(customerTaxpayerTypes, "Seleccionar tipo de contribuyente")}</select></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento<select id="customerRequestDepartment">${customerDepartmentOptions()}</select></label><label>Municipio<select id="customerRequestMunicipality" disabled><option value="">Selecciona primero el departamento</option></select></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<select id="customerRequestStrategy">${customerSelectOptions(customerCommercialStrategies, "Seleccionar estrategia comercial")}</select></label></div></section>
-    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir solicitud firmada</button><button type="button" class="customer-request-sign-btn hidden" data-customer-request-sign>Firmar electrónicamente</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="ghost-btn hidden" data-customer-request-approved-edit>Editar datos</button><button type="button" class="customer-request-save-btn hidden" data-customer-request-approved-save>Guardar cliente</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y crear cliente</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
+    </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir solicitud</button><button type="button" class="customer-request-sign-btn hidden" data-customer-request-sign>Firmar electrónicamente</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="ghost-btn hidden" data-customer-request-review-save>Guardar correcciones</button><button type="button" class="ghost-btn hidden" data-customer-request-approved-edit>Editar datos</button><button type="button" class="customer-request-save-btn hidden" data-customer-request-approved-save>Guardar cliente</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y crear cliente</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
   document.body.appendChild(dialog);
   wireCustomerLocationFields(dialog.querySelector("#customerRequestDepartment"), dialog.querySelector("#customerRequestMunicipality"));
@@ -8773,7 +8773,8 @@ function ensureCustomerRequestDialog() {
       dialog.querySelector("[data-customer-request-title]").textContent = `Continuar ${saved?.requestNumber || "borrador"}`;
       dialog.querySelector("[data-customer-request-status]").innerHTML = "<i></i> Borrador guardado";
       dialog.querySelector("[data-customer-request-sign]").classList.toggle("hidden", !savedId || !isOdalizValenciaUser());
-      dialog.querySelector("[data-customer-request-print]").classList.add("hidden");
+      dialog.querySelector("[data-customer-request-print]").classList.toggle("hidden", !savedId);
+      dialog.querySelector("[data-customer-request-print]").textContent = "Imprimir solicitud";
       button.textContent = "Guardado";
     } catch (error) {
       button.textContent = requestId ? "Guardar cambios" : "Guardar borrador";
@@ -8848,7 +8849,7 @@ function ensureCustomerRequestDialog() {
   return dialog;
 }
 
-function openCustomerRequestDialog(request = null, review = false, returnToList = false) {
+function openCustomerRequestDialog(request = null, review = false, returnToList = false, viewOnly = false) {
   const dialog = ensureCustomerRequestDialog();
   dialog.returnToRequestList = returnToList;
   const current = { ...customerRequestWithCurrentCustomerData(request || {}) };
@@ -8871,23 +8872,23 @@ function openCustomerRequestDialog(request = null, review = false, returnToList 
   const isValidated = isCustomerRequestValidated(current);
   const isSigned = isCustomerRequestSigned(current);
   const canValidate = normalizeKey(state.currentUser?.role || "") === "gerencias" || isAdminUser();
-  const canEdit = review ? (isPending && canValidate) : (!current.id || isDraft);
+  const canEdit = !viewOnly && (review ? (isPending && canValidate) : (!current.id || isDraft));
   customerRequestFields.forEach(([suffix]) => { dialog.querySelector(`#customerRequest${suffix}`).disabled = !canEdit; });
-  dialog.querySelector("[data-customer-request-title]").textContent = isValidated ? `Solicitud validada ${current.requestNumber || ""}` : (review ? `Validar ${current.requestNumber || "solicitud"}` : (current.id ? `Continuar ${current.requestNumber || "borrador"}` : "Nueva solicitud de cliente"));
+  dialog.querySelector("[data-customer-request-title]").textContent = viewOnly ? `Ficha ${current.requestNumber || "de solicitud"}` : (isValidated ? `Solicitud validada ${current.requestNumber || ""}` : (review ? `Validar ${current.requestNumber || "solicitud"}` : (current.id ? `Continuar ${current.requestNumber || "borrador"}` : "Nueva solicitud de cliente")));
   dialog.querySelector("[data-customer-request-status]").innerHTML = `<i></i> ${escapeHtml(current.status || "Borrador sin enviar")}${current.assignedClientNumber ? ` · ID ${escapeHtml(current.assignedClientNumber)}` : ""}`;
-  dialog.querySelector("[data-customer-request-submit]").classList.toggle("hidden", review);
+  dialog.querySelector("[data-customer-request-submit]").classList.toggle("hidden", review || viewOnly);
   const draftButton = dialog.querySelector("[data-customer-request-draft]");
-  draftButton.classList.toggle("hidden", review || !isDraft);
+  draftButton.classList.toggle("hidden", review || viewOnly || !isDraft);
   draftButton.textContent = current.id ? "Guardar cambios" : "Guardar borrador";
-  dialog.querySelector("[data-customer-request-review-save]").classList.toggle("hidden", !review || !isPending || !canValidate);
-  dialog.querySelector("[data-customer-request-approved-edit]").classList.toggle("hidden", !isValidated || !current.approvedCustomerId);
+  dialog.querySelector("[data-customer-request-review-save]").classList.toggle("hidden", viewOnly || !review || !isPending || !canValidate);
+  dialog.querySelector("[data-customer-request-approved-edit]").classList.toggle("hidden", viewOnly || !isValidated || !current.approvedCustomerId);
   dialog.querySelector("[data-customer-request-approved-save]").classList.add("hidden");
-  dialog.querySelector("[data-customer-request-sign]").classList.toggle("hidden", !current.id || !isDraft || isSigned || !isOdalizValenciaUser());
+  dialog.querySelector("[data-customer-request-sign]").classList.toggle("hidden", viewOnly || !current.id || !isDraft || isSigned || !isOdalizValenciaUser());
   dialog.querySelector("[data-customer-request-sign]").textContent = "Firmar electrónicamente";
-  dialog.querySelector("[data-customer-request-print]").classList.toggle("hidden", !isSigned);
-  dialog.querySelector("[data-customer-request-print]").textContent = isValidated ? "Imprimir ficha aprobada" : "Imprimir solicitud firmada";
-  dialog.querySelector("[data-customer-request-approve]").classList.toggle("hidden", !review || !isPending || !canValidate);
-  dialog.querySelector("[data-customer-request-reject]").classList.toggle("hidden", !review || !isPending || !canValidate);
+  dialog.querySelector("[data-customer-request-print]").classList.toggle("hidden", !current.id);
+  dialog.querySelector("[data-customer-request-print]").textContent = isValidated ? "Imprimir ficha aprobada" : (isSigned ? "Imprimir solicitud firmada" : "Imprimir solicitud");
+  dialog.querySelector("[data-customer-request-approve]").classList.toggle("hidden", viewOnly || !review || !isPending || !canValidate);
+  dialog.querySelector("[data-customer-request-reject]").classList.toggle("hidden", viewOnly || !review || !isPending || !canValidate);
   dialog.showModal();
 }
 
@@ -8924,7 +8925,7 @@ function openCustomerRequestListDialog() {
         <div><small>${escapeHtml(request.requestNumber || "BORRADOR")}</small><strong>${escapeHtml(request.commercialName || request.legalName || "Cliente sin nombre")}</strong><span>${escapeHtml(request.contactName || request.taxId || "Datos por completar")}</span></div>
         <div><small>Última actualización</small><strong>${date ? escapeHtml(formatDate(String(date).slice(0, 10))) : "—"}</strong></div>
         <div><small>Estado</small><span class="crm-request-status ${statusKey}">${escapeHtml(request.status || "Borrador")}</span>${request.assignedClientNumber ? `<em>ID ${escapeHtml(request.assignedClientNumber)}</em>` : ""}</div>
-        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">${isDraft ? "Editar" : "Ver detalle"}</button>${isDraft && !isSigned && isOdalizValenciaUser() ? `<button type="button" class="sign" data-customer-request-list-sign="${escapeHtml(request.id)}">Firmar</button>` : ""}<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="${isSigned ? "Imprimir solicitud firmada" : "Pendiente de firma"}" ${isSigned ? "" : "disabled"}>Imprimir</button>${isDraft ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}" ${isSigned ? "" : "disabled"}>Enviar</button>` : ""}</div>
+        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-view="${escapeHtml(request.id)}">Ver ficha</button>${isDraft ? `<button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">Editar</button>` : ""}${isDraft && !isSigned && isOdalizValenciaUser() ? `<button type="button" class="sign" data-customer-request-list-sign="${escapeHtml(request.id)}">Firmar</button>` : ""}<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="${isSigned ? "Imprimir solicitud firmada" : "Imprimir para revisión antes de firma"}">Imprimir solicitud</button>${isDraft ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}" ${isSigned ? "" : "disabled"}>Enviar</button>` : ""}</div>
       </article>`;
     }).join("") || `<div class="customer-request-list-empty"><strong>Sin solicitudes</strong><span>${requests.length ? "No hay coincidencias con esa búsqueda." : "Cuando guardes o envíes una solicitud, aparecerá aquí."}</span></div>`;
     rows.querySelectorAll("[data-customer-request-list-open]").forEach((button) => button.addEventListener("click", () => {
@@ -8932,6 +8933,12 @@ function openCustomerRequestListDialog() {
       if (!request) return;
       dialog.close();
       openCustomerRequestDialog(request, normalizeKey(request.status || "") !== "borrador", true);
+    }));
+    rows.querySelectorAll("[data-customer-request-list-view]").forEach((button) => button.addEventListener("click", () => {
+      const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListView));
+      if (!request) return;
+      dialog.close();
+      openCustomerRequestDialog(request, false, true, true);
     }));
     rows.querySelectorAll("[data-customer-request-list-print]").forEach((button) => button.addEventListener("click", () => {
       const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListPrint));
