@@ -3886,7 +3886,7 @@ def bank_availability_report_snapshot(conn, balances, total):
     labor_reserve = grouped.get("reserva laboral", 0)
     fiscal_reserve = grouped.get("reserva fiscal", 0)
     other_expenses = sum(value for key, value in grouped.items() if key not in {"comisiones", "reserva laboral", "reserva fiscal"})
-    bank_balance = total - pending_deposits + checks_total
+    bank_balance = total + pending_deposits - checks_total
     operating_balance = bank_balance - inventory - reserves
     gross_availability = operating_balance - commissions - labor_reserve - fiscal_reserve
     return {key: round(value, 2) for key, value in {"bankTotal": total, "pendingDeposits": pending_deposits,
