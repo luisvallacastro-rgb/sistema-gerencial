@@ -13958,16 +13958,17 @@ body.operations-fullscreen-open {
 .app-shell .presence-user:disabled { cursor: default; opacity: .62; }
 .app-shell .presence-user small { color: rgba(210,225,240,.5); font-size: 9px; }
 .app-shell .presence-chat-unread { min-width: 20px; height: 20px; display: grid; place-items: center; margin-left: auto; border-radius: 999px; background: #36e0b0; color: #09243a; font-size: 10px; font-weight: 950; box-shadow: 0 0 0 4px rgba(54,224,176,.11); }
-.app-shell .presence-panel.has-chat-unread .presence-head { border: 1px solid rgba(54,224,176,.55); box-shadow: 0 0 0 4px rgba(54,224,176,.09); }
+.app-shell .presence-panel.has-chat-unread:not([open]) .presence-head { border: 0; box-shadow: none; background: transparent; }
 .app-shell .presence-panel.has-chat-unread .presence-head i { animation: chat-unread-pulse 1.3s ease-in-out infinite; }
-.app-shell .presence-chat-summary { display: none; position: relative; width: 34px; height: 28px; place-items: center; border-radius: 10px; background: rgba(54,224,176,.17); color: #79f1d0; }
-.app-shell .presence-chat-summary svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.app-shell .presence-chat-summary em { position: absolute; top: -7px; right: -8px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; border: 2px solid #112947; border-radius: 999px; background: #36e0b0; color: #09243a; font-size: 9px; font-style: normal; font-weight: 950; }
+.app-shell .presence-chat-summary { display: none; position: relative; width: 42px; height: 42px; place-items: center; border: 1px solid rgba(85,238,199,.52); border-radius: 50%; background: linear-gradient(145deg,rgba(27,113,109,.62),rgba(12,49,73,.94)); color: #8ff4d9; box-shadow: inset 0 1px 0 rgba(255,255,255,.1),0 7px 18px rgba(2,17,31,.3); }
+.app-shell .presence-chat-summary svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.app-shell .presence-chat-summary em { position: absolute; top: -4px; right: -5px; min-width: 19px; height: 19px; display: grid; place-items: center; padding: 0 4px; border: 2px solid #102842; border-radius: 999px; background: #55e7bd; color: #08283a; font-size: 9px; line-height: 1; font-style: normal; font-weight: 950; box-shadow: 0 3px 8px rgba(0,0,0,.28); }
 .app-shell .presence-panel.has-chat-unread:not([open]) .presence-head > i,
 .app-shell .presence-panel.has-chat-unread:not([open]) .presence-head > #onlineCount { display: none; }
-.app-shell .presence-panel.has-chat-unread:not([open]) .presence-chat-summary { display: grid; }
+.app-shell .presence-panel.has-chat-unread:not([open]) .presence-chat-summary { display: grid; animation: chat-envelope-arrive .32s ease-out; }
 .app-shell .presence-panel[open] .presence-chat-summary { display: none; }
 @keyframes chat-unread-pulse { 50% { transform: scale(1.35); box-shadow: 0 0 0 8px rgba(49,212,133,0); } }
+@keyframes chat-envelope-arrive { from { opacity: 0; transform: translateY(3px) scale(.88); } to { opacity: 1; transform: none; } }
 
 .internal-chat-window {
   position: fixed;
