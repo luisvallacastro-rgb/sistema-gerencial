@@ -6548,7 +6548,7 @@ function renderAccountsReceivable() {
 }
 
 function wireAccountsReceivable() {
-  opportunityTable.querySelector("[data-accounts-receivable-report]")?.addEventListener("click", printAccountsReceivableValidationReport);
+  opportunityTable.querySelector("[data-accounts-receivable-report]")?.addEventListener("click", printAccountsReceivableFlowReport);
   opportunityTable.querySelector("[data-accounts-receivable-year]")?.addEventListener("change", (event) => {
     state.accountsReceivableYearFilter = event.target.value;
     state.accountsReceivablePage = 1;
