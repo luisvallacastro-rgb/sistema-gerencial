@@ -3860,7 +3860,7 @@ function renderQuotationsModule() {
       <header class="quotations-module__toolbar">
         <label class="quotations-module__search"><span aria-hidden="true">⌕</span><input type="search" data-quotation-module-search value="${escapeHtml(state.quotationModuleQuery)}" placeholder="Buscar cliente, vendedor, estado, fecha o producto..."></label>
         <div class="quotations-module__total"><small>TOTAL</small><strong>${formatControlSalesMoney(visibleTotal)}</strong></div>
-        ${canSubmitCustomerRequest() ? `<button type="button" class="quotations-module__request" data-customer-request-create><span aria-hidden="true">＋</span>Solicitud de cliente</button>` : ""}
+        ${canCreateCustomerRequest() ? `<button type="button" class="quotations-module__request" data-customer-request-create><span aria-hidden="true">＋</span>Solicitud de cliente</button>` : ""}
         <button type="button" class="quotations-module__requests-list" data-customer-request-list><span aria-hidden="true">▤</span><span>Mis solicitudes<small>${customerRequests.length}${openCustomerRequests ? ` · ${openCustomerRequests} abiertas` : ""}</small></span></button>
         <button type="button" class="quotations-module__new" data-quotation-module-create ${hasAvailableOpportunities ? "" : "disabled"}><span aria-hidden="true">＋</span>Nueva cotización</button>
       </header>
@@ -8824,11 +8824,11 @@ function isOdalizValenciaUser(user = state.currentUser) {
 }
 
 function canSubmitCustomerRequest(user = state.currentUser) {
-  if (isOdalizValenciaUser(user)) return true;
-  const identity = normalizeKey(`${user?.id || ""} ${user?.name || ""} ${user?.username || ""} ${user?.email || ""}`);
-  return identity.includes("user admin luis")
-    || identity.includes("luisvallacastro")
-    || (identity.includes("luis") && identity.includes("valladares"));
+  return isOdalizValenciaUser(user);
+}
+
+function canCreateCustomerRequest(user = state.currentUser) {
+  return Boolean(user);
 }
 
 function isCustomerRequestReviewer(user = state.currentUser) {
@@ -9083,7 +9083,7 @@ function openCustomerRequestListDialog() {
   dialog.className = "customer-request-list-dialog";
   dialog.innerHTML = `<section class="customer-request-list-card">
     <header><div><p>Solicitudes comerciales</p><h3>Mis solicitudes de clientes</h3><span>Consulta lo enviado, revisa su estado o continúa un borrador.</span></div><button type="button" data-customer-request-list-close aria-label="Cerrar">×</button></header>
-    <div class="customer-request-list-toolbar"><label><span aria-hidden="true">⌕</span><input type="search" data-customer-request-list-search placeholder="Buscar solicitud, cliente, NIT, contacto o estado..."></label>${canSubmitCustomerRequest() ? `<button type="button" data-customer-request-list-new>＋ Nueva solicitud</button>` : ""}</div>
+    <div class="customer-request-list-toolbar"><label><span aria-hidden="true">⌕</span><input type="search" data-customer-request-list-search placeholder="Buscar solicitud, cliente, NIT, contacto o estado..."></label>${canCreateCustomerRequest() ? `<button type="button" data-customer-request-list-new>＋ Nueva solicitud</button>` : ""}</div>
     <div class="customer-request-list-summary" data-customer-request-list-summary></div>
     <div class="customer-request-list-rows" data-customer-request-list-rows></div>
   </section>`;
@@ -9109,7 +9109,7 @@ function openCustomerRequestListDialog() {
         <div><small>${escapeHtml(request.requestNumber || "BORRADOR")}</small><strong>${escapeHtml(request.commercialName || request.legalName || "Cliente sin nombre")}</strong><span>${escapeHtml(request.contactName || request.taxId || "Datos por completar")}</span></div>
         <div><small>Última actualización</small><strong>${date ? escapeHtml(formatDate(String(date).slice(0, 10))) : "—"}</strong></div>
         <div><small>Estado</small><span class="crm-request-status ${statusKey}">${escapeHtml(request.status || "Borrador")}</span>${request.assignedClientNumber ? `<em>ID ${escapeHtml(request.assignedClientNumber)}</em>` : ""}</div>
-        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-view="${escapeHtml(request.id)}">Ver ficha</button>${isDraft && canSubmitCustomerRequest() ? `<button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">Editar</button>` : ""}${["borrador", "pendiente"].includes(statusKey) ? (isSigned ? `<span class="customer-request-signature-state">✓ Firmada</span>` : (isOdalizValenciaUser() ? `<button type="button" class="sign" data-customer-request-list-sign="${escapeHtml(request.id)}">Autorizar firma electrónica</button>` : `<span class="customer-request-signature-state pending">Firma pendiente</span>`)) : ""}<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="${isSigned ? "Imprimir solicitud firmada" : "Imprimir para revisión antes de firma"}">Imprimir solicitud</button>${isDraft && canSubmitCustomerRequest() ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}" ${isSigned ? "" : "disabled"}>Enviar</button>` : ""}</div>
+        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-view="${escapeHtml(request.id)}">Ver ficha</button>${isDraft && canCreateCustomerRequest() ? `<button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">Editar</button>` : ""}${["borrador", "pendiente"].includes(statusKey) ? (isSigned ? `<span class="customer-request-signature-state">✓ Firmada</span>` : (isOdalizValenciaUser() ? `<button type="button" class="sign" data-customer-request-list-sign="${escapeHtml(request.id)}">Autorizar firma electrónica</button>` : `<span class="customer-request-signature-state pending">Firma pendiente</span>`)) : ""}<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="${isSigned ? "Imprimir solicitud firmada" : "Imprimir para revisión antes de firma"}">Imprimir solicitud</button>${isDraft && canSubmitCustomerRequest() ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}" ${isSigned ? "" : "disabled"}>Enviar</button>` : ""}</div>
       </article>`;
     }).join("") || `<div class="customer-request-list-empty"><strong>Sin solicitudes</strong><span>${requests.length ? "No hay coincidencias con esa búsqueda." : "Cuando guardes o envíes una solicitud, aparecerá aquí."}</span></div>`;
     rows.querySelectorAll("[data-customer-request-list-open]").forEach((button) => button.addEventListener("click", () => {

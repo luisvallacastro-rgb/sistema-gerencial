@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-customer-document-tabs-v11"
+API_VERSION = "kmi-restore-customer-requests-v12"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -130,22 +130,8 @@ def is_odaliz_valencia_user(user):
 
 
 def can_submit_customer_request(user):
-    """Only Odaliz Valencia and Luis Valladares may send clients for approval."""
-    if is_odaliz_valencia_user(user):
-        return True
-    identity = " ".join((
-        text((user or {}).get("id")), text((user or {}).get("name")),
-        text((user or {}).get("username")), text((user or {}).get("email")),
-    )).lower()
-    normalized = "".join(
-        character for character in unicodedata.normalize("NFD", identity)
-        if unicodedata.category(character) != "Mn"
-    )
-    return (
-        "user-admin-luis" in normalized
-        or "luisvallacastro" in normalized
-        or ("luis" in normalized and "valladares" in normalized)
-    )
+    """Only Odaliz Valencia may send a saved request to the customer panel."""
+    return is_odaliz_valencia_user(user)
 ALL_OPERATIONAL_PERMISSIONS = [
     f"{area}:{section}"
     for area in AREA_KEYS
@@ -6968,7 +6954,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     status = text(payload.get("status"), "Pendiente")
                     is_draft = status.lower() == "borrador"
                     if not is_draft and not can_submit_customer_request(request_user):
-                        self.send_json({"error": "Solo Odaliz Valencia y Luis Valladares pueden enviar clientes al panel"}, status=403)
+                        self.send_json({"error": "Solo Odaliz Valencia puede enviar solicitudes al panel de Clientes"}, status=403)
                         return
                     if is_draft and not customer_request_has_content(payload):
                         self.send_json({"error": "Ingrese al menos un dato antes de guardar el borrador"}, status=400)
@@ -7096,7 +7082,7 @@ class AppHandler(BaseHTTPRequestHandler):
                             self.send_json({"error": "Un borrador solo puede guardarse o enviarse a validación"}, status=409)
                             return
                         if current_status == "borrador" and target_status == "pendiente" and not can_submit_customer_request(request_user):
-                            self.send_json({"error": "Solo Odaliz Valencia y Luis Valladares pueden enviar clientes al panel"}, status=403)
+                            self.send_json({"error": "Solo Odaliz Valencia puede enviar solicitudes al panel de Clientes"}, status=403)
                             return
                         if current_status == "pendiente" and not can_manage:
                             self.send_json({"error": "La solicitud enviada solo puede ser revisada por Gerencia de Comercialización"}, status=403)
