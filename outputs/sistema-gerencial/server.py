@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 from zoneinfo import ZoneInfo
 
 
@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-chat-attachments-safe-storage-v4"
+API_VERSION = "kmi-chat-attachments-unicode-v5"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -5060,10 +5060,12 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": "Archivo no disponible"}, status=404)
                 return
             content = file_path.read_bytes()
+            original_name = Path(row["attachment_name"]).name or "archivo"
+            ascii_name = unicodedata.normalize("NFKD", original_name).encode("ascii", "ignore").decode("ascii").replace('"', "") or "archivo"
             self.send_response(200)
             self.send_header("Content-Type", row["attachment_type"] or "application/octet-stream")
             self.send_header("Content-Length", str(len(content)))
-            self.send_header("Content-Disposition", f'inline; filename="{Path(row["attachment_name"]).name}"')
+            self.send_header("Content-Disposition", f"inline; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(original_name, safe='')}")
             self.send_header("Cache-Control", "private, max-age=300")
             self.send_cors_headers()
             self.end_headers()
