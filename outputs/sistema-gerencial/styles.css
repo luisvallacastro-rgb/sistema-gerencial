@@ -6318,7 +6318,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 }
 
 .app-shell .financial-orders-shell.has-handoffs {
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .app-shell .won-order-handoffs {
@@ -7537,7 +7537,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 }
 
 /* Mantiene la paginación visible cuando el filtro histórico ocupa una fila adicional. */
-.app-shell .dashboard.opportunity-focus .opportunity-table:has(.opportunity-cycle-toolbar) {
+.app-shell .dashboard.opportunity-focus .opportunity-table.cycle-list-active {
   display: grid !important;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   align-content: stretch;
@@ -7546,11 +7546,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   overflow: hidden !important;
 }
 
-.app-shell .dashboard.opportunity-focus .opportunity-table:has(.opportunity-cycle-toolbar) .opportunity-cycle-toolbar {
-  margin-bottom: 0;
-}
-
-.app-shell .dashboard.opportunity-focus .opportunity-table:has(.opportunity-cycle-toolbar) .opportunity-table-body {
+.app-shell .dashboard.opportunity-focus .opportunity-table.cycle-list-active .opportunity-table-body {
   min-height: 0 !important;
   max-height: none !important;
   overflow-x: hidden !important;
@@ -7558,7 +7554,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   padding-right: 6px !important;
 }
 
-.app-shell .dashboard.opportunity-focus .opportunity-table:has(.opportunity-cycle-toolbar) .opportunity-pagination {
+.app-shell .dashboard.opportunity-focus .opportunity-table.cycle-list-active .opportunity-pagination {
   position: relative;
   z-index: 4;
   flex: none;
@@ -19539,6 +19535,15 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   border: 1px solid rgba(113, 227, 206, .22);
   border-radius: 18px;
   background: rgba(7, 27, 52, .42);
+}
+
+.app-shell .opportunity-cycle-toolbar-host:not(.hidden) {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.app-shell .opportunity-cycle-toolbar-host .opportunity-cycle-toolbar {
+  margin-bottom: 0;
 }
 
 .app-shell .opportunity-cycle-tabs {

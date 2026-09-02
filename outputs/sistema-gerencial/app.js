@@ -879,6 +879,7 @@ const kpiList = document.querySelector("#kpiList");
 const riskList = document.querySelector("#riskList");
 const requestTable = document.querySelector("#requestTable");
 const commercialPanel = document.querySelector("#commercialPanel");
+const opportunityCycleToolbarHost = document.querySelector("#opportunityCycleToolbarHost");
 const commercialSubmenuTitle = document.querySelector("#commercialSubmenuTitle");
 const commercialSubmenuStatus = document.querySelector("#commercialSubmenuStatus");
 const financialOrdersViewTabs = document.querySelector("#financialOrdersViewTabs");
@@ -9258,6 +9259,39 @@ function switchCrmCustomerView(view) {
   renderCommercialSubmenu(areas.comercializacion);
 }
 
+opportunityCycleToolbarHost.addEventListener("click", (event) => {
+  if (event.target.closest("[data-opportunity-report]")) return openOpportunityReportDialog();
+  if (event.target.closest("[data-opportunity-validation-report]")) return printManagementSellerValidationReport();
+  const cycleButton = event.target.closest("[data-cycle-view]");
+  if (cycleButton) {
+    state.opportunityCycleView = cycleButton.dataset.cycleView;
+    state.opportunityMainStatusFilter = cycleButton.dataset.cycleView;
+    state.opportunityMainResultFilter = cycleButton.dataset.cycleView === "active" ? "pending" : "all";
+    state.opportunityPage = 1;
+    return renderCommercialSubmenu(areas[state.activeArea]);
+  }
+  const closedResultButton = event.target.closest("[data-closed-result-filter]");
+  if (closedResultButton) {
+    state.opportunityClosedResultFilter = closedResultButton.dataset.closedResultFilter;
+    state.opportunityPage = 1;
+    return renderCommercialSubmenu(areas[state.activeArea]);
+  }
+  if (event.target.closest("[data-opportunity-closed-reset]")) {
+    state.opportunityClosedDateFrom = "2026-07-01";
+    state.opportunityClosedDateTo = todayISO();
+    state.opportunityPage = 1;
+    renderCommercialSubmenu(areas[state.activeArea]);
+  }
+});
+
+opportunityCycleToolbarHost.addEventListener("change", (event) => {
+  if (event.target.matches("[data-opportunity-closed-from]")) state.opportunityClosedDateFrom = event.target.value;
+  else if (event.target.matches("[data-opportunity-closed-to]")) state.opportunityClosedDateTo = event.target.value;
+  else return;
+  state.opportunityPage = 1;
+  renderCommercialSubmenu(areas[state.activeArea]);
+});
+
 opportunityTable.addEventListener("click", (event) => {
   const button = event.target.closest("[data-crm-customer-view]");
   if (!button || !opportunityTable.contains(button)) return;
@@ -10205,6 +10239,9 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("opportunity-mode");
   commercialPanel.classList.remove("crm-opportunity-tabs");
   commercialPanel.classList.remove("bank-availability-mode");
+  opportunityCycleToolbarHost.replaceChildren();
+  opportunityCycleToolbarHost.classList.add("hidden");
+  opportunityTable.classList.remove("cycle-list-active");
   opportunityTotalAmount.classList.add("hidden");
   opportunitySellerReportBtn?.classList.add("hidden");
   commercialSubmenuTitle.classList.remove("hidden");
@@ -10845,6 +10882,12 @@ function renderCommercialSubmenu(area) {
     </div>
     `}
   `;
+  const cycleToolbar = opportunityTable.querySelector(".opportunity-cycle-toolbar");
+  if (cycleToolbar) {
+    opportunityCycleToolbarHost.replaceChildren(cycleToolbar);
+    opportunityCycleToolbarHost.classList.remove("hidden");
+    opportunityTable.classList.add("cycle-list-active");
+  }
 }
 
 function renderOpportunityDashboard(items) {
