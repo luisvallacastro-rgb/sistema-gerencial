@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-opportunity-quotation-cascade-v6"
+API_VERSION = "kmi-customer-deduplication-v7"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -126,6 +126,25 @@ def is_odaliz_valencia_user(user):
         ("odaliz" in normalized and "valencia" in normalized)
         or username == "gerencia comercial"
         or email == "gtecomercial.ayc@gmail.com"
+    )
+
+
+def can_submit_customer_request(user):
+    """Only Odaliz Valencia and Luis Valladares may send clients for approval."""
+    if is_odaliz_valencia_user(user):
+        return True
+    identity = " ".join((
+        text((user or {}).get("id")), text((user or {}).get("name")),
+        text((user or {}).get("username")), text((user or {}).get("email")),
+    )).lower()
+    normalized = "".join(
+        character for character in unicodedata.normalize("NFD", identity)
+        if unicodedata.category(character) != "Mn"
+    )
+    return (
+        "user-admin-luis" in normalized
+        or "luisvallacastro" in normalized
+        or ("luis" in normalized and "valladares" in normalized)
     )
 ALL_OPERATIONAL_PERMISSIONS = [
     f"{area}:{section}"
@@ -857,6 +876,7 @@ def read_crm_data(conn):
         reconcile_linked_opportunity_names(conn, data)
         repair_don_bosco_opportunity_name_propagation(conn, data)
         repair_customer_request_id_collisions(data)
+        repair_duplicate_customers_by_tax_id(conn, data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -886,7 +906,8 @@ def read_crm_data(conn):
     linked_names_changed = reconcile_linked_opportunity_names(conn, data)
     individual_name_repair_changed = repair_don_bosco_opportunity_name_propagation(conn, data)
     customer_id_collision_changed = repair_customer_request_id_collisions(data)
-    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed
+    customer_tax_duplicate_changed = repair_duplicate_customers_by_tax_id(conn, data)
+    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed or customer_tax_duplicate_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -1136,10 +1157,16 @@ def meaningful_crm_identity(value):
     return "" if identity in {"", "none", "null", "undefined", "n a", "na"} else identity
 
 
+def comparable_crm_identifier(value):
+    """Compare NIT/codes independently of spaces, punctuation or letter case."""
+    meaningful = meaningful_crm_identity(value)
+    return "".join(char for char in meaningful.casefold() if char.isalnum()) if meaningful else ""
+
+
 def matching_crm_customer(data, payload, current_id=""):
     candidate = normalize_crm_customer(payload)
-    candidate_tax_id = meaningful_crm_identity(payload.get("taxId"))
-    candidate_code = meaningful_crm_identity(payload.get("customerCode"))
+    candidate_tax_id = comparable_crm_identifier(payload.get("taxId"))
+    candidate_code = comparable_crm_identifier(payload.get("customerCode"))
     candidate_names = {
         crm_identity_key(candidate.get("commercialName")),
         crm_identity_key(candidate.get("legalName")),
@@ -1147,9 +1174,9 @@ def matching_crm_customer(data, payload, current_id=""):
     for customer in data.get("customers", []):
         if text(customer.get("id")) == current_id:
             continue
-        if candidate_tax_id and meaningful_crm_identity(customer.get("taxId")) == candidate_tax_id:
+        if candidate_tax_id and comparable_crm_identifier(customer.get("taxId")) == candidate_tax_id:
             return customer, "taxId"
-        if candidate_code and meaningful_crm_identity(customer.get("customerCode")) == candidate_code:
+        if candidate_code and comparable_crm_identifier(customer.get("customerCode")) == candidate_code:
             return customer, "customerCode"
         # El nombre solo identifica un duplicado cuando el nuevo registro no
         # cuenta con NIT ni código. Dos empresas pueden compartir nombre, pero
@@ -1222,6 +1249,84 @@ def repair_customer_request_id_collisions(data):
         changed = True
     data["customerRequestIdCollisionRepairVersion"] = version
     return True if changed or text(data.get("customerRequestIdCollisionRepairVersion")) == version else False
+
+
+def repair_duplicate_customers_by_tax_id(conn, data):
+    """Merge customers duplicated only because their NIT used different punctuation."""
+    version = "merge-duplicate-customers-by-tax-20260902-v1"
+    if text(data.get("customerTaxDuplicateMergeVersion")) == version:
+        return False
+
+    customers = data.setdefault("customers", [])
+    groups = {}
+    for customer in customers:
+        tax_key = comparable_crm_identifier(customer.get("taxId"))
+        if tax_key:
+            groups.setdefault(tax_key, []).append(customer)
+
+    duplicate_to_canonical = {}
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    protected_fields = {"id", "clientNumber", "createdAt"}
+    for grouped_customers in groups.values():
+        if len(grouped_customers) < 2:
+            continue
+        grouped_customers.sort(key=lambda item: (
+            parse_crm_customer_number(item.get("clientNumber")) or 10**9,
+            text(item.get("createdAt")),
+            text(item.get("id")),
+        ))
+        canonical = grouped_customers[0]
+        canonical_id = text(canonical.get("id"))
+        canonical_number = text(canonical.get("clientNumber"))
+        # Later records commonly contain the completed approval data. Copy only
+        # meaningful values while retaining the first customer's ID and number.
+        for duplicate in grouped_customers[1:]:
+            duplicate_id = text(duplicate.get("id"))
+            if not duplicate_id or duplicate_id == canonical_id:
+                continue
+            for field, value in duplicate.items():
+                if field not in protected_fields and meaningful_crm_identity(value):
+                    canonical[field] = value
+            duplicate_to_canonical[duplicate_id] = (canonical_id, canonical_number)
+        canonical["updatedAt"] = now
+
+    if duplicate_to_canonical:
+        for request in data.get("customerRequests", []):
+            replacement = duplicate_to_canonical.get(text(request.get("approvedCustomerId")))
+            if replacement:
+                request["approvedCustomerId"], request["assignedClientNumber"] = replacement
+                request["updatedAt"] = now
+        for opportunity in data.get("opportunities", []):
+            replacement = duplicate_to_canonical.get(text(opportunity.get("customerId")))
+            if replacement:
+                opportunity["customerId"] = replacement[0]
+                opportunity["updatedAt"] = now
+
+        for row in conn.execute("SELECT id, customer_data FROM quotations").fetchall():
+            try:
+                customer_data = json.loads(row["customer_data"] or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                customer_data = {}
+            replacement = duplicate_to_canonical.get(text(customer_data.get("customerId")))
+            if not replacement:
+                continue
+            customer_data["customerId"] = replacement[0]
+            conn.execute(
+                "UPDATE quotations SET customer_data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (json.dumps(customer_data, ensure_ascii=False), row["id"]),
+            )
+
+        duplicate_ids = set(duplicate_to_canonical)
+        data["customers"] = [
+            customer for customer in customers if text(customer.get("id")) not in duplicate_ids
+        ]
+        data["customerSequence"] = max(
+            (parse_crm_customer_number(customer.get("clientNumber")) for customer in data["customers"]),
+            default=0,
+        )
+
+    data["customerTaxDuplicateMergeVersion"] = version
+    return True
 
 
 def inherit_crm_customer_fields(data, payload):
@@ -6735,6 +6840,9 @@ class AppHandler(BaseHTTPRequestHandler):
                     payload = self.read_json()
                     status = text(payload.get("status"), "Pendiente")
                     is_draft = status.lower() == "borrador"
+                    if not is_draft and not can_submit_customer_request(request_user):
+                        self.send_json({"error": "Solo Odaliz Valencia y Luis Valladares pueden enviar clientes al panel"}, status=403)
+                        return
                     if is_draft and not customer_request_has_content(payload):
                         self.send_json({"error": "Ingrese al menos un dato antes de guardar el borrador"}, status=400)
                         return
@@ -6797,6 +6905,11 @@ class AppHandler(BaseHTTPRequestHandler):
                         if not is_customer_request_reviewer(request_user):
                             self.send_json({"error": "No tiene permiso para aprobar solicitudes"}, status=403)
                             return
+                        if text(request.get("status")).lower() == "aprobada" and text(request.get("approvedCustomerId")):
+                            response = build_crm_view_model(data)
+                            response["selectedCustomerId"] = request["approvedCustomerId"]
+                            self.send_json(response)
+                            return
                         if text(request.get("status")).lower() != "pendiente":
                             self.send_json({"error": "La solicitud ya fue procesada"}, status=409)
                             return
@@ -6854,6 +6967,9 @@ class AppHandler(BaseHTTPRequestHandler):
                             return
                         if current_status == "borrador" and target_status not in {"borrador", "pendiente"}:
                             self.send_json({"error": "Un borrador solo puede guardarse o enviarse a validación"}, status=409)
+                            return
+                        if current_status == "borrador" and target_status == "pendiente" and not can_submit_customer_request(request_user):
+                            self.send_json({"error": "Solo Odaliz Valencia y Luis Valladares pueden enviar clientes al panel"}, status=403)
                             return
                         if current_status == "pendiente" and not can_manage:
                             self.send_json({"error": "La solicitud enviada solo puede ser revisada por Gerencia de Comercialización"}, status=403)
