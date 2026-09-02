@@ -20514,3 +20514,42 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 
 /* Selector entre listado y vista gerencial */
 .commercial-agenda-view-tabs{display:flex;justify-content:flex-start;gap:6px}.commercial-agenda-view-tabs button{border-color:#3f617d;background:#16314d;color:#9fb4c8}.commercial-agenda-view-tabs button.active{border-color:#4ccdb1;background:#1d7969;color:#fff}
+
+/* Mantiene visible la edición de eventos aun cuando la tabla necesita desplazamiento. */
+.commercial-agenda-flat-table th:last-child,
+.commercial-agenda-flat-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  width: 132px;
+  min-width: 132px;
+  background: #173555;
+  box-shadow: -10px 0 18px rgba(4, 18, 34, .22);
+}
+
+.commercial-agenda-flat-table tbody td:last-child {
+  background: #1b3552;
+}
+
+.commercial-agenda-flat-table td:last-child {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.commercial-agenda-flat-table td button[data-commercial-agenda-edit] {
+  width: 78px;
+  min-width: 78px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-color: #4ccdb1;
+  background: #177d69;
+}
+
+.commercial-agenda-flat-table td button[data-commercial-agenda-edit]::after {
+  content: "Editar";
+  font-size: 10px;
+  font-weight: 900;
+}
