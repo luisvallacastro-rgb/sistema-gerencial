@@ -12811,6 +12811,17 @@ function closeInternalChat() {
   document.querySelector("#internalChatWindow")?.remove();
 }
 
+async function openInternalChatAttachment(messageId, name, type) {
+  try {
+    const response = await fetch(`/api/chat/file/${encodeURIComponent(messageId)}`, { headers: { "X-System-User-Id": state.currentUser?.id || "" } });
+    if (!response.ok) throw new Error("Archivo no disponible");
+    const url = URL.createObjectURL(await response.blob());
+    if (String(type).startsWith("image/") || type === "application/pdf") window.open(url, "_blank");
+    else { const link = document.createElement("a"); link.href = url; link.download = name || "archivo"; link.click(); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (error) { alert(error.message || "No fue posible abrir el archivo."); }
+}
+
 function renderInternalChatMessages(messages = []) {
   const container = document.querySelector("[data-internal-chat-messages]");
   if (!container) return;
@@ -12820,9 +12831,11 @@ function renderInternalChatMessages(messages = []) {
   container.innerHTML = messages.length ? messages.map((message) => {
     const own = String(message.sender_id) === String(state.currentUser?.id);
     const timestamp = new Date(Number(message.created_at || 0) * 1000).toLocaleString("es-SV", { day: "2-digit", month: "2-digit", hour: "numeric", minute: "2-digit" });
-    return `<div class="internal-chat-message ${own ? "own" : "received"}"><div>${escapeHtml(message.body || "").replace(/\n/g, "<br>")}</div><small>${escapeHtml(timestamp)}${own && message.read_at ? " · Leído" : ""}</small></div>`;
+    const attachment = message.attachment_name ? `<button type="button" class="internal-chat-attachment" data-chat-attachment="${escapeHtml(message.id)}" data-chat-attachment-name="${escapeHtml(message.attachment_name)}" data-chat-attachment-type="${escapeHtml(message.attachment_type || "")}"><span>${String(message.attachment_type || "").startsWith("image/") ? "▧" : "▤"}</span><strong>${escapeHtml(message.attachment_name)}</strong><small>${Math.max(1, Math.ceil(Number(message.attachment_size || 0) / 1024))} KB</small></button>` : "";
+    return `<div class="internal-chat-message ${own ? "own" : "received"}"><div>${message.body ? escapeHtml(message.body).replace(/\n/g, "<br>") : ""}${attachment}</div><small>${escapeHtml(timestamp)}${own && message.read_at ? " · Leído" : ""}</small></div>`;
   }).join("") : `<div class="internal-chat-empty"><strong>Inicia la conversación</strong><span>Los mensajes serán privados entre ambos usuarios.</span></div>`;
   container.scrollTop = container.scrollHeight;
+  container.querySelectorAll("[data-chat-attachment]").forEach((button) => button.addEventListener("click", () => openInternalChatAttachment(button.dataset.chatAttachment, button.dataset.chatAttachmentName, button.dataset.chatAttachmentType)));
 }
 
 async function loadInternalChat() {
@@ -12876,20 +12889,31 @@ function openInternalChat(user) {
   windowElement.className = "internal-chat-window";
   windowElement.setAttribute("aria-label", `Chat con ${user.name || "usuario"}`);
   windowElement.classList.toggle("peer-offline", user._online === false);
-  windowElement.innerHTML = `<header><div><i></i><span><strong>${escapeHtml(user.name || "Usuario")}</strong><small data-internal-chat-status>${user._online === false ? "Desconectado" : "En línea"}</small></span></div><button type="button" data-internal-chat-close aria-label="Cerrar chat">×</button></header><div class="internal-chat-messages" data-internal-chat-messages><div class="internal-chat-loading">Cargando conversación…</div></div><form data-internal-chat-form><textarea rows="1" maxlength="2000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><button type="submit" aria-label="Enviar mensaje">➤</button></form>`;
+  windowElement.innerHTML = `<header><div><i></i><span><strong>${escapeHtml(user.name || "Usuario")}</strong><small data-internal-chat-status>${user._online === false ? "Desconectado" : "En línea"} · historial 5 días</small></span></div><button type="button" data-internal-chat-close aria-label="Cerrar chat">×</button></header><div class="internal-chat-messages" data-internal-chat-messages><div class="internal-chat-loading">Cargando conversación…</div></div><form data-internal-chat-form><div class="internal-chat-compose"><div class="internal-chat-tools"><button type="button" data-chat-emoji aria-label="Agregar emoji" title="Emojis">☺</button><button type="button" data-chat-file aria-label="Adjuntar archivo" title="Imagen o documento">⌕</button><span data-chat-file-name></span></div><div class="internal-chat-emojis" data-chat-emojis hidden>${["😀","😂","😍","🥳","😊","👍","👏","🙏","❤️","🔥","✅","🎉","😮","😢","🤝","💡"].map((emoji) => `<button type="button" data-chat-emoji-value="${emoji}">${emoji}</button>`).join("")}</div><textarea rows="1" maxlength="2000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><input type="file" data-chat-file-input hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"></div><button class="internal-chat-send" type="submit" aria-label="Enviar mensaje">➤</button></form>`;
   document.body.appendChild(windowElement);
   windowElement.querySelector("[data-internal-chat-close]").addEventListener("click", closeInternalChat);
   const form = windowElement.querySelector("[data-internal-chat-form]");
   const input = form.querySelector("textarea");
+  const fileInput = form.querySelector("[data-chat-file-input]");
+  const fileName = form.querySelector("[data-chat-file-name]");
+  form.querySelector("[data-chat-emoji]").addEventListener("click", () => { const picker = form.querySelector("[data-chat-emojis]"); picker.hidden = !picker.hidden; });
+  form.querySelectorAll("[data-chat-emoji-value]").forEach((button) => button.addEventListener("click", () => { input.value += button.dataset.chatEmojiValue; input.focus(); }));
+  form.querySelector("[data-chat-file]").addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => { const file = fileInput.files?.[0]; if (file && file.size > 8 * 1024 * 1024) { alert("El archivo debe pesar menos de 8 MB."); fileInput.value = ""; } fileName.textContent = fileInput.files?.[0]?.name || ""; });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const body = input.value.trim();
-    if (!body || !internalChatPeer) return;
-    const button = form.querySelector("button");
+    const file = fileInput.files?.[0];
+    if ((!body && !file) || !internalChatPeer) return;
+    const button = form.querySelector(".internal-chat-send");
     button.disabled = true;
     try {
-      await apiJson("/api/chat", { method: "POST", body: JSON.stringify({ recipientId: internalChatPeer.user_id, body }) });
+      let attachment = null;
+      if (file) attachment = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve({ name:file.name, type:file.type || "application/octet-stream", data:String(reader.result).split(",")[1] }); reader.onerror = reject; reader.readAsDataURL(file); });
+      await apiJson("/api/chat", { method: "POST", body: JSON.stringify({ recipientId: internalChatPeer.user_id, body, attachment }) });
       input.value = "";
+      fileInput.value = "";
+      fileName.textContent = "";
       await loadInternalChat();
       input.focus();
     } catch (error) { alert(error.message || "No fue posible enviar el mensaje."); }

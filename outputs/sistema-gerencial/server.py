@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import base64
 import json
 import mimetypes
 import os
@@ -20,6 +21,10 @@ ROOT = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", ROOT))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "sistema-gerencial.db"
+CHAT_UPLOAD_DIR = DATA_DIR / "chat-uploads"
+CHAT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+CHAT_RETENTION_SECONDS = 5 * 24 * 60 * 60
+CHAT_MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
 CRM_SEED_PATH = ROOT / "crm-seed.json"
 ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
 PURCHASE_ORDERS_SEED_PATH = ROOT / "purchase-orders-seed.json"
@@ -28,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-daily-bank-availability-v2"
+API_VERSION = "kmi-chat-attachments-retention-v3"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -1946,6 +1951,18 @@ def connect():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def cleanup_expired_chat(conn):
+    cutoff = time.time() - CHAT_RETENTION_SECONDS
+    rows = conn.execute("SELECT attachment_path FROM internal_chat_messages WHERE created_at < ? AND attachment_path <> ''", (cutoff,)).fetchall()
+    conn.execute("DELETE FROM internal_chat_messages WHERE created_at < ?", (cutoff,))
+    for row in rows:
+        path = CHAT_UPLOAD_DIR / Path(row["attachment_path"]).name
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def decimal_number(value, fallback=0):
@@ -4539,6 +4556,16 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_participants ON internal_chat_messages(sender_id, recipient_id, created_at)")
+        chat_columns = {row["name"] for row in conn.execute("PRAGMA table_info(internal_chat_messages)").fetchall()}
+        for column, definition in {
+            "attachment_name": "TEXT NOT NULL DEFAULT ''",
+            "attachment_type": "TEXT NOT NULL DEFAULT ''",
+            "attachment_path": "TEXT NOT NULL DEFAULT ''",
+            "attachment_size": "INTEGER NOT NULL DEFAULT 0",
+        }.items():
+            if column not in chat_columns:
+                conn.execute(f"ALTER TABLE internal_chat_messages ADD COLUMN {column} {definition}")
+        cleanup_expired_chat(conn)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS minutes (
                 id TEXT PRIMARY KEY,
@@ -5019,10 +5046,35 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([dict(row) for row in rows])
             return
 
+        if urlparse(self.path).path.startswith("/api/chat/file/"):
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            message_id = unquote(urlparse(self.path).path.rsplit("/", 1)[-1])
+            with connect() as conn:
+                cleanup_expired_chat(conn)
+                row = conn.execute("SELECT sender_id, recipient_id, attachment_name, attachment_type, attachment_path FROM internal_chat_messages WHERE id = ?", (message_id,)).fetchone()
+            if not row or actor_id not in {row["sender_id"], row["recipient_id"]} or not row["attachment_path"]:
+                self.send_json({"error": "Archivo no disponible"}, status=404)
+                return
+            file_path = CHAT_UPLOAD_DIR / Path(row["attachment_path"]).name
+            if not file_path.is_file():
+                self.send_json({"error": "Archivo no disponible"}, status=404)
+                return
+            content = file_path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", row["attachment_type"] or "application/octet-stream")
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Content-Disposition", f'inline; filename="{Path(row["attachment_name"]).name}"')
+            self.send_header("Cache-Control", "private, max-age=300")
+            self.send_cors_headers()
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
         if urlparse(self.path).path == "/api/chat/events":
             query = parse_qs(urlparse(self.path).query)
             actor_id = text((query.get("userId") or [""])[0])
             with connect() as conn:
+                cleanup_expired_chat(conn)
                 actor = conn.execute("SELECT id FROM users WHERE id = ?", (actor_id,)).fetchone() if actor_id else None
             if not actor:
                 self.send_json({"error": "Usuario no encontrado"}, status=404)
@@ -5061,6 +5113,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": "Usuario requerido"}, status=400)
                 return
             with connect() as conn:
+                cleanup_expired_chat(conn)
                 actor = conn.execute("SELECT id FROM users WHERE id = ?", (actor_id,)).fetchone()
                 if not actor:
                     self.send_json({"error": "Usuario no encontrado"}, status=404)
@@ -5084,6 +5137,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_json({"error": "Conversación inválida"}, status=400)
                 return
             with connect() as conn:
+                cleanup_expired_chat(conn)
                 actor = conn.execute("SELECT id FROM users WHERE id = ?", (actor_id,)).fetchone()
                 peer = conn.execute("SELECT id, name, role FROM users WHERE id = ?", (peer_id,)).fetchone()
                 if not actor or not peer:
@@ -5095,7 +5149,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 """, (time.time(), peer_id, actor_id))
                 rows = conn.execute("""
                     SELECT message.id, message.sender_id, message.recipient_id, message.body,
-                           message.created_at, message.read_at, sender.name AS sender_name
+                           message.created_at, message.read_at, message.attachment_name,
+                           message.attachment_type, message.attachment_size, sender.name AS sender_name
                     FROM internal_chat_messages AS message
                     JOIN users AS sender ON sender.id = message.sender_id
                     WHERE (message.sender_id = ? AND message.recipient_id = ?)
@@ -5452,28 +5507,53 @@ class AppHandler(BaseHTTPRequestHandler):
             data = self.read_json()
             recipient_id = text(data.get("recipientId"))
             body = text(data.get("body"))
+            attachment = data.get("attachment") if isinstance(data.get("attachment"), dict) else None
             if not actor_id or not recipient_id or actor_id == recipient_id:
                 self.send_json({"error": "Destinatario inválido"}, status=400)
                 return
-            if not body:
-                self.send_json({"error": "Escribe un mensaje"}, status=400)
+            if not body and not attachment:
+                self.send_json({"error": "Escribe un mensaje o adjunta un archivo"}, status=400)
                 return
             if len(body) > 2000:
                 self.send_json({"error": "El mensaje supera 2000 caracteres"}, status=400)
                 return
             now = time.time()
             message_id = f"chat-{uuid.uuid4()}"
+            attachment_name = attachment_type = attachment_path = ""
+            attachment_size = 0
+            attachment_bytes = b""
+            if attachment:
+                attachment_name = Path(text(attachment.get("name"), "archivo")).name[:160]
+                attachment_type = text(attachment.get("type"), "application/octet-stream")[:100]
+                allowed = attachment_type in {"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain"}
+                if not allowed:
+                    self.send_json({"error": "Tipo de archivo no permitido"}, status=400)
+                    return
+                try:
+                    attachment_bytes = base64.b64decode(text(attachment.get("data")), validate=True)
+                except Exception:
+                    self.send_json({"error": "Archivo inválido"}, status=400)
+                    return
+                attachment_size = len(attachment_bytes)
+                if not attachment_size or attachment_size > CHAT_MAX_ATTACHMENT_BYTES:
+                    self.send_json({"error": "El archivo debe pesar menos de 8 MB"}, status=400)
+                    return
+                extension = Path(attachment_name).suffix[:12]
+                attachment_path = f"{message_id}{extension}"
             with connect() as conn:
+                cleanup_expired_chat(conn)
                 actor = conn.execute("SELECT id, name FROM users WHERE id = ?", (actor_id,)).fetchone()
                 recipient = conn.execute("SELECT id FROM users WHERE id = ?", (recipient_id,)).fetchone()
                 if not actor or not recipient:
                     self.send_json({"error": "Usuario no encontrado"}, status=404)
                     return
                 conn.execute("""
-                    INSERT INTO internal_chat_messages (id, sender_id, recipient_id, body, created_at)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (message_id, actor_id, recipient_id, body, now))
-            self.send_json({"id": message_id, "sender_id": actor_id, "recipient_id": recipient_id, "body": body, "created_at": now, "sender_name": actor["name"]}, status=201)
+                    INSERT INTO internal_chat_messages (id, sender_id, recipient_id, body, created_at, attachment_name, attachment_type, attachment_path, attachment_size)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (message_id, actor_id, recipient_id, body, now, attachment_name, attachment_type, attachment_path, attachment_size))
+            if attachment_path:
+                (CHAT_UPLOAD_DIR / attachment_path).write_bytes(attachment_bytes)
+            self.send_json({"id": message_id, "sender_id": actor_id, "recipient_id": recipient_id, "body": body, "created_at": now, "sender_name": actor["name"], "attachment_name": attachment_name, "attachment_type": attachment_type, "attachment_size": attachment_size}, status=201)
             return
 
         if self.path == "/api/minutes":
