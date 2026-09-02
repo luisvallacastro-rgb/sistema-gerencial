@@ -10752,20 +10752,6 @@ function renderCommercialSubmenu(area) {
         <button class="opportunity-report-launch" type="button" data-opportunity-report aria-label="Reporte gerencial detallado" title="Reporte gerencial detallado"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/><path d="M3 20h18"/></svg></button>
         <button class="opportunity-report-launch validation" type="button" data-opportunity-validation-report aria-label="Validación por vendedor" title="Validación por vendedor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v4H7z"/><path d="M5 5H4v16h16V5h-1"/><path d="m8 14 2.5 2.5L16 11"/></svg></button>
       </div>
-      <div class="opportunity-main-filters" aria-label="Filtros principales de oportunidades">
-        <label><span>Estado de oportunidad</span><select data-main-opportunity-status>
-          <option value="active" ${mainStatus === "active" ? "selected" : ""}>En venta / pendientes</option>
-          <option value="closed" ${mainStatus === "closed" ? "selected" : ""}>Cerradas</option>
-          <option value="all" ${mainStatus === "all" ? "selected" : ""}>Todas</option>
-        </select></label>
-        <label><span>Resultado</span><select data-main-opportunity-result>
-          <option value="pending" ${mainResult === "pending" ? "selected" : ""}>Pendientes</option>
-          <option value="won" ${mainResult === "won" ? "selected" : ""}>Ganadas</option>
-          <option value="lost" ${mainResult === "lost" ? "selected" : ""}>Perdidas</option>
-          <option value="all" ${mainResult === "all" ? "selected" : ""}>Todos</option>
-        </select></label>
-        <div><span>Métrica filtrada</span><strong>${displayRows.length} oportunidades · ${formatMoney(visibleTotal)}</strong></div>
-      </div>
       ${isClosedView ? `
         <div class="opportunity-closed-filters">
           <label>
@@ -10789,9 +10775,7 @@ function renderCommercialSubmenu(area) {
             </button>
           </div>
         </div>
-      ` : `
-        <p class="opportunity-cycle-note">Solo se contabilizan oportunidades que continúan en venta.</p>
-      `}
+      ` : ""}
     </section>
     <div class="opportunity-row opportunity-header">
       <strong>Fecha</strong>
