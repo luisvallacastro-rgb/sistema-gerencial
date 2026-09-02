@@ -10025,7 +10025,7 @@ async function openBankMaintenance(accountId) {
           const type = bankFieldType(field); const required = field === account.balanceField || field === "Fecha" || field === "Fecha Transaccion";
           return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} value="${escapeHtml(editing?.data?.[field] ?? "")}" ${required ? "required" : ""}></label>`;
         }).join("")}<div class="bank-calculated-balance"><span>Saldo</span><strong data-bank-calculated-balance>${formatMoney(openingBalance)}</strong></div><div class="bank-form-actions"><button type="button" data-bank-cancel>Cancelar</button><button type="submit">${editing ? "Guardar" : "Agregar"}</button></div></div></form>` : ""}
-      <section class="bank-movements-table"><table>${bankColumnsMarkup([...account.fields, "Editar"])}<thead><tr>${account.fields.map((field) => `<th>${escapeHtml(field)}</th>`).join("")}<th>Editar</th></tr></thead><tbody>${records.map((record) => `<tr>${account.fields.map((field) => `<td class="${bankFieldType(field) === "number" ? "money" : ""}">${bankMovementCell(field, record.data[field])}</td>`).join("")}<td class="bank-line-action"><button type="button" data-bank-record-edit="${escapeHtml(record.id)}" aria-label="Editar movimiento" title="Editar">✎</button></td></tr>`).join("")}</tbody></table></section>
+      <section class="bank-movements-table"><table>${bankColumnsMarkup([...account.fields, "Acciones"])}<thead><tr>${account.fields.map((field) => `<th>${escapeHtml(field)}</th>`).join("")}<th>Acciones</th></tr></thead><tbody>${records.map((record) => `<tr>${account.fields.map((field) => `<td class="${bankFieldType(field) === "number" ? "money" : ""}">${bankMovementCell(field, record.data[field])}</td>`).join("")}<td class="bank-line-action"><div><button type="button" data-bank-record-edit="${escapeHtml(record.id)}" aria-label="Editar movimiento" title="Editar">✎</button><button type="button" class="void" data-bank-record-void="${escapeHtml(record.id)}" aria-label="Anular movimiento" title="Anular fila">×</button></div></td></tr>`).join("")}</tbody></table></section>
     </div>`;
     dialog.querySelector("[data-bank-close]").onclick = () => dialog.close();
     dialog.querySelector("[data-bank-new]").onclick = () => render(true, null);
@@ -10033,6 +10033,29 @@ async function openBankMaintenance(accountId) {
     dialog.querySelector("[data-bank-paste-cancel]")?.addEventListener("click", () => render(false));
     dialog.querySelector("[data-bank-cancel]")?.addEventListener("click", () => render(false));
     dialog.querySelectorAll("[data-bank-record-edit]").forEach((button) => button.addEventListener("click", () => render(true, records.find((record) => record.id === button.dataset.bankRecordEdit))));
+    dialog.querySelectorAll("[data-bank-record-void]").forEach((button) => button.addEventListener("click", async () => {
+      const record = records.find((item) => item.id === button.dataset.bankRecordVoid);
+      if (!record) return;
+      const reason = prompt("Motivo de anulación de esta fila:");
+      if (reason === null) return;
+      if (!reason.trim()) { alert("Es necesario indicar el motivo de la anulación."); return; }
+      if (!confirm("¿Confirmas anular esta fila? El saldo se recalculará automáticamente.")) return;
+      button.disabled = true;
+      try {
+        const response = await apiJson(`/api/bank-availability/records/${encodeURIComponent(record.id)}`, {
+          method: "DELETE",
+          body: JSON.stringify({ reason: reason.trim(), voidedBy: state.currentUser?.name || "Usuario" })
+        });
+        state.bankAvailability = response.availability;
+        state.bankAvailabilitySignatures = {};
+        const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`);
+        records.splice(0, records.length, ...refreshed);
+        render();
+      } catch (error) {
+        button.disabled = false;
+        alert(error.message || "No fue posible anular la fila.");
+      }
+    }));
     const movementForm = dialog.querySelector("form");
     const refreshCalculatedBalance = (changedField = "") => {
       if (!movementForm) return openingBalance;

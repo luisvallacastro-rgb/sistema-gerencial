@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-customer-deduplication-v7"
+API_VERSION = "kmi-bank-row-void-v8"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -6439,12 +6439,43 @@ class AppHandler(BaseHTTPRequestHandler):
             if not self.require_permission("financiera:disponibilidad"):
                 return
             record_id = unquote(bank_parts[3])
+            changes = self.read_json()
+            reason = text(changes.get("reason"))
+            if not reason:
+                self.send_json({"error": "Indique el motivo de la anulación"}, status=400)
+                return
             with connect() as conn:
-                row = conn.execute("SELECT account_id FROM bank_balance_records WHERE id = ?", (record_id,)).fetchone()
+                row = conn.execute("SELECT * FROM bank_balance_records WHERE id = ?", (record_id,)).fetchone()
                 opening_balance = bank_opening_balance(conn, row["account_id"]) if row else 0
-                result = conn.execute("DELETE FROM bank_balance_records WHERE id = ?", (record_id,))
-                if not result.rowcount:
+                if not row:
                     self.send_json({"error": "Movimiento bancario no encontrado"}, status=404); return
+                actor_id = text(self.headers.get("X-System-User-Id"))
+                actor = conn.execute("SELECT name FROM users WHERE id = ? LIMIT 1", (actor_id,)).fetchone() if actor_id else None
+                audit_row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_void_audit'").fetchone()
+                try:
+                    audit = json.loads(audit_row["value"] or "[]") if audit_row else []
+                except (TypeError, json.JSONDecodeError):
+                    audit = []
+                audit.append({
+                    "id": str(uuid.uuid4()),
+                    "recordId": row["id"],
+                    "accountId": row["account_id"],
+                    "recordDate": row["record_date"],
+                    "sequence": row["sequence"],
+                    "balance": row["balance"],
+                    "data": json.loads(row["data"] or "{}"),
+                    "createdBy": row["created_by"],
+                    "voidedByUserId": actor_id,
+                    "voidedBy": text(actor["name"] if actor else changes.get("voidedBy"), "Usuario"),
+                    "voidedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "reason": reason,
+                })
+                conn.execute(
+                    """INSERT INTO app_state (key, value, updated_at) VALUES ('bank_void_audit', ?, CURRENT_TIMESTAMP)
+                       ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP""",
+                    (json.dumps(audit[-1000:], ensure_ascii=False),),
+                )
+                result = conn.execute("DELETE FROM bank_balance_records WHERE id = ?", (record_id,))
                 recalculate_bank_balances(conn, row["account_id"], opening_balance)
                 register_bank_daily_update(conn, row["account_id"])
                 payload = bank_availability_payload(conn)
