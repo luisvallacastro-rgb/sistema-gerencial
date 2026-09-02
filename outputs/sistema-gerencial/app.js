@@ -3977,6 +3977,15 @@ function wireQuotationsModule() {
     button.setAttribute("aria-label", "Preparando orden de pedido");
     try {
       const opportunity = quotationSourceOpportunity(quotation);
+      const directCustomerId = String(quotation.customerId || quotation.customerData?.customerId || "");
+      const directCustomer = String(quotation.opportunityId || "").startsWith("direct-quotation:")
+        ? crmMasterCustomers(true).find((customer) => String(customer.id || "") === directCustomerId && customer.active !== false)
+        : null;
+      if (directCustomer) {
+        const synced = await bindMasterCustomerForOrder(opportunity, quotation, directCustomer);
+        openControlSalesForm(null, null, synced.opportunity, true, synced.quotation);
+        return;
+      }
       await prepareQuotationOrderConversion(opportunity, quotation, (syncedOpportunity, syncedQuotation) => {
         openControlSalesForm(null, null, syncedOpportunity, true, syncedQuotation);
       });
@@ -4942,7 +4951,7 @@ function nextControlSalesOrderNumber(dateValue = todayISO()) {
   return `${year}${month}${String(annualHighest + 1).padStart(4, "0")}`;
 }
 
-function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false, sourceQuotation = null, financialCompletionOnly = false, directOrderFlow = false) {
+function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceWin = null, formatOnly = false, sourceQuotation = null, financialCompletionOnly = false, directOrderFlow = false, sourceCustomer = null) {
   ensureControlSalesDialogs();
   const dialog = document.querySelector("#controlSalesDialog");
   dialog.classList.toggle("control-sales-order-format-only", formatOnly);
@@ -4976,6 +4985,10 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
     paymentTerms: sourceQuotation.paymentTerms || "",
     generalNotes: sourceQuotation.commercialNotes || "",
     applyVat: sourceQuotation.documentType === "CCF"
+  } : sourceCustomer ? {
+    ...masterCustomerQuotationData(sourceCustomer),
+    generalNotes: sourceCustomer.documentType === "CCF" ? "Precios unitarios no incluyen IVA" : "Los precios unitarios ya incluyen IVA",
+    applyVat: sourceCustomer.documentType === "CCF"
   } : {};
   const inheritedProforma = order
     ? { ...(order.proformaData || {}), applyVat: order.proformaData?.applyVat ?? Number(order.vatTotalCents || 0) > 0 }
@@ -8524,6 +8537,39 @@ function crmMasterCustomers(includeInactive = false) {
     .sort((a, b) => String(a.commercialName || a.legalName).localeCompare(String(b.commercialName || b.legalName), "es"));
 }
 
+function canUseCustomerDocumentFlow(user = state.currentUser) {
+  return Boolean(user) && userPermissions(user).has(permissionKey("comercializacion", "crm-clientes"));
+}
+
+function customerDirectDocumentSource(customer, type = "quotation") {
+  const prefix = type === "order" ? "direct-order" : "direct-quotation";
+  return {
+    id: `${prefix}:${customer.id}:${Date.now()}`,
+    company: customer.commercialName || customer.legalName || "Cliente registrado",
+    seller: customer.sellerName || state.currentUser?.name || "Sistema Gerencial",
+    contact: customer.contactName || customer.manager || "",
+    phone: customer.phone || "",
+    location: customer.address || customer.department || "",
+    customerId: customer.id,
+    date: todayISO(),
+    estimatedAmount: 0,
+    quotationReferenceAmount: 0,
+    stageId: type === "order" ? "Pedido directo desde Clientes" : "Cotización directa desde Clientes"
+  };
+}
+
+function openCustomerDirectQuotation(customer) {
+  if (!customer || customer.active === false || !canUseCustomerDocumentFlow()) return;
+  const source = customerDirectDocumentSource(customer, "quotation");
+  openQuotationDialog(source.id, "", source, customer);
+}
+
+function openCustomerDirectOrder(customer) {
+  if (!customer || customer.active === false || !canUseCustomerDocumentFlow()) return;
+  const source = customerDirectDocumentSource(customer, "order");
+  openControlSalesForm(null, null, source, false, null, false, true, customer);
+}
+
 function refreshOpportunityCustomerOptions(selectedId = "", fallbackName = "") {
   if (!opportunityCustomerSearch) return;
   const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(selectedId));
@@ -9445,6 +9491,7 @@ function renderCrmClients() {
   const activeCount = allClients.filter((client) => client.active !== false).length;
   const completeCount = allClients.filter((client) => client.active !== false && completeness(client) >= 80).length;
   const archivedCount = allClients.filter((client) => client.active === false).length;
+  const canCreateDocuments = canUseCustomerDocumentFlow();
   return `
     <section class="crm-shell crm-customers-module">
       <header class="crm-customers-hero crm-customers-compact-head">
@@ -9470,6 +9517,7 @@ function renderCrmClients() {
             <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
             <span><strong>${escapeHtml([client.department, canonicalCustomerMunicipality(client.department, client.municipality)].filter(Boolean).join(" / ") || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
             <span class="crm-row-actions">
+              ${canCreateDocuments && client.active !== false ? `<button class="document quotation" type="button" data-crm-customer-quotation="${escapeHtml(client.id)}" aria-label="Crear cotización para ${escapeHtml(client.commercialName || client.legalName)}" title="Crear cotización"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6Z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg></button><button class="document order" type="button" data-crm-customer-order="${escapeHtml(client.id)}" aria-label="Crear orden de pedido para ${escapeHtml(client.commercialName || client.legalName)}" title="Crear OP directa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8M9 2h6v4H9zM6 4H4v18h16V4h-2"/><path d="M8 11h8M8 15h8"/></svg></button>` : ""}
               <button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></button>
               ${(state.crmData?.customerRequests || []).some((request) => String(request.approvedCustomerId || "") === String(client.id)) ? `<button type="button" data-crm-customer-print="${escapeHtml(client.id)}" aria-label="Reimprimir ficha actualizada" title="Reimprimir ficha actualizada">▤</button>` : ""}
               ${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 1.8-8.3L4 10"/></svg></button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m7 7 1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg></button>`}
@@ -10633,6 +10681,14 @@ function renderCommercialSubmenu(area) {
       }
     }));
     opportunityTable.querySelector("[data-crm-customer-new]")?.addEventListener("click", () => openCrmCustomerDialog());
+    opportunityTable.querySelectorAll("[data-crm-customer-quotation]").forEach((button) => button.addEventListener("click", () => {
+      const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerQuotation));
+      if (customer) openCustomerDirectQuotation(customer);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-customer-order]").forEach((button) => button.addEventListener("click", () => {
+      const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerOrder));
+      if (customer) openCustomerDirectOrder(customer);
+    }));
     opportunityTable.querySelectorAll("[data-crm-customer-edit]").forEach((button) => button.addEventListener("click", () => {
       const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerEdit));
       if (customer) openCrmCustomerDialog(customer);

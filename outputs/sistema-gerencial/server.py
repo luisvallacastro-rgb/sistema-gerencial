@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-archived-bank-update-report-v9"
+API_VERSION = "kmi-customer-direct-documents-v10"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -2698,6 +2698,7 @@ def control_sales_validate(data, existing=None):
         current_proforma.get("applyVat", document_type == "CCF"),
     ))
     proforma_data = {
+        "customerId": text(raw_proforma.get("customerId"), current_proforma.get("customerId") or ""),
         "commercialName": text(raw_proforma.get("commercialName"), current_proforma.get("commercialName") or client),
         "legalName": text(raw_proforma.get("legalName"), current_proforma.get("legalName") or ""),
         "businessActivity": text(raw_proforma.get("businessActivity"), current_proforma.get("businessActivity") or ""),
@@ -2811,6 +2812,14 @@ def save_control_sales_order(conn, data, existing_row=None):
         item["proformaData"].get("workflow") == "direct-final-only"
         or source_opportunity_id.startswith("direct-order:")
     )
+    if direct_order_flow and not source_quotation_id:
+        customer_id = text(item["proformaData"].get("customerId"))
+        crm_customers = read_crm_data(conn).get("customers", [])
+        if not customer_id or not any(
+            text(customer.get("id")) == customer_id and customer.get("active") is not False
+            for customer in crm_customers
+        ):
+            raise ValueError("La orden directa requiere un cliente activo del maestro de Clientes")
     expected_total_cents = int(existing.get("expectedTotalCents") or 0) if existing else 0
     variance_cents = int(existing.get("varianceCents") or 0) if existing else 0
     if source_quotation_id:
@@ -3203,6 +3212,14 @@ def sync_opportunity_amount_from_latest_quotation(conn, opportunity_id):
 def save_quotation(conn, data, existing_row=None):
     existing = quotation_payload(existing_row) if existing_row else None
     item = quotation_validate(data, existing)
+    if item["opportunityId"].startswith("direct-quotation:"):
+        customer_id = text(item["customerData"].get("customerId"))
+        customers = read_crm_data(conn).get("customers", [])
+        if not customer_id or not any(
+            text(customer.get("id")) == customer_id and customer.get("active") is not False
+            for customer in customers
+        ):
+            raise ValueError("La cotizacion directa requiere un cliente activo del maestro de Clientes")
     if not existing_row:
         identical = find_identical_quotation(conn, item)
         if identical:
