@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-customer-direct-documents-v10"
+API_VERSION = "kmi-customer-document-tabs-v11"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -2810,7 +2810,7 @@ def save_control_sales_order(conn, data, existing_row=None):
     )
     direct_order_flow = (
         item["proformaData"].get("workflow") == "direct-final-only"
-        or source_opportunity_id.startswith("direct-order:")
+        or source_opportunity_id.startswith(("direct-order:", "direct-quotation:"))
     )
     if direct_order_flow and not source_quotation_id:
         customer_id = text(item["proformaData"].get("customerId"))
@@ -2891,22 +2891,27 @@ def save_control_sales_order(conn, data, existing_row=None):
     now = time.strftime("%Y-%m-%dT%H:%M:%S")
     actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
     proforma_json = json.dumps(item["proformaData"], ensure_ascii=False)
+    commercial_status = "Autorizada" if direct_order_flow else "Pendiente"
+    commercial_approved_by = "Flujo directo de Clientes" if direct_order_flow else ""
+    commercial_approved_at = now if direct_order_flow else ""
+    commercial_approval_note = "Firma comercial omitida; requiere únicamente aprobación financiera de Edgar Menjívar." if direct_order_flow else ""
     if existing_row:
         conn.execute("""
             UPDATE control_sales_orders SET financial_order_id=?, source_opportunity_id=?, source_quotation_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
                 document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
-                proforma_data=?, commercial_approval_status=?, commercial_approved_by='', commercial_approved_at='', commercial_approval_note='',
+                proforma_data=?, commercial_approval_status=?, commercial_approved_by=?, commercial_approved_at=?, commercial_approval_note=?,
                 finance_approval_status='Pendiente', finance_approved_by='', finance_approved_at='', finance_approval_note='', updated_by=?, updated_at=? WHERE id=?
-        """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, "Pendiente", actor, now, order_id))
+        """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, commercial_status, commercial_approved_by, commercial_approved_at, commercial_approval_note, actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
         action = "edicion"
     else:
         conn.execute("""
             INSERT INTO control_sales_orders (
                 id, source, financial_order_id, source_opportunity_id, source_quotation_id, order_number, order_date, seller, client, status, document_type, total_cents,
-                expected_total_cents, variance_cents, proforma_data, commercial_approval_status, created_by, updated_by, created_at, updated_at
-            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (order_id, financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, "Pendiente", actor, actor, now, now))
+                expected_total_cents, variance_cents, proforma_data, commercial_approval_status, commercial_approved_by,
+                commercial_approved_at, commercial_approval_note, created_by, updated_by, created_at, updated_at
+            ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (order_id, financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, commercial_status, commercial_approved_by, commercial_approved_at, commercial_approval_note, actor, actor, now, now))
         action = "creacion"
     for detail in item["details"]:
         conn.execute("""
@@ -6425,8 +6430,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     approval_proforma = {}
                 direct_order_flow = (
                     approval_proforma.get("workflow") == "direct-final-only"
-                    or text(row["source_opportunity_id"]).startswith("direct-order:")
+                    or text(row["source_opportunity_id"]).startswith(("direct-order:", "direct-quotation:"))
                 )
+                if direct_order_flow and stage == "commercial-approval":
+                    self.send_json({"error": "Las órdenes directas de Clientes no requieren firma de Odaliz"}, status=409)
+                    return
                 if stage == "finance-approval" and status == "Aprobada":
                     financial_order_id = text(row["financial_order_id"])
                     financial_row = conn.execute(

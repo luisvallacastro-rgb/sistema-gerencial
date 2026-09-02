@@ -3610,7 +3610,7 @@ function approvalControlSalesOrders() {
 
 function isDirectOrderFlow(order = {}) {
   return order?.proformaData?.workflow === "direct-final-only"
-    || String(order?.sourceOpportunityId || "").startsWith("direct-order:");
+    || ["direct-order:", "direct-quotation:"].some((prefix) => String(order?.sourceOpportunityId || "").startsWith(prefix));
 }
 
 function commercialPendingApprovalOrders() {
@@ -3983,7 +3983,7 @@ function wireQuotationsModule() {
         : null;
       if (directCustomer) {
         const synced = await bindMasterCustomerForOrder(opportunity, quotation, directCustomer);
-        openControlSalesForm(null, null, synced.opportunity, true, synced.quotation);
+        openControlSalesForm(null, null, synced.opportunity, false, synced.quotation, false, true);
         return;
       }
       await prepareQuotationOrderConversion(opportunity, quotation, (syncedOpportunity, syncedQuotation) => {
@@ -4039,6 +4039,7 @@ function commercialApprovalFolio(order) {
 }
 
 function commercialApprovalSignatureMarkup(order, compact = false) {
+  if (isDirectOrderFlow(order)) return "";
   if (order?.commercialApprovalStatus !== "Autorizada" && !order?.commercialApprovedAt) return "";
   return `<section class="commercial-electronic-signature${compact ? " is-compact" : ""}" aria-label="Firma electrónica de Gerencia de Comercialización">
     <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
@@ -5881,8 +5882,8 @@ function renderFinancialOrderNotifications() {
       <header class="financial-order-notifications-head">
         <div>
           <span>Bandeja temporal de firmas</span>
-          <h4>Órdenes pendientes de doble autorización</h4>
-          <p>Odaliz Valencia y Edgar Menjívar pueden firmar en cualquier orden. El pedido pasará al listado únicamente cuando tenga ambas firmas.</p>
+          <h4>Órdenes pendientes de autorización</h4>
+          <p>Los pedidos del flujo normal requieren las firmas de Odaliz y Edgar. Los creados directamente desde Clientes pasan únicamente a la firma de Edgar.</p>
         </div>
         <div class="financial-order-notifications-summary">
           <small>${pendingHandoffs.length === 1 ? "1 pendiente" : `${pendingHandoffs.length} pendientes`}</small>
@@ -5896,6 +5897,7 @@ function renderFinancialOrderNotifications() {
           const signerStage = currentOrderSignatureStage();
           const commercialSigned = order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt);
           const financeSigned = order.financeApprovalStatus === "Aprobada" || Boolean(order.financeApprovedAt);
+          const customerDirectFlow = isDirectOrderFlow(order);
           const quotation = linkedQuotationForControlSalesOrder(order);
           return `
             <article class="financial-order-notification-card">
@@ -5906,7 +5908,7 @@ function renderFinancialOrderNotifications() {
                 <span>${escapeHtml(controlSalesResponsibleSeller(order))}</span>
                 <em class="financial-record-status ${financialComplete ? "complete" : "incomplete"}">${financialComplete ? "Registro financiero completo" : `Faltan ${missingFields.length} campos: ${escapeHtml(missingFields.join(", "))}`}</em>
                 <div class="financial-order-signature-status" aria-label="Estado de firmas">
-                  <span class="${commercialSigned ? "is-signed" : "is-pending"}"><i>${commercialSigned ? "✓" : "1"}</i><b>Odaliz Valencia</b><small>${commercialSigned ? "Firmado" : "Pendiente"}</small></span>
+                  <span class="${commercialSigned ? "is-signed" : "is-pending"}"><i>${commercialSigned ? "✓" : "1"}</i><b>${customerDirectFlow ? "Flujo directo" : "Odaliz Valencia"}</b><small>${customerDirectFlow ? "Firma comercial omitida" : commercialSigned ? "Firmado" : "Pendiente"}</small></span>
                   <span class="${financeSigned ? "is-signed" : "is-pending"}"><i>${financeSigned ? "✓" : "2"}</i><b>Edgar Menjívar</b><small>${financeSigned ? "Firmado" : "Pendiente"}</small></span>
                 </div>
               </div>
@@ -5919,7 +5921,7 @@ function renderFinancialOrderNotifications() {
                 ${quotation ? `<button type="button" class="quotation" data-finance-order-quotation="${escapeHtml(quotation.id)}">Ver cotización</button>` : ""}
                 <button type="button" class="secondary" data-finance-order-complete="${escapeHtml(order.id)}">${financialComplete ? "Revisar registro" : "Completar registro"}</button>
                 <button type="button" class="secondary observation" data-finance-order-observe="${escapeHtml(order.id)}" ${signerStage === "finance" ? "" : "disabled"}>Agregar observación</button>
-                <button type="button" class="signature commercial ${commercialSigned ? "is-signed" : ""}" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="commercial" ${financialComplete && signerStage === "commercial" && !commercialSigned ? "" : "disabled"}>${commercialSigned ? "✓ Odaliz firmó" : "Firma Odaliz Valencia"}</button>
+                ${customerDirectFlow ? "" : `<button type="button" class="signature commercial ${commercialSigned ? "is-signed" : ""}" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="commercial" ${financialComplete && signerStage === "commercial" && !commercialSigned ? "" : "disabled"}>${commercialSigned ? "✓ Odaliz firmó" : "Firma Odaliz Valencia"}</button>`}
                 <button type="button" class="signature finance ${financeSigned ? "is-signed" : ""}" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="finance" ${financialComplete && signerStage === "finance" && !financeSigned ? "" : "disabled"}>${financeSigned ? "✓ Edgar firmó" : "Firma Edgar Menjívar"}</button>
               </div>
             </article>`;
@@ -5927,7 +5929,7 @@ function renderFinancialOrderNotifications() {
           <div class="financial-order-notifications-empty">
             <span aria-hidden="true">✓</span>
             <strong>Todo está al día</strong>
-            <p>No hay órdenes pendientes de las firmas de Odaliz Valencia y Edgar Menjívar.</p>
+            <p>No hay órdenes pendientes de autorización.</p>
           </div>`}
       </div>
     </section>`;
@@ -8758,14 +8760,16 @@ function ensureCrmCustomerDialog() {
     try {
       const response = await crmApi(id ? `/customers/${encodeURIComponent(id)}` : "/customers", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
       const returnToDirectOrder = dialog.dataset.returnToDirectOrder === "true";
+      const returnToDirectDocumentMode = dialog.dataset.returnToDirectDocumentMode || "legacy-order";
       dialog.dataset.returnToDirectOrder = "false";
+      delete dialog.dataset.returnToDirectDocumentMode;
       dialog.close();
       refreshOpportunityCustomerOptions(response.selectedCustomerId || id);
       if (opportunityDialog.open && response.selectedCustomerId) inheritCustomerInOpportunity(response.selectedCustomerId);
       renderCurrentArea();
       if (returnToDirectOrder) {
         await loadCrmData();
-        openDirectOrderFlow();
+        openDirectOrderFlow(returnToDirectDocumentMode);
       }
     } catch (error) { alert(error.message || "No fue posible guardar el cliente."); }
   });
@@ -9160,7 +9164,7 @@ function ensureDirectOrderCustomerDialog() {
   dialog.id = "directOrderCustomerDialog";
   dialog.className = "direct-order-customer-dialog";
   dialog.innerHTML = `<section class="direct-order-customer-card">
-    <header><div><span>Pedido sin oportunidad</span><h3>Selecciona el cliente</h3><p>El sistema generará primero la cotización y luego la nota de pedido para autorización final.</p></div><button type="button" data-direct-order-close aria-label="Cerrar">×</button></header>
+    <header><div><span data-direct-customer-eyebrow>Pedido sin oportunidad</span><h3>Selecciona el cliente</h3><p data-direct-customer-help>Selecciona un cliente registrado para continuar.</p></div><button type="button" data-direct-order-close aria-label="Cerrar">×</button></header>
     <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-direct-order-customer-search placeholder="Buscar cliente, razón social, NIT o contacto..." aria-expanded="false"><button type="button" data-direct-order-customer-toggle aria-label="Mostrar clientes" title="Mostrar clientes">⌄</button></label><button type="button" data-direct-order-new-customer>+ Nuevo cliente</button></div>
     <div class="direct-order-customer-list" data-direct-order-customer-list hidden></div>
   </section>`;
@@ -9185,6 +9189,7 @@ function ensureDirectOrderCustomerDialog() {
     dialog.close();
     const customerDialog = ensureCrmCustomerDialog();
     customerDialog.dataset.returnToDirectOrder = "true";
+    customerDialog.dataset.returnToDirectDocumentMode = dialog.dataset.documentMode || "legacy-order";
     openCrmCustomerDialog();
   });
   dialog.querySelector("[data-direct-order-customer-list]").addEventListener("click", (event) => {
@@ -9192,6 +9197,17 @@ function ensureDirectOrderCustomerDialog() {
     if (!button) return;
     const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.directOrderCustomer));
     if (!customer) return;
+    const mode = dialog.dataset.documentMode || "legacy-order";
+    if (mode === "quotation") {
+      dialog.close();
+      openCustomerDirectQuotation(customer);
+      return;
+    }
+    if (mode === "order") {
+      dialog.close();
+      openCustomerDirectOrder(customer);
+      return;
+    }
     const seller = state.currentUser?.name || "Sistema Gerencial";
     const directOpportunity = {
       id: `direct-order:${customer.id}:${Date.now()}`,
@@ -9240,8 +9256,17 @@ function renderDirectOrderCustomers(search = "", showAll = false) {
   dialog.querySelector("[data-direct-order-customer-search]").setAttribute("aria-expanded", "true");
 }
 
-function openDirectOrderFlow() {
+function openDirectOrderFlow(mode = "legacy-order") {
   const dialog = ensureDirectOrderCustomerDialog();
+  dialog.dataset.documentMode = mode;
+  const isQuotation = mode === "quotation";
+  const isDirectOrder = mode === "order";
+  dialog.querySelector("[data-direct-customer-eyebrow]").textContent = isQuotation ? "Cotización desde Clientes" : isDirectOrder ? "Orden directa desde Clientes" : "Pedido sin oportunidad";
+  dialog.querySelector("[data-direct-customer-help]").textContent = isQuotation
+    ? "Elige el cliente registrado cuyos datos heredará la nueva cotización."
+    : isDirectOrder
+      ? "Elige el cliente registrado para crear la OP sin cotización ni oportunidad."
+      : "El sistema generará primero la cotización y luego la nota de pedido para autorización final.";
   const search = dialog.querySelector("[data-direct-order-customer-search]");
   search.value = "";
   hideDirectOrderCustomers(dialog);
@@ -9370,15 +9395,69 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
 
 function renderCrmCustomerViewTabs(active = "master") {
   const pending = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === "pendiente").length;
+  const directQuotations = state.quotations.filter((item) => String(item.opportunityId || "").startsWith("direct-quotation:")).length;
+  const directOrders = state.controlSales.filter((item) => {
+    const quotation = linkedQuotationForControlSalesOrder(item);
+    return isDirectOrderFlow(item) || String(quotation?.opportunityId || "").startsWith("direct-quotation:");
+  }).length;
   return `<nav class="crm-customer-view-tabs" aria-label="Vistas de clientes">
     <button type="button" data-crm-customer-view="master" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
     <button type="button" data-crm-customer-view="requests" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
+    <button type="button" data-crm-customer-view="quotations" class="${active === "quotations" ? "active" : ""}">Cotizaciones <b>${directQuotations}</b></button>
+    <button type="button" data-crm-customer-view="orders" class="${active === "orders" ? "active" : ""}">Órdenes de pedido <b>${directOrders}</b></button>
   </nav>`;
 }
 
 function switchCrmCustomerView(view) {
-  state.crmCustomerView = view === "requests" ? "requests" : "master";
+  state.crmCustomerView = ["master", "requests", "quotations", "orders"].includes(view) ? view : "master";
   renderCommercialSubmenu(areas.comercializacion);
+}
+
+function customerFlowOrders() {
+  return state.controlSales.filter((order) => {
+    const quotation = linkedQuotationForControlSalesOrder(order);
+    return isDirectOrderFlow(order) || String(quotation?.opportunityId || "").startsWith("direct-quotation:");
+  }).sort((a, b) => String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || "")));
+}
+
+function renderCrmCustomerDocuments(view) {
+  const quotations = state.quotations
+    .filter((item) => String(item.opportunityId || "").startsWith("direct-quotation:"))
+    .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
+  const orders = customerFlowOrders();
+  const isQuotationView = view === "quotations";
+  const rows = isQuotationView ? quotations : orders;
+  return `<section class="crm-shell crm-customers-module crm-customer-documents-module">
+    <header class="crm-customers-hero crm-customers-compact-head">
+      <div><p class="eyebrow">Documentos desde Clientes</p><h3>${isQuotationView ? "Cotizaciones" : "Órdenes de pedido"}</h3></div>
+      <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs(view)}</div>
+    </header>
+    <div class="crm-customer-toolbar crm-customer-document-toolbar">
+      <div class="crm-customer-result"><strong>${rows.length}</strong><span>${isQuotationView ? "cotizaciones" : "órdenes"}</span></div>
+      <button class="primary-btn crm-customer-document-create quotation" type="button" data-crm-customer-create-quotation>＋ Crear cotización</button>
+      <button class="primary-btn crm-customer-document-create order" type="button" data-crm-customer-create-order>＋ Crear orden de pedido</button>
+    </div>
+    <div class="crm-customer-document-list">
+      ${rows.map((item) => {
+        const linkedOrder = isQuotationView ? quotationLinkedOrder(item) : null;
+        const status = isQuotationView ? item.status : (item.archived ? "Anulada" : item.financeApprovalStatus === "Aprobada" ? "Aprobada" : "Pendiente de Edgar");
+        return `<article class="crm-customer-document-row ${item.archived ? "is-archived" : ""}">
+          <span><small>${isQuotationView ? "Cotización" : "Orden"}</small><strong>${escapeHtml(isQuotationView ? item.number : formatOrderCorrelative(item.number))}</strong></span>
+          <span><small>Cliente</small><strong>${escapeHtml(item.customerData?.commercialName || item.proformaData?.commercialName || item.client || "—")}</strong></span>
+          <span><small>Fecha</small><strong>${formatDate(item.date)}</strong></span>
+          <span><small>Estado</small><strong>${escapeHtml(status || "—")}</strong></span>
+          <span class="money"><small>Total</small><strong>${formatControlSalesMoney(item.totalCents || 0)}</strong></span>
+          <span class="crm-row-actions">
+            <button type="button" data-crm-document-print="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="Imprimir" aria-label="Imprimir">▤</button>
+            <button type="button" data-crm-document-edit="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="Editar" aria-label="Editar">✎</button>
+            ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button type="button" data-crm-document-convert="${escapeHtml(item.id)}" title="Convertir en OP" aria-label="Convertir en OP">OP</button>` : ""}
+            ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="quotation" title="Anular" aria-label="Anular">×</button>` : ""}
+            ${!isQuotationView && !item.archived ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="order" title="Anular" aria-label="Anular">×</button>` : ""}
+          </span>
+        </article>`;
+      }).join("") || `<div class="empty-state">Aún no hay ${isQuotationView ? "cotizaciones" : "órdenes de pedido"} creadas desde Clientes.</div>`}
+    </div>
+  </section>`;
 }
 
 opportunityCycleToolbarHost.addEventListener("click", (event) => {
@@ -9459,6 +9538,7 @@ function renderCrmCustomerRequests() {
 
 function renderCrmClients() {
   if ((state.crmCustomerView || "master") === "requests") return renderCrmCustomerRequests();
+  if (["quotations", "orders"].includes(state.crmCustomerView)) return renderCrmCustomerDocuments(state.crmCustomerView);
   const allClients = crmMasterCustomers(true);
   const query = normalizeKey(state.crmCustomerSearch || "");
   const status = "active";
@@ -9491,7 +9571,6 @@ function renderCrmClients() {
   const activeCount = allClients.filter((client) => client.active !== false).length;
   const completeCount = allClients.filter((client) => client.active !== false && completeness(client) >= 80).length;
   const archivedCount = allClients.filter((client) => client.active === false).length;
-  const canCreateDocuments = canUseCustomerDocumentFlow();
   return `
     <section class="crm-shell crm-customers-module">
       <header class="crm-customers-hero crm-customers-compact-head">
@@ -9506,6 +9585,8 @@ function renderCrmClients() {
       <div class="crm-customer-toolbar">
         <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar ID, cliente, contacto, NIT, teléfono o ubicación..."></label>
         <div class="crm-customer-result"><strong>${clients.length}</strong><span>clientes</span></div>
+        <button class="primary-btn crm-customer-document-create quotation" type="button" data-crm-customer-create-quotation>＋ Crear cotización</button>
+        <button class="primary-btn crm-customer-document-create order" type="button" data-crm-customer-create-order>＋ Crear orden de pedido</button>
         <button class="primary-btn crm-customer-new-button" type="button" data-crm-customer-new>+ Nuevo cliente</button>
       </div>
       <div class="crm-customer-table-wrap"><div class="crm-customer-table">
@@ -9517,7 +9598,6 @@ function renderCrmClients() {
             <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
             <span><strong>${escapeHtml([client.department, canonicalCustomerMunicipality(client.department, client.municipality)].filter(Boolean).join(" / ") || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
             <span class="crm-row-actions">
-              ${canCreateDocuments && client.active !== false ? `<button class="document quotation" type="button" data-crm-customer-quotation="${escapeHtml(client.id)}" aria-label="Crear cotización para ${escapeHtml(client.commercialName || client.legalName)}" title="Crear cotización"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6Z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg></button><button class="document order" type="button" data-crm-customer-order="${escapeHtml(client.id)}" aria-label="Crear orden de pedido para ${escapeHtml(client.commercialName || client.legalName)}" title="Crear OP directa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8M9 2h6v4H9zM6 4H4v18h16V4h-2"/><path d="M8 11h8M8 15h8"/></svg></button>` : ""}
               <button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></button>
               ${(state.crmData?.customerRequests || []).some((request) => String(request.approvedCustomerId || "") === String(client.id)) ? `<button type="button" data-crm-customer-print="${escapeHtml(client.id)}" aria-label="Reimprimir ficha actualizada" title="Reimprimir ficha actualizada">▤</button>` : ""}
               ${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 1.8-8.3L4 10"/></svg></button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m7 7 1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg></button>`}
@@ -10681,13 +10761,47 @@ function renderCommercialSubmenu(area) {
       }
     }));
     opportunityTable.querySelector("[data-crm-customer-new]")?.addEventListener("click", () => openCrmCustomerDialog());
-    opportunityTable.querySelectorAll("[data-crm-customer-quotation]").forEach((button) => button.addEventListener("click", () => {
-      const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerQuotation));
-      if (customer) openCustomerDirectQuotation(customer);
+    opportunityTable.querySelector("[data-crm-customer-create-quotation]")?.addEventListener("click", () => openDirectOrderFlow("quotation"));
+    opportunityTable.querySelector("[data-crm-customer-create-order]")?.addEventListener("click", () => openDirectOrderFlow("order"));
+    opportunityTable.querySelectorAll("[data-crm-document-print]").forEach((button) => button.addEventListener("click", () => {
+      const collection = button.dataset.documentKind === "quotation" ? state.quotations : state.controlSales;
+      const item = collection.find((record) => String(record.id) === String(button.dataset.crmDocumentPrint));
+      if (item) button.dataset.documentKind === "quotation" ? printQuotation(item) : printControlSalesProforma(item);
     }));
-    opportunityTable.querySelectorAll("[data-crm-customer-order]").forEach((button) => button.addEventListener("click", () => {
-      const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerOrder));
-      if (customer) openCustomerDirectOrder(customer);
+    opportunityTable.querySelectorAll("[data-crm-document-edit]").forEach((button) => button.addEventListener("click", () => {
+      if (button.dataset.documentKind === "quotation") {
+        const quotation = state.quotations.find((item) => String(item.id) === String(button.dataset.crmDocumentEdit));
+        if (quotation) openQuotationDialog(quotation.opportunityId, quotation.id, quotationSourceOpportunity(quotation));
+        return;
+      }
+      const order = state.controlSales.find((item) => String(item.id) === String(button.dataset.crmDocumentEdit));
+      if (order) openControlSalesForm(order);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-document-convert]").forEach((button) => button.addEventListener("click", async () => {
+      const quotation = state.quotations.find((item) => String(item.id) === String(button.dataset.crmDocumentConvert));
+      if (!quotation) return;
+      const opportunity = quotationSourceOpportunity(quotation);
+      const customerId = quotation.customerId || quotation.customerData?.customerId;
+      const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(customerId) && item.active !== false);
+      if (!customer) return alert("El cliente vinculado ya no está activo en el maestro.");
+      button.disabled = true;
+      try {
+        const synced = await bindMasterCustomerForOrder(opportunity, quotation, customer);
+        openControlSalesForm(null, null, synced.opportunity, false, synced.quotation, false, true);
+      } catch (error) {
+        button.disabled = false;
+        alert(error.message || "No fue posible preparar la orden de pedido.");
+      }
+    }));
+    opportunityTable.querySelectorAll("[data-crm-document-delete]").forEach((button) => button.addEventListener("click", async () => {
+      const isQuotation = button.dataset.documentKind === "quotation";
+      if (!confirm(`¿Anular esta ${isQuotation ? "cotización" : "orden de pedido"}?`)) return;
+      try {
+        if (isQuotation) await apiJson(`/api/quotations/${encodeURIComponent(button.dataset.crmDocumentDelete)}`, { method:"DELETE" });
+        else await apiJson(`/api/control-sales/${encodeURIComponent(button.dataset.crmDocumentDelete)}`, { method:"PATCH", body:JSON.stringify({ archived:true, reason:"Anulada desde Clientes", updatedBy:state.currentUser?.name }) });
+        await Promise.all([loadQuotations(), loadControlSales()]);
+        renderCommercialSubmenu(areas.comercializacion);
+      } catch (error) { alert(error.message || "No fue posible anular el documento."); }
     }));
     opportunityTable.querySelectorAll("[data-crm-customer-edit]").forEach((button) => button.addEventListener("click", () => {
       const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.crmCustomerEdit));
