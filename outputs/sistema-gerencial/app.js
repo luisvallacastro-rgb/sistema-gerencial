@@ -10032,7 +10032,7 @@ async function openBankMaintenance(accountId) {
     const openingBalance = olderRecord ? Number(olderRecord.balance || 0) : editing ? Number(editing.balance || 0) - Number(editing.data[inflowField] || 0) + Number(editing.data[outflowField] || 0) : 0;
     dialog.innerHTML = `<div class="bank-maintenance-shell"><header><div><span>Movimientos bancarios</span><h2>${escapeHtml(account.bank)}</h2><p>${escapeHtml(account.account)} · ${records.length} movimientos</p></div><button type="button" data-bank-close aria-label="Cerrar">×</button></header>
       <section class="bank-maintenance-summary"><div><small>Último saldo</small><strong>${formatMoney((records[0] || account.latest)?.balance || 0)}</strong><span>${records[0] ? formatDate(records[0].date) : "Sin movimientos"}</span></div><aside><button type="button" data-bank-paste>▦ Pegar bloque</button><button type="button" data-bank-new>＋ Agregar línea</button></aside></section>
-      ${bulkOpen ? `<form class="bank-bulk-form"><header><div><h3>Pegar movimientos desde Excel o CSV</h3><p>Pega el contenido completo. El sistema reconoce encabezados, descarta movimientos ya registrados y calcula correlativo y saldo.</p></div><strong data-bank-paste-count>0 líneas detectadas</strong></header><textarea data-bank-paste-input placeholder="Copia las filas o abre el CSV y pega su contenido aquí" required></textarea><footer><label>Orden del bloque<select data-bank-paste-order><option value="newest">Más reciente arriba</option><option value="oldest">Más antigua arriba</option></select></label><span>Campos: ${account.fields.map(escapeHtml).join(" · ")}</span><div><button type="button" data-bank-paste-cancel>Cancelar</button><button type="submit">Importar pendientes</button></div></footer></form>` : ""}
+      ${bulkOpen ? `<form class="bank-bulk-form"><header><div><h3>Pegar movimientos desde Excel o CSV</h3><p>Pega el contenido completo. El sistema reconoce encabezados, descarta movimientos ya registrados y calcula correlativo y saldo.</p></div><aside class="bank-paste-tools"><button type="button" data-bank-read-clipboard>▣ Pegar portapapeles</button><strong data-bank-paste-count>0 líneas detectadas</strong></aside></header><textarea data-bank-paste-input placeholder="Copia las filas o abre el CSV y pega su contenido aquí · también puedes usar ⌘V o Ctrl+V" required></textarea><footer><label>Orden del bloque<select data-bank-paste-order><option value="newest">Más reciente arriba</option><option value="oldest">Más antigua arriba</option></select></label><span>Campos: ${account.fields.map(escapeHtml).join(" · ")}</span><div><button type="button" data-bank-paste-cancel>Cancelar</button><button type="submit">Importar pendientes</button></div></footer></form>` : ""}
       ${formOpen ? `<form class="bank-record-form bank-inline-form"><div class="bank-inline-form-title"><h3>${editing ? "Editar línea" : "Nueva línea"}</h3>${autoCorrelative ? `<span>Correlativo automático${editing ? ` · ${escapeHtml(editing.data.Correlativo ?? editing.sequence ?? "")}` : ""}</span>` : ""}</div><div class="bank-inline-entry" style="grid-template-columns:${editableFields.map((field) => `${bankFieldWeight(field)}fr`).join(" ")} 12fr auto">${editableFields.map((field) => {
           const type = bankFieldType(field); const required = field === account.balanceField || field === "Fecha" || field === "Fecha Transaccion";
           return `<label><span>${escapeHtml(field)}${required ? " *" : ""}</span><input name="${escapeHtml(field)}" type="${type}" ${type === "number" ? 'step="0.01"' : ""} value="${escapeHtml(editing?.data?.[field] ?? "")}" ${required ? "required" : ""}></label>`;
@@ -10088,6 +10088,25 @@ async function openBankMaintenance(accountId) {
       return count;
     };
     pasteInput?.addEventListener("input", refreshPasteCount);
+    dialog.querySelector("[data-bank-read-clipboard]")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        if (!navigator.clipboard?.readText) throw new Error("clipboard-unavailable");
+        const clipboardText = await navigator.clipboard.readText();
+        if (!clipboardText.trim()) throw new Error("clipboard-empty");
+        pasteInput.value = clipboardText;
+        refreshPasteCount();
+        pasteInput.focus();
+      } catch (error) {
+        pasteInput?.focus();
+        alert(error.message === "clipboard-empty"
+          ? "El portapapeles no contiene texto. Copia primero las filas desde Excel."
+          : "El navegador no permitió leer el portapapeles. Haz clic en el recuadro y usa ⌘V en Mac o Ctrl+V en Windows.");
+      } finally {
+        button.disabled = false;
+      }
+    });
     pasteInput?.focus();
     dialog.querySelector(".bank-bulk-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
