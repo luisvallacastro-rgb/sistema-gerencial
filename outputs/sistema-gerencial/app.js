@@ -781,6 +781,7 @@ let internalChatUnreadTimer = null;
 let internalChatEventSource = null;
 let internalChatPeer = null;
 let internalChatUnreadCounts = {};
+let internalChatUnreadSenders = {};
 const apiEnabled = window.location.protocol !== "file:";
 
 async function apiJson(path, options = {}) {
@@ -12762,6 +12763,12 @@ async function loadInternalChatUnread() {
 
 function applyInternalChatUnread(unread = []) {
   internalChatUnreadCounts = Object.fromEntries(unread.map((item) => [String(item.sender_id), Number(item.unread_count || 0)]));
+  internalChatUnreadSenders = Object.fromEntries(unread.map((item) => [String(item.sender_id), {
+    user_id: String(item.sender_id),
+    name: item.sender_name || "Usuario",
+    role: item.sender_role || "",
+    _online: false
+  }]));
   renderPresenceList();
   if (internalChatPeer && Number(internalChatUnreadCounts[String(internalChatPeer.user_id)] || 0) > 0) loadInternalChat();
 }
@@ -12784,7 +12791,8 @@ function openInternalChat(user) {
   windowElement.id = "internalChatWindow";
   windowElement.className = "internal-chat-window";
   windowElement.setAttribute("aria-label", `Chat con ${user.name || "usuario"}`);
-  windowElement.innerHTML = `<header><div><i></i><span><strong>${escapeHtml(user.name || "Usuario")}</strong><small data-internal-chat-status>En línea</small></span></div><button type="button" data-internal-chat-close aria-label="Cerrar chat">×</button></header><div class="internal-chat-messages" data-internal-chat-messages><div class="internal-chat-loading">Cargando conversación…</div></div><form data-internal-chat-form><textarea rows="1" maxlength="2000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><button type="submit" aria-label="Enviar mensaje">➤</button></form>`;
+  windowElement.classList.toggle("peer-offline", user._online === false);
+  windowElement.innerHTML = `<header><div><i></i><span><strong>${escapeHtml(user.name || "Usuario")}</strong><small data-internal-chat-status>${user._online === false ? "Desconectado" : "En línea"}</small></span></div><button type="button" data-internal-chat-close aria-label="Cerrar chat">×</button></header><div class="internal-chat-messages" data-internal-chat-messages><div class="internal-chat-loading">Cargando conversación…</div></div><form data-internal-chat-form><textarea rows="1" maxlength="2000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><button type="submit" aria-label="Enviar mensaje">➤</button></form>`;
   document.body.appendChild(windowElement);
   windowElement.querySelector("[data-internal-chat-close]").addEventListener("click", closeInternalChat);
   const form = windowElement.querySelector("[data-internal-chat-form]");
@@ -12813,17 +12821,22 @@ function openInternalChat(user) {
 
 function renderPresenceList() {
   if (!presenceList || !onlineCount) return;
-  const users = state.onlineUsers.length && state.currentUser
-    ? state.onlineUsers
+  const onlineUsers = state.onlineUsers.length && state.currentUser
+    ? state.onlineUsers.map((user) => ({ ...user, _online: true }))
     : state.currentUser
       ? [{
           user_id: state.currentUser.id,
           name: state.currentUser.name,
           role: state.currentUser.role,
-          last_seen: Date.now() / 1000
+          last_seen: Date.now() / 1000,
+          _online: true
         }]
       : [];
-  onlineCount.textContent = String(users.length);
+  const onlineIds = new Set(onlineUsers.map((user) => String(user.user_id)));
+  const unreadOfflineUsers = Object.values(internalChatUnreadSenders)
+    .filter((user) => !onlineIds.has(String(user.user_id)) && String(user.user_id) !== String(state.currentUser?.id));
+  const users = [...onlineUsers, ...unreadOfflineUsers];
+  onlineCount.textContent = String(onlineUsers.length);
   const unreadTotal = Object.values(internalChatUnreadCounts).reduce((sum, count) => sum + Number(count || 0), 0);
   const unreadTotalElement = document.querySelector("#chatUnreadTotal");
   if (unreadTotalElement) unreadTotalElement.textContent = String(unreadTotal);
@@ -12839,9 +12852,9 @@ function renderPresenceList() {
     return;
   }
   presenceList.innerHTML = users.map((user) => `
-    <button type="button" class="presence-user${String(user.user_id) === String(state.currentUser?.id) ? " current" : ""}" data-presence-chat-user="${escapeHtml(user.user_id || "")}" ${String(user.user_id) === String(state.currentUser?.id) ? "disabled" : ""}>
+    <button type="button" class="presence-user${String(user.user_id) === String(state.currentUser?.id) ? " current" : ""}${user._online === false ? " offline" : ""}" data-presence-chat-user="${escapeHtml(user.user_id || "")}" ${String(user.user_id) === String(state.currentUser?.id) ? "disabled" : ""}>
       <i aria-hidden="true"></i>
-      <span>${escapeHtml(user.name || "Usuario")}${String(user.user_id) === String(state.currentUser?.id) ? " <small>(Tú)</small>" : ""}</span>
+      <span>${escapeHtml(user.name || "Usuario")}${String(user.user_id) === String(state.currentUser?.id) ? " <small>(Tú)</small>" : (user._online === false ? " <small>(Desconectado)</small>" : "")}</span>
       ${Number(internalChatUnreadCounts[String(user.user_id)] || 0) ? `<b class="presence-chat-unread" title="Mensajes nuevos">${Number(internalChatUnreadCounts[String(user.user_id)])}</b>` : ""}
     </button>
   `).join("");
@@ -12918,6 +12931,7 @@ function clearSession() {
   state.currentUser = null;
   state.onlineUsers = [];
   internalChatUnreadCounts = {};
+  internalChatUnreadSenders = {};
   renderPresenceList();
 }
 

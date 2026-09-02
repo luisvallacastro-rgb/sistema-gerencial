@@ -13963,6 +13963,8 @@ body.operations-fullscreen-open {
 .app-shell .presence-user:hover:not(:disabled) { color: #72f5d1; }
 .app-shell .presence-user:disabled { cursor: default; opacity: .62; }
 .app-shell .presence-user small { color: rgba(210,225,240,.5); font-size: 9px; }
+.app-shell .presence-user.offline > i { background: #71849a; box-shadow: 0 0 0 4px rgba(113,132,154,.12); }
+.app-shell .presence-user.offline { color: rgba(221,232,242,.78); }
 .app-shell .presence-chat-unread { min-width: 20px; height: 20px; display: grid; place-items: center; margin-left: auto; border-radius: 999px; background: #36e0b0; color: #09243a; font-size: 10px; font-weight: 950; box-shadow: 0 0 0 4px rgba(54,224,176,.11); }
 .app-shell .presence-panel.has-chat-unread:not([open]) .presence-head { border: 0; box-shadow: none; background: transparent; }
 .app-shell .presence-panel.has-chat-unread .presence-head i { animation: chat-unread-pulse 1.3s ease-in-out infinite; }
@@ -14003,6 +14005,7 @@ body.operations-fullscreen-open {
 }
 .internal-chat-window > header > div { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .internal-chat-window > header i { width: 10px; height: 10px; border-radius: 50%; background: #31d485; box-shadow: 0 0 0 4px rgba(49,212,133,.14); }
+.internal-chat-window.peer-offline > header i { background: #71849a; box-shadow: 0 0 0 4px rgba(113,132,154,.14); }
 .internal-chat-window > header span { display: grid; min-width: 0; }
 .internal-chat-window > header strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .internal-chat-window > header small { margin-top: 2px; color: rgba(220,239,249,.67); font-size: 10px; }
