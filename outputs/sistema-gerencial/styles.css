@@ -6419,6 +6419,16 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-orders-toolbar > button { min-height: 42px; border: 0; border-radius: 12px; padding: 0 16px; background: linear-gradient(135deg,#209a72,#1a755f); color: #fff; font-weight: 900; cursor: pointer; }
 .app-shell .financial-orders-toolbar > .financial-orders-report-button { border: 1px solid rgba(114,245,209,.58); background: rgba(20,65,76,.76); color: #b9ffed; }
 .app-shell .financial-orders-toolbar > .financial-orders-report-button:hover { background: rgba(29,104,99,.88); }
+.app-shell .financial-orders-shell:not(.accounts-receivable-shell) .financial-orders-toolbar { grid-template-columns: minmax(260px,1fr) auto 44px 44px; gap: 9px; }
+.app-shell .financial-orders-toolbar > .financial-orders-tool-button { width: 44px; min-width: 44px; height: 42px; min-height: 42px; display: grid; place-items: center; padding: 0; }
+.app-shell .financial-orders-tool-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.app-shell .financial-orders-tool-button.authorized-report { border-color: rgba(171,145,255,.65); background: rgba(71,53,122,.62); color: #d8ccff; }
+.app-shell .financial-orders-tool-button.authorized-report:hover { background: rgba(91,66,157,.8); }
+.app-shell .financial-order-document-actions { display: flex; align-items: center; justify-content: flex-start; gap: 6px; overflow: visible; }
+.app-shell .financial-order-document-actions .financial-order-action-icon { min-width: 34px; width: 34px; padding: 0; font-size: 7px; font-weight: 950; letter-spacing: .03em; }
+.app-shell .financial-order-document-actions .quotation-link { border: 1px solid rgba(114,245,209,.35); color: #9dffe4; }
+.app-shell .financial-order-document-actions .order-link { border: 1px solid rgba(125,181,255,.38); color: #b7d8ff; }
+.app-shell .financial-order-document-actions .unavailable { opacity: .28; cursor: not-allowed; }
 
 .app-shell .financial-orders-table-wrap {
   min-height: 0;
@@ -6431,7 +6441,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-orders-table { min-width: 0; width: 100%; display: grid; gap: 7px; }
 .app-shell .financial-order-row {
   display: grid;
-  grid-template-columns: 100px 132px 110px minmax(120px, .9fr) minmax(160px, 1.7fr) 104px;
+  grid-template-columns: 100px 132px 110px minmax(120px, .9fr) minmax(160px, 1.7fr) 124px;
   align-items: center;
   gap: 10px;
   min-height: 62px;
@@ -8385,8 +8395,8 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 }
 
 @media (max-width: 900px) {
-  .app-shell .financial-orders-table { min-width: 720px; }
-  .app-shell .financial-order-row { grid-template-columns: 96px 126px 104px 120px 190px 100px; }
+  .app-shell .financial-orders-table { min-width: 760px; }
+  .app-shell .financial-order-row { grid-template-columns: 96px 126px 104px 120px 190px 120px; }
 }
 
 #financialOrderDialog {

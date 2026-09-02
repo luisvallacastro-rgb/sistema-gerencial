@@ -5712,6 +5712,36 @@ function downloadFinancialOrdersExcelReport() {
   URL.revokeObjectURL(url);
 }
 
+function printAuthorizedFinancialOrdersReport() {
+  const rows = filteredFinancialOrders().slice().sort((a, b) => {
+    const sellerCompare = controlSalesResponsibleSeller(a).localeCompare(controlSalesResponsibleSeller(b), "es");
+    return sellerCompare || String(a.date || "").localeCompare(String(b.date || ""));
+  });
+  const total = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
+  const grouped = rows.reduce((result, order) => {
+    const seller = controlSalesResponsibleSeller(order) || "Sin vendedor asignado";
+    (result[seller] ||= []).push(order);
+    return result;
+  }, {});
+  let index = 0;
+  const body = Object.entries(grouped).map(([seller, items]) => {
+    const subtotal = items.reduce((sum, order) => sum + Number(order.sale || 0), 0);
+    const detail = items.map((order) => {
+      const controlOrder = order.approvedControlSales
+        ? state.controlSales.find((item) => item.id === order.controlSalesOrderId)
+        : state.controlSales.find((item) => String(item.financialOrderId || "") === String(order.id || ""));
+      const quotation = linkedQuotationForControlSalesOrder(controlOrder);
+      return `<tr><td>${++index}</td><td>${formatDate(order.date)}</td><td><strong>${escapeHtml(financialOrderRealNumber(order))}</strong></td><td>${escapeHtml(order.client || "Sin cliente")}</td><td>${escapeHtml(quotation?.number || "—")}</td><td class="money">${formatMoney(order.sale)}</td><td><span class="approved">Autorizado · 2 firmas</span></td></tr>`;
+    }).join("");
+    return `<tr class="seller"><td colspan="7"><strong>${escapeHtml(seller)}</strong><span>${items.length} pedidos · ${formatMoney(subtotal)}</span></td></tr>${detail}<tr class="validation"><td colspan="7"><b>Validado por ${escapeHtml(seller)}</b><i></i><small>Firma</small><i></i><small>Fecha</small></td></tr>`;
+  }).join("");
+  const popup = window.open("", "_blank", "width=1200,height=900");
+  if (!popup) return alert("Permite las ventanas emergentes para generar el reporte.");
+  const generatedAt = new Date().toLocaleString("es-SV");
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Pedidos autorizados</title><style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#e9eef4;color:#172b43;font:11px Arial,sans-serif}.page{width:277mm;min-height:190mm;margin:18px auto;padding:13mm;background:#fff}.head{display:flex;justify-content:space-between;align-items:end;padding-bottom:13px;border-bottom:3px solid #188b78}.head h1{margin:0 0 4px;font-size:24px}.head p{margin:0;color:#64748b}.head strong{color:#087763;font-size:20px}.summary{display:flex;gap:24px;margin:14px 0;padding:11px 14px;background:#eef6f4;border-left:4px solid #188b78}.summary b{color:#087763}table{width:100%;border-collapse:collapse;font-size:9px}th{padding:8px;background:#173b62;color:#fff;text-align:left}td{padding:7px 8px;border-bottom:1px solid #d4dee8}.money{text-align:right;font-weight:800;white-space:nowrap}.approved{color:#087763;font-weight:800}.seller td{padding:9px 11px;background:#dcefe9;border-top:2px solid #188b78;color:#126452}.seller span{float:right;font-weight:800}.validation td{height:48px;background:#f7fafb}.validation i{display:inline-block;width:145px;margin:0 8px;border-bottom:1px solid #405169}.actions{position:fixed;right:20px;bottom:20px}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#167b68;color:#fff;font-weight:800}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0}.actions{display:none}tr{break-inside:avoid}}</style></head><body><main class="page"><header class="head"><div><h1>Validación de pedidos autorizados por vendedor</h1><p>Pedidos con doble firma ordenados por responsable</p></div><strong>KONFI</strong></header><section class="summary"><span><b>${rows.length}</b> pedidos</span><span>Monto total: <b>${formatMoney(total)}</b></span><span>Generado: ${escapeHtml(generatedAt)}</span></section><table><thead><tr><th>#</th><th>Fecha</th><th>N.º de pedido</th><th>Cliente</th><th>Cotización</th><th>Monto</th><th>Estado</th></tr></thead><tbody>${body || `<tr><td colspan="7">No hay pedidos autorizados para los filtros seleccionados.</td></tr>`}</tbody></table></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button></nav></body></html>`);
+  popup.document.close();
+}
+
 function renderFinancialOrderTopbarFilters(isVisible) {
   financialOrdersTopbarFilters?.classList.toggle("hidden", !isVisible);
   financialOrdersTopbarFilters?.closest(".topbar")?.classList.toggle("financial-orders-filter-mode", isVisible);
@@ -5768,7 +5798,8 @@ function renderFinancialOrderList() {
       <div class="financial-orders-toolbar">
         <label><span>⌕</span><input data-financial-order-search type="search" value="${escapeHtml(state.financialOrderQuery)}" placeholder="Buscar pedido, cliente, vendedor..."></label>
         <strong>${formatMoney(total)}</strong>
-        <button class="financial-orders-report-button" type="button" data-financial-order-report>⇩ Reporte Excel</button>
+        <button class="financial-orders-report-button financial-orders-tool-button" type="button" data-financial-order-report aria-label="Descargar reporte Excel" title="Descargar reporte Excel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13l3 4 3-4M11 10v7"/></svg></button>
+        <button class="financial-orders-report-button financial-orders-tool-button authorized-report" type="button" data-financial-order-authorized-report aria-label="Reporte de pedidos autorizados" title="Reporte de pedidos autorizados"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7zM17 11h.01"/></svg></button>
       </div>
       <div class="financial-orders-table-wrap">
       <div class="financial-orders-table">
@@ -5778,6 +5809,7 @@ function renderFinancialOrderList() {
             ? state.controlSales.find((item) => item.id === order.controlSalesOrderId)
             : null;
           const linkedOrder = approvedControlOrder || linkedControlSalesByFinancialOrderId.get(String(order.id));
+          const linkedQuotation = linkedQuotationForControlSalesOrder(linkedOrder);
           const hasTwoSignatures = controlSalesOrderHasAuthorizedSignatures(linkedOrder);
           const variance = Number(linkedOrder?.varianceCents || 0);
           return `
@@ -5792,9 +5824,10 @@ function renderFinancialOrderList() {
               ${linkedOrder && variance !== 0 ? `<em class="financial-order-variance-badge" data-tone="${variance > 0 ? "over" : "under"}">Descuadre ${formatControlSalesMoney(variance)}</em>` : ""}
               ${linkedOrder && variance === 0 ? `<em class="financial-order-balanced-badge">Conciliado</em>` : ""}
             </span>
-            <span class="financial-order-actions">${approvedControlOrder
-              ? `<button class="financial-order-action-icon" type="button" data-finance-order-view="${escapeHtml(approvedControlOrder.id)}" title="Ver orden y firmas" aria-label="Ver orden y firmas">👁</button><button class="financial-order-action-icon danger" type="button" data-finance-order-archive="${escapeHtml(approvedControlOrder.id)}" title="Anular" aria-label="Anular pedido">⛔</button>`
-              : `${linkedOrder ? `<button class="financial-order-action-icon" type="button" data-finance-order-view="${escapeHtml(linkedOrder.id)}" title="Ver orden y firmas" aria-label="Ver orden y firmas">👁</button>` : ""}`}
+            <span class="financial-order-actions financial-order-document-actions">
+              <button class="financial-order-action-icon quotation-link${linkedQuotation ? "" : " unavailable"}" type="button" ${linkedQuotation ? `data-finance-order-quotation="${escapeHtml(linkedQuotation.id)}"` : "disabled"} title="${linkedQuotation ? "Abrir cotización" : "Cotización no vinculada"}" aria-label="${linkedQuotation ? "Abrir cotización" : "Cotización no vinculada"}">COT</button>
+              ${linkedOrder ? `<button class="financial-order-action-icon order-link" type="button" data-finance-order-view="${escapeHtml(linkedOrder.id)}" title="Abrir orden de pedido" aria-label="Abrir orden de pedido">OP</button>` : ""}
+              ${approvedControlOrder ? `<button class="financial-order-action-icon danger" type="button" data-finance-order-archive="${escapeHtml(approvedControlOrder.id)}" title="Anular" aria-label="Anular pedido">⛔</button>` : ""}
             </span>
           </article>
         `; }).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
@@ -6115,6 +6148,7 @@ function openFinancialOrderObservationDialog(order = {}) {
 
 function wireFinancialOrders() {
   opportunityTable.querySelector("[data-financial-order-report]")?.addEventListener("click", downloadFinancialOrdersExcelReport);
+  opportunityTable.querySelector("[data-financial-order-authorized-report]")?.addEventListener("click", printAuthorizedFinancialOrdersReport);
   opportunityTable.querySelectorAll("[data-finance-order-view]").forEach((button) => button.addEventListener("click", () => {
     openControlSalesDetail(button.dataset.financeOrderView);
   }));
