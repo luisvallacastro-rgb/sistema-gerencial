@@ -6476,7 +6476,7 @@ function renderAccountsReceivableList() {
           ${years.map((year) => `<option value="${year}" ${state.accountsReceivableYearFilter === year ? "selected" : ""}>${year}</option>`).join("")}
         </select>
         <strong>${formatMoney(total)}</strong>
-        <button type="button" class="financial-orders-report-button" data-accounts-receivable-report>▤ Reporte</button>
+        <button type="button" class="financial-orders-report-button accounts-receivable-print-button" data-accounts-receivable-report aria-label="Imprimir reporte de cuentas por cobrar" title="Imprimir reporte"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/><path d="M17 11h.01"/></svg></button>
         <button type="button" data-accounts-receivable-new>+ Nueva cuenta</button>
       </div>
       <div class="accounts-receivable-status-tabs" role="tablist" aria-label="Estado de cartera">
