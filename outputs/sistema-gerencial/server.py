@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-bank-row-void-v8"
+API_VERSION = "kmi-archived-bank-update-report-v9"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -4152,6 +4152,15 @@ def bank_availability_archive_history(conn):
            ORDER BY snapshot_date ASC, completed_at ASC""",
         (cutoff,),
     ).fetchall()
+    previous_row = conn.execute(
+        """SELECT balances FROM bank_daily_availability
+           WHERE snapshot_date < ? ORDER BY snapshot_date DESC, completed_at DESC LIMIT 1""",
+        (cutoff,),
+    ).fetchone()
+    try:
+        previous_balances = json.loads(previous_row["balances"] or "{}") if previous_row else {}
+    except (TypeError, json.JSONDecodeError):
+        previous_balances = {}
     history = []
     for row in rows:
         try:
@@ -4164,6 +4173,9 @@ def bank_availability_archive_history(conn):
             report_data = {}
         if not report_data:
             report_data = bank_availability_report_snapshot(conn, balances, float(row["total"] or 0))
+        update_report = report_data.get("updateReport") if isinstance(report_data, dict) else None
+        if not isinstance(update_report, dict) or not update_report.get("accounts"):
+            update_report = archived_bank_update_report(conn, balances, previous_balances)
         try:
             signatures = json.loads(row["signatures"] or "{}")
         except (TypeError, json.JSONDecodeError):
@@ -4172,8 +4184,65 @@ def bank_availability_archive_history(conn):
             signatures = bank_availability_signatures_payload(conn)
         history.append({"id": row["id"], "date": row["snapshot_date"], "total": round(float(row["total"] or 0), 2),
                         "balances": balances if isinstance(balances, dict) else {}, "reportData": report_data,
+                        "updateReport": update_report,
                         "signatures": signatures, "completedAt": row["completed_at"]})
+        previous_balances = balances if isinstance(balances, dict) else {}
     return history
+
+
+def archived_bank_update_report(conn, balances, previous_balances=None):
+    """Rebuild a historical balance-update matrix between two archived cutoffs."""
+    previous_balances = previous_balances if isinstance(previous_balances, dict) else {}
+    accounts = []
+    for account in conn.execute("SELECT id, bank, account FROM bank_accounts WHERE active = 1 ORDER BY bank, account").fetchall():
+        current = (balances or {}).get(account["id"]) or {}
+        if not current:
+            continue
+        previous = previous_balances.get(account["id"]) or {}
+        current_sequence = int(current.get("sequence") or 0)
+        previous_sequence = int(previous.get("sequence") or 0)
+        if previous:
+            movements = conn.execute(
+                """SELECT * FROM bank_balance_records WHERE account_id = ? AND sequence > ? AND sequence <= ?
+                   ORDER BY sequence ASC, created_at ASC""",
+                (account["id"], previous_sequence, current_sequence),
+            ).fetchall()
+        else:
+            movements = conn.execute(
+                """SELECT * FROM bank_balance_records WHERE account_id = ? AND sequence = ?
+                   ORDER BY created_at ASC""",
+                (account["id"], current_sequence),
+            ).fetchall()
+        inflow_field, outflow_field = bank_flow_fields(account["id"])
+        charges = round(sum(numeric_bank_value(json.loads(item["data"] or "{}").get(outflow_field)) for item in movements), 2)
+        credits = round(sum(numeric_bank_value(json.loads(item["data"] or "{}").get(inflow_field)) for item in movements), 2)
+        new_balance = round(float(current.get("balance") or 0), 2)
+        previous_balance = round(float(previous.get("balance")), 2) if previous else round(new_balance + charges - credits, 2)
+        movement_details = []
+        for item in movements:
+            values = json.loads(item["data"] or "{}")
+            movement_details.append({
+                "date": item["record_date"],
+                "description": values.get("Descripción") or values.get("Transaccion") or values.get("Detalle") or "Movimiento bancario",
+                "reference": values.get("Referencia") or values.get("No. Doc") or "",
+                "charge": round(numeric_bank_value(values.get(outflow_field)), 2),
+                "credit": round(numeric_bank_value(values.get(inflow_field)), 2),
+                "balance": round(float(item["balance"] or 0), 2),
+            })
+        accounts.append({
+            "id": account["id"], "bank": account["bank"], "account": account["account"],
+            "date": current.get("statementDate"), "previousBalance": previous_balance,
+            "charges": charges, "credits": credits, "newBalance": new_balance,
+            "movementCount": len(movements), "reconciled": abs(previous_balance - charges + credits - new_balance) < 0.01,
+            "movements": movement_details,
+        })
+    return {
+        "accounts": accounts,
+        "previousTotal": round(sum(item["previousBalance"] for item in accounts), 2),
+        "chargesTotal": round(sum(item["charges"] for item in accounts), 2),
+        "creditsTotal": round(sum(item["credits"] for item in accounts), 2),
+        "newTotal": round(sum(item["newBalance"] for item in accounts), 2),
+    }
 
 
 def bank_availability_report_snapshot(conn, balances, total):
@@ -4277,6 +4346,7 @@ def bank_availability_payload(conn, include_daily=True):
 
 def archive_bank_availability(conn):
     availability = bank_availability_payload(conn, include_daily=False)
+    update_report = bank_availability_report_payload(conn)
     now = datetime.now(ZoneInfo("America/El_Salvador"))
     cutoffs = {}
     balances = {}
@@ -4297,6 +4367,7 @@ def archive_bank_availability(conn):
     )
     snapshot_date = now.date().isoformat()
     report_data = bank_availability_report_snapshot(conn, balances, availability["total"])
+    report_data["updateReport"] = update_report
     signatures = bank_availability_signatures_payload(conn)
     conn.execute(
         """INSERT INTO bank_daily_availability (id, snapshot_date, total, balances, report_data, signatures, update_marks, completed_at)
