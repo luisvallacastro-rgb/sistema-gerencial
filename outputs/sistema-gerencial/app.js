@@ -9383,11 +9383,12 @@ function renderCrmClients() {
           <span><b>${completeCount}</b> completos</span>
           <span><b>${archivedCount}</b> archivados</span>
         </div>
-        <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs("master")}<button class="primary-btn" type="button" data-crm-customer-new>+ Nuevo cliente</button></div>
+        <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs("master")}</div>
       </header>
       <div class="crm-customer-toolbar">
         <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar ID, cliente, contacto, NIT, teléfono o ubicación..."></label>
         <div class="crm-customer-result"><strong>${clients.length}</strong><span>clientes</span></div>
+        <button class="primary-btn crm-customer-new-button" type="button" data-crm-customer-new>+ Nuevo cliente</button>
       </div>
       <div class="crm-customer-table-wrap"><div class="crm-customer-table">
         <div class="crm-customer-row crm-customer-head"><span>ID cliente</span><span>Cliente</span><span>Contacto</span><span>Ubicación</span><span>Acciones</span></div>
