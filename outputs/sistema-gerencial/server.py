@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-restore-customer-requests-v12"
+API_VERSION = "kmi-single-customer-request-send-v13"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -6973,6 +6973,13 @@ class AppHandler(BaseHTTPRequestHandler):
                         "requestedByName": text((request_user or {}).get("name"), "Usuario"),
                         "requestedBySellerId": text((request_linked_seller or {}).get("id")),
                     }
+                    if not is_draft:
+                        request.update({
+                            "sentToCustomerPanelAt": now,
+                            "sentToCustomerPanelByUserId": text((request_user or {}).get("id")),
+                            "sentToCustomerPanelByName": text((request_user or {}).get("name"), "Odaliz Valencia"),
+                            "customerPanelSendCount": 1,
+                        })
                     requests.append(request)
                     write_crm_data(conn, data)
                     response = response_model()
@@ -7073,8 +7080,12 @@ class AppHandler(BaseHTTPRequestHandler):
                         current_status = text(request.get("status"), "Borrador").lower()
                         status = text(payload.get("status"), request.get("status") or "Borrador")
                         target_status = status.lower()
+                        is_send_action = payload.get("sendToCustomerPanel") is True
                         is_requester = text(request.get("requestedByUserId")) == text((request_user or {}).get("id"))
                         can_manage = is_customer_request_reviewer(request_user)
+                        if is_send_action and (current_status != "borrador" or text(request.get("sentToCustomerPanelAt"))):
+                            self.send_json({"error": "La solicitud ya fue enviada al panel de Clientes y no puede enviarse nuevamente"}, status=409)
+                            return
                         if current_status == "borrador" and not (is_requester or can_manage):
                             self.send_json({"error": "No tiene permiso para modificar esta solicitud"}, status=403)
                             return
@@ -7117,7 +7128,12 @@ class AppHandler(BaseHTTPRequestHandler):
                             updated.pop("reviewedByName", None)
                             updated.pop("rejectionReason", None)
                         if target_status == "pendiente" and not text(request.get("requestedAt")):
-                            updated["requestedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                            sent_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                            updated["requestedAt"] = sent_at
+                            updated["sentToCustomerPanelAt"] = sent_at
+                            updated["sentToCustomerPanelByUserId"] = text((request_user or {}).get("id"))
+                            updated["sentToCustomerPanelByName"] = text((request_user or {}).get("name"), "Odaliz Valencia")
+                            updated["customerPanelSendCount"] = 1
                         if target_status == "rechazada":
                             updated["rejectionReason"] = text(payload.get("rejectionReason"))
                             updated["reviewedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())

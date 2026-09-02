@@ -9003,8 +9003,12 @@ function ensureCustomerRequestDialog() {
   });
   dialog.querySelector("#customerRequestForm").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const submitButton = dialog.querySelector("[data-customer-request-submit]");
+    if (submitButton.disabled) return;
     const requestId = dialog.querySelector("#customerRequestId").value;
-    const payload = { ...customerRequestFormPayload(dialog), status: "Pendiente" };
+    const payload = { ...customerRequestFormPayload(dialog), status: "Pendiente", sendToCustomerPanel: true };
+    submitButton.disabled = true;
+    submitButton.textContent = "Enviando…";
     try {
       await crmApi(requestId ? `/customer-requests/${encodeURIComponent(requestId)}` : "/customer-requests", { method: requestId ? "PATCH" : "POST", body: JSON.stringify(payload) });
       dialog.returnToRequestList = false;
@@ -9012,6 +9016,10 @@ function ensureCustomerRequestDialog() {
       openCustomerRequestListDialog();
     }
     catch (error) { alert(error.message || "No fue posible enviar la solicitud."); }
+    finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Enviar solicitud";
+    }
   });
   dialog.querySelector("[data-customer-request-approve]").addEventListener("click", async () => {
     if (!dialog.currentRequest?.id || !confirm("¿Autorizar esta solicitud firmada y asignar el siguiente ID de cliente?")) return;
@@ -9139,12 +9147,18 @@ function openCustomerRequestListDialog() {
     }));
     rows.querySelectorAll("[data-customer-request-list-send]").forEach((button) => button.addEventListener("click", async () => {
       const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListSend));
-      if (!request || !confirm(`¿Enviar ${request.requestNumber || "esta solicitud"} al panel de Clientes para validación?`)) return;
+      if (!request || button.disabled || !confirm(`¿Enviar ${request.requestNumber || "esta solicitud"} al panel de Clientes para validación?`)) return;
+      button.disabled = true;
+      button.textContent = "Enviando…";
       try {
-        await crmApi(`/customer-requests/${encodeURIComponent(request.id)}`, { method: "PATCH", body: JSON.stringify({ ...request, status: "Pendiente" }) });
+        await crmApi(`/customer-requests/${encodeURIComponent(request.id)}`, { method: "PATCH", body: JSON.stringify({ ...request, status: "Pendiente", sendToCustomerPanel: true }) });
         openCustomerRequestListDialog();
         alert("Solicitud enviada. Ya está disponible en Clientes → Solicitudes.");
-      } catch (error) { alert(error.message || "No fue posible enviar la solicitud."); }
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = "Enviar";
+        alert(error.message || "No fue posible enviar la solicitud.");
+      }
     }));
   };
   dialog.querySelector("[data-customer-request-list-search]").addEventListener("input", (event) => renderRows(event.target.value));
