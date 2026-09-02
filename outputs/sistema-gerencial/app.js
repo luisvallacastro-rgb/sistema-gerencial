@@ -12896,8 +12896,16 @@ function openInternalChat(user) {
   const input = form.querySelector("textarea");
   const fileInput = form.querySelector("[data-chat-file-input]");
   const fileName = form.querySelector("[data-chat-file-name]");
-  form.querySelector("[data-chat-emoji]").addEventListener("click", () => { const picker = form.querySelector("[data-chat-emojis]"); picker.hidden = !picker.hidden; });
-  form.querySelectorAll("[data-chat-emoji-value]").forEach((button) => button.addEventListener("click", () => { input.value += button.dataset.chatEmojiValue; input.focus(); }));
+  const emojiPicker = form.querySelector("[data-chat-emojis]");
+  const emojiToggle = form.querySelector("[data-chat-emoji]");
+  const emojiClose = document.createElement("button");
+  emojiClose.type = "button"; emojiClose.className = "internal-chat-emojis-close"; emojiClose.setAttribute("aria-label", "Cerrar emojis"); emojiClose.textContent = "×";
+  emojiPicker.prepend(emojiClose);
+  emojiToggle.addEventListener("click", () => { emojiPicker.hidden = !emojiPicker.hidden; });
+  emojiClose.addEventListener("click", () => { emojiPicker.hidden = true; input.focus(); });
+  form.querySelectorAll("[data-chat-emoji-value]").forEach((button) => button.addEventListener("click", () => { input.value += button.dataset.chatEmojiValue; emojiPicker.hidden = true; input.focus(); }));
+  windowElement.addEventListener("click", (event) => { if (!emojiPicker.hidden && !emojiPicker.contains(event.target) && !emojiToggle.contains(event.target)) emojiPicker.hidden = true; });
+  windowElement.addEventListener("keydown", (event) => { if (event.key === "Escape" && !emojiPicker.hidden) { event.preventDefault(); emojiPicker.hidden = true; input.focus(); } });
   form.querySelector("[data-chat-file]").addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => { const file = fileInput.files?.[0]; if (file && file.size > 8 * 1024 * 1024) { alert("El archivo debe pesar menos de 8 MB."); fileInput.value = ""; } fileName.textContent = fileInput.files?.[0]?.name || ""; });
   form.addEventListener("submit", async (event) => {
