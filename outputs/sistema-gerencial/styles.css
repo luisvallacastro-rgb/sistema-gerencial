@@ -6392,7 +6392,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 
 .app-shell .financial-orders-toolbar {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto auto auto;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
   align-items: center;
   gap: 12px;
 }
@@ -6428,7 +6428,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-orders-table { min-width: 0; width: 100%; display: grid; gap: 7px; }
 .app-shell .financial-order-row {
   display: grid;
-  grid-template-columns: 100px 56px 110px minmax(120px, .9fr) minmax(160px, 1.7fr) 140px;
+  grid-template-columns: 100px 132px 110px minmax(120px, .9fr) minmax(160px, 1.7fr) 104px;
   align-items: center;
   gap: 10px;
   min-height: 62px;
@@ -8383,7 +8383,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 
 @media (max-width: 900px) {
   .app-shell .financial-orders-table { min-width: 720px; }
-  .app-shell .financial-order-row { grid-template-columns: 96px 52px 104px 120px 190px 134px; }
+  .app-shell .financial-order-row { grid-template-columns: 96px 126px 104px 120px 190px 100px; }
 }
 
 #financialOrderDialog {

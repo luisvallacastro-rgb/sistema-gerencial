@@ -5636,6 +5636,13 @@ function financialOrdersForSelectedPeriod() {
   });
 }
 
+function financialOrderRealNumber(order) {
+  const controlOrder = order.approvedControlSales
+    ? state.controlSales.find((item) => item.id === order.controlSalesOrderId)
+    : state.controlSales.find((item) => String(item.financialOrderId || "") === String(order.id || ""));
+  return formatOrderCorrelative(controlOrder?.number || order.number || "—");
+}
+
 function filteredFinancialOrders() {
   const query = state.financialOrderQuery;
   const rows = financialOrdersForSelectedPeriod();
@@ -5662,12 +5669,11 @@ function downloadFinancialOrdersExcelReport() {
   const rows = filteredFinancialOrders()
     .slice()
     .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || Number(a.number || 0) - Number(b.number || 0));
-  const totalNumber = rows.reduce((sum, order) => sum + (Number(order.number) || 0), 0);
   const totalSale = rows.reduce((sum, order) => sum + (Number(order.sale) || 0), 0);
   const rowXml = rows.map((order) => `
     <Row>
       <Cell ss:StyleID="Date"><Data ss:Type="DateTime">${escapeSpreadsheetXml(String(order.date || todayISO()).slice(0, 10))}T00:00:00.000</Data></Cell>
-      <Cell ss:StyleID="Integer"><Data ss:Type="Number">${Number(order.number) || 0}</Data></Cell>
+      <Cell><Data ss:Type="String">${escapeSpreadsheetXml(financialOrderRealNumber(order))}</Data></Cell>
       <Cell ss:StyleID="Money"><Data ss:Type="Number">${Number(order.sale) || 0}</Data></Cell>
       <Cell><Data ss:Type="String">${escapeSpreadsheetXml(controlSalesResponsibleSeller(order).toLocaleUpperCase("es"))}</Data></Cell>
       <Cell><Data ss:Type="String">${escapeSpreadsheetXml(order.client || "Sin cliente")}</Data></Cell>
@@ -5688,9 +5694,9 @@ function downloadFinancialOrdersExcelReport() {
  </Styles>
  <Worksheet ss:Name="Export"><Table>
   <Column ss:Width="82"/><Column ss:Width="58"/><Column ss:Width="82"/><Column ss:Width="125"/><Column ss:Width="330"/>
-  <Row><Cell ss:StyleID="Header"><Data ss:Type="String">Fecha</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">#</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Venta</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Vendedor</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Clientes</Data></Cell></Row>
+  <Row><Cell ss:StyleID="Header"><Data ss:Type="String">Fecha</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Número de pedido</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Venta</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Vendedor</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Clientes</Data></Cell></Row>
   ${rowXml}
-  <Row><Cell ss:StyleID="Total"><Data ss:Type="String">Total</Data></Cell><Cell ss:StyleID="Total"><Data ss:Type="Number">${totalNumber}</Data></Cell><Cell ss:StyleID="Total"><Data ss:Type="Number">${totalSale}</Data></Cell><Cell/><Cell/></Row>
+  <Row><Cell ss:StyleID="Total"><Data ss:Type="String">Total</Data></Cell><Cell/><Cell ss:StyleID="Total"><Data ss:Type="Number">${totalSale}</Data></Cell><Cell/><Cell/></Row>
   <Row/><Row><Cell ss:MergeAcross="4"><Data ss:Type="String">Filtros aplicados:</Data></Cell></Row>${filterXml}
  </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane></WorksheetOptions></Worksheet>
 </Workbook>`;
@@ -5763,11 +5769,10 @@ function renderFinancialOrderList() {
         <label><span>⌕</span><input data-financial-order-search type="search" value="${escapeHtml(state.financialOrderQuery)}" placeholder="Buscar pedido, cliente, vendedor..."></label>
         <strong>${formatMoney(total)}</strong>
         <button class="financial-orders-report-button" type="button" data-financial-order-report>⇩ Reporte Excel</button>
-        <button type="button" data-financial-order-new>+ Nuevo pedido</button>
       </div>
       <div class="financial-orders-table-wrap">
       <div class="financial-orders-table">
-        <div class="financial-order-row header"><span>Fecha</span><span>#</span><span>Venta</span><span>Vendedor</span><span>Clientes</span><span>Acciones</span></div>
+        <div class="financial-order-row header"><span>Fecha</span><span>Número de pedido</span><span>Venta</span><span>Vendedor</span><span>Clientes</span><span>Acciones</span></div>
         ${rows.map((order) => {
           const approvedControlOrder = order.approvedControlSales
             ? state.controlSales.find((item) => item.id === order.controlSalesOrderId)
@@ -5778,7 +5783,7 @@ function renderFinancialOrderList() {
           return `
           <article class="financial-order-row">
             <span>${formatDate(order.date)}</span>
-            <strong>${escapeHtml(order.number)}</strong>
+            <strong>${escapeHtml(financialOrderRealNumber(order))}</strong>
             <strong class="financial-order-sale">${formatMoney(order.sale)}</strong>
             <span>${escapeHtml(controlSalesResponsibleSeller(order))}</span>
             <span class="financial-order-client-cell">
@@ -5788,8 +5793,8 @@ function renderFinancialOrderList() {
               ${linkedOrder && variance === 0 ? `<em class="financial-order-balanced-badge">Conciliado</em>` : ""}
             </span>
             <span class="financial-order-actions">${approvedControlOrder
-              ? `<button class="financial-order-action-icon" type="button" data-finance-order-view="${escapeHtml(approvedControlOrder.id)}" title="Ver orden y firmas" aria-label="Ver orden y firmas">👁</button><button class="financial-order-action-icon" type="button" data-finance-order-edit="${escapeHtml(approvedControlOrder.id)}" title="Editar" aria-label="Editar pedido">✏️</button><button class="financial-order-action-icon danger" type="button" data-finance-order-archive="${escapeHtml(approvedControlOrder.id)}" title="Anular" aria-label="Anular pedido">⛔</button>`
-              : `${linkedOrder ? `<button class="financial-order-action-icon" type="button" data-finance-order-view="${escapeHtml(linkedOrder.id)}" title="Ver orden y firmas" aria-label="Ver orden y firmas">👁</button>` : ""}<button class="financial-order-action-icon" type="button" data-financial-order-edit="${order.id}" title="Editar" aria-label="Editar pedido">✏️</button><button class="financial-order-action-icon danger" type="button" data-financial-order-delete="${order.id}" title="Eliminar" aria-label="Eliminar pedido">🗑️</button>`}
+              ? `<button class="financial-order-action-icon" type="button" data-finance-order-view="${escapeHtml(approvedControlOrder.id)}" title="Ver orden y firmas" aria-label="Ver orden y firmas">👁</button><button class="financial-order-action-icon danger" type="button" data-finance-order-archive="${escapeHtml(approvedControlOrder.id)}" title="Anular" aria-label="Anular pedido">⛔</button>`
+              : `${linkedOrder ? `<button class="financial-order-action-icon" type="button" data-finance-order-view="${escapeHtml(linkedOrder.id)}" title="Ver orden y firmas" aria-label="Ver orden y firmas">👁</button>` : ""}`}
             </span>
           </article>
         `; }).join("") || `<div class="empty-state">No hay pedidos registrados.</div>`}
