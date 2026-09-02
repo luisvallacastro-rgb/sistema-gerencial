@@ -8012,11 +8012,11 @@ function renderCrmHistory() {
 }
 
 function renderCrmDashboard() {
+  if (!["list", "seller-kpi"].includes(state.crmOpportunitiesView)) state.crmOpportunitiesView = "list";
   const rows = filteredCrmDashboardOpportunities();
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
     rows.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
   );
-  if (state.crmOpportunitiesView === "history") return renderCrmHistory();
   if (state.crmOpportunitiesView === "seller-kpi") return renderCrmSellerKpi(rows);
   return `
     <div class="opportunity-row opportunity-header">
