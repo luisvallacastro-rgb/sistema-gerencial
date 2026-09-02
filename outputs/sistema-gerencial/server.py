@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-chat-attachments-retention-v3"
+API_VERSION = "kmi-chat-attachments-safe-storage-v4"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -5547,12 +5547,16 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not actor or not recipient:
                     self.send_json({"error": "Usuario no encontrado"}, status=404)
                     return
+                if attachment_path:
+                    try:
+                        (CHAT_UPLOAD_DIR / attachment_path).write_bytes(attachment_bytes)
+                    except OSError:
+                        self.send_json({"error": "No fue posible guardar el archivo adjunto"}, status=500)
+                        return
                 conn.execute("""
                     INSERT INTO internal_chat_messages (id, sender_id, recipient_id, body, created_at, attachment_name, attachment_type, attachment_path, attachment_size)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (message_id, actor_id, recipient_id, body, now, attachment_name, attachment_type, attachment_path, attachment_size))
-            if attachment_path:
-                (CHAT_UPLOAD_DIR / attachment_path).write_bytes(attachment_bytes)
             self.send_json({"id": message_id, "sender_id": actor_id, "recipient_id": recipient_id, "body": body, "created_at": now, "sender_name": actor["name"], "attachment_name": attachment_name, "attachment_type": attachment_type, "attachment_size": attachment_size}, status=201)
             return
 

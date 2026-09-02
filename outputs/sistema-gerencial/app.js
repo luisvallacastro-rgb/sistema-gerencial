@@ -12814,7 +12814,10 @@ function closeInternalChat() {
 async function openInternalChatAttachment(messageId, name, type) {
   try {
     const response = await fetch(`/api/chat/file/${encodeURIComponent(messageId)}`, { headers: { "X-System-User-Id": state.currentUser?.id || "" } });
-    if (!response.ok) throw new Error("Archivo no disponible");
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || "Archivo no disponible");
+    }
     const url = URL.createObjectURL(await response.blob());
     if (String(type).startsWith("image/") || type === "application/pdf") window.open(url, "_blank");
     else { const link = document.createElement("a"); link.href = url; link.download = name || "archivo"; link.click(); }
@@ -12889,7 +12892,7 @@ function openInternalChat(user) {
   windowElement.className = "internal-chat-window";
   windowElement.setAttribute("aria-label", `Chat con ${user.name || "usuario"}`);
   windowElement.classList.toggle("peer-offline", user._online === false);
-  windowElement.innerHTML = `<header><div><i></i><span><strong>${escapeHtml(user.name || "Usuario")}</strong><small data-internal-chat-status>${user._online === false ? "Desconectado" : "En línea"} · historial 5 días</small></span></div><button type="button" data-internal-chat-close aria-label="Cerrar chat">×</button></header><div class="internal-chat-messages" data-internal-chat-messages><div class="internal-chat-loading">Cargando conversación…</div></div><form data-internal-chat-form><div class="internal-chat-compose"><div class="internal-chat-tools"><button type="button" data-chat-emoji aria-label="Agregar emoji" title="Emojis">☺</button><button type="button" data-chat-file aria-label="Adjuntar archivo" title="Imagen o documento">⌕</button><span data-chat-file-name></span></div><div class="internal-chat-emojis" data-chat-emojis hidden>${["😀","😂","😍","🥳","😊","👍","👏","🙏","❤️","🔥","✅","🎉","😮","😢","🤝","💡"].map((emoji) => `<button type="button" data-chat-emoji-value="${emoji}">${emoji}</button>`).join("")}</div><textarea rows="1" maxlength="2000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><input type="file" data-chat-file-input hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"></div><button class="internal-chat-send" type="submit" aria-label="Enviar mensaje">➤</button></form>`;
+  windowElement.innerHTML = `<header><div><i></i><span><strong>${escapeHtml(user.name || "Usuario")}</strong><small data-internal-chat-status>${user._online === false ? "Desconectado" : "En línea"} · historial 5 días</small></span></div><button type="button" data-internal-chat-close aria-label="Cerrar chat">×</button></header><div class="internal-chat-messages" data-internal-chat-messages><div class="internal-chat-loading">Cargando conversación…</div></div><form data-internal-chat-form><div class="internal-chat-compose"><div class="internal-chat-tools"><button type="button" data-chat-emoji aria-label="Agregar emoji" title="Emojis">☺</button><button type="button" data-chat-file aria-label="Adjuntar archivo" title="Imagen o documento">⌕</button><span data-chat-file-name></span></div><div class="internal-chat-emojis" data-chat-emojis hidden><div class="internal-chat-emojis-head"><strong>Emojis</strong><button type="button" class="internal-chat-emojis-close" data-chat-emojis-close aria-label="Cerrar emojis">×</button></div><div class="internal-chat-emojis-grid">${["😀","😂","😍","🥳","😊","👍","👏","🙏","❤️","🔥","✅","🎉","😮","😢","🤝","💡"].map((emoji) => `<button type="button" data-chat-emoji-value="${emoji}" aria-label="Agregar ${emoji}">${emoji}</button>`).join("")}</div></div><textarea rows="1" maxlength="2000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><input type="file" data-chat-file-input hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"></div><button class="internal-chat-send" type="submit" aria-label="Enviar mensaje">➤</button></form>`;
   document.body.appendChild(windowElement);
   windowElement.querySelector("[data-internal-chat-close]").addEventListener("click", closeInternalChat);
   const form = windowElement.querySelector("[data-internal-chat-form]");
@@ -12898,9 +12901,7 @@ function openInternalChat(user) {
   const fileName = form.querySelector("[data-chat-file-name]");
   const emojiPicker = form.querySelector("[data-chat-emojis]");
   const emojiToggle = form.querySelector("[data-chat-emoji]");
-  const emojiClose = document.createElement("button");
-  emojiClose.type = "button"; emojiClose.className = "internal-chat-emojis-close"; emojiClose.setAttribute("aria-label", "Cerrar emojis"); emojiClose.textContent = "×";
-  emojiPicker.prepend(emojiClose);
+  const emojiClose = form.querySelector("[data-chat-emojis-close]");
   emojiToggle.addEventListener("click", () => { emojiPicker.hidden = !emojiPicker.hidden; });
   emojiClose.addEventListener("click", () => { emojiPicker.hidden = true; input.focus(); });
   form.querySelectorAll("[data-chat-emoji-value]").forEach((button) => button.addEventListener("click", () => { input.value += button.dataset.chatEmojiValue; emojiPicker.hidden = true; input.focus(); }));
