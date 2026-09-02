@@ -9398,6 +9398,28 @@ function printCrmSellerValidationReport() {
   popup.document.close();
 }
 
+function printManagementSellerValidationReport() {
+  const opportunities = opportunityCycleRows(getOpportunitySubmenu().items).active
+    .map(({ item }) => item)
+    .sort((a, b) => String(a.seller || "").localeCompare(String(b.seller || ""), "es") || String(a.date || "").localeCompare(String(b.date || "")) || String(a.company || "").localeCompare(String(b.company || ""), "es"));
+  const groups = Object.entries(opportunities.reduce((result, item) => {
+    const seller = item.seller || "Sin vendedor asignado";
+    (result[seller] ||= []).push(item);
+    return result;
+  }, {}));
+  let rowNumber = 0;
+  const body = groups.map(([seller, items]) => {
+    const subtotal = items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const rows = items.map((item) => `<tr><td>${++rowNumber}</td><td>${escapeHtml(formatDate(item.date || item.agendaDate))}</td><td><strong>${escapeHtml(item.company || "Sin empresa")}</strong></td><td>${escapeHtml(item.stage || "Sin etapa")}</td><td>${escapeHtml(probabilityLabel(item.probability))}</td><td class="money">${formatMoney(item.amount || 0)}</td><td>${escapeHtml(item.nextAction || "—")}</td><td>${escapeHtml(item.note || "")}</td></tr>`).join("");
+    return `<tr class="seller"><td colspan="8"><strong>${escapeHtml(seller)}</strong><span>${items.length} oportunidades · ${formatMoney(subtotal)}</span></td></tr>${rows}<tr class="validation"><td colspan="8"><b>Validado por ${escapeHtml(seller)}</b><i></i><small>Firma</small><i></i><small>Fecha</small></td></tr>`;
+  }).join("");
+  const total = opportunities.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const popup = window.open("", "_blank", "width=1200,height=900");
+  if (!popup) return alert("Permite las ventanas emergentes para generar el reporte.");
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Validación gerencial de oportunidades por vendedor</title><style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#e9eef4;color:#172b43;font:11px Arial,sans-serif}.page{width:277mm;min-height:190mm;margin:18px auto;padding:13mm;background:#fff}.head{display:flex;justify-content:space-between;align-items:end;padding-bottom:13px;border-bottom:3px solid #188b78}.head h1{margin:0 0 4px;font-size:24px}.head p{margin:0;color:#64748b}.head strong{color:#087763;font-size:20px}.summary{display:flex;gap:24px;margin:14px 0;padding:11px 14px;background:#eef6f4;border-left:4px solid #188b78}.summary b{color:#087763}table{width:100%;border-collapse:collapse;font-size:9px}th{padding:8px;background:#173b62;color:#fff;text-align:left}td{padding:7px 8px;border-bottom:1px solid #d4dee8}.money{text-align:right;font-weight:800;white-space:nowrap}.seller td{padding:9px 11px;background:#dcefe9;border-top:2px solid #188b78;color:#126452}.seller span{float:right;font-weight:800}.validation td{height:48px;background:#f7fafb}.validation i{display:inline-block;width:145px;margin:0 8px;border-bottom:1px solid #405169}.actions{position:fixed;right:20px;bottom:20px}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#167b68;color:#fff;font-weight:800}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0}.actions{display:none}tr{break-inside:avoid}}</style></head><body><main class="page"><header class="head"><div><h1>Validación gerencial de oportunidades por vendedor</h1><p>Oportunidades vigentes del panel de Gerencia ordenadas por responsable</p></div><strong>KONFI</strong></header><section class="summary"><span><b>${opportunities.length}</b> oportunidades</span><span>Monto total: <b>${formatMoney(total)}</b></span><span>Generado: ${escapeHtml(new Date().toLocaleString("es-SV"))}</span></section><table><thead><tr><th>#</th><th>Fecha</th><th>Empresa</th><th>Etapa</th><th>Temperatura</th><th>Monto</th><th>Próxima acción</th><th>Observación del vendedor</th></tr></thead><tbody>${body || `<tr><td colspan="8">No hay oportunidades gerenciales vigentes.</td></tr>`}</tbody></table></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button></nav></body></html>`);
+  popup.document.close();
+}
+
 function opportunityManagementReportRows(options = {}) {
   const { active, history } = opportunityCycleRows(getOpportunitySubmenu().items);
   const query = normalizeKey(options.query || "");
@@ -10726,7 +10748,10 @@ function renderCommercialSubmenu(area) {
           Cerradas <b>${filteredClosedRows.length}</b>
         </button>
       </div>
-      <button class="opportunity-report-launch" type="button" data-opportunity-report><span aria-hidden="true">🖨</span> Reporte</button>
+      <div class="opportunity-report-actions" aria-label="Reportes de oportunidades">
+        <button class="opportunity-report-launch" type="button" data-opportunity-report aria-label="Reporte gerencial detallado" title="Reporte gerencial detallado"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/><path d="M3 20h18"/></svg></button>
+        <button class="opportunity-report-launch validation" type="button" data-opportunity-validation-report aria-label="Validación por vendedor" title="Validación por vendedor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v4H7z"/><path d="M5 5H4v16h16V5h-1"/><path d="m8 14 2.5 2.5L16 11"/></svg></button>
+      </div>
       <div class="opportunity-main-filters" aria-label="Filtros principales de oportunidades">
         <label><span>Estado de oportunidad</span><select data-main-opportunity-status>
           <option value="active" ${mainStatus === "active" ? "selected" : ""}>En venta / pendientes</option>
@@ -13414,6 +13439,11 @@ opportunityTable.addEventListener("click", (event) => {
   const reportButton = event.target.closest("[data-opportunity-report]");
   if (reportButton) {
     openOpportunityReportDialog();
+    return;
+  }
+  const validationReportButton = event.target.closest("[data-opportunity-validation-report]");
+  if (validationReportButton) {
+    printManagementSellerValidationReport();
     return;
   }
   const cycleButton = event.target.closest("[data-cycle-view]");

@@ -19598,13 +19598,15 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   gap: 10px;
 }
 
+.app-shell .opportunity-report-actions { display: flex; align-items: center; gap: 9px; }
+
 .app-shell .opportunity-report-launch {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 0 16px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 1px solid rgba(102, 235, 206, .45);
   border-radius: 13px;
   color: #dffff7;
@@ -19615,10 +19617,14 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   transition: transform .16s ease, background .16s ease;
 }
 
+.app-shell .opportunity-report-launch svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.app-shell .opportunity-report-launch.validation { border-color: rgba(147, 136, 255, .5); background: rgba(78, 68, 145, .62); color: #d8d4ff; }
+
 .app-shell .opportunity-report-launch:hover {
   transform: translateY(-1px);
   background: rgba(31, 132, 124, .82);
 }
+.app-shell .opportunity-report-launch.validation:hover { background: rgba(99, 83, 184, .82); }
 
 .opportunity-report-dialog {
   width: min(920px, calc(100vw - 28px));
