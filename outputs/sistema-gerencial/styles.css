@@ -3071,6 +3071,12 @@ button:disabled {
   color: rgba(242, 248, 255, .88);
 }
 
+.closure-badge.quotation-only {
+  border: 1px solid rgba(111, 221, 244, .4);
+  background: rgba(31, 117, 151, .34);
+  color: #bff5ff;
+}
+
 .history-lock {
   display: inline-flex;
   align-items: center;

@@ -1395,16 +1395,31 @@ function closureResult(item) {
   return [...managements].reverse().find((management) => !management.canceled && isClosureStage(management.stage) && management.result);
 }
 
+function linkedQuotationsForOpportunity(item = {}) {
+  const identities = new Set([
+    item.id,
+    item.crmOpportunityId,
+    item.sourceOpportunityId
+  ].map((value) => String(value || "")).filter(Boolean));
+  const directQuotationId = String(item.quotationId || "");
+  return state.quotations.filter((quotation) => (
+    (directQuotationId && String(quotation.id || "") === directQuotationId)
+    || identities.has(String(quotation.opportunityId || ""))
+    || identities.has(String(quotation.resultOpportunityId || ""))
+  ));
+}
+
 function hasConvertedQuotationOrder(item) {
   if (!item) return false;
   if (item.orderHandoff?.status === "converted" || item.orderHandoff?.orderId) return true;
-  const quotationId = String(item.quotationId || "");
-  if (!quotationId) return false;
-  const quotation = state.quotations.find((record) => String(record.id || "") === quotationId);
-  if (quotation?.convertedOrderId) return true;
-  return state.controlSales.some((order) => (
-    !order.archived && String(order.sourceQuotationId || "") === quotationId
+  return linkedQuotationsForOpportunity(item).some((quotation) => (
+    Boolean(quotation.convertedOrderId) || Boolean(quotationLinkedOrder(quotation))
   ));
+}
+
+function hasQuotationOnly(item) {
+  const quotations = linkedQuotationsForOpportunity(item);
+  return quotations.length > 0 && !hasConvertedQuotationOrder(item);
 }
 
 function isWonPendingOrder(item, result = closureResult(item || {})) {
@@ -1567,7 +1582,17 @@ function opportunityCycleRows(items) {
   const periodStart = activePeriodStart();
   const nextStart = nextPeriodStart();
   const rows = items.map((item) => {
-    const result = closureResult(item);
+    const recordedResult = closureResult(item);
+    const convertedQuotation = linkedQuotationsForOpportunity(item).find((quotation) => (
+      Boolean(quotation.convertedOrderId) || Boolean(quotationLinkedOrder(quotation))
+    ));
+    const convertedAt = String(item.orderHandoff?.convertedAt || convertedQuotation?.convertedAt || item.date || "");
+    const result = recordedResult || (convertedQuotation ? {
+      result: "ganado",
+      date: convertedAt.slice(0, 10) || item.date,
+      time: convertedAt.includes("T") ? convertedAt.split("T")[1].slice(0, 5) : "",
+      comment: "Liquidada al convertirse en orden de pedido"
+    } : null);
     const isPendingOrder = isWonPendingOrder(item, result);
     const closureDate = result?.date || "";
     const isClosedBeforePeriod = Boolean(result && closureDate < periodStart);
@@ -3640,6 +3665,7 @@ function availableQuotationOpportunities() {
   const crmById = new Map(crmRows.map((opportunity) => [String(opportunity.id), opportunity]));
   const managementRows = getOpportunitySubmenu().items
     .filter((item) => !closureResult(item))
+    .filter((item) => !hasConvertedQuotationOrder(item))
     .map((item) => quotationOpportunityFromManagementItem(item, crmById));
   const managementCrmIds = new Set(managementRows
     .map((opportunity) => String(opportunity.crmOpportunityId || opportunity.id || ""))
@@ -3648,6 +3674,7 @@ function availableQuotationOpportunities() {
     .filter((opportunity) => !opportunity.cancelledAt && !opportunity.cancellationReason)
     .filter((opportunity) => normalizeKey(opportunity.status || "Vigente") !== "ganada")
     .filter((opportunity) => !isCrmArchivedOpportunity(opportunity))
+    .filter((opportunity) => !hasConvertedQuotationOrder(opportunity))
     .filter((opportunity) => !managementCrmIds.has(String(opportunity.id)))
     .map((opportunity) => ({ ...opportunity, _quotationSource: "seller" }));
   const unique = new Map();
@@ -7840,7 +7867,9 @@ function filteredCrmDashboardOpportunities() {
   return crmData().opportunities
     .filter((opportunity) => {
       const status = String(opportunity.status || "Vigente").toLowerCase();
-      return !isCrmArchivedOpportunity(opportunity) && (activeStatuses.has(status) || status !== "ganada");
+      return !isCrmArchivedOpportunity(opportunity)
+        && !hasConvertedQuotationOrder(opportunity)
+        && (activeStatuses.has(status) || status !== "ganada");
     })
     .filter((opportunity) => !query || [
       opportunity.nextDate,
@@ -7999,7 +8028,7 @@ function renderCrmDashboard() {
         return `
           <div class="opportunity-row">
             <span>${formatDate(opportunity.nextDate || opportunity.deadline || opportunity.startDate)}</span>
-            <strong class="company-cell"><span class="company-name">${escapeHtml(opportunity.company || "Sin empresa")}</span>${hasOutstandingSamples(opportunity) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}</strong>
+            <strong class="company-cell"><span class="company-name">${escapeHtml(opportunity.company || "Sin empresa")}</span>${hasQuotationOnly(opportunity) ? `<span class="closure-badge quotation-only">Cotización</span>` : ""}${hasOutstandingSamples(opportunity) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}</strong>
             <span>${escapeHtml(opportunity.owner?.name || crmOwnerName(opportunity.ownerId))}</span>
             <span>${escapeHtml(crmStageToOpportunityStage(opportunity))}</span>
             <span class="tag ${probabilityClass(probability)}">${escapeHtml(probabilityLabel(probability))}</span>
@@ -10346,7 +10375,7 @@ function renderCommercialSubmenu(area) {
     opportunitySearchInput.value = state.crmSearch;
     opportunityTotalAmount.classList.toggle("hidden", !isCrmOpportunityView);
     if (isCrmOpportunityView) {
-      const activeCrm = crmData().opportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity) && String(opportunity.status || "Vigente").toLowerCase() !== "ganada");
+      const activeCrm = crmData().opportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity) && !hasConvertedQuotationOrder(opportunity) && String(opportunity.status || "Vigente").toLowerCase() !== "ganada");
       opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
         activeCrm.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
       );
@@ -10756,6 +10785,7 @@ function renderCommercialSubmenu(area) {
             <span class="company-badges">
               ${isInherited ? `<span class="closure-badge inherited">Heredada</span>` : ""}
               ${isImportedHistory ? `<span class="closure-badge historical">Historico</span>` : ""}
+              ${!isHistory && hasQuotationOnly(item) ? `<span class="closure-badge quotation-only">Cotización</span>` : ""}
               ${result ? `<span class="closure-badge ${result.result === "ganado" ? "won" : "lost"}" ${isPendingOrder ? 'title="La venta está ganada y falta convertir la cotización en orden de pedido"' : ""}>${isPendingOrder ? "Ganada · pendiente de orden" : (result.result === "ganado" ? "Ganada" : "Perdida")}</span>` : ""}
               ${hasOutstandingSamples(item) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}
             </span>
