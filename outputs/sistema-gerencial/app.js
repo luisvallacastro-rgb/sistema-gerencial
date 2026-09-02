@@ -6431,6 +6431,32 @@ function printAccountsReceivableFlowReport() {
   popup.document.close();
 }
 
+function printAccountsReceivableValidationReport() {
+  const rows = filteredAccountsReceivable()
+    .map((item) => ({ ...item, dueDate: item.dueDate || calculateReceivableDueDate(item.invoiceDate) }))
+    .filter((item) => Number(item.balance || 0) > 0.009)
+    .sort((a, b) => String(a.seller || "").localeCompare(String(b.seller || ""), "es") || String(a.dueDate || "").localeCompare(String(b.dueDate || "")));
+  const groups = Object.entries(rows.reduce((result, item) => {
+    const seller = item.seller || "Sin vendedor asignado";
+    (result[seller] ||= []).push(item);
+    return result;
+  }, {}));
+  const total = rows.reduce((sum, item) => sum + Number(item.balance || 0), 0);
+  let rowNumber = 0;
+  const body = groups.map(([seller, items]) => {
+    const subtotal = items.reduce((sum, item) => sum + Number(item.balance || 0), 0);
+    const detail = items.map((item) => {
+      const status = receivableStatus(item);
+      return `<tr><td>${++rowNumber}</td><td>${escapeHtml(formatDate(item.dueDate))}</td><td><strong>${escapeHtml(item.customerName || "Sin cliente")}</strong></td><td>${escapeHtml(item.invoiceNumber || "—")}</td><td>${escapeHtml(status.label || "Pendiente")}</td><td>${Math.max(0, Number(item.daysOutstanding || 0))} días</td><td class="money">${formatMoney(item.balance)}</td><td></td></tr>`;
+    }).join("");
+    return `<tr class="seller"><td colspan="8"><strong>${escapeHtml(seller)}</strong><span>${items.length} documentos · ${formatMoney(subtotal)}</span></td></tr>${detail}<tr class="validation"><td colspan="8"><b>Validado por ${escapeHtml(seller)}</b><i></i><small>Firma</small><i></i><small>Fecha</small></td></tr>`;
+  }).join("");
+  const popup = window.open("", "_blank", "width=1200,height=900");
+  if (!popup) return alert("Permite las ventanas emergentes para generar el reporte.");
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Validación de cuentas por cobrar</title><style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#e9eef4;color:#172b43;font:11px Arial,sans-serif}.page{width:277mm;min-height:190mm;margin:18px auto;padding:13mm;background:#fff}.head{display:flex;justify-content:space-between;align-items:end;padding-bottom:13px;border-bottom:3px solid #188b78}.head h1{margin:0 0 4px;font-size:24px}.head p{margin:0;color:#64748b}.head strong{color:#087763;font-size:20px}.summary{display:flex;gap:24px;margin:14px 0;padding:11px 14px;background:#eef6f4;border-left:4px solid #188b78}.summary b{color:#087763}table{width:100%;border-collapse:collapse;font-size:9px}th{padding:8px;background:#173b62;color:#fff;text-align:left}td{padding:7px 8px;border-bottom:1px solid #d4dee8}.money{text-align:right;font-weight:800;white-space:nowrap}.seller td{padding:9px 11px;background:#dcefe9;border-top:2px solid #188b78;color:#126452}.seller span{float:right;font-weight:800}.validation td{height:48px;background:#f7fafb}.validation i{display:inline-block;width:145px;margin:0 8px;border-bottom:1px solid #405169}.actions{position:fixed;right:20px;bottom:20px}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#167b68;color:#fff;font-weight:800}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0}.actions{display:none}tr{break-inside:avoid}}</style></head><body><main class="page"><header class="head"><div><h1>Validación de cuentas por cobrar</h1><p>Cartera pendiente agrupada por vendedor responsable</p></div><strong>KONFI</strong></header><section class="summary"><span><b>${rows.length}</b> documentos</span><span>Saldo total: <b>${formatMoney(total)}</b></span><span>Generado: ${escapeHtml(new Date().toLocaleString("es-SV"))}</span></section><table><thead><tr><th>#</th><th>Vencimiento</th><th>Cliente</th><th>Factura</th><th>Estado</th><th>Antigüedad</th><th>Saldo</th><th>Observación</th></tr></thead><tbody>${body || `<tr><td colspan="8">No hay cuentas pendientes para los filtros seleccionados.</td></tr>`}</tbody></table></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button></nav></body></html>`);
+  popup.document.close();
+}
+
 function renderAccountsReceivableList() {
   const rows = filteredAccountsReceivable();
   const total = rows.reduce((sum, item) => sum + Number(item.balance || 0), 0);
@@ -6522,7 +6548,7 @@ function renderAccountsReceivable() {
 }
 
 function wireAccountsReceivable() {
-  opportunityTable.querySelector("[data-accounts-receivable-report]")?.addEventListener("click", printAccountsReceivableFlowReport);
+  opportunityTable.querySelector("[data-accounts-receivable-report]")?.addEventListener("click", printAccountsReceivableValidationReport);
   opportunityTable.querySelector("[data-accounts-receivable-year]")?.addEventListener("change", (event) => {
     state.accountsReceivableYearFilter = event.target.value;
     state.accountsReceivablePage = 1;
