@@ -7247,7 +7247,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .crm-customer-metrics { display: flex; align-items: center; justify-content: center; gap: 0; margin-left: auto; }
 .crm-customer-metrics span { padding: 4px 14px; border-left: 1px solid rgba(111,151,190,.25); color: rgba(218,230,243,.68); font-size: 10px; font-weight: 800; text-transform: uppercase; white-space: nowrap; }
 .crm-customer-metrics b { margin-right: 5px; color: #74efd4; font-size: 16px; }
-.crm-customer-toolbar { display: grid; grid-template-columns: minmax(280px,1fr) 220px auto; gap: 12px; align-items: end; }
+.crm-customer-toolbar { display: grid; grid-template-columns: minmax(280px,1fr) auto; gap: 12px; align-items: end; }
 .crm-customer-search { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; border: 1px solid rgba(111,151,190,.32); border-radius: 14px; background: rgba(29,54,88,.76); color: #74efd4; }
 .crm-customer-search input { width: 100%; border: 0; outline: 0; background: transparent; color: #f5f8ff; font: inherit; font-weight: 700; }
 .crm-customer-filter { display: grid; gap: 5px; color: #74efd4; font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }

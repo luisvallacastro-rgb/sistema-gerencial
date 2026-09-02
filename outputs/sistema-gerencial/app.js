@@ -9344,7 +9344,8 @@ function renderCrmClients() {
   if ((state.crmCustomerView || "master") === "requests") return renderCrmCustomerRequests();
   const allClients = crmMasterCustomers(true);
   const query = normalizeKey(state.crmCustomerSearch || "");
-  const status = state.crmCustomerStatus || "active";
+  const status = "active";
+  state.crmCustomerStatus = status;
   const clientSequenceValue = (client) => {
     const sequence = Number.parseInt(String(client.clientNumber || "").replace(/\D/g, ""), 10);
     return Number.isFinite(sequence) ? sequence : Number.MAX_SAFE_INTEGER;
@@ -9386,7 +9387,6 @@ function renderCrmClients() {
       </header>
       <div class="crm-customer-toolbar">
         <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar ID, cliente, contacto, NIT, teléfono o ubicación..."></label>
-        <label class="crm-customer-filter">Estado<select data-crm-customer-status><option value="active" ${status === "active" ? "selected" : ""}>Activos</option><option value="archived" ${status === "archived" ? "selected" : ""}>Archivados</option><option value="all" ${status === "all" ? "selected" : ""}>Todos</option></select></label>
         <div class="crm-customer-result"><strong>${clients.length}</strong><span>clientes</span></div>
       </div>
       <div class="crm-customer-table-wrap"><div class="crm-customer-table">
