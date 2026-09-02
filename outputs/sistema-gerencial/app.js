@@ -3843,6 +3843,7 @@ function renderQuotationsModule() {
   const queryTokens = normalizeKey(state.quotationModuleQuery).split(/\s+/).filter(Boolean);
   const rows = [...state.quotations]
     .filter(canManageQuotation)
+    .filter((quotation) => normalizeKey(quotation.status || "") !== "anulada")
     .filter((quotation) => {
       if (!queryTokens.length) return true;
       const productText = (quotation.lines || []).map((line) => `${line.description || ""} ${line.size || ""} ${line.notes || ""} ${line.quantity || ""} ${line.unitPriceCents || ""}`).join(" ");

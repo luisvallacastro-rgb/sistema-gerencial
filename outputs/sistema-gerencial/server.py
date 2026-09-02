@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-chat-attachments-unicode-v5"
+API_VERSION = "kmi-opportunity-quotation-cascade-v6"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
@@ -2917,6 +2917,34 @@ def deduplicate_identical_quotations(conn):
     return removed
 
 
+def reconcile_cancelled_crm_quotations(conn):
+    """Anula cotizaciones abiertas cuyo origen CRM ya fue anulado."""
+    row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
+    if not row:
+        return 0
+    try:
+        data = json.loads(row["value"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        return 0
+    cancelled_ids = [
+        text(item.get("id")) for item in data.get("opportunities", [])
+        if text(item.get("id"))
+        and item.get("archived")
+        and text(item.get("status")).lower() in {"anulada", "cancelada"}
+    ]
+    if not cancelled_ids:
+        return 0
+    placeholders = ",".join("?" for _ in cancelled_ids)
+    result = conn.execute(f"""
+        UPDATE quotations
+        SET status = 'Anulada', updated_by = 'Cascada de oportunidad anulada', updated_at = CURRENT_TIMESTAMP
+        WHERE opportunity_id IN ({placeholders})
+          AND converted_order_id = ''
+          AND lower(status) <> 'anulada'
+    """, tuple(cancelled_ids))
+    return result.rowcount
+
+
 def quotation_validate(data, existing=None):
     current = dict(existing or {})
     opportunity_id = text(data.get("opportunityId"), current.get("opportunityId") or "")
@@ -4944,6 +4972,9 @@ def init_db():
         removed_duplicate_quotations = deduplicate_identical_quotations(conn)
         if removed_duplicate_quotations:
             print(f"Cotizaciones duplicadas eliminadas: {len(removed_duplicate_quotations)}")
+        reconciled_cancelled_quotations = reconcile_cancelled_crm_quotations(conn)
+        if reconciled_cancelled_quotations:
+            print(f"Cotizaciones abiertas anuladas por cascada: {reconciled_cancelled_quotations}")
         repair_edgar_admin_seller_assignments_once(conn)
         agenda_permission = "comercializacion:agenda-comercial"
         for user_row in conn.execute("SELECT id, role, admin, permissions FROM users WHERE role IN ('vendedores','gerencias') OR admin = 1").fetchall():
@@ -7020,6 +7051,11 @@ class AppHandler(BaseHTTPRequestHandler):
                         opportunity["archivedBy"] = audit["userName"]
                         opportunity.setdefault("auditLog", []).append(audit)
                         data["agenda"] = [item for item in data.get("agenda", []) if item.get("opportunityId") != item_id]
+                        conn.execute("""
+                            UPDATE quotations
+                            SET status = 'Anulada', updated_by = ?, updated_at = CURRENT_TIMESTAMP
+                            WHERE opportunity_id = ? AND converted_order_id = ''
+                        """, (audit["userName"], item_id))
                         write_crm_data(conn, data)
                         self.send_json(build_crm_view_model(data))
                         return
