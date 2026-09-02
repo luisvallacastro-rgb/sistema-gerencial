@@ -9991,7 +9991,19 @@ function parseBankPasteBlock(raw, editableFields, allFields = editableFields) {
   const fieldsToRead = hasHeader ? allFields : editableFields;
   return rows.slice(hasHeader ? headerIndex + 1 : 0).map((cells) => {
     const data = {};
-    const positionalFields = cells.length > editableFields.length ? allFields : editableFields;
+    const sourceCorrelativeIndex = allFields.findIndex((field) => normalizeKey(field) === "correlativo");
+    const pastedCorrelative = sourceCorrelativeIndex >= 0
+      ? String(cells[sourceCorrelativeIndex] ?? "").trim()
+      : "";
+    // Bank statements commonly include their own numeric correlative while the
+    // form hides that automatic field. Detect the original layout even when the
+    // copied selection omits trailing Balance/Comentario cells.
+    const hasSourceCorrelative = !hasHeader
+      && sourceCorrelativeIndex >= 0
+      && /^\d+$/.test(pastedCorrelative);
+    const positionalFields = cells.length > editableFields.length || hasSourceCorrelative
+      ? allFields
+      : editableFields;
     fieldsToRead.forEach((field) => {
       const sourceIndex = hasHeader ? headers.indexOf(normalizeKey(field)) : positionalFields.indexOf(field);
       let value = sourceIndex >= 0 ? String(cells[sourceIndex] ?? "").trim() : "";
