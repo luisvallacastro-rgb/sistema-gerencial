@@ -2282,3 +2282,101 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   font-size: clamp(1.85rem, 2.2vw, 2.25rem) !important;
   line-height: 1.05 !important;
 }
+
+/* Refinamiento final del tema claro: contraste, profundidad y lectura operativa. */
+.app-shell.theme-light {
+  --light-ink: #14213a;
+  --light-muted: #58677e;
+  --light-line: rgba(74, 96, 128, .2);
+  background: radial-gradient(circle at 8% 4%, rgba(91,82,214,.07), transparent 24%), radial-gradient(circle at 92% 92%, rgba(22,139,112,.06), transparent 26%), #edf2f7 !important;
+}
+.app-shell.theme-light .sidebar,
+.app-shell.theme-light .topbar,
+.app-shell.theme-light .commercial-panel,
+.app-shell.theme-light .financial-orders-shell {
+  border-color: #d6deea !important;
+  background: rgba(255,255,255,.94) !important;
+  box-shadow: 0 14px 34px rgba(35,50,76,.09) !important;
+}
+.app-shell.theme-light .commercial-panel > h3,
+.app-shell.theme-light .financial-orders-shell h3 { color: #14213a !important; }
+
+/* Agenda clara: elimina texto pálido y separa cada actividad. */
+.app-shell.theme-light .commercial-agenda-view-tabs,
+.app-shell.theme-light .commercial-agenda-toolbar { border-color: transparent !important; background: transparent !important; }
+.app-shell.theme-light .commercial-agenda-view-tabs button { border-color: #ccd6e4 !important; background: #eef2f7 !important; color: #52627a !important; }
+.app-shell.theme-light .commercial-agenda-view-tabs button.active { border-color: #16826f !important; background: #16826f !important; color: #fff !important; }
+.app-shell.theme-light .commercial-agenda-search { border-color: #c6d1e0 !important; background: #fff !important; color: #4f46e5 !important; }
+.app-shell.theme-light .commercial-agenda-search input,
+.app-shell.theme-light .commercial-agenda-search input::placeholder { color: #64748b !important; opacity: 1 !important; }
+.app-shell.theme-light .commercial-agenda-flat-table { border-color: #cbd6e4 !important; background: #fff !important; box-shadow: 0 10px 24px rgba(35,50,76,.07) !important; }
+.app-shell.theme-light .commercial-agenda-flat-table thead th,
+.app-shell.theme-light .commercial-agenda-flat-table th:last-child { border-color: #d3dce8 !important; background: #e9eef5 !important; color: #536279 !important; }
+.app-shell.theme-light .commercial-agenda-flat-table tbody tr { border-color: #dce3ec !important; background: #fff !important; }
+.app-shell.theme-light .commercial-agenda-flat-table tbody tr:nth-child(even) { background: #f7f9fc !important; }
+.app-shell.theme-light .commercial-agenda-flat-table td,
+.app-shell.theme-light .commercial-agenda-flat-table td strong,
+.app-shell.theme-light .commercial-agenda-flat-table td time { color: #24324a !important; opacity: 1 !important; }
+.app-shell.theme-light .commercial-agenda-flat-table td small,
+.app-shell.theme-light .commercial-agenda-result-count { color: #68778d !important; opacity: 1 !important; }
+.app-shell.theme-light .commercial-agenda-flat-table tbody td:last-child { background: #eef3f8 !important; }
+
+/* Pedidos claros: mayor separación entre herramientas, cabecera y registros. */
+.app-shell.theme-light .financial-orders-toolbar { border: 1px solid #d4dde9 !important; border-radius: 14px !important; background: #f7f9fc !important; }
+.app-shell.theme-light .financial-orders-table-wrap { border-color: #d1dbe8 !important; background: #f7f9fc !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.8) !important; }
+.app-shell.theme-light .financial-order-row.header { background: #e7edf5 !important; color: #4f5e75 !important; }
+.app-shell.theme-light .financial-order-row:not(.header) { border: 1px solid #d9e1eb !important; background: #fff !important; box-shadow: 0 6px 14px rgba(35,50,76,.055) !important; }
+.app-shell.theme-light .financial-order-row:not(.header) small,
+.app-shell.theme-light .financial-order-row:not(.header) em { color: #5c6b81 !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-order-status { border-color: #abd9cd !important; background: #e8f5f1 !important; color: #117461 !important; }
+
+/* Listado de cotizaciones claro: secundarios legibles y filas definidas. */
+.app-shell.theme-light .quotations-module__toolbar,
+.app-shell.theme-light .quotation-table-head { border-color: #d2dce8 !important; background: #edf2f7 !important; }
+.app-shell.theme-light .quotation-table-row { border: 1px solid #d6e0eb !important; background: #fff !important; box-shadow: 0 7px 16px rgba(35,50,76,.055) !important; }
+.app-shell.theme-light .quotation-table-row small,
+.app-shell.theme-light .quotation-table-row__detail small { color: #607087 !important; opacity: 1 !important; }
+.app-shell.theme-light .quotation-table-row__client > strong,
+.app-shell.theme-light .quotation-table-row__detail > strong,
+.app-shell.theme-light .quotation-table-row__seller { color: #1c2a43 !important; opacity: 1 !important; }
+
+/* El diálogo vive fuera del shell: las reglas claras deben ser directas. */
+html body #quotationDialog.quotation-dialog { border-color: #cbd6e4 !important; background: #f8fafc !important; color: #14213a !important; box-shadow: 0 30px 80px rgba(31,45,72,.24) !important; }
+html body #quotationDialog.quotation-dialog > #quotationForm > header,
+html body #quotationDialog.quotation-dialog > #quotationForm > footer { border-color: #d4dde9 !important; background: #fff !important; }
+html body #quotationDialog.quotation-dialog > #quotationForm > header h3 { color: #14213a !important; }
+html body #quotationDialog.quotation-dialog > #quotationForm > header span { color: #617087 !important; }
+html body #quotationDialog .quotation-lines-dock { border-color: #d4dde9 !important; background: #eef3f8 !important; color: #14213a !important; box-shadow: 0 6px 12px rgba(35,50,76,.07) !important; }
+html body #quotationDialog .quotation-lines-dock h4 { color: #14213a !important; }
+html body #quotationDialog .quotation-dialog-body { background: #f6f8fb !important; }
+html body #quotationDialog .quotation-main-fields,
+html body #quotationDialog .quotation-line,
+html body #quotationDialog .quotation-terms-panel { border-color: #d9e1eb !important; background: #fff !important; }
+html body #quotationDialog .quotation-form-grid label,
+html body #quotationDialog .quotation-line label,
+html body #quotationDialog .quotation-terms label { color: #536279 !important; opacity: 1 !important; }
+html body #quotationDialog input,
+html body #quotationDialog select,
+html body #quotationDialog textarea { border-color: #b9c7d8 !important; background: #f3f6fa !important; color: #17243b !important; box-shadow: none !important; opacity: 1 !important; }
+html body #quotationDialog .quotation-main-fields .quotation-field-editable input,
+html body #quotationDialog .quotation-main-fields .quotation-field-editable select,
+html body #quotationDialog .quotation-lines .quotation-line input,
+html body #quotationDialog .quotation-lines .quotation-line select,
+html body #quotationDialog .quotation-lines .quotation-line textarea,
+html body #quotationDialog .quotation-terms-panel .quotation-editable-fields input,
+html body #quotationDialog .quotation-terms-panel .quotation-editable-fields select,
+html body #quotationDialog .quotation-terms-panel .quotation-editable-fields textarea {
+  border-color: #b9c7d8 !important;
+  background: #f3f6fa !important;
+  color: #17243b !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+html body #quotationDialog .quotation-field-label { color: #536279 !important; opacity: 1 !important; }
+html body #quotationDialog input:focus,
+html body #quotationDialog select:focus,
+html body #quotationDialog textarea:focus { border-color: #6258e8 !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(98,88,232,.11) !important; }
+html body #quotationDialog .quotation-line output,
+html body #quotationDialog .quotation-totals strong { color: #117862 !important; }
+html body #quotationDialog .quotation-detail-toggle { border-color: #b9c8da !important; background: #eef3f8 !important; color: #243550 !important; }
+html body #quotationDialog .quotation-main-fields .quotation-document-type-field select { border-color: #c58b18 !important; background: #fff9eb !important; color: #17243b !important; box-shadow: 0 0 0 4px rgba(197,139,24,.12) !important; }
