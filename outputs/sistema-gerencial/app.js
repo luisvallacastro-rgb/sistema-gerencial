@@ -7302,6 +7302,9 @@ function wireFinancialPresentations(root = opportunityTable) {
 
 const emptyCrmData = { users: [], opportunities: [], agenda: [], gestiones: [], pipeline: [], customers: [], customerRequests: [], kpis: {} };
 const crmSellerAccountLinks = new Map([
+  ["amadeo alfaro", "u-system-amadeo-alfaro"],
+  ["alfaro jan gmail com", "u-system-amadeo-alfaro"],
+  ["alfaro jan", "u-system-amadeo-alfaro"],
   ["gabriela natalie amador flores", "u-xlsx-gabriela-amador"],
   ["gabriela amador", "u-xlsx-gabriela-amador"],
   ["marjorie morales", "u-xlsx-marjorie-morales"],
@@ -7384,25 +7387,41 @@ function isActiveCrmSeller(user) {
   return normalizeKey(user?.status || "Activo") !== "inactivo";
 }
 
+const officialCommercialSellerNames = Object.freeze([
+  "Gabriela Amador",
+  "Marco Velado",
+  "Marjorie Morales",
+  "ERICK ORANTES",
+  "Elizabeth Merino",
+  "Amadeo Alfaro",
+  "Ventas Online"
+]);
+const officialCommercialSellerKeys = new Set(officialCommercialSellerNames.map(normalizeKey));
+
+function isOfficialCommercialSeller(user = {}) {
+  return officialCommercialSellerKeys.has(normalizeKey(user.name));
+}
+
 function crmMasterSalesUsers({ includeInactive = false } = {}) {
   const users = (state.crmData?.users || []).filter((user) => user.roleId === "sales_exec");
   return includeInactive ? users : users.filter(isActiveCrmSeller);
 }
 
 function crmSalesUsers({ includeInactive = false } = {}) {
-  const users = crmData().users.filter((user) => user.roleId === "sales_exec");
+  const users = crmData().users.filter((user) => user.roleId === "sales_exec" && isOfficialCommercialSeller(user));
   return includeInactive ? users : users.filter(isActiveCrmSeller);
 }
 
 function commercialSellerNames({ includeInactive = false } = {}) {
   const names = crmMasterSalesUsers({ includeInactive })
+    .filter(isOfficialCommercialSeller)
     .map((user) => String(user.name || "").trim())
     .filter(Boolean);
-  return names.length ? [...new Set(names)] : [...commercialSellers];
+  return names.length ? [...new Set(names)] : [...officialCommercialSellerNames];
 }
 
 function customerSellerOptions(selectedId = "", selectedName = "") {
-  const sellers = crmMasterSalesUsers().map((user) => ({
+  const sellers = crmMasterSalesUsers().filter(isOfficialCommercialSeller).map((user) => ({
     id: String(user.id || user.name || "").trim(),
     name: String(user.name || "").trim()
   })).filter((user) => user.id && user.name);
@@ -10450,8 +10469,6 @@ function wireBankAvailability() {
 }
 
 const commercialAgendaActivities = ["Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico", "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido", "Preparación de oferta", "Gestión de cobro"];
-const commercialAgendaExcludedSellers = new Set(["brendale hernandez", "brendalee hernandez", "dooglas batres", "douglas batres", "kevin hernadez", "kevin hernandez", "luis valladares", "luis valladaress"]);
-
 function saveCommercialAgenda() { return apiJson("/api/commercial-agenda", { method:"PUT", body:JSON.stringify({items:state.commercialAgenda}) }).then((response) => { state.commercialAgenda = response.items || []; }); }
 function commercialAgendaItemEvents(item) {
   if (Array.isArray(item.events) && item.events.length) return item.events;
@@ -10483,7 +10500,7 @@ function renderCommercialAgenda() {
 }
 function openCommercialAgendaEditor(item = {}) {
   const dialog = document.createElement("dialog"); dialog.className="commercial-agenda-dialog";
-  const sellers = commercialSellerNames().filter((seller) => !commercialAgendaExcludedSellers.has(normalizeKey(seller)));
+  const sellers = commercialSellerNames();
   if (item.seller && !sellers.includes(item.seller)) sellers.unshift(item.seller);
   const preferredSeller = item.seller || state.currentUser?.name || "";
   const selectedSeller = sellers.includes(preferredSeller) ? preferredSeller : sellers[0] || "";

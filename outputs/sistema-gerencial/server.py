@@ -36,6 +36,9 @@ PORT = int(os.environ.get("PORT", "8097"))
 API_VERSION = "kmi-single-customer-request-send-v13"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
+    "amadeo alfaro": "u-system-amadeo-alfaro",
+    "alfaro jan gmail com": "u-system-amadeo-alfaro",
+    "alfaro jan": "u-system-amadeo-alfaro",
     "gabriela natalie amador flores": "u-xlsx-gabriela-amador",
     "gabriela amador": "u-xlsx-gabriela-amador",
     "asesorayc konfinversiones com": "u-xlsx-gabriela-amador",
@@ -855,6 +858,7 @@ def read_crm_data(conn):
         ensure_crm_customer_numbers(data)
         migrate_existing_seller_roles(conn, data)
         sync_seller_users_to_crm(conn, data)
+        ensure_virtual_commercial_sellers(data)
         repair_elizabeth_merino_ownership(conn, data)
         reset_customer_master_for_first_approved_request(data)
         migrate_customer_request_draft_workflow(data)
@@ -886,6 +890,7 @@ def read_crm_data(conn):
     migrate_existing_seller_roles(conn, data)
     operational_reassignment_changed = repair_requested_operational_reassignments(conn, data)
     seller_sync_changed = sync_seller_users_to_crm(conn, data)
+    virtual_sellers_changed = ensure_virtual_commercial_sellers(data)
     elizabeth_repair_changed = repair_elizabeth_merino_ownership(conn, data)
     request_workflow_changed = migrate_customer_request_draft_workflow(data)
     empty_request_cleanup_changed = remove_empty_customer_request_drafts(data)
@@ -893,7 +898,7 @@ def read_crm_data(conn):
     individual_name_repair_changed = repair_don_bosco_opportunity_name_propagation(conn, data)
     customer_id_collision_changed = repair_customer_request_id_collisions(data)
     customer_tax_duplicate_changed = repair_duplicate_customers_by_tax_id(conn, data)
-    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed or customer_tax_duplicate_changed
+    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or virtual_sellers_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed or customer_tax_duplicate_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -999,7 +1004,10 @@ def sync_seller_users_to_crm(conn, data):
     for row in rows:
         account = user_payload(row)
         linked_seller = linked_crm_seller(data, account)
-        should_be_active = text(account.get("role")) == "vendedores"
+        # Amadeo conserva su perfil de Gerencias, pero también participa como
+        # vendedor comercial y debe aparecer en todos los selectores del CRM.
+        is_amadeo_seller = crm_identity_key(account.get("name")) == "amadeo alfaro"
+        should_be_active = text(account.get("role")) == "vendedores" or is_amadeo_seller
         if linked_seller:
             desired_status = "Activo" if should_be_active else "Inactivo"
             if text(linked_seller.get("status"), "Activo") != desired_status:
@@ -1008,7 +1016,7 @@ def sync_seller_users_to_crm(conn, data):
             continue
         if not should_be_active:
             continue
-        seller_id = f"u-system-{crm_key(account.get('id') or account.get('username'))}"
+        seller_id = "u-system-amadeo-alfaro" if is_amadeo_seller else f"u-system-{crm_key(account.get('id') or account.get('username'))}"
         seller = {
             "id": seller_id,
             **normalize_crm_user({
@@ -1021,6 +1029,32 @@ def sync_seller_users_to_crm(conn, data):
         }
         data.setdefault("users", []).append(seller)
         changed = True
+    return changed
+
+
+def ensure_virtual_commercial_sellers(data):
+    """Keep non-login commercial channels available in seller selectors."""
+    users = data.setdefault("users", [])
+    seller_id = "u-channel-venta-online"
+    seller = next((item for item in users if text(item.get("id")) == seller_id), None)
+    if not seller:
+        users.append({
+            "id": seller_id,
+            **normalize_crm_user({
+                "name": "Ventas Online",
+                "email": "",
+                "username": "",
+                "roleId": "sales_exec",
+                "status": "Activo",
+            }),
+        })
+        return True
+    changed = False
+    expected = {"name": "Ventas Online", "roleId": "sales_exec", "status": "Activo"}
+    for key, value in expected.items():
+        if text(seller.get(key)) != value:
+            seller[key] = value
+            changed = True
     return changed
 
 
