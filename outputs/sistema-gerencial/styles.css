@@ -20557,11 +20557,16 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   position: sticky;
   top: 0;
   z-index: 5;
-  padding: 12px 14px;
-  border: 1px solid rgba(89, 120, 158, .52);
-  border-radius: 14px;
-  background: #142b49;
-  box-shadow: 0 12px 24px rgba(3, 14, 29, .34);
+  padding: 9px 0 11px;
+  border: 0;
+  border-bottom: 1px solid rgba(89, 120, 158, .4);
+  border-radius: 0;
+  background: #142743;
+  box-shadow: 0 8px 12px rgba(3, 14, 29, .18);
+}
+
+#quotationDialog .quotation-lines > .quotation-section-title h4 {
+  margin-top: 1px;
 }
 
 /* Agenda por rango con múltiples eventos */
