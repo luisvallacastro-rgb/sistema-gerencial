@@ -414,11 +414,37 @@ const opportunityStages = [
   "Postventa"
 ];
 const opportunityProbabilities = [
+  ["cerrado", "✅ Cerrado", "100%"],
   ["caliente", "🔥 Caliente", "80% o mas"],
   ["tibio", "🌤️ Tibio", "50% a 79%"],
   ["frio", "❄️ Frio", "20% a 49%"],
   ["congelado", "🧊 Congelado", "Menos de 20%"]
 ];
+const opportunityStageTemperatureRules = Object.freeze({
+  "Prospeccion": { key: "congelado", temperature: "Congelado", label: "🧊 Congelado", range: "< 20%", percent: 10 },
+  "Contacto inicial": { key: "frio", temperature: "Frio", label: "❄️ Frío", range: "20% a 49%", percent: 30 },
+  "Deteccion de necesidades": { key: "tibio", temperature: "Tibio", label: "❄️ Frío / 🌤️ Tibio", range: "40% a 55%", percent: 50 },
+  "Presentacion de solucion": { key: "tibio", temperature: "Tibio", label: "🌤️ Tibio", range: "50% a 65%", percent: 55 },
+  "Manejo de objeciones": { key: "tibio", temperature: "Tibio", label: "🌤️ Tibio", range: "60% a 75%", percent: 65 },
+  [closureStage]: { key: "caliente", temperature: "Caliente", label: "🔥 Caliente", range: "80% a 95%", percent: 85 },
+  "Compilado de informacion": { key: "caliente", temperature: "Caliente", label: "🔥 Caliente", range: "90% a 99%", percent: 95 },
+  "Postventa": { key: "cerrado", temperature: "Cerrado", label: "✅ Cerrado", range: "100%", percent: 100 }
+});
+
+function opportunityTemperatureRule(stage = opportunityStages[0]) {
+  return opportunityStageTemperatureRules[stage] || opportunityStageTemperatureRules[opportunityStages[0]];
+}
+
+function applyAutomaticOpportunityTemperature(select, stage) {
+  if (!select) return opportunityTemperatureRule(stage);
+  const rule = opportunityTemperatureRule(stage);
+  select.innerHTML = `<option value="${rule.key}">${rule.label} · ${rule.range} · Automática</option>`;
+  select.value = rule.key;
+  select.disabled = true;
+  select.setAttribute("aria-label", `Temperatura automática: ${rule.label}, ${rule.range}`);
+  select.title = "La temperatura se calcula automáticamente según la etapa de venta.";
+  return rule;
+}
 const opportunitySegments = [
   "Salud",
   "Industria",
@@ -2377,9 +2403,7 @@ function fillOpportunityOptions() {
     ...opportunitySegments.map((segment) => `<option value="${escapeHtml(segment)}">${escapeHtml(segment)}</option>`)
   ].join("");
   opportunityLocation.innerHTML = elSalvadorLocationOptions();
-  opportunityProbability.innerHTML = opportunityProbabilities.map(([key, label, range]) => (
-    `<option value="${key}">${label} - ${range}</option>`
-  )).join("");
+  applyAutomaticOpportunityTemperature(opportunityProbability, opportunityStage.value);
 }
 
 function elSalvadorLocationOptions() {
@@ -7450,6 +7474,7 @@ function crmOwnerName(ownerId) {
 
 function crmTemperatureToProbability(temperature = "Tibio") {
   const normalized = String(temperature).toLowerCase();
+  if (normalized.includes("cerrado")) return "cerrado";
   if (normalized.includes("caliente")) return "caliente";
   if (normalized.includes("frio") || normalized.includes("frío")) return "frio";
   if (normalized.includes("congel")) return "congelado";
@@ -7457,7 +7482,7 @@ function crmTemperatureToProbability(temperature = "Tibio") {
 }
 
 function crmTemperatureToPercent(temperature = "Tibio") {
-  return { Caliente: 80, Tibio: 50, Frio: 25, Congelado: 10 }[temperature] || 50;
+  return { Cerrado: 100, Caliente: 80, Tibio: 50, Frio: 25, Congelado: 10 }[temperature] || 50;
 }
 
 function crmStageToOpportunityStage(opportunity = {}) {
@@ -7515,7 +7540,7 @@ function fillOpportunityForm(item, context = "results") {
   ensureSelectOption(opportunityLocation, item?.location || "");
   opportunityStage.value = item?.stage || opportunityStages[0];
   opportunityPriority.value = item?.priority || "Media";
-  opportunityProbability.value = item?.probability || "tibio";
+  applyAutomaticOpportunityTemperature(opportunityProbability, opportunityStage.value);
   opportunityAmount.value = item?.amount || "";
   opportunityNextAction.value = item?.nextAction || "Primer seguimiento";
   opportunityAgendaDate.value = item?.agendaDate || item?.date || todayISO();
@@ -7835,7 +7860,7 @@ function ensureCrmOpportunityDialog() {
         <label>Ubicación<select id="crmLocation">${elSalvadorLocationOptions()}</select></label>
         <label>Etapa<select id="crmStageId" required></select></label>
         <label>Prioridad<select id="crmPriority"><option>Alta</option><option selected>Media</option><option>Baja</option></select></label>
-        <label>Temperatura<select id="crmTemperature"><option>Caliente</option><option selected>Tibio</option><option>Frio</option><option>Congelado</option></select></label>
+        <label>Temperatura<select id="crmTemperature" disabled></select></label>
         <label>Monto estimado<input id="crmEstimatedAmount" type="number" min="0" step="1" placeholder="0"></label>
         <label>Proxima fecha<input id="crmNextDate" type="date"></label>
         <label>Proxima accion<input id="crmNextAction" maxlength="100" placeholder="Primer seguimiento"></label>
@@ -7864,6 +7889,11 @@ function ensureCrmOpportunityDialog() {
     event.preventDefault();
     saveCrmOpportunity();
   });
+  const crmStageSelect = dialog.querySelector("#crmStageId");
+  crmStageSelect.addEventListener("change", () => {
+    const stage = opportunityStages[Math.max(0, Number(crmStageSelect.value || 1) - 1)];
+    applyAutomaticOpportunityTemperature(dialog.querySelector("#crmTemperature"), stage);
+  });
   return dialog;
 }
 
@@ -7874,6 +7904,8 @@ function openCrmOpportunityDialog(opportunity = null) {
 function saveCrmOpportunity() {
   const dialog = ensureCrmOpportunityDialog();
   const id = dialog.querySelector("#crmOpportunityId").value;
+  const stageId = Number(dialog.querySelector("#crmStageId").value || 1);
+  const temperatureRule = opportunityTemperatureRule(opportunityStages[Math.max(0, stageId - 1)]);
   const payload = {
     company: dialog.querySelector("#crmCompany").value,
     product: dialog.querySelector("#crmSegment").value,
@@ -7883,11 +7915,11 @@ function saveCrmOpportunity() {
     segment: dialog.querySelector("#crmSegment").value,
     location: dialog.querySelector("#crmLocation").value,
     ownerId: dialog.querySelector("#crmOwnerId").value,
-    stageId: Number(dialog.querySelector("#crmStageId").value || 1),
+    stageId,
     priority: dialog.querySelector("#crmPriority").value,
-    temperature: dialog.querySelector("#crmTemperature").value,
+    temperature: temperatureRule.temperature,
     estimatedAmount: Number(dialog.querySelector("#crmEstimatedAmount").value || 0),
-    closePercent: crmTemperatureToPercent(dialog.querySelector("#crmTemperature").value),
+    closePercent: temperatureRule.percent,
     nextDate: dialog.querySelector("#crmNextDate").value,
     deadline: dialog.querySelector("#crmNextDate").value,
     status: "Vigente",
@@ -14012,7 +14044,7 @@ opportunityTable.addEventListener("click", (event) => {
   ensureSelectOption(opportunityLocation, item.location || "");
   opportunityStage.value = item.stage;
   opportunityPriority.value = item.priority || "Media";
-  opportunityProbability.value = item.probability;
+  applyAutomaticOpportunityTemperature(opportunityProbability, opportunityStage.value);
   opportunityAmount.value = item.amount;
   opportunityNextAction.value = item.nextAction || "Primer seguimiento";
   opportunityAgendaDate.value = item.agendaDate || item.date || todayISO();
@@ -14428,6 +14460,9 @@ opportunityCustomerSearch?.addEventListener("input", () => {
 opportunityCustomerToggle?.addEventListener("click", () => {
   openOpportunityCustomerDirectory();
 });
+opportunityStage.addEventListener("change", () => {
+  applyAutomaticOpportunityTemperature(opportunityProbability, opportunityStage.value);
+});
 
 opportunityForm.addEventListener("submit", (event) => {
   if (event.submitter && event.submitter.value === "cancel") return;
@@ -14455,7 +14490,8 @@ opportunityForm.addEventListener("submit", (event) => {
       return;
     }
     const stageId = Math.max(1, opportunityStages.indexOf(opportunityStage.value) + 1);
-    const temperature = { caliente: "Caliente", tibio: "Tibio", frio: "Frio", congelado: "Congelado" }[opportunityProbability.value] || "Tibio";
+    const temperatureRule = opportunityTemperatureRule(opportunityStage.value);
+    const temperature = temperatureRule.temperature;
     const payload = {
       customerId: selectedCustomer?.id || "",
       company: selectedCustomer
@@ -14472,7 +14508,7 @@ opportunityForm.addEventListener("submit", (event) => {
       priority: opportunityPriority.value,
       temperature,
       estimatedAmount: Number(opportunityAmount.value || 0),
-      closePercent: crmTemperatureToPercent(temperature),
+      closePercent: temperatureRule.percent,
       nextDate: opportunityDate.value,
       deadline: opportunityDate.value,
       status: "Vigente",
@@ -14506,6 +14542,7 @@ opportunityForm.addEventListener("submit", (event) => {
     (customer) => String(customer.id) === String(opportunityCustomerId.value)
   );
   if (selectedCustomer) inheritCustomerInOpportunity(selectedCustomer.id);
+  const temperatureRule = opportunityTemperatureRule(opportunityStage.value);
   const payload = {
     id,
     date: opportunityDate.value,
@@ -14521,7 +14558,7 @@ opportunityForm.addEventListener("submit", (event) => {
     location: opportunityLocation.value.trim(),
     stage: opportunityStage.value,
     priority: opportunityPriority.value,
-    probability: opportunityProbability.value,
+    probability: temperatureRule.key,
     amount: Number(opportunityAmount.value),
     nextAction: opportunityNextAction.value.trim(),
     agendaDate: opportunityAgendaDate.value,
@@ -14592,6 +14629,15 @@ managementForm.addEventListener("submit", async (event) => {
       method: editingId ? "PATCH" : "POST",
       body: JSON.stringify(payload)
     });
+    const temperatureRule = opportunityTemperatureRule(managementStage.value);
+    await crmApi(`/opportunities/${encodeURIComponent(opportunity.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        stageId: stage?.id || opportunity.stageId,
+        temperature: temperatureRule.temperature,
+        closePercent: temperatureRule.percent
+      })
+    });
     const refreshed = crmData().opportunities.find((record) => String(record.id) === String(opportunity.id));
     managementCrmItem = crmManagementItem(refreshed);
     renderManagements(managementCrmItem);
@@ -14624,6 +14670,7 @@ managementForm.addEventListener("submit", async (event) => {
   }
   const activeManagements = orderedManagements(item.managements).filter((record) => !record.notified && !record.canceled);
   item.stage = activeManagements.at(-1)?.stage || "Prospeccion";
+  item.probability = opportunityTemperatureRule(item.stage).key;
   const result = closureResult(item);
   syncTrackingWin(item);
   if (result?.result === "ganado") {
