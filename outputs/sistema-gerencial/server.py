@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-single-customer-request-send-v13"
+API_VERSION = "kmi-direct-customer-signature-v14"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "amadeo alfaro": "u-system-amadeo-alfaro",
@@ -105,6 +105,21 @@ def is_customer_request_reviewer(user):
     identity = " ".join((
         text((user or {}).get("id")), text((user or {}).get("name")),
         text((user or {}).get("username")), text((user or {}).get("email")),
+    )).lower()
+    normalized = "".join(
+        character for character in unicodedata.normalize("NFD", identity)
+        if unicodedata.category(character) != "Mn"
+    )
+    return "esmeraldar" in normalized or all(token in normalized for token in ("judith", "esmeralda", "rivera"))
+
+
+def is_esmeralda_direct_customer_validator(user):
+    """Only Judith Esmeralda may validate customers created directly in the master."""
+    if not user:
+        return False
+    identity = " ".join((
+        text(user.get("id")), text(user.get("name")),
+        text(user.get("username")), text(user.get("email")),
     )).lower()
     normalized = "".join(
         character for character in unicodedata.normalize("NFD", identity)
@@ -695,6 +710,11 @@ def ensure_crm_customer_numbers(data):
     pending = []
     changed = False
     for customer in customers:
+        if (
+            text(customer.get("workflowSource")) == "direct-customer"
+            and text(customer.get("directValidationStatus"), "Pendiente").lower() != "firmado"
+        ):
+            continue
         number = parse_crm_customer_number(customer.get("clientNumber"))
         if number and number not in used:
             canonical = format_crm_customer_number(number)
@@ -7195,7 +7215,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     customer = {
                         "id": f"customer-{int(time.time() * 1000)}",
                         **normalize_crm_customer(payload),
-                        "clientNumber": next_crm_customer_number(data),
+                        "clientNumber": "",
+                        "workflowSource": "direct-customer",
+                        "directValidationStatus": "Pendiente",
+                        "createdDirectlyByUserId": text((request_user or {}).get("id")),
+                        "createdDirectlyByName": text((request_user or {}).get("name"), "Usuario"),
                     }
                     customers.append(customer)
                     write_crm_data(conn, data)
@@ -7224,14 +7248,57 @@ class AppHandler(BaseHTTPRequestHandler):
                             return
                         self.send_json({"error": "Cliente no encontrado"}, status=404)
                         return
+                    if action == "assign-id" and self.command == "POST":
+                        if not is_esmeralda_direct_customer_validator(request_user):
+                            self.send_json({"error": "Solo Judith Esmeralda puede firmar y asignar el ID de clientes directos"}, status=403)
+                            return
+                        customer = customers[index]
+                        has_approved_request = any(
+                            text(request.get("approvedCustomerId")) == item_id
+                            for request in data.get("customerRequests", [])
+                        )
+                        if has_approved_request:
+                            self.send_json({"error": "Este cliente pertenece al flujo de solicitudes y conserva su firma original"}, status=409)
+                            return
+                        if text(customer.get("directValidationStatus")).lower() == "firmado":
+                            response = build_crm_view_model(data)
+                            response["selectedCustomerId"] = item_id
+                            self.send_json(response)
+                            return
+                        client_number = text(customer.get("clientNumber")) or next_crm_customer_number(data)
+                        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        customers[index] = {
+                            **customer,
+                            "clientNumber": client_number,
+                            "workflowSource": "direct-customer",
+                            "directValidationStatus": "Firmado",
+                            "directSignature": {
+                                "signed": True,
+                                "signerName": text((request_user or {}).get("name"), "Judith Esmeralda Rivera Privado"),
+                                "signerRole": "Validación de cliente directo",
+                                "signedAt": now,
+                                "signedByUserId": text((request_user or {}).get("id")),
+                                "signatureCode": f"KONFI-CLI-{client_number}-{time.strftime('%Y%m%d%H%M%S', time.gmtime())}",
+                            },
+                            "updatedAt": now,
+                        }
+                        write_crm_data(conn, data)
+                        response = build_crm_view_model(data)
+                        response["selectedCustomerId"] = item_id
+                        self.send_json(response)
+                        return
                     if self.command in {"PUT", "PATCH"}:
                         payload = self.read_json()
                         if duplicate_crm_customer(data, payload, item_id):
                             self.send_json({"error": "Otro cliente ya usa ese nombre, NIT o código"}, status=409)
                             return
                         updated_customer = normalize_crm_customer(payload, customers[index])
-                        updated_customer["clientNumber"] = (
-                            customers[index].get("clientNumber") or next_crm_customer_number(data)
+                        is_pending_direct = (
+                            text(customers[index].get("workflowSource")) == "direct-customer"
+                            and text(customers[index].get("directValidationStatus"), "Pendiente").lower() != "firmado"
+                        )
+                        updated_customer["clientNumber"] = customers[index].get("clientNumber") or (
+                            "" if is_pending_direct else next_crm_customer_number(data)
                         )
                         customers[index] = updated_customer
                         for request_index, customer_request in enumerate(data.setdefault("customerRequests", [])):

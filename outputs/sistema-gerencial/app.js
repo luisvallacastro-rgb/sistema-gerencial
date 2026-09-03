@@ -8789,6 +8789,9 @@ function ensureCrmCustomerDialog() {
       refreshOpportunityCustomerOptions(response.selectedCustomerId || id);
       if (opportunityDialog.open && response.selectedCustomerId) inheritCustomerInOpportunity(response.selectedCustomerId);
       renderCurrentArea();
+      if (!id && !returnToDirectOrder) {
+        alert("Cliente guardado. Judith Esmeralda debe firmarlo para asignar el ID de cliente.");
+      }
       if (returnToDirectOrder) {
         await loadCrmData();
         openDirectOrderFlow(returnToDirectDocumentMode);
@@ -8862,6 +8865,25 @@ function isCustomerRequestReviewer(user = state.currentUser) {
     || ["judith", "esmeralda", "rivera"].every((token) => identity.includes(token));
 }
 
+function isEsmeraldaDirectCustomerValidator(user = state.currentUser) {
+  if (!user) return false;
+  const identity = normalizeKey(`${user.id || ""} ${user.name || ""} ${user.username || ""} ${user.email || ""}`);
+  return identity.includes("esmeraldar")
+    || ["judith", "esmeralda", "rivera"].every((token) => identity.includes(token));
+}
+
+function customerApprovedRequest(customerId = "") {
+  return (state.crmData?.customerRequests || []).find((request) => String(request.approvedCustomerId || "") === String(customerId));
+}
+
+function isDirectMasterCustomer(customer = {}) {
+  return customer.workflowSource === "direct-customer" || !customerApprovedRequest(customer.id);
+}
+
+function isDirectMasterCustomerSigned(customer = {}) {
+  return normalizeKey(customer.directValidationStatus || "") === "firmado" && customer.directSignature?.signed === true;
+}
+
 function customerRequestWithCurrentCustomerData(request = {}) {
   const customers = Array.isArray(state.crmData?.customers) ? state.crmData.customers : [];
   let customer = request.approvedCustomerId
@@ -8914,6 +8936,25 @@ function printCustomerRequestSheet(request = {}) {
   if (!printWindow) return alert("Permite las ventanas emergentes para imprimir la ficha.");
   printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(request.assignedClientNumber ? `Cliente ${request.assignedClientNumber}` : "Solicitud de cliente")}</title><style>body{font:14px Arial;color:#17233a;margin:36px}header{border-bottom:3px solid #27a98b;padding-bottom:14px;margin-bottom:22px}.header-top{display:flex;align-items:flex-start;justify-content:space-between;gap:32px}.brand-logo{display:block;width:150px;height:auto;object-fit:contain;margin-top:2px}h1{margin:4px 0;font-size:28px}small{color:#64748b}.meta{display:flex;gap:28px;margin-top:10px}.data-table{width:100%;border:1px solid #cbd5e1;border-collapse:collapse;table-layout:fixed}.data-table th,.data-table td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}.data-table tr:last-child th,.data-table tr:last-child td{border-bottom:0}.data-table th{width:29%;border-right:1px solid #e2e8f0;background:#f8fafc;color:#64748b;font-size:10px;text-align:left;text-transform:uppercase}.data-table td{width:71%;font-size:13px;font-weight:600;overflow-wrap:anywhere}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:70px;margin-top:58px}.signature{border-top:1px solid #334155;padding-top:8px;text-align:center}.signature strong,.signature span,.signature small{display:block}.signature span{margin-top:3px;color:#475569;font-size:12px}.signature small{margin-top:5px;color:#64748b;font-size:10px}@media print{body{margin:15mm}.data-table tr{break-inside:avoid}}</style></head><body><header><div class="header-top"><div><small>COMERCIALIZACIÓN · SOLICITUD DE CLIENTE</small><h1>Ficha de solicitud de cliente</h1></div><img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="KONFI"></div><div class="meta"><span><b>ID CLIENTE:</b> ${escapeHtml(request.assignedClientNumber || "Pendiente de asignación")}</span><span><b>Estado:</b> ${escapeHtml(request.status || "Borrador")}</span><span><b>Solicita:</b> ${escapeHtml(requesterName)}</span></div></header><table class="data-table"><tbody>${rows.map(([label, value]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value || "—")}</td></tr>`).join("")}</tbody></table><div class="signatures"><div class="signature"><strong>${escapeHtml(requesterName)}</strong><span>Solicitante</span></div><div class="signature"><strong>${escapeHtml(isSigned ? (signature.signerName || "Odaliz Valencia") : "Pendiente de firma")}</strong><span>${isSigned ? `Firmado por · ${escapeHtml(signature.signerRole || "Autorización comercial")}` : "Firma electrónica de Odaliz Valencia"}</span><small>${isSigned ? `Firma electrónica ${escapeHtml(signature.signatureCode || "")}${signedDate ? ` · ${escapeHtml(signedDate)}` : ""}` : "Documento sin firmar"}</small></div></div><script>window.onload=()=>window.print()<\/script></body></html>`);
   printWindow.document.close();
+}
+
+function openDirectCustomerSheet(customer = {}, autoPrint = false) {
+  if (!customer?.id) return;
+  const signature = customer.directSignature || {};
+  const signed = isDirectMasterCustomerSigned(customer);
+  const rows = [
+    ["Nombre comercial", customer.commercialName], ["Razón social", customer.legalName], ["Vendedor", customer.sellerName || crmOwnerName(customer.sellerId || "")],
+    ["Tipo de cliente", customer.clientType], ["Personería", customer.personhood], ["Contacto principal", customer.contactName], ["Teléfono", customer.phone], ["Correo", customer.email],
+    ["Tipo de documento", customer.identityDocumentType || (customer.taxId ? "NIT" : "")], ["Número de documento", customer.taxId], ["NRC / registro", customer.registrationNumber],
+    ["Tipo de contribuyente", customer.taxpayerType], ["Tipo de factura", customer.documentType === "CCF" ? "Crédito fiscal" : "Consumidor final"],
+    ["Giro / actividad económica", customer.businessActivity], ["Dirección", customer.address], ["Departamento", customer.department], ["Municipio", customer.municipality],
+    ["Condiciones de pago", customer.paymentTerms], ["Estrategia comercial", customer.strategy]
+  ];
+  const logoUrl = new URL("assets/konfi-logo.png", window.location.href).href;
+  const sheet = window.open("", "_blank", "width=980,height=760");
+  if (!sheet) return alert("Permite las ventanas emergentes para visualizar la ficha.");
+  sheet.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ficha de cliente ${escapeHtml(customer.clientNumber || "pendiente")}</title><style>body{font:14px Arial;color:#17233a;margin:36px}.actions{position:fixed;top:18px;right:24px;display:flex;gap:8px}.actions button{border:0;border-radius:8px;padding:10px 16px;background:#168b70;color:#fff;font-weight:700;cursor:pointer}.actions button:last-child{background:#e8edf4;color:#26354d}header{border-bottom:3px solid #27a98b;padding-bottom:14px;margin-bottom:22px}.head{display:flex;justify-content:space-between;gap:24px}.head img{width:150px;object-fit:contain}h1{margin:5px 0;font-size:28px}.meta{display:flex;gap:28px;margin-top:10px}.data{width:100%;border:1px solid #cbd5e1;border-collapse:collapse;table-layout:fixed}.data th,.data td{padding:8px 12px;border-bottom:1px solid #e2e8f0}.data th{width:29%;background:#f8fafc;color:#64748b;font-size:10px;text-align:left;text-transform:uppercase}.data td{font-weight:600;overflow-wrap:anywhere}.signature{width:42%;margin:58px 0 0 auto;border-top:1px solid #334155;padding-top:8px;text-align:center}.signature span,.signature small{display:block;margin-top:4px;color:#64748b}@media print{body{margin:15mm}.actions{display:none}}</style></head><body><div class="actions"><button onclick="window.print()">Imprimir ficha</button><button onclick="window.close()">Cerrar</button></div><header><div class="head"><div><small>MAESTRO COMERCIAL · CLIENTE DIRECTO</small><h1>Ficha de cliente</h1></div><img src="${escapeHtml(logoUrl)}" alt="KONFI"></div><div class="meta"><span><b>ID CLIENTE:</b> ${escapeHtml(signed ? (customer.clientNumber || "—") : "Pendiente de asignación")}</span><span><b>Estado:</b> ${escapeHtml(signed ? "Firmado" : "Pendiente de firma")}</span></div></header><table class="data"><tbody>${rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value || "—")}</td></tr>`).join("")}</tbody></table><div class="signature"><strong>${escapeHtml(signed ? (signature.signerName || "Judith Esmeralda Rivera Privado") : "Pendiente de firma")}</strong><span>${escapeHtml(signed ? (signature.signerRole || "Validación de cliente directo") : "Firma electrónica de Judith Esmeralda")}</span><small>${escapeHtml(signed ? `${signature.signatureCode || ""} · ${formatDate(String(signature.signedAt || "").slice(0, 10))}` : "ID pendiente de asignación")}</small></div>${autoPrint ? "<script>window.onload=()=>window.print()<\\/script>" : ""}</body></html>`);
+  sheet.document.close();
 }
 
 function ensureCustomerRequestDialog() {
@@ -9614,13 +9655,15 @@ function renderCrmClients() {
         <div class="crm-customer-row crm-customer-head"><span>ID cliente</span><span>Cliente</span><span>Contacto</span><span>Ubicación</span><span>Acciones</span></div>
         ${clients.map((client) => `
           <article class="crm-customer-row">
-            <span class="crm-customer-number"><strong>${escapeHtml(client.clientNumber || "—")}</strong></span>
+            <span class="crm-customer-number"><strong>${escapeHtml(isDirectMasterCustomer(client) && !isDirectMasterCustomerSigned(client) ? "Pendiente" : (client.clientNumber || "—"))}</strong>${isDirectMasterCustomer(client) ? `<small>${isDirectMasterCustomerSigned(client) ? "Firmado por Esmeralda" : "Firma pendiente"}</small>` : ""}</span>
             <span class="crm-customer-name"><strong>${escapeHtml(client.commercialName || client.legalName)}</strong><small>${escapeHtml(client.legalName && client.legalName !== client.commercialName ? client.legalName : (client.sellerName || "Sin vendedor asignado"))}</small></span>
             <span><strong>${escapeHtml(client.contactName || client.manager || "Sin contacto")}</strong><small>${escapeHtml(client.phone || client.email || "Sin dato de contacto")}</small></span>
             <span><strong>${escapeHtml([client.department, canonicalCustomerMunicipality(client.department, client.municipality)].filter(Boolean).join(" / ") || "Sin ubicación")}</strong><small>${escapeHtml(client.businessActivity || client.clientType || "Actividad pendiente")}</small></span>
             <span class="crm-row-actions">
               <button type="button" data-crm-customer-edit="${escapeHtml(client.id)}" aria-label="Ver o editar cliente" title="Ver o editar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></svg></button>
-              ${(state.crmData?.customerRequests || []).some((request) => String(request.approvedCustomerId || "") === String(client.id)) ? `<button type="button" data-crm-customer-print="${escapeHtml(client.id)}" aria-label="Reimprimir ficha actualizada" title="Reimprimir ficha actualizada">▤</button>` : ""}
+              <button type="button" data-crm-customer-view-sheet="${escapeHtml(client.id)}" aria-label="Ver ficha de cliente" title="Ver ficha de cliente">⌕</button>
+              <button type="button" data-crm-customer-print="${escapeHtml(client.id)}" aria-label="Imprimir ficha de cliente" title="Imprimir ficha de cliente">▤</button>
+              ${isDirectMasterCustomer(client) && !isDirectMasterCustomerSigned(client) ? `<button type="button" class="assign-client-id" data-crm-customer-assign-id="${escapeHtml(client.id)}" ${isEsmeraldaDirectCustomerValidator() ? "" : "disabled"} title="${isEsmeraldaDirectCustomerValidator() ? "Firmar y asignar ID de cliente" : "Solo Judith Esmeralda puede asignar el ID"}">Asignar ID</button>` : ""}
               ${client.active === false ? `<button type="button" data-crm-customer-restore="${escapeHtml(client.id)}" aria-label="Restaurar cliente" title="Restaurar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 1.8-8.3L4 10"/></svg></button>` : `<button class="danger" type="button" data-crm-customer-delete="${escapeHtml(client.id)}" aria-label="Archivar cliente" title="Archivar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="m7 7 1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg></button>`}
             </span>
           </article>
@@ -10828,9 +10871,33 @@ function renderCommercialSubmenu(area) {
     }));
     opportunityTable.querySelectorAll("[data-crm-customer-print]").forEach((button) => button.addEventListener("click", () => {
       const customerId = String(button.dataset.crmCustomerPrint || "");
-      const request = (state.crmData?.customerRequests || []).find((item) => String(item.approvedCustomerId || "") === customerId);
+      const customer = crmMasterCustomers(true).find((item) => String(item.id || "") === customerId);
+      const request = customerApprovedRequest(customerId);
       if (request) printCustomerRequestSheet(request);
-      else alert("Este cliente no tiene una ficha de solicitud aprobada vinculada.");
+      else if (customer) openDirectCustomerSheet(customer, true);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-customer-view-sheet]").forEach((button) => button.addEventListener("click", () => {
+      const customerId = String(button.dataset.crmCustomerViewSheet || "");
+      const customer = crmMasterCustomers(true).find((item) => String(item.id || "") === customerId);
+      const request = customerApprovedRequest(customerId);
+      if (request) printCustomerRequestSheet(request);
+      else if (customer) openDirectCustomerSheet(customer, false);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-customer-assign-id]").forEach((button) => button.addEventListener("click", async () => {
+      const customer = crmMasterCustomers(true).find((item) => String(item.id || "") === String(button.dataset.crmCustomerAssignId || ""));
+      if (!customer || !confirm(`¿Firmar y asignar el siguiente ID de cliente a ${customer.commercialName || customer.legalName}?`)) return;
+      button.disabled = true;
+      button.textContent = "Asignando…";
+      try {
+        const model = await crmApi(`/customers/${encodeURIComponent(customer.id)}/assign-id`, { method: "POST", body: "{}" });
+        const signedCustomer = (model.customers || []).find((item) => String(item.id) === String(customer.id));
+        renderCurrentArea();
+        if (signedCustomer) openDirectCustomerSheet(signedCustomer, false);
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = "Asignar ID";
+        alert(error.message || "No fue posible firmar y asignar el ID del cliente.");
+      }
     }));
     opportunityTable.querySelectorAll("[data-crm-customer-delete]").forEach((button) => button.addEventListener("click", async () => {
       if (!confirm("¿Archivar este cliente? Sus documentos y oportunidades conservarán la relación.")) return;
