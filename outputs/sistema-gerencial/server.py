@@ -35,6 +35,7 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
 API_VERSION = "kmi-direct-customer-consistent-state-v15"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
+AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "amadeo alfaro": "u-system-amadeo-alfaro",
     "alfaro jan gmail com": "u-system-amadeo-alfaro",
@@ -3011,6 +3012,8 @@ def quotation_payload(row):
             customer = {}
     except (json.JSONDecodeError, TypeError):
         customer = {}
+    if crm_identity_key(row["seller"]) == "amadeo alfaro":
+        customer["sellerEmail"] = AMADEO_QUOTATION_EMAIL
     try:
         lines = json.loads(row["lines"] or "[]")
         if not isinstance(lines, list):
@@ -3165,6 +3168,8 @@ def quotation_validate(data, existing=None):
         "sellerEmail": text(raw_customer.get("sellerEmail")),
         "sellerRole": text(raw_customer.get("sellerRole"), "Ejecutivo/a de ventas"),
     }
+    if crm_identity_key(seller) == "amadeo alfaro":
+        customer["sellerEmail"] = AMADEO_QUOTATION_EMAIL
     raw_lines = data.get("lines")
     if not isinstance(raw_lines, list) or not raw_lines:
         raise ValueError("La cotizacion debe contener al menos una linea")
@@ -4143,6 +4148,31 @@ def repair_edgar_admin_seller_assignments_once(conn):
         (marker_key, json.dumps(summary, ensure_ascii=True)),
     )
     print(f"Reparación de vendedor administrativo completada: {summary}")
+
+
+def repair_amadeo_quotation_emails(conn):
+    """Replace stale seller-email snapshots in every Amadeo quotation."""
+    repaired = 0
+    rows = conn.execute(
+        "SELECT id, customer_data FROM quotations WHERE lower(trim(seller)) = lower(?)",
+        ("Amadeo Alfaro",),
+    ).fetchall()
+    for row in rows:
+        try:
+            customer_data = json.loads(row["customer_data"] or "{}")
+        except (json.JSONDecodeError, TypeError):
+            customer_data = {}
+        if not isinstance(customer_data, dict):
+            customer_data = {}
+        if text(customer_data.get("sellerEmail")).lower() == AMADEO_QUOTATION_EMAIL:
+            continue
+        customer_data["sellerEmail"] = AMADEO_QUOTATION_EMAIL
+        conn.execute(
+            "UPDATE quotations SET customer_data = ? WHERE id = ?",
+            (json.dumps(customer_data, ensure_ascii=False), row["id"]),
+        )
+        repaired += 1
+    return repaired
 
 
 def reset_order_flow_for_first_elizabeth_order_once(conn):
@@ -5236,6 +5266,9 @@ def init_db():
         if reconciled_cancelled_quotations:
             print(f"Cotizaciones abiertas anuladas por cascada: {reconciled_cancelled_quotations}")
         repair_edgar_admin_seller_assignments_once(conn)
+        repaired_amadeo_emails = repair_amadeo_quotation_emails(conn)
+        if repaired_amadeo_emails:
+            print(f"Correos de cotizaciones de Amadeo actualizados: {repaired_amadeo_emails}")
         agenda_permission = "comercializacion:agenda-comercial"
         for user_row in conn.execute("SELECT id, role, admin, permissions FROM users WHERE role IN ('vendedores','gerencias') OR admin = 1").fetchall():
             try:

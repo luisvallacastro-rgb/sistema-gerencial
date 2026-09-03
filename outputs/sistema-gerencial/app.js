@@ -4500,6 +4500,9 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
     quotationCommercialName:customer.commercialName || customer.name || quote?.client || opportunity?.company || "", quotationLegalName:customer.legalName || "", quotationContactName:customer.contactName || customer.manager || opportunity?.contact || "", quotationPhone:customer.phone || opportunity?.phone || "", quotationEmail:customer.email || "", quotationAddress:customer.address || opportunity?.location || "", quotationBusinessActivity:customer.businessActivity || customer.businessLine || opportunity?.segment || "", quotationTaxId:customer.taxId || customer.nit || "", quotationRegistrationNumber:customer.registrationNumber || customer.nrc || "", quotationTaxpayerType:customer.taxpayerType || "", quotationCustomerCode:customer.customerCode || customer.code || "", quotationStrategy:customer.strategy || opportunity?.strategy || "", quotationSeller:quote?.seller || seller.name || opportunity?.seller || state.currentUser?.name || "", quotationSellerPhone:customer.sellerPhone || seller.phone || "", quotationSellerEmail:customer.sellerEmail || seller.email || state.currentUser?.email || "",
     quotationClientType:customer.clientType || "", quotationDepartment:customer.department || "", quotationMunicipality:customer.municipality || "", quotationDocumentType:(quote?.documentType || customer.documentType) === "CCF" ? "CCF" : "CF", quotationPaymentTerms:quote?.paymentTerms || customer.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:(quote?.documentType || customer.documentType) === "CCF" ? "Precios unitarios no incluyen IVA" : "Los precios unitarios ya incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
   };
+  if (normalizeKey(values.quotationSeller) === "amadeo alfaro") {
+    values.quotationSellerEmail = "arteycolor.bordados@gmail.com";
+  }
   const legacyQuotationValues = {
     quotationPaymentTerms:{ "50% de anticipo - 50% contra entrega":"50% anticipo, 50% previo a la entrega del pedido" }
   };
@@ -4659,7 +4662,9 @@ function printQuotation(quote) {
   if (!printableLines.some((line) => line.type !== "title")) return alert("Agrega al menos una línea completa de producto a la cotización.");
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) return alert("Habilita las ventanas emergentes para ver la cotización.");
-  const data = quote.customerData || {}; const value = (item) => escapeHtml(String(item || ""));
+  const data = { ...(quote.customerData || {}) };
+  if (normalizeKey(quote.seller || "") === "amadeo alfaro") data.sellerEmail = "arteycolor.bordados@gmail.com";
+  const value = (item) => escapeHtml(String(item || ""));
   const logoUrl = new URL("assets/arte-color-uniformes-logo.png", window.location.href).href;
   const qrUrl = new URL("assets/arte-color-uniformes-qr.jpg", window.location.href).href;
   const longDate = quote.date
