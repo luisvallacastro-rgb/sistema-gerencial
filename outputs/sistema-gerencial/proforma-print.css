@@ -66,9 +66,12 @@ body {
 
 .brand-panel img {
   display: block;
-  width: 100%;
-  max-width: 360px;
+  width: 173px;
+  max-width: none;
   height: auto;
+  margin-bottom: -37px;
+  transform: translateY(-27px);
+  image-rendering: auto;
 }
 
 .brand-panel time {
