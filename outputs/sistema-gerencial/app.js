@@ -9442,8 +9442,7 @@ function renderCrmCustomerDocuments(view) {
   const isQuotationView = view === "quotations";
   const rows = isQuotationView ? quotations : orders;
   return `<section class="crm-shell crm-customers-module crm-customer-documents-module">
-    <header class="crm-customers-hero crm-customers-compact-head">
-      <div><p class="eyebrow">Documentos desde Clientes</p><h3>${isQuotationView ? "Cotizaciones" : "Órdenes de pedido"}</h3></div>
+    <header class="crm-customers-hero crm-customers-compact-head crm-customer-tabs-head">
       <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs(view)}</div>
     </header>
     <div class="crm-customer-toolbar crm-customer-document-toolbar">
@@ -9526,12 +9525,9 @@ function renderCrmCustomerRequests() {
       return String(right.requestedAt || right.createdAt || "").localeCompare(String(left.requestedAt || left.createdAt || ""));
     });
   const statusLabel = { borrador: "Borrador", pendiente: "Pendiente", aprobada: "Aprobada", rechazada: "Rechazada" };
-  const count = (status) => submittedRequests.filter((item) => normalizeKey(item.status || "") === status).length;
   return `<section class="crm-shell crm-customers-module crm-customer-requests-module">
-    <header class="crm-customers-hero crm-customers-compact-head">
-      <div><p class="eyebrow">Validación comercial</p><h3>Solicitudes de clientes</h3></div>
-      <div class="crm-customer-metrics"><span><b>${count("pendiente")}</b> pendientes</span><span><b>${count("aprobada")}</b> aprobadas</span><span><b>${count("rechazada")}</b> rechazadas</span></div>
-      ${renderCrmCustomerViewTabs("requests")}
+    <header class="crm-customers-hero crm-customers-compact-head crm-customer-tabs-head">
+      <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs("requests")}</div>
     </header>
     <div class="crm-customer-toolbar crm-customer-request-toolbar">
       <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-request-search value="${escapeHtml(state.crmCustomerRequestSearch || "")}" placeholder="Buscar solicitud, cliente, NIT, contacto o vendedor..."></label>
@@ -9580,20 +9576,9 @@ function renderCrmClients() {
         { sensitivity: "base" }
       );
     });
-  const requiredFields = ["commercialName", "legalName", "contactName", "phone", "email", "taxId", "businessActivity", "address", "department", "municipality", "paymentTerms"];
-  const completeness = (client) => Math.round(requiredFields.filter((field) => String(client[field] || "").trim()).length / requiredFields.length * 100);
-  const activeCount = allClients.filter((client) => client.active !== false).length;
-  const completeCount = allClients.filter((client) => client.active !== false && completeness(client) >= 80).length;
-  const archivedCount = allClients.filter((client) => client.active === false).length;
   return `
     <section class="crm-shell crm-customers-module">
-      <header class="crm-customers-hero crm-customers-compact-head">
-        <div><p class="eyebrow">Directorio comercial</p><h3>Maestro de clientes</h3></div>
-        <div class="crm-customer-metrics" aria-label="Resumen de clientes">
-          <span><b>${activeCount}</b> activos</span>
-          <span><b>${completeCount}</b> completos</span>
-          <span><b>${archivedCount}</b> archivados</span>
-        </div>
+      <header class="crm-customers-hero crm-customers-compact-head crm-customer-tabs-head">
         <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs("master")}</div>
       </header>
       <div class="crm-customer-toolbar">

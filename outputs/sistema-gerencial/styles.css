@@ -18230,6 +18230,9 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .crm-customers-compact-head .crm-customer-head-actions { min-width: 0; overflow: hidden; }
 .crm-customers-compact-head .crm-customer-head-actions .crm-customer-view-tabs { width: 100%; max-width: 100%; }
 .crm-customers-compact-head .crm-customer-view-tabs button { flex: 1 1 0; min-width: 0; padding-inline: 8px; line-height: 1.05; white-space: normal; }
+.crm-customers-compact-head.crm-customer-tabs-head { grid-template-columns: minmax(0, 1fr); justify-items: end; padding-block: 10px; }
+.crm-customers-compact-head.crm-customer-tabs-head > .crm-customer-head-actions { width: min(100%, 720px); justify-self: end; overflow: visible; }
+.crm-customers-compact-head.crm-customer-tabs-head .crm-customer-view-tabs button { min-height: 46px; padding-inline: 14px; }
 .crm-customer-new-button { min-height: 48px; padding-inline: 20px; white-space: nowrap; }
 .crm-customer-view-tabs { display: inline-flex; min-width: 0; gap: 5px; padding: 5px; overflow: hidden; border: 1px solid rgba(104, 143, 184, .25); border-radius: 14px; background: rgba(8, 29, 57, .45); }
 .crm-customer-view-tabs button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 10px; background: transparent; color: #91a3bc; font-weight: 850; }
