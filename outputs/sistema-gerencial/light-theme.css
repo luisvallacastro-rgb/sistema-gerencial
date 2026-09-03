@@ -2085,6 +2085,12 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   box-shadow: none !important;
 }
 
+.app-shell #quotationDialog .quotation-lines > .quotation-section-title {
+  border-color: #ccd6e5 !important;
+  background: #f7f9fc !important;
+  box-shadow: 0 10px 22px rgba(31, 46, 78, .12) !important;
+}
+
 .app-shell #quotationDialog .quotation-line {
   background: #fff !important;
   border: 0 !important;
