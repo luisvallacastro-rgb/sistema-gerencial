@@ -61,6 +61,8 @@ function readPrintOrder() {
 
 function renderProforma(order) {
   const data = order.proformaData || {};
+  const directCustomerSignature = data.directSignature || {};
+  const hasDirectCustomerSignature = data.workflowSource === "direct-customer" && directCustomerSignature.signed === true;
   const details = Array.isArray(order.details) ? order.details : [];
   const subtotalCents = Number(order.subtotalCents || 0);
   const perceptionCents = Number(order.perceptionCents || 0);
@@ -75,7 +77,12 @@ function renderProforma(order) {
   const printedTotals = detailedVat
     ? `<tr><th>SUMAS</th><td>${printMoney(subtotalCents)}</td></tr><tr><th>1% PERCEPCION</th><td>${printMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${printMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${printMoney(order.totalCents)}</td></tr>`
     : `<tr><th>TOTAL</th><td>${printMoney(order.totalCents)}</td></tr>`;
-  const commercialSignature = order.commercialApprovalStatus === "Autorizada" ? `
+  const commercialSignature = hasDirectCustomerSignature ? `
+    <section class="electronic-signature">
+      <span class="electronic-signature__seal">✓</span>
+      <div><small>FLUJO DIRECTO · FIRMA ELECTRÓNICA VALIDADA</small><strong>${printValue(directCustomerSignature.signerName || "Judith Esmeralda Rivera Privado")}</strong><span>Flujo directo · ${printValue(printApprovalDateTime(directCustomerSignature.signedAt || order.commercialApprovedAt || order.updatedAt))}</span></div>
+      <code>${printValue(directCustomerSignature.signatureCode || printApprovalFolio(order, printableOrderNumber))}</code>
+    </section>` : order.commercialApprovalStatus === "Autorizada" ? `
     <section class="electronic-signature">
       <span class="electronic-signature__seal">✓</span>
       <div><small>FIRMA ELECTRÓNICA VALIDADA</small><strong>${printValue(order.commercialApprovedBy || "Gerencia de Comercialización")}</strong><span>Gerencia de Comercialización · ${printValue(printApprovalDateTime(order.commercialApprovedAt || order.updatedAt))}</span></div>

@@ -5062,7 +5062,8 @@ function openCrmWonOrder(opportunityId) {
 const CONTROL_SALES_LIVE_CUSTOMER_FIELDS = Object.freeze([
   "commercialName", "legalName", "businessActivity", "contactName", "phone", "address", "email",
   "taxId", "registrationNumber", "taxpayerType", "customerCode", "strategy", "paymentTerms",
-  "clientType", "department", "municipality", "clientNumber"
+  "clientType", "department", "municipality", "clientNumber", "workflowSource",
+  "directValidationStatus", "directSignature"
 ]);
 
 function liveCustomerForControlSalesOrder(order = {}) {
