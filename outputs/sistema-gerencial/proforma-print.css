@@ -127,6 +127,21 @@ body {
   font-weight: 800;
 }
 
+.legal-name-with-id {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.legal-name-with-id em {
+  flex: 0 0 auto;
+  color: #c52222;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .items {
   width: 100%;
   margin-top: 9px;
@@ -236,7 +251,7 @@ body {
 
 .strategy-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr) 1.85fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   margin-top: 10px;
   color: #465166;
@@ -298,18 +313,6 @@ body {
   color: #202b43;
   font-size: 9px;
   font-style: normal;
-}
-
-.customer-code {
-  display: grid;
-  gap: 5px;
-}
-
-.customer-code span:last-child {
-  display: block;
-  width: 50px;
-  min-height: 14px;
-  border-bottom: 1px solid #202b43;
 }
 
 .signatures {
