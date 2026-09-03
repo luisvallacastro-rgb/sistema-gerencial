@@ -12861,6 +12861,18 @@ body.operations-fullscreen-open {
   gap: 10px !important;
 }
 
+.app-shell .accumulated-sticky-head {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: grid;
+  gap: 10px;
+  padding: 4px 0 10px;
+  border-bottom: 1px solid rgba(104, 132, 170, .28);
+  background: #223451;
+  box-shadow: 0 8px 14px rgba(4, 15, 30, .16);
+}
+
 .app-shell .accumulated-chart-top {
   min-height: 44px;
   justify-content: flex-start !important;

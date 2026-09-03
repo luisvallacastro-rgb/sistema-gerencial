@@ -6674,19 +6674,21 @@ function renderCycleDashboard(items) {
   return `
     <section class="results-dashboard accumulated-month-dashboard" aria-label="Acumulado global por mes">
       <article class="accumulated-month-card">
-        <div class="accumulated-chart-top">
-          <h3>Acumulado global</h3>
-        </div>
-        <div class="accumulated-column-head" aria-label="Encabezados del dashboard acumulado">
-          <span>Periodo</span>
-          <div class="chart-legend">
-            <span><i class="plan"></i>Meta</span>
-            <span><i class="actual"></i>Alcanzado</span>
+        <div class="accumulated-sticky-head">
+          <div class="accumulated-chart-top">
+            <h3>Acumulado global</h3>
           </div>
-          <span class="accumulated-values-title">Valores acumulados</span>
-          <div class="accumulated-kpi-titles">
-            <span>KPI mensual</span>
-            <span>KPI anual</span>
+          <div class="accumulated-column-head" aria-label="Encabezados del dashboard acumulado">
+            <span>Periodo</span>
+            <div class="chart-legend">
+              <span><i class="plan"></i>Meta</span>
+              <span><i class="actual"></i>Alcanzado</span>
+            </div>
+            <span class="accumulated-values-title">Valores acumulados</span>
+            <div class="accumulated-kpi-titles">
+              <span>KPI mensual</span>
+              <span>KPI anual</span>
+            </div>
           </div>
         </div>
         <div class="accumulated-month-rows">

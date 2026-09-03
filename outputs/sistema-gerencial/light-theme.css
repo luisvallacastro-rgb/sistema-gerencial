@@ -754,6 +754,11 @@ dialog textarea:focus {
 .app-shell .accumulated-kpi-titles span,
 .app-shell .accumulated-column-head .chart-legend { color: #68748a !important; opacity: 1 !important; }
 .app-shell .accumulated-column-head .chart-legend span { color: #566278 !important; }
+.app-shell .accumulated-sticky-head {
+  border-color: #d8e0eb !important;
+  background: #fff !important;
+  box-shadow: 0 8px 14px rgba(31, 46, 78, .08) !important;
+}
 
 .app-shell #pageTitle.with-results-summary .results-title-metrics,
 .app-shell #pageTitle.with-results-summary .results-title-metrics span,
