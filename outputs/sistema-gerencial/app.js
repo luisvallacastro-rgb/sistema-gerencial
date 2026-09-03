@@ -2184,33 +2184,37 @@ function loadOpportunities() {
 
 function normalizeOpportunities(items) {
   const sellers = commercialSellerNames({ includeInactive: true });
-  return items.map((item, index) => ({
-    ...item,
-    time: item.time || seededTime(index),
-    seller: normalizeSeller(item.seller || sellers[index % sellers.length]),
-    stage: normalizeStage(item.stage || "Prospeccion"),
-    contact: item.contact || "",
-    phone: item.phone || "",
-    segment: item.segment || "",
-    location: item.location || "",
-    priority: item.priority || "Media",
-    nextAction: item.nextAction || "Primer seguimiento",
-    agendaDate: item.agendaDate || item.date || todayISO(),
-    agendaTime: item.agendaTime || "",
-    agendaType: item.agendaType || "Seguimiento",
-    agendaPlace: item.agendaPlace || "Por definir",
-    note: item.note || item.comment || "",
-    crmOpportunityId: item.crmOpportunityId || "",
-    sampleCustodies: Array.isArray(item.sampleCustodies) ? item.sampleCustodies.map((custody) => ({
-      id: custody.id || crypto.randomUUID(),
-      quantity: Math.max(1, Number(custody.quantity || 1)),
-      size: custody.size || "",
-      description: custody.description || "",
-      exitDate: custody.exitDate || item.date || todayISO(),
-      entryDate: custody.entryDate || ""
-    })) : [],
-    managements: normalizeManagements({ ...item, time: item.time || seededTime(index) })
-  }));
+  return items.map((item, index) => {
+    const stage = normalizeStage(item.stage || "Prospeccion");
+    return {
+      ...item,
+      time: item.time || seededTime(index),
+      seller: normalizeSeller(item.seller || sellers[index % sellers.length]),
+      stage,
+      probability: opportunityTemperatureRule(stage).key,
+      contact: item.contact || "",
+      phone: item.phone || "",
+      segment: item.segment || "",
+      location: item.location || "",
+      priority: item.priority || "Media",
+      nextAction: item.nextAction || "Primer seguimiento",
+      agendaDate: item.agendaDate || item.date || todayISO(),
+      agendaTime: item.agendaTime || "",
+      agendaType: item.agendaType || "Seguimiento",
+      agendaPlace: item.agendaPlace || "Por definir",
+      note: item.note || item.comment || "",
+      crmOpportunityId: item.crmOpportunityId || "",
+      sampleCustodies: Array.isArray(item.sampleCustodies) ? item.sampleCustodies.map((custody) => ({
+        id: custody.id || crypto.randomUUID(),
+        quantity: Math.max(1, Number(custody.quantity || 1)),
+        size: custody.size || "",
+        description: custody.description || "",
+        exitDate: custody.exitDate || item.date || todayISO(),
+        entryDate: custody.entryDate || ""
+      })) : [],
+      managements: normalizeManagements({ ...item, time: item.time || seededTime(index) })
+    };
+  });
 }
 
 function normalizeSeller(name) {

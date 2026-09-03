@@ -223,6 +223,64 @@ def crm_percent(value, fallback=0):
         return 0
 
 
+CRM_STAGE_TEMPERATURE_RULES = {
+    1: ("Congelado", 10, "congelado"),
+    2: ("Frio", 30, "frio"),
+    3: ("Tibio", 50, "tibio"),
+    4: ("Tibio", 55, "tibio"),
+    5: ("Tibio", 65, "tibio"),
+    6: ("Caliente", 85, "caliente"),
+    7: ("Caliente", 95, "caliente"),
+    8: ("Cerrado", 100, "cerrado"),
+}
+CRM_STAGE_NAMES = [
+    "prospeccion", "contacto inicial", "deteccion de necesidades",
+    "presentacion de solucion", "manejo de objeciones", "cierre de ventas",
+    "compilado de informacion", "postventa",
+]
+
+
+def opportunity_stage_number(stage):
+    normalized = crm_identity_key(stage)
+    aliases = {
+        "prospección": "prospeccion",
+        "detección de necesidades": "deteccion de necesidades",
+        "presentación de solución": "presentacion de solucion",
+        "cierre": "cierre de ventas",
+        "compilado de información": "compilado de informacion",
+    }
+    normalized = aliases.get(normalized, normalized)
+    try:
+        return CRM_STAGE_NAMES.index(normalized) + 1
+    except ValueError:
+        return 1
+
+
+def repair_all_opportunity_temperatures(conn, data):
+    changed = False
+    for opportunity in data.get("opportunities", []):
+        try:
+            stage_id = max(1, min(8, int(opportunity.get("stageId") or 1)))
+        except (TypeError, ValueError):
+            stage_id = 1
+        temperature, percent, _ = CRM_STAGE_TEMPERATURE_RULES[stage_id]
+        if opportunity.get("temperature") != temperature or crm_percent(opportunity.get("closePercent")) != percent:
+            opportunity["temperature"] = temperature
+            opportunity["closePercent"] = percent
+            changed = True
+
+    result_items = read_result_opportunities(conn)
+    results_changed = False
+    for opportunity in result_items:
+        _, _, probability = CRM_STAGE_TEMPERATURE_RULES[opportunity_stage_number(opportunity.get("stage"))]
+        if opportunity.get("probability") != probability:
+            opportunity["probability"] = probability
+            results_changed = True
+    if results_changed:
+        write_result_opportunities(conn, result_items)
+    return changed or results_changed
+
+
 def load_crm_seed():
     with CRM_SEED_PATH.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
@@ -909,6 +967,7 @@ def read_crm_data(conn):
         repair_don_bosco_opportunity_name_propagation(conn, data)
         repair_customer_request_id_collisions(data)
         repair_duplicate_customers_by_tax_id(conn, data)
+        repair_all_opportunity_temperatures(conn, data)
         write_crm_data(conn, data)
         return data
     data = json.loads(row["value"])
@@ -941,7 +1000,8 @@ def read_crm_data(conn):
     individual_name_repair_changed = repair_don_bosco_opportunity_name_propagation(conn, data)
     customer_id_collision_changed = repair_customer_request_id_collisions(data)
     customer_tax_duplicate_changed = repair_duplicate_customers_by_tax_id(conn, data)
-    changed = changed or customer_reset_changed or approval_master_reset_changed or direct_customer_classification_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or virtual_sellers_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed or customer_tax_duplicate_changed
+    opportunity_temperature_changed = repair_all_opportunity_temperatures(conn, data)
+    changed = changed or customer_reset_changed or approval_master_reset_changed or direct_customer_classification_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or virtual_sellers_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed or customer_tax_duplicate_changed or opportunity_temperature_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -1466,6 +1526,7 @@ def normalize_crm_opportunity(payload, existing=None):
         estimated = float(payload.get("estimatedAmount", existing.get("estimatedAmount", 0)) or 0)
     except (TypeError, ValueError):
         estimated = 0
+    automatic_temperature, automatic_percent, _ = CRM_STAGE_TEMPERATURE_RULES[max(1, min(8, stage_id))]
     return {
         **existing,
         "customerId": text(payload.get("customerId"), existing.get("customerId")),
@@ -1479,9 +1540,9 @@ def normalize_crm_opportunity(payload, existing=None):
         "location": text(payload.get("location"), existing.get("location")),
         "stageId": max(1, min(8, stage_id)),
         "priority": text(payload.get("priority"), existing.get("priority") or "Media"),
-        "temperature": text(payload.get("temperature"), existing.get("temperature") or "Tibio"),
+        "temperature": automatic_temperature,
         "estimatedAmount": max(0, estimated),
-        "closePercent": max(0, min(100, crm_percent(payload.get("closePercent"), existing.get("closePercent", 0)))),
+        "closePercent": automatic_percent,
         "strategy": text(payload.get("strategy"), existing.get("strategy")),
         "status": text(payload.get("status"), existing.get("status") or "Vigente"),
         "responsible": text(payload.get("responsible"), existing.get("responsible") or payload.get("contact")),
