@@ -2346,7 +2346,7 @@ function sanitizeTestOpportunities(items) {
     const latestManagement = [...ordered].reverse().find((management) => !management.notified && !management.canceled);
     return {
       ...item,
-      stage: latestClosure ? closureStage : latestManagement?.stage || item.stage,
+      stage: normalizeStage(item.stage || (latestClosure ? closureStage : latestManagement?.stage) || "Prospeccion"),
       managements: ordered
     };
   });
@@ -2360,19 +2360,24 @@ function syncOpportunityViews() {
   }
 }
 
-function saveOpportunities() {
+function saveOpportunities(options = {}) {
   syncOpportunityViews();
-  if (apiEnabled) {
-    apiJson("/api/opportunities", {
-      method: "PUT",
-      body: JSON.stringify(getOpportunitySubmenu().items)
+  if (!apiEnabled) return Promise.resolve(getOpportunitySubmenu().items);
+  return apiJson("/api/opportunities", {
+    method: "PUT",
+    body: JSON.stringify(getOpportunitySubmenu().items)
+  })
+    .then((response) => {
+      if (Array.isArray(response?.items)) {
+        getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(response.items));
+      }
+      syncOpportunityViews();
+      return syncLostCrmOpportunities().then(() => getOpportunitySubmenu().items);
     })
-      .then(() => {
-        syncOpportunityViews();
-        return syncLostCrmOpportunities();
-      })
-      .catch(() => {});
-  }
+    .catch((error) => {
+      if (options.reportErrors) throw error;
+      return getOpportunitySubmenu().items;
+    });
 }
 
 function resetOpportunityForm() {
@@ -14468,7 +14473,7 @@ opportunityStage.addEventListener("change", () => {
   applyAutomaticOpportunityTemperature(opportunityProbability, opportunityStage.value);
 });
 
-opportunityForm.addEventListener("submit", (event) => {
+opportunityForm.addEventListener("submit", async (event) => {
   if (event.submitter && event.submitter.value === "cancel") return;
   event.preventDefault();
   if (state.opportunityFormContext === "crm") {
@@ -14526,10 +14531,16 @@ opportunityForm.addEventListener("submit", (event) => {
     };
     const method = id ? "PATCH" : "POST";
     const path = id ? `/opportunities/${id}` : "/opportunities";
-    crmApi(path, { method, body: JSON.stringify(payload) }).then(() => {
+    saveOpportunityBtn.disabled = true;
+    try {
+      await crmApi(path, { method, body: JSON.stringify(payload) });
       opportunityDialog.close();
       resetOpportunityForm();
-    });
+    } catch (error) {
+      alert(error.message || "No fue posible actualizar la oportunidad. Inténtalo nuevamente.");
+    } finally {
+      saveOpportunityBtn.disabled = false;
+    }
     return;
   }
   const submenu = getOpportunitySubmenu();
@@ -14547,6 +14558,19 @@ opportunityForm.addEventListener("submit", (event) => {
   );
   if (selectedCustomer) inheritCustomerInOpportunity(selectedCustomer.id);
   const temperatureRule = opportunityTemperatureRule(opportunityStage.value);
+  const previousOpportunity = currentIndex >= 0 ? submenu.items[currentIndex] : null;
+  const stageChanged = Boolean(previousOpportunity && normalizeStage(previousOpportunity.stage) !== opportunityStage.value);
+  const managements = previousOpportunity ? normalizeManagements(previousOpportunity) : [];
+  if (stageChanged) {
+    managements.push({
+      id: crypto.randomUUID(),
+      date: todayISO(),
+      time: createdTime,
+      stage: opportunityStage.value,
+      comment: `Etapa actualizada desde edición: ${normalizeStage(previousOpportunity.stage)} → ${opportunityStage.value}.`,
+      editedBy: state.currentUser?.name || roleDisplayName()
+    });
+  }
   const payload = {
     id,
     date: opportunityDate.value,
@@ -14572,7 +14596,7 @@ opportunityForm.addEventListener("submit", (event) => {
     note: opportunityNote.value.trim(),
     crmOpportunityId: opportunityCrmSourceId.value,
     sampleCustodies: currentIndex >= 0 ? sampleCustodies(submenu.items[currentIndex]) : [],
-    managements: currentIndex >= 0 ? normalizeManagements(submenu.items[currentIndex]) : [{
+    managements: currentIndex >= 0 ? managements : [{
       id: `${id}-mgmt-001`,
       date: opportunityDate.value,
       time: createdTime,
@@ -14587,10 +14611,17 @@ opportunityForm.addEventListener("submit", (event) => {
     submenu.items.unshift(payload);
   }
 
-  saveOpportunities();
-  resetOpportunityForm();
-  opportunityDialog.close();
-  renderCommercialSubmenu(areas.comercializacion);
+  saveOpportunityBtn.disabled = true;
+  try {
+    await saveOpportunities({ reportErrors: true });
+    resetOpportunityForm();
+    opportunityDialog.close();
+    renderCommercialSubmenu(areas.comercializacion);
+  } catch (error) {
+    alert(error.message || "No fue posible actualizar la oportunidad. Inténtalo nuevamente.");
+  } finally {
+    saveOpportunityBtn.disabled = false;
+  }
 });
 
 newOpportunityBtn.addEventListener("click", () => {
