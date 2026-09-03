@@ -8877,7 +8877,7 @@ function customerApprovedRequest(customerId = "") {
 }
 
 function isDirectMasterCustomer(customer = {}) {
-  return customer.workflowSource === "direct-customer" || !customerApprovedRequest(customer.id);
+  return customer.workflowSource === "direct-customer";
 }
 
 function isDirectMasterCustomerSigned(customer = {}) {

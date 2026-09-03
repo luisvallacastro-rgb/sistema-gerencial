@@ -33,7 +33,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-direct-customer-signature-v14"
+API_VERSION = "kmi-direct-customer-consistent-state-v15"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
     "amadeo alfaro": "u-system-amadeo-alfaro",
@@ -704,6 +704,26 @@ def format_crm_customer_number(value):
     return f"{max(1, int(value)):04d}"
 
 
+def classify_direct_master_customers(data):
+    """Persist direct origin so every user receives the same pre-signature state."""
+    approved_customer_ids = {
+        text(request.get("approvedCustomerId"))
+        for request in data.get("customerRequests", [])
+        if text(request.get("approvedCustomerId"))
+    }
+    changed = False
+    for customer in data.setdefault("customers", []):
+        if text(customer.get("id")) in approved_customer_ids:
+            continue
+        if text(customer.get("workflowSource")) != "direct-customer":
+            customer["workflowSource"] = "direct-customer"
+            changed = True
+        if not text(customer.get("directValidationStatus")):
+            customer["directValidationStatus"] = "Firmado" if customer.get("directSignature", {}).get("signed") is True else "Pendiente"
+            changed = True
+    return changed
+
+
 def ensure_crm_customer_numbers(data):
     customers = data.setdefault("customers", [])
     used = set()
@@ -875,6 +895,7 @@ def read_crm_data(conn):
         data = load_crm_seed()
         data, _ = sync_crm_result_migrations(conn, data)
         data, _ = sync_crm_result_closures(conn, data)
+        classify_direct_master_customers(data)
         ensure_crm_customer_numbers(data)
         migrate_existing_seller_roles(conn, data)
         sync_seller_users_to_crm(conn, data)
@@ -903,6 +924,7 @@ def read_crm_data(conn):
         data["customers"] = []
         data["customerMasterResetVersion"] = customer_reset_version
     approval_master_reset_changed = reset_customer_master_for_first_approved_request(data)
+    direct_customer_classification_changed = classify_direct_master_customers(data)
     numbering_changed = ensure_crm_customer_numbers(data)
     origin_links_changed = repair_result_opportunity_origin_links(conn, data)
     data, migration_changed = sync_crm_result_migrations(conn, data)
@@ -918,7 +940,7 @@ def read_crm_data(conn):
     individual_name_repair_changed = repair_don_bosco_opportunity_name_propagation(conn, data)
     customer_id_collision_changed = repair_customer_request_id_collisions(data)
     customer_tax_duplicate_changed = repair_duplicate_customers_by_tax_id(conn, data)
-    changed = changed or customer_reset_changed or approval_master_reset_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or virtual_sellers_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed or customer_tax_duplicate_changed
+    changed = changed or customer_reset_changed or approval_master_reset_changed or direct_customer_classification_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or virtual_sellers_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed or customer_tax_duplicate_changed
     if changed:
         write_crm_data(conn, data)
     return data
