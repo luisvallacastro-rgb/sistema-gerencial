@@ -16,10 +16,10 @@
     }
 
     table.${TABLE_CLASS} th:nth-child(1),
-    table.${TABLE_CLASS} td:nth-child(1) { width: 9% !important; }
+    table.${TABLE_CLASS} td:nth-child(1) { width: 11% !important; }
 
     table.${TABLE_CLASS} th:nth-child(2),
-    table.${TABLE_CLASS} td:nth-child(2) { width: 58% !important; }
+    table.${TABLE_CLASS} td:nth-child(2) { width: 56% !important; }
 
     table.${TABLE_CLASS} th:nth-child(3),
     table.${TABLE_CLASS} td:nth-child(3) { width: 17% !important; }

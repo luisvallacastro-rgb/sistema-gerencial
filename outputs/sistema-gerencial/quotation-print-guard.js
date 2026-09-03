@@ -39,12 +39,12 @@
 
         table.quotation-products-table th:nth-child(1),
         table.quotation-products-table td:nth-child(1) {
-          width: 9% !important;
+          width: 11% !important;
         }
 
         table.quotation-products-table th:nth-child(2),
         table.quotation-products-table td:nth-child(2) {
-          width: 58% !important;
+          width: 56% !important;
         }
 
         table.quotation-products-table th:nth-child(3),
