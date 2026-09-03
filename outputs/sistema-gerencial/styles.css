@@ -20566,6 +20566,38 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   margin-top: 1px;
 }
 
+#quotationDialog .quotation-document-type-field > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #f4d27a;
+}
+
+#quotationDialog .quotation-document-type-field > span em {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(238, 183, 69, .18);
+  color: #ffd77d;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#quotationDialog .quotation-document-type-field select {
+  border: 2px solid #d9a83d !important;
+  background: linear-gradient(135deg, #334b6d, #2b4161) !important;
+  box-shadow: 0 0 0 4px rgba(222, 171, 62, .13) !important;
+}
+
+#quotationDialog .quotation-document-type-field select:focus {
+  border-color: #ffda7b !important;
+  box-shadow: 0 0 0 5px rgba(239, 190, 78, .22) !important;
+}
+
 @media (max-width: 820px) {
   #quotationDialog .quotation-lines-dock { padding-inline: 16px; }
 }

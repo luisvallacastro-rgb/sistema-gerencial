@@ -2091,6 +2091,14 @@ dialog.management-request-reader::backdrop { background: rgba(30,41,59,.34) !imp
   box-shadow: 0 7px 12px rgba(31, 46, 78, .08) !important;
 }
 
+.app-shell #quotationDialog .quotation-document-type-field > span { color: #8b5b00 !important; }
+.app-shell #quotationDialog .quotation-document-type-field > span em { background: #fff1c7 !important; color: #7a4c00 !important; }
+.app-shell #quotationDialog .quotation-document-type-field select {
+  border-color: #c58b18 !important;
+  background: #fffaf0 !important;
+  box-shadow: 0 0 0 4px rgba(197, 139, 24, .12) !important;
+}
+
 .app-shell #quotationDialog .quotation-line {
   background: #fff !important;
   border: 0 !important;
