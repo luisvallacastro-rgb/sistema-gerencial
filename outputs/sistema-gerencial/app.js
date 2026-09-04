@@ -2672,6 +2672,42 @@ function purchaseOrderSummary(rows = state.purchaseOrders) {
   };
 }
 
+function printPurchaseOrdersFinancialReport() {
+  const rows = filteredPurchaseOrders().slice().sort((a, b) => (
+    String(a.dueDate || "9999-12-31").localeCompare(String(b.dueDate || "9999-12-31"))
+    || String(a.orderNumber || "").localeCompare(String(b.orderNumber || ""), "es", { numeric:true })
+  ));
+  const totals = purchaseOrderSummary(rows);
+  const statusLabel = state.purchaseOrderStatus === "delivered"
+    ? "Entregadas con saldo"
+    : state.purchaseOrderStatus === "process"
+      ? "En proceso con saldo"
+      : "Todas con saldo";
+  const filters = [statusLabel, state.purchaseOrderQuery ? `Búsqueda: ${state.purchaseOrderQuery}` : "Sin búsqueda adicional"].join(" · ");
+  const body = rows.map((order, index) => {
+    const deadline = purchaseOrderDeadline(order);
+    return `<tr>
+      <td>${index + 1}</td>
+      <td><strong>#${escapeHtml(order.orderNumber || "—")}</strong><small>${escapeHtml(order.invoiceType || "Sin factura")}</small></td>
+      <td><strong>${escapeHtml(order.customerName || "Sin cliente")}</strong><small>ID ${escapeHtml(order.customerCode || "—")} · ${escapeHtml(order.address || "Sin dirección")}</small></td>
+      <td><strong>${escapeHtml(order.description || "Sin descripción")}</strong><small>${escapeHtml(order.productionManager || "Sin responsable")}</small></td>
+      <td><strong>${formatDate(order.entryDate) || "—"}</strong><small>Entrega: ${formatDate(order.dueDate) || "Sin fecha"}<br>Complemento: ${formatDate(order.balancePaymentDate) || "—"}</small></td>
+      <td><span class="status ${escapeHtml(deadline.className)}">${escapeHtml(order.status || "Sin estado")}</span><small>${escapeHtml(deadline.label)}</small></td>
+      <td class="money total-value">${formatMoney(order.amount)}</td>
+      <td class="money advance-value">${formatMoney(order.advance)}</td>
+      <td class="money">${formatMoney(order.payment)}</td>
+      <td class="money balance-value">${formatMoney(order.remaining)}</td>
+    </tr>`;
+  }).join("");
+  const popup = window.open("", "_blank", "width=1400,height=950");
+  if (!popup) return alert("Permite las ventanas emergentes para generar el reporte.");
+  const generatedAt = new Date().toLocaleString("es-SV");
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte de órdenes de pedido</title><style>
+    @page{size:A4 landscape;margin:9mm}*{box-sizing:border-box}body{margin:0;background:#e9eef4;color:#172b43;font:10px Arial,sans-serif}.sheet{width:279mm;min-height:190mm;margin:18px auto;padding:12mm;background:#fff}.head{display:flex;justify-content:space-between;align-items:end;padding-bottom:13px;border-bottom:3px solid #188b78}.head small{color:#188b78;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.head h1{margin:5px 0 0;font-size:25px}.head time{color:#64748b}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:15px 0}.card{display:grid;gap:5px;padding:12px 14px;border:1px solid #d6e1ec;border-radius:10px;background:#f7f9fc}.card span{color:#64748b;font-size:9px;font-weight:900;text-transform:uppercase}.card strong{font-size:20px}.card small{color:#78889c}.card.total{border-color:#9bdccc;background:#ecf9f5}.card.total strong,.balance-value{color:#087763}.card.advance{border-color:#b9cfed;background:#f2f7fd}.card.advance strong{color:#245f9e}.filter{margin:0 0 10px;color:#64748b;font-size:9px}table{width:100%;border-collapse:collapse;table-layout:fixed}th{padding:8px 6px;background:#173b62;color:#fff;text-align:left;font-size:8px;text-transform:uppercase}td{padding:8px 6px;border-bottom:1px solid #d6e0ea;vertical-align:top;overflow-wrap:anywhere}td small{display:block;margin-top:3px;color:#718096;font-size:7px;line-height:1.35}.money{text-align:right;font-weight:850;white-space:nowrap}.total-value{color:#173b62}.advance-value{color:#245f9e}.status{display:inline-block;padding:3px 6px;border-radius:999px;background:#e9f0f7;font-size:7px;font-weight:900}.status.overdue{background:#ffe4df;color:#a63328}.status.urgent{background:#fff1d7;color:#9a6108}.status.delivered{background:#e1f0ff;color:#246397}th:nth-child(1){width:3%}th:nth-child(2){width:8%}th:nth-child(3){width:20%}th:nth-child(4){width:16%}th:nth-child(5){width:12%}th:nth-child(6){width:9%}th:nth-child(n+7){width:8%}.note{margin-top:11px;padding:9px 11px;border-left:3px solid #188b78;background:#f1f7f6;color:#52647a;font-size:8px}.actions{position:fixed;right:20px;bottom:20px;display:flex;gap:8px}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#167b68;color:#fff;font-weight:800}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.sheet{width:auto;min-height:0;margin:0;padding:0}.actions{display:none}tr{break-inside:avoid}}
+  </style></head><body><main class="sheet"><header class="head"><div><small>Financiera · Órdenes de pedido</small><h1>Detalle financiero y operativo</h1></div><time>Generado ${escapeHtml(generatedAt)}</time></header><section class="cards"><article class="card"><span>Monto total</span><strong>${formatMoney(totals.amount)}</strong><small>${totals.count} órdenes incluidas</small></article><article class="card advance"><span>Anticipos</span><strong>${formatMoney(totals.advances)}</strong><small>Total anticipado</small></article><article class="card"><span>Abonos</span><strong>${formatMoney(totals.payments)}</strong><small>Pagos complementarios</small></article><article class="card total"><span>Saldo restante</span><strong>${formatMoney(totals.remaining)}</strong><small>${totals.overdue} vencidas</small></article></section><p class="filter"><b>Filtros aplicados:</b> ${escapeHtml(filters)}</p><table><thead><tr><th>#</th><th>Orden</th><th>Cliente / código / dirección</th><th>Descripción / producción</th><th>Fechas</th><th>Estado</th><th>Monto</th><th>Anticipo</th><th>Abono</th><th>Restante</th></tr></thead><tbody>${body || `<tr><td colspan="10">No hay órdenes para los filtros seleccionados.</td></tr>`}</tbody></table><p class="note">Los valores reflejan la información vigente del CRUD al momento de generar el reporte. Saldo restante = monto − anticipo − abonos registrados.</p></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  popup.document.close();
+}
+
 function renderPurchaseOrderList() {
   const rows = filteredPurchaseOrders();
   const totals = purchaseOrderSummary(rows);
@@ -2687,6 +2723,7 @@ function renderPurchaseOrderList() {
       <div class="purchase-orders-status-tabs" role="tablist">
         ${[["all","Con saldo"],["process","En proceso"],["delivered","Entregadas"]].map(([key,label]) => `<button type="button" data-purchase-order-status="${key}" class="${state.purchaseOrderStatus === key ? "active" : ""}">${label}</button>`).join("")}
       </div>
+      <button class="purchase-order-report-button" type="button" data-purchase-order-report aria-label="Imprimir reporte de órdenes" title="Imprimir reporte">▤ Reporte</button>
       <button type="button" data-purchase-order-new>+ Nueva orden</button>
     </div>
     <div class="purchase-orders-list">
@@ -5489,6 +5526,7 @@ function wirePurchaseOrders() {
   });
   document.querySelectorAll("[data-purchase-order-status]").forEach((button) => button.addEventListener("click", () => { state.purchaseOrderStatus = button.dataset.purchaseOrderStatus; state.purchaseOrderPage = 1; renderCommercialSubmenu(areas.financiera); }));
   document.querySelector("[data-purchase-order-new]")?.addEventListener("click", () => { resetPurchaseOrderForm(); purchaseOrderDialog.showModal(); });
+  document.querySelector("[data-purchase-order-report]")?.addEventListener("click", printPurchaseOrdersFinancialReport);
   document.querySelectorAll("[data-purchase-order-edit]").forEach((button) => button.addEventListener("click", () => { const order = state.purchaseOrders.find((item) => item.id === button.dataset.purchaseOrderEdit); if (order) { resetPurchaseOrderForm(order); purchaseOrderDialog.showModal(); } }));
   document.querySelectorAll("[data-purchase-order-delete]").forEach((button) => button.addEventListener("click", async () => { const order = state.purchaseOrders.find((item) => item.id === button.dataset.purchaseOrderDelete); if (!order || !confirm(`¿Eliminar la orden #${order.orderNumber}?`)) return; try { await apiJson(`/api/purchase-orders/${encodeURIComponent(order.id)}`, { method:"DELETE" }); state.purchaseOrders = state.purchaseOrders.filter((item) => item.id !== order.id); renderCommercialSubmenu(areas.financiera); } catch { alert("No se pudo eliminar la orden."); } }));
   document.querySelectorAll("[data-purchase-order-page]").forEach((button) => button.addEventListener("click", () => { state.purchaseOrderPage += button.dataset.purchaseOrderPage === "next" ? 1 : -1; renderCommercialSubmenu(areas.financiera); }));

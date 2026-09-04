@@ -950,6 +950,7 @@ dialog textarea:focus {
   color: #fff !important;
   box-shadow: none !important;
 }
+.app-shell .purchase-orders-toolbar > .purchase-order-report-button { border-color:#b9cce2 !important;background:#eaf1f8 !important;color:#245f80 !important; }
 .app-shell .purchase-orders-shell .primary-btn,
 .app-shell .accounts-receivable-shell .primary-btn { background: linear-gradient(135deg,#5652dc,#4338ca) !important; border-color:#4f46e5 !important; }
 
