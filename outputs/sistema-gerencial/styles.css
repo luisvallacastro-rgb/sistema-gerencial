@@ -20670,3 +20670,31 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   font-size: 10px;
   font-weight: 900;
 }
+
+#quotationDialog .quotation-client-name-field {
+  grid-column: 1 / -1;
+}
+
+#quotationDialog .quotation-client-name-field > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#quotationDialog .quotation-client-name-field > span em {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(80, 220, 183, .14);
+  color: #75efd1;
+  font-size: .65rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+#quotationDialog .quotation-client-name-field input {
+  border-color: rgba(80, 220, 183, .55) !important;
+  box-shadow: 0 0 0 3px rgba(80, 220, 183, .08);
+}

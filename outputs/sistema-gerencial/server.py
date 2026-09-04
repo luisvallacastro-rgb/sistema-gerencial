@@ -3342,6 +3342,45 @@ def sync_opportunity_amount_from_latest_quotation(conn, opportunity_id):
     return next_amount
 
 
+def sync_opportunity_name_from_quotation(conn, opportunity_id, company_name):
+    """Update only the opportunity linked by an exact identifier."""
+    opportunity_id = text(opportunity_id)
+    company_name = text(company_name)
+    if not opportunity_id or not company_name or opportunity_id.startswith("direct-quotation:"):
+        return False
+
+    crm_data = read_crm_data(conn)
+    result_items = read_result_opportunities(conn)
+    linked_crm_ids = set()
+    changed_crm = False
+    changed_results = False
+
+    for opportunity in crm_data.get("opportunities", []):
+        if text(opportunity.get("id")) == opportunity_id:
+            linked_crm_ids.add(opportunity_id)
+
+    for result in result_items:
+        result_id = text(result.get("id"))
+        crm_id = text(result.get("crmOpportunityId"))
+        if result_id == opportunity_id or crm_id == opportunity_id:
+            if result.get("company") != company_name:
+                result["company"] = company_name
+                changed_results = True
+            if crm_id:
+                linked_crm_ids.add(crm_id)
+
+    for opportunity in crm_data.get("opportunities", []):
+        if text(opportunity.get("id")) in linked_crm_ids and opportunity.get("company") != company_name:
+            opportunity["company"] = company_name
+            changed_crm = True
+
+    if changed_results:
+        write_result_opportunities(conn, result_items)
+    if changed_crm:
+        write_crm_data(conn, crm_data)
+    return changed_results or changed_crm
+
+
 def save_quotation(conn, data, existing_row=None):
     existing = quotation_payload(existing_row) if existing_row else None
     item = quotation_validate(data, existing)
@@ -3435,6 +3474,8 @@ def save_quotation(conn, data, existing_row=None):
                 "details": linked_details,
                 "updatedBy": actor,
             }, linked_order_row)
+    if existing and text(existing.get("client")) != item["client"]:
+        sync_opportunity_name_from_quotation(conn, item["opportunityId"], item["client"])
     sync_opportunity_amount_from_latest_quotation(conn, item["opportunityId"])
     row = conn.execute("SELECT * FROM quotations WHERE id=?", (quote_id,)).fetchone()
     return quotation_payload(row)

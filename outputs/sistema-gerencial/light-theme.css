@@ -2380,3 +2380,5 @@ html body #quotationDialog .quotation-line output,
 html body #quotationDialog .quotation-totals strong { color: #117862 !important; }
 html body #quotationDialog .quotation-detail-toggle { border-color: #b9c8da !important; background: #eef3f8 !important; color: #243550 !important; }
 html body #quotationDialog .quotation-main-fields .quotation-document-type-field select { border-color: #c58b18 !important; background: #fff9eb !important; color: #17243b !important; box-shadow: 0 0 0 4px rgba(197,139,24,.12) !important; }
+html body #quotationDialog .quotation-client-name-field > span em { background: #dff7ef !important; color: #087763 !important; }
+html body #quotationDialog .quotation-client-name-field input { border-color: #42aa91 !important; background: #f4fffb !important; color: #17243b !important; box-shadow: 0 0 0 4px rgba(66,170,145,.12) !important; }
