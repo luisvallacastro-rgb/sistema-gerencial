@@ -8701,6 +8701,13 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   color: rgba(207, 220, 238, .38) !important;
 }
 
+#opportunityDialog .opportunity-prospect-contact small {
+  color: rgba(143, 238, 214, .64);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 #opportunityDialog .crm-form-section {
   gap: 8px !important;
   padding: 11px !important;

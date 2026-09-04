@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>KMI</title>
-    <link rel="stylesheet" href="styles.css?v=20260904-quotation-client-name-v263">
-    <link id="lightThemeStylesheet" rel="stylesheet" href="light-theme.css?v=20260904-quotation-client-name-v51" disabled>
+    <link rel="stylesheet" href="styles.css?v=20260904-opportunity-contact-v264">
+    <link id="lightThemeStylesheet" rel="stylesheet" href="light-theme.css?v=20260904-opportunity-contact-v52" disabled>
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -380,10 +380,18 @@
                     </div>
                     <small>Escriba el nombre directamente o use “Ver clientes” para elegir uno registrado y heredar sus datos.</small>
                   </label>
+          <label class="opportunity-prospect-contact">
+            Contacto / encargado
+            <input id="opportunityContact" maxlength="90" autocomplete="name" placeholder="Persona con quien se realizará la gestión">
+            <small>Dato provisional de la oportunidad.</small>
+          </label>
+          <label class="opportunity-prospect-contact">
+            Teléfono
+            <input id="opportunityPhone" type="tel" maxlength="28" autocomplete="tel" placeholder="Número de contacto">
+            <small>Será sustituido si se vincula otro cliente al convertir.</small>
+          </label>
           <div hidden aria-hidden="true">
             <input id="opportunityCompany" maxlength="80">
-            <input id="opportunityContact" maxlength="90">
-            <input id="opportunityPhone" maxlength="28">
             <select id="opportunitySegment"><option value=""></option></select>
             <select id="opportunityLocation"><option value=""></option></select>
           </div>

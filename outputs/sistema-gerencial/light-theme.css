@@ -523,6 +523,7 @@ dialog textarea:focus {
 }
 #opportunityDialog .opportunity-form input::placeholder,
 #opportunityDialog .opportunity-form textarea::placeholder { color: #9aa4b5 !important; }
+#opportunityDialog .opportunity-prospect-contact small { color: #397c70 !important; }
 #opportunityDialog .crm-form-section {
   border-color: rgba(104, 121, 147, .16) !important;
   background: rgba(240, 244, 249, .78) !important;
