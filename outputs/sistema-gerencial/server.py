@@ -1460,13 +1460,15 @@ def inherit_crm_customer_fields(data, payload):
     if not customer:
         return payload
     enriched = dict(payload)
-    enriched["company"] = text(customer.get("commercialName"), customer.get("legalName"))
-    enriched["contact"] = text(customer.get("contactName"), customer.get("manager"))
+    # A linked customer supplies defaults, but must never replace explicit edits
+    # already made on the opportunity (for example a didactic quotation rename).
+    enriched["company"] = text(payload.get("company"), customer.get("commercialName") or customer.get("legalName"))
+    enriched["contact"] = text(payload.get("contact"), payload.get("responsible") or customer.get("contactName") or customer.get("manager"))
     enriched["responsible"] = enriched["contact"]
-    enriched["phone"] = text(customer.get("phone"))
-    enriched["segment"] = text(customer.get("businessActivity"), customer.get("businessLine"))
+    enriched["phone"] = text(payload.get("phone"), customer.get("phone"))
+    enriched["segment"] = text(payload.get("segment"), customer.get("businessActivity") or customer.get("businessLine"))
     enriched["product"] = text(enriched.get("product"), enriched["segment"])
-    enriched["location"] = text(customer.get("address"), customer.get("department"))
+    enriched["location"] = text(payload.get("location"), customer.get("address") or customer.get("department"))
     return enriched
 
 

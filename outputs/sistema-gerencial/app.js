@@ -8650,9 +8650,9 @@ function refreshOpportunityCustomerOptions(selectedId = "", fallbackName = "") {
   if (!opportunityCustomerSearch) return;
   const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(selectedId));
   opportunityCustomerId.value = customer?.id || "";
-  opportunityCustomerSearch.value = customer
+  opportunityCustomerSearch.value = String(fallbackName || "").trim() || (customer
     ? (customer.commercialName || customer.legalName || "")
-    : String(fallbackName || "").trim();
+    : "");
   closeOpportunityCustomerResults();
 }
 
@@ -14493,8 +14493,7 @@ opportunityForm.addEventListener("submit", async (event) => {
     const selectedCustomer = crmMasterCustomers(true).find(
       (customer) => String(customer.id) === String(opportunityCustomerId.value)
     );
-    if (selectedCustomer) inheritCustomerInOpportunity(selectedCustomer.id);
-    else {
+    if (!selectedCustomer) {
       opportunityCustomerId.value = "";
       opportunityCompany.value = typedCustomerName;
     }
@@ -14509,9 +14508,7 @@ opportunityForm.addEventListener("submit", async (event) => {
     const temperature = temperatureRule.temperature;
     const payload = {
       customerId: selectedCustomer?.id || "",
-      company: selectedCustomer
-        ? (selectedCustomer.commercialName || selectedCustomer.legalName || typedCustomerName)
-        : typedCustomerName,
+      company: typedCustomerName,
       product: opportunitySegment.value.trim(),
       contact: opportunityContact.value.trim(),
       responsible: opportunityContact.value.trim(),
@@ -14562,7 +14559,6 @@ opportunityForm.addEventListener("submit", async (event) => {
   const selectedCustomer = crmMasterCustomers(true).find(
     (customer) => String(customer.id) === String(opportunityCustomerId.value)
   );
-  if (selectedCustomer) inheritCustomerInOpportunity(selectedCustomer.id);
   const temperatureRule = opportunityTemperatureRule(opportunityStage.value);
   const previousOpportunity = currentIndex >= 0 ? submenu.items[currentIndex] : null;
   const stageChanged = Boolean(previousOpportunity && normalizeStage(previousOpportunity.stage) !== opportunityStage.value);
@@ -14582,9 +14578,7 @@ opportunityForm.addEventListener("submit", async (event) => {
     date: opportunityDate.value,
     time: currentIndex >= 0 ? submenu.items[currentIndex].time || createdTime : createdTime,
     customerId: selectedCustomer?.id || "",
-    company: selectedCustomer
-      ? (selectedCustomer.commercialName || selectedCustomer.legalName || typedCustomerName)
-      : typedCustomerName,
+    company: typedCustomerName,
     seller: opportunitySeller.value.trim(),
     contact: opportunityContact.value.trim(),
     phone: opportunityPhone.value.trim(),
