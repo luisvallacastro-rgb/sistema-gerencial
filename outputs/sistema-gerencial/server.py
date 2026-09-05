@@ -2917,22 +2917,35 @@ def next_control_sales_order_number(conn, order_date):
 
 def save_control_sales_order(conn, data, existing_row=None):
     data = dict(data or {})
-    if not existing_row:
-        data["number"] = next_control_sales_order_number(conn, data.get("date"))
     existing = control_sales_order_payload(conn, existing_row) if existing_row else None
+    if existing_row:
+        expected_updated_at = text(data.get("expectedUpdatedAt"))
+        if expected_updated_at and expected_updated_at != text(existing.get("updatedAt")):
+            raise ValueError(
+                "Esta orden fue modificada por otro usuario. Recarga el registro antes de guardar para evitar sobrescribir cambios recientes"
+            )
+        # The correlative is the document identity. Never accept a stale form or
+        # a crafted update that tries to turn one saved order into another.
+        data["number"] = existing["number"]
+    else:
+        data["number"] = next_control_sales_order_number(conn, data.get("date"))
     item = control_sales_validate(data, existing)
+    if existing:
+        item["proformaData"]["workflow"] = text(
+            existing.get("proformaData", {}).get("workflow")
+        )
     order_id = existing_row["id"] if existing_row else f"cv-{uuid.uuid4()}"
     financial_order_id = text(
         data.get("financialOrderId"),
         existing.get("financialOrderId", "") if existing else "",
     )
-    source_opportunity_id = text(
-        data.get("sourceOpportunityId"),
-        existing.get("sourceOpportunityId", "") if existing else "",
+    source_opportunity_id = (
+        text(existing.get("sourceOpportunityId")) if existing
+        else text(data.get("sourceOpportunityId"))
     )
-    source_quotation_id = text(
-        data.get("sourceQuotationId"),
-        existing.get("sourceQuotationId", "") if existing else "",
+    source_quotation_id = (
+        text(existing.get("sourceQuotationId")) if existing
+        else text(data.get("sourceQuotationId"))
     )
     direct_order_flow = (
         item["proformaData"].get("workflow") == "direct-final-only"
@@ -2955,6 +2968,11 @@ def save_control_sales_order(conn, data, existing_row=None):
         ).fetchone()
         if not quotation:
             raise ValueError("La cotizacion seleccionada ya no existe")
+        if (
+            item["proformaData"].get("workflow") == "direct-final-only"
+            and not text(quotation["opportunity_id"]).startswith("direct-quotation:")
+        ):
+            raise ValueError("El flujo directo no corresponde al origen real de la cotizacion")
         if quotation["converted_order_id"] and quotation["converted_order_id"] != order_id:
             raise ValueError("Esta cotizacion ya fue convertida a pedido")
         try:
@@ -3010,7 +3028,7 @@ def save_control_sales_order(conn, data, existing_row=None):
         raise ValueError("Selecciona un pedido pendiente antes de crear la orden")
     duplicate = conn.execute("""
         SELECT id FROM control_sales_orders
-        WHERE lower(order_number) = lower(?) AND source = 'manual' AND id <> ?
+        WHERE lower(trim(order_number)) = lower(trim(?)) AND source = 'manual' AND id <> ?
     """, (item["number"], order_id)).fetchone()
     if duplicate:
         raise sqlite3.IntegrityError("Numero de orden duplicado")
@@ -5234,6 +5252,35 @@ def init_db():
             CREATE UNIQUE INDEX IF NOT EXISTS idx_control_sales_source_quotation_id
             ON control_sales_orders(source_quotation_id)
             WHERE source_quotation_id <> ''
+        """)
+        # Protect the printed OP identity at the database layer. These triggers
+        # tolerate old duplicate rows as long as their number is not reassigned,
+        # while blocking every new collision.
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS trg_control_sales_unique_manual_number_insert
+            BEFORE INSERT ON control_sales_orders
+            WHEN NEW.source = 'manual' AND EXISTS (
+                SELECT 1 FROM control_sales_orders
+                WHERE source = 'manual'
+                  AND lower(trim(order_number)) = lower(trim(NEW.order_number))
+            )
+            BEGIN
+                SELECT RAISE(ABORT, 'Numero de orden duplicado');
+            END
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS trg_control_sales_unique_manual_number_update
+            BEFORE UPDATE OF order_number ON control_sales_orders
+            WHEN NEW.source = 'manual'
+              AND lower(trim(NEW.order_number)) <> lower(trim(OLD.order_number))
+              AND EXISTS (
+                  SELECT 1 FROM control_sales_orders
+                  WHERE source = 'manual' AND id <> OLD.id
+                    AND lower(trim(order_number)) = lower(trim(NEW.order_number))
+              )
+            BEGIN
+                SELECT RAISE(ABORT, 'Numero de orden duplicado');
+            END
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS control_sales_details (

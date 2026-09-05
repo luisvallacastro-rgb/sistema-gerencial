@@ -3377,7 +3377,7 @@ function ensureControlSalesDialogs() {
         submit.textContent = "Registro financiero guardado";
         return;
       }
-      const payload = { financialOrderId:linkedFinancialOrder.id, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+      const payload = { expectedUpdatedAt:dialog.dataset.expectedUpdatedAt || "", financialOrderId:linkedFinancialOrder.id, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
       const response = await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
       const savedOrder = response.item;
       const completedDirectFlow = formDialog.dataset.directOrderFlow === "true";
@@ -5040,6 +5040,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   dialog.dataset.orderFormatOnly = formatOnly ? "true" : "false";
   dialog.dataset.financialCompletionOnly = financialCompletionOnly ? "true" : "false";
   dialog.dataset.directOrderFlow = directOrderFlow ? "true" : "false";
+  dialog.dataset.expectedUpdatedAt = order?.updatedAt || "";
   document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar pedido #${order.number}` : directOrderFlow ? "Nota de pedido directa" : "Nuevo pedido";
   const saveStatus = document.querySelector("#controlSalesSaveStatus");
   saveStatus.classList.add("hidden");
