@@ -23,7 +23,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = DATA_DIR / "sistema-gerencial.db"
 CHAT_UPLOAD_DIR = DATA_DIR / "chat-uploads"
 CHAT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-CHAT_RETENTION_SECONDS = 5 * 24 * 60 * 60
+CHAT_RETENTION_SECONDS = 24 * 60 * 60
 CHAT_MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
 CRM_SEED_PATH = ROOT / "crm-seed.json"
 ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
@@ -6002,9 +6002,9 @@ class AppHandler(BaseHTTPRequestHandler):
             if attachment:
                 attachment_name = Path(text(attachment.get("name"), "archivo")).name[:160]
                 attachment_type = text(attachment.get("type"), "application/octet-stream")[:100]
-                allowed = attachment_type in {"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain"}
+                allowed = attachment_type in {"application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain"}
                 if not allowed:
-                    self.send_json({"error": "Tipo de archivo no permitido"}, status=400)
+                    self.send_json({"error": "El chat no permite imágenes; adjunta únicamente documentos"}, status=400)
                     return
                 try:
                     attachment_bytes = base64.b64decode(text(attachment.get("data")), validate=True)
