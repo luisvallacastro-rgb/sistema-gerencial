@@ -6498,7 +6498,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not start_date or end_date < start_date:
                     self.send_json({"error": f"La agenda {item_index} tiene un rango de fechas inválido"}, status=400)
                     return
-                source_events = item.get("events") if isinstance(item.get("events"), list) else [{"date": text(item.get("date")) or start_date, "prospect": item.get("prospect"), "activity": item.get("activity"), "startTime": item.get("startTime") or "07:00", "endTime": item.get("endTime") or "08:00", "result": item.get("result")}]
+                source_events = item.get("events") if isinstance(item.get("events"), list) else [{"date": text(item.get("date")) or start_date, "prospect": item.get("prospect"), "activity": item.get("activity"), "startTime": item.get("startTime") or "07:00", "endTime": item.get("endTime") or "08:00", "comment": item.get("comment") or item.get("result")}]
                 clean_events = []
                 for event_index, event in enumerate(source_events, start=1):
                     if not isinstance(event, dict):
@@ -6520,7 +6520,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     if not valid_shift:
                         self.send_json({"error": f"El horario del evento {event_index} debe estar entre 7:00 a. m. y 5:00 p. m."}, status=400)
                         return
-                    clean_events.append({"id": text(event.get("id")) or str(uuid.uuid4()), "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "result": text(event.get("result"))})
+                    clean_events.append({"id": text(event.get("id")) or str(uuid.uuid4()), "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "comment": text(event.get("comment")) or text(event.get("result"))})
                 if not clean_events:
                     self.send_json({"error": f"La agenda {item_index} debe contener al menos un evento"}, status=400)
                     return
