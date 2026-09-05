@@ -6507,7 +6507,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     event_date, activity = text(event.get("date")), text(event.get("activity"))
                     prospect = text(event.get("prospect")) or text(item.get("prospect"))
                     start_time, end_time = text(event.get("startTime")), text(event.get("endTime"))
-                    valid_shift = "07:00" <= start_time < end_time <= "17:00"
+                    valid_shift = (("07:00" <= start_time < end_time <= "11:59") or ("13:00" <= start_time < end_time <= "17:00"))
                     if not prospect:
                         self.send_json({"error": f"El evento {event_index} de la agenda {item_index} no tiene cliente o prospecto"}, status=400)
                         return
@@ -6518,7 +6518,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_json({"error": f"La actividad del evento {event_index} no es válida"}, status=400)
                         return
                     if not valid_shift:
-                        self.send_json({"error": f"El horario del evento {event_index} debe estar entre 7:00 a. m. y 5:00 p. m."}, status=400)
+                        self.send_json({"error": f"El evento {event_index} debe quedar dentro de 7:00–11:59 a. m. o 1:00–5:00 p. m."}, status=400)
                         return
                     clean_events.append({"id": text(event.get("id")) or str(uuid.uuid4()), "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "comment": text(event.get("comment")) or text(event.get("result"))})
                 if not clean_events:
