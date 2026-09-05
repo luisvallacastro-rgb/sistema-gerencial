@@ -6489,24 +6489,41 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             activities = {"Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico", "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido", "Preparación de oferta", "Gestión de cobro"}
             clean = []
-            for item in items:
+            for item_index, item in enumerate(items, start=1):
                 if not isinstance(item, dict) or not text(item.get("seller")):
-                    continue
+                    self.send_json({"error": f"La agenda {item_index} no tiene un vendedor válido"}, status=400)
+                    return
                 start_date = text(item.get("startDate")) or text(item.get("date"))
                 end_date = text(item.get("endDate")) or start_date
                 if not start_date or end_date < start_date:
-                    continue
+                    self.send_json({"error": f"La agenda {item_index} tiene un rango de fechas inválido"}, status=400)
+                    return
                 source_events = item.get("events") if isinstance(item.get("events"), list) else [{"date": text(item.get("date")) or start_date, "prospect": item.get("prospect"), "activity": item.get("activity"), "startTime": item.get("startTime") or "07:00", "endTime": item.get("endTime") or "08:00", "result": item.get("result")}]
                 clean_events = []
-                for event in source_events:
-                    if not isinstance(event, dict): continue
+                for event_index, event in enumerate(source_events, start=1):
+                    if not isinstance(event, dict):
+                        self.send_json({"error": f"El evento {event_index} de la agenda {item_index} es inválido"}, status=400)
+                        return
                     event_date, activity = text(event.get("date")), text(event.get("activity"))
                     prospect = text(event.get("prospect")) or text(item.get("prospect"))
                     start_time, end_time = text(event.get("startTime")), text(event.get("endTime"))
-                    valid_shift = (("07:00" <= start_time < end_time <= "12:00") or ("13:00" <= start_time < end_time <= "17:00"))
-                    if not prospect or not (start_date <= event_date <= end_date) or activity not in activities or not valid_shift: continue
+                    valid_shift = "07:00" <= start_time < end_time <= "17:00"
+                    if not prospect:
+                        self.send_json({"error": f"El evento {event_index} de la agenda {item_index} no tiene cliente o prospecto"}, status=400)
+                        return
+                    if not (start_date <= event_date <= end_date):
+                        self.send_json({"error": f"La fecha del evento {event_index} debe estar entre {start_date} y {end_date}"}, status=400)
+                        return
+                    if activity not in activities:
+                        self.send_json({"error": f"La actividad del evento {event_index} no es válida"}, status=400)
+                        return
+                    if not valid_shift:
+                        self.send_json({"error": f"El horario del evento {event_index} debe estar entre 7:00 a. m. y 5:00 p. m."}, status=400)
+                        return
                     clean_events.append({"id": text(event.get("id")) or str(uuid.uuid4()), "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "result": text(event.get("result"))})
-                if not clean_events: continue
+                if not clean_events:
+                    self.send_json({"error": f"La agenda {item_index} debe contener al menos un evento"}, status=400)
+                    return
                 clean.append({"id": text(item.get("id")) or str(uuid.uuid4()), "startDate": start_date, "endDate": end_date, "seller": text(item.get("seller")), "description": text(item.get("description")) or text(item.get("objective")), "events": clean_events, "updatedAt": datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")})
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key,value,updated_at) VALUES ('commercial_agenda',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
