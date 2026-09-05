@@ -13346,13 +13346,11 @@ function openInternalChat(user) {
   windowElement.className = "internal-chat-window";
   windowElement.setAttribute("aria-label", `Chat con ${user.name || "usuario"}`);
   windowElement.classList.toggle("peer-offline", user._online === false);
-  windowElement.innerHTML = `<header><div><i></i><span><strong>${escapeHtml(user.name || "Usuario")}</strong><small data-internal-chat-status>${user._online === false ? "Desconectado" : "En línea"} · historial 1 día</small></span></div><button type="button" data-internal-chat-close aria-label="Cerrar chat">×</button></header><div class="internal-chat-messages" data-internal-chat-messages><div class="internal-chat-loading">Cargando conversación…</div></div><form data-internal-chat-form><div class="internal-chat-compose"><div class="internal-chat-tools"><button type="button" data-chat-emoji aria-label="Agregar emoji" title="Emojis">☺</button><button type="button" data-chat-file aria-label="Adjuntar documento" title="Adjuntar documento">⌕</button><span data-chat-file-name></span></div><div class="internal-chat-emojis" data-chat-emojis hidden><div class="internal-chat-emojis-head"><strong>Emojis</strong><button type="button" class="internal-chat-emojis-close" data-chat-emojis-close aria-label="Cerrar emojis">×</button></div><div class="internal-chat-emojis-grid">${["😀","😂","😍","🥳","😊","👍","👏","🙏","❤️","🔥","✅","🎉","😮","😢","🤝","💡"].map((emoji) => `<button type="button" data-chat-emoji-value="${emoji}" aria-label="Agregar ${emoji}">${emoji}</button>`).join("")}</div></div><textarea rows="1" maxlength="2000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><input type="file" data-chat-file-input hidden accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"></div><button class="internal-chat-send" type="submit" aria-label="Enviar mensaje">➤</button></form>`;
+  windowElement.innerHTML = `<header><div><i></i><span><strong>${escapeHtml(user.name || "Usuario")}</strong><small data-internal-chat-status>${user._online === false ? "Desconectado" : "En línea"} · historial 1 día</small></span></div><button type="button" data-internal-chat-close aria-label="Cerrar chat">×</button></header><div class="internal-chat-messages" data-internal-chat-messages><div class="internal-chat-loading">Cargando conversación…</div></div><form data-internal-chat-form><div class="internal-chat-compose"><div class="internal-chat-tools"><button type="button" data-chat-emoji aria-label="Agregar emoji" title="Emojis">☺</button></div><div class="internal-chat-emojis" data-chat-emojis hidden><div class="internal-chat-emojis-head"><strong>Emojis</strong><button type="button" class="internal-chat-emojis-close" data-chat-emojis-close aria-label="Cerrar emojis">×</button></div><div class="internal-chat-emojis-grid">${["😀","😂","😍","🥳","😊","👍","👏","🙏","❤️","🔥","✅","🎉","😮","😢","🤝","💡"].map((emoji) => `<button type="button" data-chat-emoji-value="${emoji}" aria-label="Agregar ${emoji}">${emoji}</button>`).join("")}</div></div><textarea rows="1" maxlength="2000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea></div><button class="internal-chat-send" type="submit" aria-label="Enviar mensaje">➤</button></form>`;
   document.body.appendChild(windowElement);
   windowElement.querySelector("[data-internal-chat-close]").addEventListener("click", closeInternalChat);
   const form = windowElement.querySelector("[data-internal-chat-form]");
   const input = form.querySelector("textarea");
-  const fileInput = form.querySelector("[data-chat-file-input]");
-  const fileName = form.querySelector("[data-chat-file-name]");
   const emojiPicker = form.querySelector("[data-chat-emojis]");
   const emojiToggle = form.querySelector("[data-chat-emoji]");
   const emojiClose = form.querySelector("[data-chat-emojis-close]");
@@ -13361,22 +13359,15 @@ function openInternalChat(user) {
   form.querySelectorAll("[data-chat-emoji-value]").forEach((button) => button.addEventListener("click", () => { input.value += button.dataset.chatEmojiValue; emojiPicker.hidden = true; input.focus(); }));
   windowElement.addEventListener("click", (event) => { if (!emojiPicker.hidden && !emojiPicker.contains(event.target) && !emojiToggle.contains(event.target)) emojiPicker.hidden = true; });
   windowElement.addEventListener("keydown", (event) => { if (event.key === "Escape" && !emojiPicker.hidden) { event.preventDefault(); emojiPicker.hidden = true; input.focus(); } });
-  form.querySelector("[data-chat-file]").addEventListener("click", () => fileInput.click());
-  fileInput.addEventListener("change", () => { const file = fileInput.files?.[0]; if (file && file.size > 8 * 1024 * 1024) { alert("El archivo debe pesar menos de 8 MB."); fileInput.value = ""; } fileName.textContent = fileInput.files?.[0]?.name || ""; });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const body = input.value.trim();
-    const file = fileInput.files?.[0];
-    if ((!body && !file) || !internalChatPeer) return;
+    if (!body || !internalChatPeer) return;
     const button = form.querySelector(".internal-chat-send");
     button.disabled = true;
     try {
-      let attachment = null;
-      if (file) attachment = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve({ name:file.name, type:file.type || "application/octet-stream", data:String(reader.result).split(",")[1] }); reader.onerror = reject; reader.readAsDataURL(file); });
-      await apiJson("/api/chat", { method: "POST", body: JSON.stringify({ recipientId: internalChatPeer.user_id, body, attachment }) });
+      await apiJson("/api/chat", { method: "POST", body: JSON.stringify({ recipientId: internalChatPeer.user_id, body }) });
       input.value = "";
-      fileInput.value = "";
-      fileName.textContent = "";
       await loadInternalChat();
       input.focus();
     } catch (error) { alert(error.message || "No fue posible enviar el mensaje."); }

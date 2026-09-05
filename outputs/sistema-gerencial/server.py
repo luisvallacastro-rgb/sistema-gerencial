@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import base64
 import json
 import mimetypes
 import os
@@ -24,7 +23,6 @@ DB_PATH = DATA_DIR / "sistema-gerencial.db"
 CHAT_UPLOAD_DIR = DATA_DIR / "chat-uploads"
 CHAT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 CHAT_RETENTION_SECONDS = 24 * 60 * 60
-CHAT_MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024
 CRM_SEED_PATH = ROOT / "crm-seed.json"
 ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
 PURCHASE_ORDERS_SEED_PATH = ROOT / "purchase-orders-seed.json"
@@ -5998,25 +5996,9 @@ class AppHandler(BaseHTTPRequestHandler):
             message_id = f"chat-{uuid.uuid4()}"
             attachment_name = attachment_type = attachment_path = ""
             attachment_size = 0
-            attachment_bytes = b""
             if attachment:
-                attachment_name = Path(text(attachment.get("name"), "archivo")).name[:160]
-                attachment_type = text(attachment.get("type"), "application/octet-stream")[:100]
-                allowed = attachment_type in {"application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/plain"}
-                if not allowed:
-                    self.send_json({"error": "El chat no permite imágenes; adjunta únicamente documentos"}, status=400)
-                    return
-                try:
-                    attachment_bytes = base64.b64decode(text(attachment.get("data")), validate=True)
-                except Exception:
-                    self.send_json({"error": "Archivo inválido"}, status=400)
-                    return
-                attachment_size = len(attachment_bytes)
-                if not attachment_size or attachment_size > CHAT_MAX_ATTACHMENT_BYTES:
-                    self.send_json({"error": "El archivo debe pesar menos de 8 MB"}, status=400)
-                    return
-                extension = Path(attachment_name).suffix[:12]
-                attachment_path = f"{message_id}{extension}"
+                self.send_json({"error": "Los adjuntos están deshabilitados en el chat"}, status=400)
+                return
             with connect() as conn:
                 cleanup_expired_chat(conn)
                 actor = conn.execute("SELECT id, name FROM users WHERE id = ?", (actor_id,)).fetchone()
@@ -6024,12 +6006,6 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not actor or not recipient:
                     self.send_json({"error": "Usuario no encontrado"}, status=404)
                     return
-                if attachment_path:
-                    try:
-                        (CHAT_UPLOAD_DIR / attachment_path).write_bytes(attachment_bytes)
-                    except OSError:
-                        self.send_json({"error": "No fue posible guardar el archivo adjunto"}, status=500)
-                        return
                 conn.execute("""
                     INSERT INTO internal_chat_messages (id, sender_id, recipient_id, body, created_at, attachment_name, attachment_type, attachment_path, attachment_size)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
