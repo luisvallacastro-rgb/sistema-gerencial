@@ -4676,10 +4676,22 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
     }
     field.value = normalizedValue ?? "";
   });
-  document.querySelector("#quotationCustomerId").value = quote?.customerId || quote?.customerData?.customerId || customerOverride?.id || opportunity?.customerId || "";
+  const requestedCustomerId = quote?.customerId || quote?.customerData?.customerId || customerOverride?.id || opportunity?.customerId || "";
+  const activeCustomer = (crmData().customers || []).find((item) => (
+    String(item.id || "") === String(requestedCustomerId) && item.active !== false
+  ));
+  const opportunityBacked = Boolean(opportunity?.id) && !String(opportunity.id).startsWith("direct-quotation:");
+  document.querySelector("#quotationCustomerId").value = activeCustomer?.id || "";
   const linkedCustomerId = document.querySelector("#quotationCustomerId").value;
   const linkedCustomerStatus = document.querySelector("[data-quotation-customer-link-status]");
-  if (linkedCustomerStatus) { linkedCustomerStatus.textContent = linkedCustomerId ? `Cliente existente vinculado · ${linkedCustomerId}` : "Sin vínculo con el maestro de clientes"; linkedCustomerStatus.dataset.linked = linkedCustomerId ? "true" : "false"; }
+  if (linkedCustomerStatus) {
+    linkedCustomerStatus.textContent = linkedCustomerId
+      ? `Cliente existente vinculado · ${linkedCustomerId}`
+      : opportunityBacked
+        ? "Vinculada directamente con la oportunidad · no requiere cliente maestro"
+        : "Sin vínculo con el maestro de clientes";
+    linkedCustomerStatus.dataset.linked = linkedCustomerId ? "true" : "false";
+  }
   document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:"", quantity:"1" }]).map(quotationLineTemplate).join("");
   refreshQuotationTitlePositionMenu();
   const referenceAmount = Number(opportunity?.quotationReferenceAmount ?? opportunity?.estimatedAmount ?? 0);
