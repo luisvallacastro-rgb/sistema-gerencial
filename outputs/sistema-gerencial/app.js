@@ -3737,7 +3737,14 @@ function savedQuotationRows() {
 function canManageQuotation(quotation) {
   if (state.currentUser?.role !== "vendedores") return true;
   const opportunity = crmOpportunityForQuotation(quotation.opportunityId);
-  return Boolean(opportunity && canManageCrmOpportunity(opportunity));
+  if (opportunity && canManageCrmOpportunity(opportunity)) return true;
+  const currentIdentity = crmIdentityKey(state.currentUser?.name || state.currentUser?.username || "");
+  if (currentIdentity && crmIdentityKey(quotation.createdBy) === currentIdentity) return true;
+  const linkedSellerId = crmLinkedSellerId();
+  const linkedSeller = (state.crmData?.sellers || state.crmData?.users || [])
+    .find((seller) => String(seller.id) === String(linkedSellerId));
+  const responsibleName = linkedSeller?.name || state.currentUser?.name || "";
+  return Boolean(responsibleName && crmIdentityKey(quotation.seller) === crmIdentityKey(responsibleName));
 }
 
 function availableQuotationOpportunities() {
@@ -4455,7 +4462,13 @@ function ensureQuotationDialog() {
       renderQuotationHistory(document.querySelector("#quotationOpportunityId").value, selectedQuote?.id || "");
     }
     if (event.target.closest("[data-quotation-delete]")) { await deleteQuotationFromForm(); return; }
-    if (event.target.closest("[data-quotation-preview]")) printQuotation(quotationDraftFromForm());
+    if (event.target.closest("[data-quotation-preview]")) {
+      const quotationId = document.querySelector("#quotationId")?.value || "";
+      const existing = state.quotations.find((item) => String(item.id) === String(quotationId));
+      if (dialog.dataset.readOnly === "true" && existing) printQuotation(existing);
+      else await saveQuotationFromForm("", true);
+      return;
+    }
     if (event.target.closest("[data-quotation-direct-convert]")) {
       const savedQuote = await saveQuotationFromForm("Aprobada");
       if (!savedQuote) return;
