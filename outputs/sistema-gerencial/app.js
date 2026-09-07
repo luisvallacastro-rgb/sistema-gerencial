@@ -9656,7 +9656,7 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
 
 function renderCrmCustomerViewTabs(active = "master") {
   const pending = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === "pendiente").length;
-  const directQuotations = state.quotations.filter((item) => String(item.opportunityId || "").startsWith("direct-quotation:")).length;
+  const directQuotations = state.quotations.filter(isCustomerFlowQuotation).length;
   const directOrders = state.controlSales.filter((item) => {
     const quotation = linkedQuotationForControlSalesOrder(item);
     return isDirectOrderFlow(item) || String(quotation?.opportunityId || "").startsWith("direct-quotation:");
@@ -9667,6 +9667,12 @@ function renderCrmCustomerViewTabs(active = "master") {
     <button type="button" data-crm-customer-view="quotations" class="${active === "quotations" ? "active" : ""}">Cotizaciones <b>${directQuotations}</b></button>
     <button type="button" data-crm-customer-view="orders" class="${active === "orders" ? "active" : ""}">Órdenes de pedido <b>${directOrders}</b></button>
   </nav>`;
+}
+
+function isCustomerFlowQuotation(quotation = {}) {
+  const linkedOrder = quotationLinkedOrder(quotation);
+  return String(quotation.opportunityId || "").startsWith("direct-quotation:")
+    || Boolean(linkedOrder && isDirectOrderFlow(linkedOrder));
 }
 
 function switchCrmCustomerView(view) {
@@ -9683,7 +9689,7 @@ function customerFlowOrders() {
 
 function renderCrmCustomerDocuments(view) {
   const quotations = state.quotations
-    .filter((item) => String(item.opportunityId || "").startsWith("direct-quotation:"))
+    .filter(isCustomerFlowQuotation)
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
   const orders = customerFlowOrders();
   const isQuotationView = view === "quotations";
