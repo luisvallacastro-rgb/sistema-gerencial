@@ -3411,10 +3411,12 @@ def sync_opportunity_amount_from_latest_quotation(conn, opportunity_id):
     return next_amount
 
 
-def sync_opportunity_name_from_quotation(conn, opportunity_id, company_name):
-    """Update only the opportunity linked by an exact identifier."""
+def sync_opportunity_name_from_quotation(conn, opportunity_id, company_name, customer=None):
+    """Update the exact linked opportunity, including its selected master-customer key."""
     opportunity_id = text(opportunity_id)
     company_name = text(company_name)
+    customer = customer if isinstance(customer, dict) else {}
+    customer_id = text(customer.get("customerId"))
     if not opportunity_id or not company_name or opportunity_id.startswith("direct-quotation:"):
         return False
 
@@ -3435,13 +3437,29 @@ def sync_opportunity_name_from_quotation(conn, opportunity_id, company_name):
             if result.get("company") != company_name:
                 result["company"] = company_name
                 changed_results = True
+            customer_patch = {
+                "customerId": customer_id,
+                "contact": text(customer.get("contactName")),
+                "responsible": text(customer.get("contactName")),
+                "phone": text(customer.get("phone")),
+                "location": text(customer.get("address")),
+            }
+            for key, value in customer_patch.items():
+                if value and result.get(key) != value:
+                    result[key] = value; changed_results = True
             if crm_id:
                 linked_crm_ids.add(crm_id)
 
     for opportunity in crm_data.get("opportunities", []):
-        if text(opportunity.get("id")) in linked_crm_ids and opportunity.get("company") != company_name:
-            opportunity["company"] = company_name
-            changed_crm = True
+        if text(opportunity.get("id")) in linked_crm_ids:
+            customer_patch = {
+                "company": company_name, "customerId": customer_id,
+                "contact": text(customer.get("contactName")), "responsible": text(customer.get("contactName")),
+                "phone": text(customer.get("phone")), "location": text(customer.get("address")),
+            }
+            for key, value in customer_patch.items():
+                if value and opportunity.get(key) != value:
+                    opportunity[key] = value; changed_crm = True
 
     if changed_results:
         write_result_opportunities(conn, result_items)
@@ -3453,6 +3471,29 @@ def sync_opportunity_name_from_quotation(conn, opportunity_id, company_name):
 def save_quotation(conn, data, existing_row=None):
     existing = quotation_payload(existing_row) if existing_row else None
     item = quotation_validate(data, existing)
+    existing_customer = existing.get("customerData") if existing and isinstance(existing.get("customerData"), dict) else {}
+    previous_customer_id = text(existing_customer.get("customerId"))
+    selected_customer_id = text(item["customerData"].get("customerId"))
+    if selected_customer_id and selected_customer_id != previous_customer_id:
+        customer = next((entry for entry in read_crm_data(conn).get("customers", []) if text(entry.get("id")) == selected_customer_id and entry.get("active") is not False), None)
+        if not customer:
+            raise ValueError("El cliente seleccionado ya no existe o está inactivo")
+        official_name = text(customer.get("commercialName") or customer.get("legalName"))
+        item["client"] = official_name
+        item["customerData"].update({
+            "customerId": selected_customer_id, "commercialName": official_name,
+            "legalName": text(customer.get("legalName")),
+            "contactName": text(customer.get("contactName") or customer.get("manager")),
+            "phone": text(customer.get("phone")), "email": text(customer.get("email")),
+            "address": text(customer.get("address") or customer.get("department")),
+            "businessActivity": text(customer.get("businessActivity") or customer.get("businessLine")),
+            "taxId": text(customer.get("taxId") or customer.get("nit")),
+            "registrationNumber": text(customer.get("registrationNumber") or customer.get("nrc")),
+            "taxpayerType": text(customer.get("taxpayerType")),
+            "customerCode": text(customer.get("customerCode") or customer.get("code")),
+            "clientType": text(customer.get("clientType")), "department": text(customer.get("department")),
+            "municipality": text(customer.get("municipality")),
+        })
     if item["opportunityId"].startswith("direct-quotation:"):
         customer_id = text(item["customerData"].get("customerId"))
         customers = read_crm_data(conn).get("customers", [])
@@ -3543,8 +3584,8 @@ def save_quotation(conn, data, existing_row=None):
                 "details": linked_details,
                 "updatedBy": actor,
             }, linked_order_row)
-    if existing and text(existing.get("client")) != item["client"]:
-        sync_opportunity_name_from_quotation(conn, item["opportunityId"], item["client"])
+    if existing and (text(existing.get("client")) != item["client"] or previous_customer_id != selected_customer_id):
+        sync_opportunity_name_from_quotation(conn, item["opportunityId"], item["client"], item["customerData"])
     sync_opportunity_amount_from_latest_quotation(conn, item["opportunityId"])
     row = conn.execute("SELECT * FROM quotations WHERE id=?", (quote_id,)).fetchone()
     return quotation_payload(row)

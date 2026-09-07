@@ -4363,7 +4363,7 @@ function ensureQuotationDialog() {
     <input type="hidden" id="quotationId"><input type="hidden" id="quotationOpportunityId"><input type="hidden" id="quotationCustomerId">
     <section id="quotationHistory" class="quotation-history"></section>
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
-    <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable quotation-client-name-field"><span>Cliente / nombre de la cotización <em>Actualiza la oportunidad vinculada</em></span><input id="quotationCommercialName" maxlength="120" autocomplete="organization" required></label><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label><label class="quotation-field-editable quotation-document-type-field"><span>Tipo de comprobante <em>Dato fiscal clave</em></span><select id="quotationDocumentType" required><option value="CF">Consumidor final · IVA incluido</option><option value="CCF">Crédito fiscal · agregar IVA 13%</option></select></label></section>
+    <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable quotation-client-name-field"><span>Cliente / nombre de la cotización <em>Actualiza la oportunidad vinculada</em></span><div class="quotation-client-link-row"><input id="quotationCommercialName" maxlength="120" autocomplete="organization" required><button type="button" data-quotation-link-customer>Vincular cliente existente</button></div><small data-quotation-customer-link-status></small></label><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label><label class="quotation-field-editable quotation-document-type-field"><span>Tipo de comprobante <em>Dato fiscal clave</em></span><select id="quotationDocumentType" required><option value="CF">Consumidor final · IVA incluido</option><option value="CCF">Crédito fiscal · agregar IVA 13%</option></select></label></section>
     <div id="quotationInheritedData" hidden aria-hidden="true"><input id="quotationLegalName"><input id="quotationContactName"><input id="quotationPhone"><input id="quotationEmail"><input id="quotationAddress"><input id="quotationBusinessActivity"><input id="quotationTaxId"><input id="quotationRegistrationNumber"><input id="quotationTaxpayerType"><input id="quotationCustomerCode"><input id="quotationStrategy"><input id="quotationClientType"><input id="quotationDepartment"><input id="quotationMunicipality"><input id="quotationSeller"><input id="quotationSellerPhone"><input id="quotationSellerEmail"></div>
     <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div id="quotationLines"></div></section>
     <section class="quotation-totals">
@@ -4479,6 +4479,7 @@ function ensureQuotationDialog() {
       firstField?.focus();
       firstField?.select();
     }
+    if (event.target.closest("[data-quotation-link-customer]")) openQuotationCustomerLinkDialog();
   });
   dialog.addEventListener("input", (event) => {
     const line = event.target.closest(".quotation-line");
@@ -4499,6 +4500,38 @@ function ensureQuotationDialog() {
     updateQuotationTotals();
   });
   document.querySelector("#quotationForm").addEventListener("submit", async (event) => { event.preventDefault(); await saveQuotationFromForm(); });
+}
+
+function applyMasterCustomerToQuotation(customer) {
+  const current = quotationDraftFromForm();
+  const data = masterCustomerQuotationData(customer, current);
+  const fields = {
+    quotationCustomerId:customer.id, quotationCommercialName:data.commercialName,
+    quotationLegalName:data.legalName, quotationContactName:data.contactName,
+    quotationPhone:data.phone, quotationEmail:data.email, quotationAddress:data.address,
+    quotationBusinessActivity:data.businessActivity, quotationTaxId:data.taxId,
+    quotationRegistrationNumber:data.registrationNumber, quotationTaxpayerType:data.taxpayerType,
+    quotationCustomerCode:data.customerCode, quotationStrategy:data.strategy,
+    quotationClientType:data.clientType, quotationDepartment:data.department,
+    quotationMunicipality:data.municipality, quotationPaymentTerms:data.paymentTerms,
+    quotationDocumentType:data.documentType
+  };
+  Object.entries(fields).forEach(([id, value]) => { const field = document.querySelector(`#${id}`); if (field) field.value = value || ""; });
+  document.querySelector("#quotationDocumentType")?.dispatchEvent(new Event("change", { bubbles:true }));
+  const status = document.querySelector("[data-quotation-customer-link-status]");
+  if (status) { status.textContent = `Vinculado: ${data.commercialName} · ID ${customer.clientNumber || customer.customerCode || customer.id}`; status.dataset.linked = "true"; }
+}
+
+function openQuotationCustomerLinkDialog() {
+  document.querySelector("#quotationCustomerLinkDialog")?.remove();
+  const dialog = document.createElement("dialog");
+  dialog.id = "quotationCustomerLinkDialog"; dialog.className = "direct-order-customer-dialog quotation-customer-link-dialog";
+  dialog.innerHTML = `<section class="direct-order-customer-card"><header><div><span>MAESTRO DE CLIENTES</span><h3>Vincular cliente existente</h3><p>El cliente elegido reemplazará el nombre y los datos heredados al guardar la cotización.</p></div><button type="button" data-link-customer-close aria-label="Cerrar">×</button></header><div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-link-customer-search placeholder="Buscar nombre, razón social, NIT o contacto..."></label></div><div class="direct-order-customer-list" data-link-customer-list></div></section>`;
+  const render = (search = "") => { const query = normalizeKey(search); const customers = crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query)); dialog.querySelector("[data-link-customer-list]").innerHTML = customers.map((customer) => `<button type="button" class="direct-order-customer-option" data-link-quotation-customer="${escapeHtml(customer.id)}"><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customer.clientNumber || customer.customerCode || "—")} · ${escapeHtml(customer.taxId || "Sin NIT")}</em><b>Vincular →</b></button>`).join("") || `<div class="direct-order-customer-empty">No se encontraron clientes con ese criterio.</div>`; };
+  dialog.querySelector("[data-link-customer-close]").onclick = () => dialog.close();
+  dialog.querySelector("[data-link-customer-search]").oninput = (event) => render(event.target.value);
+  dialog.querySelector("[data-link-customer-list]").onclick = (event) => { const button = event.target.closest("[data-link-quotation-customer]"); if (!button) return; const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.linkQuotationCustomer)); if (!customer) return; applyMasterCustomerToQuotation(customer); dialog.close(); };
+  document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once:true }); render(); dialog.showModal(); requestAnimationFrame(() => dialog.querySelector("[data-link-customer-search]").focus());
 }
 
 function quotationDraftFromForm() {
@@ -4588,6 +4621,9 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
     field.value = normalizedValue ?? "";
   });
   document.querySelector("#quotationCustomerId").value = quote?.customerId || quote?.customerData?.customerId || customerOverride?.id || opportunity?.customerId || "";
+  const linkedCustomerId = document.querySelector("#quotationCustomerId").value;
+  const linkedCustomerStatus = document.querySelector("[data-quotation-customer-link-status]");
+  if (linkedCustomerStatus) { linkedCustomerStatus.textContent = linkedCustomerId ? `Cliente existente vinculado · ${linkedCustomerId}` : "Sin vínculo con el maestro de clientes"; linkedCustomerStatus.dataset.linked = linkedCustomerId ? "true" : "false"; }
   document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:"", quantity:"1" }]).map(quotationLineTemplate).join("");
   refreshQuotationTitlePositionMenu();
   const referenceAmount = Number(opportunity?.quotationReferenceAmount ?? opportunity?.estimatedAmount ?? 0);
@@ -4607,6 +4643,7 @@ function setQuotationDialogReadOnly(dialog, readOnly) {
   dialog.classList.toggle("is-readonly", readOnly);
   dialog.querySelectorAll("input:not([type='hidden']), select, textarea").forEach((field) => { field.disabled = readOnly; });
   dialog.querySelectorAll("[data-quotation-add-line], [data-quotation-add-title], [data-quotation-remove-line]").forEach((button) => button.classList.toggle("hidden", readOnly));
+  dialog.querySelector("[data-quotation-link-customer]")?.classList.toggle("hidden", readOnly);
   const directOrderFlow = dialog.dataset.directOrderFlow === "true";
   const quotationId = document.querySelector("#quotationId")?.value || "";
   const activeQuotation = state.quotations.find((quotation) => String(quotation.id) === String(quotationId));
@@ -9554,6 +9591,17 @@ function renderOrderRequirementCustomers(search = "") {
 }
 
 async function prepareQuotationOrderConversion(opportunity, quotation, onReady) {
+  const linkedCustomerId = quotation.customerId || quotation.customerData?.customerId;
+  const linkedCustomer = crmMasterCustomers(true).find((customer) => String(customer.id) === String(linkedCustomerId) && customer.active !== false);
+  if (linkedCustomer) {
+    try {
+      const synced = await bindMasterCustomerForOrder(opportunity, quotation, linkedCustomer);
+      onReady(synced.opportunity, synced.quotation);
+      return;
+    } catch (error) {
+      alert(error.message || "No fue posible confirmar el cliente vinculado. Selecciónalo nuevamente.");
+    }
+  }
   const dialog = ensureOrderCustomerDialog();
   dialog.pendingConversion = { opportunity, quotation, onReady };
   const search = dialog.querySelector("[data-order-customer-search]");
