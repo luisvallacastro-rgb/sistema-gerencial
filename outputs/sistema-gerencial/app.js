@@ -10607,7 +10607,7 @@ function wireBankAvailability() {
 const commercialAgendaActivities = ["Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico", "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido", "Preparación de oferta", "Gestión de cobro"];
 function saveCommercialAgenda() { return apiJson("/api/commercial-agenda", { method:"PUT", body:JSON.stringify({items:state.commercialAgenda}) }).then((response) => { state.commercialAgenda = response.items || []; }); }
 function commercialAgendaItemEvents(item) {
-  if (Array.isArray(item.events) && item.events.length) return item.events;
+  if (Array.isArray(item.events) && item.events.length) return item.events.map((event,index)=>({...event,id:event.id||`${item.id}-event-${index+1}`}));
   return [{ id:`${item.id}-event`, date:item.date || item.startDate, prospect:item.prospect || "", startTime:item.startTime || "07:00", endTime:item.endTime || "08:00", activity:item.activity || commercialAgendaActivities[0], comment:item.comment || item.result || "" }];
 }
 function commercialAgendaTimeLabel(value) { return value ? formatTime(value) : "—"; }

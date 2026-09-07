@@ -137,8 +137,12 @@ def apply_commercial_agenda_validation(items, event_id, validation):
                 "comment": text(item.get("comment")) or text(item.get("result")),
             }]
             item["events"] = agenda_events
-        for agenda_event in agenda_events:
-            if isinstance(agenda_event, dict) and text(agenda_event.get("id")) == event_id:
+        for event_index, agenda_event in enumerate(agenda_events, start=1):
+            stable_event_id = text(agenda_event.get("id")) if isinstance(agenda_event, dict) else ""
+            if not stable_event_id:
+                stable_event_id = f"{text(item.get('id'))}-event-{event_index}"
+            if isinstance(agenda_event, dict) and stable_event_id == event_id:
+                agenda_event["id"] = stable_event_id
                 agenda_event["validation"] = validation
                 return True
     return False
