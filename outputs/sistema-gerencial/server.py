@@ -3050,7 +3050,7 @@ def save_control_sales_order(conn, data, existing_row=None):
             quotation_customer = {}
         customer_id = text(quotation_customer.get("customerId"))
         crm_customers = read_crm_data(conn).get("customers", [])
-        if not existing_row and (
+        if not existing_row and direct_order_flow and (
             not customer_id
             or not any(text(customer.get("id")) == customer_id for customer in crm_customers)
         ):
@@ -3573,24 +3573,28 @@ def save_quotation(conn, data, existing_row=None):
     selected_customer_id = text(item["customerData"].get("customerId"))
     if selected_customer_id and selected_customer_id != previous_customer_id:
         customer = next((entry for entry in read_crm_data(conn).get("customers", []) if text(entry.get("id")) == selected_customer_id and entry.get("active") is not False), None)
-        if not customer:
+        if not customer and not item["opportunityId"].startswith("direct-quotation:"):
+            selected_customer_id = ""
+            item["customerData"]["customerId"] = ""
+        elif not customer:
             raise ValueError("El cliente seleccionado ya no existe o está inactivo")
-        official_name = text(customer.get("commercialName") or customer.get("legalName"))
-        item["client"] = official_name
-        item["customerData"].update({
-            "customerId": selected_customer_id, "commercialName": official_name,
-            "legalName": text(customer.get("legalName")),
-            "contactName": text(customer.get("contactName") or customer.get("manager")),
-            "phone": text(customer.get("phone")), "email": text(customer.get("email")),
-            "address": text(customer.get("address") or customer.get("department")),
-            "businessActivity": text(customer.get("businessActivity") or customer.get("businessLine")),
-            "taxId": text(customer.get("taxId") or customer.get("nit")),
-            "registrationNumber": text(customer.get("registrationNumber") or customer.get("nrc")),
-            "taxpayerType": text(customer.get("taxpayerType")),
-            "customerCode": text(customer.get("customerCode") or customer.get("code")),
-            "clientType": text(customer.get("clientType")), "department": text(customer.get("department")),
-            "municipality": text(customer.get("municipality")),
-        })
+        else:
+            official_name = text(customer.get("commercialName") or customer.get("legalName"))
+            item["client"] = official_name
+            item["customerData"].update({
+                "customerId": selected_customer_id, "commercialName": official_name,
+                "legalName": text(customer.get("legalName")),
+                "contactName": text(customer.get("contactName") or customer.get("manager")),
+                "phone": text(customer.get("phone")), "email": text(customer.get("email")),
+                "address": text(customer.get("address") or customer.get("department")),
+                "businessActivity": text(customer.get("businessActivity") or customer.get("businessLine")),
+                "taxId": text(customer.get("taxId") or customer.get("nit")),
+                "registrationNumber": text(customer.get("registrationNumber") or customer.get("nrc")),
+                "taxpayerType": text(customer.get("taxpayerType")),
+                "customerCode": text(customer.get("customerCode") or customer.get("code")),
+                "clientType": text(customer.get("clientType")), "department": text(customer.get("department")),
+                "municipality": text(customer.get("municipality")),
+            })
     if item["opportunityId"].startswith("direct-quotation:"):
         customer_id = text(item["customerData"].get("customerId"))
         customers = read_crm_data(conn).get("customers", [])
