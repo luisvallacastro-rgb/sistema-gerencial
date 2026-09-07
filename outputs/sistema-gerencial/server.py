@@ -97,6 +97,28 @@ def is_commercial_management_user(user):
     )
 
 
+def is_commercial_agenda_validator(user):
+    """Restrict agenda effectiveness decisions to admin or commercial management."""
+    if not user:
+        return False
+    if bool(user.get("admin")):
+        return True
+    user_id = text(user.get("id")).lower()
+    username = text(user.get("username")).lower()
+    email = text(user.get("email")).lower()
+    name = "".join(
+        character
+        for character in unicodedata.normalize("NFD", text(user.get("name")).lower())
+        if unicodedata.category(character) != "Mn"
+    )
+    return (
+        user_id == "user-comercial"
+        or username == "comercializacion"
+        or email == "comercializacion@empresa.local"
+        or ("gerencia" in name and "comercial" in name)
+    )
+
+
 def is_customer_request_reviewer(user):
     """Authorize the designated reviewer without broadening other CRM permissions."""
     if is_commercial_management_user(user):
@@ -6487,6 +6509,18 @@ class AppHandler(BaseHTTPRequestHandler):
             if not isinstance(items, list):
                 self.send_json({"error": "El listado de agenda es requerido"}, status=400)
                 return
+            with connect() as conn:
+                stored_row = conn.execute("SELECT value FROM app_state WHERE key = 'commercial_agenda'").fetchone()
+            try:
+                stored_items = json.loads(stored_row["value"] or "[]") if stored_row else []
+            except (TypeError, json.JSONDecodeError):
+                stored_items = []
+            stored_validations = {
+                text(event.get("id")): event.get("validation")
+                for stored_item in stored_items if isinstance(stored_item, dict)
+                for event in stored_item.get("events", []) if isinstance(event, dict)
+                and text(event.get("id")) and isinstance(event.get("validation"), dict)
+            }
             activities = {"Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico", "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido", "Preparación de oferta", "Gestión de cobro"}
             clean = []
             for item_index, item in enumerate(items, start=1):
@@ -6520,7 +6554,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     if not valid_shift:
                         self.send_json({"error": f"El evento {event_index} debe quedar dentro de 7:00 a. m.–12:00 m. o 1:00–5:00 p. m."}, status=400)
                         return
-                    clean_events.append({"id": text(event.get("id")) or str(uuid.uuid4()), "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "comment": text(event.get("comment")) or text(event.get("result"))})
+                    event_id = text(event.get("id")) or str(uuid.uuid4())
+                    clean_event = {"id": event_id, "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "comment": text(event.get("comment")) or text(event.get("result"))}
+                    if event_id in stored_validations:
+                        clean_event["validation"] = stored_validations[event_id]
+                    clean_events.append(clean_event)
                 if not clean_events:
                     self.send_json({"error": f"La agenda {item_index} debe contener al menos un evento"}, status=400)
                     return
@@ -6579,6 +6617,53 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_api_patch(self):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+        if self.path == "/api/commercial-agenda/validation":
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            changes = self.read_json()
+            event_id = text(changes.get("eventId"))
+            if not event_id or not isinstance(changes.get("effective"), bool):
+                self.send_json({"error": "Evento y validación son requeridos"}, status=400)
+                return
+            with connect() as conn:
+                actor_row = conn.execute(
+                    "SELECT id, name, username, email, role, password, permissions, permissions_customized, admin FROM users WHERE id = ? LIMIT 1",
+                    (actor_id,),
+                ).fetchone() if actor_id else None
+                actor = user_payload(actor_row) if actor_row else None
+                if not is_commercial_agenda_validator(actor):
+                    self.send_json({"error": "Solo la Gerencia de Comercialización puede validar eventos"}, status=403)
+                    return
+                row = conn.execute("SELECT value FROM app_state WHERE key = 'commercial_agenda'").fetchone()
+                try:
+                    items = json.loads(row["value"] or "[]") if row else []
+                except (TypeError, json.JSONDecodeError):
+                    items = []
+                found = False
+                validation = {
+                    "effective": changes["effective"],
+                    "validatedBy": text(actor.get("name")),
+                    "validatedAt": datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds"),
+                }
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    for agenda_event in item.get("events", []):
+                        if isinstance(agenda_event, dict) and text(agenda_event.get("id")) == event_id:
+                            agenda_event["validation"] = validation
+                            found = True
+                            break
+                    if found:
+                        break
+                if not found:
+                    self.send_json({"error": "El evento de agenda ya no existe"}, status=404)
+                    return
+                conn.execute("""
+                    INSERT INTO app_state (key,value,updated_at)
+                    VALUES ('commercial_agenda',?,CURRENT_TIMESTAMP)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP
+                """, (json.dumps(items, ensure_ascii=False),))
+            self.send_json({"ok": True, "items": items, "validation": validation})
             return
         if self.path.startswith("/api/users/") and self.path.split("?", 1)[0].endswith("/password"):
             parts = self.path.split("?", 1)[0].strip("/").split("/")
