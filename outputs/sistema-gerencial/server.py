@@ -6037,13 +6037,13 @@ class AppHandler(BaseHTTPRequestHandler):
             raw_record_ids = data.get("recordIds")
             record_ids = list(dict.fromkeys(text(item) for item in raw_record_ids if text(item))) if isinstance(raw_record_ids, list) else []
             if not record_ids or len(record_ids) > 100:
-                self.send_json({"error": "Selecciona entre 1 y 100 depósitos para provisionar"}, status=400); return
+                self.send_json({"error": "Selecciona entre 1 y 100 movimientos para provisionar"}, status=400); return
             created, skipped = [], []
             with connect() as conn:
                 account = conn.execute("SELECT id FROM bank_accounts WHERE id = ? AND active = 1", (account_id,)).fetchone()
                 if not account:
                     self.send_json({"error": "Cuenta bancaria no encontrada"}, status=404); return
-                inflow_field, _ = bank_flow_fields(account_id)
+                inflow_field, outflow_field = bank_flow_fields(account_id)
                 conn.execute("BEGIN IMMEDIATE")
                 for record_id in record_ids:
                     row = conn.execute("SELECT id, data FROM bank_balance_records WHERE id = ? AND account_id = ?", (record_id, account_id)).fetchone()
@@ -6052,9 +6052,9 @@ class AppHandler(BaseHTTPRequestHandler):
                     if conn.execute("SELECT 1 FROM bank_deposit_provisions WHERE record_id = ?", (record_id,)).fetchone():
                         skipped.append(record_id); continue
                     values = json.loads(row["data"] or "{}")
-                    gross = round(numeric_bank_value(values.get(inflow_field)), 2)
+                    gross = round(max(numeric_bank_value(values.get(inflow_field)), numeric_bank_value(values.get(outflow_field))), 2)
                     if gross <= 0:
-                        conn.rollback(); self.send_json({"error": "Solo los depósitos o abonos pueden provisionarse"}, status=400); return
+                        conn.rollback(); self.send_json({"error": "El movimiento seleccionado no tiene un importe válido"}, status=400); return
                     net = round(gross / 1.1475, 2)
                     vat = round(net * 0.13, 2)
                     income_tax = round(net * 0.0175, 2)
