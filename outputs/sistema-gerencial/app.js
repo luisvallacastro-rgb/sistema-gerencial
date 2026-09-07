@@ -3739,6 +3739,22 @@ function savedQuotationRows() {
     .sort((a, b) => String(b.number).localeCompare(String(a.number), "es", { numeric: true }));
 }
 
+function quotationResponsibleSeller(quotation = {}) {
+  if (String(quotation.opportunityId || "").startsWith("direct-quotation:")) {
+    return quotation.seller || "";
+  }
+  const crmOpportunity = crmOpportunityForQuotation(quotation.opportunityId);
+  const managementItem = getOpportunitySubmenu().items.find((item) => (
+    String(item.id || "") === String(quotation.opportunityId || "")
+    || String(item.crmOpportunityId || "") === String(quotation.opportunityId || "")
+  ));
+  return managementItem?.seller
+    || crmOpportunity?.seller
+    || crmOwnerName(crmOpportunity?.ownerId)
+    || quotation.seller
+    || "";
+}
+
 function canManageQuotation(quotation) {
   if (state.currentUser?.role !== "vendedores") return true;
   const opportunity = crmOpportunityForQuotation(quotation.opportunityId);
@@ -3937,7 +3953,7 @@ function renderQuotationsModule() {
     .filter((quotation) => {
       if (!queryTokens.length) return true;
       const productText = (quotation.lines || []).map((line) => `${line.description || ""} ${line.size || ""} ${line.notes || ""} ${line.quantity || ""} ${line.unitPriceCents || ""}`).join(" ");
-      const searchIndex = normalizeKey(`${quotation.number || ""} ${quotation.client || ""} ${quotation.company || ""} ${quotation.customerData?.commercialName || ""} ${quotation.customerData?.legalName || ""} ${quotation.customerData?.taxId || ""} ${quotation.seller || ""} ${quotation.status || ""} ${quotation.date || ""} ${formatDate(quotation.date)} ${quotation.validity || ""} ${quotation.totalCents || ""} ${formatControlSalesMoney(quotation.totalCents || 0)} ${productText}`);
+      const searchIndex = normalizeKey(`${quotation.number || ""} ${quotation.client || ""} ${quotation.company || ""} ${quotation.customerData?.commercialName || ""} ${quotation.customerData?.legalName || ""} ${quotation.customerData?.taxId || ""} ${quotationResponsibleSeller(quotation)} ${quotation.status || ""} ${quotation.date || ""} ${formatDate(quotation.date)} ${quotation.validity || ""} ${quotation.totalCents || ""} ${formatControlSalesMoney(quotation.totalCents || 0)} ${productText}`);
       return queryTokens.every((token) => searchIndex.includes(token));
     })
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
@@ -3966,7 +3982,7 @@ function renderQuotationsModule() {
           <article class="quotation-table-row ${linkedOrder ? "has-order" : "quotation-only"}">
             <span>${formatDate(quotation.date)}</span>
             <div class="quotation-table-row__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${linkedOrder ? "orden-creada" : "solo-cotizacion"}">${linkedOrder ? `OP #${escapeHtml(linkedOrder.number || "—")} creada` : "Solo cotización"}</span></div>
-            <span class="quotation-table-row__seller"><strong>${escapeHtml(quotation.seller || "Sin vendedor")}</strong><small>Ingresada por ${escapeHtml(quotation.createdBy || "Sistema Gerencial")}</small></span>
+            <span class="quotation-table-row__seller"><strong>${escapeHtml(quotationResponsibleSeller(quotation) || "Sin vendedor")}</strong><small>Ingresada por ${escapeHtml(quotation.createdBy || "Sistema Gerencial")}</small></span>
             <span class="quotation-table-row__detail"><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><small>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</small></span>
             <strong class="quotation-table-row__amount">${formatControlSalesMoney(quotation.totalCents || 0)}</strong>
             <div class="quotation-record__actions">
@@ -4020,13 +4036,13 @@ function quotationSourceOpportunity(quotation = {}) {
     return {
       ...crmOpportunity,
       amount:Number(crmOpportunity.estimatedAmount || 0),
-      seller:quotation.seller || crmOwnerName(crmOpportunity.ownerId)
+      seller:quotationResponsibleSeller(quotation) || quotation.seller || crmOwnerName(crmOpportunity.ownerId)
     };
   }
   return {
     id:quotation.opportunityId || `quotation-${quotation.id}`,
     company:quotation.customerData?.commercialName || quotation.client || "Cliente sin nombre",
-    seller:quotation.seller || "Sin vendedor",
+    seller:quotationResponsibleSeller(quotation) || quotation.seller || "Sin vendedor",
     amount:Number(quotation.totalCents || 0) / 100,
     segment:(quotation.lines || []).find((line) => line.type !== "title")?.description || "",
     customerId:quotation.customerId || quotation.customerData?.customerId || ""
@@ -4823,8 +4839,10 @@ function printQuotation(quote) {
   if (!printableLines.some((line) => line.type !== "title")) return alert("Agrega al menos una línea completa de producto a la cotización.");
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) return alert("Habilita las ventanas emergentes para ver la cotización.");
-  const data = { ...(quote.customerData || {}) };
-  if (normalizeKey(quote.seller || "") === "amadeo alfaro") data.sellerEmail = "arteycolor.bordados@gmail.com";
+  const responsibleSeller = quotationResponsibleSeller(quote) || quote.seller || "";
+  const sellerProfile = (crmData().sellers || []).find((item) => normalizeKey(item.name) === normalizeKey(responsibleSeller)) || {};
+  const data = { ...(quote.customerData || {}), sellerPhone:sellerProfile.phone || quote.customerData?.sellerPhone || "", sellerEmail:sellerProfile.email || quote.customerData?.sellerEmail || "" };
+  if (normalizeKey(responsibleSeller) === "amadeo alfaro") data.sellerEmail = "arteycolor.bordados@gmail.com";
   const value = (item) => escapeHtml(String(item || ""));
   const logoUrl = new URL("assets/arte-color-uniformes-logo.png?v=20260903-original-v1", window.location.href).href;
   const qrUrl = new URL("assets/arte-color-uniformes-qr.jpg", window.location.href).href;
@@ -4843,7 +4861,7 @@ function printQuotation(quote) {
       : value(productDescription);
     return `<tr><td class="qty">${value(line.quantity)}</td><td>${printableDescription}</td><td class="money">${formatControlSalesMoney(line.unitPriceCents)}</td><td class="money">${formatControlSalesMoney(line.lineTotalCents)}</td></tr>`;
   }).join("");
-  const emailHref = `mailto:${encodeURIComponent(data.email || "")}?subject=${encodeURIComponent("Cotización - Arte y Color Uniformes")}&body=${encodeURIComponent(`Estimado/a ${data.contactName || quote.client}:\n\nAdjuntamos la cotización. La oferta tiene una vigencia de ${quote.validDays || 30} días.\n\nSaludos,\n${quote.seller}`)}`;
+  const emailHref = `mailto:${encodeURIComponent(data.email || "")}?subject=${encodeURIComponent("Cotización - Arte y Color Uniformes")}&body=${encodeURIComponent(`Estimado/a ${data.contactName || quote.client}:\n\nAdjuntamos la cotización. La oferta tiene una vigencia de ${quote.validDays || 30} días.\n\nSaludos,\n${responsibleSeller}`)}`;
   const rawQuotationDocumentType = quote.documentType || data.documentType;
   const quotationDocumentType = ["CF","CCF","CE"].includes(rawQuotationDocumentType) ? rawQuotationDocumentType : "CF";
   const quotationSubtotalCents = Number(quote.subtotalCents ?? quote.lines?.reduce((sum, line) => sum + Number(line.lineTotalCents || 0), 0) ?? 0);
@@ -4857,7 +4875,7 @@ function printQuotation(quote) {
     @page{size:Letter;margin:10mm 15mm 11mm}*{box-sizing:border-box}html{background:#dfe5ec}body{margin:0;color:#111;font:12px Arial,Helvetica,sans-serif}.sheet{position:relative;width:216mm;min-height:279mm;margin:12px auto;background:#fff;padding:10mm 15mm 9mm;overflow:visible}.letterhead{height:28mm;display:flex;justify-content:flex-end;align-items:flex-start}.brand-logo{display:block;width:70mm;height:26mm;object-fit:contain;object-position:right center}.city-date{text-align:right;margin:-2mm 4mm 6mm 0;font-size:13px}.recipient{margin:0 0 5mm}.recipient strong{display:block;font-size:14px;margin-bottom:3px}.recipient span{display:block;font-size:13px}.intro{font-size:13px;margin:0 0 2mm}.quote-number{position:absolute;left:15mm;top:11mm;color:#17794f;font-weight:800;letter-spacing:.08em}.quote-number small{display:block;color:#667085;font-size:9px;text-transform:uppercase;letter-spacing:.14em;margin-bottom:3px}.quote-table{width:100%;border-collapse:collapse;table-layout:fixed}.quote-table th,.quote-table td{border:1px solid #111}.quote-table th{padding:5px;background:#bdbdbd;text-align:center;font-weight:800}.quote-table th:nth-child(1){width:9%}.quote-table th:nth-child(3){width:17%}.quote-table th:nth-child(4){width:16%}.quote-table td{padding:3px 6px;vertical-align:middle;line-height:1.18}.quote-table .qty{text-align:center;font-weight:700}.quote-table .money{text-align:right;white-space:nowrap}.quote-table .quote-title-row td{padding:6px 8px;background:#d9dde3!important;box-shadow:inset 0 0 0 1000px #d9dde3!important;color:#111!important;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}.quote-line-detail,.quote-line-product{display:block}.quote-line-detail{white-space:pre-wrap;margin-bottom:3px}.quote-line-product{color:#3d4652;font-weight:700}.quote-conclusion{padding-bottom:0}.quote-totals{width:33%;margin-left:auto;border-collapse:collapse;break-inside:avoid;page-break-inside:avoid}.quote-totals td{height:7mm;border:1px solid #111;padding:3px 7px;font-weight:700}.quote-totals .total-label{text-align:left}.quote-totals .money{text-align:right;white-space:nowrap}.quote-totals tr:last-child td{font-size:13px;font-weight:900}.guarantee{clear:both;display:block;padding-top:2mm;font-size:12px;font-weight:800;margin:0 0 5mm;break-inside:avoid;page-break-inside:avoid}.terms{font-size:12px;line-height:1.45;break-inside:avoid;page-break-inside:avoid}.terms p{margin:2px 0}.terms strong{font-weight:800}.signature{display:grid;justify-items:start;gap:2px;margin-top:8mm;line-height:1.4;break-inside:avoid;page-break-inside:avoid}.signature .closing-word{margin:0 0 5mm}.signature strong,.signature span,.signature a{display:block;position:static;margin:0;line-height:1.4}.signature a{color:#0645d6}.footer-brand{position:absolute;left:15mm;right:15mm;bottom:4mm;display:grid;grid-template-columns:1fr auto;grid-template-areas:"contact qr" "motto motto";align-items:end;column-gap:10mm;row-gap:2mm;color:#626b77;font-size:9px}.footer-contact{grid-area:contact;display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}.footer-contact span{white-space:nowrap}.footer-qr{grid-area:qr;display:flex;align-items:center;gap:3mm;color:#17794f;font-weight:800;white-space:nowrap}.footer-qr img{display:block;width:16mm;height:16mm;object-fit:contain}.motto{grid-area:motto;width:100%;text-align:center;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}.actions{position:fixed;z-index:10;top:14px;right:14px;display:flex;gap:8px;background:#182d4e;padding:8px;border-radius:12px;box-shadow:0 12px 30px #182d4e44}.actions button,.actions a{border:0;border-radius:8px;padding:10px 13px;background:#238760;color:white;text-decoration:none;font-weight:800;cursor:pointer}.actions button:last-child{background:white;color:#18233d}@media(max-width:850px){.sheet{margin:0;transform-origin:top left}.actions{position:sticky;justify-content:center;border-radius:0}}@media print{html,body{background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}.actions{display:none}.sheet{margin:0;width:auto;height:auto;min-height:0;padding:0;box-shadow:none}.brand-logo,.footer-qr img,.quote-table th,.quote-title-row td{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}.quote-table thead{display:table-header-group}.quote-table tbody tr{break-inside:avoid;page-break-inside:avoid}.quote-conclusion{padding-bottom:0;break-inside:auto;page-break-inside:auto}.quote-totals,.guarantee,.terms,.signature,.footer-brand{break-inside:avoid;page-break-inside:avoid}.footer-brand{position:static;margin-top:8mm}}
     .footer-contact{grid-template-columns:max-content max-content;column-gap:8mm;justify-content:start}
     .footer-brand{row-gap:4mm}
-  </style></head><body><main class="sheet"><header class="letterhead"><img class="brand-logo" src="${value(logoUrl)}" alt="Arte y Color Uniformes"></header><p class="city-date">San Salvador, ${value(longDate)}</p><section class="recipient"><strong>${value(String(quote.client || "Cliente").toUpperCase())}</strong><span>${data.contactName ? `Atención: ${value(data.contactName)}` : "Presente"}</span></section><p class="intro">En atención a su solicitud y de la manera más atenta le presentamos la siguiente cotización:</p><table class="quote-table"><thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${rows}</tbody></table><section class="quote-conclusion"><table class="quote-totals"><tbody><tr><td class="total-label">TOTAL</td><td class="money">${formatControlSalesMoney(quotationTotalCents)}</td></tr></tbody></table><p class="guarantee">*${value(quote.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.")}</p><section class="terms"><p><strong>${value(quote.commercialNotes || "Condiciones según oferta comercial")}</strong></p><p><b>Vigencia de oferta:</b> ${value(quote.validDays || 30)} días</p><p><b>Tiempo de entrega:</b> ${value(quote.deliveryTerms)}</p><p><b>Forma de Pago:</b> ${value(quote.paymentTerms)}</p><p><strong>${value(quote.specialSizesNote)}</strong></p></section><section class="signature"><p class="closing-word">Atentamente,</p><strong>${value(quote.seller)}</strong><span>${value(data.sellerRole || "Ejecutivo/a de ventas")}</span>${data.sellerPhone ? `<span>${value(data.sellerPhone)}</span>` : ""}${data.sellerEmail ? `<a href="mailto:${value(data.sellerEmail)}">${value(data.sellerEmail)}</a>` : ""}</section></section><footer class="footer-brand"><div class="footer-contact"><span>Arte y Color Uniformes</span><span>+503 2277-2032</span><span>arteycolor.bordados@gmail.com</span><span>+503 7202-8137</span></div><div class="footer-qr"><span>Catálogo digital</span><img src="${value(qrUrl)}" alt="Código QR de Arte y Color Uniformes"></div><div class="motto">Innovación, calidad y responsabilidad garantizada</div></footer></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><a href="${value(emailHref)}">Preparar correo</a><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  </style></head><body><main class="sheet"><header class="letterhead"><img class="brand-logo" src="${value(logoUrl)}" alt="Arte y Color Uniformes"></header><p class="city-date">San Salvador, ${value(longDate)}</p><section class="recipient"><strong>${value(String(quote.client || "Cliente").toUpperCase())}</strong><span>${data.contactName ? `Atención: ${value(data.contactName)}` : "Presente"}</span></section><p class="intro">En atención a su solicitud y de la manera más atenta le presentamos la siguiente cotización:</p><table class="quote-table"><thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${rows}</tbody></table><section class="quote-conclusion"><table class="quote-totals"><tbody><tr><td class="total-label">TOTAL</td><td class="money">${formatControlSalesMoney(quotationTotalCents)}</td></tr></tbody></table><p class="guarantee">*${value(quote.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.")}</p><section class="terms"><p><strong>${value(quote.commercialNotes || "Condiciones según oferta comercial")}</strong></p><p><b>Vigencia de oferta:</b> ${value(quote.validDays || 30)} días</p><p><b>Tiempo de entrega:</b> ${value(quote.deliveryTerms)}</p><p><b>Forma de Pago:</b> ${value(quote.paymentTerms)}</p><p><strong>${value(quote.specialSizesNote)}</strong></p></section><section class="signature"><p class="closing-word">Atentamente,</p><strong>${value(responsibleSeller)}</strong><span>${value(data.sellerRole || "Ejecutivo/a de ventas")}</span>${data.sellerPhone ? `<span>${value(data.sellerPhone)}</span>` : ""}${data.sellerEmail ? `<a href="mailto:${value(data.sellerEmail)}">${value(data.sellerEmail)}</a>` : ""}</section></section><footer class="footer-brand"><div class="footer-contact"><span>Arte y Color Uniformes</span><span>+503 2277-2032</span><span>arteycolor.bordados@gmail.com</span><span>+503 7202-8137</span></div><div class="footer-qr"><span>Catálogo digital</span><img src="${value(qrUrl)}" alt="Código QR de Arte y Color Uniformes"></div><div class="motto">Innovación, calidad y responsabilidad garantizada</div></footer></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><a href="${value(emailHref)}">Preparar correo</a><button onclick="window.close()">Cerrar</button></nav></body></html>`);
   const quotationSellerRole = popup.document.querySelector(".signature > span");
   if (quotationSellerRole) quotationSellerRole.textContent = "Asesor Comercial";
   const quotationTotalsBody = popup.document.querySelector(".quote-totals tbody");
@@ -5320,7 +5338,7 @@ function orderWithCurrentQuotationData(order = {}) {
   return {
     ...order,
     client: quotation.client || order.client || "",
-    seller: quotation.seller || order.seller || "",
+    seller: quotationResponsibleSeller(quotation) || quotation.seller || order.seller || "",
     documentType,
     details,
     subtotalCents,
