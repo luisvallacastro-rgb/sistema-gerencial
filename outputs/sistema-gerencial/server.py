@@ -119,6 +119,31 @@ def is_commercial_agenda_validator(user):
     )
 
 
+def apply_commercial_agenda_validation(items, event_id, validation):
+    """Apply validation and upgrade one legacy flat agenda event when necessary."""
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        agenda_events = item.get("events") if isinstance(item.get("events"), list) else []
+        legacy_event_id = f"{text(item.get('id'))}-event"
+        if not agenda_events and event_id == legacy_event_id:
+            agenda_events = [{
+                "id": legacy_event_id,
+                "date": text(item.get("date")) or text(item.get("startDate")),
+                "prospect": text(item.get("prospect")),
+                "activity": text(item.get("activity")),
+                "startTime": text(item.get("startTime"), "07:00"),
+                "endTime": text(item.get("endTime"), "08:00"),
+                "comment": text(item.get("comment")) or text(item.get("result")),
+            }]
+            item["events"] = agenda_events
+        for agenda_event in agenda_events:
+            if isinstance(agenda_event, dict) and text(agenda_event.get("id")) == event_id:
+                agenda_event["validation"] = validation
+                return True
+    return False
+
+
 def is_customer_request_reviewer(user):
     """Authorize the designated reviewer without broadening other CRM permissions."""
     if is_commercial_management_user(user):
@@ -6639,22 +6664,12 @@ class AppHandler(BaseHTTPRequestHandler):
                     items = json.loads(row["value"] or "[]") if row else []
                 except (TypeError, json.JSONDecodeError):
                     items = []
-                found = False
                 validation = {
                     "effective": changes["effective"],
                     "validatedBy": text(actor.get("name")),
                     "validatedAt": datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds"),
                 }
-                for item in items:
-                    if not isinstance(item, dict):
-                        continue
-                    for agenda_event in item.get("events", []):
-                        if isinstance(agenda_event, dict) and text(agenda_event.get("id")) == event_id:
-                            agenda_event["validation"] = validation
-                            found = True
-                            break
-                    if found:
-                        break
+                found = apply_commercial_agenda_validation(items, event_id, validation)
                 if not found:
                     self.send_json({"error": "El evento de agenda ya no existe"}, status=404)
                     return
