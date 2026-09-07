@@ -5821,6 +5821,17 @@ function financialOrderLedgerRows() {
   const approvedFinancialOrders = state.financialOrders.filter((order) => {
     const linkedOrder = linkedControlSalesByFinancialOrderId.get(String(order.id));
     return linkedOrder && controlSalesOrderHasAuthorizedSignatures(linkedOrder);
+  }).map((order) => {
+    const linkedOrder = linkedControlSalesByFinancialOrderId.get(String(order.id));
+    const quotation = linkedQuotationForControlSalesOrder(linkedOrder);
+    const currentTotalCents = Number(quotation?.totalCents ?? linkedOrder?.totalCents);
+    if (!Number.isFinite(currentTotalCents)) return order;
+    return {
+      ...order,
+      sale: currentTotalCents / 100,
+      seller: quotation?.seller || linkedOrder?.seller || order.seller,
+      client: quotation?.client || linkedOrder?.client || order.client
+    };
   });
   return [...approvedControlSalesFinancialRows(), ...approvedFinancialOrders];
 }
@@ -6012,7 +6023,10 @@ function renderFinancialOrderList() {
           const linkedOrder = approvedControlOrder || linkedControlSalesByFinancialOrderId.get(String(order.id));
           const linkedQuotation = linkedQuotationForControlSalesOrder(linkedOrder);
           const hasTwoSignatures = controlSalesOrderHasAuthorizedSignatures(linkedOrder);
-          const variance = Number(linkedOrder?.varianceCents || 0);
+          const displayedTotalCents = Math.round(Number(order.sale || 0) * 100);
+          const variance = linkedOrder
+            ? displayedTotalCents - Number(linkedOrder.totalCents || 0)
+            : 0;
           return `
           <article class="financial-order-row">
             <span>${formatDate(order.date)}</span>

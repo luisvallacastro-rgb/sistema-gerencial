@@ -3652,6 +3652,19 @@ def save_quotation(conn, data, existing_row=None):
         """, (converted_order_id, quote_id, converted_order_id)).fetchone()
         if linked_order_row:
             linked_order = control_sales_order_payload(conn, linked_order_row)
+            financial_order_id = text(linked_order.get("financialOrderId"))
+            if financial_order_id:
+                # Pedidos usa financial_orders como su libro principal. Al revisar
+                # una cotización convertida, mantén ese monto alineado con la OP
+                # dentro de la misma transacción; nunca crees ni elimines registros.
+                conn.execute("""
+                    UPDATE financial_orders
+                    SET sale = ?, seller = ?, client = ?, updated_by = ?, updated_at = ?
+                    WHERE id = ? AND deleted = 0
+                """, (
+                    int(item["totalCents"]) / 100, item["seller"],
+                    item["client"], actor, now, financial_order_id,
+                ))
             linked_proforma = dict(linked_order.get("proformaData") or {})
             linked_proforma.update(item["customerData"])
             linked_proforma.update({
@@ -3669,7 +3682,7 @@ def save_quotation(conn, data, existing_row=None):
                 "notes": text(line.get("notes")),
             } for line in item["lines"] if text(line.get("type")).lower() != "title"]
             save_control_sales_order(conn, {
-                "financialOrderId": linked_order.get("financialOrderId"),
+                "financialOrderId": financial_order_id,
                 "sourceOpportunityId": linked_order.get("sourceOpportunityId") or item["opportunityId"],
                 "sourceQuotationId": quote_id,
                 "number": linked_order.get("number"),
