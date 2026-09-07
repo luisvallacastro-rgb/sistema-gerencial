@@ -5247,6 +5247,7 @@ def init_db():
                 labor_provision_amount REAL NOT NULL,
                 seller TEXT DEFAULT '', commission_rate REAL NOT NULL DEFAULT 0,
                 commission_amount REAL NOT NULL DEFAULT 0,
+                customer_name TEXT DEFAULT '', payment_type TEXT DEFAULT '',
                 created_by TEXT DEFAULT 'Sistema Gerencial',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -5258,6 +5259,10 @@ def init_db():
             conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN commission_rate REAL NOT NULL DEFAULT 0")
         if "commission_amount" not in bank_provision_columns:
             conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN commission_amount REAL NOT NULL DEFAULT 0")
+        if "customer_name" not in bank_provision_columns:
+            conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN customer_name TEXT DEFAULT ''")
+        if "payment_type" not in bank_provision_columns:
+            conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN payment_type TEXT DEFAULT ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_provisions_account ON bank_deposit_provisions(account_id, created_at DESC)")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS bank_daily_availability (
@@ -6101,6 +6106,13 @@ class AppHandler(BaseHTTPRequestHandler):
             seller = text(data.get("seller"))
             if seller not in commission_rates:
                 self.send_json({"error": "Selecciona un vendedor válido para calcular la comisión"}, status=400); return
+            customer_name = text(data.get("customerName"))
+            if not customer_name:
+                self.send_json({"error": "Escribe el nombre del cliente"}, status=400); return
+            payment_type = text(data.get("paymentType"))
+            allowed_payment_types = {"Anticipo", "Abono", "Cancelación de saldo"}
+            if payment_type not in allowed_payment_types:
+                self.send_json({"error": "Selecciona si el depósito es anticipo, abono o cancelación de saldo"}, status=400); return
             commission_rate = commission_rates[seller]
             created, skipped = [], []
             with connect() as conn:
@@ -6127,11 +6139,13 @@ class AppHandler(BaseHTTPRequestHandler):
                     provision_id = str(uuid.uuid4())
                     conn.execute("""INSERT INTO bank_deposit_provisions
                         (id, record_id, account_id, gross_amount, net_amount, vat_amount, income_tax_amount,
-                         labor_provision_amount, seller, commission_rate, commission_amount, created_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                         labor_provision_amount, seller, commission_rate, commission_amount,
+                         customer_name, payment_type, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (provision_id, record_id, account_id, gross, net, vat, income_tax, labor, seller,
-                         commission_rate, commission, text(data.get("createdBy"), "Sistema Gerencial")))
-                    created.append({"id": provision_id, "recordId": record_id, "gross": gross, "net": net, "vat": vat, "incomeTax": income_tax, "labor": labor, "seller": seller, "commissionRate": commission_rate, "commission": commission})
+                         commission_rate, commission, customer_name, payment_type,
+                         text(data.get("createdBy"), "Sistema Gerencial")))
+                    created.append({"id": provision_id, "recordId": record_id, "gross": gross, "net": net, "vat": vat, "incomeTax": income_tax, "labor": labor, "seller": seller, "commissionRate": commission_rate, "commission": commission, "customerName": customer_name, "paymentType": payment_type})
             self.send_json({"ok": True, "created": created, "skipped": skipped}, status=201)
             return
 
