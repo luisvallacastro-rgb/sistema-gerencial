@@ -812,6 +812,52 @@ def format_crm_customer_number(value):
     return f"{max(1, int(value)):04d}"
 
 
+def retired_crm_customer_numbers(data):
+    numbers = {
+        parse_crm_customer_number(value)
+        for value in data.setdefault("retiredCustomerNumbers", [])
+    }
+    numbers.discard(0)
+    return numbers
+
+
+def retire_crm_customer_number(data, value):
+    number = parse_crm_customer_number(value)
+    if not number:
+        return False
+    retired = retired_crm_customer_numbers(data)
+    changed = number not in retired
+    retired.add(number)
+    canonical = [format_crm_customer_number(item) for item in sorted(retired)]
+    if data.get("retiredCustomerNumbers") != canonical:
+        data["retiredCustomerNumbers"] = canonical
+        changed = True
+    if parse_crm_customer_number(data.get("customerSequence")) < number:
+        data["customerSequence"] = number
+        changed = True
+    return changed
+
+
+def preserve_deleted_customer_0009_correlative(data):
+    """One-time production repair: customer 0009 was deleted and must not be reused."""
+    version = "preserve-deleted-customer-0009-20260907"
+    if text(data.get("customerNumberRetentionVersion")) == version:
+        return False
+    existing = {
+        parse_crm_customer_number(customer.get("clientNumber"))
+        for customer in data.get("customers", [])
+    }
+    existing.discard(0)
+    # Apply the known 0009 gap only to the established production sequence.
+    # A brand-new/empty installation must still begin at 0001.
+    if 9 not in existing and max(existing, default=0) >= 8:
+        retire_crm_customer_number(data, 9)
+    elif 9 in existing and parse_crm_customer_number(data.get("customerSequence")) < 9:
+        data["customerSequence"] = 9
+    data["customerNumberRetentionVersion"] = version
+    return True
+
+
 def classify_direct_master_customers(data):
     """Persist direct origin so every user receives the same pre-signature state."""
     approved_customer_ids = {
@@ -834,7 +880,7 @@ def classify_direct_master_customers(data):
 
 def ensure_crm_customer_numbers(data):
     customers = data.setdefault("customers", [])
-    used = set()
+    used = retired_crm_customer_numbers(data)
     pending = []
     changed = False
     for customer in customers:
@@ -871,7 +917,9 @@ def ensure_crm_customer_numbers(data):
 
 def next_crm_customer_number(data):
     ensure_crm_customer_numbers(data)
-    used = {parse_crm_customer_number(customer.get("clientNumber")) for customer in data.get("customers", [])}
+    used = retired_crm_customer_numbers(data) | {
+        parse_crm_customer_number(customer.get("clientNumber")) for customer in data.get("customers", [])
+    }
     used.discard(0)
     sequence = max(parse_crm_customer_number(data.get("customerSequence")), max(used, default=0)) + 1
     while sequence in used:
@@ -1010,6 +1058,7 @@ def read_crm_data(conn):
         ensure_virtual_commercial_sellers(data)
         repair_elizabeth_merino_ownership(conn, data)
         reset_customer_master_for_first_approved_request(data)
+        preserve_deleted_customer_0009_correlative(data)
         migrate_customer_request_draft_workflow(data)
         remove_empty_customer_request_drafts(data)
         reconcile_linked_opportunity_names(conn, data)
@@ -1033,6 +1082,7 @@ def read_crm_data(conn):
         data["customers"] = []
         data["customerMasterResetVersion"] = customer_reset_version
     approval_master_reset_changed = reset_customer_master_for_first_approved_request(data)
+    customer_number_retention_changed = preserve_deleted_customer_0009_correlative(data)
     direct_customer_classification_changed = classify_direct_master_customers(data)
     numbering_changed = ensure_crm_customer_numbers(data)
     origin_links_changed = repair_result_opportunity_origin_links(conn, data)
@@ -1050,7 +1100,7 @@ def read_crm_data(conn):
     customer_id_collision_changed = repair_customer_request_id_collisions(data)
     customer_tax_duplicate_changed = repair_duplicate_customers_by_tax_id(conn, data)
     opportunity_temperature_changed = repair_all_opportunity_temperatures(conn, data)
-    changed = changed or customer_reset_changed or approval_master_reset_changed or direct_customer_classification_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or virtual_sellers_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed or customer_tax_duplicate_changed or opportunity_temperature_changed
+    changed = changed or customer_reset_changed or approval_master_reset_changed or customer_number_retention_changed or direct_customer_classification_changed or numbering_changed or origin_links_changed or migration_changed or closure_changed or operational_reassignment_changed or seller_sync_changed or virtual_sellers_changed or elizabeth_repair_changed or request_workflow_changed or empty_request_cleanup_changed or linked_names_changed or individual_name_repair_changed or customer_id_collision_changed or customer_tax_duplicate_changed or opportunity_temperature_changed
     if changed:
         write_crm_data(conn, data)
     return data
@@ -7819,6 +7869,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_json(response)
                         return
                     if self.command == "DELETE":
+                        retire_crm_customer_number(data, customers[index].get("clientNumber"))
                         linked = any(text(item.get("customerId")) == item_id for item in data.get("opportunities", []))
                         if linked:
                             customers[index]["active"] = False

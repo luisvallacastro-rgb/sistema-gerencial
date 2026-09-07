@@ -18890,6 +18890,12 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   z-index: 4;
 }
 
+/* El encabezado fijo debe ocultar por completo las filas que pasan debajo. */
+.app-shell .crm-customer-table .crm-customer-head {
+  background: #0a2443;
+  box-shadow: 0 5px 0 #102b4b;
+}
+
 /* Gerencia: acciones compactas; la etiqueta permanece en title/aria-label. */
 .app-shell .opportunity-row .row-actions,
 .app-shell:not(.sidebar-collapsed) .opportunity-row .row-actions {
