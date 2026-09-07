@@ -3992,6 +3992,7 @@ function renderQuotationsModule() {
               ${linkedOrder
                 ? `<button type="button" class="quotation-action view-order" data-quotation-module-order="${escapeHtml(linkedOrder.id)}" aria-label="Imprimir nota de pedido" title="Imprimir nota de pedido"><span aria-hidden="true">📋</span></button>`
                 : `<button type="button" class="quotation-action convert-order" data-quotation-module-convert="${escapeHtml(quotation.id)}" aria-label="Convertir en orden de pedido" title="Convertir en orden de pedido"><span aria-hidden="true">OP</span></button>`}
+              ${canDeleteStandaloneQuotation(quotation) ? `<button type="button" class="quotation-action danger" data-quotation-module-delete="${escapeHtml(quotation.id)}" aria-label="Eliminar solo cotización" title="Eliminar cotización y liberar oportunidad"><span aria-hidden="true">🗑️</span></button>` : ""}
             </div>
           </article>`;
         }).join("")}
@@ -4007,6 +4008,32 @@ function quotationLinkedOrder(quotation = {}) {
       || String(order.sourceQuotationId || "") === String(quotation.id || "")
     )
   )) || null;
+}
+
+function canDeleteStandaloneQuotation(quotation = {}) {
+  const hasAnyOrder = state.controlSales.some((order) => (
+    String(order.id || "") === String(quotation?.convertedOrderId || "")
+    || String(order.sourceQuotationId || "") === String(quotation?.id || "")
+  ));
+  if (!quotation?.id || quotation.convertedOrderId || hasAnyOrder) return false;
+  const identity = normalizeKey(`${state.currentUser?.id || ""} ${state.currentUser?.name || ""} ${state.currentUser?.username || ""} ${state.currentUser?.email || ""}`);
+  const isOdaliz = (identity.includes("odaliz") && identity.includes("valencia"))
+    || identity.includes("gerencia comercial")
+    || identity.includes("gtecomercial ayc gmail com");
+  const isLuis = identity.includes("luisvallacastro")
+    || (identity.includes("luis") && identity.includes("valladares"));
+  return isOdaliz || isLuis;
+}
+
+async function refreshOpportunitiesAfterQuotationDelete() {
+  if (!apiEnabled) return;
+  const [opportunityItems, crmBootstrap] = await Promise.all([
+    apiJson("/api/opportunities"),
+    apiJson("/api/crm/bootstrap")
+  ]);
+  getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(Array.isArray(opportunityItems) ? opportunityItems : []));
+  localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+  state.crmData = crmBootstrap;
 }
 
 function canReviseConvertedDirectQuotation(quotation = {}) {
@@ -4116,11 +4143,13 @@ function wireQuotationsModule() {
   }));
   opportunityTable.querySelectorAll("[data-quotation-module-delete]").forEach((button) => button.addEventListener("click", async () => {
     const quotation = state.quotations.find((item) => item.id === button.dataset.quotationModuleDelete);
-    if (!quotation || !confirm(`¿Eliminar la cotización de ${quotation.client || "este cliente"}?`)) return;
+    if (!quotation || !canDeleteStandaloneQuotation(quotation)) return;
+    if (!confirm(`¿Eliminar la cotización de ${quotation.client || "este cliente"} y restaurar la oportunidad a su valor original?`)) return;
     try {
       if (apiEnabled) await apiJson(`/api/quotations/${encodeURIComponent(quotation.id)}`, { method:"DELETE" });
       state.quotations = state.quotations.filter((item) => item.id !== quotation.id);
       persistLocalQuotations();
+      await refreshOpportunitiesAfterQuotationDelete();
       renderCommercialSubmenu(areas.comercializacion);
     } catch (error) { alert(error.message || "No se pudo eliminar la cotización."); }
   }));
@@ -4701,7 +4730,7 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
   document.querySelector("#quotationDialogTitle").textContent = quote ? "Editar cotización" : "Nueva cotización";
   const saveButton = document.querySelector('#quotationForm button[type="submit"]');
   if (saveButton) saveButton.textContent = quote && quotationLinkedOrder(quote) ? "Guardar modificación y actualizar OP" : "Guardar";
-  document.querySelector("[data-quotation-delete]")?.classList.toggle("hidden", !quote?.id);
+  document.querySelector("[data-quotation-delete]")?.classList.toggle("hidden", !canDeleteStandaloneQuotation(quote));
   setQuotationPanelExpanded(document.querySelector(".quotation-customer"), false);
   setQuotationPanelExpanded(document.querySelector(".quotation-terms-panel"), true);
   updateQuotationTotals();
@@ -4717,7 +4746,7 @@ function setQuotationDialogReadOnly(dialog, readOnly) {
   const directOrderFlow = dialog.dataset.directOrderFlow === "true";
   const quotationId = document.querySelector("#quotationId")?.value || "";
   const activeQuotation = state.quotations.find((quotation) => String(quotation.id) === String(quotationId));
-  dialog.querySelector("[data-quotation-delete]")?.classList.toggle("hidden", readOnly || !quotationId || Boolean(quotationLinkedOrder(activeQuotation)));
+  dialog.querySelector("[data-quotation-delete]")?.classList.toggle("hidden", readOnly || !canDeleteStandaloneQuotation(activeQuotation));
   dialog.querySelector('button[type="submit"]')?.classList.toggle("hidden", readOnly || directOrderFlow);
   dialog.querySelector("[data-quotation-new]")?.classList.toggle("hidden", readOnly || directOrderFlow);
   dialog.querySelector("[data-quotation-direct-convert]")?.classList.toggle("hidden", readOnly || !directOrderFlow);
@@ -4839,8 +4868,11 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
 }
 
 async function deleteQuotationFromForm() {
-  const id = document.querySelector("#quotationId").value; if (!id || !confirm("¿Eliminar esta cotización?")) return;
-  try { if (apiEnabled) await apiJson(`/api/quotations/${encodeURIComponent(id)}`, { method:"DELETE" }); state.quotations = state.quotations.filter((item) => item.id !== id); persistLocalQuotations(); document.querySelector("#quotationDialog").close(); renderCommercialSubmenu(areas.comercializacion); }
+  const id = document.querySelector("#quotationId").value;
+  const quotation = state.quotations.find((item) => String(item.id) === String(id));
+  if (!quotation || !canDeleteStandaloneQuotation(quotation)) return alert("Solo Odaliz Valencia o Luis Valladares pueden eliminar una cotización que todavía no tenga OP.");
+  if (!confirm("¿Eliminar esta cotización y restaurar la oportunidad a su valor original?")) return;
+  try { if (apiEnabled) await apiJson(`/api/quotations/${encodeURIComponent(id)}`, { method:"DELETE" }); state.quotations = state.quotations.filter((item) => item.id !== id); persistLocalQuotations(); await refreshOpportunitiesAfterQuotationDelete(); document.querySelector("#quotationDialog").close(); renderCommercialSubmenu(areas.comercializacion); }
   catch (error) { alert(error.message || "No se pudo eliminar la cotización."); }
 }
 

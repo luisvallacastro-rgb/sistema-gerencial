@@ -214,6 +214,23 @@ def is_odaliz_valencia_user(user):
     )
 
 
+def is_standalone_quotation_delete_authorized(user):
+    """Allow deletion of unconverted quotations only to Odaliz and Luis."""
+    if is_odaliz_valencia_user(user):
+        return True
+    if not user:
+        return False
+    identity = " ".join((
+        text(user.get("id")), text(user.get("name")),
+        text(user.get("username")), text(user.get("email")),
+    )).lower()
+    normalized = "".join(
+        character for character in unicodedata.normalize("NFD", identity)
+        if unicodedata.category(character) != "Mn"
+    )
+    return "luisvallacastro" in normalized or all(token in normalized for token in ("luis", "valladares"))
+
+
 def can_submit_customer_request(user):
     """Only Odaliz Valencia may send a saved request to the customer panel."""
     return is_odaliz_valencia_user(user)
@@ -7448,7 +7465,20 @@ class AppHandler(BaseHTTPRequestHandler):
                 if not row:
                     self.send_json({"error": "Cotizacion no encontrada"}, status=404)
                     return
-                if text(row["converted_order_id"]):
+                actor_id = text(self.headers.get("X-System-User-Id"))
+                actor_row = conn.execute(
+                    "SELECT id, name, username, email FROM users WHERE id = ? LIMIT 1",
+                    (actor_id,),
+                ).fetchone() if actor_id else None
+                if not is_standalone_quotation_delete_authorized(dict(actor_row) if actor_row else None):
+                    self.send_json({"error": "Solo Odaliz Valencia o Luis Valladares pueden eliminar una cotizacion sin OP"}, status=403)
+                    return
+                linked_order = conn.execute("""
+                    SELECT id FROM control_sales_orders
+                    WHERE id = ? OR source_quotation_id = ?
+                    LIMIT 1
+                """, (text(row["converted_order_id"]), item_id)).fetchone()
+                if text(row["converted_order_id"]) or linked_order:
                     self.send_json({"error": "No se puede eliminar una cotizacion convertida a pedido"}, status=409)
                     return
                 conn.execute("DELETE FROM quotations WHERE id = ?", (item_id,))
