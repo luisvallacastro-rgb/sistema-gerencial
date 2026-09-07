@@ -6081,6 +6081,27 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_json([{"id": row["id"], "accountId": row["account_id"], "date": row["record_date"], "sequence": row["sequence"], "balance": row["balance"], "data": json.loads(row["data"] or "{}"), "createdBy": row["created_by"], "provisioned": bool(row["provision_id"])} for row in rows])
             return
 
+        if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "provisions":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            account_id = unquote(bank_parts[2])
+            with connect() as conn:
+                rows = conn.execute("""SELECT provisions.*, records.record_date
+                    FROM bank_deposit_provisions AS provisions
+                    JOIN bank_balance_records AS records ON records.id = provisions.record_id
+                    WHERE provisions.account_id = ?
+                    ORDER BY datetime(provisions.created_at) DESC, provisions.rowid DESC""", (account_id,)).fetchall()
+            self.send_json([{
+                "id": row["id"], "recordId": row["record_id"], "date": row["record_date"],
+                "gross": row["gross_amount"], "net": row["net_amount"], "vat": row["vat_amount"],
+                "taxProvision": row["vat_amount"], "labor": row["labor_provision_amount"],
+                "seller": row["seller"], "commissionRate": row["commission_rate"],
+                "commission": row["commission_amount"], "customerName": row["customer_name"],
+                "paymentType": row["payment_type"], "createdBy": row["created_by"],
+                "createdAt": row["created_at"],
+            } for row in rows])
+            return
+
         if self.path == "/api/financial-orders":
             with connect() as conn:
                 rows = conn.execute("""
@@ -6267,7 +6288,8 @@ class AppHandler(BaseHTTPRequestHandler):
                         conn.rollback(); self.send_json({"error": "El movimiento seleccionado no tiene un importe válido"}, status=400); return
                     net = round(gross / 1.1475, 2)
                     vat = round(net * 0.13, 2)
-                    income_tax = round(net * 0.0175, 2)
+                    # La provisión fiscal solicitada es exclusivamente el 13 % del valor neto.
+                    income_tax = 0
                     labor = round(net * 0.07, 2)
                     commission = round(net * commission_rate, 2)
                     provision_id = str(uuid.uuid4())
@@ -6279,7 +6301,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         (provision_id, record_id, account_id, gross, net, vat, income_tax, labor, seller,
                          commission_rate, commission, customer_name, payment_type,
                          text(data.get("createdBy"), "Sistema Gerencial")))
-                    created.append({"id": provision_id, "recordId": record_id, "gross": gross, "net": net, "vat": vat, "incomeTax": income_tax, "labor": labor, "seller": seller, "commissionRate": commission_rate, "commission": commission, "customerName": customer_name, "paymentType": payment_type})
+                    created.append({"id": provision_id, "recordId": record_id, "gross": gross, "net": net, "vat": vat, "taxProvision": vat, "incomeTax": income_tax, "labor": labor, "seller": seller, "commissionRate": commission_rate, "commission": commission, "customerName": customer_name, "paymentType": payment_type})
             self.send_json({"ok": True, "created": created, "skipped": skipped}, status=201)
             return
 
