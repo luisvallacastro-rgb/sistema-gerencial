@@ -178,6 +178,23 @@ def is_esmeralda_direct_customer_validator(user):
     return "esmeraldar" in normalized or all(token in normalized for token in ("judith", "esmeralda", "rivera"))
 
 
+def is_direct_quotation_revision_authorized(user):
+    """Limit revisions of converted direct quotations to Judith and Luis."""
+    if not user:
+        return False
+    identity = " ".join((
+        text(user.get("id")), text(user.get("name")),
+        text(user.get("username")), text(user.get("email")),
+    )).lower()
+    normalized = "".join(
+        character for character in unicodedata.normalize("NFD", identity)
+        if unicodedata.category(character) != "Mn"
+    )
+    is_judith = "esmeraldar" in normalized or all(token in normalized for token in ("judith", "esmeralda", "rivera"))
+    is_luis = "luisvallacastro" in normalized or all(token in normalized for token in ("luis", "valladares"))
+    return is_judith or is_luis
+
+
 def is_odaliz_valencia_user(user):
     if not user:
         return False
@@ -6681,6 +6698,16 @@ class AppHandler(BaseHTTPRequestHandler):
                     if not row:
                         self.send_json({"error": "Cotizacion no encontrada"}, status=404)
                         return
+                    current = quotation_payload(row)
+                    if current.get("convertedOrderId") and text(current.get("opportunityId")).startswith("direct-quotation:"):
+                        actor_id = text(self.headers.get("X-System-User-Id"))
+                        actor_row = conn.execute(
+                            "SELECT id, name, username, email FROM users WHERE id = ? LIMIT 1",
+                            (actor_id,),
+                        ).fetchone() if actor_id else None
+                        if not is_direct_quotation_revision_authorized(dict(actor_row) if actor_row else None):
+                            self.send_json({"error": "Solo Judith Esmeralda o Luis Valladares pueden modificar una cotizacion directa convertida"}, status=403)
+                            return
                     item = save_quotation(conn, data, row)
             except ValueError as error:
                 self.send_json({"error": str(error)}, status=400)

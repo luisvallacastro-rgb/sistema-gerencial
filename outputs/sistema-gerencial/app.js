@@ -3959,7 +3959,7 @@ function renderQuotationsModule() {
             <strong class="quotation-table-row__amount">${formatControlSalesMoney(quotation.totalCents || 0)}</strong>
             <div class="quotation-record__actions">
               <button type="button" class="quotation-action view-detail" data-quotation-module-detail="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Ver detalle" title="Ver detalle"><span aria-hidden="true">👁</span></button>
-              <button type="button" class="quotation-action edit" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Editar cotización" title="Editar cotización"><span aria-hidden="true">✏️</span></button>
+              ${canReviseConvertedDirectQuotation(quotation) ? `<button type="button" class="quotation-action edit" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Editar cotización y actualizar OP" title="Editar cotización y actualizar OP"><span aria-hidden="true">✏️</span></button>` : ""}
               <button type="button" class="quotation-action view-quotation" data-quotation-module-document="${escapeHtml(quotation.id)}" aria-label="Ver documento de cotización" title="Ver documento de cotización"><span aria-hidden="true">🧾</span></button>
               ${linkedOrder
                 ? `<button type="button" class="quotation-action view-order" data-quotation-module-order="${escapeHtml(linkedOrder.id)}" aria-label="Imprimir nota de pedido" title="Imprimir nota de pedido"><span aria-hidden="true">📋</span></button>`
@@ -3979,6 +3979,14 @@ function quotationLinkedOrder(quotation = {}) {
       || String(order.sourceQuotationId || "") === String(quotation.id || "")
     )
   )) || null;
+}
+
+function canReviseConvertedDirectQuotation(quotation = {}) {
+  if (!String(quotation.opportunityId || "").startsWith("direct-quotation:") || !quotationLinkedOrder(quotation)) return true;
+  const identity = normalizeKey(`${state.currentUser?.id || ""} ${state.currentUser?.name || ""} ${state.currentUser?.username || ""} ${state.currentUser?.email || ""}`);
+  const isJudith = identity.includes("esmeraldar") || ["judith", "esmeralda", "rivera"].every((token) => identity.includes(token));
+  const isLuis = identity.includes("luisvallacastro") || ["luis", "valladares"].every((token) => identity.includes(token));
+  return isJudith || isLuis;
 }
 
 function quotationSourceOpportunity(quotation = {}) {
@@ -4476,6 +4484,10 @@ function ensureQuotationDialog() {
       return;
     }
     if (event.target.matches("[data-quotation-edit]")) {
+      if (dialog.dataset.revisionLocked === "true") {
+        alert("Solo Judith Esmeralda o Luis Valladares pueden modificar esta cotización directa y su OP.");
+        return;
+      }
       setQuotationDialogReadOnly(dialog, false);
       const status = document.querySelector("#quotationSaveStatus");
       status.textContent = "Edición activa. Realiza los cambios y presiona Guardar.";
@@ -4638,6 +4650,8 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
   referenceOutput.textContent = formatMoney(referenceAmount);
   referenceOutput.dataset.referenceCents = String(Math.round(referenceAmount * 100));
   document.querySelector("#quotationDialogTitle").textContent = quote ? "Editar cotización" : "Nueva cotización";
+  const saveButton = document.querySelector('#quotationForm button[type="submit"]');
+  if (saveButton) saveButton.textContent = quote && quotationLinkedOrder(quote) ? "Guardar modificación y actualizar OP" : "Guardar";
   document.querySelector("[data-quotation-delete]")?.classList.toggle("hidden", !quote?.id);
   setQuotationPanelExpanded(document.querySelector(".quotation-customer"), false);
   setQuotationPanelExpanded(document.querySelector(".quotation-terms-panel"), true);
@@ -4658,7 +4672,7 @@ function setQuotationDialogReadOnly(dialog, readOnly) {
   dialog.querySelector('button[type="submit"]')?.classList.toggle("hidden", readOnly || directOrderFlow);
   dialog.querySelector("[data-quotation-new]")?.classList.toggle("hidden", readOnly || directOrderFlow);
   dialog.querySelector("[data-quotation-direct-convert]")?.classList.toggle("hidden", readOnly || !directOrderFlow);
-  dialog.querySelector("[data-quotation-edit]")?.classList.toggle("hidden", !readOnly);
+  dialog.querySelector("[data-quotation-edit]")?.classList.toggle("hidden", !readOnly || dialog.dataset.revisionLocked === "true");
   document.querySelector("#quotationDialogTitle").textContent = readOnly ? "Ver detalle de cotización" : (document.querySelector("#quotationId")?.value ? "Editar cotización" : "Nueva cotización");
 }
 
@@ -4678,6 +4692,9 @@ async function openQuotationDialog(opportunityId, quoteId = "", opportunityOverr
   if (!opportunity) return alert("No se encontró la oportunidad comercial.");
   const quote = quoteId ? state.quotations.find((item) => String(item.id) === String(quoteId)) : null;
   const dialog = document.querySelector("#quotationDialog");
+  const revisionLocked = Boolean(quote && !canReviseConvertedDirectQuotation(quote));
+  readOnly = readOnly || revisionLocked;
+  dialog.dataset.revisionLocked = revisionLocked ? "true" : "false";
   dialog.dataset.directOrderFlow = directOrderFlow ? "true" : "false";
   dialog.directOrderOpportunity = directOrderFlow ? opportunity : null;
   dialog.directOrderCustomer = directOrderFlow ? customerOverride : null;
@@ -4758,7 +4775,9 @@ async function saveQuotationFromForm(forcedStatus = "", openPreview = false) {
       : amountDifferenceCents === 0
       ? `El monto de la oportunidad ${changeDirection} en ${formatControlSalesMoney(draft.totalCents)}.`
       : `El monto de la oportunidad ${changeDirection} ${formatControlSalesMoney(Math.abs(amountDifferenceCents))}: de ${formatControlSalesMoney(referenceCents)} a ${formatControlSalesMoney(draft.totalCents)}.`;
-    status.textContent = `Cotización guardada. ${changeDetail}`;
+    status.textContent = saved.convertedOrderId || quotationLinkedOrder(saved)
+      ? `Cotización y OP actualizadas. ${changeDetail} La orden puede reimprimirse desde Cotizaciones o Clientes.`
+      : `Cotización guardada. ${changeDetail}`;
     status.dataset.tone = "success";
     status.classList.remove("hidden");
     if (state.activeArea === "comercializacion" && state.activeSubmenu === "cotizaciones") {
@@ -9687,7 +9706,7 @@ function renderCrmCustomerDocuments(view) {
           <span class="money"><small>Total</small><strong>${formatControlSalesMoney(item.totalCents || 0)}</strong></span>
           <span class="crm-row-actions">
             <button type="button" data-crm-document-print="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="Imprimir" aria-label="Imprimir">▤</button>
-            <button type="button" data-crm-document-edit="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="Editar" aria-label="Editar">✎</button>
+            ${!isQuotationView || canReviseConvertedDirectQuotation(item) ? `<button type="button" data-crm-document-edit="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}" aria-label="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}">✎</button>` : ""}
             ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button type="button" data-crm-document-convert="${escapeHtml(item.id)}" title="Convertir en OP" aria-label="Convertir en OP">OP</button>` : ""}
             ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="quotation" title="Anular" aria-label="Anular">×</button>` : ""}
             ${!isQuotationView && !item.archived ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="order" title="Anular" aria-label="Anular">×</button>` : ""}
