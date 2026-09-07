@@ -31,7 +31,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-direct-customer-consistent-state-v15"
+API_VERSION = "kmi-direct-customer-consistent-state-v16"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
@@ -5192,6 +5192,19 @@ def init_db():
             conn.execute("ALTER TABLE bank_balance_records ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_balance_latest ON bank_balance_records(account_id, record_date DESC, sequence DESC, created_at DESC)")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS bank_deposit_provisions (
+                id TEXT PRIMARY KEY,
+                record_id TEXT NOT NULL UNIQUE REFERENCES bank_balance_records(id),
+                account_id TEXT NOT NULL REFERENCES bank_accounts(id),
+                gross_amount REAL NOT NULL, net_amount REAL NOT NULL,
+                vat_amount REAL NOT NULL, income_tax_amount REAL NOT NULL,
+                labor_provision_amount REAL NOT NULL,
+                created_by TEXT DEFAULT 'Sistema Gerencial',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_provisions_account ON bank_deposit_provisions(account_id, created_at DESC)")
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS bank_daily_availability (
                 id TEXT PRIMARY KEY, snapshot_date TEXT NOT NULL UNIQUE, total REAL NOT NULL DEFAULT 0,
                 balances TEXT NOT NULL DEFAULT '{}', update_marks TEXT NOT NULL DEFAULT '{}',
@@ -5867,8 +5880,11 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             account_id = unquote(bank_parts[2])
             with connect() as conn:
-                rows = conn.execute("SELECT * FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC", (account_id,)).fetchall()
-            self.send_json([{"id": row["id"], "accountId": row["account_id"], "date": row["record_date"], "sequence": row["sequence"], "balance": row["balance"], "data": json.loads(row["data"] or "{}"), "createdBy": row["created_by"]} for row in rows])
+                rows = conn.execute("""SELECT records.*, provisions.id AS provision_id
+                    FROM bank_balance_records AS records
+                    LEFT JOIN bank_deposit_provisions AS provisions ON provisions.record_id = records.id
+                    WHERE records.account_id = ? ORDER BY records.sequence DESC, records.created_at DESC""", (account_id,)).fetchall()
+            self.send_json([{"id": row["id"], "accountId": row["account_id"], "date": row["record_date"], "sequence": row["sequence"], "balance": row["balance"], "data": json.loads(row["data"] or "{}"), "createdBy": row["created_by"], "provisioned": bool(row["provision_id"])} for row in rows])
             return
 
         if self.path == "/api/financial-orders":
@@ -6012,6 +6028,46 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         path = self.path.split("?", 1)[0]
+        bank_parts = path.strip("/").split("/")
+        if len(bank_parts) == 4 and bank_parts[:2] == ["api", "bank-availability"] and bank_parts[3] == "provisions":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            account_id = unquote(bank_parts[2])
+            data = self.read_json()
+            raw_record_ids = data.get("recordIds")
+            record_ids = list(dict.fromkeys(text(item) for item in raw_record_ids if text(item))) if isinstance(raw_record_ids, list) else []
+            if not record_ids or len(record_ids) > 100:
+                self.send_json({"error": "Selecciona entre 1 y 100 depósitos para provisionar"}, status=400); return
+            created, skipped = [], []
+            with connect() as conn:
+                account = conn.execute("SELECT id FROM bank_accounts WHERE id = ? AND active = 1", (account_id,)).fetchone()
+                if not account:
+                    self.send_json({"error": "Cuenta bancaria no encontrada"}, status=404); return
+                inflow_field, _ = bank_flow_fields(account_id)
+                conn.execute("BEGIN IMMEDIATE")
+                for record_id in record_ids:
+                    row = conn.execute("SELECT id, data FROM bank_balance_records WHERE id = ? AND account_id = ?", (record_id, account_id)).fetchone()
+                    if not row:
+                        conn.rollback(); self.send_json({"error": "Uno de los movimientos ya no existe en esta cuenta"}, status=409); return
+                    if conn.execute("SELECT 1 FROM bank_deposit_provisions WHERE record_id = ?", (record_id,)).fetchone():
+                        skipped.append(record_id); continue
+                    values = json.loads(row["data"] or "{}")
+                    gross = round(numeric_bank_value(values.get(inflow_field)), 2)
+                    if gross <= 0:
+                        conn.rollback(); self.send_json({"error": "Solo los depósitos o abonos pueden provisionarse"}, status=400); return
+                    net = round(gross / 1.1475, 2)
+                    vat = round(net * 0.13, 2)
+                    income_tax = round(net * 0.0175, 2)
+                    labor = round(net * 0.07, 2)
+                    provision_id = str(uuid.uuid4())
+                    conn.execute("""INSERT INTO bank_deposit_provisions
+                        (id, record_id, account_id, gross_amount, net_amount, vat_amount, income_tax_amount, labor_provision_amount, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (provision_id, record_id, account_id, gross, net, vat, income_tax, labor, text(data.get("createdBy"), "Sistema Gerencial")))
+                    created.append({"id": provision_id, "recordId": record_id, "gross": gross, "net": net, "vat": vat, "incomeTax": income_tax, "labor": labor})
+            self.send_json({"ok": True, "created": created, "skipped": skipped}, status=201)
+            return
+
         opportunity_parts = path.strip("/").split("/")
         if (
             len(opportunity_parts) == 4
@@ -6564,6 +6620,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 row = conn.execute("SELECT r.*, a.balance_field FROM bank_balance_records r JOIN bank_accounts a ON a.id = r.account_id WHERE r.id = ?", (record_id,)).fetchone()
                 if not row:
                     self.send_json({"error": "Movimiento bancario no encontrado"}, status=404); return
+                if conn.execute("SELECT 1 FROM bank_deposit_provisions WHERE record_id = ?", (record_id,)).fetchone():
+                    self.send_json({"error": "El depósito ya fue provisionado y no puede editarse"}, status=409); return
                 opening_balance = bank_opening_balance(conn, row["account_id"])
                 existing_values = json.loads(row["data"] or "{}")
                 values = {**existing_values, **(data.get("data") if isinstance(data.get("data"), dict) else {})}
@@ -6968,6 +7026,8 @@ class AppHandler(BaseHTTPRequestHandler):
                 opening_balance = bank_opening_balance(conn, row["account_id"]) if row else 0
                 if not row:
                     self.send_json({"error": "Movimiento bancario no encontrado"}, status=404); return
+                if conn.execute("SELECT 1 FROM bank_deposit_provisions WHERE record_id = ?", (record_id,)).fetchone():
+                    self.send_json({"error": "El depósito ya fue provisionado y no puede anularse"}, status=409); return
                 actor_id = text(self.headers.get("X-System-User-Id"))
                 actor = conn.execute("SELECT name FROM users WHERE id = ? LIMIT 1", (actor_id,)).fetchone() if actor_id else None
                 audit_row = conn.execute("SELECT value FROM app_state WHERE key = 'bank_void_audit'").fetchone()
