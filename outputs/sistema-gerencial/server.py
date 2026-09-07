@@ -5199,10 +5199,19 @@ def init_db():
                 gross_amount REAL NOT NULL, net_amount REAL NOT NULL,
                 vat_amount REAL NOT NULL, income_tax_amount REAL NOT NULL,
                 labor_provision_amount REAL NOT NULL,
+                seller TEXT DEFAULT '', commission_rate REAL NOT NULL DEFAULT 0,
+                commission_amount REAL NOT NULL DEFAULT 0,
                 created_by TEXT DEFAULT 'Sistema Gerencial',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        bank_provision_columns = {row["name"] for row in conn.execute("PRAGMA table_info(bank_deposit_provisions)").fetchall()}
+        if "seller" not in bank_provision_columns:
+            conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN seller TEXT DEFAULT ''")
+        if "commission_rate" not in bank_provision_columns:
+            conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN commission_rate REAL NOT NULL DEFAULT 0")
+        if "commission_amount" not in bank_provision_columns:
+            conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN commission_amount REAL NOT NULL DEFAULT 0")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_provisions_account ON bank_deposit_provisions(account_id, created_at DESC)")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS bank_daily_availability (
@@ -6038,6 +6047,15 @@ class AppHandler(BaseHTTPRequestHandler):
             record_ids = list(dict.fromkeys(text(item) for item in raw_record_ids if text(item))) if isinstance(raw_record_ids, list) else []
             if not record_ids or len(record_ids) > 100:
                 self.send_json({"error": "Selecciona entre 1 y 100 movimientos para provisionar"}, status=400); return
+            commission_rates = {
+                "Odaliz Valencia": 0.02, "Amadeo Alfaro": 0.09, "Marco Velado": 0.09,
+                "Erick Orantes": 0.04, "Yanira Merino": 0.04, "Gabriela Amador": 0.04,
+                "Marjorie Morales": 0.04,
+            }
+            seller = text(data.get("seller"))
+            if seller not in commission_rates:
+                self.send_json({"error": "Selecciona un vendedor válido para calcular la comisión"}, status=400); return
+            commission_rate = commission_rates[seller]
             created, skipped = [], []
             with connect() as conn:
                 account = conn.execute("SELECT id FROM bank_accounts WHERE id = ? AND active = 1", (account_id,)).fetchone()
@@ -6059,12 +6077,15 @@ class AppHandler(BaseHTTPRequestHandler):
                     vat = round(net * 0.13, 2)
                     income_tax = round(net * 0.0175, 2)
                     labor = round(net * 0.07, 2)
+                    commission = round(net * commission_rate, 2)
                     provision_id = str(uuid.uuid4())
                     conn.execute("""INSERT INTO bank_deposit_provisions
-                        (id, record_id, account_id, gross_amount, net_amount, vat_amount, income_tax_amount, labor_provision_amount, created_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (provision_id, record_id, account_id, gross, net, vat, income_tax, labor, text(data.get("createdBy"), "Sistema Gerencial")))
-                    created.append({"id": provision_id, "recordId": record_id, "gross": gross, "net": net, "vat": vat, "incomeTax": income_tax, "labor": labor})
+                        (id, record_id, account_id, gross_amount, net_amount, vat_amount, income_tax_amount,
+                         labor_provision_amount, seller, commission_rate, commission_amount, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (provision_id, record_id, account_id, gross, net, vat, income_tax, labor, seller,
+                         commission_rate, commission, text(data.get("createdBy"), "Sistema Gerencial")))
+                    created.append({"id": provision_id, "recordId": record_id, "gross": gross, "net": net, "vat": vat, "incomeTax": income_tax, "labor": labor, "seller": seller, "commissionRate": commission_rate, "commission": commission})
             self.send_json({"ok": True, "created": created, "skipped": skipped}, status=201)
             return
 
