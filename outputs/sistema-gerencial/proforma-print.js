@@ -71,9 +71,9 @@ function renderProforma(order) {
   const printableOrderNumber = rawOrderNumber.toUpperCase().startsWith("OP-")
     ? rawOrderNumber.slice(3)
     : rawOrderNumber;
-  const invoiceType = order.documentType === "CCF" ? "Credito fiscal" : "Consumidor final";
+  const invoiceType = order.documentType === "CCF" ? "Credito fiscal" : order.documentType === "CE" ? "Comprobante de envio" : "Consumidor final";
   const detailedVat = order.documentType === "CCF";
-  const taxPrintLegend = detailedVat ? "IVA detallado" : "Precio final · IVA no detallado";
+  const taxPrintLegend = detailedVat ? "IVA detallado" : order.documentType === "CE" ? "Comprobante de envio · IVA no detallado" : "Precio final · IVA no detallado";
   const printedTotals = detailedVat
     ? `<tr><th>SUMAS</th><td>${printMoney(subtotalCents)}</td></tr><tr><th>1% PERCEPCION</th><td>${printMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${printMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${printMoney(order.totalCents)}</td></tr>`
     : `<tr><th>TOTAL</th><td>${printMoney(order.totalCents)}</td></tr>`;

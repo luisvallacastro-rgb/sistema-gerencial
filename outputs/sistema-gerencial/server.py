@@ -31,7 +31,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-direct-customer-consistent-state-v16"
+API_VERSION = "kmi-direct-customer-consistent-state-v17"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
@@ -1309,7 +1309,7 @@ def normalize_crm_customer(payload, existing=None):
         "sellerName": text(payload.get("sellerName"), existing.get("sellerName")),
         "clientType": text(payload.get("clientType"), existing.get("clientType")),
         "personhood": text(payload.get("personhood"), existing.get("personhood")),
-        "documentType": "CCF" if text(payload.get("documentType"), existing.get("documentType") or "CF").upper() == "CCF" else "CF",
+        "documentType": text(payload.get("documentType"), existing.get("documentType") or "CF").upper() if text(payload.get("documentType"), existing.get("documentType") or "CF").upper() in ("CF", "CCF", "CE") else "CF",
         "paymentTerms": text(payload.get("paymentTerms"), existing.get("paymentTerms")),
         "strategy": text(payload.get("strategy"), existing.get("strategy")),
         "active": payload.get("active", existing.get("active", True)) is not False,
@@ -2853,7 +2853,7 @@ def control_sales_validate(data, existing=None):
     if not all((number, seller, order_date, client)):
         raise ValueError("Numero, vendedor, fecha y cliente son requeridos")
     document_type = text(data.get("documentType"), current.get("documentType") or "CF").upper()
-    if document_type not in ("CF", "CCF"):
+    if document_type not in ("CF", "CCF", "CE"):
         raise ValueError("Tipo de comprobante no valido")
     current_proforma = current.get("proformaData") or {}
     raw_proforma = data.get("proformaData")
@@ -2868,10 +2868,7 @@ def control_sales_validate(data, existing=None):
     allowed_strategies = ("", "Retención", "Expansión", "Atracción", "Recuperación")
     if strategy not in allowed_strategies:
         raise ValueError("Estrategia de venta no valida")
-    apply_vat = bool(raw_proforma.get(
-        "applyVat",
-        current_proforma.get("applyVat", document_type == "CCF"),
-    ))
+    apply_vat = document_type == "CCF"
     proforma_data = {
         "customerId": text(raw_proforma.get("customerId"), current_proforma.get("customerId") or ""),
         "commercialName": text(raw_proforma.get("commercialName"), current_proforma.get("commercialName") or client),
@@ -3155,7 +3152,7 @@ def quotation_payload(row):
         "number": row["quotation_number"], "date": row["quotation_date"],
         "validDays": row["valid_days"], "seller": row["seller"],
         "client": row["client"], "status": row["status"],
-        "documentType": "CCF" if text(customer.get("documentType"), "CF").upper() == "CCF" else "CF",
+        "documentType": text(customer.get("documentType"), "CF").upper() if text(customer.get("documentType"), "CF").upper() in ("CF", "CCF", "CE") else "CF",
         "applyVat": text(customer.get("documentType"), "CF").upper() == "CCF",
         "customerData": customer, "paymentTerms": row["payment_terms"],
         "deliveryTerms": row["delivery_terms"], "warrantyNote": row["warranty_note"],
@@ -3274,7 +3271,9 @@ def quotation_validate(data, existing=None):
     raw_customer = data.get("customerData", current.get("customerData") or {})
     if not isinstance(raw_customer, dict):
         raise ValueError("Los datos del cliente no son validos")
-    document_type = "CCF" if text(data.get("documentType") or raw_customer.get("documentType"), current.get("documentType") or "CF").upper() == "CCF" else "CF"
+    document_type = text(data.get("documentType") or raw_customer.get("documentType"), current.get("documentType") or "CF").upper()
+    if document_type not in ("CF", "CCF", "CE"):
+        document_type = "CF"
     customer = {
         "customerId": text(raw_customer.get("customerId") or data.get("customerId")),
         "commercialName": text(raw_customer.get("commercialName"), client),

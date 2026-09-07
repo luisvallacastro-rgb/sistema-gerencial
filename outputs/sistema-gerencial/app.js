@@ -3230,7 +3230,7 @@ function ensureControlSalesDialogs() {
           <label class="span-4">Observaciones generales<textarea id="controlSalesGeneralNotes" rows="3"></textarea></label>
         </div>
       </details>
-      <fieldset class="control-sales-tax-mode"><legend>Presentación del comprobante impreso</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · IVA no detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · IVA detallado</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
+      <fieldset class="control-sales-tax-mode"><legend>Presentación del comprobante impreso</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · IVA no detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · IVA detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CE"><span class="control-sales-tax-card"><b>CE</b><small>Comprobante de envío · IVA no detallado</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
       <fieldset class="control-sales-tax-mode"><legend>IVA de la orden de pedido</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesVatMode" value="without" checked><span class="control-sales-tax-card"><b>Mantener sin IVA</b><small>Conserva el total de la cotización</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesVatMode" value="with"><span class="control-sales-tax-card"><b>Agregar IVA 13%</b><small>Calcula el IVA sobre cada línea</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
       <section class="control-sales-lines"><div class="control-sales-lines-title"><div><span>Detalle de productos</span><strong>Líneas dinámicas</strong></div><button type="button" data-control-sales-add-line>+ Agregar línea</button></div><div id="controlSalesLines"></div></section>
       <section class="control-sales-proforma-totals">
@@ -3337,6 +3337,12 @@ function ensureControlSalesDialogs() {
     }
   });
   formDialog.addEventListener("change", (event) => {
+    if (event.target.matches('input[name="controlSalesDocumentType"]')) {
+      const addVat = document.querySelector('input[name="controlSalesVatMode"][value="with"]');
+      const noVat = document.querySelector('input[name="controlSalesVatMode"][value="without"]');
+      addVat.disabled = event.target.value === "CE";
+      if (event.target.value === "CE") noVat.checked = true;
+    }
     if (event.target.matches('input[name="controlSalesDocumentType"], input[name="controlSalesVatMode"], #controlSalesPerceptionEnabled')) updateControlSalesFormTotal();
     if (event.target.matches("#controlSalesDate")) {
       if (!document.querySelector("#controlSalesId").value) {
@@ -4363,7 +4369,7 @@ function ensureQuotationDialog() {
     <input type="hidden" id="quotationId"><input type="hidden" id="quotationOpportunityId"><input type="hidden" id="quotationCustomerId">
     <section id="quotationHistory" class="quotation-history"></section>
     <div class="quotation-step-heading"><span>1</span><div><b>Datos básicos</b><small>Fecha, vigencia y estado de la cotización.</small></div></div>
-    <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable quotation-client-name-field"><span>Cliente / nombre de la cotización <em>Actualiza la oportunidad vinculada</em></span><div class="quotation-client-link-row"><input id="quotationCommercialName" maxlength="120" autocomplete="organization" required><button type="button" data-quotation-link-customer>Vincular cliente existente</button></div><small data-quotation-customer-link-status></small></label><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label><label class="quotation-field-editable quotation-document-type-field"><span>Tipo de comprobante <em>Dato fiscal clave</em></span><select id="quotationDocumentType" required><option value="CF">Consumidor final · IVA incluido</option><option value="CCF">Crédito fiscal · agregar IVA 13%</option></select></label></section>
+    <section class="quotation-form-grid quotation-main-fields quotation-clean-section"><input id="quotationNumber" type="hidden"><label class="quotation-field-editable quotation-client-name-field"><span>Cliente / nombre de la cotización <em>Actualiza la oportunidad vinculada</em></span><div class="quotation-client-link-row"><input id="quotationCommercialName" maxlength="120" autocomplete="organization" required><button type="button" data-quotation-link-customer>Vincular cliente existente</button></div><small data-quotation-customer-link-status></small></label><label class="quotation-field-editable">Fecha<input id="quotationDate" type="date" required></label><label class="quotation-field-editable">Vigencia<select id="quotationValidDays" required><option value="30">30 días</option></select></label><label class="quotation-field-editable">Estado<select id="quotationStatus"><option>Borrador</option><option>Enviada</option><option>Aprobada</option><option>Rechazada</option><option>Vencida</option><option value="Convertida" disabled>Convertida (pedido creado)</option></select></label><label class="quotation-field-editable quotation-document-type-field"><span>Tipo de comprobante <em>Dato fiscal clave</em></span><select id="quotationDocumentType" required><option value="CF">Consumidor final · IVA incluido</option><option value="CCF">Crédito fiscal · agregar IVA 13%</option><option value="CE">Comprobante de envío · IVA no detallado</option></select></label></section>
     <div id="quotationInheritedData" hidden aria-hidden="true"><input id="quotationLegalName"><input id="quotationContactName"><input id="quotationPhone"><input id="quotationEmail"><input id="quotationAddress"><input id="quotationBusinessActivity"><input id="quotationTaxId"><input id="quotationRegistrationNumber"><input id="quotationTaxpayerType"><input id="quotationCustomerCode"><input id="quotationStrategy"><input id="quotationClientType"><input id="quotationDepartment"><input id="quotationMunicipality"><input id="quotationSeller"><input id="quotationSellerPhone"><input id="quotationSellerEmail"></div>
     <section class="quotation-lines quotation-clean-section quotation-editable-fields"><div id="quotationLines"></div></section>
     <section class="quotation-totals">
@@ -4545,7 +4551,8 @@ function quotationDraftFromForm() {
     return { id:line.dataset.quotationLineId, description:line.querySelector("[data-quotation-description]").value.trim(), size:line.querySelector("[data-quotation-size]").value.trim(), quantity:String(quantity), unitPrice, unitPriceCents:Math.round(unitPrice * 100), lineTotalCents:Math.round(quantity * unitPrice * 100), notes:line.querySelector("[data-quotation-notes]").value.trim() };
   });
   const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
-  const documentType = document.querySelector("#quotationDocumentType").value === "CCF" ? "CCF" : "CF";
+  const selectedDocumentType = document.querySelector("#quotationDocumentType").value;
+  const documentType = ["CF", "CCF", "CE"].includes(selectedDocumentType) ? selectedDocumentType : "CF";
   const vatCents = documentType === "CCF" ? Math.round(subtotalCents * 0.13) : 0;
   const customerId = document.querySelector("#quotationCustomerId").value;
   return { id:document.querySelector("#quotationId").value, opportunityId:document.querySelector("#quotationOpportunityId").value, customerId, number:document.querySelector("#quotationNumber").value, date:document.querySelector("#quotationDate").value, validDays:Number(document.querySelector("#quotationValidDays").value || 30), seller:document.querySelector("#quotationSeller").value.trim(), client:document.querySelector("#quotationCommercialName").value.trim(), status:document.querySelector("#quotationStatus").value,
@@ -4603,7 +4610,7 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
   const values = {
     quotationId:quote?.id || "", quotationNumber:quote?.number || "", quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
     quotationCommercialName:customer.commercialName || customer.name || quote?.client || opportunity?.company || "", quotationLegalName:customer.legalName || "", quotationContactName:customer.contactName || customer.manager || opportunity?.contact || "", quotationPhone:customer.phone || opportunity?.phone || "", quotationEmail:customer.email || "", quotationAddress:customer.address || opportunity?.location || "", quotationBusinessActivity:customer.businessActivity || customer.businessLine || opportunity?.segment || "", quotationTaxId:customer.taxId || customer.nit || "", quotationRegistrationNumber:customer.registrationNumber || customer.nrc || "", quotationTaxpayerType:customer.taxpayerType || "", quotationCustomerCode:customer.customerCode || customer.code || "", quotationStrategy:customer.strategy || opportunity?.strategy || "", quotationSeller:quote?.seller || seller.name || opportunity?.seller || state.currentUser?.name || "", quotationSellerPhone:customer.sellerPhone || seller.phone || "", quotationSellerEmail:customer.sellerEmail || seller.email || state.currentUser?.email || "",
-    quotationClientType:customer.clientType || "", quotationDepartment:customer.department || "", quotationMunicipality:customer.municipality || "", quotationDocumentType:(quote?.documentType || customer.documentType) === "CCF" ? "CCF" : "CF", quotationPaymentTerms:quote?.paymentTerms || customer.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:(quote?.documentType || customer.documentType) === "CCF" ? "Precios unitarios no incluyen IVA" : "Los precios unitarios ya incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
+    quotationClientType:customer.clientType || "", quotationDepartment:customer.department || "", quotationMunicipality:customer.municipality || "", quotationDocumentType:["CF","CCF","CE"].includes(quote?.documentType || customer.documentType) ? (quote?.documentType || customer.documentType) : "CF", quotationPaymentTerms:quote?.paymentTerms || customer.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:(quote?.documentType || customer.documentType) === "CCF" ? "Precios unitarios no incluyen IVA" : "Los precios unitarios ya incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
   };
   if (normalizeKey(values.quotationSeller) === "amadeo alfaro") {
     values.quotationSellerEmail = "arteycolor.bordados@gmail.com";
@@ -4797,7 +4804,8 @@ function printQuotation(quote) {
     return `<tr><td class="qty">${value(line.quantity)}</td><td>${printableDescription}</td><td class="money">${formatControlSalesMoney(line.unitPriceCents)}</td><td class="money">${formatControlSalesMoney(line.lineTotalCents)}</td></tr>`;
   }).join("");
   const emailHref = `mailto:${encodeURIComponent(data.email || "")}?subject=${encodeURIComponent("Cotización - Arte y Color Uniformes")}&body=${encodeURIComponent(`Estimado/a ${data.contactName || quote.client}:\n\nAdjuntamos la cotización. La oferta tiene una vigencia de ${quote.validDays || 30} días.\n\nSaludos,\n${quote.seller}`)}`;
-  const quotationDocumentType = (quote.documentType || data.documentType) === "CCF" ? "CCF" : "CF";
+  const rawQuotationDocumentType = quote.documentType || data.documentType;
+  const quotationDocumentType = ["CF","CCF","CE"].includes(rawQuotationDocumentType) ? rawQuotationDocumentType : "CF";
   const quotationSubtotalCents = Number(quote.subtotalCents ?? quote.lines?.reduce((sum, line) => sum + Number(line.lineTotalCents || 0), 0) ?? 0);
   const quotationVatCents = quotationDocumentType === "CCF" ? Math.round(quotationSubtotalCents * 0.13) : 0;
   const quotationTotalCents = quotationSubtotalCents + quotationVatCents;
@@ -5138,8 +5146,12 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
     document.querySelector("#controlSalesCommercialName").value = sourceWin.company || "";
   }
   document.querySelector("#controlSalesOrderStatus").value = order?.status === "Histórica" ? "Activa" : (order?.status || "Activa");
-  const documentType = (order?.documentType || quotationData.documentType) === "CCF" ? "CCF" : "CF";
+  const rawDocumentType = order?.documentType || quotationData.documentType;
+  const documentType = ["CF","CCF","CE"].includes(rawDocumentType) ? rawDocumentType : "CF";
   document.querySelector(`input[name="controlSalesDocumentType"][value="${documentType}"]`).checked = true;
+  const addVatOption = document.querySelector('input[name="controlSalesVatMode"][value="with"]');
+  addVatOption.disabled = documentType === "CE";
+  if (documentType === "CE") document.querySelector('input[name="controlSalesVatMode"][value="without"]').checked = true;
   const initialDetails = order?.details?.length
     ? order.details
     : sourceQuotation?.lines?.length
@@ -5236,7 +5248,7 @@ function orderWithCurrentQuotationData(order = {}) {
     ? quotation.lines.filter((line) => String(line.type || "").toLowerCase() !== "title")
     : [];
   if (!quotation || !lines.length) return order;
-  const documentType = quotation.documentType === "CCF" ? "CCF" : "CF";
+  const documentType = ["CF","CCF","CE"].includes(quotation.documentType) ? quotation.documentType : "CF";
   const details = lines.map((line, index) => {
     const quantity = Number(String(line.quantity ?? 0).replace(",", ".")) || 0;
     const unitPriceCents = Number(line.unitPriceCents || 0);
@@ -5294,9 +5306,9 @@ function printControlSalesProformaInline(order) {
   const printableOrderNumber = /^\d+$/.test(rawOrderNumber)
     ? `OP-${rawOrderNumber.padStart(4, "0")}`
     : rawOrderNumber;
-  const invoiceType = order.documentType === "CCF" ? "Credito fiscal" : "Consumidor final";
+  const invoiceType = order.documentType === "CCF" ? "Credito fiscal" : order.documentType === "CE" ? "Comprobante de envio" : "Consumidor final";
   const detailedVat = order.documentType === "CCF";
-  const taxPrintLegend = detailedVat ? "IVA detallado" : "Precio final · IVA no detallado";
+  const taxPrintLegend = detailedVat ? "IVA detallado" : order.documentType === "CE" ? "Comprobante de envio · IVA no detallado" : "Precio final · IVA no detallado";
   const printedTotals = detailedVat
     ? `<tr><th>SUMAS</th><td>${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>1% PERCEPCION</th><td>${formatControlSalesMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${formatControlSalesMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`
     : `<tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`;
@@ -8882,7 +8894,7 @@ function ensureCrmCustomerDialog() {
         <label>Número de documento<input id="crmCustomerTaxId" maxlength="40" placeholder="Número de identificación"></label>
         <label>NRC / registro<input id="crmCustomerRegistration" maxlength="40" placeholder="Número de registro"></label>
         <label>Tipo de contribuyente<select id="crmCustomerTaxpayerType">${customerSelectOptions(customerTaxpayerTypes, "Seleccionar tipo de contribuyente")}</select></label>
-        <label>Tipo de factura<select id="crmCustomerDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label>
+        <label>Tipo de factura<select id="crmCustomerDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option><option value="CE">Comprobante de envío</option></select></label>
         <label>Giro / actividad económica<input id="crmCustomerBusiness" maxlength="120" placeholder="Actividad principal"></label>
       </div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Información reutilizable en órdenes y pedidos.</small></div></div><div class="crm-customer-fields">
@@ -9058,7 +9070,7 @@ function printCustomerRequestSheet(request = {}) {
     ["Nombre comercial", request.commercialName], ["Razón social", request.legalName], ["Vendedor", request.sellerName || crmOwnerName(request.sellerId || "")], ["Tipo de cliente", request.clientType], ["Personería", request.personhood],
     ["Contacto principal", request.contactName], ["Teléfono", request.phone], ["Correo", request.email],
     ["Tipo de documento", request.identityDocumentType || (request.taxId ? "NIT" : "")], ["Número de documento", request.taxId], ["NRC / registro", request.registrationNumber], ["Tipo de contribuyente", request.taxpayerType],
-    ["Tipo de factura", request.documentType === "CCF" ? "Crédito fiscal" : "Consumidor final"],
+    ["Tipo de factura", request.documentType === "CCF" ? "Crédito fiscal" : request.documentType === "CE" ? "Comprobante de envío" : "Consumidor final"],
     ["Giro / actividad económica", request.businessActivity], ["Dirección", request.address], ["Departamento", request.department], ["Municipio", request.municipality],
     ["Condiciones de pago", request.paymentTerms], ["Estrategia comercial", request.strategy]
   ];
@@ -9076,7 +9088,7 @@ function openDirectCustomerSheet(customer = {}, autoPrint = false) {
     ["Nombre comercial", customer.commercialName], ["Razón social", customer.legalName], ["Vendedor", customer.sellerName || crmOwnerName(customer.sellerId || "")],
     ["Tipo de cliente", customer.clientType], ["Personería", customer.personhood], ["Contacto principal", customer.contactName], ["Teléfono", customer.phone], ["Correo", customer.email],
     ["Tipo de documento", customer.identityDocumentType || (customer.taxId ? "NIT" : "")], ["Número de documento", customer.taxId], ["NRC / registro", customer.registrationNumber],
-    ["Tipo de contribuyente", customer.taxpayerType], ["Tipo de factura", customer.documentType === "CCF" ? "Crédito fiscal" : "Consumidor final"],
+    ["Tipo de contribuyente", customer.taxpayerType], ["Tipo de factura", customer.documentType === "CCF" ? "Crédito fiscal" : customer.documentType === "CE" ? "Comprobante de envío" : "Consumidor final"],
     ["Giro / actividad económica", customer.businessActivity], ["Dirección", customer.address], ["Departamento", customer.department], ["Municipio", customer.municipality],
     ["Condiciones de pago", customer.paymentTerms], ["Estrategia comercial", customer.strategy]
   ];
@@ -9098,7 +9110,7 @@ function ensureCustomerRequestDialog() {
     <input type="hidden" id="customerRequestId"><div class="crm-customer-dialog-body">
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>01</span><div><strong>Identidad del cliente</strong><small>Datos principales de la solicitud.</small></div></div><div class="crm-customer-fields"><label>Nombre comercial <em>*</em><input id="customerRequestCommercialName" required></label><label>Razón social<input id="customerRequestLegalName"></label><label>Vendedor<select id="customerRequestSeller">${customerSellerOptions()}</select></label><label>Tipo de cliente<select id="customerRequestType">${customerSelectOptions(customerClientTypes, "Seleccionar tipo de cliente")}</select></label><label>Personería<select id="customerRequestPersonhood">${customerSelectOptions(customerPersonhoodTypes, "Seleccionar personería")}</select></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>02</span><div><strong>Contacto</strong><small>Persona y canales de contacto.</small></div></div><div class="crm-customer-fields"><label>Contacto principal<input id="customerRequestContact"></label><label>Teléfono<input id="customerRequestPhone"></label><label class="span-2">Correo<input type="email" id="customerRequestEmail"></label></div></section>
-      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>Tipo de documento<select id="customerRequestIdentityDocumentType">${customerSelectOptions(customerIdentityDocumentTypes, "Seleccionar tipo de documento")}</select></label><label>Número de documento<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<select id="customerRequestTaxpayerType">${customerSelectOptions(customerTaxpayerTypes, "Seleccionar tipo de contribuyente")}</select></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
+      <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>03</span><div><strong>Información fiscal</strong><small>Datos para validación y documentación.</small></div></div><div class="crm-customer-fields"><label>Tipo de documento<select id="customerRequestIdentityDocumentType">${customerSelectOptions(customerIdentityDocumentTypes, "Seleccionar tipo de documento")}</select></label><label>Número de documento<input id="customerRequestTaxId"></label><label>NRC / registro<input id="customerRequestRegistration"></label><label>Tipo de contribuyente<select id="customerRequestTaxpayerType">${customerSelectOptions(customerTaxpayerTypes, "Seleccionar tipo de contribuyente")}</select></label><label>Tipo de factura<select id="customerRequestDocumentType"><option value="CF">Consumidor final</option><option value="CCF">Crédito fiscal</option><option value="CE">Comprobante de envío</option></select></label><label class="span-2">Giro / actividad económica<input id="customerRequestBusiness"></label></div></section>
       <section class="crm-customer-form-section"><div class="crm-customer-section-title"><span>04</span><div><strong>Operación comercial</strong><small>Datos de entrega y condiciones.</small></div></div><div class="crm-customer-fields"><label class="span-2">Dirección<input id="customerRequestAddress"></label><label>Departamento<select id="customerRequestDepartment">${customerDepartmentOptions()}</select></label><label>Municipio<select id="customerRequestMunicipality" disabled><option value="">Selecciona primero el departamento</option></select></label><label>Condiciones de pago<select id="customerRequestTerms" required><option value="" disabled>Seleccionar condición de pago</option>${commercialPaymentTermOptions()}</select></label><label class="span-2">Estrategia comercial<select id="customerRequestStrategy">${customerSelectOptions(customerCommercialStrategies, "Seleccionar estrategia comercial")}</select></label></div></section>
     </div><footer class="crm-customer-dialog-actions"><span data-customer-request-status><i></i> Borrador sin enviar</span><div><button type="button" class="ghost-btn" data-customer-request-close>Cancelar</button><button type="button" class="ghost-btn hidden" data-customer-request-print>Imprimir solicitud</button><button type="button" class="customer-request-sign-btn hidden" data-customer-request-sign>Firmar electrónicamente</button><button type="button" class="danger-btn hidden" data-customer-request-reject>Rechazar</button><button type="button" class="customer-request-save-btn hidden" data-customer-request-review-save>Guardar temporalmente</button><button type="button" class="ghost-btn hidden" data-customer-request-approved-edit>Editar datos</button><button type="button" class="customer-request-save-btn hidden" data-customer-request-approved-save>Guardar cliente</button><button type="button" class="primary-btn hidden" data-customer-request-approve>Aprobar y crear cliente</button><button type="button" class="customer-request-save-btn" data-customer-request-draft>Guardar borrador</button><button type="submit" class="primary-btn" data-customer-request-submit>Enviar solicitud</button></div></footer>
   </form>`;
@@ -9501,7 +9513,7 @@ function masterCustomerQuotationData(customer, quotation = {}) {
     department: customer.department || "",
     municipality: customer.municipality || "",
     paymentTerms: customer.paymentTerms || quotation.paymentTerms || "",
-    documentType: customer.documentType === "CCF" ? "CCF" : "CF"
+    documentType: ["CF","CCF","CE"].includes(customer.documentType) ? customer.documentType : "CF"
   };
 }
 
