@@ -3982,7 +3982,10 @@ function quotationLinkedOrder(quotation = {}) {
 }
 
 function canReviseConvertedDirectQuotation(quotation = {}) {
-  if (!String(quotation.opportunityId || "").startsWith("direct-quotation:") || !quotationLinkedOrder(quotation)) return true;
+  const linkedOrder = quotationLinkedOrder(quotation);
+  const isDirect = String(quotation.opportunityId || "").startsWith("direct-quotation:")
+    || String(linkedOrder?.proformaData?.workflow || "") === "direct-final-only";
+  if (!isDirect || !linkedOrder) return true;
   const identity = normalizeKey(`${state.currentUser?.id || ""} ${state.currentUser?.name || ""} ${state.currentUser?.username || ""} ${state.currentUser?.email || ""}`);
   const isJudith = identity.includes("esmeraldar") || ["judith", "esmeralda", "rivera"].every((token) => identity.includes(token));
   const isLuis = identity.includes("luisvallacastro") || ["luis", "valladares"].every((token) => identity.includes(token));

@@ -3037,7 +3037,8 @@ def save_control_sales_order(conn, data, existing_row=None):
         if not quotation:
             raise ValueError("La cotizacion seleccionada ya no existe")
         if (
-            item["proformaData"].get("workflow") == "direct-final-only"
+            not existing_row
+            and item["proformaData"].get("workflow") == "direct-final-only"
             and not text(quotation["opportunity_id"]).startswith("direct-quotation:")
         ):
             raise ValueError("El flujo directo no corresponde al origen real de la cotizacion")
@@ -6699,7 +6700,19 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_json({"error": "Cotizacion no encontrada"}, status=404)
                         return
                     current = quotation_payload(row)
-                    if current.get("convertedOrderId") and text(current.get("opportunityId")).startswith("direct-quotation:"):
+                    linked_order = conn.execute(
+                        "SELECT proforma_data FROM control_sales_orders WHERE archived = 0 AND (id = ? OR source_quotation_id = ?) LIMIT 1",
+                        (text(current.get("convertedOrderId")), item_id),
+                    ).fetchone()
+                    try:
+                        linked_workflow = text(json.loads(linked_order["proforma_data"] or "{}").get("workflow")) if linked_order else ""
+                    except (TypeError, json.JSONDecodeError):
+                        linked_workflow = ""
+                    is_converted_direct = bool(current.get("convertedOrderId") or linked_order) and (
+                        text(current.get("opportunityId")).startswith("direct-quotation:")
+                        or linked_workflow == "direct-final-only"
+                    )
+                    if is_converted_direct:
                         actor_id = text(self.headers.get("X-System-User-Id"))
                         actor_row = conn.execute(
                             "SELECT id, name, username, email FROM users WHERE id = ? LIMIT 1",
