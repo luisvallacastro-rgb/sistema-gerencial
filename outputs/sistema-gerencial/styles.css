@@ -18714,6 +18714,11 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-table-row__amount { color: #f2f6fc; overflow: hidden; text-overflow: ellipsis; }
 .quotation-table-row__client { display: grid; justify-items: start; gap: 5px; min-width: 0; }
 .quotation-table-row__client > strong { width: 100%; overflow: hidden; color: #f2f6fc; text-overflow: ellipsis; white-space: nowrap; }
+.quotation-table-row__seller { display: grid; gap: 3px; min-width: 0; }
+.quotation-table-row__seller > strong,
+.quotation-table-row__seller > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quotation-table-row__seller > strong { color: #e9eef7; }
+.quotation-table-row__seller > small { color: #93a5bd; font-size: .72rem; }
 .quotation-table-row__detail { display: grid; gap: 4px; overflow: hidden; }
 .quotation-table-row__detail strong,
 .quotation-table-row__detail small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

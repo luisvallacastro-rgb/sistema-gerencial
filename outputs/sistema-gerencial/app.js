@@ -3647,6 +3647,11 @@ async function loadQuotations() {
 }
 
 function controlSalesResponsibleSeller(order = {}) {
+  // La cotización es la fuente de verdad del vendedor seleccionado. El usuario
+  // que la ingresó se conserva por separado en `createdBy` para auditoría.
+  const linkedQuotation = linkedQuotationForControlSalesOrder(order);
+  if (linkedQuotation?.seller) return linkedQuotation.seller;
+
   const financialOrder = state.financialOrders?.find((item) => String(item.id || "") === String(order.financialOrderId || ""));
   const opportunities = getOpportunitySubmenu().items;
   const sourceIds = new Set([
@@ -3961,7 +3966,7 @@ function renderQuotationsModule() {
           <article class="quotation-table-row ${linkedOrder ? "has-order" : "quotation-only"}">
             <span>${formatDate(quotation.date)}</span>
             <div class="quotation-table-row__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${linkedOrder ? "orden-creada" : "solo-cotizacion"}">${linkedOrder ? `OP #${escapeHtml(linkedOrder.number || "—")} creada` : "Solo cotización"}</span></div>
-            <span>${escapeHtml(quotation.seller || "Sin vendedor")}</span>
+            <span class="quotation-table-row__seller"><strong>${escapeHtml(quotation.seller || "Sin vendedor")}</strong><small>Ingresada por ${escapeHtml(quotation.createdBy || "Sistema Gerencial")}</small></span>
             <span class="quotation-table-row__detail"><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><small>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</small></span>
             <strong class="quotation-table-row__amount">${formatControlSalesMoney(quotation.totalCents || 0)}</strong>
             <div class="quotation-record__actions">
