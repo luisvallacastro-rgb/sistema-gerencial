@@ -3568,6 +3568,13 @@ def sync_opportunity_name_from_quotation(conn, opportunity_id, company_name, cus
 def save_quotation(conn, data, existing_row=None):
     existing = quotation_payload(existing_row) if existing_row else None
     item = quotation_validate(data, existing)
+    if not item["opportunityId"].startswith("direct-quotation:"):
+        crm_data = read_crm_data(conn)
+        opportunity = next((entry for entry in crm_data.get("opportunities", []) if text(entry.get("id")) == item["opportunityId"]), None)
+        owner = next((entry for entry in crm_data.get("users", []) if opportunity and text(entry.get("id")) == text(opportunity.get("ownerId"))), None)
+        responsible_seller = text((owner or {}).get("name"), (opportunity or {}).get("seller") or "")
+        if responsible_seller:
+            item["seller"] = responsible_seller
     existing_customer = existing.get("customerData") if existing and isinstance(existing.get("customerData"), dict) else {}
     previous_customer_id = text(existing_customer.get("customerId"))
     selected_customer_id = text(item["customerData"].get("customerId"))
