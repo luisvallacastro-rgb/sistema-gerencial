@@ -3008,11 +3008,11 @@ def save_control_sales_order(conn, data, existing_row=None):
         existing.get("financialOrderId", "") if existing else "",
     )
     source_opportunity_id = (
-        text(existing.get("sourceOpportunityId")) if existing
+        (text(existing.get("sourceOpportunityId")) or text(data.get("sourceOpportunityId"))) if existing
         else text(data.get("sourceOpportunityId"))
     )
     source_quotation_id = (
-        text(existing.get("sourceQuotationId")) if existing
+        (text(existing.get("sourceQuotationId")) or text(data.get("sourceQuotationId"))) if existing
         else text(data.get("sourceQuotationId"))
     )
     direct_order_flow = (
@@ -3256,8 +3256,9 @@ def restore_missing_linked_quotations(conn):
     rows = conn.execute("""
         SELECT orders.*
         FROM control_sales_orders AS orders
-        LEFT JOIN quotations AS quotations ON quotations.id = orders.source_quotation_id
-        WHERE orders.archived = 0 AND orders.source_quotation_id <> '' AND quotations.id IS NULL
+        LEFT JOIN quotations AS quotations
+          ON quotations.id = orders.source_quotation_id OR quotations.converted_order_id = orders.id
+        WHERE orders.archived = 0 AND quotations.id IS NULL
         ORDER BY datetime(orders.created_at), orders.rowid
     """).fetchall()
     if not rows:
@@ -3271,6 +3272,13 @@ def restore_missing_linked_quotations(conn):
     for row in rows:
         order = control_sales_order_payload(conn, row)
         proforma = dict(order.get("proformaData") or {})
+        workflow = text(proforma.get("workflow"))
+        source_quotation_id = text(order.get("sourceQuotationId"))
+        # Orders created through the direct-final flow always originated in the
+        # quotation form. Older rows may have lost only the source quotation ID.
+        if not source_quotation_id and workflow != "direct-final-only":
+            continue
+        source_quotation_id = source_quotation_id or f"quote-recovered-{order['id']}"
         details = order.get("details") or []
         lines = [{
             "id": text(detail.get("id"), f"quote-line-{uuid.uuid4()}"),
@@ -3282,7 +3290,6 @@ def restore_missing_linked_quotations(conn):
             "lineTotalCents": int(detail.get("lineTotalCents") or 0),
             "notes": text(detail.get("notes")),
         } for index, detail in enumerate(details, start=1)]
-        workflow = text(proforma.get("workflow"))
         opportunity_id = text(order.get("sourceOpportunityId"))
         if workflow == "direct-final-only" and not opportunity_id.startswith("direct-quotation:"):
             opportunity_id = f"direct-quotation:recovered:{order['id']}"
@@ -3299,7 +3306,7 @@ def restore_missing_linked_quotations(conn):
             special_sizes_note, subtotal_cents, vat_cents, total_cents, lines,
             converted_order_id, converted_at, created_by, updated_by, created_at, updated_at
         ) VALUES (?, ?, ?, ?, 30, ?, ?, 'Convertida', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
-            text(order.get("sourceQuotationId")), opportunity_id, quotation_number,
+            source_quotation_id, opportunity_id, quotation_number,
             text(order.get("date"), time.strftime("%Y-%m-%d")), text(order.get("seller")), text(order.get("client")),
             json.dumps(proforma, ensure_ascii=False), text(proforma.get("paymentTerms"), "50% anticipo, 50% previo a la entrega"),
             text(proforma.get("deliveryTerms"), "30 días hábiles posterior a la orden de compra"),
@@ -3310,7 +3317,11 @@ def restore_missing_linked_quotations(conn):
             text(order.get("createdBy"), "Recuperación automática"), "Recuperación automática",
             text(order.get("createdAt"), now), now,
         ))
-        restored.append(text(order.get("sourceQuotationId")))
+        conn.execute(
+            "UPDATE control_sales_orders SET source_quotation_id = ?, updated_at = ? WHERE id = ?",
+            (source_quotation_id, now, text(order.get("id"))),
+        )
+        restored.append(source_quotation_id)
     return restored
 
 
