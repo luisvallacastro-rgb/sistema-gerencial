@@ -3154,7 +3154,7 @@ def quotation_payload(row):
         "client": row["client"], "status": row["status"],
         "documentType": text(customer.get("documentType"), "CF").upper() if text(customer.get("documentType"), "CF").upper() in ("CF", "CCF", "CE") else "CF",
         "applyVat": text(customer.get("documentType"), "CF").upper() == "CCF",
-        "customerData": customer, "paymentTerms": row["payment_terms"],
+        "customerData": customer, "printObservation": text(customer.get("printObservation")), "paymentTerms": row["payment_terms"],
         "deliveryTerms": row["delivery_terms"], "warrantyNote": row["warranty_note"],
         "commercialNotes": row["commercial_notes"], "specialSizesNote": row["special_sizes_note"],
         "subtotalCents": row["subtotal_cents"], "vatCents": row["vat_cents"],
@@ -3289,6 +3289,7 @@ def quotation_validate(data, existing=None):
         "clientType": text(raw_customer.get("clientType")),
         "department": text(raw_customer.get("department")),
         "municipality": text(raw_customer.get("municipality")),
+        "printObservation": text(raw_customer.get("printObservation") or data.get("printObservation")),
         "documentType": document_type,
         "paymentTerms": text(raw_customer.get("paymentTerms") or data.get("paymentTerms")),
         "strategy": text(raw_customer.get("strategy")),
@@ -3558,7 +3559,7 @@ def save_quotation(conn, data, existing_row=None):
             linked_proforma.update(item["customerData"])
             linked_proforma.update({
                 "paymentTerms": item["paymentTerms"],
-                "generalNotes": item["commercialNotes"],
+                "generalNotes": text(item["customerData"].get("printObservation"), item["commercialNotes"]),
                 "applyVat": item["documentType"] == "CCF",
             })
             linked_details = [{

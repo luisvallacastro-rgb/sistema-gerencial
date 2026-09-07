@@ -135,6 +135,11 @@ body {
   font-size: 13px;
 }
 
+.order-panel .ce-document-label {
+  color: #c52222;
+  font-weight: 900;
+}
+
 .fields {
   margin-top: 4px;
 }
