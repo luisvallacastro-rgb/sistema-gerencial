@@ -3251,6 +3251,69 @@ def deduplicate_identical_quotations(conn):
     return removed
 
 
+def restore_missing_linked_quotations(conn):
+    """Rebuild quotations removed while their converted OP still exists."""
+    rows = conn.execute("""
+        SELECT orders.*
+        FROM control_sales_orders AS orders
+        LEFT JOIN quotations AS quotations ON quotations.id = orders.source_quotation_id
+        WHERE orders.archived = 0 AND orders.source_quotation_id <> '' AND quotations.id IS NULL
+        ORDER BY datetime(orders.created_at), orders.rowid
+    """).fetchall()
+    if not rows:
+        return []
+    highest = 0
+    for row in conn.execute("SELECT quotation_number FROM quotations").fetchall():
+        match = re.fullmatch(r"Q-(\d+)", text(row["quotation_number"]).upper())
+        if match:
+            highest = max(highest, int(match.group(1)))
+    restored = []
+    for row in rows:
+        order = control_sales_order_payload(conn, row)
+        proforma = dict(order.get("proformaData") or {})
+        details = order.get("details") or []
+        lines = [{
+            "id": text(detail.get("id"), f"quote-line-{uuid.uuid4()}"),
+            "sequence": index,
+            "description": text(detail.get("product")),
+            "size": text(detail.get("size")),
+            "quantity": text(detail.get("quantity"), "1"),
+            "unitPriceCents": int(detail.get("unitPriceCents") or 0),
+            "lineTotalCents": int(detail.get("lineTotalCents") or 0),
+            "notes": text(detail.get("notes")),
+        } for index, detail in enumerate(details, start=1)]
+        workflow = text(proforma.get("workflow"))
+        opportunity_id = text(order.get("sourceOpportunityId"))
+        if workflow == "direct-final-only" and not opportunity_id.startswith("direct-quotation:"):
+            opportunity_id = f"direct-quotation:recovered:{order['id']}"
+        highest += 1
+        quotation_number = text(proforma.get("quotationNumber")) or f"Q-{highest:04d}"
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+        document_type = text(order.get("documentType"), "CF").upper()
+        proforma.update({"documentType": document_type})
+        subtotal = sum(int(line.get("lineTotalCents") or 0) for line in lines)
+        vat = int(order.get("totalCents") or 0) - subtotal if document_type == "CCF" else 0
+        conn.execute("""INSERT INTO quotations (
+            id, opportunity_id, quotation_number, quotation_date, valid_days, seller, client, status,
+            customer_data, payment_terms, delivery_terms, warranty_note, commercial_notes,
+            special_sizes_note, subtotal_cents, vat_cents, total_cents, lines,
+            converted_order_id, converted_at, created_by, updated_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 30, ?, ?, 'Convertida', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
+            text(order.get("sourceQuotationId")), opportunity_id, quotation_number,
+            text(order.get("date"), time.strftime("%Y-%m-%d")), text(order.get("seller")), text(order.get("client")),
+            json.dumps(proforma, ensure_ascii=False), text(proforma.get("paymentTerms"), "50% anticipo, 50% previo a la entrega"),
+            text(proforma.get("deliveryTerms"), "30 días hábiles posterior a la orden de compra"),
+            text(proforma.get("warrantyNote"), "Todos nuestros productos están garantizados."),
+            "Precios unitarios no incluyen IVA" if document_type == "CCF" else "Los precios unitarios ya incluyen IVA",
+            text(proforma.get("specialSizesNote")), subtotal, vat, int(order.get("totalCents") or subtotal),
+            json.dumps(lines, ensure_ascii=False), text(order.get("id")), now,
+            text(order.get("createdBy"), "Recuperación automática"), "Recuperación automática",
+            text(order.get("createdAt"), now), now,
+        ))
+        restored.append(text(order.get("sourceQuotationId")))
+    return restored
+
+
 def reconcile_cancelled_crm_quotations(conn):
     """Anula cotizaciones abiertas cuyo origen CRM ya fue anulado."""
     row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
@@ -3581,6 +3644,7 @@ def save_quotation(conn, data, existing_row=None):
             linked_proforma = dict(linked_order.get("proformaData") or {})
             linked_proforma.update(item["customerData"])
             linked_proforma.update({
+                "quotationNumber": number,
                 "paymentTerms": item["paymentTerms"],
                 "generalNotes": text(item["customerData"].get("printObservation"), item["commercialNotes"]),
                 "applyVat": item["documentType"] == "CCF",
@@ -5986,7 +6050,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if self.path == "/api/quotations":
             with connect() as conn:
-                deduplicate_identical_quotations(conn)
+                restore_missing_linked_quotations(conn)
                 rows = conn.execute("""
                     SELECT * FROM quotations
                     ORDER BY quotation_date DESC, updated_at DESC, quotation_number DESC
