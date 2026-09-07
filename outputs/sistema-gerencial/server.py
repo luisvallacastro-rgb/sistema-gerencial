@@ -4999,6 +4999,85 @@ def seed_bac_savings_account(conn):
     )
 
 
+def repair_commercial_agenda_event_ids_and_remove_tests_once(conn):
+    """Remove two requested test events and give every legacy event a durable unique id."""
+    marker_key = "maintenance.repair-commercial-agenda-event-ids-remove-tests.2026-09-07.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+    row = conn.execute("SELECT value FROM app_state WHERE key = 'commercial_agenda'").fetchone()
+    try:
+        items = json.loads(row["value"] or "[]") if row else []
+    except (TypeError, json.JSONDecodeError):
+        items = []
+    if not isinstance(items, list):
+        items = []
+    seen_item_ids, seen_event_ids, repaired = set(), set(), 0
+    removed = []
+
+    def is_requested_test(seller, event):
+        identity = text(seller).strip().casefold()
+        return (
+            identity in {"amadeo alfaro", "erick orantes"}
+            and text(event.get("date")) == "2026-09-05"
+            and text(event.get("prospect")).strip().casefold() == "prueba"
+            and text(event.get("activity")) == "Mensaje WhatsApp"
+            and text(event.get("startTime")) == "07:00"
+            and text(event.get("endTime")) == ("10:00" if identity == "amadeo alfaro" else "08:00")
+        )
+
+    clean_items = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = text(item.get("id"))
+        if not item_id or item_id in seen_item_ids:
+            item_id = f"agenda-{uuid.uuid4()}"
+            item["id"] = item_id
+            repaired += 1
+        seen_item_ids.add(item_id)
+        agenda_events = item.get("events") if isinstance(item.get("events"), list) else []
+        if not agenda_events:
+            agenda_events = [{
+                "id": "",
+                "date": text(item.get("date")) or text(item.get("startDate")),
+                "prospect": text(item.get("prospect")),
+                "activity": text(item.get("activity")),
+                "startTime": text(item.get("startTime"), "07:00"),
+                "endTime": text(item.get("endTime"), "08:00"),
+                "comment": text(item.get("comment")) or text(item.get("result")),
+            }]
+            repaired += 1
+        clean_events = []
+        for event in agenda_events:
+            if not isinstance(event, dict):
+                repaired += 1
+                continue
+            if is_requested_test(item.get("seller"), event):
+                removed.append(text(item.get("seller")))
+                continue
+            event_id = text(event.get("id"))
+            if not event_id or event_id in seen_event_ids:
+                event_id = f"agenda-event-{uuid.uuid4()}"
+                event["id"] = event_id
+                repaired += 1
+            seen_event_ids.add(event_id)
+            clean_events.append(event)
+        if clean_events:
+            item["events"] = clean_events
+            clean_items.append(item)
+        else:
+            repaired += 1
+    conn.execute("""
+        INSERT INTO app_state (key,value,updated_at) VALUES ('commercial_agenda',?,CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP
+    """, (json.dumps(clean_items, ensure_ascii=False),))
+    conn.execute(
+        "INSERT INTO app_state (key,value,updated_at) VALUES (?,?,CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps({"removed": removed, "repaired": repaired}, ensure_ascii=False)),
+    )
+    print(f"Agenda comercial reparada: {repaired} ajustes; {len(removed)} eventos de prueba eliminados.")
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -5428,6 +5507,7 @@ def init_db():
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('management_requests', '{}')
         """)
+        repair_commercial_agenda_event_ids_and_remove_tests_once(conn)
         rows = conn.execute("SELECT * FROM users ORDER BY created_at, username").fetchall()
         if not rows:
             for user in DEFAULT_USERS:
