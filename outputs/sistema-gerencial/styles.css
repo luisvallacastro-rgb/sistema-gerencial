@@ -6912,6 +6912,25 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-income-annex .empty { padding:30px; text-align:center; color:rgba(205,220,238,.52); }
 @media(max-width:760px){.app-shell .financial-income-hero{grid-template-columns:1fr}.app-shell .financial-income-hero aside{text-align:left}.app-shell .financial-income-summary{grid-template-columns:1fr}.app-shell .financial-income-chart-body{overflow-x:auto}.app-shell .financial-income-goal{justify-items:start}}
 
+/* Ingresos: el encabezado permanece visible y el contenido completo se desplaza. */
+.app-shell .dashboard.opportunity-focus .commercial-panel.financial-income-mode {
+  min-height: 0;
+  overflow: hidden !important;
+}
+.app-shell .dashboard.opportunity-focus .commercial-panel.financial-income-mode > .opportunity-table {
+  display: block !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 7px 20px 0;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+.app-shell .dashboard.opportunity-focus .commercial-panel.financial-income-mode > .opportunity-table::-webkit-scrollbar { width: 8px; }
+.app-shell .dashboard.opportunity-focus .commercial-panel.financial-income-mode > .opportunity-table::-webkit-scrollbar-track { background: rgba(7,22,39,.25); border-radius: 999px; }
+.app-shell .dashboard.opportunity-focus .commercial-panel.financial-income-mode > .opportunity-table::-webkit-scrollbar-thumb { background: rgba(114,245,209,.38); border-radius: 999px; }
+
 .app-shell .financial-order-notifications {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
