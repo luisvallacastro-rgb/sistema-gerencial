@@ -876,35 +876,51 @@ def classify_direct_master_customers(data):
 
 def ensure_crm_customer_numbers(data):
     customers = data.setdefault("customers", [])
-    used = set()
-    pending = []
     changed = bool(data.pop("retiredCustomerNumbers", None))
     changed = bool(data.pop("customerNumberRetentionVersion", None)) or changed
+    numbered = []
+    unnumbered = []
     for customer in customers:
+        if customer.get("active") is False:
+            if text(customer.get("clientNumber")):
+                customer["clientNumber"] = ""
+                changed = True
+            continue
         if (
             text(customer.get("workflowSource")) == "direct-customer"
             and text(customer.get("directValidationStatus"), "Pendiente").lower() != "firmado"
         ):
             continue
         number = parse_crm_customer_number(customer.get("clientNumber"))
-        if number and number not in used:
-            canonical = format_crm_customer_number(number)
-            if text(customer.get("clientNumber")) != canonical:
-                customer["clientNumber"] = canonical
-                changed = True
-            used.add(number)
+        if number:
+            numbered.append((number, customer))
         else:
-            pending.append(customer)
+            unnumbered.append(customer)
 
-    # Fill the first available gap so customer IDs remain consecutive even when
-    # a pending or unlinked customer was removed before a later ID was assigned.
-    for customer in pending:
-        sequence = first_available_crm_customer_number(used)
-        customer["clientNumber"] = format_crm_customer_number(sequence)
-        used.add(sequence)
-        changed = True
+    # Compact active customers in their existing numerical order. Internal IDs
+    # remain unchanged; only the visible business correlativo is repaired.
+    ordered = [customer for _number, customer in sorted(numbered, key=lambda item: item[0])] + unnumbered
+    assigned_by_id = {}
+    for sequence, customer in enumerate(ordered, start=1):
+        canonical = format_crm_customer_number(sequence)
+        if text(customer.get("clientNumber")) != canonical:
+            customer["clientNumber"] = canonical
+            changed = True
+        assigned_by_id[text(customer.get("id"))] = canonical
+        signature = customer.get("directSignature")
+        if isinstance(signature, dict) and text(signature.get("signatureCode")):
+            updated_code = re.sub(r"^(KONFI-CLI-)\d+(-)", rf"\g<1>{canonical}\2", text(signature["signatureCode"]))
+            if updated_code != signature["signatureCode"]:
+                signature["signatureCode"] = updated_code
+                changed = True
 
-    sequence = max(used, default=0)
+    for request in data.setdefault("customerRequests", []):
+        assigned = assigned_by_id.get(text(request.get("approvedCustomerId")))
+        if assigned and text(request.get("assignedClientNumber")) != assigned:
+            request["assignedClientNumber"] = assigned
+            changed = True
+
+    sequence = len(ordered)
     if parse_crm_customer_number(data.get("customerSequence")) != sequence:
         data["customerSequence"] = sequence
         changed = True
