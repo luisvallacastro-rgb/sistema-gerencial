@@ -846,6 +846,14 @@ def format_crm_customer_number(value):
     return f"{max(1, int(value)):04d}"
 
 
+def first_available_crm_customer_number(used):
+    """Return the smallest positive customer number not currently assigned."""
+    candidate = 1
+    while candidate in used:
+        candidate += 1
+    return candidate
+
+
 def classify_direct_master_customers(data):
     """Persist direct origin so every user receives the same pre-signature state."""
     approved_customer_ids = {
@@ -888,18 +896,15 @@ def ensure_crm_customer_numbers(data):
         else:
             pending.append(customer)
 
-    # The next ID follows the greatest customer number that actually exists.
-    # If the latest customer is deleted, that trailing number is available again.
-    sequence = max(used, default=0)
+    # Fill the first available gap so customer IDs remain consecutive even when
+    # a pending or unlinked customer was removed before a later ID was assigned.
     for customer in pending:
-        sequence += 1
-        while sequence in used:
-            sequence += 1
+        sequence = first_available_crm_customer_number(used)
         customer["clientNumber"] = format_crm_customer_number(sequence)
         used.add(sequence)
         changed = True
 
-    sequence = max(sequence, max(used, default=0))
+    sequence = max(used, default=0)
     if parse_crm_customer_number(data.get("customerSequence")) != sequence:
         data["customerSequence"] = sequence
         changed = True
@@ -912,10 +917,8 @@ def next_crm_customer_number(data):
         parse_crm_customer_number(customer.get("clientNumber")) for customer in data.get("customers", [])
     }
     used.discard(0)
-    sequence = max(used, default=0) + 1
-    while sequence in used:
-        sequence += 1
-    data["customerSequence"] = sequence
+    sequence = first_available_crm_customer_number(used)
+    data["customerSequence"] = max(sequence, max(used, default=0))
     return format_crm_customer_number(sequence)
 
 
