@@ -3991,7 +3991,6 @@ function renderQuotationsModule() {
   const queryTokens = normalizeKey(state.quotationModuleQuery).split(/\s+/).filter(Boolean);
   const rows = [...state.quotations]
     .filter(canManageQuotation)
-    .filter((quotation) => !isCustomerFlowQuotation(quotation))
     .filter((quotation) => normalizeKey(quotation.status || "") !== "anulada")
     .filter((quotation) => {
       if (!queryTokens.length) return true;
