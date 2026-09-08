@@ -9824,10 +9824,12 @@ function renderCrmCustomerDocuments(view) {
           <span><small>Fecha</small><strong>${formatDate(item.date)}</strong></span>
           <span><small>Estado</small><strong>${escapeHtml(status || "—")}</strong></span>
           <span class="money"><small>Total</small><strong>${formatControlSalesMoney(item.totalCents || 0)}</strong></span>
-          <span class="crm-row-actions">
-            <button type="button" data-crm-document-print="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="Imprimir" aria-label="Imprimir">▤</button>
-            ${!isQuotationView || canReviseConvertedDirectQuotation(item) ? `<button type="button" data-crm-document-edit="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}" aria-label="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}">✎</button>` : ""}
-            ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button type="button" data-crm-document-convert="${escapeHtml(item.id)}" title="Convertir en OP" aria-label="Convertir en OP">OP</button>` : ""}
+          <span class="crm-row-actions ${isQuotationView ? "quotation-record__actions" : ""}">
+            ${isQuotationView ? `<button type="button" class="quotation-action view-detail" data-crm-document-detail="${escapeHtml(item.id)}" title="Ver detalle" aria-label="Ver detalle"><span aria-hidden="true">👁</span></button>` : ""}
+            ${!isQuotationView || canReviseConvertedDirectQuotation(item) ? `<button type="button" class="${isQuotationView ? "quotation-action edit" : ""}" data-crm-document-edit="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}" aria-label="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}">${isQuotationView ? '<span aria-hidden="true">✏️</span>' : "✎"}</button>` : ""}
+            <button type="button" class="${isQuotationView ? "quotation-action view-quotation" : ""}" data-crm-document-print="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="${isQuotationView ? "Imprimir cotización" : "Imprimir"}" aria-label="${isQuotationView ? "Imprimir cotización" : "Imprimir"}">${isQuotationView ? '<span aria-hidden="true">🧾</span>' : "▤"}</button>
+            ${isQuotationView && linkedOrder ? `<button type="button" class="quotation-action view-order" data-crm-document-order="${escapeHtml(linkedOrder.id)}" title="Abrir OP vinculada" aria-label="Abrir OP vinculada"><span aria-hidden="true">📋</span></button>` : ""}
+            ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button type="button" class="quotation-action convert-order" data-crm-document-convert="${escapeHtml(item.id)}" title="Seleccionar cliente y crear OP" aria-label="Seleccionar cliente y crear OP"><span aria-hidden="true">OP</span></button>` : ""}
             ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="quotation" title="Anular" aria-label="Anular">×</button>` : ""}
             ${!isQuotationView && !item.archived ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="order" title="Anular" aria-label="Anular">×</button>` : ""}
           </span>
@@ -11271,6 +11273,15 @@ function renderCommercialSubmenu(area) {
       const collection = button.dataset.documentKind === "quotation" ? state.quotations : state.controlSales;
       const item = collection.find((record) => String(record.id) === String(button.dataset.crmDocumentPrint));
       if (item) button.dataset.documentKind === "quotation" ? printQuotation(item) : printControlSalesProforma(item);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-document-detail]").forEach((button) => button.addEventListener("click", () => {
+      const quotation = state.quotations.find((item) => String(item.id) === String(button.dataset.crmDocumentDetail));
+      if (quotation) openQuotationDialog(quotation.opportunityId, quotation.id, quotationSourceOpportunity(quotation), null, false, true);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-document-order]").forEach((button) => button.addEventListener("click", () => {
+      const order = state.controlSales.find((item) => String(item.id) === String(button.dataset.crmDocumentOrder) && !item.archived);
+      if (order) openControlSalesForm(order);
+      else alert("No se encontró la OP vinculada. Actualiza la página e inténtalo nuevamente.");
     }));
     opportunityTable.querySelectorAll("[data-crm-document-edit]").forEach((button) => button.addEventListener("click", () => {
       if (button.dataset.documentKind === "quotation") {

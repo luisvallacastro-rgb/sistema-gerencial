@@ -7388,7 +7388,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .crm-customer-document-create { min-height: 48px; white-space: nowrap; }
 .crm-customer-document-create.quotation { background: #286aa3; }
 .crm-customer-document-list { display: grid; gap: 7px; }
-.crm-customer-document-row { display: grid; grid-template-columns: 130px minmax(240px,1.5fr) 130px 160px 140px 170px; gap: 14px; align-items: center; min-width: 980px; min-height: 70px; padding: 10px 16px; border: 1px solid rgba(111,151,190,.2); border-radius: 13px; background: rgba(31,58,91,.58); }
+.crm-customer-document-row { display: grid; grid-template-columns: 130px minmax(240px,1.5fr) 130px 160px 140px 220px; gap: 14px; align-items: center; min-width: 1030px; min-height: 70px; padding: 10px 16px; border: 1px solid rgba(111,151,190,.2); border-radius: 13px; background: rgba(31,58,91,.58); }
 .crm-customer-document-row > span { min-width: 0; }
 .crm-customer-document-row small,.crm-customer-document-row strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crm-customer-document-row small { margin-bottom: 4px; color: rgba(214,229,240,.58); font-size: 10px; font-weight: 850; text-transform: uppercase; }
