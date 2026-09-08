@@ -7028,7 +7028,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .crm-customer-combobox-more { display: block; padding: 9px 12px; color: rgba(215,231,242,.58); text-align: center; font-weight: 700; }
 .direct-order-customer-option {
   display: grid;
-  grid-template-columns: minmax(0,1.3fr) minmax(160px,.8fr) auto;
+  grid-template-columns: 42px minmax(0,1.3fr) minmax(160px,.8fr) auto;
   align-items: center;
   gap: 18px;
   width: 100%;
@@ -7041,6 +7041,19 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   background: linear-gradient(100deg, rgba(62,88,133,.34), rgba(15,58,72,.32));
   cursor: pointer;
   transition: border-color .16s, transform .16s, background .16s;
+}
+.direct-order-customer-index {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(107,235,203,.42);
+  border-radius: 50%;
+  color: #78edcf;
+  background: rgba(37,154,128,.14);
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 /* Buscador escalable de clientes para nuevas oportunidades. */
@@ -7106,9 +7119,10 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .direct-order-customer-toolbar { grid-template-columns: 1fr; padding: 16px 20px; }
   .direct-order-customer-toolbar > button { min-height: 48px; }
   .direct-order-customer-list { padding: 2px 20px 24px; }
-  .direct-order-customer-option { grid-template-columns: 1fr auto; gap: 7px 12px; }
-  .direct-order-customer-option em { grid-column: 1; }
-  .direct-order-customer-option b { grid-column: 2; grid-row: 1 / span 2; }
+  .direct-order-customer-option { grid-template-columns: 36px minmax(0,1fr) auto; gap: 7px 10px; }
+  .direct-order-customer-index { grid-row: 1 / span 2; width: 32px; height: 32px; }
+  .direct-order-customer-option em { grid-column: 2; }
+  .direct-order-customer-option b { grid-column: 3; grid-row: 1 / span 2; }
 }
 
 /* Modern floating customer editor */

@@ -9749,8 +9749,16 @@ function ensureOrderCustomerDialog() {
 function renderOrderRequirementCustomers(search = "") {
   const dialog = ensureOrderCustomerDialog();
   const query = normalizeKey(search);
-  const customers = crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query));
-  dialog.querySelector("[data-order-customer-list]").innerHTML = customers.map((customer) => `<button type="button" class="direct-order-customer-option" data-order-required-customer="${escapeHtml(customer.id)}"><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customer.clientNumber || "—")} · ${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em><b>Seleccionar →</b></button>`).join("") || `<div class="direct-order-customer-empty">No encontramos clientes con ese criterio. Regístralo primero en Comercialización → Clientes.</div>`;
+  const customers = crmMasterCustomers()
+    .filter((customer) => !query || opportunityCustomerMatches(customer, query))
+    .sort((a, b) => {
+      const left = Number.parseInt(String(a.clientNumber || "").replace(/\D/g, ""), 10);
+      const right = Number.parseInt(String(b.clientNumber || "").replace(/\D/g, ""), 10);
+      if (Number.isFinite(left) && Number.isFinite(right) && left !== right) return left - right;
+      if (Number.isFinite(left) !== Number.isFinite(right)) return Number.isFinite(left) ? -1 : 1;
+      return String(a.commercialName || a.legalName).localeCompare(String(b.commercialName || b.legalName), "es");
+    });
+  dialog.querySelector("[data-order-customer-list]").innerHTML = customers.map((customer, index) => `<button type="button" class="direct-order-customer-option" data-order-required-customer="${escapeHtml(customer.id)}"><i class="direct-order-customer-index" aria-label="Resultado ${index + 1}">${String(index + 1).padStart(2, "0")}</i><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customer.clientNumber || "—")} · ${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em><b>Seleccionar →</b></button>`).join("") || `<div class="direct-order-customer-empty">No encontramos clientes con ese criterio. Regístralo primero en Comercialización → Clientes.</div>`;
 }
 
 async function prepareQuotationOrderConversion(opportunity, quotation, onReady) {
