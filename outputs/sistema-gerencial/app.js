@@ -3301,7 +3301,11 @@ function ensureControlSalesDialogs() {
       updateControlSalesFormTotal();
     }
     if (event.target.matches("[data-control-sales-print-draft]")) {
-      printControlSalesProforma(controlSalesDraftFromForm());
+      // La vista previa del formulario debe ser una instantanea estricta de lo
+      // que el usuario esta viendo. No se vuelve a resolver contra cotizaciones,
+      // clientes u ordenes del estado global porque esos datos pueden cambiar
+      // mientras el modal permanece abierto.
+      printControlSalesProforma(controlSalesDraftFromForm(), { strictDraft: true });
     }
     if (event.target.matches("[data-control-sales-remove-line]")) {
       const lines = document.querySelectorAll("#controlSalesLines .control-sales-line");
@@ -5421,8 +5425,11 @@ function orderWithCurrentQuotationData(order = {}) {
   };
 }
 
-function printControlSalesProformaInline(order) {
-  order = orderWithCurrentCustomerData(orderWithCurrentQuotationData({ ...order, seller: controlSalesResponsibleSeller(order) }));
+function printControlSalesProformaInline(order, options = {}) {
+  const snapshot = { ...order, seller: controlSalesResponsibleSeller(order) };
+  order = options.strictDraft
+    ? snapshot
+    : orderWithCurrentCustomerData(orderWithCurrentQuotationData(snapshot));
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
@@ -5498,8 +5505,11 @@ function printControlSalesProformaInline(order) {
   popup.document.close();
 }
 
-function printControlSalesProforma(order) {
-  order = orderWithCurrentCustomerData(orderWithCurrentQuotationData({ ...order, seller: controlSalesResponsibleSeller(order) }));
+function printControlSalesProforma(order, options = {}) {
+  const snapshot = { ...order, seller: controlSalesResponsibleSeller(order) };
+  order = options.strictDraft
+    ? snapshot
+    : orderWithCurrentCustomerData(orderWithCurrentQuotationData(snapshot));
   const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   localStorage.setItem(printKey, JSON.stringify(order));
   const popup = window.open(
