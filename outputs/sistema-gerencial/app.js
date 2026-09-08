@@ -9817,12 +9817,12 @@ function renderCrmCustomerDocuments(view) {
     <div class="crm-customer-document-list">
       ${rows.map((item) => {
         const linkedOrder = isQuotationView ? quotationLinkedOrder(item) : null;
-        const status = isQuotationView ? item.status : (item.archived ? "Anulada" : item.financeApprovalStatus === "Aprobada" ? "Aprobada" : "Pendiente de Edgar");
-        return `<article class="crm-customer-document-row ${item.archived ? "is-archived" : ""}">
+        const status = isQuotationView ? (linkedOrder ? `OP #${linkedOrder.number || "—"} creada` : "Solo cotización") : (item.archived ? "Anulada" : item.financeApprovalStatus === "Aprobada" ? "Aprobada" : "Pendiente de Edgar");
+        return `<article class="crm-customer-document-row ${item.archived ? "is-archived" : ""} ${isQuotationView ? (linkedOrder ? "has-order" : "quotation-only") : ""}">
           <span><small>${isQuotationView ? "Cotización" : "Orden"}</small><strong>${escapeHtml(isQuotationView ? item.number : formatOrderCorrelative(item.number))}</strong></span>
           <span><small>Cliente</small><strong>${escapeHtml(item.customerData?.commercialName || item.proformaData?.commercialName || item.client || "—")}</strong></span>
           <span><small>Fecha</small><strong>${formatDate(item.date)}</strong></span>
-          <span><small>Estado</small><strong>${escapeHtml(status || "—")}</strong></span>
+          <span><small>Estado</small><strong class="${isQuotationView ? "quotation-record__status" : ""}" ${isQuotationView ? `data-status="${linkedOrder ? "orden-creada" : "solo-cotizacion"}"` : ""}>${escapeHtml(status || "—")}</strong></span>
           <span class="money"><small>Total</small><strong>${formatControlSalesMoney(item.totalCents || 0)}</strong></span>
           <span class="crm-row-actions ${isQuotationView ? "quotation-record__actions" : ""}">
             ${isQuotationView ? `<button type="button" class="quotation-action view-detail" data-crm-document-detail="${escapeHtml(item.id)}" title="Ver detalle" aria-label="Ver detalle"><span aria-hidden="true">👁</span></button>` : ""}

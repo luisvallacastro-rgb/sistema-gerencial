@@ -7394,6 +7394,16 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .crm-customer-document-row small { margin-bottom: 4px; color: rgba(214,229,240,.58); font-size: 10px; font-weight: 850; text-transform: uppercase; }
 .crm-customer-document-row .money { text-align: right; color: #74efd4; }
 .crm-customer-document-row.is-archived { opacity: .58; }
+.crm-customer-document-row.quotation-only {
+  border-color: rgba(241,185,73,.52);
+  background: linear-gradient(100deg,rgba(104,80,40,.5),rgba(54,52,53,.48) 38%,rgba(23,43,65,.74));
+  box-shadow: inset 5px 0 0 #e7b44f;
+}
+.crm-customer-document-row.has-order {
+  border-color: rgba(75,211,165,.52);
+  background: linear-gradient(100deg,rgba(31,105,84,.52),rgba(31,70,75,.5) 38%,rgba(20,45,63,.76));
+  box-shadow: inset 5px 0 0 #4fd3a8;
+}
 .crm-customer-dialog .dialog-card { width: min(1080px,94vw); max-height: 90vh; overflow: auto; }
 .crm-customer-pagination { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 12px 16px; border: 1px solid rgba(111,151,190,.22); border-radius: 14px; background: rgba(10,36,67,.62); color: rgba(218,230,243,.68); }
 .crm-customer-pagination div { display: flex; align-items: center; gap: 10px; }
