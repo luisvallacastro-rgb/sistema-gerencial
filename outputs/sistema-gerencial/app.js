@@ -4626,7 +4626,11 @@ function openQuotationCustomerLinkDialog() {
   const dialog = document.createElement("dialog");
   dialog.id = "quotationCustomerLinkDialog"; dialog.className = "direct-order-customer-dialog quotation-customer-link-dialog";
   dialog.innerHTML = `<section class="direct-order-customer-card"><header><div><span>MAESTRO DE CLIENTES</span><h3>Vincular cliente existente</h3><p>El cliente elegido reemplazará el nombre y los datos heredados al guardar la cotización.</p></div><button type="button" data-link-customer-close aria-label="Cerrar">×</button></header><div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-link-customer-search placeholder="Buscar nombre, razón social, NIT o contacto..."></label></div><div class="direct-order-customer-list" data-link-customer-list></div></section>`;
-  const render = (search = "") => { const query = normalizeKey(search); const customers = crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query)); dialog.querySelector("[data-link-customer-list]").innerHTML = customers.map((customer) => `<button type="button" class="direct-order-customer-option" data-link-quotation-customer="${escapeHtml(customer.id)}"><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customer.clientNumber || customer.customerCode || "—")} · ${escapeHtml(customer.taxId || "Sin NIT")}</em><b>Vincular →</b></button>`).join("") || `<div class="direct-order-customer-empty">No se encontraron clientes con ese criterio.</div>`; };
+  const render = (search = "") => {
+    const query = normalizeKey(search);
+    const customers = sortCustomersByClientNumber(crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query)));
+    dialog.querySelector("[data-link-customer-list]").innerHTML = customers.map((customer, index) => `<button type="button" class="direct-order-customer-option" data-link-quotation-customer="${escapeHtml(customer.id)}"><i class="direct-order-customer-index" aria-label="Resultado ${index + 1}">${String(index + 1).padStart(2, "0")}</i><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customerDisplayNumber(customer))} · ${escapeHtml(customer.taxId || "Sin NIT")}</em><b>Vincular →</b></button>`).join("") || `<div class="direct-order-customer-empty">No se encontraron clientes con ese criterio.</div>`;
+  };
   dialog.querySelector("[data-link-customer-close]").onclick = () => dialog.close();
   dialog.querySelector("[data-link-customer-search]").oninput = (event) => render(event.target.value);
   dialog.querySelector("[data-link-customer-list]").onclick = (event) => { const button = event.target.closest("[data-link-quotation-customer]"); if (!button) return; const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.linkQuotationCustomer)); if (!customer) return; applyMasterCustomerToQuotation(customer); dialog.close(); };
@@ -8846,6 +8850,22 @@ function crmMasterCustomers(includeInactive = false) {
     .sort((a, b) => String(a.commercialName || a.legalName).localeCompare(String(b.commercialName || b.legalName), "es"));
 }
 
+function customerDisplayNumber(customer = {}) {
+  const source = String(customer.clientNumber || customer.customerCode || "").trim();
+  const number = Number.parseInt(source.replace(/\D/g, ""), 10);
+  return Number.isFinite(number) ? String(number).padStart(4, "0") : "—";
+}
+
+function sortCustomersByClientNumber(customers = []) {
+  return [...customers].sort((a, b) => {
+    const left = Number.parseInt(String(a.clientNumber || "").replace(/\D/g, ""), 10);
+    const right = Number.parseInt(String(b.clientNumber || "").replace(/\D/g, ""), 10);
+    if (Number.isFinite(left) && Number.isFinite(right) && left !== right) return left - right;
+    if (Number.isFinite(left) !== Number.isFinite(right)) return Number.isFinite(left) ? -1 : 1;
+    return String(a.commercialName || a.legalName).localeCompare(String(b.commercialName || b.legalName), "es");
+  });
+}
+
 function canUseCustomerDocumentFlow(user = state.currentUser) {
   return Boolean(user) && userPermissions(user).has(permissionKey("comercializacion", "crm-clientes"));
 }
@@ -9741,16 +9761,8 @@ function ensureOrderCustomerDialog() {
 function renderOrderRequirementCustomers(search = "") {
   const dialog = ensureOrderCustomerDialog();
   const query = normalizeKey(search);
-  const customers = crmMasterCustomers()
-    .filter((customer) => !query || opportunityCustomerMatches(customer, query))
-    .sort((a, b) => {
-      const left = Number.parseInt(String(a.clientNumber || "").replace(/\D/g, ""), 10);
-      const right = Number.parseInt(String(b.clientNumber || "").replace(/\D/g, ""), 10);
-      if (Number.isFinite(left) && Number.isFinite(right) && left !== right) return left - right;
-      if (Number.isFinite(left) !== Number.isFinite(right)) return Number.isFinite(left) ? -1 : 1;
-      return String(a.commercialName || a.legalName).localeCompare(String(b.commercialName || b.legalName), "es");
-    });
-  dialog.querySelector("[data-order-customer-list]").innerHTML = customers.map((customer, index) => `<button type="button" class="direct-order-customer-option" data-order-required-customer="${escapeHtml(customer.id)}"><i class="direct-order-customer-index" aria-label="Resultado ${index + 1}">${String(index + 1).padStart(2, "0")}</i><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customer.clientNumber || "—")} · ${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em><b>Seleccionar →</b></button>`).join("") || `<div class="direct-order-customer-empty">No encontramos clientes con ese criterio. Regístralo primero en Comercialización → Clientes.</div>`;
+  const customers = sortCustomersByClientNumber(crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query)));
+  dialog.querySelector("[data-order-customer-list]").innerHTML = customers.map((customer, index) => `<button type="button" class="direct-order-customer-option" data-order-required-customer="${escapeHtml(customer.id)}"><i class="direct-order-customer-index" aria-label="Resultado ${index + 1}">${String(index + 1).padStart(2, "0")}</i><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customerDisplayNumber(customer))} · ${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em><b>Seleccionar →</b></button>`).join("") || `<div class="direct-order-customer-empty">No encontramos clientes con ese criterio. Regístralo primero en Comercialización → Clientes.</div>`;
 }
 
 async function prepareQuotationOrderConversion(opportunity, quotation, onReady) {
