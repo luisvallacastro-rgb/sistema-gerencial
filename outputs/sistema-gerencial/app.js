@@ -3373,7 +3373,16 @@ function ensureControlSalesDialogs() {
     saveStatus.classList.add("hidden");
     saveStatus.dataset.tone = "success";
     try {
-      const linkedFinancialOrder = await saveControlSalesFinancialData(document.querySelector("#controlSalesFinancialOrderId").value);
+      const selectedFinancialOrderId = document.querySelector("#controlSalesFinancialOrderId").value;
+      const reusableFinancialOrder = !selectedFinancialOrderId && !id
+        ? state.financialOrders.find((item) => (
+            String(item.orderNumber || "") === String(document.querySelector("#controlSalesNumber").value || "")
+            && normalizeKey(item.client) === normalizeKey(document.querySelector("#controlSalesClient").value)
+            && Math.round(Number(item.sale || 0) * 100) === controlSalesDraftFromForm().totalCents
+            && !state.controlSales.some((order) => String(order.financialOrderId || "") === String(item.id || ""))
+          ))
+        : null;
+      const linkedFinancialOrder = await saveControlSalesFinancialData(selectedFinancialOrderId || reusableFinancialOrder?.id || "");
       document.querySelector("#controlSalesFinancialOrderId").value = linkedFinancialOrder.id;
       if (formDialog.dataset.financialCompletionOnly === "true") {
         await loadControlSales();
@@ -3385,7 +3394,7 @@ function ensureControlSalesDialogs() {
         submit.textContent = "Registro financiero guardado";
         return;
       }
-      const payload = { expectedUpdatedAt:dialog.dataset.expectedUpdatedAt || "", financialOrderId:linkedFinancialOrder.id, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+      const payload = { expectedUpdatedAt:formDialog.dataset.expectedUpdatedAt || "", financialOrderId:linkedFinancialOrder.id, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
       const response = await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
       const savedOrder = response.item;
       const completedDirectFlow = formDialog.dataset.directOrderFlow === "true";
