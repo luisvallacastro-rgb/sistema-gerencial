@@ -6880,17 +6880,28 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-income-summary small { color:rgba(205,220,238,.5); font-size:10px; font-weight:700; }
 .app-shell .financial-income-chart,.app-shell .financial-income-annex { border:1px solid rgba(110,154,201,.22); border-radius:20px; background:rgba(11,35,61,.55); overflow:hidden; }
 .app-shell .financial-income-chart > header,.app-shell .financial-income-annex > header { display:flex; justify-content:space-between; align-items:center; padding:17px 20px; border-bottom:1px solid rgba(110,154,201,.18); }
-.app-shell .financial-income-legend { display:flex; align-items:center; gap:7px; color:rgba(205,220,238,.65); font-size:10px; font-weight:800; }
-.app-shell .financial-income-legend i { width:9px; height:9px; margin-left:8px; border-radius:3px; background:#72f5d1; }
-.app-shell .financial-income-legend i.labor { background:#65aef6; }
-.app-shell .financial-income-chart-body { display:grid; grid-template-columns:repeat(4,minmax(90px,1fr)); gap:14px; min-height:260px; padding:22px 26px 18px; }
-.app-shell .financial-income-month { display:grid; grid-template-rows:160px auto auto auto; justify-items:center; gap:4px; min-width:0; }
-.app-shell .financial-income-bars { width:78px; height:160px; display:flex; align-items:end; justify-content:center; gap:7px; border-bottom:1px solid rgba(205,220,238,.22); }
+.app-shell .financial-income-goal { display:grid; justify-items:end; gap:2px; }
+.app-shell .financial-income-goal small { color:rgba(205,220,238,.58); font-size:9px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+.app-shell .financial-income-goal strong { color:#f4f8ff; font-size:16px; }
+.app-shell .financial-income-chart-body { position:relative; display:grid; grid-template-columns:repeat(4,minmax(120px,1fr)); gap:14px; min-height:310px; padding:24px 26px 18px 72px; }
+.app-shell .financial-income-scale { position:absolute; z-index:0; left:72px; right:26px; top:24px; height:180px; pointer-events:none; }
+.app-shell .financial-income-scale span { position:absolute; left:0; right:0; height:1px; border-top:1px dashed rgba(167,190,216,.17); }
+.app-shell .financial-income-scale span:first-child { border-top:1px solid rgba(114,245,209,.5); }
+.app-shell .financial-income-scale b { position:absolute; right:calc(100% + 10px); top:-6px; color:rgba(205,220,238,.47); font-size:8px; font-weight:850; white-space:nowrap; }
+.app-shell .financial-income-scale span:first-child b { color:#72f5d1; }
+.app-shell .financial-income-month { position:relative; z-index:1; display:grid; grid-template-rows:180px auto auto auto; justify-items:center; gap:7px; min-width:0; }
+.app-shell .financial-income-bars { width:78px; height:180px; display:flex; align-items:end; justify-content:center; gap:7px; }
 .app-shell .financial-income-bars span { width:25px; min-height:0; border-radius:7px 7px 2px 2px; background:linear-gradient(#72f5d1,#1aa987); box-shadow:0 8px 18px rgba(32,203,162,.18); }
 .app-shell .financial-income-bars span.labor { background:linear-gradient(#83c7ff,#377fca); box-shadow:none; }
 .app-shell .financial-income-month > strong { color:#f4f8ff; font-size:11px; letter-spacing:.12em; }
-.app-shell .financial-income-month > small { color:#72f5d1; font-size:12px; font-weight:900; }
-.app-shell .financial-income-month > em { color:rgba(205,220,238,.5); font-size:9px; font-style:normal; font-weight:750; }
+.app-shell .financial-income-month-values { display:flex; justify-content:center; flex-wrap:wrap; gap:5px 12px; }
+.app-shell .financial-income-month-values span { display:grid; grid-template-columns:7px auto; align-items:center; gap:1px 5px; }
+.app-shell .financial-income-month-values i { width:7px; height:7px; grid-row:1; border-radius:2px; background:#72f5d1; }
+.app-shell .financial-income-month-values i.labor { background:#65aef6; }
+.app-shell .financial-income-month-values b { color:rgba(205,220,238,.64); font-size:8px; }
+.app-shell .financial-income-month-values em { grid-column:1 / -1; color:#72f5d1; font-size:10px; font-style:normal; font-weight:900; }
+.app-shell .financial-income-month-values span:last-child em { color:#88cfff; }
+.app-shell .financial-income-month > small { color:rgba(205,220,238,.46); font-size:9px; font-weight:750; }
 .app-shell .financial-income-annex > div { overflow:auto; }
 .app-shell .financial-income-annex table { width:100%; border-collapse:collapse; }
 .app-shell .financial-income-annex th,.app-shell .financial-income-annex td { padding:12px 18px; border-bottom:1px solid rgba(110,154,201,.14); color:#dce8f7; text-align:left; font-size:11px; }
@@ -6899,7 +6910,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-income-annex td.labor { color:#88cfff; }
 .app-shell .financial-income-annex tfoot th { color:#f4f8ff; background:rgba(114,245,209,.055); }
 .app-shell .financial-income-annex .empty { padding:30px; text-align:center; color:rgba(205,220,238,.52); }
-@media(max-width:760px){.app-shell .financial-income-hero{grid-template-columns:1fr}.app-shell .financial-income-hero aside{text-align:left}.app-shell .financial-income-summary{grid-template-columns:1fr}.app-shell .financial-income-chart-body{overflow-x:auto}.app-shell .financial-income-legend{display:none}}
+@media(max-width:760px){.app-shell .financial-income-hero{grid-template-columns:1fr}.app-shell .financial-income-hero aside{text-align:left}.app-shell .financial-income-summary{grid-template-columns:1fr}.app-shell .financial-income-chart-body{overflow-x:auto}.app-shell .financial-income-goal{justify-items:start}}
 
 .app-shell .financial-order-notifications {
   display: grid;
