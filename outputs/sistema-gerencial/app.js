@@ -6124,7 +6124,7 @@ function renderFinancialOrderList() {
           return `
           <article class="financial-order-row">
             <span>${formatDate(order.date)}</span>
-            <strong>${escapeHtml(financialOrderRealNumber(order))}</strong>
+            <strong class="financial-order-number" title="${escapeHtml(financialOrderRealNumber(order))}">${escapeHtml(financialOrderRealNumber(order))}</strong>
             <strong class="financial-order-sale">${formatMoney(order.sale)}</strong>
             <span>${escapeHtml(controlSalesResponsibleSeller(order))}</span>
             <span class="financial-order-client-cell">

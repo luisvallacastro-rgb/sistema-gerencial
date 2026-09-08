@@ -6441,7 +6441,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .app-shell .financial-orders-table { min-width: 0; width: 100%; display: grid; gap: 7px; }
 .app-shell .financial-order-row {
   display: grid;
-  grid-template-columns: 100px 132px 110px minmax(120px, .9fr) minmax(160px, 1.7fr) 124px;
+  grid-template-columns: 100px 184px 110px minmax(120px, .9fr) minmax(160px, 1.7fr) 124px;
   align-items: center;
   gap: 10px;
   min-height: 62px;
@@ -6468,6 +6468,12 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 
 .app-shell .financial-order-row > span,
 .app-shell .financial-order-row > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-shell .financial-order-row > .financial-order-number {
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 12px;
+  letter-spacing: -.01em;
+}
 .app-shell .financial-order-sale { color: #72f5d1; }
 .app-shell .financial-order-actions { display: flex; gap: 6px; overflow: visible !important; }
 .app-shell .financial-order-actions button { min-height: 32px; border: 0; border-radius: 9px; padding: 0 10px; background: rgba(76,145,229,.14); color: #b9daff; font-size: 10px; font-weight: 900; cursor: pointer; }
@@ -8422,8 +8428,8 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 }
 
 @media (max-width: 900px) {
-  .app-shell .financial-orders-table { min-width: 760px; }
-  .app-shell .financial-order-row { grid-template-columns: 96px 126px 104px 120px 190px 120px; }
+  .app-shell .financial-orders-table { min-width: 820px; }
+  .app-shell .financial-order-row { grid-template-columns: 96px 176px 104px 120px 190px 120px; }
 }
 
 #financialOrderDialog {
