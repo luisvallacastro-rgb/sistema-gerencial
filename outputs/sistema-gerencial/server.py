@@ -3126,9 +3126,28 @@ def save_control_sales_order(conn, data, existing_row=None):
             raise ValueError("Este pedido ya fue ingresado en Control de Ventas")
         item["seller"] = text(financial_order["seller"])
         item["client"] = text(financial_order["client"])
-        expected_total_cents, variance_cents = control_sales_reconciliation_snapshot(
-            financial_order, item["totalCents"]
-        )
+        if existing_row:
+            # Once an operational order is edited, its validated line detail is
+            # the canonical amount. Keep the financial ledger synchronized in
+            # this same transaction so a partial two-request save cannot leave
+            # a false reconciliation difference behind.
+            canonical_sale = Decimal(item["totalCents"]) / Decimal("100")
+            conn.execute("""
+                UPDATE financial_orders
+                SET sale = ?, updated_by = ?, updated_at = ?
+                WHERE id = ? AND deleted = 0
+            """, (
+                float(canonical_sale),
+                text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial"),
+                time.strftime("%Y-%m-%dT%H:%M:%S"),
+                financial_order_id,
+            ))
+            expected_total_cents = item["totalCents"]
+            variance_cents = 0
+        else:
+            expected_total_cents, variance_cents = control_sales_reconciliation_snapshot(
+                financial_order, item["totalCents"]
+            )
     elif not existing_row and not source_opportunity_id and not direct_order_flow:
         raise ValueError("Selecciona un pedido pendiente antes de crear la orden")
     duplicate = conn.execute("""
@@ -3834,6 +3853,45 @@ def normalize_control_sales_order_descriptions_once(conn):
     conn.execute(
         "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
         (marker_key, json.dumps({"repaired": repaired, "rule": "quotation-description-only"}, ensure_ascii=False)),
+    )
+
+
+def reconcile_order_2026090007_once(conn):
+    """Apply the confirmed $506.82 correction without touching other orders."""
+    marker_key = "maintenance.reconcile-order-2026090007-50682.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+    row = conn.execute("""
+        SELECT id, financial_order_id
+        FROM control_sales_orders
+        WHERE replace(upper(trim(order_number)), 'OP-', '') = '2026090007'
+          AND total_cents = 50682
+          AND expected_total_cents = 50681
+          AND variance_cents = 1
+          AND archived = 0
+        LIMIT 1
+    """).fetchone()
+    corrected = False
+    if row and text(row["financial_order_id"]):
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+        conn.execute("""
+            UPDATE financial_orders
+            SET sale = 506.82, updated_by = 'Correccion automatica OP 2026090007', updated_at = ?
+            WHERE id = ? AND deleted = 0
+        """, (now, row["financial_order_id"]))
+        conn.execute("""
+            UPDATE control_sales_orders
+            SET expected_total_cents = 50682, variance_cents = 0, updated_at = ?
+            WHERE id = ?
+        """, (now, row["id"]))
+        conn.execute("""
+            INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary)
+            VALUES (?, 'conciliacion', 'Sistema Gerencial', ?, ?)
+        """, (row["id"], now, "Monto financiero actualizado de $506.81 a $506.82 segun el detalle corregido"))
+        corrected = True
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps({"corrected": corrected}, ensure_ascii=False)),
     )
 
 
@@ -5750,6 +5808,7 @@ def init_db():
         grant_purchase_order_permissions(conn)
         seed_control_sales(conn)
         normalize_control_sales_order_descriptions_once(conn)
+        reconcile_order_2026090007_once(conn)
         grant_control_sales_permissions(conn)
         correct_marjorie_account_email_once(conn)
         for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
