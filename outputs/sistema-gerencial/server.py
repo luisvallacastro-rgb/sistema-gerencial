@@ -31,7 +31,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-all-quotations-consolidated-v24"
+API_VERSION = "kmi-quotation-update-fix-v25"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
@@ -3710,6 +3710,7 @@ def save_quotation(conn, data, existing_row=None):
         if responsible_seller:
             item["seller"] = responsible_seller
     existing_customer = existing.get("customerData") if existing and isinstance(existing.get("customerData"), dict) else {}
+    previous_customer_id = text(existing_customer.get("customerId"))
     selected_customer_id = text(item["customerData"].get("customerId"))
     # Refresh the complete customer seal on every save.  A quotation must never
     # retain a partial/stale snapshot merely because its customer id did not change.
