@@ -3991,6 +3991,7 @@ function renderQuotationsModule() {
   const queryTokens = normalizeKey(state.quotationModuleQuery).split(/\s+/).filter(Boolean);
   const rows = [...state.quotations]
     .filter(canManageQuotation)
+    .filter((quotation) => !isCustomerFlowQuotation(quotation))
     .filter((quotation) => normalizeKey(quotation.status || "") !== "anulada")
     .filter((quotation) => {
       if (!queryTokens.length) return true;
@@ -9769,15 +9770,10 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
 function renderCrmCustomerViewTabs(active = "master") {
   const pending = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === "pendiente").length;
   const directQuotations = state.quotations.filter(isCustomerFlowQuotation).length;
-  const directOrders = state.controlSales.filter((item) => {
-    const quotation = linkedQuotationForControlSalesOrder(item);
-    return isDirectOrderFlow(item) || String(quotation?.opportunityId || "").startsWith("direct-quotation:");
-  }).length;
   return `<nav class="crm-customer-view-tabs" aria-label="Vistas de clientes">
     <button type="button" data-crm-customer-view="master" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
     <button type="button" data-crm-customer-view="requests" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
-    <button type="button" data-crm-customer-view="quotations" class="${active === "quotations" ? "active" : ""}">Cotizaciones <b>${directQuotations}</b></button>
-    <button type="button" data-crm-customer-view="orders" class="${active === "orders" ? "active" : ""}">Órdenes de pedido <b>${directOrders}</b></button>
+    <button type="button" data-crm-customer-view="quotations" class="${active === "quotations" ? "active" : ""}">Cotizaciones / OP <b>${directQuotations}</b></button>
   </nav>`;
 }
 
@@ -9788,7 +9784,7 @@ function isCustomerFlowQuotation(quotation = {}) {
 }
 
 function switchCrmCustomerView(view) {
-  state.crmCustomerView = ["master", "requests", "quotations", "orders"].includes(view) ? view : "master";
+  state.crmCustomerView = view === "orders" ? "quotations" : (["master", "requests", "quotations"].includes(view) ? view : "master");
   renderCommercialSubmenu(areas.comercializacion);
 }
 
@@ -9803,12 +9799,11 @@ function renderCrmCustomerDocuments(view) {
   const quotations = state.quotations
     .filter(isCustomerFlowQuotation)
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
-  const orders = customerFlowOrders();
-  const isQuotationView = view === "quotations";
-  const rows = isQuotationView ? quotations : orders;
+  const isQuotationView = true;
+  const rows = quotations;
   return `<section class="crm-shell crm-customers-module crm-customer-documents-module">
     <header class="crm-customers-hero crm-customers-compact-head crm-customer-tabs-head">
-      <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs(view)}</div>
+      <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs("quotations")}</div>
     </header>
     <div class="crm-customer-toolbar crm-customer-document-toolbar">
       <div class="crm-customer-result"><strong>${rows.length}</strong><span>${isQuotationView ? "cotizaciones" : "órdenes"}</span></div>
@@ -9914,7 +9909,8 @@ function renderCrmCustomerRequests() {
 
 function renderCrmClients() {
   if ((state.crmCustomerView || "master") === "requests") return renderCrmCustomerRequests();
-  if (["quotations", "orders"].includes(state.crmCustomerView)) return renderCrmCustomerDocuments(state.crmCustomerView);
+  if (state.crmCustomerView === "orders") state.crmCustomerView = "quotations";
+  if (state.crmCustomerView === "quotations") return renderCrmCustomerDocuments("quotations");
   const allClients = crmMasterCustomers(true);
   const query = normalizeKey(state.crmCustomerSearch || "");
   const status = "active";
