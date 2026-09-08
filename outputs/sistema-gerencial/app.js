@@ -4144,17 +4144,9 @@ function wireQuotationsModule() {
     button.setAttribute("aria-label", "Preparando orden de pedido");
     try {
       const opportunity = quotationSourceOpportunity(quotation);
-      const directCustomerId = String(quotation.customerId || quotation.customerData?.customerId || "");
-      const directCustomer = String(quotation.opportunityId || "").startsWith("direct-quotation:")
-        ? crmMasterCustomers(true).find((customer) => String(customer.id || "") === directCustomerId && customer.active !== false)
-        : null;
-      if (directCustomer) {
-        const synced = await bindMasterCustomerForOrder(opportunity, quotation, directCustomer);
-        openControlSalesForm(null, null, synced.opportunity, false, synced.quotation, false, true);
-        return;
-      }
+      const directOrderFlow = String(quotation.opportunityId || "").startsWith("direct-quotation:");
       await prepareQuotationOrderConversion(opportunity, quotation, (syncedOpportunity, syncedQuotation) => {
-        openControlSalesForm(null, null, syncedOpportunity, true, syncedQuotation);
+        openControlSalesForm(null, null, syncedOpportunity, !directOrderFlow, syncedQuotation, false, directOrderFlow);
       });
     } catch (error) {
       alert(error.message || "No fue posible preparar la orden de pedido.");
@@ -9762,17 +9754,6 @@ function renderOrderRequirementCustomers(search = "") {
 }
 
 async function prepareQuotationOrderConversion(opportunity, quotation, onReady) {
-  const linkedCustomerId = quotation.customerId || quotation.customerData?.customerId;
-  const linkedCustomer = crmMasterCustomers(true).find((customer) => String(customer.id) === String(linkedCustomerId) && customer.active !== false);
-  if (linkedCustomer) {
-    try {
-      const synced = await bindMasterCustomerForOrder(opportunity, quotation, linkedCustomer);
-      onReady(synced.opportunity, synced.quotation);
-      return;
-    } catch (error) {
-      alert(error.message || "No fue posible confirmar el cliente vinculado. Selecciónalo nuevamente.");
-    }
-  }
   const dialog = ensureOrderCustomerDialog();
   dialog.pendingConversion = { opportunity, quotation, onReady };
   const search = dialog.querySelector("[data-order-customer-search]");
