@@ -31,7 +31,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-direct-customer-consistent-state-v17"
+API_VERSION = "kmi-financial-income-dashboard-v18"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
@@ -6165,6 +6165,26 @@ class AppHandler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 payload = {}
             self.send_json({"pendingDeposits": float(payload.get("pendingDeposits") or 0)})
+            return
+
+        if self.path == "/api/financial-income":
+            if not self.require_permission("financiera:ingresos"):
+                return
+            with connect() as conn:
+                rows = conn.execute("""SELECT provisions.id, records.record_date,
+                           provisions.customer_name, provisions.gross_amount,
+                           provisions.labor_provision_amount, provisions.payment_type,
+                           provisions.created_at
+                    FROM bank_deposit_provisions AS provisions
+                    JOIN bank_balance_records AS records ON records.id = provisions.record_id
+                    ORDER BY records.record_date ASC, datetime(provisions.created_at) ASC,
+                             provisions.rowid ASC""").fetchall()
+            self.send_json([{
+                "id": row["id"], "date": row["record_date"],
+                "customerName": row["customer_name"], "gross": row["gross_amount"],
+                "labor": row["labor_provision_amount"], "paymentType": row["payment_type"],
+                "createdAt": row["created_at"],
+            } for row in rows])
             return
 
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")

@@ -68,7 +68,7 @@ const areas = {
     status: "Controlado",
     submenus: [
       { key: "disponibilidad", label: "Disponibilidad", status: "Saldos bancarios consolidados", items: [] },
-      { key: "ingresos", label: "Ingresos", status: "Sección financiera en preparación", items: [] },
+      { key: "ingresos", label: "Ingresos", status: "Remesas provisionadas", items: [] },
       { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
       { key: "resultados-ordenes-de-pedido", label: "Órdenes de Pedido", status: "Control de producción y entregas", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
@@ -306,6 +306,9 @@ const state = {
   bankAvailabilityHistory: [],
   bankPendingDeposits: 0,
   bankAvailabilitySignatures: {},
+  financialIncome: [],
+  financialIncomeLoaded: false,
+  financialIncomeLoading: false,
   commercialAgenda: [],
   commercialAgendaLoaded: false,
   commercialAgendaQuery: "",
@@ -10550,6 +10553,41 @@ async function printBankProvisionReport(account) {
   popup.document.close();
 }
 
+function renderFinancialIncome() {
+  if (state.financialIncomeLoading && !state.financialIncomeLoaded) {
+    return `<section class="financial-income-loading"><span></span><strong>Cargando remesas provisionadas…</strong></section>`;
+  }
+  const year = 2026;
+  const months = [
+    { index:8, label:"Septiembre", short:"SEP" },
+    { index:9, label:"Octubre", short:"OCT" },
+    { index:10, label:"Noviembre", short:"NOV" },
+    { index:11, label:"Diciembre", short:"DIC" }
+  ];
+  const items = (state.financialIncome || []).filter((item) => {
+    const date = new Date(`${item.date}T12:00:00`);
+    return date.getFullYear() === year && date.getMonth() >= 8 && date.getMonth() <= 11;
+  });
+  const monthly = months.map((month) => {
+    const rows = items.filter((item) => new Date(`${item.date}T12:00:00`).getMonth() === month.index);
+    return { ...month, gross:rows.reduce((sum,item) => sum + Number(item.gross || 0), 0), labor:rows.reduce((sum,item) => sum + Number(item.labor || 0), 0), count:rows.length };
+  });
+  const totalGross = monthly.reduce((sum,item) => sum + item.gross, 0);
+  const totalLabor = monthly.reduce((sum,item) => sum + item.labor, 0);
+  const maxGross = Math.max(...monthly.map((item) => item.gross), 1);
+  const chart = monthly.map((month) => `<article class="financial-income-month">
+    <div class="financial-income-bars"><span class="gross" style="height:${Math.max(month.gross ? 12 : 0, (month.gross / maxGross) * 100)}%" title="Efectivo ${formatMoney(month.gross)}"></span><span class="labor" style="height:${Math.max(month.labor ? 8 : 0, (month.labor / maxGross) * 100)}%" title="Provisión laboral ${formatMoney(month.labor)}"></span></div>
+    <strong>${escapeHtml(month.short)}</strong><small>${formatMoney(month.gross)}</small><em>${month.count} ${month.count === 1 ? "remesa" : "remesas"}</em>
+  </article>`).join("");
+  const annex = [...items].sort((a,b) => String(b.date).localeCompare(String(a.date)) || String(b.createdAt).localeCompare(String(a.createdAt))).map((item) => `<tr><td>${escapeHtml(formatDate(item.date))}</td><td>${escapeHtml(item.customerName || "Sin cliente")}</td><td class="money">${formatMoney(item.gross)}</td><td class="money labor">${formatMoney(item.labor)}</td></tr>`).join("");
+  return `<section class="financial-income-module">
+    <header class="financial-income-hero"><div><span>Ingresos reales · ${year}</span><h2>Remesas provisionadas</h2><p>Se actualiza desde los depósitos provisionados en Disponibilidad.</p></div><aside><small>${items.length} ${items.length === 1 ? "remesa" : "remesas"}</small><strong>${formatMoney(totalGross)}</strong></aside></header>
+    <div class="financial-income-summary"><article><span>Efectivo ingresado</span><strong>${formatMoney(totalGross)}</strong><small>Monto bruto depositado</small></article><article><span>Provisión laboral acumulada</span><strong>${formatMoney(totalLabor)}</strong><small>7% calculado sobre el valor neto</small></article></div>
+    <section class="financial-income-chart"><header><div><span>Comparativo mensual</span><h3>Septiembre a diciembre</h3></div><div class="financial-income-legend"><i class="gross"></i>Efectivo<i class="labor"></i>Provisión laboral</div></header><div class="financial-income-chart-body">${chart}</div></section>
+    <section class="financial-income-annex"><header><div><span>Anexo mensual</span><h3>Detalle de ingresos y provisión</h3></div></header><div><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Monto</th><th>Provisión</th></tr></thead><tbody>${annex || `<tr><td colspan="4" class="empty">No hay remesas provisionadas entre septiembre y diciembre de ${year}.</td></tr>`}</tbody><tfoot><tr><th colspan="2">Acumulado</th><th class="money">${formatMoney(totalGross)}</th><th class="money">${formatMoney(totalLabor)}</th></tr></tfoot></table></div></section>
+  </section>`;
+}
+
 async function openBankMaintenance(accountId) {
   const account = (state.bankAvailability.accounts || []).find((item) => item.id === accountId);
   if (!account) return;
@@ -10600,7 +10638,7 @@ async function openBankMaintenance(accountId) {
       provisionDialog.querySelectorAll("[data-provision-close]").forEach((button) => button.onclick = () => provisionDialog.close());
       const sellerSelect = provisionDialog.querySelector("select[name=seller]");
       sellerSelect.addEventListener("change", () => { const rate = Number(sellerSelect.selectedOptions[0]?.dataset.rate || 0); const commission = net * rate; provisionDialog.querySelector("[data-provision-commission-label]").textContent = rate ? `Provisión de comisión · ${sellerSelect.value} · ${rate*100}%` : "Provisión de comisión del vendedor"; provisionDialog.querySelector("[data-provision-commission]").textContent = rate ? formatMoney(commission) : "—"; provisionDialog.querySelector("[data-provision-total]").textContent = formatMoney(taxProvision + labor + commission); });
-      provisionDialog.querySelector("form").onsubmit = async (event) => { event.preventDefault(); const button = event.submitter; const formData = new FormData(event.currentTarget); button.disabled = true; try { const response = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/provisions`, { method:"POST", body:JSON.stringify({ recordIds:[...selectedProvisionIds], customerName:String(formData.get("customerName") || "").trim(), paymentType:String(formData.get("paymentType") || ""), seller:sellerSelect.value, createdBy:state.currentUser?.name || "Sistema Gerencial" }) }); const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`); records.splice(0, records.length, ...refreshed); selectedProvisionIds.clear(); provisionDialog.close(); render(); if (response.skipped?.length) alert(`${response.created.length} provisiones registradas; ${response.skipped.length} ya existían.`); } catch (error) { alert(error.message || "No se pudieron registrar las provisiones."); button.disabled = false; } };
+      provisionDialog.querySelector("form").onsubmit = async (event) => { event.preventDefault(); const button = event.submitter; const formData = new FormData(event.currentTarget); button.disabled = true; try { const response = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/provisions`, { method:"POST", body:JSON.stringify({ recordIds:[...selectedProvisionIds], customerName:String(formData.get("customerName") || "").trim(), paymentType:String(formData.get("paymentType") || ""), seller:sellerSelect.value, createdBy:state.currentUser?.name || "Sistema Gerencial" }) }); state.financialIncomeLoaded = false; const refreshed = await apiJson(`/api/bank-availability/${encodeURIComponent(account.id)}/records`); records.splice(0, records.length, ...refreshed); selectedProvisionIds.clear(); provisionDialog.close(); render(); if (response.skipped?.length) alert(`${response.created.length} provisiones registradas; ${response.skipped.length} ya existían.`); } catch (error) { alert(error.message || "No se pudieron registrar las provisiones."); button.disabled = false; } };
       document.body.append(provisionDialog); provisionDialog.addEventListener("close", () => provisionDialog.remove(), { once:true }); provisionDialog.showModal();
     });
     refreshProvisionSelection();
@@ -10977,6 +11015,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("opportunity-mode");
   commercialPanel.classList.remove("crm-opportunity-tabs");
   commercialPanel.classList.remove("bank-availability-mode");
+  commercialPanel.classList.remove("financial-income-mode");
   opportunityCycleToolbarHost.replaceChildren();
   opportunityCycleToolbarHost.classList.add("hidden");
   opportunityTable.classList.remove("cycle-list-active");
@@ -11020,14 +11059,28 @@ function renderCommercialSubmenu(area) {
   }
 
   if (state.activeArea === "financiera" && submenu.key === "ingresos") {
+    commercialPanel.classList.add("financial-income-mode");
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");
     goalsMatrixBtn.classList.add("hidden");
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
-    commercialSubmenuStatus.textContent = "Sección lista para configurar";
-    opportunityTable.innerHTML = `<section class="financial-income-placeholder"><span aria-hidden="true">↗</span><div><small>Financiera</small><h2>Ingresos</h2><p>La sección está creada y lista para incorporar el detalle operativo, controles y reportes.</p></div></section>`;
+    commercialSubmenuStatus.textContent = "Actualización automática";
+    opportunityTable.innerHTML = renderFinancialIncome();
+    if (!state.financialIncomeLoaded && !state.financialIncomeLoading) {
+      state.financialIncomeLoading = true;
+      apiJson("/api/financial-income").then((items) => {
+        state.financialIncome = Array.isArray(items) ? items : [];
+        state.financialIncomeLoaded = true;
+      }).catch((error) => {
+        state.financialIncome = [];
+        console.error("No se pudieron cargar los ingresos provisionados", error);
+      }).finally(() => {
+        state.financialIncomeLoading = false;
+        if (state.activeArea === "financiera" && state.activeSubmenu === "ingresos") renderCommercialSubmenu(areas.financiera);
+      });
+    }
     return;
   }
 
@@ -13410,6 +13463,7 @@ function renderDashboard() {
       "autorizacion-pedidos",
       "cotizaciones",
       "disponibilidad",
+      "ingresos",
       "produccion-semanal"
     ].includes(state.activeSubmenu)
     || state.activeSubmenu.startsWith("resultados")

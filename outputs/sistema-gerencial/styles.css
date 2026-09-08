@@ -6859,21 +6859,47 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 }
 .app-shell .financial-orders-notification-count.empty { background: rgba(167,190,216,.16); color: rgba(222,234,247,.62); box-shadow: none; }
 
-.app-shell .financial-income-placeholder {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-height: 220px;
-  padding: 34px;
-  border: 1px solid rgba(114,245,209,.22);
-  border-radius: 20px;
-  background: linear-gradient(120deg,rgba(43,91,124,.2),rgba(20,74,75,.16));
-}
-.app-shell .financial-income-placeholder > span { display: grid; place-items: center; width: 58px; height: 58px; flex: 0 0 58px; border-radius: 18px; background: rgba(114,245,209,.13); color: #72f5d1; font-size: 28px; font-weight: 900; }
-.app-shell .financial-income-placeholder div { display: grid; gap: 5px; }
-.app-shell .financial-income-placeholder small { color: #72f5d1; font-size: 10px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
-.app-shell .financial-income-placeholder h2 { margin: 0; color: #f4f8ff; font-size: 30px; }
-.app-shell .financial-income-placeholder p { max-width: 620px; margin: 0; color: rgba(205,220,238,.68); font-size: 13px; font-weight: 650; }
+.app-shell .commercial-panel.financial-income-mode { overflow: visible; }
+.app-shell .commercial-panel.financial-income-mode > .opportunity-table { overflow: visible; padding: 0; }
+.app-shell .financial-income-module { display:grid; gap:16px; }
+.app-shell .financial-income-loading { min-height:300px; display:grid; place-content:center; justify-items:center; gap:14px; color:#cddcee; }
+.app-shell .financial-income-loading span { width:34px; height:34px; border:3px solid rgba(114,245,209,.2); border-top-color:#72f5d1; border-radius:50%; animation:spin .8s linear infinite; }
+.app-shell .financial-income-hero { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:24px; padding:22px 26px; border:1px solid rgba(114,245,209,.28); border-radius:20px; background:linear-gradient(120deg,rgba(43,91,124,.3),rgba(20,74,75,.24)); }
+.app-shell .financial-income-hero span,.app-shell .financial-income-chart header span,.app-shell .financial-income-annex header span { color:#72f5d1; font-size:10px; font-weight:950; letter-spacing:.13em; text-transform:uppercase; }
+.app-shell .financial-income-hero h2,.app-shell .financial-income-chart h3,.app-shell .financial-income-annex h3 { margin:3px 0 0; color:#f4f8ff; }
+.app-shell .financial-income-hero h2 { font-size:28px; }
+.app-shell .financial-income-hero p { margin:5px 0 0; color:rgba(205,220,238,.67); font-size:12px; font-weight:700; }
+.app-shell .financial-income-hero aside { text-align:right; }
+.app-shell .financial-income-hero aside small { display:block; color:rgba(205,220,238,.66); font-size:11px; font-weight:850; text-transform:uppercase; }
+.app-shell .financial-income-hero aside strong { color:#72f5d1; font-size:34px; }
+.app-shell .financial-income-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.app-shell .financial-income-summary article { display:grid; gap:5px; padding:18px 20px; border:1px solid rgba(110,154,201,.25); border-radius:17px; background:rgba(15,43,72,.58); }
+.app-shell .financial-income-summary span { color:rgba(205,220,238,.72); font-size:12px; font-weight:800; }
+.app-shell .financial-income-summary strong { color:#f4f8ff; font-size:26px; }
+.app-shell .financial-income-summary article:last-child strong { color:#88cfff; }
+.app-shell .financial-income-summary small { color:rgba(205,220,238,.5); font-size:10px; font-weight:700; }
+.app-shell .financial-income-chart,.app-shell .financial-income-annex { border:1px solid rgba(110,154,201,.22); border-radius:20px; background:rgba(11,35,61,.55); overflow:hidden; }
+.app-shell .financial-income-chart > header,.app-shell .financial-income-annex > header { display:flex; justify-content:space-between; align-items:center; padding:17px 20px; border-bottom:1px solid rgba(110,154,201,.18); }
+.app-shell .financial-income-legend { display:flex; align-items:center; gap:7px; color:rgba(205,220,238,.65); font-size:10px; font-weight:800; }
+.app-shell .financial-income-legend i { width:9px; height:9px; margin-left:8px; border-radius:3px; background:#72f5d1; }
+.app-shell .financial-income-legend i.labor { background:#65aef6; }
+.app-shell .financial-income-chart-body { display:grid; grid-template-columns:repeat(4,minmax(90px,1fr)); gap:14px; min-height:260px; padding:22px 26px 18px; }
+.app-shell .financial-income-month { display:grid; grid-template-rows:160px auto auto auto; justify-items:center; gap:4px; min-width:0; }
+.app-shell .financial-income-bars { width:78px; height:160px; display:flex; align-items:end; justify-content:center; gap:7px; border-bottom:1px solid rgba(205,220,238,.22); }
+.app-shell .financial-income-bars span { width:25px; min-height:0; border-radius:7px 7px 2px 2px; background:linear-gradient(#72f5d1,#1aa987); box-shadow:0 8px 18px rgba(32,203,162,.18); }
+.app-shell .financial-income-bars span.labor { background:linear-gradient(#83c7ff,#377fca); box-shadow:none; }
+.app-shell .financial-income-month > strong { color:#f4f8ff; font-size:11px; letter-spacing:.12em; }
+.app-shell .financial-income-month > small { color:#72f5d1; font-size:12px; font-weight:900; }
+.app-shell .financial-income-month > em { color:rgba(205,220,238,.5); font-size:9px; font-style:normal; font-weight:750; }
+.app-shell .financial-income-annex > div { overflow:auto; }
+.app-shell .financial-income-annex table { width:100%; border-collapse:collapse; }
+.app-shell .financial-income-annex th,.app-shell .financial-income-annex td { padding:12px 18px; border-bottom:1px solid rgba(110,154,201,.14); color:#dce8f7; text-align:left; font-size:11px; }
+.app-shell .financial-income-annex th { color:rgba(205,220,238,.65); font-size:9px; text-transform:uppercase; letter-spacing:.09em; }
+.app-shell .financial-income-annex .money { text-align:right; font-weight:900; white-space:nowrap; }
+.app-shell .financial-income-annex td.labor { color:#88cfff; }
+.app-shell .financial-income-annex tfoot th { color:#f4f8ff; background:rgba(114,245,209,.055); }
+.app-shell .financial-income-annex .empty { padding:30px; text-align:center; color:rgba(205,220,238,.52); }
+@media(max-width:760px){.app-shell .financial-income-hero{grid-template-columns:1fr}.app-shell .financial-income-hero aside{text-align:left}.app-shell .financial-income-summary{grid-template-columns:1fr}.app-shell .financial-income-chart-body{overflow-x:auto}.app-shell .financial-income-legend{display:none}}
 
 .app-shell .financial-order-notifications {
   display: grid;
