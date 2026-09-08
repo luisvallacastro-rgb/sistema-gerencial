@@ -49,7 +49,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi"],
-    "financiera": ["disponibilidad", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
+    "financiera": ["disponibilidad", "ingresos", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal"],
     "rrhh": [],
 }
@@ -2155,6 +2155,7 @@ def default_permissions_for_role(role):
             "financiera:resultados",
             "comercializacion:resultados-pedidos",
             "financiera:disponibilidad",
+            "financiera:ingresos",
             "financiera:resultados-cuentas-por-cobrar",
             "financiera:resultados-ordenes-de-pedido",
             *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
@@ -3921,6 +3922,25 @@ def grant_purchase_order_permissions(conn):
             permissions.append(permission)
             conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions, ensure_ascii=True), row["id"]))
     conn.execute("INSERT INTO app_state (key, value) VALUES (?, ?)", (migration_key, "completed"))
+
+
+def grant_financial_income_permissions(conn):
+    """Expose Ingresos to users who already have access to Financiera."""
+    permission = "financiera:ingresos"
+    for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
+        try:
+            permissions = json.loads(row["permissions"] or "[]")
+        except json.JSONDecodeError:
+            permissions = []
+        has_financial_access = row["role"] in {"gerencias", "jefaturas"} or any(
+            text(item).startswith("financiera:") for item in permissions
+        )
+        if has_financial_access and permission not in permissions:
+            permissions.append(permission)
+            conn.execute(
+                "UPDATE users SET permissions = ? WHERE id = ?",
+                (json.dumps(permissions, ensure_ascii=True), row["id"]),
+            )
 
 
 def migrate_consolidated_permissions(conn):
@@ -5806,6 +5826,7 @@ def init_db():
         seed_purchase_orders(conn)
         recover_purchase_orders_if_empty(conn)
         grant_purchase_order_permissions(conn)
+        grant_financial_income_permissions(conn)
         seed_control_sales(conn)
         normalize_control_sales_order_descriptions_once(conn)
         reconcile_order_2026090007_once(conn)

@@ -6859,6 +6859,22 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 }
 .app-shell .financial-orders-notification-count.empty { background: rgba(167,190,216,.16); color: rgba(222,234,247,.62); box-shadow: none; }
 
+.app-shell .financial-income-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 220px;
+  padding: 34px;
+  border: 1px solid rgba(114,245,209,.22);
+  border-radius: 20px;
+  background: linear-gradient(120deg,rgba(43,91,124,.2),rgba(20,74,75,.16));
+}
+.app-shell .financial-income-placeholder > span { display: grid; place-items: center; width: 58px; height: 58px; flex: 0 0 58px; border-radius: 18px; background: rgba(114,245,209,.13); color: #72f5d1; font-size: 28px; font-weight: 900; }
+.app-shell .financial-income-placeholder div { display: grid; gap: 5px; }
+.app-shell .financial-income-placeholder small { color: #72f5d1; font-size: 10px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.app-shell .financial-income-placeholder h2 { margin: 0; color: #f4f8ff; font-size: 30px; }
+.app-shell .financial-income-placeholder p { max-width: 620px; margin: 0; color: rgba(205,220,238,.68); font-size: 13px; font-weight: 650; }
+
 .app-shell .financial-order-notifications {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);

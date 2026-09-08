@@ -68,6 +68,7 @@ const areas = {
     status: "Controlado",
     submenus: [
       { key: "disponibilidad", label: "Disponibilidad", status: "Saldos bancarios consolidados", items: [] },
+      { key: "ingresos", label: "Ingresos", status: "Sección financiera en preparación", items: [] },
       { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
       { key: "resultados-ordenes-de-pedido", label: "Órdenes de Pedido", status: "Control de producción y entregas", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
@@ -1146,6 +1147,7 @@ function defaultPermissionsForRole(role) {
         .map((section) => permissionKey("comercializacion", section.key)),
       permissionKey("comercializacion", "resultados-pedidos"),
       permissionKey("financiera", "disponibilidad"),
+      permissionKey("financiera", "ingresos"),
       permissionKey("financiera", "resultados-cuentas-por-cobrar"),
       permissionKey("financiera", "resultados-ordenes-de-pedido"),
       ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
@@ -11015,6 +11017,18 @@ function renderCommercialSubmenu(area) {
     opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden");
     commercialSubmenuStatus.textContent = `${state.bankAvailability.accounts?.length || 0} cuentas · ${formatMoney(state.bankAvailability.total || 0)}`;
     opportunityTable.innerHTML = renderBankAvailability(); wireBankAvailability(); return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "ingresos") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = "Sección lista para configurar";
+    opportunityTable.innerHTML = `<section class="financial-income-placeholder"><span aria-hidden="true">↗</span><div><small>Financiera</small><h2>Ingresos</h2><p>La sección está creada y lista para incorporar el detalle operativo, controles y reportes.</p></div></section>`;
+    return;
   }
 
   if (state.activeArea === "comercializacion" && submenu.key === "autorizacion-pedidos") {
