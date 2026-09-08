@@ -3660,12 +3660,16 @@ async function loadQuotations() {
 }
 
 function controlSalesResponsibleSeller(order = {}) {
-  // La cotización es la fuente de verdad del vendedor seleccionado. El usuario
-  // que la ingresó se conserva por separado en `createdBy` para auditoría.
+  // Once the OP exists, its saved seller is the document's source of truth.
+  // Linked records are fallbacks only for legacy orders with no stored seller.
+  if (String(order.seller || "").trim()) return order.seller;
+
+  const financialOrder = state.financialOrders?.find((item) => String(item.id || "") === String(order.financialOrderId || ""));
+  if (String(financialOrder?.seller || "").trim()) return financialOrder.seller;
+
   const linkedQuotation = linkedQuotationForControlSalesOrder(order);
   if (linkedQuotation?.seller) return linkedQuotation.seller;
 
-  const financialOrder = state.financialOrders?.find((item) => String(item.id || "") === String(order.financialOrderId || ""));
   const opportunities = getOpportunitySubmenu().items;
   const sourceIds = new Set([
     order.sourceOpportunityId,
@@ -3695,7 +3699,7 @@ function controlSalesResponsibleSeller(order = {}) {
     : [];
   if (clientMatches[0]?.seller) return clientMatches[0].seller;
 
-  return financialOrder?.seller || order.seller || "Sin vendedor";
+  return "Sin vendedor";
 }
 
 function approvalControlSalesOrders() {
@@ -5379,6 +5383,14 @@ function printableControlSalesDescription(detail = {}) {
   return [product, detail.size ? `Talla ${detail.size}` : ""].filter(Boolean).join(" - ");
 }
 
+function controlSalesPrintSnapshot(order = {}) {
+  const snapshot = JSON.parse(JSON.stringify(order || {}));
+  snapshot.seller = String(snapshot.seller || "").trim() || controlSalesResponsibleSeller(snapshot);
+  snapshot.proformaData = snapshot.proformaData || {};
+  snapshot.details = Array.isArray(snapshot.details) ? snapshot.details : [];
+  return snapshot;
+}
+
 function orderWithCurrentQuotationData(order = {}) {
   const quotation = linkedQuotationForControlSalesOrder(order);
   const lines = Array.isArray(quotation?.lines)
@@ -5426,10 +5438,7 @@ function orderWithCurrentQuotationData(order = {}) {
 }
 
 function printControlSalesProformaInline(order, options = {}) {
-  const snapshot = { ...order, seller: controlSalesResponsibleSeller(order) };
-  order = options.strictDraft
-    ? snapshot
-    : orderWithCurrentCustomerData(orderWithCurrentQuotationData(snapshot));
+  order = controlSalesPrintSnapshot(order);
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
@@ -5506,10 +5515,7 @@ function printControlSalesProformaInline(order, options = {}) {
 }
 
 function printControlSalesProforma(order, options = {}) {
-  const snapshot = { ...order, seller: controlSalesResponsibleSeller(order) };
-  order = options.strictDraft
-    ? snapshot
-    : orderWithCurrentCustomerData(orderWithCurrentQuotationData(snapshot));
+  order = controlSalesPrintSnapshot(order);
   const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   localStorage.setItem(printKey, JSON.stringify(order));
   const popup = window.open(
