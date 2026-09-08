@@ -9769,15 +9769,10 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
 function renderCrmCustomerViewTabs(active = "master") {
   const pending = (state.crmData?.customerRequests || []).filter((item) => normalizeKey(item.status || "") === "pendiente").length;
   const directQuotations = state.quotations.filter(isCustomerFlowQuotation).length;
-  const directOrders = state.controlSales.filter((item) => {
-    const quotation = linkedQuotationForControlSalesOrder(item);
-    return isDirectOrderFlow(item) || String(quotation?.opportunityId || "").startsWith("direct-quotation:");
-  }).length;
   return `<nav class="crm-customer-view-tabs" aria-label="Vistas de clientes">
     <button type="button" data-crm-customer-view="master" class="${active === "master" ? "active" : ""}">Maestro de clientes</button>
     <button type="button" data-crm-customer-view="requests" class="${active === "requests" ? "active" : ""}">Solicitudes <b>${pending}</b></button>
-    <button type="button" data-crm-customer-view="quotations" class="${active === "quotations" ? "active" : ""}">Cotizaciones <b>${directQuotations}</b></button>
-    <button type="button" data-crm-customer-view="orders" class="${active === "orders" ? "active" : ""}">Órdenes de pedido <b>${directOrders}</b></button>
+    <button type="button" data-crm-customer-view="quotations" class="${active === "quotations" ? "active" : ""}">Cotizaciones / OP <b>${directQuotations}</b></button>
   </nav>`;
 }
 
@@ -9788,7 +9783,7 @@ function isCustomerFlowQuotation(quotation = {}) {
 }
 
 function switchCrmCustomerView(view) {
-  state.crmCustomerView = ["master", "requests", "quotations", "orders"].includes(view) ? view : "master";
+  state.crmCustomerView = view === "orders" ? "quotations" : (["master", "requests", "quotations"].includes(view) ? view : "master");
   renderCommercialSubmenu(areas.comercializacion);
 }
 
@@ -9803,38 +9798,36 @@ function renderCrmCustomerDocuments(view) {
   const quotations = state.quotations
     .filter(isCustomerFlowQuotation)
     .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
-  const orders = customerFlowOrders();
-  const isQuotationView = view === "quotations";
-  const rows = isQuotationView ? quotations : orders;
+  const rows = quotations;
   return `<section class="crm-shell crm-customers-module crm-customer-documents-module">
     <header class="crm-customers-hero crm-customers-compact-head crm-customer-tabs-head">
-      <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs(view)}</div>
+      <div class="crm-customer-head-actions">${renderCrmCustomerViewTabs("quotations")}</div>
     </header>
     <div class="crm-customer-toolbar crm-customer-document-toolbar">
-      <div class="crm-customer-result"><strong>${rows.length}</strong><span>${isQuotationView ? "cotizaciones" : "órdenes"}</span></div>
+      <div class="crm-customer-result"><strong>${rows.length}</strong><span>cotizaciones / OP</span></div>
       <button class="primary-btn crm-customer-document-create quotation" type="button" data-crm-customer-create-quotation>＋ Crear cotización</button>
     </div>
-    <div class="crm-customer-document-list">
+    <div class="quotation-table-head crm-customer-quotation-head">
+      <strong>Fecha</strong><strong>Cliente</strong><strong>Vendedor</strong><strong>Detalle</strong><strong>Total</strong><strong>Acciones</strong>
+    </div>
+    <div class="quotation-table-body crm-customer-document-list">
       ${rows.map((item) => {
-        const linkedOrder = isQuotationView ? quotationLinkedOrder(item) : null;
-        const status = isQuotationView ? item.status : (item.archived ? "Anulada" : item.financeApprovalStatus === "Aprobada" ? "Aprobada" : "Pendiente de Edgar");
-        return `<article class="crm-customer-document-row ${item.archived ? "is-archived" : ""}">
-          <span><small>${isQuotationView ? "Cotización" : "Orden"}</small><strong>${escapeHtml(isQuotationView ? item.number : formatOrderCorrelative(item.number))}</strong></span>
-          <span><small>Cliente</small><strong>${escapeHtml(item.customerData?.commercialName || item.proformaData?.commercialName || item.client || "—")}</strong></span>
-          <span><small>Fecha</small><strong>${formatDate(item.date)}</strong></span>
-          <span><small>Estado</small><strong>${escapeHtml(status || "—")}</strong></span>
-          <span class="money"><small>Total</small><strong>${formatControlSalesMoney(item.totalCents || 0)}</strong></span>
-          <span class="crm-row-actions ${isQuotationView ? "quotation-record__actions" : ""}">
-            ${isQuotationView ? `<button type="button" class="quotation-action view-detail" data-crm-document-detail="${escapeHtml(item.id)}" title="Ver detalle" aria-label="Ver detalle"><span aria-hidden="true">👁</span></button>` : ""}
-            ${!isQuotationView || canReviseConvertedDirectQuotation(item) ? `<button type="button" class="${isQuotationView ? "quotation-action edit" : ""}" data-crm-document-edit="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}" aria-label="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}">${isQuotationView ? '<span aria-hidden="true">✏️</span>' : "✎"}</button>` : ""}
-            <button type="button" class="${isQuotationView ? "quotation-action view-quotation" : ""}" data-crm-document-print="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="${isQuotationView ? "Imprimir cotización" : "Imprimir"}" aria-label="${isQuotationView ? "Imprimir cotización" : "Imprimir"}">${isQuotationView ? '<span aria-hidden="true">🧾</span>' : "▤"}</button>
-            ${isQuotationView && linkedOrder ? `<button type="button" class="quotation-action view-order" data-crm-document-order="${escapeHtml(linkedOrder.id)}" title="Imprimir OP vinculada" aria-label="Imprimir OP vinculada"><span aria-hidden="true">📋</span></button>` : ""}
-            ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button type="button" class="quotation-action convert-order" data-crm-document-convert="${escapeHtml(item.id)}" title="Seleccionar cliente y crear OP" aria-label="Seleccionar cliente y crear OP"><span aria-hidden="true">OP</span></button>` : ""}
-            ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="quotation" title="Anular" aria-label="Anular">×</button>` : ""}
-            ${!isQuotationView && !item.archived ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="order" title="Anular" aria-label="Anular">×</button>` : ""}
+        const linkedOrder = quotationLinkedOrder(item);
+        return `<article class="quotation-table-row ${linkedOrder ? "has-order" : "quotation-only"}">
+          <span>${formatDate(item.date)}</span>
+          <div class="quotation-table-row__client"><strong>${escapeHtml(item.customerData?.commercialName || item.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${linkedOrder ? "orden-creada" : "solo-cotizacion"}">${linkedOrder ? `OP #${escapeHtml(linkedOrder.number || "—")} creada` : "Solo cotización"}</span></div>
+          <span class="quotation-table-row__seller"><strong>${escapeHtml(quotationResponsibleSeller(item) || "Sin vendedor")}</strong><small>Ingresada por ${escapeHtml(item.createdBy || "Sistema Gerencial")}</small></span>
+          <span class="quotation-table-row__detail"><strong>${(item.lines || []).length} ${(item.lines || []).length === 1 ? "línea" : "líneas"}</strong><small>${escapeHtml((item.lines || [])[0]?.description || "Sin descripción")}</small></span>
+          <strong class="quotation-table-row__amount">${formatControlSalesMoney(item.totalCents || 0)}</strong>
+          <span class="quotation-record__actions">
+            <button type="button" class="quotation-action view-detail" data-crm-document-detail="${escapeHtml(item.id)}" title="Ver detalle" aria-label="Ver detalle"><span aria-hidden="true">👁</span></button>
+            ${canReviseConvertedDirectQuotation(item) ? `<button type="button" class="quotation-action edit" data-crm-document-edit="${escapeHtml(item.id)}" data-document-kind="quotation" title="${linkedOrder ? "Editar cotización y actualizar OP" : "Editar cotización"}" aria-label="${linkedOrder ? "Editar cotización y actualizar OP" : "Editar cotización"}"><span aria-hidden="true">✏️</span></button>` : ""}
+            <button type="button" class="quotation-action view-quotation" data-crm-document-print="${escapeHtml(item.id)}" data-document-kind="quotation" title="Imprimir cotización" aria-label="Imprimir cotización"><span aria-hidden="true">🧾</span></button>
+            ${linkedOrder ? `<button type="button" class="quotation-action view-order" data-crm-document-order="${escapeHtml(linkedOrder.id)}" title="Imprimir OP vinculada" aria-label="Imprimir OP vinculada"><span aria-hidden="true">📋</span></button>` : `<button type="button" class="quotation-action convert-order" data-crm-document-convert="${escapeHtml(item.id)}" title="Seleccionar cliente y crear OP" aria-label="Seleccionar cliente y crear OP"><span aria-hidden="true">OP</span></button>`}
+            ${!linkedOrder ? `<button type="button" class="quotation-action danger" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="quotation" title="Anular cotización" aria-label="Anular cotización"><span aria-hidden="true">🗑️</span></button>` : ""}
           </span>
         </article>`;
-      }).join("") || `<div class="empty-state">Aún no hay ${isQuotationView ? "cotizaciones" : "órdenes de pedido"} creadas desde Clientes.</div>`}
+      }).join("") || `<div class="empty-state">Aún no hay cotizaciones creadas desde Clientes.</div>`}
     </div>
   </section>`;
 }
