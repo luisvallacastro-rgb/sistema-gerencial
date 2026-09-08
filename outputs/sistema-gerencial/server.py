@@ -31,7 +31,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-financial-income-dashboard-v18"
+API_VERSION = "kmi-customer-seal-integrity-v19"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
@@ -2946,6 +2946,7 @@ def control_sales_validate(data, existing=None):
         "applyVat": apply_vat,
         "strategy": strategy,
         "customerCode": text(raw_proforma.get("customerCode"), current_proforma.get("customerCode") or ""),
+        "clientNumber": text(raw_proforma.get("clientNumber"), current_proforma.get("clientNumber") or ""),
         "generalNotes": text(raw_proforma.get("generalNotes"), current_proforma.get("generalNotes") or ""),
         "workflow": text(raw_proforma.get("workflow"), current_proforma.get("workflow") or ""),
     }
@@ -3020,6 +3021,67 @@ def next_control_sales_order_number(conn, order_date):
     return f"{year}{month}{highest_sequence + 1:04d}"
 
 
+CONTROL_SALES_MASTER_CUSTOMER_FIELDS = {
+    "commercialName": ("commercialName", "legalName"),
+    "legalName": ("legalName", "commercialName"),
+    "businessActivity": ("businessActivity", "businessLine"),
+    "contactName": ("contactName", "manager"),
+    "phone": ("phone",), "address": ("address", "department"),
+    "email": ("email",), "taxId": ("taxId", "nit"),
+    "registrationNumber": ("registrationNumber", "nrc"),
+    "taxpayerType": ("taxpayerType",), "clientType": ("clientType",),
+    "department": ("department",), "municipality": ("municipality",),
+    "strategy": ("strategy",), "paymentTerms": ("paymentTerms",),
+}
+
+
+def resolve_control_sales_master_customer(conn, item, source_opportunity_id="", source_quotation_id=""):
+    """Resolve the one authoritative master customer behind an order."""
+    proforma = item.get("proformaData") if isinstance(item.get("proformaData"), dict) else {}
+    customers = [customer for customer in read_crm_data(conn).get("customers", []) if customer.get("active") is not False]
+    candidate_ids = [text(proforma.get("customerId"))]
+    direct_match = re.match(r"^direct-(?:order|quotation):([^:]+)(?::|$)", text(source_opportunity_id))
+    if direct_match:
+        candidate_ids.append(text(direct_match.group(1)))
+    if source_quotation_id:
+        row = conn.execute("SELECT customer_data FROM quotations WHERE id = ?", (source_quotation_id,)).fetchone()
+        if row:
+            try:
+                quotation_customer = json.loads(row["customer_data"] or "{}")
+            except (TypeError, json.JSONDecodeError):
+                quotation_customer = {}
+            candidate_ids.append(text(quotation_customer.get("customerId")))
+    for candidate_id in candidate_ids:
+        customer = next((entry for entry in customers if candidate_id and text(entry.get("id")) == candidate_id), None)
+        if customer:
+            return customer
+    tax_id = comparable_crm_identifier(proforma.get("taxId"))
+    if tax_id:
+        matches = [entry for entry in customers if comparable_crm_identifier(entry.get("taxId") or entry.get("nit")) == tax_id]
+        if len(matches) == 1:
+            return matches[0]
+    name = crm_identity_key(proforma.get("commercialName") or item.get("client"))
+    matches = [entry for entry in customers if name and name in {
+        crm_identity_key(entry.get("commercialName")), crm_identity_key(entry.get("legalName"))
+    }]
+    return matches[0] if len(matches) == 1 else None
+
+
+def apply_master_customer_to_control_sales(item, customer):
+    """Seal customer identity and visual correlative together in the order snapshot."""
+    proforma = item.setdefault("proformaData", {})
+    proforma["customerId"] = text(customer.get("id"))
+    client_number = text(customer.get("clientNumber") or customer.get("customerCode") or customer.get("code"))
+    proforma["clientNumber"] = client_number
+    proforma["customerCode"] = text(customer.get("customerCode") or customer.get("code") or client_number)
+    for target, sources in CONTROL_SALES_MASTER_CUSTOMER_FIELDS.items():
+        value = next((text(customer.get(source)) for source in sources if text(customer.get(source))), "")
+        if value:
+            proforma[target] = value
+    item["client"] = text(customer.get("commercialName") or customer.get("legalName"), item.get("client"))
+    return item
+
+
 def save_control_sales_order(conn, data, existing_row=None):
     data = dict(data or {})
     existing = control_sales_order_payload(conn, existing_row) if existing_row else None
@@ -3056,6 +3118,16 @@ def save_control_sales_order(conn, data, existing_row=None):
         item["proformaData"].get("workflow") == "direct-final-only"
         or source_opportunity_id.startswith(("direct-order:", "direct-quotation:"))
     )
+    canonical_customer = resolve_control_sales_master_customer(
+        conn, item, source_opportunity_id, source_quotation_id
+    )
+    if canonical_customer:
+        apply_master_customer_to_control_sales(item, canonical_customer)
+    if direct_order_flow and not source_quotation_id and not existing_row:
+        raise ValueError(
+            "El flujo directo requiere guardar primero una cotizacion y convertirla "
+            "manualmente desde Cotizaciones / OP"
+        )
     if direct_order_flow and not source_quotation_id:
         customer_id = text(item["proformaData"].get("customerId"))
         crm_customers = read_crm_data(conn).get("customers", [])
@@ -3085,7 +3157,7 @@ def save_control_sales_order(conn, data, existing_row=None):
             quotation_customer = json.loads(quotation["customer_data"] or "{}")
         except (TypeError, json.JSONDecodeError):
             quotation_customer = {}
-        customer_id = text(quotation_customer.get("customerId"))
+        customer_id = text(quotation_customer.get("customerId") or item["proformaData"].get("customerId"))
         crm_customers = read_crm_data(conn).get("customers", [])
         if not existing_row and direct_order_flow and (
             not customer_id
@@ -3099,6 +3171,11 @@ def save_control_sales_order(conn, data, existing_row=None):
         # confirmación comercial. El requisito indispensable es que la
         # cotización esté vinculada con un cliente real del maestro.
         source_opportunity_id = source_opportunity_id or text(quotation["opportunity_id"])
+    canonical_customer = resolve_control_sales_master_customer(
+        conn, item, source_opportunity_id, source_quotation_id
+    )
+    if canonical_customer:
+        apply_master_customer_to_control_sales(item, canonical_customer)
     if financial_order_id:
         financial_order = conn.execute(
             "SELECT * FROM financial_orders WHERE id = ? AND deleted = 0",
@@ -3447,6 +3524,7 @@ def quotation_validate(data, existing=None):
         "paymentTerms": text(raw_customer.get("paymentTerms") or data.get("paymentTerms")),
         "strategy": text(raw_customer.get("strategy")),
         "customerCode": text(raw_customer.get("customerCode")),
+        "clientNumber": text(raw_customer.get("clientNumber")),
         "sellerPhone": text(raw_customer.get("sellerPhone")),
         "sellerEmail": text(raw_customer.get("sellerEmail")),
         "sellerRole": text(raw_customer.get("sellerRole"), "Ejecutivo/a de ventas"),
@@ -3632,9 +3710,10 @@ def save_quotation(conn, data, existing_row=None):
         if responsible_seller:
             item["seller"] = responsible_seller
     existing_customer = existing.get("customerData") if existing and isinstance(existing.get("customerData"), dict) else {}
-    previous_customer_id = text(existing_customer.get("customerId"))
     selected_customer_id = text(item["customerData"].get("customerId"))
-    if selected_customer_id and selected_customer_id != previous_customer_id:
+    # Refresh the complete customer seal on every save.  A quotation must never
+    # retain a partial/stale snapshot merely because its customer id did not change.
+    if selected_customer_id:
         customer = next((entry for entry in read_crm_data(conn).get("customers", []) if text(entry.get("id")) == selected_customer_id and entry.get("active") is not False), None)
         if not customer and not item["opportunityId"].startswith("direct-quotation:"):
             selected_customer_id = ""
@@ -3655,6 +3734,7 @@ def save_quotation(conn, data, existing_row=None):
                 "registrationNumber": text(customer.get("registrationNumber") or customer.get("nrc")),
                 "taxpayerType": text(customer.get("taxpayerType")),
                 "customerCode": text(customer.get("customerCode") or customer.get("code")),
+                "clientNumber": text(customer.get("clientNumber") or customer.get("customerCode") or customer.get("code")),
                 "clientType": text(customer.get("clientType")), "department": text(customer.get("department")),
                 "municipality": text(customer.get("municipality")),
             })
@@ -3854,6 +3934,59 @@ def normalize_control_sales_order_descriptions_once(conn):
     conn.execute(
         "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
         (marker_key, json.dumps({"repaired": repaired, "rule": "quotation-description-only"}, ensure_ascii=False)),
+    )
+
+
+def repair_document_customer_seals_once(conn):
+    """Backfill the master-customer ID and visual correlative in quotations and OPs."""
+    marker_key = "maintenance.document-customer-seal-integrity.2026-09-08.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+    repaired_quotations = 0
+    repaired_orders = 0
+    quotation_rows = conn.execute("SELECT id, opportunity_id, client, customer_data FROM quotations").fetchall()
+    for row in quotation_rows:
+        try:
+            customer_data = json.loads(row["customer_data"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            customer_data = {}
+        item = {"client": row["client"], "proformaData": customer_data}
+        customer = resolve_control_sales_master_customer(conn, item, row["opportunity_id"], "")
+        if not customer:
+            continue
+        original = json.dumps(customer_data, ensure_ascii=False, sort_keys=True)
+        apply_master_customer_to_control_sales(item, customer)
+        sealed = item["proformaData"]
+        if json.dumps(sealed, ensure_ascii=False, sort_keys=True) != original or item["client"] != row["client"]:
+            conn.execute(
+                "UPDATE quotations SET client = ?, customer_data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (item["client"], json.dumps(sealed, ensure_ascii=False), row["id"]),
+            )
+            repaired_quotations += 1
+    order_rows = conn.execute("""SELECT id, source_opportunity_id, source_quotation_id,
+            client, proforma_data FROM control_sales_orders WHERE source = 'manual'""").fetchall()
+    for row in order_rows:
+        try:
+            proforma_data = json.loads(row["proforma_data"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            proforma_data = {}
+        item = {"client": row["client"], "proformaData": proforma_data}
+        customer = resolve_control_sales_master_customer(
+            conn, item, row["source_opportunity_id"], row["source_quotation_id"]
+        )
+        if not customer:
+            continue
+        original = json.dumps(proforma_data, ensure_ascii=False, sort_keys=True)
+        apply_master_customer_to_control_sales(item, customer)
+        if json.dumps(item["proformaData"], ensure_ascii=False, sort_keys=True) != original or item["client"] != row["client"]:
+            conn.execute(
+                "UPDATE control_sales_orders SET client = ?, proforma_data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (item["client"], json.dumps(item["proformaData"], ensure_ascii=False), row["id"]),
+            )
+            repaired_orders += 1
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps({"quotations": repaired_quotations, "orders": repaired_orders}, ensure_ascii=False)),
     )
 
 
@@ -5829,6 +5962,7 @@ def init_db():
         grant_financial_income_permissions(conn)
         seed_control_sales(conn)
         normalize_control_sales_order_descriptions_once(conn)
+        repair_document_customer_seals_once(conn)
         reconcile_order_2026090007_once(conn)
         grant_control_sales_permissions(conn)
         correct_marjorie_account_email_once(conn)
