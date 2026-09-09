@@ -5452,7 +5452,7 @@ function orderWithCurrentQuotationData(order = {}) {
 }
 
 function printControlSalesProformaInline(order, options = {}) {
-  order = controlSalesPrintSnapshot(order);
+  order = controlSalesPrintSnapshot(orderWithCurrentCustomerData(orderWithCurrentQuotationData(order)));
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
@@ -5529,7 +5529,7 @@ function printControlSalesProformaInline(order, options = {}) {
 }
 
 function printControlSalesProforma(order, options = {}) {
-  order = controlSalesPrintSnapshot(order);
+  order = controlSalesPrintSnapshot(orderWithCurrentCustomerData(orderWithCurrentQuotationData(order)));
   const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   localStorage.setItem(printKey, JSON.stringify(order));
   const popup = window.open(

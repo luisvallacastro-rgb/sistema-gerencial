@@ -32,7 +32,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-crm-atomic-updates-v30"
+API_VERSION = "kmi-customer-order-live-data-v31"
 CRM_DATA_LOCK = threading.RLock()
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
@@ -7807,8 +7807,10 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_crm_api(self):
         # CRM is persisted as one JSON document. Serialize every read/modify/write
         # cycle so a slower concurrent request cannot restore an older snapshot.
-        with CRM_DATA_LOCK:
-            return self.handle_crm_api_locked()
+        if self.command in {"POST", "PUT", "PATCH", "DELETE"}:
+            with CRM_DATA_LOCK:
+                return self.handle_crm_api_locked()
+        return self.handle_crm_api_locked()
 
     def handle_crm_api_locked(self):
         path = self.path.split("?", 1)[0]
