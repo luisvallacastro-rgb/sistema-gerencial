@@ -18841,7 +18841,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .quotation-table-row__detail strong { color: #e9eef7; }
 .quotation-table-row__detail small { color: #93a5bd; }
 .quotation-table-row__amount { font-size: 1.02rem; }
-.quotation-record__status { justify-self: start; padding: 7px 10px; border-radius: 999px; background: #243d5f; color: #dce7f5 !important; font-size: .78rem; font-weight: 800; }
+.quotation-record__status { justify-self: start; max-width: 100%; overflow: hidden; padding: 7px 10px; border-radius: 999px; background: #243d5f; color: #dce7f5 !important; font-size: .78rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .quotation-record__status[data-status="aprobada"],
 .quotation-record__status[data-status="convertida"] { background: #164b45; color: #7ce0ca !important; }
 .quotation-record__status[data-status="rechazada"],

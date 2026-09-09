@@ -4024,7 +4024,7 @@ function renderQuotationsModule() {
           return `
           <article class="quotation-table-row ${confirmedOrder ? "has-order" : "quotation-only"}">
             <span>${formatDate(quotation.date)}</span>
-            <div class="quotation-table-row__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${confirmedOrder ? "orden-creada" : "solo-cotizacion"}">${confirmedOrder ? `OP #${escapeHtml(confirmedOrder.number || "—")} creada` : linkedOrder ? `OP #${escapeHtml(linkedOrder.number || "—")} reservada · falta cliente` : "Solo cotización"}</span></div>
+            <div class="quotation-table-row__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${confirmedOrder ? "orden-creada" : "solo-cotizacion"}">${confirmedOrder ? `OP #${escapeHtml(confirmedOrder.number || "—")} creada` : linkedOrder ? `OP #${escapeHtml(linkedOrder.number || "—")} · cliente pendiente` : "Solo cotización"}</span></div>
             <span class="quotation-table-row__seller"><strong>${escapeHtml(quotationResponsibleSeller(quotation) || "Sin vendedor")}</strong><small>Ingresada por ${escapeHtml(quotation.createdBy || "Sistema Gerencial")}</small></span>
             <span class="quotation-table-row__detail"><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><small>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</small></span>
             <strong class="quotation-table-row__amount">${formatControlSalesMoney(quotation.totalCents || 0)}</strong>
@@ -9834,7 +9834,7 @@ function renderCrmCustomerDocuments(view) {
       ${rows.map((item) => {
         const linkedOrder = isQuotationView ? quotationLinkedOrder(item) : null;
         const confirmedOrder = linkedOrder && orderHasDefinitiveCustomer(linkedOrder) ? linkedOrder : null;
-        const status = isQuotationView ? (confirmedOrder ? `OP #${confirmedOrder.number || "—"} creada` : linkedOrder ? `OP #${linkedOrder.number || "—"} reservada · falta cliente` : "Solo cotización") : (item.archived ? "Anulada" : item.financeApprovalStatus === "Aprobada" ? "Aprobada" : "Pendiente de Edgar");
+        const status = isQuotationView ? (confirmedOrder ? `OP #${confirmedOrder.number || "—"} creada` : linkedOrder ? `OP #${linkedOrder.number || "—"} · cliente pendiente` : "Solo cotización") : (item.archived ? "Anulada" : item.financeApprovalStatus === "Aprobada" ? "Aprobada" : "Pendiente de Edgar");
         return `<article class="crm-customer-document-row ${item.archived ? "is-archived" : ""} ${isQuotationView ? (confirmedOrder ? "has-order" : "quotation-only") : ""}">
           <span><small>${isQuotationView ? "Cotización" : "Orden"}</small><strong>${escapeHtml(isQuotationView ? item.number : formatOrderCorrelative(item.number))}</strong></span>
           <span><small>Cliente</small><strong>${escapeHtml(item.customerData?.commercialName || item.proformaData?.commercialName || item.client || "—")}</strong></span>
