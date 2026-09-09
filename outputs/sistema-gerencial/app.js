@@ -4354,16 +4354,36 @@ function crmCustomerForQuotation(opportunity) {
     || customers.find((item) => normalizeKey(item.commercialName || item.name) === normalizeKey(opportunity?.company)) || {};
 }
 
+function quotationPrintOrderValue(line = {}, fallback = 1) {
+  const value = Number.parseInt(line.printOrder, 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function quotationLinesInPrintOrder(lines = []) {
+  return lines
+    .map((line, index) => ({ ...line, printOrder: quotationPrintOrderValue(line, index + 1), sourceIndex:index }))
+    .sort((left, right) => left.printOrder - right.printOrder || left.sourceIndex - right.sourceIndex)
+    .map(({ sourceIndex, ...line }) => line);
+}
+
+function nextQuotationPrintOrder() {
+  const orders = [...document.querySelectorAll("#quotationLines [data-quotation-print-order]")]
+    .map((input) => Number.parseInt(input.value, 10))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  return Math.max(0, ...orders) + 1;
+}
+
 function quotationLineTemplate(line = {}) {
   const id = line.id || crypto.randomUUID();
+  const printOrder = quotationPrintOrderValue(line, 1);
   if (line.type === "title") {
     const title = line.title || line.description || "";
-    return `<div class="quotation-line quotation-title-line" data-quotation-line-id="${escapeHtml(id)}" data-quotation-line-type="title"><label class="quotation-title-field">Título del grupo<input data-quotation-title required value="${escapeHtml(title)}" placeholder="Ej. Uniformes administrativos"></label><small>No afecta cantidades ni totales; se imprimirá como separador.</small><button type="button" class="quotation-remove-line" data-quotation-remove-line aria-label="Quitar línea de título">×</button></div>`;
+    return `<div class="quotation-line quotation-title-line" data-quotation-line-id="${escapeHtml(id)}" data-quotation-line-type="title"><label class="quotation-print-order">Orden<input data-quotation-print-order required type="number" min="1" step="1" value="${printOrder}" aria-label="Orden de impresión"></label><label class="quotation-title-field">Título del grupo<input data-quotation-title required value="${escapeHtml(title)}" placeholder="Ej. Uniformes administrativos"></label><small>No afecta cantidades ni totales; se imprimirá como separador.</small><button type="button" class="quotation-remove-line" data-quotation-remove-line aria-label="Quitar línea de título">×</button></div>`;
   }
   const price = line.unitPriceCents == null ? "" : (Number(line.unitPriceCents) / 100).toFixed(2);
   const notes = String(line.notes || "");
   const hasNotes = Boolean(notes.trim());
-  return `<div class="quotation-line${hasNotes ? " has-detail" : ""}" data-quotation-line-id="${escapeHtml(id)}"><label class="quotation-product">Descripción<input data-quotation-description required value="${escapeHtml(line.description || line.product || "")}" placeholder="Producto, confección o servicio"></label><label>Talla<input data-quotation-size value="${escapeHtml(line.size || "")}" placeholder="Opcional"></label><label>Cantidad<input data-quotation-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(line.quantity || "1")}"></label><label>Precio unitario<input data-quotation-price type="number" min="0" step="0.01" value="${price}" placeholder="Pendiente"></label><output data-quotation-line-total>${formatControlSalesMoney(line.lineTotalCents || 0)}</output><div class="quotation-notes"><span class="quotation-field-label">Detalle</span><button type="button" class="quotation-detail-toggle${hasNotes ? " is-open" : ""}" data-quotation-detail-toggle aria-expanded="${hasNotes}"><span data-quotation-detail-label>${hasNotes ? "Detalle agregado" : "Agregar detalle"}</span><span class="quotation-detail-chevron" aria-hidden="true">⌄</span></button></div><button type="button" class="quotation-remove-line" data-quotation-remove-line aria-label="Quitar línea">×</button><div class="quotation-detail-panel" data-quotation-detail-panel${hasNotes ? "" : " hidden"}><label>Comentario extenso<textarea data-quotation-notes rows="4" placeholder="Color, tela, bordado, especificaciones u observaciones…">${escapeHtml(notes)}</textarea></label></div></div>`;
+  return `<div class="quotation-line${hasNotes ? " has-detail" : ""}" data-quotation-line-id="${escapeHtml(id)}"><label class="quotation-print-order">Orden<input data-quotation-print-order required type="number" min="1" step="1" value="${printOrder}" aria-label="Orden de impresión"></label><label class="quotation-product">Descripción<input data-quotation-description required value="${escapeHtml(line.description || line.product || "")}" placeholder="Producto, confección o servicio"></label><label>Talla<input data-quotation-size value="${escapeHtml(line.size || "")}" placeholder="Opcional"></label><label>Cantidad<input data-quotation-quantity required type="number" min="0.01" step="0.01" value="${escapeHtml(line.quantity || "1")}"></label><label>Precio unitario<input data-quotation-price type="number" min="0" step="0.01" value="${price}" placeholder="Pendiente"></label><output data-quotation-line-total>${formatControlSalesMoney(line.lineTotalCents || 0)}</output><div class="quotation-notes"><span class="quotation-field-label">Detalle</span><button type="button" class="quotation-detail-toggle${hasNotes ? " is-open" : ""}" data-quotation-detail-toggle aria-expanded="${hasNotes}"><span data-quotation-detail-label>${hasNotes ? "Detalle agregado" : "Agregar detalle"}</span><span class="quotation-detail-chevron" aria-hidden="true">⌄</span></button></div><button type="button" class="quotation-remove-line" data-quotation-remove-line aria-label="Quitar línea">×</button><div class="quotation-detail-panel" data-quotation-detail-panel${hasNotes ? "" : " hidden"}><label>Comentario extenso<textarea data-quotation-notes rows="4" placeholder="Color, tela, bordado, especificaciones u observaciones…">${escapeHtml(notes)}</textarea></label></div></div>`;
 }
 
 function refreshQuotationTitlePositionMenu(preferredPosition = "") {
@@ -4389,6 +4409,7 @@ function insertQuotationLineAtSelectedPosition(line = {}) {
   const menu = document.querySelector("#quotationTitlePosition");
   if (!container) return null;
   const placement = menu?.value || "end";
+  if (!quotationPrintOrderValue(line, 0)) line.printOrder = nextQuotationPrintOrder();
   const [direction, targetId = ""] = placement.split(":");
   const targetRow = [...container.children].find((row) => row.dataset.quotationLineId === targetId);
   if (placement === "end" || !targetRow) container.insertAdjacentHTML("beforeend", quotationLineTemplate(line));
@@ -4661,15 +4682,16 @@ function openQuotationCustomerLinkDialog() {
 }
 
 function quotationDraftFromForm() {
-  const lines = [...document.querySelectorAll("#quotationLines .quotation-line")].map((line) => {
+  const lines = quotationLinesInPrintOrder([...document.querySelectorAll("#quotationLines .quotation-line")].map((line, index) => {
+    const printOrder = quotationPrintOrderValue({ printOrder:line.querySelector("[data-quotation-print-order]")?.value }, index + 1);
     if (line.dataset.quotationLineType === "title") {
       const title = line.querySelector("[data-quotation-title]").value.trim();
-      return { id:line.dataset.quotationLineId, type:"title", title, description:title, size:"", quantity:"0", unitPrice:0, unitPriceCents:0, lineTotalCents:0, notes:"" };
+      return { id:line.dataset.quotationLineId, type:"title", printOrder, title, description:title, size:"", quantity:"0", unitPrice:0, unitPriceCents:0, lineTotalCents:0, notes:"" };
     }
     const quantity = Number(line.querySelector("[data-quotation-quantity]").value || 0);
     const unitPrice = Number(line.querySelector("[data-quotation-price]").value || 0);
-    return { id:line.dataset.quotationLineId, description:line.querySelector("[data-quotation-description]").value.trim(), size:line.querySelector("[data-quotation-size]").value.trim(), quantity:String(quantity), unitPrice, unitPriceCents:Math.round(unitPrice * 100), lineTotalCents:Math.round(quantity * unitPrice * 100), notes:line.querySelector("[data-quotation-notes]").value.trim() };
-  });
+    return { id:line.dataset.quotationLineId, printOrder, description:line.querySelector("[data-quotation-description]").value.trim(), size:line.querySelector("[data-quotation-size]").value.trim(), quantity:String(quantity), unitPrice, unitPriceCents:Math.round(unitPrice * 100), lineTotalCents:Math.round(quantity * unitPrice * 100), notes:line.querySelector("[data-quotation-notes]").value.trim() };
+  }));
   const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
   const selectedDocumentType = document.querySelector("#quotationDocumentType").value;
   const documentType = ["CF", "CCF", "CE"].includes(selectedDocumentType) ? selectedDocumentType : "CF";
@@ -4767,7 +4789,8 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
         : "Sin vínculo con el maestro de clientes";
     linkedCustomerStatus.dataset.linked = linkedCustomerId ? "true" : "false";
   }
-  document.querySelector("#quotationLines").innerHTML = (quote?.lines?.length ? quote.lines : [{ description:"", quantity:"1" }]).map(quotationLineTemplate).join("");
+  const editableLines = quotationLinesInPrintOrder(quote?.lines?.length ? quote.lines : [{ description:"", quantity:"1", printOrder:1 }]);
+  document.querySelector("#quotationLines").innerHTML = editableLines.map(quotationLineTemplate).join("");
   refreshQuotationTitlePositionMenu();
   const referenceAmount = Number(opportunity?.quotationReferenceAmount ?? opportunity?.estimatedAmount ?? 0);
   const referenceOutput = document.querySelector("#quotationReference");
@@ -4920,7 +4943,7 @@ async function deleteQuotationFromForm() {
 }
 
 function printQuotation(quote) {
-  const printableLines = (quote.lines || []).filter((line) => line.type === "title"
+  const printableLines = quotationLinesInPrintOrder(quote.lines || []).filter((line) => line.type === "title"
     ? String(line.title || line.description || "").trim()
     : String(line.description || "").trim() && Number(line.quantity || 0) > 0);
   if (!printableLines.some((line) => line.type !== "title")) return alert("Agrega al menos una línea completa de producto a la cotización.");
@@ -5408,7 +5431,7 @@ function controlSalesPrintSnapshot(order = {}) {
 function orderWithCurrentQuotationData(order = {}) {
   const quotation = linkedQuotationForControlSalesOrder(order);
   const lines = Array.isArray(quotation?.lines)
-    ? quotation.lines.filter((line) => String(line.type || "").toLowerCase() !== "title")
+    ? quotationLinesInPrintOrder(quotation.lines).filter((line) => String(line.type || "").toLowerCase() !== "title")
     : [];
   if (!quotation || !lines.length) return order;
   const documentType = ["CF","CCF","CE"].includes(quotation.documentType) ? quotation.documentType : "CF";

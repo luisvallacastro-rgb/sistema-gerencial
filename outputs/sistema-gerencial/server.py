@@ -32,7 +32,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-customer-order-live-data-v31"
+API_VERSION = "kmi-quotation-line-print-order-v32"
 CRM_DATA_LOCK = threading.RLock()
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
@@ -3570,14 +3570,24 @@ def quotation_validate(data, existing=None):
     lines = []
     subtotal_cents = 0
     product_line_count = 0
-    for index, raw in enumerate(raw_lines, start=1):
+    ordered_raw_lines = []
+    for source_index, raw in enumerate(raw_lines, start=1):
+        try:
+            print_order = int(raw.get("printOrder") or source_index)
+        except (TypeError, ValueError):
+            print_order = source_index
+        if print_order < 1:
+            print_order = source_index
+        ordered_raw_lines.append((print_order, source_index, raw))
+    ordered_raw_lines.sort(key=lambda item: (item[0], item[1]))
+    for index, (print_order, _source_index, raw) in enumerate(ordered_raw_lines, start=1):
         description = text(raw.get("description") or raw.get("product"))
         if not description:
             raise ValueError(f"Descripcion requerida en la linea {index}")
         if text(raw.get("type")).lower() == "title":
             lines.append({
                 "id": text(raw.get("id"), f"quote-line-{uuid.uuid4()}"),
-                "sequence": index, "type": "title", "title": description,
+                "sequence": index, "printOrder": print_order, "type": "title", "title": description,
                 "description": description, "size": "", "quantity": "0",
                 "unitPriceCents": 0, "lineTotalCents": 0, "notes": "",
             })
@@ -3600,7 +3610,7 @@ def quotation_validate(data, existing=None):
         subtotal_cents += line_total_cents
         lines.append({
             "id": text(raw.get("id"), f"quote-line-{uuid.uuid4()}"),
-            "sequence": index, "description": description,
+            "sequence": index, "printOrder": print_order, "description": description,
             "size": text(raw.get("size")), "quantity": quantity_text,
             "unitPriceCents": unit_price_cents, "lineTotalCents": line_total_cents,
             "notes": text(raw.get("notes")),
