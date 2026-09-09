@@ -31,7 +31,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-reserved-op-label-v28"
+API_VERSION = "kmi-customer-cleared-fields-v29"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
@@ -1341,35 +1341,48 @@ def crm_customer_from_opportunity(opportunity):
     }
 
 
+def crm_payload_text(payload, keys, fallback=""):
+    """Keep the existing value only when a PATCH field was not submitted.
+
+    An explicitly submitted empty string means that the user cleared the field
+    and must therefore be persisted as empty.
+    """
+    for key in keys:
+        if key in payload:
+            return text(payload.get(key))
+    return text(fallback)
+
+
 def normalize_crm_customer(payload, existing=None):
     existing = dict(existing or {})
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    commercial_name = text(payload.get("commercialName") or payload.get("name"), existing.get("commercialName"))
-    legal_name = text(payload.get("legalName"), existing.get("legalName") or commercial_name)
+    commercial_name = crm_payload_text(payload, ("commercialName", "name"), existing.get("commercialName"))
+    legal_name = crm_payload_text(payload, ("legalName",), existing.get("legalName") or commercial_name)
+    document_type = crm_payload_text(payload, ("documentType",), existing.get("documentType") or "CF").upper()
     return {
         **existing,
         "commercialName": commercial_name,
         "legalName": legal_name,
-        "contactName": text(payload.get("contactName") or payload.get("manager"), existing.get("contactName") or existing.get("manager")),
-        "phone": text(payload.get("phone"), existing.get("phone")),
-        "email": text(payload.get("email"), existing.get("email")).lower(),
-        "address": text(payload.get("address"), existing.get("address")),
-        "country": text(payload.get("country"), existing.get("country") or "El Salvador"),
-        "department": text(payload.get("department"), existing.get("department")),
-        "municipality": text(payload.get("municipality"), existing.get("municipality")),
-        "businessActivity": text(payload.get("businessActivity") or payload.get("businessLine"), existing.get("businessActivity") or existing.get("businessLine")),
-        "identityDocumentType": text(payload.get("identityDocumentType"), existing.get("identityDocumentType") or ("NIT" if payload.get("taxId") or existing.get("taxId") else "")),
-        "taxId": text(payload.get("taxId"), existing.get("taxId")),
-        "registrationNumber": text(payload.get("registrationNumber"), existing.get("registrationNumber")),
-        "taxpayerType": text(payload.get("taxpayerType"), existing.get("taxpayerType")),
-        "customerCode": text(payload.get("customerCode"), existing.get("customerCode")),
-        "sellerId": text(payload.get("sellerId"), existing.get("sellerId")),
-        "sellerName": text(payload.get("sellerName"), existing.get("sellerName")),
-        "clientType": text(payload.get("clientType"), existing.get("clientType")),
-        "personhood": text(payload.get("personhood"), existing.get("personhood")),
-        "documentType": text(payload.get("documentType"), existing.get("documentType") or "CF").upper() if text(payload.get("documentType"), existing.get("documentType") or "CF").upper() in ("CF", "CCF", "CE") else "CF",
-        "paymentTerms": text(payload.get("paymentTerms"), existing.get("paymentTerms")),
-        "strategy": text(payload.get("strategy"), existing.get("strategy")),
+        "contactName": crm_payload_text(payload, ("contactName", "manager"), existing.get("contactName") or existing.get("manager")),
+        "phone": crm_payload_text(payload, ("phone",), existing.get("phone")),
+        "email": crm_payload_text(payload, ("email",), existing.get("email")).lower(),
+        "address": crm_payload_text(payload, ("address",), existing.get("address")),
+        "country": crm_payload_text(payload, ("country",), existing.get("country") or "El Salvador"),
+        "department": crm_payload_text(payload, ("department",), existing.get("department")),
+        "municipality": crm_payload_text(payload, ("municipality",), existing.get("municipality")),
+        "businessActivity": crm_payload_text(payload, ("businessActivity", "businessLine"), existing.get("businessActivity") or existing.get("businessLine")),
+        "identityDocumentType": crm_payload_text(payload, ("identityDocumentType",), existing.get("identityDocumentType") or ("NIT" if payload.get("taxId") or existing.get("taxId") else "")),
+        "taxId": crm_payload_text(payload, ("taxId",), existing.get("taxId")),
+        "registrationNumber": crm_payload_text(payload, ("registrationNumber",), existing.get("registrationNumber")),
+        "taxpayerType": crm_payload_text(payload, ("taxpayerType",), existing.get("taxpayerType")),
+        "customerCode": crm_payload_text(payload, ("customerCode",), existing.get("customerCode")),
+        "sellerId": crm_payload_text(payload, ("sellerId",), existing.get("sellerId")),
+        "sellerName": crm_payload_text(payload, ("sellerName",), existing.get("sellerName")),
+        "clientType": crm_payload_text(payload, ("clientType",), existing.get("clientType")),
+        "personhood": crm_payload_text(payload, ("personhood",), existing.get("personhood")),
+        "documentType": document_type if document_type in ("CF", "CCF", "CE") else "CF",
+        "paymentTerms": crm_payload_text(payload, ("paymentTerms",), existing.get("paymentTerms")),
+        "strategy": crm_payload_text(payload, ("strategy",), existing.get("strategy")),
         "active": payload.get("active", existing.get("active", True)) is not False,
         "createdAt": text(existing.get("createdAt"), now),
         "updatedAt": now,
