@@ -4020,10 +4020,11 @@ function renderQuotationsModule() {
       <div class="quotation-table-body">
         ${rows.map((quotation) => {
           const linkedOrder = quotationLinkedOrder(quotation);
+          const confirmedOrder = linkedOrder && orderHasDefinitiveCustomer(linkedOrder) ? linkedOrder : null;
           return `
-          <article class="quotation-table-row ${linkedOrder ? "has-order" : "quotation-only"}">
+          <article class="quotation-table-row ${confirmedOrder ? "has-order" : "quotation-only"}">
             <span>${formatDate(quotation.date)}</span>
-            <div class="quotation-table-row__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${linkedOrder ? "orden-creada" : "solo-cotizacion"}">${linkedOrder ? `OP #${escapeHtml(linkedOrder.number || "—")} creada` : "Solo cotización"}</span></div>
+            <div class="quotation-table-row__client"><strong>${escapeHtml(quotation.customerData?.commercialName || quotation.client || "Sin cliente")}</strong><span class="quotation-record__status" data-status="${confirmedOrder ? "orden-creada" : "solo-cotizacion"}">${confirmedOrder ? `OP #${escapeHtml(confirmedOrder.number || "—")} creada` : linkedOrder ? `OP #${escapeHtml(linkedOrder.number || "—")} reservada · falta cliente` : "Solo cotización"}</span></div>
             <span class="quotation-table-row__seller"><strong>${escapeHtml(quotationResponsibleSeller(quotation) || "Sin vendedor")}</strong><small>Ingresada por ${escapeHtml(quotation.createdBy || "Sistema Gerencial")}</small></span>
             <span class="quotation-table-row__detail"><strong>${(quotation.lines || []).length} ${(quotation.lines || []).length === 1 ? "línea" : "líneas"}</strong><small>${escapeHtml((quotation.lines || [])[0]?.description || "Sin descripción")}</small></span>
             <strong class="quotation-table-row__amount">${formatControlSalesMoney(quotation.totalCents || 0)}</strong>
@@ -4031,8 +4032,8 @@ function renderQuotationsModule() {
               <button type="button" class="quotation-action view-detail" data-quotation-module-detail="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Ver detalle" title="Ver detalle"><span aria-hidden="true">👁</span></button>
               ${canReviseConvertedDirectQuotation(quotation) ? `<button type="button" class="quotation-action edit" data-quotation-module-open="${escapeHtml(quotation.id)}" data-opportunity-id="${escapeHtml(quotation.opportunityId || "")}" aria-label="Editar cotización y actualizar OP" title="Editar cotización y actualizar OP"><span aria-hidden="true">✏️</span></button>` : ""}
               <button type="button" class="quotation-action view-quotation" data-quotation-module-document="${escapeHtml(quotation.id)}" aria-label="Ver documento de cotización" title="Ver documento de cotización"><span aria-hidden="true">🧾</span></button>
-              ${linkedOrder
-                ? `<button type="button" class="quotation-action view-order" data-quotation-module-order="${escapeHtml(linkedOrder.id)}" aria-label="Imprimir nota de pedido" title="Imprimir nota de pedido"><span aria-hidden="true">📋</span></button>`
+              ${confirmedOrder
+                ? `<button type="button" class="quotation-action view-order" data-quotation-module-order="${escapeHtml(confirmedOrder.id)}" aria-label="Imprimir nota de pedido" title="Imprimir nota de pedido"><span aria-hidden="true">📋</span></button>`
                 : `<button type="button" class="quotation-action convert-order" data-quotation-module-convert="${escapeHtml(quotation.id)}" aria-label="Convertir en orden de pedido" title="Convertir en orden de pedido"><span aria-hidden="true">OP</span></button>`}
               ${canDeleteStandaloneQuotation(quotation) ? `<button type="button" class="quotation-action danger" data-quotation-module-delete="${escapeHtml(quotation.id)}" aria-label="Eliminar solo cotización" title="Eliminar cotización y liberar oportunidad"><span aria-hidden="true">🗑️</span></button>` : ""}
             </div>
@@ -4050,6 +4051,10 @@ function quotationLinkedOrder(quotation = {}) {
       || String(order.sourceQuotationId || "") === String(quotation.id || "")
     )
   )) || null;
+}
+
+function orderHasDefinitiveCustomer(order = {}) {
+  return Boolean(order?.proformaData?.customerId) && customerHasAssignedId(order.proformaData || {});
 }
 
 function canDeleteStandaloneQuotation(quotation = {}) {
@@ -4154,7 +4159,7 @@ function wireQuotationsModule() {
     const quotation = state.quotations.find((item) => String(item.id) === String(button.dataset.quotationModuleConvert));
     if (!quotation) return;
     const linkedOrder = quotationLinkedOrder(quotation);
-    if (linkedOrder) {
+    if (linkedOrder && orderHasDefinitiveCustomer(linkedOrder)) {
       openControlSalesDetail(linkedOrder.id, true);
       return;
     }
@@ -4164,8 +4169,17 @@ function wireQuotationsModule() {
     try {
       const opportunity = quotationSourceOpportunity(quotation);
       const directOrderFlow = String(quotation.opportunityId || "").startsWith("direct-quotation:");
-      await prepareQuotationOrderConversion(opportunity, quotation, (syncedOpportunity, syncedQuotation) => {
-        openControlSalesForm(null, null, syncedOpportunity, !directOrderFlow, syncedQuotation, false, directOrderFlow);
+      await prepareQuotationOrderConversion(opportunity, quotation, (syncedOpportunity, syncedQuotation, customer) => {
+        if (linkedOrder) {
+          const repairedOrder = {
+            ...linkedOrder,
+            client: syncedQuotation.client,
+            proformaData: { ...(linkedOrder.proformaData || {}), ...masterCustomerQuotationData(customer, syncedQuotation) }
+          };
+          openControlSalesForm(repairedOrder, null, syncedOpportunity, false, syncedQuotation, false, directOrderFlow, customer);
+        } else {
+          openControlSalesForm(null, null, syncedOpportunity, !directOrderFlow, syncedQuotation, false, directOrderFlow, customer);
+        }
       });
     } catch (error) {
       alert(error.message || "No fue posible preparar la orden de pedido.");
@@ -9745,7 +9759,7 @@ function ensureOrderCustomerDialog() {
       const synced = await bindMasterCustomerForOrder(pending.opportunity, pending.quotation, customer);
       dialog.pendingConversion = null;
       dialog.close();
-      pending.onReady(synced.opportunity, synced.quotation);
+      pending.onReady(synced.opportunity, synced.quotation, customer);
     } catch (error) {
       button.disabled = false;
       button.querySelector("b").textContent = "Seleccionar →";
@@ -9819,19 +9833,20 @@ function renderCrmCustomerDocuments(view) {
     <div class="crm-customer-document-list">
       ${rows.map((item) => {
         const linkedOrder = isQuotationView ? quotationLinkedOrder(item) : null;
-        const status = isQuotationView ? (linkedOrder ? `OP #${linkedOrder.number || "—"} creada` : "Solo cotización") : (item.archived ? "Anulada" : item.financeApprovalStatus === "Aprobada" ? "Aprobada" : "Pendiente de Edgar");
-        return `<article class="crm-customer-document-row ${item.archived ? "is-archived" : ""} ${isQuotationView ? (linkedOrder ? "has-order" : "quotation-only") : ""}">
+        const confirmedOrder = linkedOrder && orderHasDefinitiveCustomer(linkedOrder) ? linkedOrder : null;
+        const status = isQuotationView ? (confirmedOrder ? `OP #${confirmedOrder.number || "—"} creada` : linkedOrder ? `OP #${linkedOrder.number || "—"} reservada · falta cliente` : "Solo cotización") : (item.archived ? "Anulada" : item.financeApprovalStatus === "Aprobada" ? "Aprobada" : "Pendiente de Edgar");
+        return `<article class="crm-customer-document-row ${item.archived ? "is-archived" : ""} ${isQuotationView ? (confirmedOrder ? "has-order" : "quotation-only") : ""}">
           <span><small>${isQuotationView ? "Cotización" : "Orden"}</small><strong>${escapeHtml(isQuotationView ? item.number : formatOrderCorrelative(item.number))}</strong></span>
           <span><small>Cliente</small><strong>${escapeHtml(item.customerData?.commercialName || item.proformaData?.commercialName || item.client || "—")}</strong></span>
           <span><small>Fecha</small><strong>${formatDate(item.date)}</strong></span>
-          <span><small>Estado</small><strong class="${isQuotationView ? "quotation-record__status" : ""}" ${isQuotationView ? `data-status="${linkedOrder ? "orden-creada" : "solo-cotizacion"}"` : ""}>${escapeHtml(status || "—")}</strong></span>
+          <span><small>Estado</small><strong class="${isQuotationView ? "quotation-record__status" : ""}" ${isQuotationView ? `data-status="${confirmedOrder ? "orden-creada" : "solo-cotizacion"}"` : ""}>${escapeHtml(status || "—")}</strong></span>
           <span class="money"><small>Total</small><strong>${formatControlSalesMoney(item.totalCents || 0)}</strong></span>
           <span class="crm-row-actions ${isQuotationView ? "quotation-record__actions" : ""}">
             ${isQuotationView ? `<button type="button" class="quotation-action view-detail" data-crm-document-detail="${escapeHtml(item.id)}" title="Ver detalle" aria-label="Ver detalle"><span aria-hidden="true">👁</span></button>` : ""}
             ${!isQuotationView || canReviseConvertedDirectQuotation(item) ? `<button type="button" class="${isQuotationView ? "quotation-action edit" : ""}" data-crm-document-edit="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}" aria-label="${isQuotationView && linkedOrder ? "Editar cotización y actualizar OP" : "Editar"}">${isQuotationView ? '<span aria-hidden="true">✏️</span>' : "✎"}</button>` : ""}
             <button type="button" class="${isQuotationView ? "quotation-action view-quotation" : ""}" data-crm-document-print="${escapeHtml(item.id)}" data-document-kind="${isQuotationView ? "quotation" : "order"}" title="${isQuotationView ? "Imprimir cotización" : "Imprimir"}" aria-label="${isQuotationView ? "Imprimir cotización" : "Imprimir"}">${isQuotationView ? '<span aria-hidden="true">🧾</span>' : "▤"}</button>
-            ${isQuotationView && linkedOrder ? `<button type="button" class="quotation-action view-order" data-crm-document-order="${escapeHtml(linkedOrder.id)}" title="Imprimir OP vinculada" aria-label="Imprimir OP vinculada"><span aria-hidden="true">📋</span></button>` : ""}
-            ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button type="button" class="quotation-action convert-order" data-crm-document-convert="${escapeHtml(item.id)}" title="Seleccionar cliente y crear OP" aria-label="Seleccionar cliente y crear OP"><span aria-hidden="true">OP</span></button>` : ""}
+            ${isQuotationView && confirmedOrder ? `<button type="button" class="quotation-action view-order" data-crm-document-order="${escapeHtml(confirmedOrder.id)}" title="Imprimir OP vinculada" aria-label="Imprimir OP vinculada"><span aria-hidden="true">📋</span></button>` : ""}
+            ${isQuotationView && !confirmedOrder && normalizeKey(item.status) !== "anulada" ? `<button type="button" class="quotation-action convert-order" data-crm-document-convert="${escapeHtml(item.id)}" title="Seleccionar cliente y completar OP" aria-label="Seleccionar cliente y completar OP"><span aria-hidden="true">OP</span></button>` : ""}
             ${isQuotationView && !linkedOrder && normalizeKey(item.status) !== "anulada" ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="quotation" title="Anular" aria-label="Anular">×</button>` : ""}
             ${!isQuotationView && !item.archived ? `<button class="danger" type="button" data-crm-document-delete="${escapeHtml(item.id)}" data-document-kind="order" title="Anular" aria-label="Anular">×</button>` : ""}
           </span>
@@ -11299,10 +11314,20 @@ function renderCommercialSubmenu(area) {
       const quotation = state.quotations.find((item) => String(item.id) === String(button.dataset.crmDocumentConvert));
       if (!quotation) return;
       const opportunity = quotationSourceOpportunity(quotation);
+      const linkedOrder = quotationLinkedOrder(quotation);
       button.disabled = true;
       try {
-        await prepareQuotationOrderConversion(opportunity, quotation, (syncedOpportunity, syncedQuotation) => {
-          openControlSalesForm(null, null, syncedOpportunity, false, syncedQuotation, false, true);
+        await prepareQuotationOrderConversion(opportunity, quotation, (syncedOpportunity, syncedQuotation, customer) => {
+          if (linkedOrder && !orderHasDefinitiveCustomer(linkedOrder)) {
+            const repairedOrder = {
+              ...linkedOrder,
+              client: syncedQuotation.client,
+              proformaData: { ...(linkedOrder.proformaData || {}), ...masterCustomerQuotationData(customer, syncedQuotation) }
+            };
+            openControlSalesForm(repairedOrder, null, syncedOpportunity, false, syncedQuotation, false, true, customer);
+          } else {
+            openControlSalesForm(null, null, syncedOpportunity, false, syncedQuotation, false, true, customer);
+          }
         });
       } catch (error) {
         button.disabled = false;
