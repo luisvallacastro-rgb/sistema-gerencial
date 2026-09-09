@@ -9130,6 +9130,9 @@ function ensureCrmCustomerDialog() {
       if (!id && !returnToDirectOrder) {
         alert("Cliente guardado. Judith Esmeralda debe firmarlo para asignar el ID de cliente.");
       }
+      if (id) {
+        alert("Cliente actualizado satisfactoriamente.");
+      }
       if (returnToDirectOrder) {
         await loadCrmData();
         openDirectOrderFlow(returnToDirectDocumentMode);
@@ -9397,6 +9400,7 @@ function ensureCustomerRequestDialog() {
       button.classList.add("hidden");
       dialog.querySelector("[data-customer-request-approved-edit]").classList.remove("hidden");
       button.textContent = "Guardar cliente";
+      alert("Cliente actualizado satisfactoriamente.");
     } catch (error) {
       button.textContent = "Guardar cliente";
       alert(error.message || "No fue posible actualizar el cliente.");
