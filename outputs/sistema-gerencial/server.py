@@ -31,7 +31,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-quotation-update-fix-v25"
+API_VERSION = "kmi-order-customer-id-gate-v26"
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
@@ -3082,6 +3082,12 @@ def apply_master_customer_to_control_sales(item, customer):
     return item
 
 
+def master_customer_has_assigned_number(customer):
+    """Only definitive numeric customer correlatives authorize a new OP."""
+    source = text(customer.get("clientNumber") or customer.get("customerCode") or customer.get("code"))
+    return bool(re.fullmatch(r"\d+", source)) and int(source) > 0 and customer.get("active") is not False
+
+
 def save_control_sales_order(conn, data, existing_row=None):
     data = dict(data or {})
     existing = control_sales_order_payload(conn, existing_row) if existing_row else None
@@ -3095,7 +3101,9 @@ def save_control_sales_order(conn, data, existing_row=None):
         # a crafted update that tries to turn one saved order into another.
         data["number"] = existing["number"]
     else:
-        data["number"] = next_control_sales_order_number(conn, data.get("date"))
+        # Validate the draft first. The definitive correlative is assigned only
+        # after the server confirms an active master customer with a real ID.
+        data["number"] = "PENDIENTE-ID-CLIENTE"
     item = control_sales_validate(data, existing)
     if existing:
         item["proformaData"]["workflow"] = text(
@@ -3123,6 +3131,12 @@ def save_control_sales_order(conn, data, existing_row=None):
     )
     if canonical_customer:
         apply_master_customer_to_control_sales(item, canonical_customer)
+    if not existing_row:
+        if not canonical_customer or not master_customer_has_assigned_number(canonical_customer):
+            raise ValueError(
+                "No se puede crear ni numerar la orden: selecciona un cliente activo con ID definitivo del maestro de Clientes"
+            )
+        item["number"] = next_control_sales_order_number(conn, item.get("date"))
     if direct_order_flow and not source_quotation_id and not existing_row:
         raise ValueError(
             "El flujo directo requiere guardar primero una cotizacion y convertirla "

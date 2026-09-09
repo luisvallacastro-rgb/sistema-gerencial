@@ -8872,6 +8872,11 @@ function customerDisplayNumber(customer = {}) {
   return Number.isFinite(number) ? String(number).padStart(4, "0") : "—";
 }
 
+function customerHasAssignedId(customer = {}) {
+  const source = String(customer.clientNumber || customer.customerCode || "").trim();
+  return /^\d+$/.test(source) && Number.parseInt(source, 10) > 0;
+}
+
 function sortCustomersByClientNumber(customers = []) {
   return [...customers].sort((a, b) => {
     const left = Number.parseInt(String(a.clientNumber || "").replace(/\D/g, ""), 10);
@@ -9732,6 +9737,7 @@ function ensureOrderCustomerDialog() {
     if (!button || !dialog.pendingConversion) return;
     const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.orderRequiredCustomer));
     if (!customer) return;
+    if (!customerHasAssignedId(customer)) return alert("Este prospecto todavía no tiene ID de cliente asignado y no puede convertirse en OP.");
     button.disabled = true;
     button.querySelector("b").textContent = "Vinculando…";
     try {
@@ -9752,7 +9758,9 @@ function ensureOrderCustomerDialog() {
 function renderOrderRequirementCustomers(search = "") {
   const dialog = ensureOrderCustomerDialog();
   const query = normalizeKey(search);
-  const customers = sortCustomersByClientNumber(crmMasterCustomers().filter((customer) => !query || opportunityCustomerMatches(customer, query)));
+  const customers = sortCustomersByClientNumber(crmMasterCustomers()
+    .filter(customerHasAssignedId)
+    .filter((customer) => !query || opportunityCustomerMatches(customer, query)));
   dialog.querySelector("[data-order-customer-list]").innerHTML = customers.map((customer, index) => `<button type="button" class="direct-order-customer-option" data-order-required-customer="${escapeHtml(customer.id)}"><i class="direct-order-customer-index" aria-label="Resultado ${index + 1}">${String(index + 1).padStart(2, "0")}</i><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customerDisplayNumber(customer))} · ${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em><b>Seleccionar →</b></button>`).join("") || `<div class="direct-order-customer-empty">No encontramos clientes con ese criterio. Regístralo primero en Comercialización → Clientes.</div>`;
 }
 
