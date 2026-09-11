@@ -9321,6 +9321,39 @@ function openDirectCustomerSheet(customer = {}, autoPrint = false) {
   sheet.document.close();
 }
 
+function printFormalCustomerReport() {
+  const customers = sortCustomersByClientNumber(crmMasterCustomers(true).filter((customer) => customer.active !== false));
+  if (!customers.length) return alert("No hay clientes activos para generar el reporte.");
+  const generatedAt = new Intl.DateTimeFormat("es-SV", {
+    dateStyle:"long", timeStyle:"short", timeZone:"America/El_Salvador"
+  }).format(new Date());
+  const definitive = customers.filter(customerHasAssignedId).length;
+  const pending = customers.length - definitive;
+  const logoUrl = new URL("assets/konfi-logo.png", window.location.href).href;
+  const value = (content) => escapeHtml(String(content || "")) || "—";
+  const rows = customers.map((customer) => {
+    const location = [customer.department, canonicalCustomerMunicipality(customer.department, customer.municipality)]
+      .filter(Boolean).join(" / ");
+    const fiscalId = [customer.identityDocumentType, customer.taxId].filter(Boolean).join(" · ");
+    const contact = [customer.contactName || customer.manager, customer.phone, customer.email].filter(Boolean);
+    return `<tr>
+      <td class="id">${value(customerHasAssignedId(customer) ? customerDisplayNumber(customer) : "Pendiente")}</td>
+      <td><strong>${value(customer.commercialName || customer.legalName)}</strong><small>${value(customer.legalName && customer.legalName !== customer.commercialName ? customer.legalName : "")}</small></td>
+      <td><strong>${value(contact[0])}</strong><small>${value(contact.slice(1).join(" · "))}</small></td>
+      <td><strong>${value(fiscalId)}</strong><small>${value(customer.registrationNumber ? `NRC ${customer.registrationNumber}` : "")}</small></td>
+      <td><strong>${value(location)}</strong><small>${value(customer.address)}</small></td>
+      <td><strong>${value(customer.sellerName || crmOwnerName(customer.sellerId || ""))}</strong><small>${value(customer.clientType || customer.personhood)}</small></td>
+      <td><strong>${value(customer.paymentTerms)}</strong><small>${value(customer.strategy || customer.businessActivity)}</small></td>
+    </tr>`;
+  }).join("");
+  const report = window.open("", "_blank", "width=1200,height=850");
+  if (!report) return alert("Permite las ventanas emergentes para generar el reporte de clientes.");
+  report.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte formal de clientes</title><style>
+    @page{size:A4 landscape;margin:11mm}*{box-sizing:border-box}body{margin:0;color:#17233a;font:10px Arial,Helvetica,sans-serif}.sheet{padding:12px}.report-head{display:flex;align-items:flex-start;justify-content:space-between;gap:30px;padding-bottom:12px;border-bottom:3px solid #22a98b}.report-head img{width:145px;height:auto}.eyebrow{color:#168b70;font-size:9px;font-weight:900;letter-spacing:.13em}.report-head h1{margin:4px 0 5px;font-size:25px}.report-head p{margin:0;color:#64748b}.summary{display:grid;grid-template-columns:repeat(3,auto);gap:10px;margin:14px 0}.summary article{min-width:120px;padding:10px 13px;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc}.summary small,.summary strong{display:block}.summary small{color:#64748b;font-size:8px;font-weight:800;text-transform:uppercase}.summary strong{margin-top:3px;font-size:17px}.summary article:first-child strong{color:#168b70}.data{width:100%;border-collapse:collapse;table-layout:fixed}.data th{padding:8px 6px;background:#132d50;color:#fff;font-size:8px;letter-spacing:.06em;text-align:left;text-transform:uppercase}.data td{padding:7px 6px;border:1px solid #cbd5e1;vertical-align:top;overflow-wrap:anywhere}.data tbody tr:nth-child(even){background:#f5f8fb}.data td strong,.data td small{display:block}.data td strong{font-size:9px}.data td small{margin-top:3px;color:#64748b;font-size:8px}.data .id{width:7%;color:#168b70;font-size:11px;font-weight:900}.data th:nth-child(1){width:7%}.data th:nth-child(2){width:18%}.data th:nth-child(3){width:15%}.data th:nth-child(4){width:13%}.data th:nth-child(5){width:19%}.data th:nth-child(6){width:13%}.data th:nth-child(7){width:15%}.footer{display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid #cbd5e1;color:#64748b;font-size:8px}.actions{position:fixed;top:14px;right:14px;display:flex;gap:8px;padding:8px;border-radius:10px;background:#17233ae8}.actions button{border:0;border-radius:7px;padding:9px 13px;background:#168b70;color:#fff;font-weight:800;cursor:pointer}.actions button:last-child{background:#fff;color:#17233a}@media print{.sheet{padding:0}.actions{display:none}.data thead{display:table-header-group}.data tr{break-inside:avoid}.footer{position:fixed;right:0;bottom:0;left:0}}
+  </style></head><body><main class="sheet"><header class="report-head"><div><span class="eyebrow">COMERCIALIZACIÓN · MAESTRO DE CLIENTES</span><h1>Reporte formal de clientes</h1><p>Directorio comercial vigente y consolidado</p></div><img src="${value(logoUrl)}" alt="KONFI"></header><section class="summary"><article><small>Total de clientes activos</small><strong>${customers.length}</strong></article><article><small>Con ID asignado</small><strong>${definitive}</strong></article><article><small>Pendientes de ID</small><strong>${pending}</strong></article></section><table class="data"><thead><tr><th>ID cliente</th><th>Cliente / razón social</th><th>Contacto</th><th>Identificación fiscal</th><th>Ubicación</th><th>Vendedor / clasificación</th><th>Condición comercial</th></tr></thead><tbody>${rows}</tbody></table><footer class="footer"><span>Generado: ${value(generatedAt)}</span><span>Responsable: ${value(state.currentUser?.name || "Sistema Gerencial")}</span><span>${customers.length} registros</span></footer></main><nav class="actions"><button type="button" onclick="window.print()">Imprimir / Guardar PDF</button><button type="button" onclick="window.close()">Cerrar</button></nav></body></html>`);
+  report.document.close();
+}
+
 function ensureCustomerRequestDialog() {
   let dialog = document.querySelector("#customerRequestDialog");
   if (dialog) return dialog;
@@ -9995,6 +10028,7 @@ function renderCrmClients() {
       <div class="crm-customer-toolbar">
         <label class="crm-customer-search"><span aria-hidden="true">⌕</span><input type="search" data-crm-customer-search value="${escapeHtml(state.crmCustomerSearch || "")}" placeholder="Buscar ID, cliente, contacto, NIT, teléfono o ubicación..."></label>
         <div class="crm-customer-result"><strong>${clients.length}</strong><span>clientes</span></div>
+        <button class="primary-btn crm-customer-report-button" type="button" data-crm-customer-report>▤ Reporte de clientes</button>
         <button class="primary-btn crm-customer-document-create quotation" type="button" data-crm-customer-create-quotation>＋ Crear cotización</button>
         <button class="primary-btn crm-customer-new-button" type="button" data-crm-customer-new>+ Nuevo cliente</button>
       </div>
@@ -11312,6 +11346,7 @@ function renderCommercialSubmenu(area) {
       }
     }));
     opportunityTable.querySelector("[data-crm-customer-new]")?.addEventListener("click", () => openCrmCustomerDialog());
+    opportunityTable.querySelector("[data-crm-customer-report]")?.addEventListener("click", printFormalCustomerReport);
     opportunityTable.querySelector("[data-crm-customer-create-quotation]")?.addEventListener("click", () => openDirectOrderFlow("quotation"));
     opportunityTable.querySelector("[data-crm-customer-create-order]")?.addEventListener("click", () => openDirectOrderFlow("quotation"));
     opportunityTable.querySelectorAll("[data-crm-document-print]").forEach((button) => button.addEventListener("click", () => {
