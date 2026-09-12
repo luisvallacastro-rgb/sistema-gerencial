@@ -32,7 +32,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-quotation-line-print-order-v32"
+API_VERSION = "kmi-agenda-unrestricted-hours-v33"
 CRM_DATA_LOCK = threading.RLock()
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
@@ -7260,7 +7260,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     event_date, activity = text(event.get("date")), text(event.get("activity"))
                     prospect = text(event.get("prospect")) or text(item.get("prospect"))
                     start_time, end_time = text(event.get("startTime")), text(event.get("endTime"))
-                    valid_shift = (("07:00" <= start_time < end_time <= "12:00") or ("13:00" <= start_time < end_time <= "17:00"))
+                    valid_times = bool(re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", start_time) and re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", end_time))
                     if not prospect:
                         self.send_json({"error": f"El evento {event_index} de la agenda {item_index} no tiene cliente o prospecto"}, status=400)
                         return
@@ -7270,8 +7270,11 @@ class AppHandler(BaseHTTPRequestHandler):
                     if activity not in activities:
                         self.send_json({"error": f"La actividad del evento {event_index} no es válida"}, status=400)
                         return
-                    if not valid_shift:
-                        self.send_json({"error": f"El evento {event_index} debe quedar dentro de 7:00 a. m.–12:00 m. o 1:00–5:00 p. m."}, status=400)
+                    if not valid_times:
+                        self.send_json({"error": f"El evento {event_index} tiene una hora inválida"}, status=400)
+                        return
+                    if start_time >= end_time:
+                        self.send_json({"error": f"La hora final del evento {event_index} debe ser posterior a la hora inicial"}, status=400)
                         return
                     event_id = text(event.get("id")) or str(uuid.uuid4())
                     clean_event = {"id": event_id, "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "comment": text(event.get("comment")) or text(event.get("result"))}
