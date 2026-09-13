@@ -13049,21 +13049,14 @@ function minuteFormMarkup({ item = null, prefix = "minute", panoramic = false } 
       <input type="hidden" data-minute-field="id" value="${escapeHtml(minute?.id || "")}">
       <input type="hidden" data-minute-field="createdAt" value="${escapeHtml(minute?.createdAt || "")}">
       <input type="hidden" data-minute-field="createdBy" value="${escapeHtml(minute?.createdBy || "")}">
-      <div class="minutes-editor-head">
-        <div>
-          <p class="eyebrow">${minute ? "Editar acta" : "Nueva acta"}</p>
-          <h4>${minute ? escapeHtml(minute.title) : "Acuerdos del comite"}</h4>
-          <p class="minute-editor-subtitle">${minute ? "Actualiza acuerdos, responsables y compromisos del acta." : "Redacta el acta con formato ejecutivo y guarda el historial automaticamente."}</p>
-        </div>
-        <div class="minutes-head-actions">
-          ${panoramic ? "" : `<button class="action-icon-btn minute-action-icon" type="button" title="Vista panoramica" aria-label="Abrir nueva acta en vista panoramica" data-minutes-action="fullscreen-new">⛶</button>`}
-          <div class="minutes-toolbar" aria-label="Herramientas de texto">
-            <button type="button" data-editor-command="bold" title="Negrita">B</button>
-            <button type="button" data-editor-command="italic" title="Cursiva">I</button>
-            <button type="button" data-editor-command="underline" title="Subrayado">U</button>
-            <button type="button" data-editor-command="insertUnorderedList" title="Lista">☷</button>
-            <button type="button" data-editor-command="insertOrderedList" title="Numeracion">1.</button>
-          </div>
+      <div class="minutes-commandbar">
+        <strong>${minute ? `Editando: ${escapeHtml(minute.title)}` : "Datos del acta"}</strong>
+        <div class="minutes-toolbar" aria-label="Formato del contenido">
+          <button type="button" data-editor-command="bold" title="Negrita" aria-label="Negrita">B</button>
+          <button type="button" data-editor-command="italic" title="Cursiva" aria-label="Cursiva">I</button>
+          <button type="button" data-editor-command="underline" title="Subrayado" aria-label="Subrayado">U</button>
+          <button type="button" data-editor-command="insertUnorderedList" title="Lista con viñetas" aria-label="Lista con viñetas">☷</button>
+          <button type="button" data-editor-command="insertOrderedList" title="Lista numerada" aria-label="Lista numerada">1.</button>
         </div>
       </div>
       <div class="minutes-fields">
@@ -13084,7 +13077,7 @@ function minuteFormMarkup({ item = null, prefix = "minute", panoramic = false } 
       </div>
       <div class="minutes-editor" contenteditable="true" role="textbox" aria-multiline="true" data-minute-field="body" data-placeholder="Redacta acuerdos, responsables, fechas compromiso y observaciones...">${body}</div>
       <div class="minutes-actions">
-        <button class="ghost-btn compact-btn" type="button" data-minutes-action="${minute ? "cancel-edit" : "clear"}">${minute ? "Cancelar edicion" : "Limpiar"}</button>
+        ${minute ? `<button class="ghost-btn compact-btn" type="button" data-minutes-action="cancel-edit">Cancelar edición</button>` : ""}
         <button class="primary-btn compact-btn" type="button" data-minutes-action="save">${minute ? "Guardar cambios" : "Guardar acta"}</button>
       </div>
     </section>
@@ -13137,19 +13130,7 @@ function renderAdminMinutesPanel() {
     ? state.minutes.find((item) => item.id === state.adminMinuteEditId) || null
     : null;
   return `
-    <div class="admin-shell minutes-shell ${state.adminMinuteView === "history" ? "minutes-history-mode" : ""}">
-      ${state.adminMinuteView === "new" ? `<div class="admin-hero minutes-hero">
-        <div>
-          <p class="eyebrow">Administracion / Actas</p>
-          <h3>Actas</h3>
-          <p class="muted-copy">Separa la redaccion del historial para trabajar con mayor claridad.</p>
-        </div>
-        <div class="minutes-counter">
-          <span>Actas guardadas</span>
-          <strong>${minutes.length}</strong>
-        </div>
-      </div>` : ""}
-
+    <div class="admin-shell minutes-shell ${state.adminMinuteView === "history" ? "minutes-history-mode" : "minutes-editor-mode"}">
       ${state.adminMinuteView === "new" ? `
         <div id="minuteInlineEditor">
           ${minuteFormMarkup({ item: editingMinute })}
@@ -13375,6 +13356,7 @@ function renderAdminPanel() {
   const activeAdminSubmenu = ["apariencia", "vendedores", "actas", "cambiar-contrasena"].includes(state.activeSubmenu)
     ? state.activeSubmenu
     : "permisos";
+  adminPanel.classList.toggle("minutes-panel-active", activeAdminSubmenu === "actas");
   adminPanel.innerHTML = activeAdminSubmenu === "apariencia"
     ? renderAdminAppearancePanel()
     : activeAdminSubmenu === "vendedores"
