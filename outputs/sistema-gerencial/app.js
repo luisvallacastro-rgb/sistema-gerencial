@@ -13075,7 +13075,7 @@ function minuteFormMarkup({ item = null, prefix = "minute", panoramic = false } 
       <div class="minutes-commandbar">
         <strong>${minute ? `Editando: ${escapeHtml(minute.title)}` : "Datos del acta"}</strong>
         <div class="minutes-toolbar minutes-workspace-actions" aria-label="Herramientas del acta">
-          <button type="button" data-minutes-action="toggle-editor-expand" title="Ampliar el espacio de redacción" aria-label="Ampliar el espacio de redacción"><span aria-hidden="true">⛶</span><b>Ampliar redacción</b></button>
+          <button type="button" data-minutes-action="open-writing" title="Abrir redacción en una ventana amplia" aria-label="Abrir redacción en una ventana amplia"><span aria-hidden="true">⛶</span><b>Ampliar redacción</b></button>
           <button type="button" data-minutes-action="agreements" title="Administrar acuerdos" aria-label="Administrar acuerdos"><span aria-hidden="true">✓</span><b>Acuerdos</b><i data-minute-agreement-count>${agreements.length}</i></button>
         </div>
       </div>
@@ -13137,6 +13137,33 @@ function openMinuteFullscreen(item = null) {
 
 function closeMinuteFullscreen() {
   document.querySelector(".minute-fullscreen-overlay")?.remove();
+}
+
+function openMinuteWritingDialog(form) {
+  document.querySelector(".minute-writing-dialog")?.remove();
+  const sourceEditor = form.querySelector("[data-minute-field='body']");
+  const title = form.querySelector("[data-minute-field='title']")?.value.trim() || "Nueva acta";
+  const dialog = document.createElement("dialog");
+  dialog.className = "minute-writing-dialog";
+  dialog.innerHTML = `<form method="dialog"><header><div><span>Redacción del acta</span><h2>${escapeHtml(title)}</h2></div><button type="button" data-writing-close aria-label="Cerrar">×</button></header><div class="minute-writing-canvas" contenteditable="true" role="textbox" aria-multiline="true" data-writing-editor data-placeholder="Redacta acuerdos, responsables, fechas compromiso y observaciones...">${sanitizeMinuteBody(sourceEditor?.innerHTML || "")}</div><footer><span data-writing-count>0 palabras</span><div><button type="button" data-writing-close>Cancelar</button><button type="submit">Aplicar redacción</button></div></footer></form>`;
+  document.body.appendChild(dialog);
+  const editor = dialog.querySelector("[data-writing-editor]");
+  const updateCount = () => {
+    const words = String(editor.textContent || "").trim().split(/\s+/).filter(Boolean).length;
+    dialog.querySelector("[data-writing-count]").textContent = `${words} ${words === 1 ? "palabra" : "palabras"}`;
+  };
+  editor.addEventListener("input", updateCount);
+  dialog.querySelectorAll("[data-writing-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelector("form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (sourceEditor) sourceEditor.innerHTML = sanitizeMinuteBody(editor.innerHTML);
+    dialog.close();
+    sourceEditor?.focus();
+  });
+  dialog.addEventListener("close", () => dialog.remove(), { once:true });
+  updateCount();
+  dialog.showModal();
+  requestAnimationFrame(() => editor.focus());
 }
 
 function minuteFormAgreements(form) {
@@ -13285,14 +13312,10 @@ function loadMinuteIntoInlineEditor(minuteId) {
 }
 
 function wireMinuteForms(root = document) {
-  root.querySelectorAll("[data-minutes-action='toggle-editor-expand']").forEach((button) => {
+  root.querySelectorAll("[data-minutes-action='open-writing']").forEach((button) => {
     button.addEventListener("click", () => {
       const form = button.closest("[data-minute-form]");
-      if (!form) return;
-      const expanded = form.classList.toggle("is-editor-expanded");
-      const label = button.querySelector("b");
-      if (label) label.textContent = expanded ? "Reducir redacción" : "Ampliar redacción";
-      button.setAttribute("aria-label", expanded ? "Reducir el espacio de redacción" : "Ampliar el espacio de redacción");
+      if (form) openMinuteWritingDialog(form);
     });
   });
   root.querySelectorAll("[data-minutes-action='agreements']").forEach((button) => button.addEventListener("click", () => {
