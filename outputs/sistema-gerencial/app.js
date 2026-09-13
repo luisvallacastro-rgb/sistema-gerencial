@@ -12967,6 +12967,26 @@ function sanitizeMinuteBody(html = "") {
   return template.innerHTML;
 }
 
+function normalizeMinuteAgreement(item = {}) {
+  const closure = item.managementClosure && typeof item.managementClosure === "object" ? item.managementClosure : {};
+  return {
+    id: item.id || crypto.randomUUID(),
+    agreement: String(item.agreement || "").trim(),
+    responsibles: [...new Set((Array.isArray(item.responsibles) ? item.responsibles : []).map((value) => String(value || "").trim()).filter(Boolean))],
+    managementClosure: {
+      closed: Boolean(closure.closed),
+      note: String(closure.note || "").trim(),
+      validatedBy: String(closure.validatedBy || "").trim(),
+      validatedAt: String(closure.validatedAt || "").trim()
+    }
+  };
+}
+
+function canValidateMinuteAgreements() {
+  const identity = normalizeKey(`${state.currentUser?.name || ""} ${state.currentUser?.username || ""} ${state.currentUser?.email || ""}`);
+  return isAdminUser() || identity.includes("gerencia general") || normalizeKey(state.currentUser?.username) === "general";
+}
+
 function normalizeMinute(item = {}) {
   return {
     id: item.id || `acta-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -12974,6 +12994,7 @@ function normalizeMinute(item = {}) {
     area: item.area || "Comite de apoyo",
     date: item.date || new Date().toISOString().slice(0, 10),
     body: sanitizeMinuteBody(item.body || ""),
+    agreements: (Array.isArray(item.agreements) ? item.agreements : []).map(normalizeMinuteAgreement).filter((agreement) => agreement.agreement),
     createdBy: item.createdBy || state.currentUser?.name || "KMI",
     createdAt: item.createdAt || new Date().toISOString()
   };
@@ -13044,19 +13065,18 @@ function minuteFormMarkup({ item = null, prefix = "minute", panoramic = false } 
   const area = minute?.area || "Comite de apoyo";
   const date = minute?.date || new Date().toISOString().slice(0, 10);
   const body = minute?.body || "";
+  const agreements = minute?.agreements || [];
   return `
     <section class="minutes-editor-card ${panoramic ? "panoramic-editor-card" : ""}" data-minute-form aria-label="${minute ? "Editar acta" : "Nueva acta"}">
       <input type="hidden" data-minute-field="id" value="${escapeHtml(minute?.id || "")}">
       <input type="hidden" data-minute-field="createdAt" value="${escapeHtml(minute?.createdAt || "")}">
       <input type="hidden" data-minute-field="createdBy" value="${escapeHtml(minute?.createdBy || "")}">
+      <textarea hidden data-minute-field="agreements">${escapeHtml(JSON.stringify(agreements))}</textarea>
       <div class="minutes-commandbar">
         <strong>${minute ? `Editando: ${escapeHtml(minute.title)}` : "Datos del acta"}</strong>
-        <div class="minutes-toolbar" aria-label="Formato del contenido">
-          <button type="button" data-editor-command="bold" title="Negrita" aria-label="Negrita">B</button>
-          <button type="button" data-editor-command="italic" title="Cursiva" aria-label="Cursiva">I</button>
-          <button type="button" data-editor-command="underline" title="Subrayado" aria-label="Subrayado">U</button>
-          <button type="button" data-editor-command="insertUnorderedList" title="Lista con viñetas" aria-label="Lista con viñetas">☷</button>
-          <button type="button" data-editor-command="insertOrderedList" title="Lista numerada" aria-label="Lista numerada">1.</button>
+        <div class="minutes-toolbar minutes-workspace-actions" aria-label="Herramientas del acta">
+          <button type="button" data-minutes-action="toggle-editor-expand" title="Ampliar el espacio de redacción" aria-label="Ampliar el espacio de redacción"><span aria-hidden="true">⛶</span><b>Ampliar redacción</b></button>
+          <button type="button" data-minutes-action="agreements" title="Administrar acuerdos" aria-label="Administrar acuerdos"><span aria-hidden="true">✓</span><b>Acuerdos</b><i data-minute-agreement-count>${agreements.length}</i></button>
         </div>
       </div>
       <div class="minutes-fields">
@@ -13094,6 +13114,7 @@ function collectMinuteFromForm(form) {
     area: form.querySelector("[data-minute-field='area']")?.value || "Comite de apoyo",
     date: form.querySelector("[data-minute-field='date']")?.value || new Date().toISOString().slice(0, 10),
     body: form.querySelector("[data-minute-field='body']")?.innerHTML.trim() || "",
+    agreements: (() => { try { return JSON.parse(form.querySelector("[data-minute-field='agreements']")?.value || "[]"); } catch { return []; } })(),
     createdAt: createdAt || undefined,
     createdBy: createdBy || undefined
   };
@@ -13118,10 +13139,88 @@ function closeMinuteFullscreen() {
   document.querySelector(".minute-fullscreen-overlay")?.remove();
 }
 
+function minuteFormAgreements(form) {
+  try {
+    const values = JSON.parse(form.querySelector("[data-minute-field='agreements']")?.value || "[]");
+    return (Array.isArray(values) ? values : []).map(normalizeMinuteAgreement);
+  } catch {
+    return [];
+  }
+}
+
+function setMinuteFormAgreements(form, agreements) {
+  const normalized = agreements.map(normalizeMinuteAgreement).filter((agreement) => agreement.agreement);
+  const field = form.querySelector("[data-minute-field='agreements']");
+  if (field) field.value = JSON.stringify(normalized);
+  const count = form.querySelector("[data-minute-agreement-count]");
+  if (count) count.textContent = normalized.length;
+}
+
+function openMinuteAgreementsDialog(form) {
+  document.querySelector(".minute-agreements-dialog")?.remove();
+  let agreements = minuteFormAgreements(form);
+  const canValidate = canValidateMinuteAgreements();
+  const dialog = document.createElement("dialog");
+  dialog.className = "minute-agreements-dialog";
+  dialog.innerHTML = `<form method="dialog"><header><div><span>Seguimiento ejecutivo</span><h2>Acuerdos del acta</h2><p>Registra cada compromiso, sus responsables y el cierre de Gerencia General.</p></div><button type="button" data-agreement-close aria-label="Cerrar">×</button></header><div class="minute-agreements-body"><div class="minute-agreements-list" data-agreement-list></div><button class="minute-agreement-add" type="button" data-agreement-add><span aria-hidden="true">＋</span> Agregar acuerdo</button></div><footer><span>${canValidate ? "Puedes validar el cierre como Gerencia General." : "El cierre solamente puede ser validado por Gerencia General."}</span><div><button type="button" data-agreement-close>Cancelar</button><button type="submit">Aplicar acuerdos</button></div></footer></form>`;
+  document.body.appendChild(dialog);
+  const list = dialog.querySelector("[data-agreement-list]");
+  const responsibleMarkup = (value = "") => `<div class="minute-responsible-row"><input type="text" data-agreement-responsible value="${escapeHtml(value)}" placeholder="Nombre del responsable"><button type="button" data-responsible-remove title="Quitar responsable" aria-label="Quitar responsable">×</button></div>`;
+  const agreementMarkup = (item, index) => {
+    const agreement = normalizeMinuteAgreement(item);
+    const responsibles = agreement.responsibles.length ? agreement.responsibles : [""];
+    const closure = agreement.managementClosure;
+    return `<article class="minute-agreement-row" data-agreement-row data-agreement-id="${escapeHtml(agreement.id)}"><div class="minute-agreement-number"><span>Acuerdo</span><strong>${index + 1}</strong></div><label class="minute-agreement-text"><span>Acuerdo / acción</span><textarea data-agreement-text placeholder="Describe el compromiso concreto...">${escapeHtml(agreement.agreement)}</textarea></label><section class="minute-responsibles"><header><span>Responsables</span><button type="button" data-responsible-add>＋ Agregar responsable</button></header><div data-responsible-list>${responsibles.map(responsibleMarkup).join("")}</div></section><section class="minute-agreement-closure ${closure.closed ? "is-closed" : ""}"><label><input type="checkbox" data-agreement-closed ${closure.closed ? "checked" : ""} ${canValidate ? "" : "disabled"}><span>Acuerdo cumplido y validado</span></label><textarea data-agreement-closure-note placeholder="Observación de cierre de Gerencia General" ${canValidate ? "" : "disabled"}>${escapeHtml(closure.note)}</textarea>${closure.validatedBy ? `<small>Validado por ${escapeHtml(closure.validatedBy)}${closure.validatedAt ? ` · ${escapeHtml(new Date(closure.validatedAt).toLocaleString("es-SV"))}` : ""}</small>` : ""}</section><button class="minute-agreement-delete" type="button" data-agreement-delete title="Eliminar acuerdo" aria-label="Eliminar acuerdo">⌫</button></article>`;
+  };
+  const collectRows = () => [...list.querySelectorAll("[data-agreement-row]")].map((row) => {
+    const id = row.dataset.agreementId || crypto.randomUUID();
+    const previous = agreements.find((agreement) => agreement.id === id) || normalizeMinuteAgreement({ id });
+    const closed = canValidate ? row.querySelector("[data-agreement-closed]").checked : previous.managementClosure.closed;
+    const wasClosed = previous.managementClosure.closed;
+    return normalizeMinuteAgreement({
+      id,
+      agreement: row.querySelector("[data-agreement-text]").value,
+      responsibles: [...row.querySelectorAll("[data-agreement-responsible]")].map((input) => input.value),
+      managementClosure: {
+        closed,
+        note: canValidate ? row.querySelector("[data-agreement-closure-note]").value : previous.managementClosure.note,
+        validatedBy: closed ? (wasClosed ? previous.managementClosure.validatedBy : state.currentUser?.name || "Gerencia General") : "",
+        validatedAt: closed ? (wasClosed ? previous.managementClosure.validatedAt : new Date().toISOString()) : ""
+      }
+    });
+  });
+  const renderRows = () => {
+    list.innerHTML = agreements.length ? agreements.map(agreementMarkup).join("") : `<div class="minute-agreements-empty"><strong>No hay acuerdos registrados.</strong><span>Agrega el primer compromiso de esta acta.</span></div>`;
+    list.querySelectorAll("[data-responsible-add]").forEach((button) => button.addEventListener("click", () => {
+      button.closest("[data-agreement-row]").querySelector("[data-responsible-list]").insertAdjacentHTML("beforeend", responsibleMarkup());
+      wireRowActions();
+    }));
+    wireRowActions();
+  };
+  const wireRowActions = () => {
+    list.querySelectorAll("[data-responsible-remove]").forEach((button) => { button.onclick = () => { const group = button.closest("[data-responsible-list]"); if (group.children.length > 1) button.closest(".minute-responsible-row").remove(); else button.previousElementSibling.value = ""; }; });
+    list.querySelectorAll("[data-agreement-delete]").forEach((button) => { button.onclick = () => { agreements = collectRows().filter((agreement) => agreement.id !== button.closest("[data-agreement-row]").dataset.agreementId); renderRows(); }; });
+    list.querySelectorAll("[data-agreement-closed]").forEach((input) => { input.onchange = () => input.closest(".minute-agreement-closure").classList.toggle("is-closed", input.checked); });
+  };
+  dialog.querySelector("[data-agreement-add]").addEventListener("click", () => { if (list.querySelector("[data-agreement-row]")) agreements = collectRows(); agreements.push(normalizeMinuteAgreement()); renderRows(); list.lastElementChild?.querySelector("[data-agreement-text]")?.focus(); });
+  dialog.querySelectorAll("[data-agreement-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelector("form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = collectRows();
+    const incomplete = values.findIndex((agreement) => !agreement.agreement || !agreement.responsibles.length);
+    if (incomplete >= 0) return alert(`Completa el acuerdo y al menos un responsable en la línea ${incomplete + 1}.`);
+    setMinuteFormAgreements(form, values);
+    dialog.close();
+  });
+  dialog.addEventListener("close", () => dialog.remove(), { once:true });
+  renderRows();
+  dialog.showModal();
+}
+
 function renderAdminMinutesPanel() {
   const query = normalizeKey(state.adminMinuteQuery);
   const minutes = [...state.minutes].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || new Date(b.createdAt) - new Date(a.createdAt));
-  const filtered = minutes.filter((item) => !query || normalizeKey([item.title, item.area, item.createdBy, item.date, formatDate(item.date), item.body].join(" ")).includes(query));
+  const filtered = minutes.filter((item) => !query || normalizeKey([item.title, item.area, item.createdBy, item.date, formatDate(item.date), item.body, JSON.stringify(item.agreements || [])].join(" ")).includes(query));
   const canCreate = canCreateAdminMinutes();
   const canViewHistory = canViewAdminMinuteHistory();
   const availableViews = [canCreate ? "new" : "", canViewHistory ? "history" : ""].filter(Boolean);
@@ -13186,14 +13285,20 @@ function loadMinuteIntoInlineEditor(minuteId) {
 }
 
 function wireMinuteForms(root = document) {
-  root.querySelectorAll("[data-editor-command]").forEach((button) => {
+  root.querySelectorAll("[data-minutes-action='toggle-editor-expand']").forEach((button) => {
     button.addEventListener("click", () => {
       const form = button.closest("[data-minute-form]");
-      const editor = form?.querySelector("[data-minute-field='body']");
-      editor?.focus();
-      document.execCommand(button.dataset.editorCommand, false, null);
+      if (!form) return;
+      const expanded = form.classList.toggle("is-editor-expanded");
+      const label = button.querySelector("b");
+      if (label) label.textContent = expanded ? "Reducir redacción" : "Ampliar redacción";
+      button.setAttribute("aria-label", expanded ? "Reducir el espacio de redacción" : "Ampliar el espacio de redacción");
     });
   });
+  root.querySelectorAll("[data-minutes-action='agreements']").forEach((button) => button.addEventListener("click", () => {
+    const form = button.closest("[data-minute-form]");
+    if (form) openMinuteAgreementsDialog(form);
+  }));
   root.querySelectorAll("[data-minutes-action='clear']").forEach((button) => {
     button.addEventListener("click", () => {
       const form = button.closest("[data-minute-form]");

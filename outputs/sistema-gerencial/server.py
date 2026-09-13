@@ -32,7 +32,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-agenda-unrestricted-hours-v33"
+API_VERSION = "kmi-minute-agreements-v34"
 CRM_DATA_LOCK = threading.RLock()
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
@@ -5595,6 +5595,9 @@ def init_db():
                 created_at TEXT NOT NULL
             )
         """)
+        minute_columns = {row["name"] for row in conn.execute("PRAGMA table_info(minutes)").fetchall()}
+        if "agreements_json" not in minute_columns:
+            conn.execute("ALTER TABLE minutes ADD COLUMN agreements_json TEXT NOT NULL DEFAULT '[]'")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS accounts_receivable (
                 id TEXT PRIMARY KEY,
@@ -6249,7 +6252,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if self.path == "/api/minutes":
             with connect() as conn:
                 rows = conn.execute("""
-                    SELECT id, title, area, date, body, created_by, created_at
+                    SELECT id, title, area, date, body, created_by, created_at, agreements_json
                     FROM minutes
                     ORDER BY created_at DESC
                 """).fetchall()
@@ -6262,6 +6265,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     "body": row["body"],
                     "createdBy": row["created_by"],
                     "createdAt": row["created_at"],
+                    "agreements": json.loads(row["agreements_json"] or "[]"),
                 }
                 for row in rows
             ])
@@ -6738,6 +6742,24 @@ class AppHandler(BaseHTTPRequestHandler):
             if not title or not body:
                 self.send_json({"error": "Titulo y contenido requeridos"}, status=400)
                 return
+            raw_agreements = data.get("agreements") if isinstance(data.get("agreements"), list) else []
+            agreements = []
+            for raw_agreement in raw_agreements:
+                if not isinstance(raw_agreement, dict) or not text(raw_agreement.get("agreement")):
+                    continue
+                raw_responsibles = raw_agreement.get("responsibles") if isinstance(raw_agreement.get("responsibles"), list) else []
+                closure = raw_agreement.get("managementClosure") if isinstance(raw_agreement.get("managementClosure"), dict) else {}
+                agreements.append({
+                    "id": text(raw_agreement.get("id"), str(uuid.uuid4())),
+                    "agreement": text(raw_agreement.get("agreement")),
+                    "responsibles": list(dict.fromkeys(text(value) for value in raw_responsibles if text(value))),
+                    "managementClosure": {
+                        "closed": bool(closure.get("closed")),
+                        "note": text(closure.get("note")),
+                        "validatedBy": text(closure.get("validatedBy")),
+                        "validatedAt": text(closure.get("validatedAt")),
+                    },
+                })
             payload = {
                 "id": minute_id,
                 "title": title,
@@ -6746,18 +6768,20 @@ class AppHandler(BaseHTTPRequestHandler):
                 "body": body,
                 "created_by": text(data.get("createdBy"), "Sistema Gerencial"),
                 "created_at": text(data.get("createdAt"), time.strftime("%Y-%m-%dT%H:%M:%S")),
+                "agreements_json": json.dumps(agreements, ensure_ascii=False),
             }
             with connect() as conn:
                 conn.execute("""
-                    INSERT INTO minutes (id, title, area, date, body, created_by, created_at)
-                    VALUES (:id, :title, :area, :date, :body, :created_by, :created_at)
+                    INSERT INTO minutes (id, title, area, date, body, created_by, created_at, agreements_json)
+                    VALUES (:id, :title, :area, :date, :body, :created_by, :created_at, :agreements_json)
                     ON CONFLICT(id) DO UPDATE SET
                         title = excluded.title,
                         area = excluded.area,
                         date = excluded.date,
                         body = excluded.body,
                         created_by = excluded.created_by,
-                        created_at = excluded.created_at
+                        created_at = excluded.created_at,
+                        agreements_json = excluded.agreements_json
                 """, payload)
             self.send_json({"ok": True, "minute": data}, status=201)
             return
