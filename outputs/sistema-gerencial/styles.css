@@ -20857,3 +20857,44 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .commercial-agenda-gantt-head,.commercial-agenda-gantt-row{grid-template-columns:190px minmax(1440px,1fr);min-width:1630px}
 .commercial-agenda-gantt-head>div{grid-template-columns:repeat(24,1fr)}
 .commercial-agenda-gantt-track{background:repeating-linear-gradient(90deg,transparent 0,transparent calc(4.1667% - 1px),rgba(130,160,187,.18) calc(4.1667% - 1px),rgba(130,160,187,.18) 4.1667%)}
+
+/* Historial de actas: archivo ejecutivo, compacto y fácil de consultar. */
+.app-shell .minutes-history-mode{gap:14px}
+.app-shell .minutes-history-mode .minutes-hero{min-height:auto;padding:16px 22px;border-radius:22px}
+.app-shell .minutes-history-mode .minutes-hero h3{font-size:28px}
+.app-shell .minutes-history-mode .minutes-hero .muted-copy{margin-top:3px;font-size:13px}
+.app-shell .minutes-history-mode .minutes-counter{min-width:132px;padding:9px 14px;border-radius:18px}
+.app-shell .minutes-history-mode .minutes-counter strong{font-size:27px}
+.app-shell .minutes-history-card{padding:20px;border-radius:24px}
+.app-shell .minutes-history-head{align-items:end;margin-bottom:16px}
+.app-shell .minutes-history-head h4{font-size:27px}
+.app-shell .minute-history-caption{margin:5px 0 0;color:rgba(207,220,239,.68);font-size:13px;font-weight:650}
+.app-shell .minutes-history-head .compact-search{width:min(680px,55%)}
+.app-shell .minutes-history-head .compact-search input{width:100%;min-height:50px;padding:0 17px;border:1px solid rgba(173,202,235,.28);border-radius:15px;background:linear-gradient(145deg,rgba(92,112,147,.54),rgba(25,40,67,.82));color:#f8fbff;font:inherit;font-weight:750;box-shadow:inset 0 1px 0 rgba(255,255,255,.1)}
+.app-shell .minutes-history-head .compact-search input::placeholder{color:rgba(220,231,246,.55)}
+.app-shell .minutes-history-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.app-shell .minutes-history-summary article{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:68px;padding:12px 15px;border:1px solid rgba(104,219,196,.17);border-radius:16px;background:linear-gradient(145deg,rgba(27,65,81,.6),rgba(17,38,63,.72))}
+.app-shell .minutes-history-summary span{color:rgba(201,216,235,.72);font-size:10px;font-weight:900;letter-spacing:.045em;text-transform:uppercase}
+.app-shell .minutes-history-summary strong{color:#70eed2;font-size:25px}
+.app-shell .minutes-history-results{margin:0 2px 10px;color:rgba(197,213,234,.72);font-size:12px;font-weight:750}
+.app-shell .minutes-history-results strong{color:#72f5d1;font-size:15px}
+.app-shell .minutes-history-list{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:12px;max-height:none;overflow:visible;padding-right:0}
+.app-shell .minute-history-item{display:flex;min-width:0;min-height:292px;flex-direction:column;gap:12px;padding:16px;border-color:rgba(150,183,216,.2);border-radius:20px;background:linear-gradient(145deg,rgba(28,52,83,.82),rgba(11,26,49,.86));box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 12px 28px rgba(2,10,24,.15);transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.app-shell .minute-history-item:hover{transform:translateY(-2px);border-color:rgba(91,226,198,.38);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 16px 34px rgba(2,10,24,.24)}
+.app-shell .minute-history-item-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:11px;border-bottom:1px solid rgba(142,176,209,.17)}
+.app-shell .minute-history-date{display:grid;gap:2px}
+.app-shell .minute-history-date span{color:rgba(177,197,221,.58);font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+.app-shell .minute-history-date time{color:#76f1d5;font-size:14px;font-weight:900}
+.app-shell .minute-history-actions{gap:6px}
+.app-shell .minute-history-actions .minute-action-icon{width:36px;height:36px;border-radius:12px}
+.app-shell .minute-history-identity{display:grid;gap:5px;min-width:0}
+.app-shell .minute-history-area{justify-self:start;padding:5px 9px;border:1px solid rgba(86,225,195,.25);border-radius:999px;background:rgba(21,115,101,.2);color:#73ead1!important;font-size:9px!important;font-weight:900;text-transform:uppercase}
+.app-shell .minute-history-identity strong{overflow:hidden;color:#f5f9ff;font-size:18px;line-height:1.24;text-overflow:ellipsis;white-space:nowrap}
+.app-shell .minute-history-identity small{overflow:hidden;color:rgba(192,208,229,.66);font-size:11px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.app-shell .minute-preview{position:relative;flex:1;max-height:138px;padding:12px 14px;border-color:rgba(178,198,222,.16);border-radius:15px;background:rgba(238,244,248,.055);font-size:12px;line-height:1.45}
+.app-shell .minute-preview-label{display:block;margin-bottom:7px;color:rgba(121,239,214,.72)!important;font-size:9px!important;font-weight:900;letter-spacing:.055em;text-transform:uppercase}
+.app-shell .minute-preview>div{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:4}
+.app-shell .minute-preview>div>*:first-child{margin-top:0}
+.app-shell .minute-preview>div>*:last-child{margin-bottom:0}
+@media(max-width:1180px){.app-shell .minutes-history-head{align-items:stretch;flex-direction:column}.app-shell .minutes-history-head .compact-search{width:100%}.app-shell .minutes-history-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.app-shell .minutes-history-list{grid-template-columns:1fr}.app-shell .minute-history-item{min-height:0}}
+@media(max-width:620px){.app-shell .minutes-history-summary{grid-template-columns:1fr}.app-shell .minutes-history-mode .minutes-hero{align-items:stretch}.app-shell .minute-history-item-head{align-items:flex-start}.app-shell .minute-history-actions{flex-shrink:0}}

@@ -13127,8 +13127,13 @@ function closeMinuteFullscreen() {
 
 function renderAdminMinutesPanel() {
   const query = normalizeKey(state.adminMinuteQuery);
-  const minutes = [...state.minutes].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  const filtered = minutes.filter((item) => !query || normalizeKey([item.title, item.area, item.createdBy, item.body].join(" ")).includes(query));
+  const minutes = [...state.minutes].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || new Date(b.createdAt) - new Date(a.createdAt));
+  const filtered = minutes.filter((item) => !query || normalizeKey([item.title, item.area, item.createdBy, item.date, formatDate(item.date), item.body].join(" ")).includes(query));
+  const currentMonth = todayISO().slice(0, 7);
+  const currentYear = todayISO().slice(0, 4);
+  const monthMinutes = minutes.filter((item) => String(item.date || "").startsWith(currentMonth)).length;
+  const yearMinutes = minutes.filter((item) => String(item.date || "").startsWith(currentYear)).length;
+  const minuteAreas = new Set(minutes.map((item) => normalizeKey(item.area)).filter(Boolean)).size;
   const canCreate = canCreateAdminMinutes();
   const canViewHistory = canViewAdminMinuteHistory();
   const availableViews = [canCreate ? "new" : "", canViewHistory ? "history" : ""].filter(Boolean);
@@ -13137,7 +13142,7 @@ function renderAdminMinutesPanel() {
     ? state.minutes.find((item) => item.id === state.adminMinuteEditId) || null
     : null;
   return `
-    <div class="admin-shell minutes-shell">
+    <div class="admin-shell minutes-shell ${state.adminMinuteView === "history" ? "minutes-history-mode" : ""}">
       <div class="admin-hero minutes-hero">
         <div>
           <p class="eyebrow">Administracion / Actas</p>
@@ -13158,27 +13163,44 @@ function renderAdminMinutesPanel() {
         <section class="minutes-history-card" aria-label="Historial de actas">
         <div class="minutes-history-head">
           <div>
-            <p class="eyebrow">Historial</p>
-            <h4>${filtered.length} actas registradas</h4>
+            <p class="eyebrow">Archivo institucional</p>
+            <h4>Historial de actas</h4>
+            <p class="minute-history-caption">Consulta acuerdos, responsables y antecedentes de cada reunión.</p>
           </div>
           <label class="admin-search compact-search">
-            <span>Buscar acta</span>
-            <input id="minuteSearchInput" type="search" value="${escapeHtml(state.adminMinuteQuery)}" placeholder="Titulo, gerencia o acuerdo">
+            <span>Buscar en el historial</span>
+            <input id="minuteSearchInput" type="search" value="${escapeHtml(state.adminMinuteQuery)}" placeholder="Título, fecha, gerencia, responsable o acuerdo...">
           </label>
         </div>
+        <div class="minutes-history-summary" aria-label="Resumen del historial">
+          <article><span>Total de actas</span><strong>${minutes.length}</strong></article>
+          <article><span>Registradas este mes</span><strong>${monthMinutes}</strong></article>
+          <article><span>Registradas este año</span><strong>${yearMinutes}</strong></article>
+          <article><span>Gerencias / reuniones</span><strong>${minuteAreas}</strong></article>
+        </div>
+        <div class="minutes-history-results"><strong>${filtered.length}</strong> ${filtered.length === 1 ? "acta encontrada" : "actas encontradas"}${query ? " para esta búsqueda" : ""}</div>
         <div class="minutes-history-list">
           ${filtered.length ? filtered.map((item) => `
             <article class="minute-history-item">
-              <div>
-                <time>${formatDate(item.date)}</time>
+              <header class="minute-history-item-head">
+                <div class="minute-history-date">
+                  <span>Fecha del acta</span>
+                  <time datetime="${escapeHtml(item.date)}">${formatDate(item.date)}</time>
+                </div>
+                <div class="minute-history-actions">
+                  <button class="action-icon-btn minute-action-icon" type="button" title="Ver acta completa" aria-label="Ver acta completa" data-minutes-action="fullscreen-existing" data-minute-id="${escapeHtml(item.id)}">⛶</button>
+                  ${canCreate ? `<button class="action-icon-btn minute-action-icon" type="button" title="Editar acta" aria-label="Editar acta" data-minutes-action="edit" data-minute-id="${escapeHtml(item.id)}">✎</button>` : ""}
+                  ${canCreate ? `<button class="action-icon-btn minute-action-icon danger" type="button" title="Eliminar acta" aria-label="Eliminar acta" data-minutes-action="delete" data-minute-id="${escapeHtml(item.id)}">⌫</button>` : ""}
+                </div>
+              </header>
+              <div class="minute-history-identity">
+                <span class="minute-history-area">${escapeHtml(item.area)}</span>
                 <strong>${escapeHtml(item.title)}</strong>
-                <span>${escapeHtml(item.area)} · ${escapeHtml(item.createdBy)}</span>
+                <small>Registrada por ${escapeHtml(item.createdBy)}</small>
               </div>
-              <div class="minute-preview">${item.body || "<em>Sin contenido.</em>"}</div>
-              <div class="minute-history-actions">
-                <button class="action-icon-btn minute-action-icon" type="button" title="Vista panoramica" aria-label="Abrir acta en vista panoramica" data-minutes-action="fullscreen-existing" data-minute-id="${escapeHtml(item.id)}">⛶</button>
-                ${canCreate ? `<button class="action-icon-btn minute-action-icon" type="button" title="Editar acta" aria-label="Editar acta" data-minutes-action="edit" data-minute-id="${escapeHtml(item.id)}">✎</button>` : ""}
-                ${canCreate ? `<button class="action-icon-btn minute-action-icon danger" type="button" title="Eliminar acta" aria-label="Eliminar acta" data-minutes-action="delete" data-minute-id="${escapeHtml(item.id)}">⌫</button>` : ""}
+              <div class="minute-preview">
+                <span class="minute-preview-label">Resumen del contenido</span>
+                <div>${item.body || "<em>Sin contenido registrado.</em>"}</div>
               </div>
             </article>
           `).join("") : `
