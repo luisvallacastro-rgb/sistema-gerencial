@@ -317,7 +317,6 @@ const state = {
   financialOrderMonthFilter: "all",
   commercialMetricsYear: "",
   commercialMetricsMonth: "all",
-  commercialMetricsSeller: "all",
   accountsReceivable: [],
   accountsReceivableQuery: "",
   accountsReceivablePage: 1,
@@ -6290,11 +6289,9 @@ function commercialMetricsPeriodRows() {
   }
   const rows = ledgerRows.filter((order) => {
     const date = String(order.date || "").slice(0, 10);
-    const [dateYear, dateMonth] = date.split("-").map(Number);
+    const [dateYear] = date.split("-").map(Number);
     const effectiveYear = Number.isFinite(dateYear) ? String(dateYear) : String(order.year || "");
-    const effectiveMonth = Number.isFinite(dateMonth) ? monthLabel(dateMonth) : String(order.month || "");
     if (state.commercialMetricsYear !== "all" && effectiveYear !== state.commercialMetricsYear) return false;
-    if (state.commercialMetricsMonth !== "all" && effectiveMonth !== state.commercialMetricsMonth) return false;
     return true;
   });
   return { years, rows };
@@ -6303,53 +6300,58 @@ function commercialMetricsPeriodRows() {
 function renderCommercialMetrics() {
   const { years, rows } = commercialMetricsPeriodRows();
   const totalSales = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
-  const grouped = new Map();
+  const months = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
+  const grouped = new Map(months.map((month, index) => [month, { month, monthNumber: index + 1, orders: 0, sales: 0 }]));
   rows.forEach((order) => {
-    const seller = String(controlSalesResponsibleSeller(order) || "Sin vendedor asignado").trim();
-    const key = normalizeKey(seller);
-    const current = grouped.get(key) || { key, seller, orders: 0, sales: 0 };
+    const dateMonth = Number(String(order.date || "").slice(5, 7));
+    const month = Number.isFinite(dateMonth) && dateMonth >= 1 && dateMonth <= 12 ? monthLabel(dateMonth) : String(order.month || "Sin mes");
+    const current = grouped.get(month) || { month, monthNumber: 13, orders: 0, sales: 0 };
     current.orders += 1;
     current.sales += Number(order.sale || 0);
-    grouped.set(key, current);
+    grouped.set(month, current);
   });
-  const sellers = [...grouped.values()].sort((a, b) => b.sales - a.sales || b.orders - a.orders || a.seller.localeCompare(b.seller, "es"));
-  if (state.commercialMetricsSeller !== "all" && !grouped.has(state.commercialMetricsSeller)) state.commercialMetricsSeller = "all";
-  const selected = state.commercialMetricsSeller === "all" ? null : grouped.get(state.commercialMetricsSeller);
-  const detailRows = rows.filter((order) => !selected || normalizeKey(controlSalesResponsibleSeller(order)) === selected.key)
+  const monthlyRows = [...grouped.values()].filter((row) => row.orders > 0).sort((a, b) => a.monthNumber - b.monthNumber);
+  if (state.commercialMetricsMonth !== "all" && !monthlyRows.some((row) => row.month === state.commercialMetricsMonth)) state.commercialMetricsMonth = "all";
+  const selectedMonth = state.commercialMetricsMonth;
+  const detailRows = rows.filter((order) => {
+    if (selectedMonth === "all") return true;
+    const dateMonth = Number(String(order.date || "").slice(5, 7));
+    const effectiveMonth = Number.isFinite(dateMonth) && dateMonth >= 1 && dateMonth <= 12 ? monthLabel(dateMonth) : String(order.month || "");
+    return effectiveMonth === selectedMonth;
+  })
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || financialOrderRealNumber(b).localeCompare(financialOrderRealNumber(a), "es", { numeric: true }));
   const detailSales = detailRows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
-  const months = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
-  const period = state.commercialMetricsMonth === "all"
+  const sellerCount = new Set(rows.map((order) => normalizeKey(controlSalesResponsibleSeller(order))).filter(Boolean)).size;
+  const period = selectedMonth === "all"
     ? (state.commercialMetricsYear === "all" ? "Todos los períodos" : `Año ${state.commercialMetricsYear}`)
-    : `${state.commercialMetricsMonth} ${state.commercialMetricsYear === "all" ? "" : state.commercialMetricsYear}`.trim();
+    : `${selectedMonth} ${state.commercialMetricsYear === "all" ? "" : state.commercialMetricsYear}`.trim();
   return `
     <section class="commercial-metrics" aria-label="Métricas de pedidos">
       <header class="commercial-metrics-hero">
-        <div><span>Inteligencia comercial</span><h2>Pedidos consolidados</h2><p>Selecciona un vendedor para consultar los pedidos que componen su resultado.</p></div>
+        <div><span>Inteligencia comercial</span><h2>Pedidos consolidados</h2><p>Selecciona un mes para consultar los pedidos que componen su resultado.</p></div>
         <div class="commercial-metrics-filters">
-          <label><span>Año</span><select data-commercial-metrics-year><option value="all" ${state.commercialMetricsYear === "all" ? "selected" : ""}>Todos</option>${years.map((year) => `<option value="${escapeHtml(year)}" ${state.commercialMetricsYear === year ? "selected" : ""}>${escapeHtml(year)}</option>`).join("")}</select></label>
-          <label><span>Mes</span><select data-commercial-metrics-month><option value="all">Todos</option>${months.map((month) => `<option value="${month}" ${state.commercialMetricsMonth === month ? "selected" : ""}>${month}</option>`).join("")}</select></label>
+          <label><span>Año</span><select data-commercial-metrics-year>${years.map((year) => `<option value="${escapeHtml(year)}" ${state.commercialMetricsYear === year ? "selected" : ""}>${escapeHtml(year)}</option>`).join("") || `<option value="all">Sin datos</option>`}</select></label>
         </div>
       </header>
       <div class="commercial-metrics-totals">
-        <article><span>Pedidos</span><strong>${rows.length.toLocaleString("es-SV")}</strong><small>${escapeHtml(period)}</small></article>
+        <article><span>Pedidos</span><strong>${rows.length.toLocaleString("es-SV")}</strong><small>${state.commercialMetricsYear === "all" ? "Todos los períodos" : `Año ${escapeHtml(state.commercialMetricsYear)}`}</small></article>
         <article><span>Venta consolidada</span><strong>${formatMoney(totalSales)}</strong><small>Órdenes autorizadas</small></article>
-        <article><span>Vendedores</span><strong>${sellers.length.toLocaleString("es-SV")}</strong><small>Con pedidos en el período</small></article>
+        <article><span>Vendedores</span><strong>${sellerCount.toLocaleString("es-SV")}</strong><small>Con pedidos en el año</small></article>
       </div>
       <div class="commercial-metrics-grid">
         <section class="commercial-metrics-summary">
-          <header><div><span>Sumaria</span><h3>Resultado por vendedor</h3></div><small>Haz clic en una línea</small></header>
-          <div class="commercial-metrics-summary-table" role="table" aria-label="Sumaria de pedidos por vendedor">
-            <div class="commercial-metrics-summary-row table-head" role="row"><span>Vendedor</span><span>Pedidos</span><span>Venta</span><span>%</span><span></span></div>
-            ${sellers.map((row) => {
+          <header><div><span>Sumaria mensual</span><h3>Resultado por mes</h3></div><small>Haz clic en una línea</small></header>
+          <div class="commercial-metrics-summary-table" role="table" aria-label="Sumaria mensual de pedidos">
+            <div class="commercial-metrics-summary-row table-head" role="row"><span>Mes</span><span>Pedidos</span><span>Venta</span><span>%</span><span></span></div>
+            ${monthlyRows.map((row) => {
               const percentage = totalSales ? row.sales / totalSales * 100 : 0;
-              return `<button type="button" class="commercial-metrics-summary-row ${state.commercialMetricsSeller === row.key ? "active" : ""}" data-commercial-metrics-seller="${escapeHtml(row.key)}" role="row" aria-label="Ver pedidos de ${escapeHtml(row.seller)}"><strong>${escapeHtml(row.seller)}</strong><span>${row.orders.toLocaleString("es-SV")}</span><span class="money">${formatMoney(row.sales)}</span><span>${percentage.toFixed(2)}%</span><i aria-hidden="true">›</i></button>`;
+              return `<button type="button" class="commercial-metrics-summary-row ${selectedMonth === row.month ? "active" : ""}" data-commercial-metrics-month="${escapeHtml(row.month)}" role="row" aria-label="Ver pedidos de ${escapeHtml(row.month)}"><strong>${escapeHtml(row.month)}</strong><span>${row.orders.toLocaleString("es-SV")}</span><span class="money">${formatMoney(row.sales)}</span><span>${percentage.toFixed(2)}%</span><i aria-hidden="true">›</i></button>`;
             }).join("") || `<div class="commercial-metrics-empty">No hay pedidos en el período seleccionado.</div>`}
-            ${rows.length ? `<button type="button" class="commercial-metrics-summary-row total ${state.commercialMetricsSeller === "all" ? "active" : ""}" data-commercial-metrics-seller="all" role="row"><strong>Total</strong><span>${rows.length.toLocaleString("es-SV")}</span><span class="money">${formatMoney(totalSales)}</span><span>100.00%</span><i aria-hidden="true">›</i></button>` : ""}
+            ${rows.length ? `<button type="button" class="commercial-metrics-summary-row total ${selectedMonth === "all" ? "active" : ""}" data-commercial-metrics-month="all" role="row"><strong>Total anual</strong><span>${rows.length.toLocaleString("es-SV")}</span><span class="money">${formatMoney(totalSales)}</span><span>100.00%</span><i aria-hidden="true">›</i></button>` : ""}
           </div>
         </section>
         <section class="commercial-metrics-detail">
-          <header><div><span>Detalle de pedidos</span><h3>${escapeHtml(selected?.seller || "Todos los vendedores")}</h3><p>${detailRows.length.toLocaleString("es-SV")} pedidos · ${formatMoney(detailSales)}</p></div><strong>${escapeHtml(period)}</strong></header>
+          <header><div><span>Detalle de pedidos</span><h3>${selectedMonth === "all" ? "Todos los meses" : escapeHtml(selectedMonth)}</h3><p>${detailRows.length.toLocaleString("es-SV")} pedidos · ${formatMoney(detailSales)}</p></div><strong>${escapeHtml(period)}</strong></header>
           <div class="commercial-metrics-detail-table" role="table" aria-label="Detalle de pedidos">
             <div class="commercial-metrics-detail-row table-head" role="row"><span>Fecha</span><span>Pedido</span><span>Cliente</span><span>Vendedor</span><span>Venta</span></div>
             ${detailRows.map((order) => `<article class="commercial-metrics-detail-row" role="row"><time datetime="${escapeHtml(String(order.date || "").slice(0, 10))}">${formatDate(order.date)}</time><strong>${escapeHtml(financialOrderRealNumber(order))}</strong><span title="${escapeHtml(order.client || "Sin cliente")}">${escapeHtml(order.client || "Sin cliente")}</span><span>${escapeHtml(controlSalesResponsibleSeller(order) || "Sin vendedor")}</span><strong class="money">${formatMoney(order.sale)}</strong></article>`).join("") || `<div class="commercial-metrics-empty">No hay pedidos para mostrar.</div>`}
@@ -6362,16 +6364,11 @@ function renderCommercialMetrics() {
 function wireCommercialMetrics() {
   opportunityTable.querySelector("[data-commercial-metrics-year]")?.addEventListener("change", (event) => {
     state.commercialMetricsYear = event.target.value;
-    state.commercialMetricsSeller = "all";
+    state.commercialMetricsMonth = "all";
     renderCommercialSubmenu(areas.comercializacion);
   });
-  opportunityTable.querySelector("[data-commercial-metrics-month]")?.addEventListener("change", (event) => {
-    state.commercialMetricsMonth = event.target.value;
-    state.commercialMetricsSeller = "all";
-    renderCommercialSubmenu(areas.comercializacion);
-  });
-  opportunityTable.querySelectorAll("[data-commercial-metrics-seller]").forEach((button) => button.addEventListener("click", () => {
-    state.commercialMetricsSeller = button.dataset.commercialMetricsSeller;
+  opportunityTable.querySelectorAll("[data-commercial-metrics-month]").forEach((button) => button.addEventListener("click", () => {
+    state.commercialMetricsMonth = button.dataset.commercialMetricsMonth;
     renderCommercialSubmenu(areas.comercializacion);
   }));
 }
