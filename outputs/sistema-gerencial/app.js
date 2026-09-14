@@ -1379,6 +1379,11 @@ function formatDate(value) {
   return `${day}/${month}/${year}`;
 }
 
+function formatControlSalesDelivery(value) {
+  const delivery = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(delivery) ? formatDate(delivery) : delivery;
+}
+
 function todayISO() {
   const now = new Date();
   return `${now.getFullYear()}-${padded(now.getMonth() + 1)}-${padded(now.getDate())}`;
@@ -3223,7 +3228,7 @@ function ensureControlSalesDialogs() {
           <label>NIT<input id="controlSalesTaxId"></label>
           <label>Número de registro<input id="controlSalesRegistrationNumber"></label>
           <label>Tipo de contribuyente<input id="controlSalesTaxpayerType" list="controlSalesTaxpayerTypes"><datalist id="controlSalesTaxpayerTypes"><option value="Gran contribuyente"><option value="Mediano contribuyente"><option value="Pequeño contribuyente"><option value="No contribuyente"></datalist></label>
-          <label>Fecha de entrega <small>Opcional · Operaciones</small><input id="controlSalesDeliveryDate" type="date"></label>
+          <label>Fecha o condición de entrega <small>Quedará guardada en la OP</small><input id="controlSalesDeliveryDate" type="text" maxlength="180" placeholder="Ej. 30 días hábiles después de la orden de compra"></label>
           <label>Condición de pago<select id="controlSalesPaymentTerms"><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label>
           <label class="control-sales-strategy-field">Tipo de estrategia<select id="controlSalesStrategy"><option value="">Seleccionar estrategia</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label>
           <label>Código de cliente<input id="controlSalesCustomerCode"></label>
@@ -5286,6 +5291,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   document.querySelector("#controlSalesClient").value = sourceOrder?.client || order?.client || sourceQuotation?.client || sourceWin?.company || "";
   const quotationData = sourceQuotation ? {
     ...(sourceQuotation.customerData || {}),
+    deliveryDate: sourceQuotation.deliveryTerms || sourceQuotation.customerData?.deliveryDate || "",
     paymentTerms: sourceQuotation.paymentTerms || "",
     generalNotes: sourceQuotation.printObservation || sourceQuotation.customerData?.printObservation || sourceQuotation.commercialNotes || "",
     applyVat: sourceQuotation.documentType === "CCF"
@@ -5298,6 +5304,7 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
     ? { ...(order.proformaData || {}), applyVat: order.proformaData?.applyVat ?? Number(order.vatTotalCents || 0) > 0 }
     : quotationData;
   fillControlSalesProformaData(inheritedProforma, order || sourceOrder);
+  document.querySelector("#controlSalesDeliveryDate").required = !order;
   fillControlSalesFinancialData(sourceOrder || {}, order || {
     number: document.querySelector("#controlSalesNumber").value,
     date: document.querySelector("#controlSalesDate").value,
@@ -5544,7 +5551,7 @@ function printControlSalesProformaInline(order, options = {}) {
     <div class="field"><label>NIT No.:</label><strong>${value(data.taxId)}</strong></div>
     <div class="field"><label>Registro No.:</label><strong>${value(data.registrationNumber)}</strong></div>
     <div class="field"><label>Tipo de Contribuyente:</label><strong>${value(data.taxpayerType)}</strong></div>
-    <div class="field"><label>Fecha de Entrega:</label><strong>${value(data.deliveryDate ? formatDate(data.deliveryDate) : "")}</strong></div>
+    <div class="field"><label>Fecha de Entrega:</label><strong>${value(formatControlSalesDelivery(data.deliveryDate))}</strong></div>
     <div class="field"><label>Condiciones de Pago:</label><strong>${value(data.paymentTerms)}</strong></div>
   </section>
   <table class="items"><thead><tr><th>CANTIDAD</th><th>DESCRIPCION</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${lineRows}${blankRows}</tbody></table>
@@ -5565,9 +5572,7 @@ function openControlSalesDeliveryPrintPrompt(order = {}, popup) {
   const storedDelivery = String(order.proformaData?.deliveryDate || "").trim();
   const quotationDelivery = String(quotation?.deliveryTerms || quotation?.customerData?.deliveryDate || "").trim();
   const suggestedDelivery = storedDelivery || quotationDelivery;
-  const promptDefault = /^\d{4}-\d{2}-\d{2}$/.test(suggestedDelivery)
-    ? formatDate(suggestedDelivery)
-    : suggestedDelivery;
+  const promptDefault = formatControlSalesDelivery(suggestedDelivery);
   const printableNumber = escapeHtml(formatOrderCorrelative(order.number || "BORRADOR"));
   popup.document.open();
   popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fecha de entrega · ${printableNumber}</title><style>
@@ -5586,6 +5591,12 @@ function openControlSalesDeliveryPrintPrompt(order = {}, popup) {
       input?.focus();
       return;
     }
+    const formDeliveryField = document.querySelector("#controlSalesDeliveryDate");
+    if (formDeliveryField) {
+      formDeliveryField.value = deliveryDate;
+      formDeliveryField.dispatchEvent(new Event("input", { bubbles:true }));
+      formDeliveryField.dispatchEvent(new Event("change", { bubbles:true }));
+    }
     const printableOrder = {
       ...order,
       proformaData: {
@@ -5593,23 +5604,33 @@ function openControlSalesDeliveryPrintPrompt(order = {}, popup) {
         deliveryDate
       }
     };
-    const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    localStorage.setItem(printKey, JSON.stringify(printableOrder));
-    popup.location.replace(`proforma-print.html?key=${encodeURIComponent(printKey)}`);
-    window.setTimeout(() => localStorage.removeItem(printKey), 5 * 60 * 1000);
+    loadControlSalesOrderPrint(printableOrder, popup);
   });
   input?.focus();
   input?.select();
 }
 
+function loadControlSalesOrderPrint(order, popup) {
+  const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem(printKey, JSON.stringify(order));
+  popup.location.replace(`proforma-print.html?key=${encodeURIComponent(printKey)}`);
+  window.setTimeout(() => localStorage.removeItem(printKey), 5 * 60 * 1000);
+}
+
 function printControlSalesProforma(order, options = {}) {
-  order = controlSalesPrintSnapshot(orderWithCurrentCustomerData(orderWithCurrentQuotationData(order)));
+  order = options.strictDraft
+    ? controlSalesPrintSnapshot(order)
+    : controlSalesPrintSnapshot(orderWithCurrentCustomerData(orderWithCurrentQuotationData(order)));
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
     return;
   }
-  openControlSalesDeliveryPrintPrompt(order, popup);
+  if (options.strictDraft) {
+    openControlSalesDeliveryPrintPrompt(order, popup);
+    return;
+  }
+  loadControlSalesOrderPrint(order, popup);
 }
 
 async function openControlSalesDetail(orderId, formatOnly = false) {
@@ -5636,7 +5657,7 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
       <summary><span><strong>Ver información completa</strong><small>Datos de proforma, desglose de impuestos y auditoría</small></span><i>⌄</i></summary>
       <div class="control-sales-review-more__content">
         ${warnings.length ? `<aside class="control-sales-warnings"><strong>⚠ Advertencias históricas</strong>${warnings.map((warning) => `<p>${escapeHtml(warning.description || warning.type || "Dato por revisar")}</p>`).join("")}</aside>` : ""}
-        <section class="control-sales-detail-proforma"><h4>Datos de proforma</h4><div><article><small>Nombre comercial</small><strong>${escapeHtml(order.proformaData?.commercialName || order.client || "—")}</strong></article><article><small>Razón social</small><strong>${escapeHtml(order.proformaData?.legalName || "—")}</strong></article><article><small>Encargado</small><strong>${escapeHtml(order.proformaData?.contactName || "—")}</strong></article><article><small>Entrega</small><strong>${escapeHtml(order.proformaData?.deliveryDate ? formatDate(order.proformaData.deliveryDate) : "—")}</strong></article><article><small>Condición de pago</small><strong>${escapeHtml(order.proformaData?.paymentTerms || "—")}</strong></article><article><small>Estrategia</small><strong>${escapeHtml(order.proformaData?.strategy || "—")}</strong></article></div></section>
+        <section class="control-sales-detail-proforma"><h4>Datos de proforma</h4><div><article><small>Nombre comercial</small><strong>${escapeHtml(order.proformaData?.commercialName || order.client || "—")}</strong></article><article><small>Razón social</small><strong>${escapeHtml(order.proformaData?.legalName || "—")}</strong></article><article><small>Encargado</small><strong>${escapeHtml(order.proformaData?.contactName || "—")}</strong></article><article><small>Entrega</small><strong>${escapeHtml(formatControlSalesDelivery(order.proformaData?.deliveryDate) || "—")}</strong></article><article><small>Condición de pago</small><strong>${escapeHtml(order.proformaData?.paymentTerms || "—")}</strong></article><article><small>Estrategia</small><strong>${escapeHtml(order.proformaData?.strategy || "—")}</strong></article></div></section>
         <div class="control-sales-detail-lines"><div class="control-sales-detail-row head"><span>#</span><span>Producto</span><span>Talla</span><span>Cantidad</span><span>Precio</span><span>IVA</span><span>Total</span></div>${order.details.map((detail, index) => `<article class="control-sales-detail-row"><span>${index + 1}</span><strong>${escapeHtml(detail.product)}</strong><span>${escapeHtml(detail.size || "—")}</span><span>${escapeHtml(detail.quantity)}</span><span>${detail.unitPriceCents == null ? "Revisar" : formatControlSalesMoney(detail.unitPriceCents)}</span><span>${formatControlSalesMoney(detail.vatCents)}</span><strong>${formatControlSalesMoney(detail.lineTotalCents)}</strong></article>`).join("")}</div>
         <section class="control-sales-audit"><h4>Historial del pedido</h4>${order.audit.map((entry) => `<article><strong>${escapeHtml(entry.action)}</strong><span>${escapeHtml(entry.userName)} · ${escapeHtml(entry.createdAt)}</span><small>${escapeHtml(entry.summary)}</small></article>`).join("") || `<p>Historial importado desde Excel.</p>`}</section>
       </div>
