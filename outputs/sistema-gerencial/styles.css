@@ -21052,8 +21052,8 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 @media(max-width:700px){.commercial-metrics-three-level .commercial-metrics-totals{grid-template-columns:1fr}.commercial-metrics-filter-panel{height:250px}.commercial-metrics-master{height:340px}}
 
 /* Métricas en dos pantallas verticales: filtros primero y detalle maestro al bajar. */
-.app-shell .commercial-panel.commercial-metrics-mode{overflow-x:hidden!important;overflow-y:auto!important;scroll-snap-type:y proximity;scrollbar-gutter:stable}
-.app-shell .commercial-panel.commercial-metrics-mode>.opportunity-table{height:auto!important;min-height:100%!important;max-height:none!important;overflow:visible!important}
+.app-shell .dashboard.opportunity-focus .commercial-panel.commercial-metrics-mode{overflow:hidden!important}
+.app-shell .dashboard.opportunity-focus .commercial-panel.commercial-metrics-mode>.opportunity-table{height:100%!important;min-height:0!important;max-height:none!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:auto;scroll-snap-type:y proximity;scrollbar-gutter:stable}
 .commercial-metrics-three-level{display:block;height:auto;min-height:100%}
 .commercial-metrics-overview{display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:12px;min-height:calc(100dvh - 145px);padding-bottom:18px;scroll-snap-align:start}
 .commercial-metrics-overview .commercial-metrics-filter-grid{min-height:0}
@@ -21063,4 +21063,4 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .commercial-metrics-filter-row{min-height:48px;padding:8px 14px;font-size:13px}.commercial-metrics-filter-row.table-head{min-height:38px;font-size:10px}
 .commercial-metrics-filter-row.month{grid-template-columns:minmax(70px,1fr) 34px minmax(66px,.82fr) 42px;gap:6px}.commercial-metrics-filter-row.seller{grid-template-columns:minmax(85px,1fr) 34px minmax(68px,.78fr);gap:6px}.commercial-metrics-filter-row.order{grid-template-columns:minmax(95px,.82fr) minmax(0,1.18fr);gap:8px}
 .commercial-metrics-master>header{min-height:72px;padding:12px 18px}.commercial-metrics-master>header h3{font-size:21px}.commercial-metrics-master>header p,.commercial-metrics-master>header>strong{font-size:12px}.commercial-metrics-master-row{min-height:52px;padding:9px 17px;font-size:13px}.commercial-metrics-master-row.table-head{min-height:42px;font-size:10px}
-@media(max-width:1180px){.commercial-metrics-overview{min-height:auto}.commercial-metrics-overview .commercial-metrics-filter-grid{grid-template-columns:1fr}.commercial-metrics-overview .commercial-metrics-filter-panel{height:320px}.commercial-metrics-master{min-height:520px}.app-shell .commercial-panel.commercial-metrics-mode{scroll-snap-type:none}}
+@media(max-width:1180px){.commercial-metrics-overview{min-height:auto}.commercial-metrics-overview .commercial-metrics-filter-grid{grid-template-columns:1fr}.commercial-metrics-overview .commercial-metrics-filter-panel{height:320px}.commercial-metrics-master{min-height:520px}.app-shell .dashboard.opportunity-focus .commercial-panel.commercial-metrics-mode>.opportunity-table{scroll-snap-type:none}}
