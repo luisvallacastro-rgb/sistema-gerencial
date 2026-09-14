@@ -5393,15 +5393,20 @@ function liveCustomerForControlSalesOrder(order = {}) {
 function orderWithCurrentCustomerData(order = {}) {
   const customer = liveCustomerForControlSalesOrder(order);
   if (!customer) return order;
+  const stored = order.proformaData || {};
   const currentCustomerData = Object.fromEntries(CONTROL_SALES_LIVE_CUSTOMER_FIELDS.map((field) => [field, customer[field] ?? ""]));
+  // A payment condition chosen on the quotation/OP is document-specific.
+  // Keep it after refreshing the live master-customer fields so reprints do
+  // not fall back to the customer's older default condition.
+  if (String(stored.paymentTerms || "").trim()) currentCustomerData.paymentTerms = stored.paymentTerms;
   return {
     ...order,
     customerId: customer.id || order.customerId || "",
     client: customer.commercialName || customer.legalName || order.client || "",
     proformaData: {
-      ...(order.proformaData || {}),
+      ...stored,
       ...currentCustomerData,
-      customerId: customer.id || order.proformaData?.customerId || ""
+      customerId: customer.id || stored.customerId || ""
     }
   };
 }

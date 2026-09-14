@@ -3090,6 +3090,11 @@ def apply_master_customer_to_control_sales(item, customer):
     proforma["clientNumber"] = client_number
     proforma["customerCode"] = text(customer.get("customerCode") or customer.get("code") or client_number)
     for target, sources in CONTROL_SALES_MASTER_CUSTOMER_FIELDS.items():
+        # Payment terms selected for this quotation/order are transactional.
+        # The customer's master value is only a default and must not overwrite
+        # a later revision of the document when its OP is synchronized.
+        if target == "paymentTerms" and text(proforma.get(target)):
+            continue
         value = next((text(customer.get(source)) for source in sources if text(customer.get(source))), "")
         if value:
             proforma[target] = value
