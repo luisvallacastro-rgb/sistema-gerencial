@@ -142,18 +142,6 @@ const areas = {
       },
       { key: "resultados-pedidos", label: "Pedidos", status: "Registro comercial de pedidos", items: [] },
       {
-        key: "resultados-dashboard",
-        label: "Dashboard",
-        status: "Acumulado comercial",
-        items: []
-      },
-      {
-        key: "kpi",
-        label: "KPI de Comercialización",
-        status: "Dashboard visual",
-        items: []
-      },
-      {
         key: "riesgos",
         label: "Riesgos",
         status: "Riesgos futuros",
