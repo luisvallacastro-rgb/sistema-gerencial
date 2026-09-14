@@ -2671,6 +2671,40 @@ def seed_accounts_receivable(conn):
     )
 
 
+def zero_2024_accounts_receivable_balances_once(conn):
+    """Close 2024 receivables without deleting or rewriting their history."""
+    migration_key = "maintenance.accounts-receivable-zero-2024.2026-09-14.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+
+    summary = conn.execute("""
+        SELECT COUNT(*) AS record_count,
+               COALESCE(SUM(balance), 0) AS previous_balance
+        FROM accounts_receivable
+        WHERE substr(due_date, 1, 4) = '2024'
+          AND ABS(COALESCE(balance, 0)) > 0.000001
+    """).fetchone()
+    updated_at = time.strftime("%Y-%m-%dT%H:%M:%S")
+    conn.execute("""
+        UPDATE accounts_receivable
+        SET balance = 0,
+            updated_at = ?
+        WHERE substr(due_date, 1, 4) = '2024'
+          AND ABS(COALESCE(balance, 0)) > 0.000001
+    """, (updated_at,))
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (migration_key, json.dumps({
+            "year": 2024,
+            "dateField": "due_date",
+            "updatedRecords": int(summary["record_count"] or 0),
+            "previousBalance": round(float(summary["previous_balance"] or 0), 2),
+            "newBalance": 0,
+            "appliedAt": updated_at,
+        }, ensure_ascii=False)),
+    )
+
+
 def seed_purchase_orders(conn):
     migration_key = "migration_purchase_orders_matrix_20260720_v1"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
@@ -6007,6 +6041,7 @@ def init_db():
         grant_availability_signer_permissions(conn)
         seed_accounts_receivable(conn)
         repair_receivable_due_dates(conn)
+        zero_2024_accounts_receivable_balances_once(conn)
         seed_bank_availability(conn)
         seed_bac_savings_account(conn)
         seed_purchase_orders(conn)
