@@ -21058,6 +21058,9 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .commercial-metrics-overview{display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:12px;height:calc(100dvh - 145px);min-height:0;padding-bottom:18px;scroll-snap-align:start}
 .commercial-metrics-overview .commercial-metrics-filter-grid{height:100%;min-height:0;overflow:hidden}
 .commercial-metrics-overview .commercial-metrics-filter-panel{height:100%;min-height:0}
+.commercial-metrics-overview .commercial-metrics-filter-list{display:flex;flex-direction:column}
+.commercial-metrics-overview .commercial-metrics-filter-row{flex:0 0 auto}
+.commercial-metrics-overview .commercial-metrics-filter-row.total{margin-top:auto}
 .commercial-metrics-overview .order-filter .commercial-metrics-filter-list{min-height:0;overflow-y:scroll;overscroll-behavior-y:contain;scrollbar-gutter:stable;scrollbar-color:#4aa2cf #102d49;scrollbar-width:auto}
 .commercial-metrics-overview .order-filter .commercial-metrics-filter-list::-webkit-scrollbar{width:10px}.commercial-metrics-overview .order-filter .commercial-metrics-filter-list::-webkit-scrollbar-track{background:#102d49}.commercial-metrics-overview .order-filter .commercial-metrics-filter-list::-webkit-scrollbar-thumb{border:2px solid #102d49;border-radius:99px;background:#4aa2cf}
 .commercial-metrics-master{min-height:calc(100dvh - 145px);margin-top:18px;scroll-snap-align:start}
