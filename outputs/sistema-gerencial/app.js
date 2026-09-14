@@ -6346,18 +6346,19 @@ function renderCommercialMetrics() {
     : `${selectedMonth} ${state.commercialMetricsYear === "all" ? "" : state.commercialMetricsYear}`.trim();
   return `
     <section class="commercial-metrics commercial-metrics-three-level" aria-label="Métricas de pedidos">
-      <header class="commercial-metrics-hero">
+      <section class="commercial-metrics-overview" aria-label="Filtros de métricas">
+        <header class="commercial-metrics-hero">
         <div><span>Inteligencia comercial</span><h2>Pedidos consolidados</h2><p>Selecciona un mes para consultar los pedidos que componen su resultado.</p></div>
         <div class="commercial-metrics-filters">
           <label><span>Año</span><select data-commercial-metrics-year>${years.map((year) => `<option value="${escapeHtml(year)}" ${state.commercialMetricsYear === year ? "selected" : ""}>${escapeHtml(year)}</option>`).join("") || `<option value="all">Sin datos</option>`}</select></label>
         </div>
-      </header>
-      <div class="commercial-metrics-totals">
+        </header>
+        <div class="commercial-metrics-totals">
         <article><span>Pedidos filtrados</span><strong>${detailRows.length.toLocaleString("es-SV")}</strong><small>${escapeHtml(period)}</small></article>
         <article><span>Venta filtrada</span><strong>${formatMoney(detailSales)}</strong><small>Resultado de los tres filtros</small></article>
         <article><span>Vendedores</span><strong>${sellerCount.toLocaleString("es-SV")}</strong><small>Con pedidos en el año</small></article>
-      </div>
-      <div class="commercial-metrics-filter-grid">
+        </div>
+        <div class="commercial-metrics-filter-grid">
         <section class="commercial-metrics-filter-panel month-filter">
           <header><div><span>Filtro 1</span><h3>Mes</h3></div><small>${monthlyRows.length} con actividad</small></header>
           <div class="commercial-metrics-filter-list" role="table" aria-label="Pedidos por mes">
@@ -6385,7 +6386,8 @@ function renderCommercialMetrics() {
             ${sellerFilteredRows.length ? `<button type="button" class="commercial-metrics-filter-row order total ${selectedOrder === "all" ? "active" : ""}" data-commercial-metrics-order="all" role="row"><strong>Todas</strong><span>${sellerFilteredRows.length} órdenes</span></button>` : ""}
           </div>
         </section>
-      </div>
+        </div>
+      </section>
       <section class="commercial-metrics-master">
         <header><div><span>Detalle maestro</span><h3>Pedidos seleccionados</h3><p>${detailRows.length} registros · ${formatMoney(detailSales)}</p></div><strong>${escapeHtml(period)}</strong></header>
         <div class="commercial-metrics-master-table" role="table" aria-label="Detalle maestro de pedidos">
