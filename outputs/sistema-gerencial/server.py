@@ -2952,6 +2952,25 @@ def control_sales_order_payload(conn, row, include_audit=False):
     return item
 
 
+def allocate_control_sales_vat(base_cents_values, apply_vat=True):
+    """Allocate VAT by line while preserving 13% of the full subtotal exactly."""
+    bases = [max(0, int(value or 0)) for value in base_cents_values]
+    if not apply_vat or not bases:
+        return [0 for _value in bases]
+    target = int((Decimal(sum(bases)) * Decimal("0.13")).quantize(
+        Decimal("1"), rounding=ROUND_HALF_UP
+    ))
+    allocations = [(base * 13) // 100 for base in bases]
+    remaining = target - sum(allocations)
+    ranked_indexes = sorted(
+        range(len(bases)),
+        key=lambda index: (-((bases[index] * 13) % 100), index),
+    )
+    for index in ranked_indexes[:remaining]:
+        allocations[index] += 1
+    return allocations
+
+
 def control_sales_validate(data, existing=None):
     current = dict(existing or {})
     number = text(data.get("number"), current.get("number") or "")
@@ -3004,7 +3023,6 @@ def control_sales_validate(data, existing=None):
         raise ValueError("La orden debe contener al menos una linea")
     details = []
     subtotal_cents = 0
-    vat_total_cents = 0
     for index, raw in enumerate(raw_details, start=1):
         product = text(raw.get("product"))
         if not product:
@@ -3021,16 +3039,21 @@ def control_sales_validate(data, existing=None):
         if unit_price_cents < 0:
             raise ValueError("El precio unitario debe ser mayor o igual a cero")
         base_cents = int((quantity * Decimal(unit_price_cents)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-        vat_cents = int((Decimal(base_cents) * Decimal("0.13")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) if apply_vat else 0
-        line_total_cents = base_cents + vat_cents
         subtotal_cents += base_cents
-        vat_total_cents += vat_cents
         details.append({
             "id": text(raw.get("id"), f"cvd-{uuid.uuid4()}"), "sequence": index,
             "product": product, "size": text(raw.get("size")), "quantity": quantity_text,
-            "unitPriceCents": unit_price_cents, "vatCents": vat_cents,
-            "lineTotalCents": line_total_cents, "notes": text(raw.get("notes")),
+            "unitPriceCents": unit_price_cents, "baseCents": base_cents,
+            "notes": text(raw.get("notes")),
         })
+    vat_allocations = allocate_control_sales_vat(
+        [detail["baseCents"] for detail in details], apply_vat
+    )
+    for detail, vat_cents in zip(details, vat_allocations):
+        base_cents = detail.pop("baseCents")
+        detail["vatCents"] = vat_cents
+        detail["lineTotalCents"] = base_cents + vat_cents
+    vat_total_cents = sum(vat_allocations)
     perception_cents = (
         int((Decimal(subtotal_cents) * Decimal("0.01")).quantize(
             Decimal("1"), rounding=ROUND_HALF_UP
@@ -4110,6 +4133,74 @@ def reconcile_order_2026090007_once(conn):
     conn.execute(
         "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
         (marker_key, json.dumps({"corrected": corrected}, ensure_ascii=False)),
+    )
+
+
+def reconcile_order_2026090017_vat_once(conn):
+    """Correct the two-cent line-rounding drift confirmed for OP 2026090017."""
+    marker_key = "maintenance.reconcile-order-2026090017-vat-80550.2026-09-14.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker_key,)).fetchone():
+        return
+    row = conn.execute("""
+        SELECT id, financial_order_id
+        FROM control_sales_orders
+        WHERE replace(upper(trim(order_number)), 'OP-', '') = '2026090017'
+          AND archived = 0
+        LIMIT 1
+    """).fetchone()
+    if not row:
+        return
+    corrected = False
+    previous_vat_cents = 0
+    target_vat_cents = 0
+    if row:
+        details = conn.execute("""
+            SELECT id, line_total_cents, vat_cents
+            FROM control_sales_details
+            WHERE order_id = ? AND active = 1
+            ORDER BY sequence, created_at, id
+        """, (row["id"],)).fetchall()
+        bases = [
+            int(detail["line_total_cents"] or 0) - int(detail["vat_cents"] or 0)
+            for detail in details
+        ]
+        allocations = allocate_control_sales_vat(bases, True)
+        previous_vat_cents = sum(int(detail["vat_cents"] or 0) for detail in details)
+        target_vat_cents = sum(allocations)
+        target_total_cents = sum(bases) + target_vat_cents
+        if details and target_vat_cents == 80550 and target_total_cents == 700164:
+            now = time.strftime("%Y-%m-%dT%H:%M:%S")
+            for detail, base_cents, vat_cents in zip(details, bases, allocations):
+                conn.execute("""
+                    UPDATE control_sales_details
+                    SET vat_cents = ?, line_total_cents = ?, updated_at = ?
+                    WHERE id = ?
+                """, (vat_cents, base_cents + vat_cents, now, detail["id"]))
+            conn.execute("""
+                UPDATE control_sales_orders
+                SET total_cents = 700164, expected_total_cents = 700164,
+                    variance_cents = 0, updated_by = ?, updated_at = ?
+                WHERE id = ?
+            """, ("Corrección automática IVA OP 2026090017", now, row["id"]))
+            if text(row["financial_order_id"]):
+                conn.execute("""
+                    UPDATE financial_orders
+                    SET sale = 7001.64, updated_by = ?, updated_at = ?
+                    WHERE id = ? AND deleted = 0
+                """, ("Corrección automática IVA OP 2026090017", now, row["financial_order_id"]))
+            conn.execute("""
+                INSERT INTO control_sales_audit
+                    (order_id, action, user_name, created_at, summary)
+                VALUES (?, 'correccion-iva', 'Sistema Gerencial', ?, ?)
+            """, (row["id"], now, "IVA corregido de $805.52 a $805.50; total corregido de $7,001.66 a $7,001.64"))
+            corrected = True
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker_key, json.dumps({
+            "corrected": corrected,
+            "previousVatCents": previous_vat_cents,
+            "targetVatCents": target_vat_cents,
+        }, ensure_ascii=False)),
     )
 
 
@@ -6052,6 +6143,7 @@ def init_db():
         normalize_control_sales_order_descriptions_once(conn)
         repair_document_customer_seals_once(conn)
         reconcile_order_2026090007_once(conn)
+        reconcile_order_2026090017_vat_once(conn)
         grant_control_sales_permissions(conn)
         correct_marjorie_account_email_once(conn)
         for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():

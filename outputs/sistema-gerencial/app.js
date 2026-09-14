@@ -3237,7 +3237,7 @@ function ensureControlSalesDialogs() {
         </div>
       </details>
       <fieldset class="control-sales-tax-mode"><legend>Presentación del comprobante impreso</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesDocumentType" value="CF" checked><span class="control-sales-tax-card"><b>CF</b><small>Precio final · IVA no detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CCF"><span class="control-sales-tax-card"><b>CCF</b><small>Crédito fiscal · IVA detallado</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesDocumentType" value="CE"><span class="control-sales-tax-card"><b>CE</b><small>Comprobante de envío · IVA no detallado</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
-      <fieldset class="control-sales-tax-mode"><legend>IVA de la orden de pedido</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesVatMode" value="without" checked><span class="control-sales-tax-card"><b>Mantener sin IVA</b><small>Conserva el total de la cotización</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesVatMode" value="with"><span class="control-sales-tax-card"><b>Agregar IVA 13%</b><small>Calcula el IVA sobre cada línea</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
+      <fieldset class="control-sales-tax-mode"><legend>IVA de la orden de pedido</legend><div class="control-sales-tax-options"><label><input type="radio" name="controlSalesVatMode" value="without" checked><span class="control-sales-tax-card"><b>Mantener sin IVA</b><small>Conserva el total de la cotización</small><i aria-hidden="true">✓</i></span></label><label><input type="radio" name="controlSalesVatMode" value="with"><span class="control-sales-tax-card"><b>Agregar IVA 13%</b><small>Calcula el IVA sobre el subtotal</small><i aria-hidden="true">✓</i></span></label></div></fieldset>
       <section class="control-sales-lines"><div class="control-sales-lines-title"><div><span>Detalle de productos</span><strong>Líneas dinámicas</strong></div><button type="button" data-control-sales-add-line>+ Agregar línea</button></div><div id="controlSalesLines"></div></section>
       <section class="control-sales-proforma-totals">
         <article><span>Subtotal</span><strong id="controlSalesSubtotal">$0.00</strong></article>
@@ -5178,15 +5178,31 @@ function updateControlSalesReconciliation(totalCents = null) {
       : `Pedido ${formatControlSalesMoney(expected)} · Descuadre ${formatControlSalesMoney(variance)}`;
 }
 
+function allocateControlSalesVat(baseCentsValues, applyVat = true) {
+  const bases = baseCentsValues.map((value) => Math.max(0, Math.round(Number(value) || 0)));
+  if (!applyVat || !bases.length) return bases.map(() => 0);
+  const target = Math.round(bases.reduce((sum, value) => sum + value, 0) * 13 / 100);
+  const allocations = bases.map((value) => Math.floor(value * 13 / 100));
+  const remaining = target - allocations.reduce((sum, value) => sum + value, 0);
+  const rankedIndexes = bases.map((value, index) => ({ index, remainder:(value * 13) % 100 }))
+    .sort((left, right) => right.remainder - left.remainder || left.index - right.index);
+  rankedIndexes.slice(0, remaining).forEach(({ index }) => { allocations[index] += 1; });
+  return allocations;
+}
+
 function updateControlSalesFormTotal() {
-  let subtotalCents = 0;
-  let vatCents = 0;
   const applyVat = document.querySelector('input[name="controlSalesVatMode"]:checked')?.value === "with";
-  document.querySelectorAll("#controlSalesLines .control-sales-line").forEach((line) => {
+  const lineCalculations = [...document.querySelectorAll("#controlSalesLines .control-sales-line")].map((line) => {
     const quantity = parseControlSalesDecimal(line.querySelector("[data-line-quantity]").value);
     const price = Math.round(Number(line.querySelector("[data-line-price]").value || 0) * 100);
     const base = Math.round(quantity * price);
-    const lineVat = applyVat ? Math.round(base * 0.13) : 0;
+    return { line, base };
+  });
+  const vatAllocations = allocateControlSalesVat(lineCalculations.map(({ base }) => base), applyVat);
+  let subtotalCents = 0;
+  let vatCents = 0;
+  lineCalculations.forEach(({ line, base }, index) => {
+    const lineVat = vatAllocations[index];
     const lineTotal = base + lineVat;
     subtotalCents += base;
     vatCents += lineVat;
@@ -5208,26 +5224,28 @@ function updateControlSalesFormTotal() {
 function controlSalesDraftFromForm() {
   const documentType = document.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF";
   const applyVat = document.querySelector('input[name="controlSalesVatMode"]:checked')?.value === "with";
-  let subtotalCents = 0;
-  let vatTotalCents = 0;
   const details = [...document.querySelectorAll("#controlSalesLines .control-sales-line")].map((line) => {
     const quantity = normalizeControlSalesDecimal(line.querySelector("[data-line-quantity]").value) || "0";
     const quantityValue = parseControlSalesDecimal(quantity);
     const unitPriceCents = Math.round(Number(line.querySelector("[data-line-price]").value || 0) * 100);
     const baseCents = Math.round(quantityValue * unitPriceCents);
-    const vatCents = applyVat ? Math.round(baseCents * 0.13) : 0;
-    subtotalCents += baseCents;
-    vatTotalCents += vatCents;
     return {
       product: line.querySelector("[data-line-product]").value.trim() || "Producto pendiente",
       size: line.querySelector("[data-line-size]").value.trim(),
       quantity,
       unitPriceCents,
-      vatCents,
-      lineTotalCents: baseCents + vatCents,
+      baseCents,
       notes: line.querySelector("[data-line-notes]").value.trim()
     };
   });
+  const subtotalCents = details.reduce((sum, detail) => sum + detail.baseCents, 0);
+  const vatAllocations = allocateControlSalesVat(details.map((detail) => detail.baseCents), applyVat);
+  details.forEach((detail, index) => {
+    detail.vatCents = vatAllocations[index];
+    detail.lineTotalCents = detail.baseCents + detail.vatCents;
+    delete detail.baseCents;
+  });
+  const vatTotalCents = vatAllocations.reduce((sum, value) => sum + value, 0);
   const perceptionCents = document.querySelector("#controlSalesPerceptionEnabled")?.checked
     ? Math.round(subtotalCents * 0.01)
     : 0;
@@ -5443,11 +5461,16 @@ function orderWithCurrentQuotationData(order = {}) {
     : [];
   if (!quotation || !lines.length) return order;
   const documentType = ["CF","CCF","CE"].includes(quotation.documentType) ? quotation.documentType : "CF";
-  const quotationDetails = lines.map((line, index) => {
+  const quotationBases = lines.map((line) => {
     const quantity = Number(String(line.quantity ?? 0).replace(",", ".")) || 0;
     const unitPriceCents = Number(line.unitPriceCents || 0);
-    const baseCents = Number(line.lineTotalCents ?? Math.round(quantity * unitPriceCents));
-    const vatCents = documentType === "CCF" ? Math.round(baseCents * 0.13) : 0;
+    return Number(line.lineTotalCents ?? Math.round(quantity * unitPriceCents));
+  });
+  const quotationVatAllocations = allocateControlSalesVat(quotationBases, documentType === "CCF");
+  const quotationDetails = lines.map((line, index) => {
+    const unitPriceCents = Number(line.unitPriceCents || 0);
+    const baseCents = quotationBases[index];
+    const vatCents = quotationVatAllocations[index];
     return {
       id: line.id || `quotation-print-line-${index + 1}`,
       product: String(line.description || line.product || "").trim(),
