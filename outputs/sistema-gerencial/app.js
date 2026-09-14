@@ -5560,20 +5560,48 @@ function printControlSalesProformaInline(order, options = {}) {
   popup.document.close();
 }
 
+function controlSalesOrderWithPrintDelivery(order = {}) {
+  const quotation = linkedQuotationForControlSalesOrder(order);
+  const storedDelivery = String(order.proformaData?.deliveryDate || "").trim();
+  const quotationDelivery = String(quotation?.deliveryTerms || quotation?.customerData?.deliveryDate || "").trim();
+  const suggestedDelivery = storedDelivery || quotationDelivery;
+  const promptDefault = /^\d{4}-\d{2}-\d{2}$/.test(suggestedDelivery)
+    ? formatDate(suggestedDelivery)
+    : suggestedDelivery;
+  const enteredDelivery = window.prompt(
+    "Fecha de entrega para esta OP\n\nEscribe una fecha o una condición, por ejemplo: 30 días hábiles después de la orden de compra.",
+    promptDefault
+  );
+  if (enteredDelivery === null) return null;
+  const deliveryDate = enteredDelivery.trim();
+  if (!deliveryDate) {
+    alert("Debes indicar la fecha o condición de entrega antes de imprimir la OP.");
+    return null;
+  }
+  return {
+    ...order,
+    proformaData: {
+      ...(order.proformaData || {}),
+      deliveryDate
+    }
+  };
+}
+
 function printControlSalesProforma(order, options = {}) {
   order = controlSalesPrintSnapshot(orderWithCurrentCustomerData(orderWithCurrentQuotationData(order)));
-  const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  localStorage.setItem(printKey, JSON.stringify(order));
-  const popup = window.open(
-    `proforma-print.html?key=${encodeURIComponent(printKey)}`,
-    "_blank",
-    "width=980,height=900"
-  );
+  const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
-    localStorage.removeItem(printKey);
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
     return;
   }
+  order = controlSalesOrderWithPrintDelivery(order);
+  if (!order) {
+    popup.close();
+    return;
+  }
+  const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem(printKey, JSON.stringify(order));
+  popup.location.replace(`proforma-print.html?key=${encodeURIComponent(printKey)}`);
   window.setTimeout(() => localStorage.removeItem(printKey), 5 * 60 * 1000);
 }
 
