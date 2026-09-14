@@ -3865,7 +3865,7 @@ def save_quotation(conn, data, existing_row=None):
                 "generalNotes": text(item["customerData"].get("printObservation"), item["commercialNotes"]),
                 "applyVat": item["documentType"] == "CCF",
             })
-            linked_details = [{
+            quotation_details = [{
                 "id": text(line.get("id"), f"cvd-{uuid.uuid4()}"),
                 "product": text(line.get("description")),
                 "size": text(line.get("size")),
@@ -3873,6 +3873,11 @@ def save_quotation(conn, data, existing_row=None):
                 "unitPriceCents": line.get("unitPriceCents"),
                 "notes": text(line.get("notes")),
             } for line in item["lines"] if text(line.get("type")).lower() != "title"]
+            existing_details = list(linked_order.get("details") or [])
+            preserve_manual_breakdown = len(existing_details) > 1 and len(quotation_details) == 1
+            linked_details = existing_details if preserve_manual_breakdown else quotation_details
+            if preserve_manual_breakdown:
+                linked_proforma["detailSource"] = "manual-breakdown"
             save_control_sales_order(conn, {
                 "financialOrderId": financial_order_id,
                 "sourceOpportunityId": linked_order.get("sourceOpportunityId") or item["opportunityId"],

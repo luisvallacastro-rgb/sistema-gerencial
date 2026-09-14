@@ -5436,7 +5436,7 @@ function orderWithCurrentQuotationData(order = {}) {
     : [];
   if (!quotation || !lines.length) return order;
   const documentType = ["CF","CCF","CE"].includes(quotation.documentType) ? quotation.documentType : "CF";
-  const details = lines.map((line, index) => {
+  const quotationDetails = lines.map((line, index) => {
     const quantity = Number(String(line.quantity ?? 0).replace(",", ".")) || 0;
     const unitPriceCents = Number(line.unitPriceCents || 0);
     const baseCents = Number(line.lineTotalCents ?? Math.round(quantity * unitPriceCents));
@@ -5452,9 +5452,16 @@ function orderWithCurrentQuotationData(order = {}) {
       notes: String(line.notes || "").trim()
     };
   });
-  const subtotalCents = Number(quotation.subtotalCents ?? details.reduce((sum, detail) => sum + detail.lineTotalCents - detail.vatCents, 0));
-  const vatTotalCents = documentType === "CCF" ? Number(quotation.vatCents ?? Math.round(subtotalCents * 0.13)) : 0;
-  const totalCents = Number(quotation.totalCents ?? subtotalCents + vatTotalCents);
+  const storedDetails = Array.isArray(order.details) ? order.details : [];
+  const preserveManualBreakdown = storedDetails.length > 1 && quotationDetails.length === 1;
+  const details = preserveManualBreakdown ? storedDetails : quotationDetails;
+  const detailSubtotalCents = details.reduce((sum, detail) => sum + Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0), 0);
+  const detailVatCents = details.reduce((sum, detail) => sum + Number(detail.vatCents || 0), 0);
+  const subtotalCents = preserveManualBreakdown ? Number(order.subtotalCents ?? detailSubtotalCents) : Number(quotation.subtotalCents ?? detailSubtotalCents);
+  const vatTotalCents = documentType === "CCF"
+    ? preserveManualBreakdown ? Number(order.vatTotalCents ?? detailVatCents) : Number(quotation.vatCents ?? Math.round(subtotalCents * 0.13))
+    : 0;
+  const totalCents = preserveManualBreakdown ? Number(order.totalCents ?? subtotalCents + vatTotalCents) : Number(quotation.totalCents ?? subtotalCents + vatTotalCents);
   return {
     ...order,
     client: quotation.client || order.client || "",
@@ -5468,6 +5475,7 @@ function orderWithCurrentQuotationData(order = {}) {
     proformaData: {
       ...(order.proformaData || {}),
       ...(quotation.customerData || {}),
+      detailSource: preserveManualBreakdown ? "manual-breakdown" : "quotation",
       paymentTerms: quotation.paymentTerms || order.proformaData?.paymentTerms || "",
       generalNotes: quotation.printObservation || quotation.customerData?.printObservation || quotation.commercialNotes || "",
       applyVat: documentType === "CCF"
