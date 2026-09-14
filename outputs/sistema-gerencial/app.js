@@ -5560,7 +5560,7 @@ function printControlSalesProformaInline(order, options = {}) {
   popup.document.close();
 }
 
-function controlSalesOrderWithPrintDelivery(order = {}) {
+function openControlSalesDeliveryPrintPrompt(order = {}, popup) {
   const quotation = linkedQuotationForControlSalesOrder(order);
   const storedDelivery = String(order.proformaData?.deliveryDate || "").trim();
   const quotationDelivery = String(quotation?.deliveryTerms || quotation?.customerData?.deliveryDate || "").trim();
@@ -5568,23 +5568,38 @@ function controlSalesOrderWithPrintDelivery(order = {}) {
   const promptDefault = /^\d{4}-\d{2}-\d{2}$/.test(suggestedDelivery)
     ? formatDate(suggestedDelivery)
     : suggestedDelivery;
-  const enteredDelivery = window.prompt(
-    "Fecha de entrega para esta OP\n\nEscribe una fecha o una condición, por ejemplo: 30 días hábiles después de la orden de compra.",
-    promptDefault
-  );
-  if (enteredDelivery === null) return null;
-  const deliveryDate = enteredDelivery.trim();
-  if (!deliveryDate) {
-    alert("Debes indicar la fecha o condición de entrega antes de imprimir la OP.");
-    return null;
-  }
-  return {
-    ...order,
-    proformaData: {
-      ...(order.proformaData || {}),
-      deliveryDate
+  const printableNumber = escapeHtml(formatOrderCorrelative(order.number || "BORRADOR"));
+  popup.document.open();
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fecha de entrega · ${printableNumber}</title><style>
+    *{box-sizing:border-box}html,body{min-height:100%;margin:0}body{display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top right,#174b4a 0,#10233f 48%,#07152a 100%);color:#f7fbff;font-family:Arial,Helvetica,sans-serif}.delivery-card{width:min(620px,100%);overflow:hidden;border:1px solid #3b6178;border-radius:22px;background:#132b49;box-shadow:0 28px 70px #02091599}.delivery-head{padding:28px 30px 22px;border-bottom:1px solid #365470;background:linear-gradient(120deg,#294566,#123f4a)}.delivery-head small{color:#67e5cb;font-size:11px;font-weight:900;letter-spacing:.14em}.delivery-head h1{margin:7px 0 5px;font-size:26px}.delivery-head p{margin:0;color:#b9c7d8;font-size:14px}.delivery-form{display:grid;gap:11px;padding:27px 30px 30px}.delivery-form label{font-size:13px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}.delivery-form input{width:100%;border:1px solid #557391;border-radius:12px;outline:0;padding:15px 16px;background:#263f60;color:#fff;font-size:16px;font-weight:700}.delivery-form input:focus{border-color:#62e2c9;box-shadow:0 0 0 3px #62e2c933}.delivery-form .hint{margin:0;color:#aebdd0;font-size:12px}.delivery-form .error{margin:0;color:#ff9da8;font-size:12px;font-weight:800}.delivery-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}.delivery-actions button{border:1px solid #557391;border-radius:10px;padding:11px 17px;background:#233b5c;color:#fff;font-size:14px;font-weight:900;cursor:pointer}.delivery-actions button[type="submit"]{border-color:#25ad8f;background:#169577}.delivery-actions button:hover{filter:brightness(1.08)}
+  </style></head><body><main class="delivery-card"><header class="delivery-head"><small>ORDEN DE PEDIDO · ${printableNumber}</small><h1>Indica la fecha de entrega</h1><p>Este dato aparecerá únicamente en la copia que vas a imprimir.</p></header><form class="delivery-form"><label for="deliveryPrintValue">Fecha o condición de entrega</label><input id="deliveryPrintValue" name="deliveryPrintValue" type="text" maxlength="180" required autocomplete="off" value="${escapeHtml(promptDefault)}" placeholder="Ej. 30 días hábiles después de la orden de compra"><p class="hint">Puedes escribir una fecha exacta o una condición acordada con el cliente.</p><p class="error" hidden>Debes completar este campo para generar la OP.</p><div class="delivery-actions"><button type="button" data-cancel>Cancelar</button><button type="submit">Continuar a impresión</button></div></form></main></body></html>`);
+  popup.document.close();
+  const form = popup.document.querySelector(".delivery-form");
+  const input = popup.document.querySelector("#deliveryPrintValue");
+  const error = popup.document.querySelector(".error");
+  popup.document.querySelector("[data-cancel]")?.addEventListener("click", () => popup.close());
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const deliveryDate = String(input?.value || "").trim();
+    if (!deliveryDate) {
+      if (error) error.hidden = false;
+      input?.focus();
+      return;
     }
-  };
+    const printableOrder = {
+      ...order,
+      proformaData: {
+        ...(order.proformaData || {}),
+        deliveryDate
+      }
+    };
+    const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(printKey, JSON.stringify(printableOrder));
+    popup.location.replace(`proforma-print.html?key=${encodeURIComponent(printKey)}`);
+    window.setTimeout(() => localStorage.removeItem(printKey), 5 * 60 * 1000);
+  });
+  input?.focus();
+  input?.select();
 }
 
 function printControlSalesProforma(order, options = {}) {
@@ -5594,15 +5609,7 @@ function printControlSalesProforma(order, options = {}) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
     return;
   }
-  order = controlSalesOrderWithPrintDelivery(order);
-  if (!order) {
-    popup.close();
-    return;
-  }
-  const printKey = `kmi-proforma-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  localStorage.setItem(printKey, JSON.stringify(order));
-  popup.location.replace(`proforma-print.html?key=${encodeURIComponent(printKey)}`);
-  window.setTimeout(() => localStorage.removeItem(printKey), 5 * 60 * 1000);
+  openControlSalesDeliveryPrintPrompt(order, popup);
 }
 
 async function openControlSalesDetail(orderId, formatOnly = false) {
