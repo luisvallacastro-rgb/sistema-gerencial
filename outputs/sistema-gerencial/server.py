@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 
 import json
+import hashlib
+import hmac
 import mimetypes
 import os
 import re
+import shutil
 import sqlite3
+import tempfile
 import threading
 import time
 import unicodedata
 import uuid
+import zipfile
+from contextlib import closing
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -34,6 +40,7 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
 API_VERSION = "kmi-minute-agreements-v34"
 CRM_DATA_LOCK = threading.RLock()
+BACKUP_LOCK = threading.Lock()
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
 AMADEO_QUOTATION_EMAIL = "arteycolor.bordados@gmail.com"
 CRM_SELLER_ACCOUNT_LINKS = {
@@ -6182,6 +6189,68 @@ def init_db():
 
 
 class AppHandler(BaseHTTPRequestHandler):
+    def send_system_backup(self):
+        secret = os.environ.get("SYSTEM_BACKUP_TOKEN", "")
+        if len(secret) < 32:
+            self.send_json({"error": "Respaldo no configurado"}, status=503)
+            return
+        authorization = self.headers.get("Authorization", "")
+        supplied = authorization[7:] if authorization.startswith("Bearer ") else ""
+        if not hmac.compare_digest(supplied, secret):
+            self.send_json({"error": "No autorizado"}, status=401)
+            return
+        if not BACKUP_LOCK.acquire(blocking=False):
+            self.send_json({"error": "Ya se está generando un respaldo"}, status=503)
+            return
+        response_started = False
+        try:
+            with tempfile.TemporaryDirectory(prefix="sistema-gerencial-backup-") as temp_dir:
+                temp_path = Path(temp_dir)
+                snapshot_path = temp_path / "sistema-gerencial.db"
+                with closing(connect()) as source, closing(sqlite3.connect(snapshot_path)) as target:
+                    source.backup(target)
+                with closing(sqlite3.connect(f"file:{snapshot_path}?mode=ro", uri=True)) as snapshot:
+                    if snapshot.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                        raise RuntimeError("La copia de SQLite no superó la verificación")
+                    table_count = snapshot.execute(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+                    ).fetchone()[0]
+                database_digest = hashlib.sha256()
+                with snapshot_path.open("rb") as snapshot_file:
+                    for chunk in iter(lambda: snapshot_file.read(1024 * 1024), b""):
+                        database_digest.update(chunk)
+                archive_path = temp_path / "respaldo-sistema-gerencial.zip"
+                attachments = []
+                with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                    archive.write(snapshot_path, "sistema-gerencial.db")
+                    for attachment in sorted(CHAT_UPLOAD_DIR.iterdir()):
+                        if attachment.is_file() and not attachment.is_symlink():
+                            archive.write(attachment, f"chat-uploads/{attachment.name}")
+                            attachments.append(attachment.name)
+                    archive.writestr("manifest.json", json.dumps({
+                        "createdAtUtc": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                        "database": "sistema-gerencial.db",
+                        "databaseSha256": database_digest.hexdigest(),
+                        "tableCount": table_count,
+                        "attachments": attachments,
+                    }, ensure_ascii=False, indent=2))
+                self.send_response(200)
+                self.send_header("Content-Type", "application/zip")
+                self.send_header("Content-Disposition", "attachment; filename=\"respaldo-sistema-gerencial.zip\"")
+                self.send_header("Content-Length", str(archive_path.stat().st_size))
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.end_headers()
+                response_started = True
+                with archive_path.open("rb") as archive_file:
+                    shutil.copyfileobj(archive_file, self.wfile, length=1024 * 1024)
+        except (OSError, sqlite3.Error, RuntimeError) as error:
+            print(f"Error al generar respaldo del sistema: {error}")
+            if not response_started:
+                self.send_json({"error": "No se pudo generar el respaldo"}, status=500)
+        finally:
+            BACKUP_LOCK.release()
+
     def require_permission(self, permission):
         actor_id = text(self.headers.get("X-System-User-Id"))
         with connect() as conn:
@@ -6240,6 +6309,9 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def handle_api_get(self):
+        if self.path == "/api/system/backup":
+            self.send_system_backup()
+            return
         if self.path == "/api/health":
             self.send_json({"ok": True, "version": API_VERSION})
             return
