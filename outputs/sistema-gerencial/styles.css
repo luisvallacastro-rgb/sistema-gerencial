@@ -21085,16 +21085,18 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .commercial-goals-total{background:#254c69;font-weight:900}.commercial-goals-total th,.commercial-goals-total td{border-bottom:0}
 @media(max-width:800px){.commercial-goals-header{align-items:flex-start;flex-direction:column}.commercial-goals table{min-width:700px}.commercial-goals th,.commercial-goals td{padding:13px 15px;font-size:14px}}
 
-/* Anuladas: consulta de oportunidades conservadas, sin controles de eliminación. */
+/* Anuladas: acciones de edición, gestiones y recuperación para Gerencia Comercial. */
 .app-shell .commercial-panel.crm-cancelled-mode>.panel-head .panel-actions{grid-template-columns:minmax(230px,1fr)!important}
 .app-shell .commercial-panel.crm-cancelled-mode .opportunity-search{min-width:0;width:100%}
 .app-shell .commercial-panel.crm-cancelled-mode>.opportunity-table{min-height:0;overflow:hidden}
 .crm-cancelled-view{display:grid;grid-template-rows:auto minmax(0,1fr);height:100%;min-height:0;overflow:hidden;border:1px solid rgba(107,142,180,.4);border-radius:16px;background:linear-gradient(145deg,#1b3553,#152d47);color:#e9f2fc}
 .crm-cancelled-summary{padding:15px 19px;border-bottom:1px solid rgba(107,142,180,.4);color:#a8eddc;font-size:15px;font-weight:850}
 .crm-cancelled-table-wrap{min-height:0;overflow:auto;scrollbar-gutter:stable}
-.crm-cancelled-view table{width:100%;min-width:1020px;border-collapse:collapse;table-layout:fixed}
+.crm-cancelled-view table{width:100%;min-width:1120px;border-collapse:collapse;table-layout:fixed}
 .crm-cancelled-view th,.crm-cancelled-view td{padding:15px 16px;border-bottom:1px solid rgba(107,142,180,.28);font-size:14px;line-height:1.4;text-align:left;vertical-align:top;overflow-wrap:anywhere}
 .crm-cancelled-view thead th{position:sticky;top:0;z-index:1;background:#1b3a59;color:#b9cde1;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
 .crm-cancelled-view thead th:nth-child(1){width:110px}.crm-cancelled-view thead th:nth-child(2){width:22%}.crm-cancelled-view thead th:nth-child(3){width:17%}.crm-cancelled-view thead th:nth-child(4){width:135px}.crm-cancelled-view thead th:nth-child(5){width:17%}
+.crm-cancelled-view.with-actions table{min-width:1250px}.crm-cancelled-view.with-actions thead th:nth-child(1){width:100px}.crm-cancelled-view.with-actions thead th:nth-child(2){width:19%}.crm-cancelled-view.with-actions thead th:nth-child(3){width:15%}.crm-cancelled-view.with-actions thead th:nth-child(4){width:115px}.crm-cancelled-view.with-actions thead th:nth-child(5){width:14%}
+.crm-cancelled-view thead .crm-cancelled-actions-head{width:138px}.crm-cancelled-actions{white-space:nowrap}.crm-cancelled-actions button{width:34px;height:34px;margin-right:5px;border:1px solid rgba(148,202,219,.32);border-radius:10px;background:#294b6c;color:#f8fcff;cursor:pointer;font-size:16px}.crm-cancelled-actions button:hover{background:#376385}.crm-cancelled-actions button:disabled{opacity:.5;cursor:wait}
 .crm-cancelled-view tbody th{color:#f6faff;font-weight:850}.crm-cancelled-view tbody tr:hover{background:rgba(74,118,150,.16)}.crm-cancelled-view .money{color:#8cebd8;font-weight:850;white-space:nowrap}.crm-cancelled-empty{padding:34px!important;color:#a9bed3;text-align:center!important}
 @media(max-width:900px){.crm-cancelled-view{min-height:420px}.crm-cancelled-table-wrap{overflow-x:auto}}

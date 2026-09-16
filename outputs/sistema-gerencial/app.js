@@ -8511,7 +8511,7 @@ function saveCrmOpportunity() {
     closePercent: temperatureRule.percent,
     nextDate: dialog.querySelector("#crmNextDate").value,
     deadline: dialog.querySelector("#crmNextDate").value,
-    status: "Vigente",
+    status: id ? (crmData().opportunities.find((item) => item.id === id)?.status || "Vigente") : "Vigente",
     nextAction: dialog.querySelector("#crmNextAction").value || "Seguimiento comercial",
     lastNote: dialog.querySelector("#crmLastNote").value,
     comment: dialog.querySelector("#crmLastNote").value,
@@ -8750,7 +8750,7 @@ function crmCancelledOpportunityRows() {
     const audit = [...(Array.isArray(item.auditLog) ? item.auditLog : [])].reverse()
       .find((entry) => ["seller_cancellation", "manager_cancellation"].includes(entry.type)) || {};
     rowsById.set(String(item.id), {
-      id: String(item.id), company: item.company || "Sin empresa",
+      id: String(item.id), crmOpportunityId: String(item.id), resultOpportunityId: "", company: item.company || "Sin empresa",
       seller: item.owner?.name || crmOwnerName(item.ownerId),
       amount: Number(item.estimatedAmount || 0),
       date: item.archivedAt || audit.date || item.updatedAt || "",
@@ -8767,7 +8767,7 @@ function crmCancelledOpportunityRows() {
     const key = crmId || String(item.id);
     const existing = rowsById.get(key) || {};
     rowsById.set(key, {
-      ...existing, id: key, company: item.company || source?.company || existing.company || "Sin empresa",
+      ...existing, id: key, crmOpportunityId: crmId, resultOpportunityId: String(item.id), company: item.company || source?.company || existing.company || "Sin empresa",
       seller: item.seller || source?.owner?.name || existing.seller || "Sin vendedor",
       amount: Number(item.amount ?? source?.estimatedAmount ?? existing.amount ?? 0),
       date: item.archivedAt || closure?.createdAt || closure?.date || item.updatedAt || existing.date || "",
@@ -8784,12 +8784,50 @@ function crmCancelledOpportunityRows() {
 
 function renderCrmCancelled() {
   const rows = crmCancelledOpportunityRows();
-  return `<section class="crm-cancelled-view" aria-label="Oportunidades anuladas">
+  const canAct = isOdalizValenciaUser();
+  return `<section class="crm-cancelled-view${canAct ? " with-actions" : ""}" aria-label="Oportunidades anuladas">
     <div class="crm-cancelled-summary">${rows.length} ${rows.length === 1 ? "oportunidad anulada" : "oportunidades anuladas"}</div>
-    <div class="crm-cancelled-table-wrap"><table><thead><tr><th>Fecha</th><th>Empresa</th><th>Vendedor</th><th>Monto histórico</th><th>Anulada por</th><th>Motivo</th></tr></thead><tbody>
-      ${rows.map((row) => `<tr><td>${escapeHtml(formatDate(String(row.date).slice(0, 10))) || "—"}</td><th scope="row">${escapeHtml(row.company)}</th><td>${escapeHtml(row.seller)}</td><td class="money">${formatMoney(row.amount)}</td><td>${escapeHtml(row.actor)}</td><td>${escapeHtml(row.reason)}</td></tr>`).join("") || `<tr><td colspan="6" class="crm-cancelled-empty">No hay anulaciones conservadas que coincidan con la búsqueda.</td></tr>`}
+    <div class="crm-cancelled-table-wrap"><table><thead><tr><th>Fecha</th><th>Empresa</th><th>Vendedor</th><th>Monto histórico</th><th>Anulada por</th><th>Motivo</th>${canAct ? "<th class=\"crm-cancelled-actions-head\">Acciones</th>" : ""}</tr></thead><tbody>
+      ${rows.map((row) => `<tr><td>${escapeHtml(formatDate(String(row.date).slice(0, 10))) || "—"}</td><th scope="row">${escapeHtml(row.company)}</th><td>${escapeHtml(row.seller)}</td><td class="money">${formatMoney(row.amount)}</td><td>${escapeHtml(row.actor)}</td><td>${escapeHtml(row.reason)}</td>${canAct ? `<td class="crm-cancelled-actions"><button type="button" data-cancelled-action="edit" data-cancelled-id="${escapeHtml(row.id)}" title="Editar sin reactivar" aria-label="Editar oportunidad">✏️</button><button type="button" data-cancelled-action="manage" data-cancelled-id="${escapeHtml(row.id)}" title="Abrir gestiones y custodia" aria-label="Abrir gestiones">📋</button><button type="button" data-cancelled-action="restore" data-cancelled-id="${escapeHtml(row.id)}" title="Reactivar oportunidad" aria-label="Reactivar oportunidad">↩️</button></td>` : ""}</tr>`).join("") || `<tr><td colspan="${canAct ? 7 : 6}" class="crm-cancelled-empty">No hay anulaciones conservadas que coincidan con la búsqueda.</td></tr>`}
     </tbody></table></div>
   </section>`;
+}
+
+async function handleCrmCancelledAction(button) {
+  if (!isOdalizValenciaUser()) return;
+  const row = crmCancelledOpportunityRows().find((item) => item.id === button.dataset.cancelledId);
+  if (!row) return;
+  const result = getOpportunitySubmenu().items.find((item) => String(item.id) === row.resultOpportunityId);
+  const crm = crmData().opportunities.find((item) => String(item.id) === row.crmOpportunityId);
+  const action = button.dataset.cancelledAction;
+  if (action === "edit") {
+    if (result) openResultOpportunityEditor(result);
+    else if (crm) openCrmOpportunityById(crm.id);
+    return;
+  }
+  if (action === "manage") {
+    if (result) openManagementDialog(result);
+    else if (crm) openCrmManagementDialog(crm.id);
+    return;
+  }
+  if (action !== "restore" || (!result && !crm)) return;
+  if (!confirm(`¿Reactivar “${row.company}”? El motivo y la fecha de anulación se conservarán en el historial.`)) return;
+  button.disabled = true;
+  try {
+    if (result) {
+      const payload = await apiJson(`/api/opportunities/${encodeURIComponent(result.id)}/restore`, {
+        method: "POST", body: "{}"
+      });
+      getOpportunitySubmenu().items = sanitizeTestOpportunities(normalizeOpportunities(payload.opportunities || []));
+      localStorage.setItem(opportunitiesStorageKey, JSON.stringify(getOpportunitySubmenu().items));
+      renderCommercialSubmenu(areas.comercializacion);
+    } else {
+      await crmApi(`/opportunities/${encodeURIComponent(crm.id)}/restore`, { method: "POST", body: "{}" });
+    }
+  } catch (error) {
+    button.disabled = false;
+    alert(error.message || "No se pudo reactivar la oportunidad.");
+  }
 }
 
 function renderCrmDashboard() {
@@ -11922,6 +11960,12 @@ function renderCommercialSubmenu(area) {
         openCrmManagementDialog(button.dataset.crmManagement);
       });
     });
+    opportunityTable.querySelectorAll("[data-cancelled-action]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        handleCrmCancelledAction(button);
+      });
+    });
     opportunityTable.querySelectorAll("[data-crm-opportunity]").forEach((item) => {
       item.addEventListener("click", () => openCrmOpportunityById(item.dataset.crmOpportunity));
     });
@@ -15012,6 +15056,10 @@ opportunityTable.addEventListener("click", (event) => {
     return;
   }
 
+  openResultOpportunityEditor(item);
+});
+
+function openResultOpportunityEditor(item) {
   state.opportunityFormContext = "results";
   fillOpportunityOptions();
   opportunityId.value = item.id;
@@ -15038,7 +15086,7 @@ opportunityTable.addEventListener("click", (event) => {
   opportunityDialogTitle.textContent = "Editar oportunidad";
   saveOpportunityBtn.textContent = "Actualizar oportunidad";
   opportunityDialog.showModal();
-});
+}
 
 opportunityTable.addEventListener("change", (event) => {
   if (event.target.matches("[data-main-opportunity-status]")) {
@@ -15491,7 +15539,7 @@ opportunityForm.addEventListener("submit", async (event) => {
       closePercent: temperatureRule.percent,
       nextDate: opportunityDate.value,
       deadline: opportunityDate.value,
-      status: "Vigente",
+      status: id ? (crmData().opportunities.find((item) => item.id === id)?.status || "Vigente") : "Vigente",
       nextAction: opportunityNextAction.value.trim() || "Seguimiento comercial",
       lastNote: opportunityNote.value.trim(),
       comment: opportunityNote.value.trim(),
@@ -15542,6 +15590,7 @@ opportunityForm.addEventListener("submit", async (event) => {
     });
   }
   const payload = {
+    ...(previousOpportunity || {}),
     id,
     date: opportunityDate.value,
     time: currentIndex >= 0 ? submenu.items[currentIndex].time || createdTime : createdTime,

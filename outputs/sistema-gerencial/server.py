@@ -6815,8 +6815,9 @@ class AppHandler(BaseHTTPRequestHandler):
         if (
             len(opportunity_parts) == 4
             and opportunity_parts[:2] == ["api", "opportunities"]
-            and opportunity_parts[3] == "cancel"
+            and opportunity_parts[3] in {"cancel", "restore"}
         ):
+            action = opportunity_parts[3]
             opportunity_id = unquote(opportunity_parts[2])
             payload = self.read_json()
             with connect() as conn:
@@ -6826,6 +6827,49 @@ class AppHandler(BaseHTTPRequestHandler):
                     self.send_json({"error": "Oportunidad no encontrada"}, status=404)
                     return
                 opportunity = opportunities[index]
+                actor_id = text(self.headers.get("X-System-User-Id"))
+                actor_row = conn.execute(
+                    "SELECT id, name, username, email, role, admin FROM users WHERE id = ? LIMIT 1",
+                    (actor_id,),
+                ).fetchone() if actor_id else None
+                actor_user = dict(actor_row) if actor_row else None
+                if action == "restore":
+                    if not is_odaliz_valencia_user(actor_user):
+                        self.send_json({"error": "Solo Odaliz, Gerencia de Comercializacion, puede reactivar oportunidades anuladas"}, status=403)
+                        return
+                    managements = opportunity.get("managements") if isinstance(opportunity.get("managements"), list) else []
+                    cancellation = next((item for item in reversed(managements)
+                        if not item.get("canceled") and text(item.get("result")).lower() == "anulada"), None)
+                    if not cancellation or (text(opportunity.get("status")).lower() != "anulada" and text(opportunity.get("archiveType")) != "manager_cancellation"):
+                        self.send_json({"error": "La oportunidad ya no esta anulada"}, status=409)
+                        return
+                    if any(not item.get("canceled") and text(item.get("result")).lower() in {"ganado", "perdida", "perdido"}
+                           for item in managements):
+                        self.send_json({"error": "La oportunidad tiene otro cierre comercial activo"}, status=409)
+                        return
+                    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                    actor = text(actor_user.get("name"), "Odaliz Valencia")
+                    cancellation["canceled"] = True
+                    cancellation["canceledAt"] = now
+                    cancellation["canceledBy"] = actor
+                    cancellation["cancelReason"] = "Reactivada desde Anuladas"
+                    previous_management = next((item for item in reversed(managements)
+                        if not item.get("canceled") and text(item.get("stage")).lower() not in {"cierre", "cierre de ventas"}), None)
+                    opportunity["stage"] = text((previous_management or {}).get("stage"), "Prospeccion")
+                    opportunity["status"] = "Vigente"
+                    opportunity["archived"] = False
+                    for key in ("archiveType", "archivedReason", "archivedAt", "archivedBy"):
+                        opportunity.pop(key, None)
+                    opportunity["updatedAt"] = now
+                    opportunity["updatedBy"] = actor
+                    opportunity.setdefault("auditLog", []).append({
+                        "id": f"audit-{int(time.time() * 1000)}", "type": "manager_cancellation_restored",
+                        "date": now, "reason": "Reactivada desde Anuladas", "userId": actor_id,
+                        "userName": actor,
+                    })
+                    write_result_opportunities(conn, opportunities)
+                    self.send_json({"ok": True, "opportunities": opportunities})
+                    return
                 if result_opportunity_has_closure(opportunity):
                     self.send_json({"error": "La oportunidad ya tiene un cierre registrado y no se puede anular desde este panel"}, status=409)
                     return
@@ -6836,12 +6880,6 @@ class AppHandler(BaseHTTPRequestHandler):
                     }, status=409)
                     return
                 now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                actor_id = text(self.headers.get("X-System-User-Id"))
-                actor_row = conn.execute(
-                    "SELECT id, name, username, email, role, admin FROM users WHERE id = ? LIMIT 1",
-                    (actor_id,),
-                ).fetchone() if actor_id else None
-                actor_user = dict(actor_row) if actor_row else None
                 if not is_commercial_management_user(actor_user):
                     self.send_json({"error": "Solo Gerencia de Comercializacion puede anular oportunidades migradas"}, status=403)
                     return
@@ -7429,6 +7467,40 @@ class AppHandler(BaseHTTPRequestHandler):
             with connect() as conn:
                 previous_items = read_result_opportunities(conn)
                 previous_by_id = {text(item.get("id")): item for item in previous_items}
+                actor_id = text(self.headers.get("X-System-User-Id"))
+                actor_row = conn.execute(
+                    "SELECT id, name, username, email, role, admin FROM users WHERE id = ? LIMIT 1",
+                    (actor_id,),
+                ).fetchone() if actor_id else None
+                actor_user = dict(actor_row) if actor_row else None
+                can_edit_cancelled = is_odaliz_valencia_user(actor_user)
+                incoming_ids = {text(item.get("id")) for item in data if isinstance(item, dict)}
+                data.extend(previous for previous in previous_items
+                    if (text(previous.get("status")).lower() == "anulada"
+                        or text(previous.get("archiveType")) == "manager_cancellation")
+                    and text(previous.get("id")) not in incoming_ids)
+                for index, item in enumerate(data):
+                    previous = previous_by_id.get(text(item.get("id")), {})
+                    if text(previous.get("status")).lower() != "anulada" and text(previous.get("archiveType")) != "manager_cancellation":
+                        continue
+                    if not can_edit_cancelled:
+                        data[index] = previous
+                        continue
+                    item["status"] = "Anulada"
+                    item["archived"] = True
+                    for key in ("archiveType", "archivedReason", "archivedAt", "archivedBy"):
+                        if key in previous:
+                            item[key] = previous[key]
+                    previous_cancellations = [management for management in previous.get("managements", [])
+                        if not management.get("canceled") and text(management.get("result")).lower() == "anulada"]
+                    managements = item.get("managements") if isinstance(item.get("managements"), list) else []
+                    cancellation_by_id = {text(management.get("id")): management for management in previous_cancellations}
+                    managements = [cancellation_by_id.get(text(management.get("id")), management)
+                        for management in managements]
+                    known_ids = {text(management.get("id")) for management in managements}
+                    managements.extend(management for management in previous_cancellations
+                        if text(management.get("id")) not in known_ids)
+                    item["managements"] = managements
                 crm_data = read_crm_data(conn)
                 for item in data:
                     previous = previous_by_id.get(text(item.get("id")), {})
@@ -8629,6 +8701,37 @@ class AppHandler(BaseHTTPRequestHandler):
                         if not request_linked_seller or data["opportunities"][index].get("ownerId") != request_linked_seller.get("id"):
                             self.send_json({"error": "Solo puede administrar sus propias oportunidades"}, status=403)
                             return
+                    if action == "restore" and self.command == "POST":
+                        if not is_odaliz_valencia_user(request_user):
+                            self.send_json({"error": "Solo Odaliz, Gerencia de Comercializacion, puede reactivar oportunidades anuladas"}, status=403)
+                            return
+                        opportunity = data["opportunities"][index]
+                        if (text(opportunity.get("status")).lower() not in {"anulada", "cancelada"}
+                                and text(opportunity.get("archiveType")) != "seller_cancellation") or opportunity.get("migratedToResults"):
+                            self.send_json({"error": "La oportunidad no es una anulacion de Vendedores recuperable"}, status=409)
+                            return
+                        has_order = conn.execute(
+                            "SELECT 1 FROM control_sales_orders WHERE source_opportunity_id = ? LIMIT 1",
+                            (item_id,),
+                        ).fetchone()
+                        converted_quote = conn.execute(
+                            "SELECT 1 FROM quotations WHERE opportunity_id = ? AND converted_order_id <> '' LIMIT 1",
+                            (item_id,),
+                        ).fetchone()
+                        if has_order or converted_quote:
+                            self.send_json({"error": "No se puede reactivar una oportunidad vinculada a un pedido"}, status=409)
+                            return
+                        audit = crm_audit_event("seller_cancellation_restored", opportunity, request_user, "Reactivada desde Anuladas")
+                        opportunity.setdefault("auditLog", []).append(audit)
+                        opportunity["status"] = "Vigente"
+                        opportunity["archived"] = False
+                        for key in ("archiveType", "archivedReason", "archivedAt", "archivedBy"):
+                            opportunity.pop(key, None)
+                        opportunity["updatedAt"] = audit["date"]
+                        opportunity["updatedBy"] = audit["userName"]
+                        write_crm_data(conn, data)
+                        self.send_json(response_model())
+                        return
                     if action == "cancel" and self.command == "POST":
                         payload = self.read_json()
                         reason = text(payload.get("reason"))
@@ -8852,9 +8955,17 @@ class AppHandler(BaseHTTPRequestHandler):
                         if request_linked_seller:
                             payload["ownerId"] = request_linked_seller.get("id")
                         previous = data["opportunities"][index]
+                        is_cancelled = (text(previous.get("status")).lower() in {"anulada", "cancelada"}
+                                        or text(previous.get("archiveType")) == "seller_cancellation")
+                        if is_cancelled:
+                            if not is_odaliz_valencia_user(request_user):
+                                self.send_json({"error": "Solo Odaliz puede editar oportunidades anuladas"}, status=403)
+                                return
+                            payload["status"] = previous["status"]
                         opportunity = normalize_crm_opportunity(payload, data["opportunities"][index])
                         data["opportunities"][index] = opportunity
-                        upsert_crm_agenda(data, opportunity, payload)
+                        if not is_cancelled:
+                            upsert_crm_agenda(data, opportunity, payload)
                         if text(previous.get("company")) != text(opportunity.get("company")):
                             synchronize_linked_company_name(
                                 conn,
