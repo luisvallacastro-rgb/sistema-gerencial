@@ -8737,8 +8737,64 @@ function renderCrmHistory() {
     </section>`;
 }
 
+function crmCancelledOpportunityRows() {
+  const restrictedSeller = state.currentUser?.role === "vendedores" && !isAdminUser();
+  const linkedSellerId = restrictedSeller ? crmLinkedSellerId() : "";
+  const linkedSellerName = linkedSellerId ? crmOwnerName(linkedSellerId) : "";
+  const visibleCrm = (crmData().opportunities || []).filter((item) => !restrictedSeller || (linkedSellerId && item.ownerId === linkedSellerId));
+  const sourceById = new Map(visibleCrm.map((item) => [String(item.id || ""), item]));
+  const rowsById = new Map();
+  visibleCrm.forEach((item) => {
+    const status = normalizeKey(item.status);
+    if (item.archiveType !== "seller_cancellation" && !["anulada", "cancelada"].includes(status)) return;
+    const audit = [...(Array.isArray(item.auditLog) ? item.auditLog : [])].reverse()
+      .find((entry) => ["seller_cancellation", "manager_cancellation"].includes(entry.type)) || {};
+    rowsById.set(String(item.id), {
+      id: String(item.id), company: item.company || "Sin empresa",
+      seller: item.owner?.name || crmOwnerName(item.ownerId),
+      amount: Number(item.estimatedAmount || 0),
+      date: item.archivedAt || audit.date || item.updatedAt || "",
+      actor: item.archivedBy || audit.userName || "No registrado",
+      reason: item.archivedReason || audit.reason || "Sin motivo registrado"
+    });
+  });
+  getOpportunitySubmenu().items.forEach((item) => {
+    const closure = closureResult(item);
+    if (normalizeKey(closure?.result) !== "anulada" && normalizeKey(item.status) !== "anulada" && item.archiveType !== "manager_cancellation") return;
+    const crmId = String(item.crmOpportunityId || "");
+    const source = sourceById.get(crmId);
+    if (restrictedSeller && (!linkedSellerId || (!source && crmIdentityKey(item.seller) !== crmIdentityKey(linkedSellerName)))) return;
+    const key = crmId || String(item.id);
+    const existing = rowsById.get(key) || {};
+    rowsById.set(key, {
+      ...existing, id: key, company: item.company || source?.company || existing.company || "Sin empresa",
+      seller: item.seller || source?.owner?.name || existing.seller || "Sin vendedor",
+      amount: Number(item.amount ?? source?.estimatedAmount ?? existing.amount ?? 0),
+      date: item.archivedAt || closure?.createdAt || closure?.date || item.updatedAt || existing.date || "",
+      actor: item.archivedBy || closure?.createdBy || item.updatedBy || existing.actor || "No registrado",
+      reason: item.archivedReason || closure?.comment || existing.reason || "Sin motivo registrado"
+    });
+  });
+  const query = crmSearchText();
+  return [...rowsById.values()]
+    .filter((row) => !query || [row.company, row.seller, row.actor, row.reason, row.date, row.amount]
+      .some((value) => searchTokenMatches(value, query)))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || a.company.localeCompare(b.company, "es"));
+}
+
+function renderCrmCancelled() {
+  const rows = crmCancelledOpportunityRows();
+  return `<section class="crm-cancelled-view" aria-label="Oportunidades anuladas">
+    <div class="crm-cancelled-summary">${rows.length} ${rows.length === 1 ? "oportunidad anulada" : "oportunidades anuladas"}</div>
+    <div class="crm-cancelled-table-wrap"><table><thead><tr><th>Fecha</th><th>Empresa</th><th>Vendedor</th><th>Monto histórico</th><th>Anulada por</th><th>Motivo</th></tr></thead><tbody>
+      ${rows.map((row) => `<tr><td>${escapeHtml(formatDate(String(row.date).slice(0, 10))) || "—"}</td><th scope="row">${escapeHtml(row.company)}</th><td>${escapeHtml(row.seller)}</td><td class="money">${formatMoney(row.amount)}</td><td>${escapeHtml(row.actor)}</td><td>${escapeHtml(row.reason)}</td></tr>`).join("") || `<tr><td colspan="6" class="crm-cancelled-empty">No hay anulaciones conservadas que coincidan con la búsqueda.</td></tr>`}
+    </tbody></table></div>
+  </section>`;
+}
+
 function renderCrmDashboard() {
-  if (!["list", "seller-kpi"].includes(state.crmOpportunitiesView)) state.crmOpportunitiesView = "list";
+  if (!["list", "seller-kpi", "cancelled"].includes(state.crmOpportunitiesView)) state.crmOpportunitiesView = "list";
+  if (state.crmOpportunitiesView === "cancelled") return renderCrmCancelled();
   const rows = filteredCrmDashboardOpportunities();
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
     rows.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
@@ -11356,6 +11412,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("hidden");
   commercialPanel.classList.remove("opportunity-mode");
   commercialPanel.classList.remove("crm-opportunity-tabs");
+  commercialPanel.classList.remove("crm-cancelled-mode");
   commercialPanel.classList.remove("bank-availability-mode");
   commercialPanel.classList.remove("financial-income-mode");
   commercialPanel.classList.remove("commercial-metrics-mode");
@@ -11604,18 +11661,19 @@ function renderCommercialSubmenu(area) {
     const isCrmOpportunityView = submenu.key === "crm";
     commercialPanel.classList.toggle("opportunity-mode", isCrmOpportunityView);
     commercialPanel.classList.toggle("crm-opportunity-tabs", isCrmOpportunityView);
+    commercialPanel.classList.toggle("crm-cancelled-mode", isCrmOpportunityView && state.crmOpportunitiesView === "cancelled");
     commercialSubmenuTitle.classList.toggle("hidden", false);
     commercialSubmenuTitle.textContent = isCrmOpportunityView ? "Oportunidades / Vendedores" : submenu.label;
     opportunitySearchField.classList.toggle("hidden", !isCrmOpportunityView);
     opportunitySearchInput.value = state.crmSearch;
-    opportunityTotalAmount.classList.toggle("hidden", !isCrmOpportunityView);
+    opportunityTotalAmount.classList.toggle("hidden", !isCrmOpportunityView || state.crmOpportunitiesView === "cancelled");
     if (isCrmOpportunityView) {
       const activeCrm = crmData().opportunities.filter((opportunity) => !isCrmArchivedOpportunity(opportunity) && !hasConvertedQuotationOrder(opportunity) && String(opportunity.status || "Vigente").toLowerCase() !== "ganada");
       opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
         activeCrm.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
       );
     }
-    newOpportunityBtn.classList.toggle("hidden", !isCrmOpportunityView);
+    newOpportunityBtn.classList.toggle("hidden", !isCrmOpportunityView || state.crmOpportunitiesView !== "list");
     opportunitySellerReportBtn?.classList.toggle("hidden", !isCrmOpportunityView || state.crmOpportunitiesView !== "list");
     crmOpportunitiesViewTabs?.classList.toggle("hidden", !isCrmOpportunityView);
     if (isCrmOpportunityView) {
