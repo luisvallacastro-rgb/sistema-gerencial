@@ -6535,61 +6535,37 @@ function renderCommercialGoals() {
   const crmUsers = new Map(crmMasterSalesUsers({ includeInactive: true }).map((user) => [commercialGoalSellerKey(user.name), user]));
   const activeSellers = sellers.filter((name) => !crmUsers.has(commercialGoalSellerKey(name)) || isActiveCrmSeller(crmUsers.get(commercialGoalSellerKey(name))));
   const sellerKeys = new Set(activeSellers.map(commercialGoalSellerKey));
-  const ledger = financialOrderLedgerRows().filter((order) => {
+  const selectedMonth = commercialGoalsMonths.includes(state.commercialGoalsMonth) ? state.commercialGoalsMonth : 9;
+  const orders = financialOrderLedgerRows().filter((order) => {
     const date = String(order.date || "").slice(0, 10);
-    const month = Number(date.slice(5, 7));
-    return Number(date.slice(0, 4)) === commercialGoalsYear && commercialGoalsMonths.includes(month);
+    return Number(date.slice(0, 4)) === commercialGoalsYear && Number(date.slice(5, 7)) === selectedMonth;
   });
   const salesCents = (orders) => orders.reduce((sum, order) => sum + Math.round(Number(order.sale || 0) * 100), 0);
   const percent = (actual, target) => target ? (actual / target * 100).toFixed(1) : "0.0";
-  const monthData = commercialGoalsMonths.map((month) => {
-    const orders = ledger.filter((order) => Number(String(order.date || "").slice(5, 7)) === month);
-    return { month, orders, actualCents: salesCents(orders) };
-  });
-  const selected = monthData.find((entry) => entry.month === state.commercialGoalsMonth) || monthData[0];
-  const periodActualCents = salesCents(ledger);
-  const periodTargetCents = commercialGoalsMonthlyTotalCents * commercialGoalsMonths.length;
   const monthSellerRows = activeSellers.map((name) => {
-    const orders = selected.orders.filter((order) => commercialGoalSellerKey(order.seller) === commercialGoalSellerKey(name));
-    return { name, orders: orders.length, actualCents: salesCents(orders) };
+    const sellerOrders = orders.filter((order) => commercialGoalSellerKey(order.seller) === commercialGoalSellerKey(name));
+    return { name, count: sellerOrders.length, actualCents: salesCents(sellerOrders) };
   });
-  const unassignedOrders = selected.orders.filter((order) => !sellerKeys.has(commercialGoalSellerKey(order.seller)));
-  const unassignedCents = salesCents(unassignedOrders);
-  const availableSlots = commercialGoalsMonthlyTotalCents / commercialGoalsSellerMonthlyCents;
+  const unassignedOrders = orders.filter((order) => !sellerKeys.has(commercialGoalSellerKey(order.seller)));
+  const totalCents = salesCents(orders);
   const currency = (cents) => formatMoney(cents / 100);
-  const progress = (actual, target) => `<span class="commercial-goals-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, Math.round(actual / target * 100))}"><span style="width:${Math.min(100, actual / target * 100)}%"></span></span>`;
   return `
-    <section class="commercial-goals" aria-label="Meta comercial 2026">
-      <header class="commercial-goals-hero">
-        <div><span>Comercialización · 2026</span><h2>Meta de septiembre a diciembre</h2><p>Objetivos mensuales y avance de pedidos aprobados. Las metas no modifican las ventas registradas.</p></div>
-        <div class="commercial-goals-period"><span>Meta de los 4 meses</span><strong>${currency(periodTargetCents)}</strong><small>4 × ${currency(commercialGoalsMonthlyTotalCents)}</small></div>
-      </header>
-      <div class="commercial-goals-kpis">
-        <article><span>Meta global mensual</span><strong>${currency(commercialGoalsMonthlyTotalCents)}</strong><small>${availableSlots} vendedores × ${currency(commercialGoalsSellerMonthlyCents)}</small></article>
-        <article><span>Meta por vendedor / mes</span><strong>${currency(commercialGoalsSellerMonthlyCents)}</strong><small>${currency(commercialGoalsSellerMonthlyCents * 4)} en los 4 meses</small></article>
-        <article><span>Avance global del período</span><strong>${currency(periodActualCents)}</strong><small>${percent(periodActualCents, periodTargetCents)}% de ${currency(periodTargetCents)}</small>${progress(periodActualCents, periodTargetCents)}</article>
-      </div>
-      <section class="commercial-goals-months" aria-label="Seleccionar mes">
-        ${monthData.map(({ month, orders, actualCents }) => `<button type="button" class="commercial-goals-month ${month === selected.month ? "active" : ""}" data-commercial-goals-month="${month}" aria-pressed="${month === selected.month}"><span>${escapeHtml(monthLabel(month))}</span><strong>${currency(actualCents)}</strong><small>${orders.length} pedidos · ${percent(actualCents, commercialGoalsMonthlyTotalCents)}% de la meta</small>${progress(actualCents, commercialGoalsMonthlyTotalCents)}</button>`).join("")}
-      </section>
-      <section class="commercial-goals-sellers" aria-label="Avance por vendedor">
-        <header><div><span>Detalle mensual</span><h3>${escapeHtml(monthLabel(selected.month))} 2026</h3></div><p>Meta global ${currency(commercialGoalsMonthlyTotalCents)} · ${selected.orders.length} pedidos aprobados</p></header>
-        <div class="commercial-goals-table-wrap"><table><thead><tr><th>Vendedor activo</th><th>Pedidos</th><th>Meta</th><th>Venta aprobada</th><th>Avance</th><th>Faltante / excedente</th></tr></thead><tbody>
-          ${monthSellerRows.map((row) => `<tr><th scope="row">${escapeHtml(row.name)}</th><td>${row.orders}</td><td>${currency(commercialGoalsSellerMonthlyCents)}</td><td>${currency(row.actualCents)}</td><td><strong>${percent(row.actualCents, commercialGoalsSellerMonthlyCents)}%</strong>${progress(row.actualCents, commercialGoalsSellerMonthlyCents)}</td><td class="${row.actualCents >= commercialGoalsSellerMonthlyCents ? "achieved" : ""}">${row.actualCents >= commercialGoalsSellerMonthlyCents ? "+" : "−"}${currency(Math.abs(row.actualCents - commercialGoalsSellerMonthlyCents))}</td></tr>`).join("")}
-          <tr class="commercial-goals-total"><th scope="row">Total global</th><td>${selected.orders.length}</td><td>${currency(commercialGoalsMonthlyTotalCents)}</td><td>${currency(selected.actualCents)}</td><td><strong>${percent(selected.actualCents, commercialGoalsMonthlyTotalCents)}%</strong>${progress(selected.actualCents, commercialGoalsMonthlyTotalCents)}</td><td class="${selected.actualCents >= commercialGoalsMonthlyTotalCents ? "achieved" : ""}">${selected.actualCents >= commercialGoalsMonthlyTotalCents ? "+" : "−"}${currency(Math.abs(selected.actualCents - commercialGoalsMonthlyTotalCents))}</td></tr>
-        </tbody></table></div>
-        ${activeSellers.length !== availableSlots ? `<p class="commercial-goals-note">La meta contempla ${availableSlots} plazas, pero el padrón muestra ${activeSellers.length} vendedores activos. La meta global permanece en ${currency(commercialGoalsMonthlyTotalCents)}; revisa el padrón antes de redistribuirla.</p>` : ""}
-        ${unassignedOrders.length ? `<p class="commercial-goals-note">${unassignedOrders.length} pedidos (${currency(unassignedCents)}) corresponden a vendedores no incluidos en las seis metas individuales; sí cuentan en el total global.</p>` : ""}
-      </section>
+    <section class="commercial-goals" aria-label="Pedidos reales frente a meta comercial">
+      <header class="commercial-goals-header"><h2>Meta por vendedor</h2><label>Mes <select data-commercial-goals-month>${commercialGoalsMonths.map((month) => `<option value="${month}" ${month === selectedMonth ? "selected" : ""}>${escapeHtml(monthLabel(month))} ${commercialGoalsYear}</option>`).join("")}</select></label></header>
+      <div class="commercial-goals-table-wrap"><table><thead><tr><th>Vendedor</th><th>Pedidos</th><th>Venta real</th><th>Meta individual</th><th>KPI</th></tr></thead><tbody>
+        ${monthSellerRows.map((row) => `<tr><th scope="row">${escapeHtml(row.name)}</th><td>${row.count}</td><td>${currency(row.actualCents)}</td><td>${currency(commercialGoalsSellerMonthlyCents)}</td><td class="commercial-goals-kpi">${percent(row.actualCents, commercialGoalsSellerMonthlyCents)}%</td></tr>`).join("")}
+        ${unassignedOrders.length ? `<tr><th scope="row">Otros pedidos</th><td>${unassignedOrders.length}</td><td>${currency(salesCents(unassignedOrders))}</td><td>—</td><td>—</td></tr>` : ""}
+        <tr class="commercial-goals-total"><th scope="row">Total mensual</th><td>${orders.length}</td><td>${currency(totalCents)}</td><td>${currency(commercialGoalsMonthlyTotalCents)}</td><td class="commercial-goals-kpi">${percent(totalCents, commercialGoalsMonthlyTotalCents)}%</td></tr>
+      </tbody></table></div>
     </section>`;
 }
 
 function wireCommercialGoals() {
-  opportunityTable.querySelectorAll("[data-commercial-goals-month]").forEach((button) => button.addEventListener("click", () => {
-    state.commercialGoalsMonth = Number(button.dataset.commercialGoalsMonth);
+  opportunityTable.querySelector("[data-commercial-goals-month]")?.addEventListener("change", (event) => {
+    state.commercialGoalsMonth = Number(event.target.value);
     opportunityTable.innerHTML = renderCommercialGoals();
     wireCommercialGoals();
-  }));
+  });
 }
 
 function renderFinancialOrdersSellerKpi() {
@@ -13981,6 +13957,7 @@ function renderDashboard() {
       "autorizacion-pedidos",
       "cotizaciones",
       "metricas",
+      "meta",
       "disponibilidad",
       "ingresos",
       "produccion-semanal"
