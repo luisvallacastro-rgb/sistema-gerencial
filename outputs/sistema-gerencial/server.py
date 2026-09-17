@@ -5712,6 +5712,64 @@ def repair_commercial_agenda_event_ids_and_remove_tests_once(conn):
     print(f"Agenda comercial reparada: {repaired} ajustes; {len(removed)} eventos de prueba eliminados.")
 
 
+def release_mira_provisions(conn):
+    """Release three verified deposits without discarding their provision history."""
+    expected = {
+        "9323fce0-edac-4fad-9084-46906393efc7": ("c9c779de-9090-4aa1-bf09-1acf5cfc7e69", "2026-09-10", 3167.32),
+        "85f4596d-be16-4996-96c6-3fc9309e214d": ("c1ac71b5-66e3-402a-918c-c149de22d0b2", "2026-09-14", 350.45),
+        "bb168e3c-914e-4d3a-9d19-f82434f2208f": ("0913b72d-e3f1-4e3e-bac2-680508e3dce2", "2026-09-15", 105.00),
+    }
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS bank_deposit_provision_releases (
+            provision_id TEXT PRIMARY KEY,
+            record_id TEXT NOT NULL,
+            account_id TEXT NOT NULL,
+            provision_snapshot TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            released_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    ids = tuple(expected)
+    placeholders = ",".join("?" for _ in ids)
+    archived = {row["provision_id"] for row in conn.execute(
+        f"SELECT provision_id FROM bank_deposit_provision_releases WHERE provision_id IN ({placeholders})", ids
+    )}
+    active = {row["id"]: row for row in conn.execute(f"""
+        SELECT provisions.*, records.record_date, records.account_id AS record_account_id
+        FROM bank_deposit_provisions AS provisions
+        JOIN bank_balance_records AS records ON records.id = provisions.record_id
+        WHERE provisions.id IN ({placeholders})
+    """, ids)}
+    if all(provision_id in archived for provision_id in ids) and not active:
+        return
+    for provision_id, (record_id, record_date, gross) in expected.items():
+        row = active.get(provision_id)
+        if provision_id in archived or row is None or (
+            row["record_id"] != record_id
+            or row["account_id"] != "bank-agricola"
+            or row["record_account_id"] != "bank-agricola"
+            or row["record_date"] != record_date
+            or row["customer_name"] != "Mira S,A de C.V"
+            or row["payment_type"] != "Cancelación de saldo"
+            or row["seller"] != "Gabriela Amador"
+            or round(row["gross_amount"], 2) != gross
+        ):
+            print("No se liberaron provisiones de Mira: falta un registro o no coincide con el respaldo verificado.")
+            return
+    for provision_id in ids:
+        row = active[provision_id]
+        conn.execute("""
+            INSERT INTO bank_deposit_provision_releases
+                (provision_id, record_id, account_id, provision_snapshot, reason)
+            VALUES (?, ?, ?, ?, ?)
+        """, (provision_id, row["record_id"], row["account_id"],
+              json.dumps(dict(row), ensure_ascii=False),
+              "Liberación de tres depósitos de Mira S,A de C.V solicitada el 17/09/2026"))
+        conn.execute("DELETE FROM bank_deposit_provisions WHERE id = ? AND record_id = ?",
+                     (provision_id, row["record_id"]))
+    print("Se liberaron tres provisiones de Mira S,A de C.V; los movimientos bancarios permanecen intactos.")
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -5855,6 +5913,7 @@ def init_db():
         if "payment_type" not in bank_provision_columns:
             conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN payment_type TEXT DEFAULT ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_provisions_account ON bank_deposit_provisions(account_id, created_at DESC)")
+        release_mira_provisions(conn)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS bank_daily_availability (
                 id TEXT PRIMARY KEY, snapshot_date TEXT NOT NULL UNIQUE, total REAL NOT NULL DEFAULT 0,
