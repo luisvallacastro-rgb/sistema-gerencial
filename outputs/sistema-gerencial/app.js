@@ -6101,9 +6101,13 @@ function financialOrderRealNumber(order) {
 }
 
 function filteredFinancialOrders() {
-  const query = state.financialOrderQuery;
+  const query = normalizeKey(state.financialOrderQuery).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const rows = financialOrdersForSelectedPeriod();
-  return query ? rows.filter((order) => Object.values(order).some((value) => searchTokenMatches(value, query))) : rows;
+  return query ? rows.filter((order) => [
+    financialOrderRealNumber(order),
+    order.client,
+    controlSalesResponsibleSeller(order)
+  ].some((value) => normalizeKey(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query))) : rows;
 }
 
 function escapeSpreadsheetXml(value) {
