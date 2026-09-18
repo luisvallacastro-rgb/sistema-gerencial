@@ -7384,6 +7384,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 except (TypeError, ValueError):
                     continue
                 clean.append({"id": text(item.get("id")) or str(uuid.uuid4()), "costCenter": text(item.get("costCenter")), "date": text(item.get("date")), "detail": text(item.get("detail")), "amount": amount})
+            if sum(1 for item in clean if re.fullmatch(r"seed-\d+-\d+", item["id"])) >= 20:
+                self.send_json({"error": "Se rechazó una lista de gastos de ejemplo; recarga Disponibilidad antes de guardar"}, status=409)
+                return
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('pending_expenses', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
                 clear_bank_availability_signatures(conn)

@@ -312,6 +312,7 @@ const state = {
   commercialAgendaValidationStart: `${todayISO().slice(0, 8)}01`,
   commercialAgendaValidationEnd: todayISO(),
   pendingExpenses: [],
+  pendingExpensesLoadState: "loading",
   pendingChecks: [],
   bankAvailabilityQuery: "",
   financialOrders: [],
@@ -5882,17 +5883,23 @@ function wirePurchaseOrders() {
 
 function loadBankAvailability() {
   if (!apiEnabled) return Promise.resolve(state.bankAvailability);
-  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").catch(() => []), apiJson("/api/pending-checks").catch(() => []), apiJson("/api/bank-availability-adjustments").catch(() => ({ pendingDeposits: 0 })), apiJson("/api/bank-availability/signatures").catch(() => ({})), apiJson("/api/bank-availability/archive-history").catch(() => [])]).then(([payload, expenses, checks, adjustments, signatures, history]) => {
+  state.pendingExpensesLoadState = "loading";
+  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").then((items) => ({ ok: Array.isArray(items), items }), () => ({ ok: false })), apiJson("/api/pending-checks").catch(() => []), apiJson("/api/bank-availability-adjustments").catch(() => ({ pendingDeposits: 0 })), apiJson("/api/bank-availability/signatures").catch(() => ({})), apiJson("/api/bank-availability/archive-history").catch(() => [])]).then(([payload, expenses, checks, adjustments, signatures, history]) => {
     state.bankAvailability = payload && Array.isArray(payload.accounts) ? payload : { accounts: [], total: 0 };
-    state.pendingExpenses = Array.isArray(expenses) && expenses.length ? expenses : pendingExpenseSeed();
-    if (!expenses.length) savePendingExpenses().catch(() => {});
+    state.pendingExpenses = expenses.ok ? expenses.items : [];
+    state.pendingExpensesLoadState = expenses.ok ? "ready" : "error";
     state.pendingChecks = Array.isArray(checks) ? checks : [];
     state.bankPendingDeposits = Number(adjustments?.pendingDeposits || 0);
     state.bankAvailabilitySignatures = signatures || {};
     state.bankAvailabilityHistory = Array.isArray(history) ? history : [];
     if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
     return state.bankAvailability;
-  }).catch(() => state.bankAvailability);
+  }).catch(() => {
+    state.pendingExpenses = [];
+    state.pendingExpensesLoadState = "error";
+    if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
+    return state.bankAvailability;
+  });
 }
 
 function loadAccountsReceivable() {
@@ -10711,6 +10718,7 @@ function openOpportunityReportDialog() {
 }
 
 function renderBankAvailabilityDerivedReport(accounts, total) {
+  if (state.pendingExpensesLoadState !== "ready") return `<section class="bank-availability-module"><div class="availability-data-status" role="alert">${state.pendingExpensesLoadState === "error" ? "No se pudieron cargar los gastos pendientes. Recarga la página antes de consultar o archivar la disponibilidad." : "Cargando gastos pendientes para calcular la disponibilidad..."}</div></section>`;
   const balanceFor = (...ids) => accounts.filter((item) => ids.includes(item.id)).reduce((sum, item) => sum + Number(item.latest?.balance || 0), 0);
   const inventoryAccountIds = ["bank-hipotecario"];
   const reserveAccountIds = ["bank-azul-laboral", "bank-azul-fiscal", "bank-bac-ahorro"];
@@ -10784,6 +10792,7 @@ function printArchivedDerivedAvailability(archiveId) {
 }
 
 function printBankAvailabilityVerticalReport() {
+  if (state.pendingExpensesLoadState !== "ready") { alert("No se pudieron verificar los gastos pendientes. Recarga la disponibilidad antes de imprimir."); return; }
   const signatures = state.bankAvailabilitySignatures || {};
   if (!["prepared", "reviewed", "authorized"].every((key) => signatures[key]?.signed)) {
     alert("La disponibilidad debe contar con las tres firmas electrónicas antes de imprimirse.");
@@ -10869,7 +10878,9 @@ function renderBankAvailability() {
   }).join("");
   const groups = pendingExpenseGroups();
   const pendingExpensesTotal = groups.reduce((sum, group) => sum + group.total, 0);
-  const pendingExpensesMarkup = groups.map((group, index) => `<tr class="${index ? "" : "is-active"}" tabindex="0" role="button" data-pending-expense="${escapeHtml(group.name)}"><td>${escapeHtml(group.name)}</td><td class="money">${formatMoney(group.total)}</td></tr>`).join("");
+  const pendingExpensesMarkup = groups.map((group, index) => `<tr class="${index ? "" : "is-active"}" tabindex="0" role="button" data-pending-expense="${escapeHtml(group.name)}"><td>${escapeHtml(group.name)}</td><td class="money">${formatMoney(group.total)}</td></tr>`).join("") || `<tr><td colspan="2" class="empty-state">${state.pendingExpensesLoadState === "ready" ? "No hay gastos pendientes registrados." : "Gastos pendientes sin verificar."}</td></tr>`;
+  const expensesReady = state.pendingExpensesLoadState === "ready";
+  const expenseNotice = expensesReady ? "" : `<div class="availability-data-status" role="alert">${state.pendingExpensesLoadState === "error" ? "No se pudieron cargar los gastos pendientes. Recarga la página; no edites ni archives la disponibilidad hasta verificar los datos." : "Cargando gastos pendientes..."}</div>`;
   const checks = [...state.pendingChecks].sort((a,b) => String(a.date).localeCompare(String(b.date)) || String(a.checkNumber).localeCompare(String(b.checkNumber)));
   const checksTotal = checks.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const checksMarkup = checks.map((item) => `<tr><td>${escapeHtml(formatDate(item.date))}</td><td>${escapeHtml(item.concept)}</td><td>${escapeHtml(item.checkNumber)}</td><td>${escapeHtml(item.bank)}</td><td class="money">${formatMoney(item.amount)}</td></tr>`).join("") || `<tr><td colspan="5" class="empty-state">No hay cheques pendientes de cobro.</td></tr>`;
@@ -10881,7 +10892,7 @@ function renderBankAvailability() {
     : latestDaily
       ? `<span class="bank-daily-status is-complete"><b>Última disponibilidad archivada</b> ${escapeHtml(formatDate(latestDaily.date))} · ${formatMoney(latestDaily.total)}</span>`
       : `<span class="bank-daily-status"><b>Disponibilidad sin archivar</b> 0 de ${Number(progress.total || accounts.length)} bancos actualizados</span>`;
-  return `<section class="bank-availability-module"><div class="bank-report-toolbar"><div><span>Conciliación bancaria</span><small>Saldo anterior, movimientos y saldo actualizado por cuenta</small></div>${dailyStatus}<button class="archive" type="button" data-bank-availability-archive>Archivar disponibilidad</button><button type="button" data-bank-availability-report>▤ Reporte de disponibilidad</button></div><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><div class="pending-expenses-head-actions"><strong>${formatMoney(pendingExpensesTotal)}</strong><button type="button" data-pending-expenses-manage>Administrar gastos</button></div></header><div class="pending-expenses-grid"><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Montos a Pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${formatMoney(pendingExpensesTotal)}</th></tr></tfoot></table></div><aside class="pending-expense-detail" data-pending-expense-detail>${pendingExpenseDetailMarkup(groups[0])}</aside></div></section><section class="pending-checks-panel"><header><div><span>Documentos por realizar</span><h2>Cheques pendientes de cobro</h2></div><div class="pending-expenses-head-actions"><strong>${formatMoney(checksTotal)}</strong><button type="button" data-pending-checks-manage>Administrar cheques</button></div></header><div class="pending-checks-table"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Número de cheque</th><th>Banco</th><th>Monto</th></tr></thead><tbody>${checksMarkup}</tbody><tfoot><tr><th colspan="4">Total</th><th class="money">${formatMoney(checksTotal)}</th></tr></tfoot></table></div></section></section>`;
+  return `<section class="bank-availability-module"><div class="bank-report-toolbar"><div><span>Conciliación bancaria</span><small>Saldo anterior, movimientos y saldo actualizado por cuenta</small></div>${dailyStatus}<button class="archive" type="button" data-bank-availability-archive ${expensesReady ? "" : "disabled"}>Archivar disponibilidad</button><button type="button" data-bank-availability-report>▤ Reporte de disponibilidad</button></div><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><div class="pending-expenses-head-actions"><strong>${expensesReady ? formatMoney(pendingExpensesTotal) : "—"}</strong><button type="button" data-pending-expenses-manage ${expensesReady ? "" : "disabled"}>Administrar gastos</button></div></header>${expenseNotice}<div class="pending-expenses-grid"><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Montos a Pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${expensesReady ? formatMoney(pendingExpensesTotal) : "—"}</th></tr></tfoot></table></div><aside class="pending-expense-detail" data-pending-expense-detail>${pendingExpenseDetailMarkup(groups[0])}</aside></div></section><section class="pending-checks-panel"><header><div><span>Documentos por realizar</span><h2>Cheques pendientes de cobro</h2></div><div class="pending-expenses-head-actions"><strong>${formatMoney(checksTotal)}</strong><button type="button" data-pending-checks-manage>Administrar cheques</button></div></header><div class="pending-checks-table"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Número de cheque</th><th>Banco</th><th>Monto</th></tr></thead><tbody>${checksMarkup}</tbody><tfoot><tr><th colspan="4">Total</th><th class="money">${formatMoney(checksTotal)}</th></tr></tfoot></table></div></section></section>`;
 }
 
 async function printBankAvailabilityReport(archivedReport = null, archivedDate = "") {
@@ -10908,26 +10919,9 @@ async function printBankAvailabilityReport(archivedReport = null, archivedDate =
 }
 
 function pendingExpenseGroups() {
-  const groups = [
-    ["Planilla", [["24/08/2026","Planilla Sueldos 2Q Agosto 2026",16500]]],
-    ["Comisiones", [["30/07/2026","OMV",20.29],["31/07/2026","OMV",38.83],["10/08/2026","OMV",33.62],["11/08/2026","OMV",43.87],["14/08/2026","OMV",12.09],["19/08/2026","OMV",40],["20/08/2026","OMV",10.04],["24/08/2026","OMV",29.35],["25/08/2026","OMV",28.63],["30/07/2026","GAG",40.57],["31/07/2026","GAG",23.31],["10/08/2026","GAG",2.90],["11/08/2026","GAG",12.71],["14/08/2026","GAG",24.18],["18/08/2026","GAG",61.59],["18/08/2026","GAG",123.18],["24/08/2026","GAG",13.94],["25/08/2026","GAG",2.90],["31/07/2026","MMM",54.36],["10/08/2026","MMM",64.33],["11/08/2026","MMM",75.02],["25/08/2026","MMM",54.36],["31/07/2026","JAA",31.37],["10/08/2026","JAA",1228.32],["11/08/2026","JAA",97.05],["12/08/2026","JAA",25.76],["18/08/2026","JAA",235.29],["25/08/2026","JAA",28.35],["14/08/2026","MAV 7%",47.84],["19/08/2026","MAV 7%",100.01],["20/08/2026","MAV 7%",32.34],["20/08/2026","MAV 7%",28.40],["14/08/2026","MAV 2%",13.67],["19/08/2026","MAV 2%",40],["20/08/2026","MAV 2%",9.24],["20/08/2026","MAV 2%",8.11],["20/08/2026","ERO",20.09],["24/08/2026","YEM",44.77]]],
-    ["Reintegro Bodega ARTE Y COLOR (POR FACTURAR) J.A.A.", [["03/06/2026","Bodega Arte y Color",90],["08/06/2026","Bodega Arte y Color",1709.28]]],
-    ["Reservas Fiscal", [["19/08/2026","Reserva Fiscal",260.02],["20/08/2026","Reserva Fiscal",125.34],["20/08/2026","Reserva Fiscal",52.74],["24/08/2026","Reserva Fiscal",192.17],["25/08/2026","Reserva Fiscal",227.04]]],
-    ["Caja Chica", [["25/08/2026","Reintegro de caja chica Mary",210],["25/08/2026","Reintegro de caja chica Mary",263.49]]],
-    ["Reserva Laboral", [["19/08/2026","Reserva laboral",140.01],["20/08/2026","Reserva laboral",67.49],["20/08/2026","Reserva laboral",28.40],["24/08/2026","Reserva laboral",103.47],["25/08/2026","Reserva laboral",122.25]]],
-    ["Inventario", [["21/08/2026","Reintegro bodega KONFI",214.22]]]
-  ];
-  const seed = groups.flatMap(([costCenter, details], groupIndex) => details.map(([date, detail, amount], rowIndex) => ({ id:`seed-${groupIndex}-${rowIndex}`, costCenter, date, detail, amount })));
-  const items = state.pendingExpenses.length ? state.pendingExpenses : seed;
   const grouped = new Map();
-  items.forEach((item) => { if (!grouped.has(item.costCenter)) grouped.set(item.costCenter, []); grouped.get(item.costCenter).push([item.date, item.detail, Number(item.amount || 0)]); });
+  state.pendingExpenses.forEach((item) => { if (!grouped.has(item.costCenter)) grouped.set(item.costCenter, []); grouped.get(item.costCenter).push([item.date, item.detail, Number(item.amount || 0)]); });
   return [...grouped].map(([name, details]) => ({ name, details, total:details.reduce((sum, row) => sum + row[2], 0) }));
-}
-
-function pendingExpenseSeed() {
-  const current = state.pendingExpenses; state.pendingExpenses = [];
-  const groups = pendingExpenseGroups(); state.pendingExpenses = current;
-  return groups.flatMap((group, groupIndex) => group.details.map(([date, detail, amount], rowIndex) => ({ id:`seed-${groupIndex}-${rowIndex}`, costCenter:group.name, date, detail, amount })));
 }
 
 const pendingExpenseCostCenters = [
@@ -10937,6 +10931,7 @@ const pendingExpenseCostCenters = [
 ];
 
 function savePendingExpenses() {
+  if (state.pendingExpensesLoadState !== "ready") return Promise.reject(new Error("No se verificaron los gastos pendientes; recarga antes de guardar"));
   if (!apiEnabled) return Promise.resolve(state.pendingExpenses);
   return apiJson("/api/pending-expenses", { method:"PUT", body:JSON.stringify({ items:state.pendingExpenses }) }).then((response) => { state.pendingExpenses = response.items || state.pendingExpenses; state.bankAvailabilitySignatures = {}; return state.pendingExpenses; });
 }
@@ -14853,6 +14848,8 @@ function openApp(userOrRole, options = {}) {
     if (firstSubmenu) state.openMenus.add(state.activeArea);
   }
   if (usesTabletDrawer()) setSidebarCollapsed(true);
+  state.pendingExpenses = [];
+  state.pendingExpensesLoadState = "loading";
   persistSession(user);
   loginView.classList.add("hidden");
   appShell.classList.remove("hidden");
