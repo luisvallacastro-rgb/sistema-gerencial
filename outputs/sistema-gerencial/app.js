@@ -6602,8 +6602,9 @@ function renderCommercialGoals() {
         </section>
         <section class="commercial-goals-chart commercial-goals-progress" aria-label="Venta acumulada frente a meta global">
           <header><div><span>AVANCE GLOBAL</span><h3>Septiembre–diciembre ${commercialGoalsYear}</h3></div></header>
-          <div class="commercial-goals-progress-body"><div class="commercial-goals-progress-ring" style="--goal-progress:${progressValue}%"><div><strong>${progress.percent}%</strong><small>de la meta</small></div></div><div class="commercial-goals-progress-values"><div><span>Venta real acumulada</span><strong>${currency(progress.actualCents)}</strong></div><div><span>Meta global</span><strong>${currency(progress.targetCents)}</strong></div><div><span>${progress.actualCents > progress.targetCents ? "Excedente" : "Pendiente"}</span><strong>${currency(differenceCents)}</strong></div></div></div>
-          <div class="commercial-goals-progress-track" role="progressbar" aria-label="Cumplimiento de la meta global" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressValue}"><span style="width:${progressValue}%"></span></div>
+          <div class="commercial-goals-progress-body"><div class="commercial-goals-progress-ring" style="--goal-progress:${progressValue}%"><div><strong>${progress.percent}%</strong><small>de la meta</small></div></div><div class="commercial-goals-progress-values"><div><span>Venta real acumulada</span><strong>${currency(progress.actualCents)}</strong></div><div><span>Meta global</span><strong>${currency(progress.targetCents)}</strong></div><div class="${progress.actualCents < progress.targetCents ? "is-pending" : ""}"><span>${progress.actualCents > progress.targetCents ? "Excedente" : "Pendiente"}</span><strong>${currency(differenceCents)}</strong></div></div></div>
+          <div class="commercial-goals-progress-track" role="progressbar" aria-label="Cumplimiento de la meta global, dividido en cuatro meses" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressValue}"><span style="width:${progressValue}%"></span><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div>
+          <div class="commercial-goals-progress-months" aria-hidden="true"><span>Sep</span><span>Oct</span><span>Nov</span><span>Dic</span></div>
         </section>
       </div>
     </section>`;
