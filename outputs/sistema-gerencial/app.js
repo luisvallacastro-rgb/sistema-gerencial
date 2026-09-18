@@ -325,7 +325,7 @@ const state = {
   commercialMetricsMonth: "all",
   commercialMetricsSeller: "all",
   commercialMetricsOrder: "all",
-  commercialGoalsMonth: 9,
+  commercialGoalsMonth: null,
   accountsReceivable: [],
   accountsReceivableQuery: "",
   accountsReceivablePage: 1,
@@ -6533,6 +6533,13 @@ const commercialGoalsMonths = [9, 10, 11, 12];
 const commercialGoalsMonthlyTotalCents = 24450000;
 const commercialGoalsSellerMonthlyCents = 4075000;
 
+function commercialGoalsCurrentMonth(asOf = todayISO()) {
+  const period = asOf.slice(0, 7);
+  if (period <= `${commercialGoalsYear}-09`) return 9;
+  if (period >= `${commercialGoalsYear}-12`) return 12;
+  return Number(period.slice(5));
+}
+
 function commercialGoalsSalesCents(orders) {
   return orders.reduce((sum, order) => sum + Math.round(Number(order.sale || 0) * 100), 0);
 }
@@ -6560,7 +6567,7 @@ function renderCommercialGoals() {
   const crmUsers = new Map(crmMasterSalesUsers({ includeInactive: true }).map((user) => [commercialGoalSellerKey(user.name), user]));
   const activeSellers = sellers.filter((name) => !crmUsers.has(commercialGoalSellerKey(name)) || isActiveCrmSeller(crmUsers.get(commercialGoalSellerKey(name))));
   const sellerKeys = new Set(activeSellers.map(commercialGoalSellerKey));
-  const selectedMonth = commercialGoalsMonths.includes(state.commercialGoalsMonth) ? state.commercialGoalsMonth : 9;
+  const selectedMonth = commercialGoalsMonths.includes(state.commercialGoalsMonth) ? state.commercialGoalsMonth : commercialGoalsCurrentMonth();
   const orders = financialOrderLedgerRows().filter((order) => {
     const date = String(order.date || "").slice(0, 10);
     return Number(date.slice(0, 4)) === commercialGoalsYear && Number(date.slice(5, 7)) === selectedMonth;
@@ -6573,6 +6580,13 @@ function renderCommercialGoals() {
   const unassignedOrders = orders.filter((order) => !sellerKeys.has(commercialGoalSellerKey(order.seller)));
   const totalCents = commercialGoalsSalesCents(orders);
   const currency = (cents) => formatMoney(cents / 100);
+  const rankingRows = [...monthSellerRows, ...(unassignedOrders.length ? [{ name: "Otros pedidos", count: unassignedOrders.length, actualCents: commercialGoalsSalesCents(unassignedOrders) }] : [])]
+    .sort((a, b) => b.actualCents - a.actualCents || b.count - a.count || a.name.localeCompare(b.name, "es"));
+  const maxSalesCents = Math.max(1, ...rankingRows.map((row) => Math.max(0, row.actualCents)));
+  const maxOrders = Math.max(1, ...rankingRows.map((row) => row.count));
+  const progress = commercialGoalsPeriodSummary();
+  const progressValue = Math.min(100, Math.max(0, Number(progress.percent)));
+  const differenceCents = Math.abs(progress.targetCents - progress.actualCents);
   return `
     <section class="commercial-goals" aria-label="Pedidos reales frente a meta comercial">
       <header class="commercial-goals-header"><h2>Meta por vendedor</h2><label>Mes <select data-commercial-goals-month>${commercialGoalsMonths.map((month) => `<option value="${month}" ${month === selectedMonth ? "selected" : ""}>${escapeHtml(monthLabel(month))} ${commercialGoalsYear}</option>`).join("")}</select></label></header>
@@ -6581,6 +6595,17 @@ function renderCommercialGoals() {
         ${unassignedOrders.length ? `<tr><th scope="row">Otros pedidos</th><td>${unassignedOrders.length}</td><td>${currency(commercialGoalsSalesCents(unassignedOrders))}</td><td>—</td><td>—</td></tr>` : ""}
         <tr class="commercial-goals-total"><th scope="row">Total mensual</th><td>${orders.length}</td><td>${currency(totalCents)}</td><td>${currency(commercialGoalsMonthlyTotalCents)}</td><td class="commercial-goals-kpi">${percent(totalCents, commercialGoalsMonthlyTotalCents)}%</td></tr>
       </tbody></table></div>
+      <div class="commercial-goals-charts">
+        <section class="commercial-goals-chart commercial-goals-ranking" aria-label="Ranking mensual de pedidos y venta real">
+          <header><div><span>RANKING MENSUAL</span><h3>${escapeHtml(monthLabel(selectedMonth))} ${commercialGoalsYear}</h3></div><p><i class="sales"></i> Venta real <i class="orders"></i> Pedidos</p></header>
+          <div class="commercial-goals-ranking-rows">${rankingRows.map((row, index) => `<article class="commercial-goals-ranking-row"><div class="commercial-goals-ranking-name"><span>${String(index + 1).padStart(2, "0")}</span><strong>${escapeHtml(row.name)}</strong></div><div class="commercial-goals-ranking-measures"><div class="commercial-goals-ranking-measure"><span>Venta real</span><div class="commercial-goals-ranking-track"><i class="sales" style="width:${(Math.max(0, row.actualCents) / maxSalesCents * 100).toFixed(1)}%"></i></div><strong>${currency(row.actualCents)}</strong></div><div class="commercial-goals-ranking-measure"><span>Pedidos</span><div class="commercial-goals-ranking-track"><i class="orders" style="width:${(row.count / maxOrders * 100).toFixed(1)}%"></i></div><strong>${row.count}</strong></div></div></article>`).join("")}</div>
+        </section>
+        <section class="commercial-goals-chart commercial-goals-progress" aria-label="Venta acumulada frente a meta global">
+          <header><div><span>AVANCE GLOBAL</span><h3>Septiembre–diciembre ${commercialGoalsYear}</h3></div></header>
+          <div class="commercial-goals-progress-body"><div class="commercial-goals-progress-ring" style="--goal-progress:${progressValue}%"><div><strong>${progress.percent}%</strong><small>de la meta</small></div></div><div class="commercial-goals-progress-values"><div><span>Venta real acumulada</span><strong>${currency(progress.actualCents)}</strong></div><div><span>Meta global</span><strong>${currency(progress.targetCents)}</strong></div><div><span>${progress.actualCents > progress.targetCents ? "Excedente" : "Pendiente"}</span><strong>${currency(differenceCents)}</strong></div></div></div>
+          <div class="commercial-goals-progress-track" role="progressbar" aria-label="Cumplimiento de la meta global" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressValue}"><span style="width:${progressValue}%"></span></div>
+        </section>
+      </div>
     </section>`;
 }
 
