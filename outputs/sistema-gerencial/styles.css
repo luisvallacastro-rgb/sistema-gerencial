@@ -20860,6 +20860,11 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .commercial-agenda-gantt-track{min-height:max(64px,calc(12px + var(--agenda-lanes) * 58px));background:repeating-linear-gradient(90deg,transparent 0,transparent calc(9.0909% - 1px),rgba(130,160,187,.18) calc(9.0909% - 1px),rgba(130,160,187,.18) 9.0909%)}
 .commercial-agenda-gantt-row.is-empty>header span{color:#f0c782}
 .commercial-agenda-gantt-unplanned{position:absolute;top:50%;left:14px;transform:translateY(-50%);color:#87a2b9;font-size:11px}
+.app-shell .dashboard.opportunity-focus .commercial-panel.commercial-agenda-mode>.opportunity-table{overflow-x:hidden!important;overflow-y:auto!important;scrollbar-gutter:stable;overscroll-behavior-y:auto}
+.app-shell .commercial-panel.commercial-agenda-mode .commercial-agenda-gantt{max-height:clamp(210px,60dvh,620px);min-height:0;overflow-x:auto;overflow-y:scroll;scrollbar-gutter:stable;overscroll-behavior:contain}
+.app-shell .commercial-panel.commercial-agenda-mode .commercial-agenda-gantt::-webkit-scrollbar{width:11px;height:11px}
+.app-shell .commercial-panel.commercial-agenda-mode .commercial-agenda-gantt::-webkit-scrollbar-track{background:#0d263f}
+.app-shell .commercial-panel.commercial-agenda-mode .commercial-agenda-gantt::-webkit-scrollbar-thumb{border:2px solid #0d263f;border-radius:9px;background:#6288a2}
 .commercial-agenda-details{padding:12px;border:1px solid #3b5b78;border-radius:13px;background:#142e49}
 .commercial-agenda-details>summary{cursor:pointer;color:#c4d8e8;font-weight:800}
 .commercial-agenda-details[open]{display:grid;gap:12px}
