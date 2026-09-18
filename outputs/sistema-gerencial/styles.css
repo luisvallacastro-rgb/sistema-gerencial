@@ -21111,6 +21111,16 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 @media(max-width:1180px){.commercial-metrics-overview{height:auto;min-height:auto}.commercial-metrics-overview .commercial-metrics-filter-grid{height:auto;grid-template-columns:1fr;overflow:visible}.commercial-metrics-overview .commercial-metrics-filter-panel{height:320px}.commercial-metrics-master{min-height:520px}.app-shell .dashboard.opportunity-focus .commercial-panel.commercial-metrics-mode>.opportunity-table{scroll-snap-type:none}}
 
 /* Meta comercial: una sola matriz mensual. */
+.app-shell .topbar.goals-title-mode{grid-template-columns:minmax(0,1fr);min-height:86px}
+.app-shell .topbar.goals-title-mode>div:first-child{width:100%;min-width:0}
+.app-shell #pageTitle.with-goals-summary{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:20px;width:100%;margin:0}
+.app-shell .commercial-goals-title-label{white-space:nowrap}
+.app-shell .commercial-goals-title-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;min-width:0}
+.app-shell .commercial-goals-title-kpi{display:grid;align-content:center;gap:3px;min-width:0;min-height:58px;padding:8px 12px;border:1px solid rgba(125,233,213,.28);border-radius:12px;background:rgba(17,56,69,.42);font-variant-numeric:tabular-nums}
+.app-shell .commercial-goals-title-kpi small{color:#aac8d2;font-size:10px;font-weight:800;line-height:1.2;text-transform:uppercase}
+.app-shell .commercial-goals-title-kpi strong{color:#93f2db;font-size:clamp(17px,1.7vw,24px);font-weight:900;line-height:1.1;white-space:nowrap}
+@media(max-width:900px){.app-shell #pageTitle.with-goals-summary{grid-template-columns:1fr;gap:10px}}
+@media(max-width:560px){.app-shell .commercial-goals-title-kpis{grid-template-columns:1fr}}
 .app-shell .commercial-panel.commercial-goals-mode{height:auto;min-height:0;padding:16px;overflow:visible}
 .app-shell .commercial-panel.commercial-goals-mode>.panel-head{display:none}
 .app-shell .dashboard.opportunity-focus .commercial-panel.commercial-goals-mode>.opportunity-table{height:auto!important;min-height:0!important;max-height:none!important;padding:0;overflow:visible!important}

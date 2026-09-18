@@ -2942,6 +2942,7 @@ function loadControlSales() {
         (state.activeArea === "operaciones" && state.activeSubmenu === "resultados-control-ventas")
         || (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos")
         || (state.activeArea === "comercializacion" && state.activeSubmenu === "autorizacion-pedidos")
+        || (state.activeArea === "comercializacion" && state.activeSubmenu === "meta")
       ) renderDashboard();
     })
     .catch((error) => console.error("No se pudo cargar Control de Ventas.", error));
@@ -3673,11 +3674,13 @@ async function loadQuotations() {
     try {
       const items = await apiJson("/api/quotations");
       state.quotations = Array.isArray(items) ? items : [];
+      if (state.activeArea === "comercializacion" && state.activeSubmenu === "meta") renderDashboard();
       return state.quotations;
     } catch (error) { console.warn("No fue posible cargar las cotizaciones", error); }
   }
   try { state.quotations = JSON.parse(localStorage.getItem(QUOTATIONS_STORAGE_KEY) || "[]"); }
   catch { state.quotations = []; }
+  if (state.activeArea === "comercializacion" && state.activeSubmenu === "meta") renderDashboard();
   return state.quotations;
 }
 
@@ -5995,7 +5998,7 @@ async function syncFinancialOrdersWithApi() {
       remoteRecords = await apiJson("/api/financial-orders");
     }
     applyPersistedFinancialOrders(remoteRecords);
-    if (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos") {
+    if (state.activeArea === "comercializacion" && ["resultados-pedidos", "meta"].includes(state.activeSubmenu)) {
       renderDashboard();
     }
   } catch (error) {
@@ -6530,6 +6533,23 @@ const commercialGoalsMonths = [9, 10, 11, 12];
 const commercialGoalsMonthlyTotalCents = 24450000;
 const commercialGoalsSellerMonthlyCents = 4075000;
 
+function commercialGoalsSalesCents(orders) {
+  return orders.reduce((sum, order) => sum + Math.round(Number(order.sale || 0) * 100), 0);
+}
+
+function commercialGoalsPeriodSummary(asOf = todayISO()) {
+  const start = `${commercialGoalsYear}-09-01`;
+  const end = `${commercialGoalsYear}-12-31`;
+  const through = asOf < end ? asOf : end;
+  const orders = financialOrderLedgerRows().filter((order) => {
+    const date = String(order.date || "").slice(0, 10);
+    return date >= start && date <= through;
+  });
+  const actualCents = commercialGoalsSalesCents(orders);
+  const targetCents = commercialGoalsMonthlyTotalCents * commercialGoalsMonths.length;
+  return { actualCents, targetCents, percent: (actualCents / targetCents * 100).toFixed(1) };
+}
+
 function commercialGoalSellerKey(value) {
   const key = normalizeKey(value);
   return key === "gabriela natalie amador flores" ? "gabriela amador" : key;
@@ -6545,21 +6565,20 @@ function renderCommercialGoals() {
     const date = String(order.date || "").slice(0, 10);
     return Number(date.slice(0, 4)) === commercialGoalsYear && Number(date.slice(5, 7)) === selectedMonth;
   });
-  const salesCents = (orders) => orders.reduce((sum, order) => sum + Math.round(Number(order.sale || 0) * 100), 0);
   const percent = (actual, target) => target ? (actual / target * 100).toFixed(1) : "0.0";
   const monthSellerRows = activeSellers.map((name) => {
     const sellerOrders = orders.filter((order) => commercialGoalSellerKey(order.seller) === commercialGoalSellerKey(name));
-    return { name, count: sellerOrders.length, actualCents: salesCents(sellerOrders) };
+    return { name, count: sellerOrders.length, actualCents: commercialGoalsSalesCents(sellerOrders) };
   });
   const unassignedOrders = orders.filter((order) => !sellerKeys.has(commercialGoalSellerKey(order.seller)));
-  const totalCents = salesCents(orders);
+  const totalCents = commercialGoalsSalesCents(orders);
   const currency = (cents) => formatMoney(cents / 100);
   return `
     <section class="commercial-goals" aria-label="Pedidos reales frente a meta comercial">
       <header class="commercial-goals-header"><h2>Meta por vendedor</h2><label>Mes <select data-commercial-goals-month>${commercialGoalsMonths.map((month) => `<option value="${month}" ${month === selectedMonth ? "selected" : ""}>${escapeHtml(monthLabel(month))} ${commercialGoalsYear}</option>`).join("")}</select></label></header>
       <div class="commercial-goals-table-wrap"><table><thead><tr><th>Vendedor</th><th>Pedidos</th><th>Venta real</th><th>Meta individual</th><th>KPI</th></tr></thead><tbody>
         ${monthSellerRows.map((row) => `<tr><th scope="row">${escapeHtml(row.name)}</th><td>${row.count}</td><td>${currency(row.actualCents)}</td><td>${currency(commercialGoalsSellerMonthlyCents)}</td><td class="commercial-goals-kpi">${percent(row.actualCents, commercialGoalsSellerMonthlyCents)}%</td></tr>`).join("")}
-        ${unassignedOrders.length ? `<tr><th scope="row">Otros pedidos</th><td>${unassignedOrders.length}</td><td>${currency(salesCents(unassignedOrders))}</td><td>—</td><td>—</td></tr>` : ""}
+        ${unassignedOrders.length ? `<tr><th scope="row">Otros pedidos</th><td>${unassignedOrders.length}</td><td>${currency(commercialGoalsSalesCents(unassignedOrders))}</td><td>—</td><td>—</td></tr>` : ""}
         <tr class="commercial-goals-total"><th scope="row">Total mensual</th><td>${orders.length}</td><td>${currency(totalCents)}</td><td>${currency(commercialGoalsMonthlyTotalCents)}</td><td class="commercial-goals-kpi">${percent(totalCents, commercialGoalsMonthlyTotalCents)}%</td></tr>
       </tbody></table></div>
     </section>`;
@@ -14080,9 +14099,18 @@ function renderPageTitle(area, activeSubmenu) {
   const isResultsView = state.activeArea === "comercializacion"
     && ["resultados-oportunidades", "resultados-dashboard"].includes(activeSubmenu?.key);
   const isKpiView = state.activeArea === "comercializacion" && activeSubmenu?.key === "kpi";
+  const isGoalsView = state.activeArea === "comercializacion" && activeSubmenu?.key === "meta";
   const isFinancialOrdersView = activeSubmenu?.key === "resultados-pedidos";
   pageTitle.classList.toggle("with-results-summary", isResultsView || isKpiView);
+  pageTitle.classList.toggle("with-goals-summary", isGoalsView);
+  pageTitle.closest(".topbar")?.classList.toggle("goals-title-mode", isGoalsView);
   renderFinancialOrderTopbarFilters(isFinancialOrdersView);
+
+  if (isGoalsView) {
+    const { actualCents, targetCents, percent } = commercialGoalsPeriodSummary();
+    pageTitle.innerHTML = `<span class="commercial-goals-title-label">Meta</span><span class="commercial-goals-title-kpis"><span class="commercial-goals-title-kpi"><small>Pedidos acumulados desde septiembre</small><strong>${formatMoney(actualCents / 100)}</strong></span><span class="commercial-goals-title-kpi"><small>Meta global · septiembre–diciembre</small><strong>${formatMoney(targetCents / 100)}</strong></span><span class="commercial-goals-title-kpi"><small>Acumulado / meta global</small><strong>${percent}%</strong></span></span>`;
+    return;
+  }
 
   if (isFinancialOrdersView) {
     pageTitle.textContent = "Pedidos";
