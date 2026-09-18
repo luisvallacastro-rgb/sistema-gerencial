@@ -21127,6 +21127,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .commercial-goals{overflow:hidden;border:1px solid #43617f;border-radius:16px;background:#1a3451;color:#edf6ff}
 .commercial-goals-header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 22px;border-bottom:1px solid #486582}
 .commercial-goals-header h2{margin:0;color:#fff;font-size:23px}.commercial-goals-header label{display:flex;align-items:center;gap:10px;color:#a9c1d5;font-size:14px;font-weight:800}
+.commercial-goals-header-actions{display:flex;align-items:center;gap:10px}.commercial-goals-header-actions>button{min-height:40px;padding:0 16px;border:1px solid #53d5b9;border-radius:10px;background:#16846f;color:#fff;font:inherit;font-weight:900;cursor:pointer}.commercial-goals-header-actions>button:hover{background:#1a9b82}.commercial-goals-header-actions>button:focus-visible{outline:2px solid #9af5df;outline-offset:3px}
 .commercial-goals-header select{min-height:40px;padding:0 12px;border:1px solid #577899;border-radius:10px;background:#294667;color:#fff;font:inherit}
 .commercial-goals-table-wrap{overflow-x:auto}.commercial-goals table{width:100%;border-collapse:collapse;white-space:nowrap}
 .commercial-goals th,.commercial-goals td{padding:16px 22px;border-bottom:1px solid rgba(103,135,168,.3);text-align:right;font-size:16px;font-variant-numeric:tabular-nums}
