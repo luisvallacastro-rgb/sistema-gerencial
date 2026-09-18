@@ -11415,6 +11415,13 @@ function commercialAgendaReportSellerOptions() {
   state.commercialAgenda.forEach((item) => { if (item.seller) names.add(item.seller); });
   return [...names].sort((a, b) => a.localeCompare(b, "es"));
 }
+function commercialAgendaDailySellerOptions() {
+  return commercialAgendaReportSellerOptions().filter((seller) => normalizeKey(seller) !== "ventas online");
+}
+function commercialAgendaDailySellerSelection() {
+  const seller = state.commercialAgendaDailySeller || "all";
+  return seller === "all" || commercialAgendaDailySellerOptions().includes(seller) ? seller : "all";
+}
 function commercialAgendaReportDates(start, end) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return [];
   const first = new Date(`${start}T12:00:00Z`);
@@ -11451,14 +11458,14 @@ function printCommercialAgendaReport() {
 }
 function commercialAgendaDailyEvents(date, sellerFilter = "all") {
   return state.commercialAgenda.flatMap((item) => commercialAgendaItemEvents(item)
-    .filter((event) => event.date === date && (sellerFilter === "all" || item.seller === sellerFilter))
+    .filter((event) => event.date === date && normalizeKey(item.seller) !== "ventas online" && (sellerFilter === "all" || item.seller === sellerFilter))
     .map((event) => ({ item, event })))
     .sort((a, b) => `${a.event.startTime} ${a.item.seller}`.localeCompare(`${b.event.startTime} ${b.item.seller}`, "es"));
 }
 function commercialAgendaDailyHourLabel(hour) {
   return hour === 12 ? "12:00 m." : hour > 12 ? `${hour - 12}:00 p. m.` : `${hour}:00 a. m.`;
 }
-function renderCommercialAgendaDaily({ selectedDate = state.commercialAgendaDate || todayISO(), sellerFilter = state.commercialAgendaDailySeller || "all", report = false } = {}) {
+function renderCommercialAgendaDaily({ selectedDate = state.commercialAgendaDate || todayISO(), sellerFilter = commercialAgendaDailySellerSelection(), report = false } = {}) {
   const events = commercialAgendaDailyEvents(selectedDate, sellerFilter);
   const buckets = new Map(Array.from({ length: 12 }, (_, index) => [index + 6, []]));
   const outside = [];
@@ -11481,7 +11488,7 @@ function renderCommercialAgendaDaily({ selectedDate = state.commercialAgendaDate
       : `<tr class="is-empty"><th scope="row">${commercialAgendaDailyHourLabel(hour)}</th><td>Sin actividad</td><td>—</td></tr>`;
   }).join("");
   const outsideRows = outside.map((row) => `<tr><th scope="row">${escapeHtml(commercialAgendaTimeLabel(row.event.startTime))}</th>${activityCells(row)}</tr>`).join("");
-  const sellerTabs = report ? "" : `<nav class="commercial-agenda-daily-index" aria-label="Agenda por vendedor">${["all", ...commercialAgendaReportSellerOptions()].map((seller) => `<button type="button" data-agenda-daily-tab="${escapeHtml(seller)}" class="${seller === sellerFilter ? "active" : ""}" aria-pressed="${seller === sellerFilter}">${escapeHtml(seller === "all" ? "Todos" : seller)}</button>`).join("")}</nav>`;
+  const sellerTabs = report ? "" : `<nav class="commercial-agenda-daily-index" aria-label="Agenda por vendedor">${["all", ...commercialAgendaDailySellerOptions()].map((seller) => `<button type="button" data-agenda-daily-tab="${escapeHtml(seller)}" class="${seller === sellerFilter ? "active" : ""}" aria-pressed="${seller === sellerFilter}">${escapeHtml(seller === "all" ? "Todos" : seller)}</button>`).join("")}</nav>`;
   return `<section class="commercial-agenda-daily"><header><div class="commercial-agenda-daily-heading"><span>Diario de actividades</span><strong>${escapeHtml(formatDate(selectedDate))}</strong><small>${sellerFilter === "all" ? "Todos los vendedores" : escapeHtml(sellerFilter)} · ${events.length} ${events.length === 1 ? "actividad" : "actividades"}</small></div>${sellerTabs}</header><div class="commercial-agenda-daily-table"><table><thead><tr><th>Hora</th><th>Tipo de actividad</th><th>Detalle</th></tr></thead><tbody>${hourRows}</tbody></table></div>${outside.length ? `<details class="commercial-agenda-daily-outside" ${report ? "open" : ""}><summary>${outside.length} ${outside.length === 1 ? "actividad fuera" : "actividades fuera"} del horario visible</summary><table><tbody>${outsideRows}</tbody></table></details>` : ""}</section>`;
 }
 function commercialAgendaDailyReportHtml(date, sellerFilter = "all") {
@@ -11492,9 +11499,9 @@ function commercialAgendaDailyReportHtml(date, sellerFilter = "all") {
 }
 function printCommercialAgendaDailyReport() {
   const date = state.commercialAgendaDate || todayISO();
-  const seller = state.commercialAgendaDailySeller || "all";
+  const seller = commercialAgendaDailySellerSelection();
   if (!commercialAgendaReportDates(date, date).length) return alert("Selecciona una fecha válida para el reporte.");
-  if (seller !== "all" && !commercialAgendaReportSellerOptions().includes(seller)) return alert("Selecciona un vendedor válido.");
+  if (seller !== "all" && !commercialAgendaDailySellerOptions().includes(seller)) return alert("Selecciona un vendedor válido.");
   const popup = window.open("", "_blank", "width=1050,height=900");
   if (!popup) return alert("El navegador bloqueó la ventana del reporte.");
   popup.document.write(commercialAgendaDailyReportHtml(date, seller));
