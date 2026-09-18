@@ -305,6 +305,9 @@ const state = {
   commercialAgendaView: "list",
   commercialAgendaDetailsOpen: false,
   commercialAgendaDate: todayISO(),
+  commercialAgendaReportSeller: "all",
+  commercialAgendaReportStart: "",
+  commercialAgendaReportEnd: "",
   commercialAgendaValidationStart: `${todayISO().slice(0, 8)}01`,
   commercialAgendaValidationEnd: todayISO(),
   pendingExpenses: [],
@@ -11376,10 +11379,10 @@ function normalizeCommercialAgendaTime(value) {
 }
 function canViewCommercialAgendaManagement() { return isAdminUser() || state.role === "gerencias" || isCommercialManagementUser(); }
 function commercialAgendaMinutes(value) { const [hours = 0, minutes = 0] = String(value || "00:00").split(":").map(Number); return hours * 60 + minutes; }
-function renderCommercialAgendaManagement({ includeAllSellers = false } = {}) {
-  const selectedDate = state.commercialAgendaDate || todayISO();
-  const rows = state.commercialAgenda.flatMap((item) => commercialAgendaItemEvents(item).filter((event) => event.date === selectedDate).map((event) => ({ item, event })));
-  const grouped = new Map((includeAllSellers ? commercialSellerNames() : []).map((seller) => [seller, []]));
+function renderCommercialAgendaManagement({ includeAllSellers = false, selectedDate = state.commercialAgendaDate || todayISO(), sellerFilter = "all" } = {}) {
+  const rows = state.commercialAgenda.flatMap((item) => commercialAgendaItemEvents(item).filter((event) => event.date === selectedDate && (sellerFilter === "all" || item.seller === sellerFilter)).map((event) => ({ item, event })));
+  const sellerNames = sellerFilter === "all" ? (includeAllSellers ? commercialSellerNames() : []) : [sellerFilter];
+  const grouped = new Map(sellerNames.map((seller) => [seller, []]));
   rows.forEach((row) => {
     const seller = row.item.seller || "Sin vendedor";
     if (!grouped.has(seller)) grouped.set(seller, []);
@@ -11406,6 +11409,45 @@ function renderCommercialAgendaManagement({ includeAllSellers = false } = {}) {
     }).join("") || `<span class="commercial-agenda-gantt-unplanned">${sorted.length ? "Actividad fuera del horario visible" : "Sin actividades registradas"}</span>`}</div></article>`;
   }).join("") || `<div class="commercial-agenda-gantt-empty">No hay vendedores registrados.</div>`}</div></section>`;
 }
+function commercialAgendaReportSellerOptions() {
+  const names = new Set(commercialSellerNames());
+  state.commercialAgenda.forEach((item) => { if (item.seller) names.add(item.seller); });
+  return [...names].sort((a, b) => a.localeCompare(b, "es"));
+}
+function commercialAgendaReportDates(start, end) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return [];
+  const first = new Date(`${start}T12:00:00Z`);
+  const last = new Date(`${end}T12:00:00Z`);
+  if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime()) || first.toISOString().slice(0, 10) !== start || last.toISOString().slice(0, 10) !== end || last < first || last - first > 365 * 86400000) return [];
+  const dates = [];
+  for (let day = new Date(first); day <= last; day.setUTCDate(day.getUTCDate() + 1)) dates.push(day.toISOString().slice(0, 10));
+  return dates;
+}
+function commercialAgendaReportHtml(start, end, sellerFilter = "all") {
+  const dates = commercialAgendaReportDates(start, end);
+  const events = state.commercialAgenda.flatMap((item) => commercialAgendaItemEvents(item).map((event) => ({ item, event })))
+    .filter(({ item, event }) => event.date >= start && event.date <= end && (sellerFilter === "all" || item.seller === sellerFilter))
+    .sort((a, b) => `${a.event.date} ${a.event.startTime} ${a.item.seller}`.localeCompare(`${b.event.date} ${b.event.startTime} ${b.item.seller}`));
+  const days = dates.map((date) => {
+    const dayEvents = events.filter(({ event }) => event.date === date);
+    const detailRows = dayEvents.map(({ item, event }) => `<tr><td>${escapeHtml(item.seller || "—")}</td><td>${escapeHtml(commercialAgendaTimeLabel(event.startTime))}–${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</td><td>${escapeHtml(event.prospect || item.prospect || "—")}</td><td>${escapeHtml(event.activity || "—")}</td><td>${escapeHtml(event.comment || event.result || item.comment || item.result || "—")}</td></tr>`).join("");
+    return `<section class="report-day"><header class="report-day-title"><strong>${escapeHtml(formatDate(date))}</strong><span>${dayEvents.length} ${dayEvents.length === 1 ? "actividad" : "actividades"}</span></header>${renderCommercialAgendaManagement({ includeAllSellers: true, selectedDate: date, sellerFilter })}<div class="report-detail"><h2>Detalle de actividades</h2><table><thead><tr><th>Vendedor</th><th>Horario</th><th>Cliente / prospecto</th><th>Actividad</th><th>Comentario</th></tr></thead><tbody>${detailRows || `<tr><td colspan="5">No se registraron actividades para esta fecha.</td></tr>`}</tbody></table></div></section>`;
+  }).join("");
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte de agenda · ${escapeHtml(formatDate(start))} al ${escapeHtml(formatDate(end))}</title><style>
+    @page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#e9eef4;color:#182a40;font:11px Arial,sans-serif}.report-cover{max-width:1240px;margin:16px auto;padding:15px 20px;border-bottom:3px solid #168b73;background:#fff}.report-cover small{color:#14836e;font-weight:900;letter-spacing:.08em}.report-cover h1{margin:4px 0;font-size:25px}.report-cover p{margin:0;color:#52657b}.report-day{max-width:1240px;margin:16px auto;padding:16px 20px;background:#fff;box-shadow:0 5px 24px #c8d1dc}.report-day-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:15px}.report-day-title span{color:#527086;font-size:11px}.commercial-agenda-management>header{display:flex;justify-content:space-between;margin-bottom:8px;padding:8px 10px;background:#e6f1ef}.commercial-agenda-management>header div{display:flex;gap:10px;align-items:center}.commercial-agenda-management>header span{color:#16836f;font-size:9px;font-weight:900;text-transform:uppercase}.commercial-agenda-management>header strong{font-size:12px}.commercial-agenda-management>header nav{display:none}.commercial-agenda-gantt{overflow:hidden;border:1px solid #b7c9d5}.commercial-agenda-gantt-head,.commercial-agenda-gantt-row{display:grid;grid-template-columns:145px minmax(0,1fr)}.commercial-agenda-gantt-head{background:#173b5a;color:#fff}.commercial-agenda-gantt-head>strong{padding:8px;font-size:9px;text-transform:uppercase}.commercial-agenda-gantt-head>div{display:grid;grid-template-columns:repeat(11,1fr);position:relative}.commercial-agenda-gantt-head span{padding:8px 2px;border-left:1px solid #55718b;font-size:8px}.commercial-agenda-gantt-head span:last-child{position:absolute;right:2px;border:0}.commercial-agenda-gantt-row{border-top:1px solid #c5d2dd;break-inside:avoid}.commercial-agenda-gantt-row>header{display:grid;align-content:center;gap:2px;padding:7px;background:#e9f0f5}.commercial-agenda-gantt-row>header strong{font-size:10px}.commercial-agenda-gantt-row>header span{color:#607589;font-size:8px}.commercial-agenda-gantt-row.is-empty>header span{color:#a36622}.commercial-agenda-gantt-track{position:relative;min-height:max(48px,calc(8px + var(--agenda-lanes) * 42px));background:repeating-linear-gradient(90deg,#fff 0,#fff calc(9.0909% - 1px),#d6e1e9 calc(9.0909% - 1px),#d6e1e9 9.0909%)}.commercial-agenda-gantt-event{position:absolute;top:calc(4px + var(--event-lane) * 42px);left:var(--event-left);width:var(--event-width);height:38px;display:grid;align-content:center;gap:1px;overflow:hidden;padding:3px 5px;border:1px solid #16826f;border-radius:5px;background:#d7f0e8;color:#124d42;text-align:left}.commercial-agenda-gantt-event time{font-size:7px;font-weight:800;white-space:nowrap}.commercial-agenda-gantt-event strong,.commercial-agenda-gantt-event span{overflow:hidden;font-size:8px;text-overflow:ellipsis;white-space:nowrap}.commercial-agenda-gantt-unplanned{position:absolute;top:16px;left:8px;color:#6f8191;font-size:9px}.report-detail{margin-top:12px}.report-detail h2{margin:0 0 6px;font-size:12px}.report-detail table{width:100%;border-collapse:collapse}.report-detail th,.report-detail td{padding:6px;border:1px solid #c7d4df;text-align:left;vertical-align:top}.report-detail th{background:#e7eef3;font-size:8px;text-transform:uppercase}.report-detail td{font-size:9px}.print-actions{position:fixed;right:18px;bottom:18px;display:flex;gap:8px}.print-actions button{padding:10px 15px;border:0;border-radius:8px;background:#16836f;color:#fff;font-weight:800;cursor:pointer}.print-actions button:last-child{background:#334e67}@media print{body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-cover{margin:0;padding:0 0 10px;max-width:none}.report-day{max-width:none;margin:0;padding:9px 0 0;box-shadow:none;break-after:page}.report-day:last-of-type{break-after:auto}.print-actions{display:none}}
+  </style></head><body><header class="report-cover"><small>COMERCIALIZACIÓN · AGENDA</small><h1>Reporte de agenda</h1><p>${escapeHtml(formatDate(start))} al ${escapeHtml(formatDate(end))} · ${escapeHtml(sellerFilter === "all" ? "Todos los vendedores" : sellerFilter)} · ${dates.length} ${dates.length === 1 ? "día" : "días"} · ${events.length} ${events.length === 1 ? "actividad" : "actividades"}</p></header>${days}<nav class="print-actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`;
+}
+function printCommercialAgendaReport() {
+  const start = state.commercialAgendaReportStart || state.commercialAgendaDate || todayISO();
+  const end = state.commercialAgendaReportEnd || state.commercialAgendaDate || todayISO();
+  const seller = state.commercialAgendaReportSeller || "all";
+  if (!commercialAgendaReportDates(start, end).length) return alert("Selecciona fechas válidas: Desde no puede superar Hasta y el rango máximo es de 366 días.");
+  if (seller !== "all" && !commercialAgendaReportSellerOptions().includes(seller)) return alert("Selecciona un vendedor válido.");
+  const popup = window.open("", "_blank", "width=1350,height=900");
+  if (!popup) return alert("El navegador bloqueó la ventana del reporte.");
+  popup.document.write(commercialAgendaReportHtml(start, end, seller));
+  popup.document.close();
+}
 function commercialAgendaValidationRows() {
   const start=state.commercialAgendaValidationStart||`${todayISO().slice(0,8)}01`; const end=state.commercialAgendaValidationEnd||todayISO();
   return state.commercialAgenda.flatMap((item)=>commercialAgendaItemEvents(item).map((event)=>({item,event}))).filter(({event})=>event.date>=start&&event.date<=end).sort((a,b)=>`${a.event.date} ${a.event.startTime} ${a.item.seller}`.localeCompare(`${b.event.date} ${b.event.startTime} ${b.item.seller}`));
@@ -11431,7 +11473,9 @@ function renderCommercialAgenda() {
   const managementAccess = canViewCommercialAgendaManagement();
   if (!managementAccess) state.commercialAgendaView = "list";
   const listView = `<div class="commercial-agenda-table commercial-agenda-flat-table"><table><thead><tr><th>Fecha</th><th>Horario</th><th>Vendedor</th><th>Cliente / prospecto</th><th>Actividad</th><th>Descripción</th><th>Comentario</th><th>Acciones</th></tr></thead><tbody>${rows.map(({item,event}) => `<tr><td><strong>${escapeHtml(formatDate(event.date))}</strong></td><td><strong>${escapeHtml(commercialAgendaTimeLabel(event.startTime))}</strong><small>${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</small></td><td>${escapeHtml(item.seller || "—")}</td><td><strong>${escapeHtml(event.prospect || item.prospect || "—")}</strong></td><td>${escapeHtml(event.activity)}</td><td>${escapeHtml(item.description || item.objective || "—")}</td><td>${escapeHtml(event.comment || event.result || item.comment || item.result || "Sin comentario")}</td><td><button type="button" data-commercial-agenda-edit="${escapeHtml(item.id)}" title="Editar agenda" aria-label="Editar agenda">✎</button><button class="danger" type="button" data-commercial-agenda-delete="${escapeHtml(item.id)}" title="Eliminar agenda completa" aria-label="Eliminar agenda completa">⌫</button></td></tr>`).join("") || `<tr><td colspan="8" class="empty-state">${terms.length ? "No hay coincidencias para esta búsqueda." : "No hay actividades registradas."}</td></tr>`}</tbody></table></div><small class="commercial-agenda-result-count">${rows.length} ${rows.length === 1 ? "evento encontrado" : "eventos encontrados"}</small>`;
-  const agendaView = `${renderCommercialAgendaManagement({ includeAllSellers: true })}<details class="commercial-agenda-details" ${state.commercialAgendaDetailsOpen ? "open" : ""}><summary>Detalle de actividades</summary><label class="commercial-agenda-search"><span aria-hidden="true">⌕</span><input type="search" data-agenda-search value="${escapeHtml(state.commercialAgendaQuery)}" placeholder="Buscar fecha, vendedor, cliente, actividad, descripción o comentario..." autocomplete="off"></label>${listView}</details>`;
+  const reportSellers = commercialAgendaReportSellerOptions();
+  const reportControls = `<section class="commercial-agenda-report-controls"><strong>Reporte de agenda</strong><label><span>Vendedor</span><select data-agenda-report-seller><option value="all">Todos</option>${reportSellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.commercialAgendaReportSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label><label><span>Desde</span><input type="date" data-agenda-report-start value="${escapeHtml(state.commercialAgendaReportStart || state.commercialAgendaDate || todayISO())}"></label><label><span>Hasta</span><input type="date" data-agenda-report-end value="${escapeHtml(state.commercialAgendaReportEnd || state.commercialAgendaDate || todayISO())}"></label><button type="button" data-agenda-report-generate>Generar reporte</button></section>`;
+  const agendaView = `${reportControls}${renderCommercialAgendaManagement({ includeAllSellers: true })}<details class="commercial-agenda-details" ${state.commercialAgendaDetailsOpen ? "open" : ""}><summary>Detalle de actividades</summary><label class="commercial-agenda-search"><span aria-hidden="true">⌕</span><input type="search" data-agenda-search value="${escapeHtml(state.commercialAgendaQuery)}" placeholder="Buscar fecha, vendedor, cliente, actividad, descripción o comentario..." autocomplete="off"></label>${listView}</details>`;
   const activeView=state.commercialAgendaView==="management"&&managementAccess?renderCommercialAgendaManagement():state.commercialAgendaView==="validation"&&managementAccess?renderCommercialAgendaValidation():agendaView;
   return `<section class="commercial-agenda commercial-agenda-flat"><div class="commercial-agenda-view-tabs" role="tablist"><button type="button" role="tab" aria-selected="${state.commercialAgendaView === "list"}" class="${state.commercialAgendaView === "list" ? "active" : ""}" data-agenda-view="list">Agenda</button>${managementAccess ? `<button type="button" role="tab" aria-selected="${state.commercialAgendaView === "management"}" class="${state.commercialAgendaView === "management" ? "active" : ""}" data-agenda-view="management">Cronograma</button><button type="button" role="tab" aria-selected="${state.commercialAgendaView === "validation"}" class="${state.commercialAgendaView === "validation" ? "active" : ""}" data-agenda-view="validation">Validación</button>` : ""}</div><div class="commercial-agenda-toolbar"><span></span>${state.commercialAgendaView!=="validation"?`<button type="button" data-commercial-agenda-new><span aria-hidden="true">+</span> Nueva actividad</button>`:""}</div>${activeView}</section>`;
 }
@@ -11454,6 +11498,10 @@ function openCommercialAgendaEditor(item = {}) {
 function wireCommercialAgenda(){
   opportunityTable.querySelector("[data-commercial-agenda-new]")?.addEventListener("click",()=>openCommercialAgendaEditor());
   opportunityTable.querySelector(".commercial-agenda-details")?.addEventListener("toggle",(event)=>{state.commercialAgendaDetailsOpen=event.currentTarget.open;});
+  opportunityTable.querySelector("[data-agenda-report-seller]")?.addEventListener("change",(event)=>{state.commercialAgendaReportSeller=event.target.value;});
+  opportunityTable.querySelector("[data-agenda-report-start]")?.addEventListener("change",(event)=>{state.commercialAgendaReportStart=event.target.value;});
+  opportunityTable.querySelector("[data-agenda-report-end]")?.addEventListener("change",(event)=>{state.commercialAgendaReportEnd=event.target.value;});
+  opportunityTable.querySelector("[data-agenda-report-generate]")?.addEventListener("click",printCommercialAgendaReport);
   opportunityTable.querySelectorAll("[data-agenda-view]").forEach((button)=>button.addEventListener("click",()=>{state.commercialAgendaView=button.dataset.agendaView;renderCommercialSubmenu(areas.comercializacion);}));
   opportunityTable.querySelector("[data-agenda-management-date]")?.addEventListener("change",(event)=>{state.commercialAgendaDate=event.target.value||todayISO();renderCommercialSubmenu(areas.comercializacion);});
   opportunityTable.querySelectorAll("[data-agenda-date-step]").forEach((button)=>button.addEventListener("click",()=>{const date=new Date(`${state.commercialAgendaDate || todayISO()}T12:00:00Z`);date.setUTCDate(date.getUTCDate()+Number(button.dataset.agendaDateStep));state.commercialAgendaDate=date.toISOString().slice(0,10);renderCommercialSubmenu(areas.comercializacion);}));

@@ -20863,6 +20863,14 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .commercial-agenda-details>summary{cursor:pointer;color:#c4d8e8;font-weight:800}
 .commercial-agenda-details[open]{display:grid;gap:12px}
 .commercial-agenda-details>.commercial-agenda-search{width:100%}
+.commercial-agenda-report-controls{display:grid;grid-template-columns:auto minmax(170px,1.2fr) minmax(145px,.8fr) minmax(145px,.8fr) auto;align-items:end;gap:12px;padding:14px;border:1px solid #3b5b78;border-radius:13px;background:#173451}
+.commercial-agenda-report-controls>strong{align-self:center;margin-right:8px;color:#70e7cf;font-size:13px}
+.commercial-agenda-report-controls label{display:grid;gap:5px;min-width:0}
+.commercial-agenda-report-controls label span{color:#aebed0;font-size:10px;font-weight:850}
+.commercial-agenda-report-controls select,.commercial-agenda-report-controls input{width:100%;height:40px;min-width:0;padding:0 10px;border:1px solid #527399;border-radius:8px;background:#29486e;color:#fff;font:inherit}
+.commercial-agenda-report-controls button{min-height:40px;padding:0 15px;border-color:#42cbb0;background:#167d6c;color:#fff;font-weight:900;white-space:nowrap}
+@media(max-width:1050px){.commercial-agenda-report-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.commercial-agenda-report-controls>strong{grid-column:1/-1}.commercial-agenda-report-controls button{align-self:end}}
+@media(max-width:600px){.commercial-agenda-report-controls{grid-template-columns:1fr}}
 
 /* Historial de actas: archivo ejecutivo, compacto y fácil de consultar. */
 .app-shell .minutes-history-mode{gap:14px}
