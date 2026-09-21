@@ -5951,26 +5951,35 @@ function customerAdvanceOpportunities() {
   const sellerOpportunities = (data.opportunities || [])
     .filter((opportunity) => !isCrmArchivedOpportunity(opportunity))
     .filter((opportunity) => normalizeKey(opportunity.status || "vigente") !== "ganada")
-    .filter((opportunity) => activeCustomerIds.has(String(opportunity.customerId || "")))
-    .map((opportunity) => ({
-      ...crmOpportunityToFormItem(opportunity),
-      crmOpportunityId: opportunity.id,
-      advanceSource: "Vendedores"
-    }));
+    .map((opportunity) => {
+      const customerId = String(opportunity.customerId || "");
+      return {
+        ...crmOpportunityToFormItem(opportunity),
+        customerId,
+        crmOpportunityId: opportunity.id,
+        advanceSource: "Vendedores",
+        customerLinked: activeCustomerIds.has(customerId)
+      };
+    });
   const managementOpportunities = opportunityCycleRows(getOpportunitySubmenu().items).active
     .map(({ item }) => {
       const crmOpportunity = crmById.get(String(item.crmOpportunityId || "")) || {};
       const customerId = item.customerId || crmOpportunity.customerId || "";
-      return { ...item, customerId, advanceSource: "Gerencia" };
+      return {
+        ...item,
+        customerId,
+        advanceSource: "Gerencia",
+        customerLinked: activeCustomerIds.has(String(customerId))
+      };
     })
-    .filter(canManageQuotationOpportunity)
-    .filter((opportunity) => activeCustomerIds.has(String(opportunity.customerId || "")));
+    .filter(canManageQuotationOpportunity);
   const unique = new Map();
   [...sellerOpportunities, ...managementOpportunities].forEach((opportunity) => {
     const key = opportunity.crmOpportunityId
       ? `crm:${opportunity.crmOpportunityId}`
       : `result:${opportunity.id}`;
-    if (!unique.has(key)) unique.set(key, opportunity);
+    const existing = unique.get(key);
+    if (!existing || (!existing.customerLinked && opportunity.customerLinked)) unique.set(key, opportunity);
   });
   return [...unique.values()]
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(a.company || "").localeCompare(String(b.company || ""), "es"));
@@ -6035,6 +6044,11 @@ function renderCustomerAdvances() {
 function openCustomerAdvanceOpportunityPicker(onSelect, selectedId = "") {
   const opportunities = customerAdvanceOpportunities();
   if (!opportunities.length) return alert("No hay oportunidades disponibles para registrar anticipos.");
+  const summarize = (items) => {
+    const ready = items.filter((item) => item.customerLinked).length;
+    const pending = items.length - ready;
+    return `${ready} ${ready === 1 ? "lista" : "listas"} para anticipo${pending ? ` · ${pending} ${pending === 1 ? "requiere" : "requieren"} vincular cliente` : ""}`;
+  };
   document.querySelector("#customerAdvanceOpportunityPicker")?.remove();
   document.body.insertAdjacentHTML("beforeend", `
     <dialog id="customerAdvanceOpportunityPicker" class="quotation-opportunity-picker customer-advance-opportunity-picker">
@@ -6044,7 +6058,7 @@ function openCustomerAdvanceOpportunityPicker(onSelect, selectedId = "") {
           <button type="button" data-advance-picker-close aria-label="Cerrar">×</button>
         </header>
         <label class="quotation-opportunity-picker__search"><span aria-hidden="true">⌕</span><input type="search" data-advance-picker-search placeholder="Buscar cliente, vendedor, etapa o monto..." autocomplete="off"></label>
-        <div class="quotation-opportunity-picker__summary"><strong data-advance-picker-count>${opportunities.length}</strong><span>oportunidades disponibles</span></div>
+        <div class="quotation-opportunity-picker__summary"><strong data-advance-picker-count>${opportunities.length}</strong><span data-advance-picker-summary>${summarize(opportunities)}</span></div>
         <div class="quotation-opportunity-picker__list" data-advance-picker-list></div>
         <footer><button type="button" data-advance-picker-close>Cancelar</button></footer>
       </section>
@@ -6053,6 +6067,7 @@ function openCustomerAdvanceOpportunityPicker(onSelect, selectedId = "") {
   const search = dialog.querySelector("[data-advance-picker-search]");
   const list = dialog.querySelector("[data-advance-picker-list]");
   const count = dialog.querySelector("[data-advance-picker-count]");
+  const summary = dialog.querySelector("[data-advance-picker-summary]");
   const renderOptions = () => {
     const tokens = normalizeKey(search.value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/).filter(Boolean);
     const visible = opportunities.filter((item) => {
@@ -6060,9 +6075,10 @@ function openCustomerAdvanceOpportunityPicker(onSelect, selectedId = "") {
       return tokens.every((token) => index.includes(token));
     });
     count.textContent = String(visible.length);
+    summary.textContent = summarize(visible);
     list.innerHTML = visible.length ? visible.map((item) => `
-      <button type="button" class="quotation-opportunity-option ${String(item.id) === String(selectedId) ? "selected" : ""}" data-advance-picker-select="${escapeHtml(item.id)}">
-        <span class="quotation-opportunity-option__main"><strong>${escapeHtml(item.company || "Oportunidad sin nombre")}</strong><small>${escapeHtml(item.segment || item.product || "Detalle pendiente")}</small><em class="quotation-opportunity-source" data-source="management"><i></i>Oportunidad / ${escapeHtml(item.advanceSource || "Comercial")}</em></span>
+      <button type="button" class="quotation-opportunity-option ${String(item.id) === String(selectedId) ? "selected" : ""} ${item.customerLinked ? "" : "is-unavailable"}" data-advance-picker-select="${escapeHtml(item.id)}" ${item.customerLinked ? "" : "disabled"}>
+        <span class="quotation-opportunity-option__main"><strong>${escapeHtml(item.company || "Oportunidad sin nombre")}</strong><small>${escapeHtml(item.segment || item.product || "Detalle pendiente")}</small><em class="quotation-opportunity-source ${item.customerLinked ? "" : "is-pending"}" data-source="${item.advanceSource === "Gerencia" ? "management" : "seller"}"><i></i>Oportunidad / ${escapeHtml(item.advanceSource || "Comercial")} · ${item.customerLinked ? "Cliente vinculado" : "Falta vincular cliente"}</em></span>
         <span><small>Vendedor</small><strong>${escapeHtml(item.seller || "Sin vendedor")}</strong></span>
         <span><small>Etapa</small><strong>${escapeHtml(item.stage || "Sin etapa")}</strong></span>
         <span class="quotation-opportunity-option__amount"><small>Monto</small><strong>${formatMoney(item.amount || 0)}</strong></span>
@@ -6095,7 +6111,12 @@ function openCustomerAdvanceDialog(initialOpportunity = null) {
   const dialog = document.createElement("dialog");
   dialog.id = "customerAdvanceDialog";
   dialog.className = "customer-advance-dialog";
-  let selectedOpportunity = opportunities.find((item) => String(item.id) === String(initialOpportunity.id)) || initialOpportunity;
+  let selectedOpportunity = opportunities.find((item) => String(item.id) === String(initialOpportunity.id))
+    || opportunities.find((item) => item.crmOpportunityId && String(item.crmOpportunityId) === String(initialOpportunity.crmOpportunityId || initialOpportunity.id))
+    || initialOpportunity;
+  if (!selectedOpportunity.customerLinked) {
+    return alert("Esta oportunidad está vigente, pero debe vincularse a un cliente activo en el panel Clientes antes de registrar el anticipo.");
+  }
   dialog.innerHTML = `<form><header><div><span>Comercialización · Anticipos</span><h2>Recibo por anticipo de trabajo</h2><p>El cliente se heredará exclusivamente del maestro de Clientes.</p></div><button type="button" data-advance-close>×</button></header>
     <section class="customer-advance-form-grid">
       <div class="wide customer-advance-opportunity-choice"><span>Oportunidad seleccionada</span><button type="button" data-advance-opportunity-change><span><strong data-advance-choice-company></strong><small data-advance-choice-detail></small></span><b>Cambiar / buscar</b></button></div>
