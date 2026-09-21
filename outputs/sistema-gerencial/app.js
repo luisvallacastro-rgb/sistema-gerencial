@@ -9986,6 +9986,21 @@ function isOdalizValenciaUser(user = state.currentUser) {
     || email === "gtecomercial.ayc@gmail.com";
 }
 
+function canDeleteCustomerRequest(user = state.currentUser) {
+  if (!user) return false;
+  const identity = normalizeKey(`${user.id || ""} ${user.name || ""} ${user.username || ""} ${user.email || ""}`);
+  const isLuisValladares = identity.includes("luisvallacastro")
+    || (identity.includes("luis") && identity.includes("valladares"));
+  return isOdalizValenciaUser(user) || isLuisValladares;
+}
+
+function customerRequestCanBeDeleted(request = {}) {
+  return request.electronicSignature?.signed !== true
+    && normalizeKey(request.status || "borrador") !== "aprobada"
+    && !request.approvedCustomerId
+    && !request.assignedClientNumber;
+}
+
 function canSubmitCustomerRequest(user = state.currentUser) {
   return isOdalizValenciaUser(user);
 }
@@ -10362,7 +10377,7 @@ function openCustomerRequestListDialog() {
         <div><small>${escapeHtml(request.requestNumber || "BORRADOR")}</small><strong>${escapeHtml(request.commercialName || request.legalName || "Cliente sin nombre")}</strong><span>${escapeHtml(request.contactName || request.taxId || "Datos por completar")}</span></div>
         <div><small>Última actualización</small><strong>${date ? escapeHtml(formatDate(String(date).slice(0, 10))) : "—"}</strong></div>
         <div><small>Estado</small><span class="crm-request-status ${statusKey}">${escapeHtml(request.status || "Borrador")}</span>${request.assignedClientNumber ? `<em>ID ${escapeHtml(request.assignedClientNumber)}</em>` : ""}</div>
-        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-view="${escapeHtml(request.id)}">Ver ficha</button>${isDraft && canCreateCustomerRequest() ? `<button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">Editar</button>` : ""}${["borrador", "pendiente"].includes(statusKey) ? (isSigned ? `<span class="customer-request-signature-state">✓ Firmada</span>` : (isOdalizValenciaUser() ? `<button type="button" class="sign" data-customer-request-list-sign="${escapeHtml(request.id)}">Autorizar firma electrónica</button>` : `<span class="customer-request-signature-state pending">Firma pendiente</span>`)) : ""}<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="${isSigned ? "Imprimir solicitud firmada" : "Imprimir para revisión antes de firma"}">Imprimir solicitud</button>${isDraft && canSubmitCustomerRequest() ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}" ${isSigned ? "" : "disabled"}>Enviar</button>` : ""}</div>
+        <div class="customer-request-list-row__actions"><button type="button" data-customer-request-list-view="${escapeHtml(request.id)}">Ver ficha</button>${isDraft && canCreateCustomerRequest() ? `<button type="button" data-customer-request-list-open="${escapeHtml(request.id)}">Editar</button>` : ""}${["borrador", "pendiente"].includes(statusKey) ? (isSigned ? `<span class="customer-request-signature-state">✓ Firmada</span>` : (isOdalizValenciaUser() ? `<button type="button" class="sign" data-customer-request-list-sign="${escapeHtml(request.id)}">Autorizar firma electrónica</button>` : `<span class="customer-request-signature-state pending">Firma pendiente</span>`)) : ""}<button type="button" data-customer-request-list-print="${escapeHtml(request.id)}" title="${isSigned ? "Imprimir solicitud firmada" : "Imprimir para revisión antes de firma"}">Imprimir solicitud</button>${isDraft && canSubmitCustomerRequest() ? `<button type="button" class="send" data-customer-request-list-send="${escapeHtml(request.id)}" ${isSigned ? "" : "disabled"}>Enviar</button>` : ""}${canDeleteCustomerRequest() && customerRequestCanBeDeleted(request) ? `<button type="button" class="delete" data-customer-request-list-delete="${escapeHtml(request.id)}">Eliminar</button>` : ""}</div>
       </article>`;
     }).join("") || `<div class="customer-request-list-empty"><strong>Sin solicitudes</strong><span>${requests.length ? "No hay coincidencias con esa búsqueda." : "Cuando guardes o envíes una solicitud, aparecerá aquí."}</span></div>`;
     rows.querySelectorAll("[data-customer-request-list-open]").forEach((button) => button.addEventListener("click", () => {
@@ -10380,6 +10395,22 @@ function openCustomerRequestListDialog() {
     rows.querySelectorAll("[data-customer-request-list-print]").forEach((button) => button.addEventListener("click", () => {
       const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListPrint));
       if (request) printCustomerRequestSheet(request);
+    }));
+    rows.querySelectorAll("[data-customer-request-list-delete]").forEach((button) => button.addEventListener("click", async () => {
+      const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListDelete));
+      if (!request || !confirm(`¿Eliminar definitivamente ${request.requestNumber || "esta solicitud"}? Esta acción no se puede deshacer.`)) return;
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = "Eliminando…";
+      try {
+        await crmApi(`/customer-requests/${encodeURIComponent(request.id)}`, { method: "DELETE" });
+        openCustomerRequestListDialog();
+        alert("Solicitud eliminada correctamente.");
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+        alert(error.message || "No fue posible eliminar la solicitud.");
+      }
     }));
     rows.querySelectorAll("[data-customer-request-list-sign]").forEach((button) => button.addEventListener("click", async () => {
       const request = requests.find((item) => String(item.id) === String(button.dataset.customerRequestListSign));
@@ -10767,7 +10798,7 @@ function renderCrmCustomerRequests() {
         <span class="crm-customer-name"><strong>${escapeHtml(request.commercialName || request.legalName || "Sin nombre")}</strong><small>${escapeHtml(request.taxId || request.legalName || "Identificación pendiente")}</small></span>
         <span><strong>${escapeHtml(request.requestedByName || "Usuario")}</strong><small>${escapeHtml(request.contactName || request.email || "Sin contacto")}</small></span>
         <span><strong class="crm-request-status ${escapeHtml(statusKey)}">${statusLabel[statusKey] || "Pendiente"}</strong><small>${statusKey === "aprobada" ? `ID ${escapeHtml(request.assignedClientNumber || "asignado")}` : (statusKey === "borrador" ? "Sin enviar" : escapeHtml(request.reviewedByName || "Por validar"))}</small></span>
-        <span class="crm-row-actions"><button type="button" ${statusKey === "pendiente" ? 'class="edit-request"' : ""} data-crm-customer-request-review="${escapeHtml(request.id)}" title="${statusKey === "pendiente" ? "Editar y guardar solicitud" : "Ver ficha de solicitud"}" aria-label="${statusKey === "pendiente" ? "Editar y guardar solicitud" : "Ver ficha de solicitud"}">${statusKey === "pendiente" ? "✎ Editar" : "⌕"}</button><button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Imprimir solicitud" aria-label="Imprimir solicitud">▤</button>${statusKey === "pendiente" && isCustomerRequestSigned(request) ? `<button type="button" class="assign-client-id" data-crm-customer-request-approve="${escapeHtml(request.id)}" title="Autorizar y asignar ID de cliente">Asignar ID</button>` : ""}</span>
+        <span class="crm-row-actions"><button type="button" ${statusKey === "pendiente" ? 'class="edit-request"' : ""} data-crm-customer-request-review="${escapeHtml(request.id)}" title="${statusKey === "pendiente" ? "Editar y guardar solicitud" : "Ver ficha de solicitud"}" aria-label="${statusKey === "pendiente" ? "Editar y guardar solicitud" : "Ver ficha de solicitud"}">${statusKey === "pendiente" ? "✎ Editar" : "⌕"}</button><button type="button" data-crm-customer-request-print="${escapeHtml(request.id)}" title="Imprimir solicitud" aria-label="Imprimir solicitud">▤</button>${statusKey === "pendiente" && isCustomerRequestSigned(request) ? `<button type="button" class="assign-client-id" data-crm-customer-request-approve="${escapeHtml(request.id)}" title="Autorizar y asignar ID de cliente">Asignar ID</button>` : ""}${canDeleteCustomerRequest() && customerRequestCanBeDeleted(request) ? `<button type="button" class="danger" data-crm-customer-request-delete="${escapeHtml(request.id)}" title="Eliminar solicitud" aria-label="Eliminar solicitud">⌫</button>` : ""}</span>
       </article>`; }).join("") || `<div class="empty-state">No hay solicitudes que coincidan con la búsqueda.</div>`}
     </div></div>
   </section>`;
@@ -12290,6 +12321,19 @@ function renderCommercialSubmenu(area) {
     opportunityTable.querySelectorAll("[data-crm-customer-request-print]").forEach((button) => button.addEventListener("click", () => {
       const request = (state.crmData?.customerRequests || []).find((item) => String(item.id) === String(button.dataset.crmCustomerRequestPrint));
       if (request) printCustomerRequestSheet(request);
+    }));
+    opportunityTable.querySelectorAll("[data-crm-customer-request-delete]").forEach((button) => button.addEventListener("click", async () => {
+      const request = (state.crmData?.customerRequests || []).find((item) => String(item.id) === String(button.dataset.crmCustomerRequestDelete));
+      if (!request || !confirm(`¿Eliminar definitivamente ${request.requestNumber || "esta solicitud"}? Esta acción no se puede deshacer.`)) return;
+      button.disabled = true;
+      try {
+        await crmApi(`/customer-requests/${encodeURIComponent(request.id)}`, { method: "DELETE" });
+        renderCommercialSubmenu(areas.comercializacion);
+        alert("Solicitud eliminada correctamente.");
+      } catch (error) {
+        button.disabled = false;
+        alert(error.message || "No fue posible eliminar la solicitud.");
+      }
     }));
     opportunityTable.querySelectorAll("[data-crm-customer-request-approve]").forEach((button) => button.addEventListener("click", async () => {
       const request = (state.crmData?.customerRequests || []).find((item) => String(item.id) === String(button.dataset.crmCustomerRequestApprove));

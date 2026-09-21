@@ -243,6 +243,13 @@ def is_standalone_quotation_delete_authorized(user):
 def can_submit_customer_request(user):
     """Only Odaliz Valencia may send a saved request to the customer panel."""
     return is_odaliz_valencia_user(user)
+
+
+def can_delete_customer_request(user):
+    """Allow Odaliz or Luis to delete customer requests that are still unauthorized."""
+    return is_standalone_quotation_delete_authorized(user)
+
+
 ALL_OPERATIONAL_PERMISSIONS = [
     f"{area}:{section}"
     for area in AREA_KEYS
@@ -8910,6 +8917,25 @@ class AppHandler(BaseHTTPRequestHandler):
                         self.send_json({"error": "Solicitud no encontrada"}, status=404)
                         return
                     request = requests[index]
+                    if self.command == "DELETE":
+                        if not can_delete_customer_request(request_user):
+                            self.send_json({"error": "Solo Odaliz Valencia o Luis Valladares pueden eliminar solicitudes de clientes"}, status=403)
+                            return
+                        is_authorized = (
+                            request.get("electronicSignature", {}).get("signed") is True
+                            or text(request.get("status"), "Borrador").lower() == "aprobada"
+                            or bool(text(request.get("approvedCustomerId")))
+                            or bool(text(request.get("assignedClientNumber")))
+                        )
+                        if is_authorized:
+                            self.send_json({"error": "No se puede eliminar una solicitud firmada, autorizada o aprobada"}, status=409)
+                            return
+                        requests.pop(index)
+                        write_crm_data(conn, data)
+                        response = response_model()
+                        response["deletedCustomerRequestId"] = item_id
+                        self.send_json(response)
+                        return
                     if action == "sign" and self.command == "POST":
                         if not is_odaliz_valencia_user(request_user):
                             self.send_json({"error": "Solo el usuario de Odaliz Valencia puede firmar esta solicitud"}, status=403)
