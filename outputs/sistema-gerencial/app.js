@@ -5942,8 +5942,20 @@ function loadCustomerAdvances() {
 }
 
 function customerAdvanceOpportunities() {
-  return getOpportunitySubmenu().items
-    .filter((item) => normalizeKey(item.status) !== "anulada")
+  const data = crmData();
+  const activeCustomerIds = new Set((data.customers || [])
+    .filter((customer) => customer.active !== false)
+    .map((customer) => String(customer.id || ""))
+    .filter(Boolean));
+  return (data.opportunities || [])
+    .filter((opportunity) => !isCrmArchivedOpportunity(opportunity))
+    .filter((opportunity) => normalizeKey(opportunity.status || "vigente") !== "ganada")
+    .filter((opportunity) => !hasConvertedQuotationOrder(opportunity))
+    .filter((opportunity) => activeCustomerIds.has(String(opportunity.customerId || "")))
+    .map((opportunity) => ({
+      ...crmOpportunityToFormItem(opportunity),
+      crmOpportunityId: opportunity.id
+    }))
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(a.company || "").localeCompare(String(b.company || ""), "es"));
 }
 
