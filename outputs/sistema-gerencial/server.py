@@ -38,7 +38,7 @@ BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-minute-agreements-v34"
+API_VERSION = "kmi-customer-advances-v35"
 CRM_DATA_LOCK = threading.RLock()
 BACKUP_LOCK = threading.Lock()
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
@@ -57,7 +57,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 }
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
-    "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi", "meta"],
+    "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi", "meta"],
     "financiera": ["disponibilidad", "ingresos", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal"],
     "rrhh": [],
@@ -2167,7 +2167,7 @@ def default_permissions_for_role(role):
     if role == "vendedores":
         return [
             f"comercializacion:{section}"
-            for section in ["crm", "agenda-comercial", "crm-seguimiento", "cotizaciones"]
+            for section in ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "cotizaciones"]
         ]
     if role == "operativos":
         return []
@@ -2659,6 +2659,196 @@ def upsert_purchase_order(conn, data, existing=None):
             updated_by=excluded.updated_by, updated_at=excluded.updated_at
     """, item)
     return item
+
+
+def next_customer_advance_number(conn):
+    highest = 0
+    for row in conn.execute("SELECT receipt_number FROM customer_advances").fetchall():
+        match = re.search(r"(\d+)$", text(row["receipt_number"]))
+        if match:
+            highest = max(highest, int(match.group(1)))
+    return f"ANT-{highest + 1:06d}"
+
+
+def customer_advance_source(conn, payload):
+    """Resolve an opportunity and its authoritative customer without name-only joins."""
+    requested_id = text(payload.get("opportunityId"))
+    requested_crm_id = text(payload.get("crmOpportunityId"))
+    result_rows = read_result_opportunities(conn)
+    result = next((item for item in result_rows if requested_id and text(item.get("id")) == requested_id), None)
+    if not result and requested_crm_id:
+        result = next((item for item in result_rows if text(item.get("crmOpportunityId")) == requested_crm_id), None)
+    crm_data = read_crm_data(conn)
+    crm_id = requested_crm_id or text((result or {}).get("crmOpportunityId"))
+    crm_opportunity = next((item for item in crm_data.get("opportunities", []) if crm_id and text(item.get("id")) == crm_id), None)
+    if not crm_opportunity and requested_id:
+        crm_opportunity = next((item for item in crm_data.get("opportunities", []) if text(item.get("id")) == requested_id), None)
+        crm_id = text((crm_opportunity or {}).get("id"), crm_id)
+    if not result and not crm_opportunity:
+        raise ValueError("La oportunidad seleccionada ya no existe")
+    customer_id = text(payload.get("customerId")) or text((crm_opportunity or {}).get("customerId")) or text((result or {}).get("customerId"))
+    customer = next((item for item in crm_data.get("customers", []) if customer_id and text(item.get("id")) == customer_id and item.get("active") is not False), None)
+    if not customer:
+        raise ValueError("La oportunidad debe estar vinculada con un cliente activo del panel Clientes")
+    opportunity_id = text((result or {}).get("id")) or requested_id or crm_id
+    company = text(customer.get("commercialName") or customer.get("legalName"))
+    seller = text((result or {}).get("seller") or (crm_opportunity or {}).get("sellerName") or (crm_opportunity or {}).get("seller"))
+    opportunity_amount = decimal_number((result or {}).get("amount"), (crm_opportunity or {}).get("amount", 0))
+    snapshot = {
+        "customerId": customer_id,
+        "clientNumber": text(customer.get("clientNumber") or customer.get("customerCode") or customer.get("code")),
+        "commercialName": company,
+        "legalName": text(customer.get("legalName")),
+        "address": text(customer.get("address")),
+        "email": text(customer.get("email")),
+        "phone": text(customer.get("phone")),
+        "taxId": text(customer.get("taxId") or customer.get("nit")),
+        "registrationNumber": text(customer.get("registrationNumber") or customer.get("nrc")),
+    }
+    identifiers = {value for value in (opportunity_id, crm_id, requested_id) if value}
+    linked_order = None
+    if identifiers:
+        placeholders = ",".join("?" for _ in identifiers)
+        linked_order = conn.execute(
+            f"""SELECT * FROM control_sales_orders
+                WHERE archived = 0 AND source_opportunity_id IN ({placeholders})
+                ORDER BY datetime(created_at) DESC LIMIT 1""",
+            tuple(identifiers),
+        ).fetchone()
+    return {
+        "opportunityId": opportunity_id,
+        "crmOpportunityId": crm_id,
+        "customerId": customer_id,
+        "customerName": company,
+        "seller": seller,
+        "opportunityAmountCents": int(Decimal(str(opportunity_amount)) * 100),
+        "customerSnapshot": snapshot,
+        "linkedOrder": linked_order,
+    }
+
+
+def customer_advance_payload(conn, row):
+    allocation_rows = conn.execute(
+        """SELECT id, bank_record_id, amount_cents, created_by, created_at
+           FROM customer_advance_allocations WHERE advance_id = ? ORDER BY created_at""",
+        (row["id"],),
+    ).fetchall()
+    allocated = sum(int(item["amount_cents"] or 0) for item in allocation_rows)
+    amount_cents = int(row["amount_cents"] or 0)
+    allocated_cents = min(amount_cents, int(allocated or 0))
+    if text(row["status"]) == "Anulado":
+        status = "Anulado"
+    elif allocated_cents >= amount_cents:
+        status = "Liquidado"
+    elif allocated_cents > 0:
+        status = "Parcial"
+    else:
+        status = "Pendiente"
+    try:
+        snapshot = json.loads(row["customer_snapshot"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        snapshot = {}
+    return {
+        "id": row["id"], "receiptNumber": row["receipt_number"],
+        "opportunityId": row["opportunity_id"], "crmOpportunityId": row["crm_opportunity_id"],
+        "customerId": row["customer_id"], "controlSalesOrderId": row["control_sales_order_id"],
+        "orderNumber": row["order_number"], "receiptDate": row["receipt_date"],
+        "deliveryDate": row["delivery_date"], "amountCents": amount_cents,
+        "opportunityAmountCents": int(row["opportunity_amount_cents"] or 0),
+        "orderTotalCents": int(row["order_total_cents"] or 0),
+        "allocatedCents": allocated_cents, "pendingCents": max(0, amount_cents - allocated_cents),
+        "allocations": [
+            {"id": item["id"], "bankRecordId": item["bank_record_id"],
+             "amountCents": int(item["amount_cents"] or 0), "createdBy": item["created_by"],
+             "createdAt": item["created_at"]}
+            for item in allocation_rows
+        ],
+        "concept": row["concept"], "note": row["note"], "status": status,
+        "customerName": row["customer_name"], "seller": row["seller"],
+        "customer": snapshot, "createdBy": row["created_by"], "updatedBy": row["updated_by"],
+        "createdAt": row["created_at"], "updatedAt": row["updated_at"],
+    }
+
+
+def sync_customer_advance_receivable(conn, order_id):
+    order = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        return None
+    advances = conn.execute(
+        """SELECT * FROM customer_advances
+           WHERE control_sales_order_id = ? AND status <> 'Anulado'
+           ORDER BY receipt_date, receipt_number""",
+        (order_id,),
+    ).fetchall()
+    if not advances:
+        conn.execute(
+            "DELETE FROM accounts_receivable WHERE id = ? AND source = 'customer-advances'",
+            (f"advance-order:{order_id}",),
+        )
+        return None
+    payment_cents = sum(int(item["amount_cents"] or 0) for item in advances)
+    invoice_cents = int(order["total_cents"] or 0)
+    balance_cents = max(0, invoice_cents - payment_cents)
+    reference = ", ".join(item["receipt_number"] for item in advances)
+    try:
+        proforma = json.loads(order["proforma_data"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        proforma = {}
+    data = {
+        "id": f"advance-order:{order_id}",
+        "invoiceNumber": order["order_number"],
+        "referenceNumber": reference,
+        "customerCode": text(proforma.get("clientNumber") or proforma.get("customerCode")),
+        "customerName": order["client"],
+        "description": f"Saldo por facturar de {order['order_number']}",
+        "invoiceDate": order["order_date"],
+        "invoiceAmount": invoice_cents / 100,
+        "payments": payment_cents / 100,
+        "creditNotes": 0,
+        "balance": balance_cents / 100,
+        "projectId": order_id,
+        "seller": order["seller"],
+        "documentNumber": order["order_number"],
+        "address": text(proforma.get("address")),
+        "source": "customer-advances",
+    }
+    existing = conn.execute("SELECT * FROM accounts_receivable WHERE id = ?", (data["id"],)).fetchone()
+    return upsert_receivable(conn, data, receivable_payload(existing) if existing else None)
+
+
+def link_customer_advances_to_order(conn, order_id, source_opportunity_id, order_number, order_total_cents):
+    identifiers = {text(source_opportunity_id)}
+    quotation = conn.execute(
+        "SELECT opportunity_id FROM quotations WHERE converted_order_id = ? LIMIT 1", (order_id,)
+    ).fetchone()
+    if quotation:
+        identifiers.add(text(quotation["opportunity_id"]))
+    result_rows = read_result_opportunities(conn)
+    for item in result_rows:
+        if text(item.get("id")) in identifiers or text(item.get("crmOpportunityId")) in identifiers:
+            identifiers.update({text(item.get("id")), text(item.get("crmOpportunityId"))})
+    identifiers.discard("")
+    if not identifiers:
+        return 0
+    identifier_values = sorted(identifiers)
+    placeholders = ",".join("?" for _ in identifier_values)
+    advance_total = int(conn.execute(
+        f"""SELECT COALESCE(SUM(amount_cents), 0) AS total FROM customer_advances
+            WHERE status <> 'Anulado' AND (opportunity_id IN ({placeholders}) OR crm_opportunity_id IN ({placeholders}))""",
+        (*identifier_values, *identifier_values),
+    ).fetchone()["total"] or 0)
+    if advance_total > int(order_total_cents or 0):
+        raise ValueError("El total de la orden no puede ser menor que los anticipos recibidos")
+    cursor = conn.execute(
+        f"""UPDATE customer_advances
+            SET control_sales_order_id = ?, order_number = ?, order_total_cents = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE status <> 'Anulado' AND (opportunity_id IN ({placeholders}) OR crm_opportunity_id IN ({placeholders}))""",
+        (order_id, order_number, int(order_total_cents or 0), *identifier_values, *identifier_values),
+    )
+    if cursor.rowcount:
+        sync_customer_advance_receivable(conn, order_id)
+    return cursor.rowcount
 
 
 def seed_accounts_receivable(conn):
@@ -3424,6 +3614,9 @@ def save_control_sales_order(conn, data, existing_row=None):
             SET status='Convertida', converted_order_id=?, converted_at=?, updated_by=?, updated_at=?
             WHERE id=?
         """, (order_id, now, actor, now, source_quotation_id))
+    link_customer_advances_to_order(
+        conn, order_id, source_opportunity_id, item["number"], item["totalCents"]
+    )
     row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone()
     return control_sales_order_payload(conn, row, include_audit=True)
 
@@ -5913,6 +6106,59 @@ def init_db():
         if "payment_type" not in bank_provision_columns:
             conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN payment_type TEXT DEFAULT ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_bank_provisions_account ON bank_deposit_provisions(account_id, created_at DESC)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS customer_advances (
+                id TEXT PRIMARY KEY,
+                receipt_number TEXT NOT NULL UNIQUE,
+                opportunity_id TEXT NOT NULL,
+                crm_opportunity_id TEXT DEFAULT '',
+                customer_id TEXT NOT NULL,
+                control_sales_order_id TEXT DEFAULT '',
+                order_number TEXT DEFAULT '',
+                receipt_date TEXT NOT NULL,
+                delivery_date TEXT DEFAULT '',
+                amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
+                opportunity_amount_cents INTEGER NOT NULL DEFAULT 0,
+                order_total_cents INTEGER NOT NULL DEFAULT 0,
+                concept TEXT NOT NULL DEFAULT 'Anticipo',
+                note TEXT DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'Pendiente',
+                customer_name TEXT NOT NULL,
+                seller TEXT DEFAULT '',
+                customer_snapshot TEXT NOT NULL DEFAULT '{}',
+                created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                updated_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_customer_advances_opportunity ON customer_advances(opportunity_id, crm_opportunity_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_customer_advances_order ON customer_advances(control_sales_order_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_customer_advances_status ON customer_advances(status, receipt_date DESC)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS customer_advance_allocations (
+                id TEXT PRIMARY KEY,
+                advance_id TEXT NOT NULL REFERENCES customer_advances(id),
+                bank_record_id TEXT NOT NULL REFERENCES bank_balance_records(id),
+                amount_cents INTEGER NOT NULL CHECK(amount_cents > 0),
+                created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(advance_id, bank_record_id)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_customer_advance_allocations_bank ON customer_advance_allocations(bank_record_id)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS customer_advance_audit (
+                id TEXT PRIMARY KEY,
+                advance_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL DEFAULT 0,
+                detail TEXT DEFAULT '',
+                user_name TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_customer_advance_audit_item ON customer_advance_audit(advance_id, created_at DESC)")
         release_mira_provisions(conn)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS bank_daily_availability (
@@ -6369,6 +6615,22 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_json({"error": "Tu usuario no tiene permiso para consultar Disponibilidad"}, status=403)
         return False
 
+    def require_any_permission(self, *permissions):
+        actor_id = text(self.headers.get("X-System-User-Id"))
+        with connect() as conn:
+            row = conn.execute(
+                "SELECT id, name, username, email, role, password, permissions, permissions_customized, admin FROM users WHERE id = ? LIMIT 1",
+                (actor_id,),
+            ).fetchone() if actor_id else None
+        if not row:
+            self.send_json({"error": "Debes iniciar sesión para consultar este módulo"}, status=401)
+            return False
+        actor = user_payload(row)
+        if actor.get("admin") or any(permission in actor.get("permissions", []) for permission in permissions):
+            return True
+        self.send_json({"error": "Tu usuario no tiene permiso para consultar Anticipos"}, status=403)
+        return False
+
     def send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
@@ -6590,6 +6852,18 @@ class AppHandler(BaseHTTPRequestHandler):
                              days_outstanding DESC, invoice_date DESC, invoice_number DESC
                 """).fetchall()
             self.send_json([receivable_payload(row) for row in rows])
+            return
+
+        if self.path == "/api/customer-advances":
+            if not self.require_any_permission("comercializacion:anticipos", "financiera:disponibilidad"):
+                return
+            with connect() as conn:
+                rows = conn.execute("""
+                    SELECT * FROM customer_advances
+                    ORDER BY receipt_date DESC, receipt_number DESC
+                """).fetchall()
+                items = [customer_advance_payload(conn, row) for row in rows]
+            self.send_json(items)
             return
 
         if self.path == "/api/bank-availability":
@@ -7133,6 +7407,167 @@ class AppHandler(BaseHTTPRequestHandler):
                         agreements_json = excluded.agreements_json
                 """, payload)
             self.send_json({"ok": True, "minute": data}, status=201)
+            return
+
+        if self.path == "/api/customer-advances/allocate":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            data = self.read_json()
+            advance_id = text(data.get("advanceId"))
+            bank_record_id = text(data.get("bankRecordId"))
+            actor = text(data.get("createdBy"), "Sistema Gerencial")
+            if not advance_id or not bank_record_id:
+                self.send_json({"error": "Selecciona un anticipo y una remesa bancaria"}, status=400)
+                return
+            try:
+                requested_cents = control_sales_cents(data.get("amount"), "El monto a liquidar") if data.get("amount") not in (None, "") else 0
+                with connect() as conn:
+                    conn.execute("BEGIN IMMEDIATE")
+                    advance = conn.execute("SELECT * FROM customer_advances WHERE id = ?", (advance_id,)).fetchone()
+                    record = conn.execute("""SELECT records.*, accounts.id AS valid_account
+                        FROM bank_balance_records AS records
+                        JOIN bank_accounts AS accounts ON accounts.id = records.account_id AND accounts.active = 1
+                        WHERE records.id = ?""", (bank_record_id,)).fetchone()
+                    if not advance or text(advance["status"]) == "Anulado":
+                        raise LookupError("El anticipo ya no está disponible")
+                    if not record:
+                        raise LookupError("La remesa bancaria ya no está disponible")
+                    values = json.loads(record["data"] or "{}")
+                    inflow_field, _ = bank_flow_fields(record["account_id"])
+                    record_cents = control_sales_cents(numeric_bank_value(values.get(inflow_field)), "La remesa")
+                    used_record_cents = int(conn.execute(
+                        "SELECT COALESCE(SUM(amount_cents), 0) AS total FROM customer_advance_allocations WHERE bank_record_id = ?",
+                        (bank_record_id,),
+                    ).fetchone()["total"] or 0)
+                    used_advance_cents = int(conn.execute(
+                        "SELECT COALESCE(SUM(amount_cents), 0) AS total FROM customer_advance_allocations WHERE advance_id = ?",
+                        (advance_id,),
+                    ).fetchone()["total"] or 0)
+                    available_record_cents = max(0, record_cents - used_record_cents)
+                    available_advance_cents = max(0, int(advance["amount_cents"] or 0) - used_advance_cents)
+                    amount_cents = requested_cents or min(available_record_cents, available_advance_cents)
+                    if amount_cents <= 0:
+                        raise ValueError("No existe saldo pendiente para liquidar")
+                    if amount_cents > available_record_cents:
+                        raise ValueError("El monto supera el saldo disponible de la remesa")
+                    if amount_cents > available_advance_cents:
+                        raise ValueError("El monto supera el saldo pendiente del anticipo")
+                    allocation_id = str(uuid.uuid4())
+                    conn.execute("""INSERT INTO customer_advance_allocations
+                        (id, advance_id, bank_record_id, amount_cents, created_by)
+                        VALUES (?, ?, ?, ?, ?)""",
+                        (allocation_id, advance_id, bank_record_id, amount_cents, actor))
+                    total_allocated = used_advance_cents + amount_cents
+                    status = "Liquidado" if total_allocated >= int(advance["amount_cents"] or 0) else "Parcial"
+                    conn.execute("UPDATE customer_advances SET status = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (status, actor, advance_id))
+                    conn.execute("""INSERT INTO customer_advance_audit
+                        (id, advance_id, action, amount_cents, detail, user_name)
+                        VALUES (?, ?, 'liquidacion', ?, ?, ?)""",
+                        (str(uuid.uuid4()), advance_id, amount_cents, f"Remesa bancaria {bank_record_id}", actor))
+                    updated = customer_advance_payload(conn, conn.execute("SELECT * FROM customer_advances WHERE id = ?", (advance_id,)).fetchone())
+            except LookupError as error:
+                self.send_json({"error": str(error)}, status=404)
+                return
+            except (ValueError, sqlite3.IntegrityError) as error:
+                self.send_json({"error": str(error) or "Esta remesa ya fue aplicada al anticipo"}, status=409)
+                return
+            self.send_json({"ok": True, "item": updated}, status=201)
+            return
+
+        advance_action = self.path.split("?", 1)[0].strip("/").split("/")
+        if len(advance_action) == 4 and advance_action[:2] == ["api", "customer-advances"] and advance_action[3] == "cancel":
+            if not self.require_permission("comercializacion:anticipos"):
+                return
+            advance_id = unquote(advance_action[2])
+            data = self.read_json()
+            reason = text(data.get("reason"))
+            actor = text(data.get("updatedBy"), "Sistema Gerencial")
+            if not reason:
+                self.send_json({"error": "Escribe el motivo de anulación"}, status=400)
+                return
+            with connect() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                row = conn.execute("SELECT * FROM customer_advances WHERE id = ?", (advance_id,)).fetchone()
+                if not row:
+                    self.send_json({"error": "Anticipo no encontrado"}, status=404)
+                    return
+                allocated = int(conn.execute("SELECT COALESCE(SUM(amount_cents), 0) AS total FROM customer_advance_allocations WHERE advance_id = ?", (advance_id,)).fetchone()["total"] or 0)
+                if allocated:
+                    self.send_json({"error": "No se puede anular un anticipo con remesas conciliadas"}, status=409)
+                    return
+                conn.execute("UPDATE customer_advances SET status = 'Anulado', updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (actor, advance_id))
+                conn.execute("""INSERT INTO customer_advance_audit
+                    (id, advance_id, action, detail, user_name) VALUES (?, ?, 'anulacion', ?, ?)""",
+                    (str(uuid.uuid4()), advance_id, reason, actor))
+                if text(row["control_sales_order_id"]):
+                    sync_customer_advance_receivable(conn, row["control_sales_order_id"])
+                updated = customer_advance_payload(conn, conn.execute("SELECT * FROM customer_advances WHERE id = ?", (advance_id,)).fetchone())
+            self.send_json({"ok": True, "item": updated}, status=201)
+            return
+
+        if self.path == "/api/customer-advances":
+            if not self.require_permission("comercializacion:anticipos"):
+                return
+            data = self.read_json()
+            try:
+                amount_cents = control_sales_cents(data.get("amount"), "El valor del anticipo")
+                if amount_cents <= 0:
+                    raise ValueError("El valor del anticipo debe ser mayor que cero")
+                receipt_date = text(data.get("receiptDate"))
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", receipt_date):
+                    raise ValueError("La fecha del recibo es requerida")
+                concept = text(data.get("concept"), "Anticipo")
+                if concept not in {"Anticipo", "Abono", "Cancelación"}:
+                    raise ValueError("Selecciona un concepto válido")
+                actor = text(data.get("createdBy"), "Sistema Gerencial")
+                with connect() as conn:
+                    conn.execute("BEGIN IMMEDIATE")
+                    source = customer_advance_source(conn, data)
+                    linked_order = source["linkedOrder"]
+                    base_cents = int(linked_order["total_cents"] or 0) if linked_order else source["opportunityAmountCents"]
+                    if base_cents <= 0:
+                        raise ValueError("La oportunidad debe tener un valor mayor que cero")
+                    identifiers = [value for value in {source["opportunityId"], source["crmOpportunityId"]} if value]
+                    placeholders = ",".join("?" for _ in identifiers)
+                    committed = 0
+                    if identifiers:
+                        committed = int(conn.execute(
+                            f"""SELECT COALESCE(SUM(amount_cents), 0) AS total FROM customer_advances
+                                WHERE status <> 'Anulado' AND (opportunity_id IN ({placeholders}) OR crm_opportunity_id IN ({placeholders}))""",
+                            (*identifiers, *identifiers),
+                        ).fetchone()["total"] or 0)
+                    if base_cents > 0 and committed + amount_cents > base_cents:
+                        raise ValueError("El acumulado de anticipos no puede superar el valor de la oportunidad u orden")
+                    advance_id = str(uuid.uuid4())
+                    receipt_number = next_customer_advance_number(conn)
+                    order_id = linked_order["id"] if linked_order else ""
+                    order_number = linked_order["order_number"] if linked_order else ""
+                    order_total_cents = int(linked_order["total_cents"] or 0) if linked_order else 0
+                    conn.execute("""INSERT INTO customer_advances
+                        (id, receipt_number, opportunity_id, crm_opportunity_id, customer_id,
+                         control_sales_order_id, order_number, receipt_date, delivery_date,
+                         amount_cents, opportunity_amount_cents, order_total_cents, concept, note,
+                         status, customer_name, seller, customer_snapshot, created_by, updated_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pendiente', ?, ?, ?, ?, ?)""",
+                        (advance_id, receipt_number, source["opportunityId"], source["crmOpportunityId"],
+                         source["customerId"], order_id, order_number, receipt_date,
+                         text(data.get("deliveryDate")), amount_cents, source["opportunityAmountCents"],
+                         order_total_cents, concept, text(data.get("note")), source["customerName"],
+                         source["seller"], json.dumps(source["customerSnapshot"], ensure_ascii=False), actor, actor))
+                    conn.execute("""INSERT INTO customer_advance_audit
+                        (id, advance_id, action, amount_cents, detail, user_name)
+                        VALUES (?, ?, 'creacion', ?, ?, ?)""",
+                        (str(uuid.uuid4()), advance_id, amount_cents, f"Oportunidad {source['opportunityId']}", actor))
+                    if order_id:
+                        sync_customer_advance_receivable(conn, order_id)
+                    created = customer_advance_payload(conn, conn.execute("SELECT * FROM customer_advances WHERE id = ?", (advance_id,)).fetchone())
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
+                return
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "No se pudo generar el correlativo del anticipo; intenta nuevamente"}, status=409)
+                return
+            self.send_json({"ok": True, "item": created}, status=201)
             return
 
         if self.path == "/api/accounts-receivable":

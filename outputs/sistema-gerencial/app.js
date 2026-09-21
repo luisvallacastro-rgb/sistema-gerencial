@@ -117,6 +117,12 @@ const areas = {
         items: []
       },
       {
+        key: "anticipos",
+        label: "Anticipos",
+        status: "Recibos vinculados a oportunidades",
+        items: []
+      },
+      {
         key: "crm-clientes",
         label: "Clientes",
         status: "Maestro único de clientes",
@@ -311,6 +317,10 @@ const state = {
   commercialAgendaDailySeller: "all",
   commercialAgendaValidationStart: `${todayISO().slice(0, 8)}01`,
   commercialAgendaValidationEnd: todayISO(),
+  customerAdvances: [],
+  customerAdvancesLoaded: false,
+  customerAdvanceQuery: "",
+  customerAdvanceStatus: "all",
   pendingExpenses: [],
   pendingExpensesLoadState: "loading",
   pendingChecks: [],
@@ -1141,7 +1151,7 @@ function operationalPermissionKeys() {
 
 function defaultPermissionsForRole(role) {
   if (role === "vendedores") {
-    return ["crm", "crm-seguimiento", "cotizaciones"]
+    return ["crm", "crm-seguimiento", "anticipos", "cotizaciones"]
       .map((sectionKey) => permissionKey("comercializacion", sectionKey));
   }
   if (role === "operativos") return [];
@@ -1186,7 +1196,7 @@ function normalizePermissionList(value, role) {
       permissionKey("comercializacion", "crm-seguimiento"),
       permissionKey("comercializacion", "autorizacion-pedidos")
     ].includes(item))
-      ? [permissionKey("comercializacion", "cotizaciones")]
+      ? [permissionKey("comercializacion", "cotizaciones"), permissionKey("comercializacion", "anticipos")]
       : []),
     ...(legacyRisks ? [permissionKey(adminAreaKey, "riesgos")] : []),
     ...(legacyRequests ? [permissionKey(adminAreaKey, "solicitudes")] : [])
@@ -5914,6 +5924,236 @@ function loadAccountsReceivable() {
     .catch(() => {
       state.accountsReceivable = [];
     });
+}
+
+function loadCustomerAdvances() {
+  if (!apiEnabled) return Promise.resolve(state.customerAdvances);
+  return apiJson("/api/customer-advances").then((items) => {
+    state.customerAdvances = Array.isArray(items) ? items : [];
+    state.customerAdvancesLoaded = true;
+    if (state.activeArea === "comercializacion" && state.activeSubmenu === "anticipos") {
+      renderCommercialSubmenu(areas.comercializacion);
+    }
+    return state.customerAdvances;
+  }).catch((error) => {
+    console.error("No se pudieron cargar los anticipos", error);
+    return state.customerAdvances;
+  });
+}
+
+function customerAdvanceOpportunities() {
+  return getOpportunitySubmenu().items
+    .filter((item) => normalizeKey(item.status) !== "anulada")
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(a.company || "").localeCompare(String(b.company || ""), "es"));
+}
+
+function customerAdvanceBaseCents(item) {
+  return Number(item.orderTotalCents || item.opportunityAmountCents || 0);
+}
+
+function customerAdvancePaidForOpportunity(item) {
+  const identities = new Set([item.id, item.crmOpportunityId, item.sourceOpportunityId].filter(Boolean).map(String));
+  return state.customerAdvances
+    .filter((advance) => advance.status !== "Anulado" && (identities.has(String(advance.opportunityId)) || identities.has(String(advance.crmOpportunityId))))
+    .reduce((sum, advance) => sum + Number(advance.amountCents || 0), 0);
+}
+
+function renderCustomerAdvances() {
+  const query = normalizeKey(state.customerAdvanceQuery).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const rows = state.customerAdvances.filter((item) => {
+    if (state.customerAdvanceStatus !== "all" && item.status !== state.customerAdvanceStatus) return false;
+    if (!query) return true;
+    return [item.receiptNumber, item.customerName, item.seller, item.orderNumber]
+      .some((value) => normalizeKey(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query));
+  });
+  const active = state.customerAdvances.filter((item) => item.status !== "Anulado");
+  const total = active.reduce((sum, item) => sum + Number(item.amountCents || 0), 0);
+  const settled = active.reduce((sum, item) => sum + Number(item.allocatedCents || 0), 0);
+  const pending = active.reduce((sum, item) => sum + Number(item.pendingCents || 0), 0);
+  const linked = active.filter((item) => item.controlSalesOrderId).reduce((sum, item) => sum + Number(item.amountCents || 0), 0);
+  return `<section class="customer-advances-shell">
+    <div class="customer-advances-summary">
+      <article><span>Total recibido</span><strong>${formatMoney(total / 100)}</strong><small>${active.length} recibos válidos</small></article>
+      <article><span>Liquidado en banco</span><strong>${formatMoney(settled / 100)}</strong><small>Conciliado desde Disponibilidad</small></article>
+      <article><span>Pendiente de liquidar</span><strong class="warning">${formatMoney(pending / 100)}</strong><small>Remesas aún no conciliadas</small></article>
+      <article><span>Aplicado a OP</span><strong>${formatMoney(linked / 100)}</strong><small>Vinculado a órdenes</small></article>
+    </div>
+    <div class="customer-advances-toolbar">
+      <label><span>⌕</span><input type="search" data-customer-advance-search value="${escapeHtml(state.customerAdvanceQuery)}" placeholder="Buscar recibo, cliente, vendedor u OP..."></label>
+      <select data-customer-advance-status aria-label="Estado de anticipo">
+        <option value="all" ${state.customerAdvanceStatus === "all" ? "selected" : ""}>Todos</option>
+        ${["Pendiente", "Parcial", "Liquidado", "Anulado"].map((status) => `<option value="${status}" ${state.customerAdvanceStatus === status ? "selected" : ""}>${status}</option>`).join("")}
+      </select>
+      <button type="button" data-customer-advance-report>Reporte general</button>
+      <button type="button" class="primary" data-customer-advance-new>＋ Nuevo anticipo</button>
+    </div>
+    <div class="customer-advances-table-wrap"><table class="customer-advances-table"><thead><tr><th>Recibo</th><th>Fecha</th><th>Cliente / oportunidad</th><th>Vendedor</th><th>Valor</th><th>Liquidado</th><th>Pendiente</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+      ${rows.map((item) => `<tr>
+        <td><strong>${escapeHtml(item.receiptNumber)}</strong><small>${escapeHtml(item.orderNumber || "Sin OP")}</small></td>
+        <td>${escapeHtml(formatDate(item.receiptDate))}</td>
+        <td><strong>${escapeHtml(item.customerName)}</strong><small>${escapeHtml(item.concept)}</small></td>
+        <td>${escapeHtml(item.seller || "Sin vendedor")}</td>
+        <td class="money">${formatMoney(Number(item.amountCents || 0) / 100)}</td>
+        <td class="money settled">${formatMoney(Number(item.allocatedCents || 0) / 100)}</td>
+        <td class="money pending">${formatMoney(Number(item.pendingCents || 0) / 100)}</td>
+        <td><span class="customer-advance-status status-${normalizeKey(item.status)}">${escapeHtml(item.status)}</span></td>
+        <td><div class="customer-advance-actions"><button type="button" data-customer-advance-print="${escapeHtml(item.id)}">Imprimir</button>${item.status === "Pendiente" ? `<button type="button" class="danger" data-customer-advance-cancel="${escapeHtml(item.id)}">Anular</button>` : ""}</div></td>
+      </tr>`).join("") || `<tr><td colspan="9" class="empty-state">${state.customerAdvancesLoaded ? "No hay anticipos para este filtro." : "Cargando anticipos..."}</td></tr>`}
+    </tbody></table></div>
+  </section>`;
+}
+
+function openCustomerAdvanceDialog(initialOpportunity = null) {
+  const opportunities = customerAdvanceOpportunities();
+  if (!opportunities.length) return alert("No hay oportunidades disponibles para registrar anticipos.");
+  document.querySelector("#customerAdvanceDialog")?.remove();
+  const dialog = document.createElement("dialog");
+  dialog.id = "customerAdvanceDialog";
+  dialog.className = "customer-advance-dialog";
+  const initialId = initialOpportunity?.id || opportunities[0].id;
+  const optionMarkup = opportunities.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === initialId ? "selected" : ""}>${escapeHtml(item.company)} · ${escapeHtml(item.seller)} · ${formatMoney(item.amount)}</option>`).join("");
+  dialog.innerHTML = `<form><header><div><span>Comercialización · Anticipos</span><h2>Recibo por anticipo de trabajo</h2><p>El cliente se heredará exclusivamente del maestro de Clientes.</p></div><button type="button" data-advance-close>×</button></header>
+    <section class="customer-advance-form-grid">
+      <label class="wide"><span>Oportunidad</span><select name="opportunityId" required>${optionMarkup}</select></label>
+      <div class="customer-advance-source wide" data-advance-source></div>
+      <label><span>Fecha del recibo</span><input name="receiptDate" type="date" value="${todayISO()}" required></label>
+      <label><span>Fecha de entrega</span><input name="deliveryDate" type="date"></label>
+      <label><span>Concepto</span><select name="concept"><option>Anticipo</option><option>Abono</option><option>Cancelación</option></select></label>
+      <label><span>Valor recibido</span><input name="amount" type="number" min="0.01" step="0.01" required></label>
+      <label class="wide"><span>Detalle</span><textarea name="note" rows="3" placeholder="Concepto del trabajo o referencia del pago"></textarea></label>
+    </section><footer><button type="button" data-advance-close>Cancelar</button><button type="submit">Guardar e imprimir</button></footer></form>`;
+  const select = dialog.querySelector("select[name=opportunityId]");
+  const source = dialog.querySelector("[data-advance-source]");
+  const amount = dialog.querySelector("input[name=amount]");
+  const refreshSource = () => {
+    const item = opportunities.find((row) => row.id === select.value) || opportunities[0];
+    const paidCents = customerAdvancePaidForOpportunity(item);
+    const baseCents = Math.round(Number(item.amount || 0) * 100);
+    source.innerHTML = `<span><small>Cliente</small><strong>${escapeHtml(item.company || "Sin cliente")}</strong></span><span><small>Vendedor</small><strong>${escapeHtml(item.seller || "Sin vendedor")}</strong></span><span><small>Valor oportunidad</small><strong>${formatMoney(baseCents / 100)}</strong></span><span><small>Disponible</small><strong>${formatMoney(Math.max(0, baseCents - paidCents) / 100)}</strong></span>`;
+    amount.max = Math.max(0, baseCents - paidCents) / 100 || "";
+  };
+  refreshSource();
+  select.addEventListener("change", refreshSource);
+  dialog.querySelectorAll("[data-advance-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelector("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = event.submitter;
+    const item = opportunities.find((row) => row.id === select.value);
+    if (!item) return;
+    button.disabled = true;
+    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    try {
+      const response = await apiJson("/api/customer-advances", { method: "POST", body: JSON.stringify({
+        ...values, opportunityId: item.id, crmOpportunityId: item.crmOpportunityId || "",
+        customerId: item.customerId || "", createdBy: state.currentUser?.name || "Sistema Gerencial"
+      }) });
+      state.customerAdvances.unshift(response.item);
+      dialog.close();
+      printCustomerAdvance(response.item);
+      if (state.activeSubmenu === "anticipos") renderCommercialSubmenu(areas.comercializacion);
+    } catch (error) {
+      alert(error.message || "No se pudo registrar el anticipo.");
+      button.disabled = false;
+    }
+  });
+  document.body.append(dialog);
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.showModal();
+}
+
+function customerAdvanceAmountWords(value) {
+  const units = ["cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce", "trece", "catorce", "quince", "dieciséis", "diecisiete", "dieciocho", "diecinueve", "veinte"];
+  const tens = ["", "", "veinte", "treinta", "cuarenta", "cincuenta", "sesenta", "setenta", "ochenta", "noventa"];
+  const hundreds = ["", "ciento", "doscientos", "trescientos", "cuatrocientos", "quinientos", "seiscientos", "setecientos", "ochocientos", "novecientos"];
+  const underThousand = (number) => {
+    if (number <= 20) return units[number];
+    if (number < 30) return `veinti${units[number - 20]}`;
+    if (number < 100) return `${tens[Math.floor(number / 10)]}${number % 10 ? ` y ${units[number % 10]}` : ""}`;
+    if (number === 100) return "cien";
+    return `${hundreds[Math.floor(number / 100)]}${number % 100 ? ` ${underThousand(number % 100)}` : ""}`;
+  };
+  const integerWords = (number) => {
+    if (number < 1000) return underThousand(number);
+    if (number < 1000000) {
+      const thousands = Math.floor(number / 1000);
+      return `${thousands === 1 ? "mil" : `${underThousand(thousands)} mil`}${number % 1000 ? ` ${underThousand(number % 1000)}` : ""}`;
+    }
+    const millions = Math.floor(number / 1000000);
+    return `${millions === 1 ? "un millón" : `${integerWords(millions)} millones`}${number % 1000000 ? ` ${integerWords(number % 1000000)}` : ""}`;
+  };
+  const amount = Math.max(0, Number(value || 0));
+  const integer = Math.floor(amount);
+  const cents = Math.round((amount - integer) * 100);
+  return `${integerWords(integer)} dólares con ${String(cents).padStart(2, "0")}/100`;
+}
+
+function printCustomerAdvance(item) {
+  const popup = window.open("", "_blank", "width=860,height=980");
+  if (!popup) return alert("Habilita las ventanas emergentes para imprimir el recibo.");
+  const amount = Number(item.amountCents || 0) / 100;
+  const base = customerAdvanceBaseCents(item) / 100;
+  const cumulative = state.customerAdvances
+    .filter((advance) => advance.status !== "Anulado" && (advance.opportunityId === item.opportunityId || (item.crmOpportunityId && advance.crmOpportunityId === item.crmOpportunityId)))
+    .reduce((sum, advance) => sum + Number(advance.amountCents || 0), 0) / 100;
+  const remaining = Math.max(0, base - cumulative);
+  const customer = item.customer || {};
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(item.receiptNumber)}</title><style>@page{size:letter;margin:13mm}*{box-sizing:border-box}body{margin:0;color:#17233a;font:14px Georgia,serif}.receipt{max-width:760px;margin:auto;border:2px solid #17233a;padding:28px}.brand{text-align:center;border-bottom:3px double #17233a;padding-bottom:15px}.brand h1{font:700 25px Arial;margin:0}.brand p{font:12px Arial;margin:6px 0 0}.number{display:flex;justify-content:space-between;align-items:end;margin:18px 0}.number h2{margin:0;font-size:20px}.number strong{color:#b74832;font:700 22px Arial}.field{display:grid;grid-template-columns:160px 1fr;gap:10px;border-bottom:1px solid #64748b;padding:7px 0}.field b{font-weight:700}.amounts{width:100%;border-collapse:collapse;margin-top:18px}.amounts td{padding:8px;border-bottom:1px solid #cbd5e1}.amounts td:last-child{text-align:right;font:700 15px Arial}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:70px}.signatures div{border-top:1px solid #17233a;text-align:center;padding-top:7px}.terms{font:10px Arial;margin-top:35px;border:1px solid #94a3b8;padding:10px;line-height:1.35}.actions{position:fixed;right:20px;bottom:20px;display:flex;gap:8px}.actions button{border:0;border-radius:7px;padding:10px 14px;background:#16866d;color:#fff;font-weight:bold}.actions button:last-child{background:#334155}@media print{.actions{display:none}.receipt{border:1px solid #17233a}}</style></head><body><main class="receipt"><header class="brand"><h1>KONFI INVERSIONES, S.A. de C.V.</h1><p>Recibo por anticipo de trabajo</p></header><div class="number"><h2>RECIBO POR ANTICIPO</h2><strong>N.º ${escapeHtml(item.receiptNumber)}</strong></div><div class="field"><b>Por</b><span>${formatMoney(amount)}</span></div><div class="field"><b>Recibimos de</b><span>${escapeHtml(customer.legalName || item.customerName)}</span></div><div class="field"><b>Cliente</b><span>${escapeHtml(item.customerName)}</span></div><div class="field"><b>Dirección</b><span>${escapeHtml(customer.address || "—")}</span></div><div class="field"><b>Correo</b><span>${escapeHtml(customer.email || "—")}</span></div><div class="field"><b>La cantidad de</b><span>${escapeHtml(customerAdvanceAmountWords(amount))}</span></div><div class="field"><b>Concepto</b><span>${escapeHtml(item.concept)} · ${escapeHtml(item.note || "Anticipo de trabajo")}</span></div><div class="field"><b>Oportunidad / OP</b><span>${escapeHtml(item.orderNumber || item.opportunityId)}</span></div><div class="field"><b>Fecha de entrega</b><span>${escapeHtml(item.deliveryDate ? formatDate(item.deliveryDate) : "Por definir")}</span></div><table class="amounts"><tr><td>Valor de oportunidad / orden</td><td>${formatMoney(base)}</td></tr><tr><td>Anticipos acumulados</td><td>${formatMoney(cumulative)}</td></tr><tr><td>Abono de este recibo</td><td>${formatMoney(amount)}</td></tr><tr><td>Saldo total</td><td>${formatMoney(remaining)}</td></tr><tr><td>Fecha</td><td>${escapeHtml(formatDate(item.receiptDate))}</td></tr></table><div class="signatures"><div>Cliente<br><small>DUI / documento</small></div><div>KONFI INVERSIONES<br><small>${escapeHtml(item.createdBy || "Sistema Gerencial")}</small></div></div><div class="terms">Este recibo acredita el pago indicado y queda vinculado a la oportunidad y a la orden de producción que se genere. La conciliación bancaria se realizará desde Disponibilidad sin volver a disminuir el saldo del cliente.</div></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  popup.document.close();
+}
+
+function printCustomerAdvanceReport() {
+  const rows = state.customerAdvances.filter((item) => item.status !== "Anulado");
+  const popup = window.open("", "_blank", "width=1180,height=820");
+  if (!popup) return alert("Habilita las ventanas emergentes para generar el reporte.");
+  const totals = rows.reduce((result, item) => ({ received: result.received + Number(item.amountCents || 0), settled: result.settled + Number(item.allocatedCents || 0), pending: result.pending + Number(item.pendingCents || 0) }), { received: 0, settled: 0, pending: 0 });
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte general de anticipos</title><style>@page{size:landscape;margin:12mm}body{font:12px Arial;color:#17233a;margin:28px}header{display:flex;justify-content:space-between;border-bottom:3px solid #16866d;padding-bottom:14px}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.kpis div{border:1px solid #cbd5e1;padding:12px}.kpis span,.kpis strong{display:block}.kpis strong{font-size:20px;margin-top:4px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #cbd5e1;padding:8px;text-align:left}th{background:#173b62;color:#fff}td.money{text-align:right}.actions{position:fixed;right:18px;bottom:18px}.actions button{padding:10px 15px;border:0;background:#16866d;color:#fff;font-weight:700}@media print{.actions{display:none}}</style></head><body><header><div><small>COMERCIALIZACIÓN · CONTROL FINANCIERO</small><h1>Reporte general de anticipos</h1></div><strong>Corte ${escapeHtml(formatDate(todayISO()))}</strong></header><section class="kpis"><div><span>Total recibido</span><strong>${formatMoney(totals.received / 100)}</strong></div><div><span>Liquidado</span><strong>${formatMoney(totals.settled / 100)}</strong></div><div><span>Pendiente</span><strong>${formatMoney(totals.pending / 100)}</strong></div></section><table><thead><tr><th>Recibo</th><th>Fecha</th><th>Cliente</th><th>Vendedor</th><th>OP</th><th>Valor</th><th>Liquidado</th><th>Pendiente</th><th>Estado</th></tr></thead><tbody>${rows.map((item) => `<tr><td>${escapeHtml(item.receiptNumber)}</td><td>${escapeHtml(formatDate(item.receiptDate))}</td><td>${escapeHtml(item.customerName)}</td><td>${escapeHtml(item.seller)}</td><td>${escapeHtml(item.orderNumber || "—")}</td><td class="money">${formatMoney(item.amountCents / 100)}</td><td class="money">${formatMoney(item.allocatedCents / 100)}</td><td class="money">${formatMoney(item.pendingCents / 100)}</td><td>${escapeHtml(item.status)}</td></tr>`).join("")}</tbody></table><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button></nav></body></html>`);
+  popup.document.close();
+}
+
+function wireCustomerAdvances() {
+  const search = opportunityTable.querySelector("[data-customer-advance-search]");
+  search?.addEventListener("input", (event) => { state.customerAdvanceQuery = event.target.value; renderCommercialSubmenu(areas.comercializacion); const next = opportunityTable.querySelector("[data-customer-advance-search]"); next?.focus(); next?.setSelectionRange(next.value.length, next.value.length); });
+  opportunityTable.querySelector("[data-customer-advance-status]")?.addEventListener("change", (event) => { state.customerAdvanceStatus = event.target.value; renderCommercialSubmenu(areas.comercializacion); });
+  opportunityTable.querySelector("[data-customer-advance-new]")?.addEventListener("click", () => openCustomerAdvanceDialog());
+  opportunityTable.querySelector("[data-customer-advance-report]")?.addEventListener("click", printCustomerAdvanceReport);
+  opportunityTable.querySelectorAll("[data-customer-advance-print]").forEach((button) => button.addEventListener("click", () => { const item = state.customerAdvances.find((row) => row.id === button.dataset.customerAdvancePrint); if (item) printCustomerAdvance(item); }));
+  opportunityTable.querySelectorAll("[data-customer-advance-cancel]").forEach((button) => button.addEventListener("click", async () => {
+    const item = state.customerAdvances.find((row) => row.id === button.dataset.customerAdvanceCancel);
+    if (!item) return;
+    const reason = prompt(`Motivo de anulación de ${item.receiptNumber}:`);
+    if (!reason?.trim()) return;
+    try { await apiJson(`/api/customer-advances/${encodeURIComponent(item.id)}/cancel`, { method: "POST", body: JSON.stringify({ reason: reason.trim(), updatedBy: state.currentUser?.name || "Sistema Gerencial" }) }); await Promise.all([loadCustomerAdvances(), loadAccountsReceivable()]); renderCommercialSubmenu(areas.comercializacion); }
+    catch (error) { alert(error.message || "No se pudo anular el anticipo."); }
+  }));
+}
+
+async function openCustomerAdvanceAllocation(record, account, inflowField) {
+  await loadCustomerAdvances();
+  const candidates = state.customerAdvances.filter((item) => item.status === "Pendiente" || item.status === "Parcial");
+  if (!candidates.length) return alert("No hay anticipos pendientes de liquidar.");
+  const remittance = Number(record.data?.[inflowField] || 0);
+  const alreadyApplied = state.customerAdvances.reduce((sum, item) => sum + (item.allocations || []).filter((allocation) => allocation.bankRecordId === record.id).reduce((partial, allocation) => partial + Number(allocation.amountCents || 0), 0), 0) / 100;
+  const remittanceAvailable = Math.max(0, remittance - alreadyApplied);
+  if (remittanceAvailable <= 0) return alert("Esta remesa ya fue aplicada por completo a anticipos.");
+  const dialog = document.createElement("dialog");
+  dialog.className = "customer-advance-allocation-dialog";
+  const candidateOptions = (items) => items.map((item) => `<option value="${escapeHtml(item.id)}" data-pending="${Number(item.pendingCents || 0) / 100}">${escapeHtml(item.receiptNumber)} · ${escapeHtml(item.customerName)} · pendiente ${formatMoney(Number(item.pendingCents || 0) / 100)}</option>`).join("");
+  dialog.innerHTML = `<form><header><div><span>Disponibilidad · Conciliación</span><h2>Liquidar anticipo</h2><p>${escapeHtml(account.bank)} · Disponible de remesa ${formatMoney(remittanceAvailable)}</p></div><button type="button" data-allocation-close>×</button></header><label><span>Buscar por recibo, cliente, vendedor u OP</span><input type="search" data-allocation-search placeholder="Escribe para filtrar anticipos..."></label><label><span>Anticipo pendiente</span><select name="advanceId" required>${candidateOptions(candidates)}</select></label><label><span>Monto a liquidar</span><input name="amount" type="number" min="0.01" step="0.01" required></label><div class="customer-advance-allocation-summary" data-allocation-summary></div><footer><button type="button" data-allocation-close>Cancelar</button><button type="submit">Confirmar liquidación</button></footer></form>`;
+  const select = dialog.querySelector("select"); const search = dialog.querySelector("[data-allocation-search]"); const amount = dialog.querySelector("input[name=amount]"); const summary = dialog.querySelector("[data-allocation-summary]");
+  const refresh = () => { const pending = Number(select.selectedOptions[0]?.dataset.pending || 0); const applied = Math.min(remittanceAvailable, pending); amount.value = applied.toFixed(2); amount.max = String(applied); summary.textContent = `Se aplicarán hasta ${formatMoney(applied)}; el excedente de la remesa no se asignará automáticamente.`; };
+  select.addEventListener("change", refresh); refresh();
+  search.addEventListener("input", () => {
+    const query = normalizeKey(search.value).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const matches = candidates.filter((item) => [item.receiptNumber, item.customerName, item.seller, item.orderNumber].some((value) => normalizeKey(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(query)));
+    select.innerHTML = candidateOptions(matches);
+    select.disabled = !matches.length;
+    amount.disabled = !matches.length;
+    dialog.querySelector('[type="submit"]').disabled = !matches.length;
+    if (matches.length) refresh(); else summary.textContent = "No hay anticipos pendientes que coincidan con la búsqueda.";
+  });
+  dialog.querySelectorAll("[data-allocation-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelector("form").addEventListener("submit", async (event) => { event.preventDefault(); const button = event.submitter; button.disabled = true; try { await apiJson("/api/customer-advances/allocate", { method: "POST", body: JSON.stringify({ advanceId: select.value, bankRecordId: record.id, amount: amount.value, createdBy: state.currentUser?.name || "Sistema Gerencial" }) }); await loadCustomerAdvances(); dialog.close(); alert("Anticipo liquidado y conciliado con la remesa."); } catch (error) { alert(error.message || "No se pudo liquidar el anticipo."); button.disabled = false; } });
+  document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once: true }); dialog.showModal();
 }
 
 function loadFinancialOrders() {
@@ -11136,6 +11376,18 @@ async function openBankMaintenance(accountId) {
         }).join("")}<div class="bank-calculated-balance"><span>Saldo</span><strong data-bank-calculated-balance>${formatMoney(openingBalance)}</strong></div><div class="bank-form-actions"><button type="button" data-bank-cancel>Cancelar</button><button type="submit">${editing ? "Guardar" : "Agregar"}</button></div></div></form>` : ""}
       <section class="bank-movements-table"><table>${bankColumnsMarkup(["Seleccionar", ...account.fields, "Acciones"])}<thead><tr><th>Provisión</th>${account.fields.map((field) => `<th>${escapeHtml(field)}</th>`).join("")}<th>Acciones</th></tr></thead><tbody>${records.map((record) => `<tr class="${record.provisioned ? "is-provisioned" : ""}"><td class="bank-provision-cell"><label class="bank-row-switch" title="${record.provisioned ? "Movimiento ya provisionado" : "Seleccionar movimiento"}"><input type="checkbox" data-bank-provision-select="${escapeHtml(record.id)}" ${record.provisioned || selectedProvisionIds.has(record.id) ? "checked" : ""} ${record.provisioned ? "disabled" : ""}><span></span></label>${record.provisioned ? `<small>Aplicada</small>` : ""}</td>${account.fields.map((field) => `<td class="${bankFieldType(field) === "number" ? "money" : ""}">${bankMovementCell(field, record.data[field])}</td>`).join("")}<td class="bank-line-action"><div><button type="button" data-bank-record-edit="${escapeHtml(record.id)}" aria-label="Editar movimiento" title="Editar">✎</button><button type="button" class="void" data-bank-record-void="${escapeHtml(record.id)}" aria-label="Anular movimiento" title="Anular fila">×</button></div></td></tr>`).join("")}</tbody></table></section>
     </div>`;
+    dialog.querySelectorAll("[data-bank-record-edit]").forEach((editButton) => {
+      const record = records.find((item) => item.id === editButton.dataset.bankRecordEdit);
+      if (!record || Number(record.data?.[inflowField] || 0) <= 0) return;
+      const advanceButton = document.createElement("button");
+      advanceButton.type = "button";
+      advanceButton.className = "advance";
+      advanceButton.dataset.bankRecordAdvance = record.id;
+      advanceButton.title = "Buscar y liquidar anticipo";
+      advanceButton.setAttribute("aria-label", "Liquidar anticipo");
+      advanceButton.textContent = "$";
+      editButton.before(advanceButton);
+    });
     dialog.querySelector("[data-bank-close]").onclick = () => dialog.close();
     dialog.querySelector("[data-bank-new]").onclick = () => render(true, null);
     dialog.querySelector("[data-bank-paste]").onclick = () => render(false, null, true);
@@ -11168,6 +11420,10 @@ async function openBankMaintenance(accountId) {
     dialog.querySelector("[data-bank-paste-cancel]")?.addEventListener("click", () => render(false));
     dialog.querySelector("[data-bank-cancel]")?.addEventListener("click", () => render(false));
     dialog.querySelectorAll("[data-bank-record-edit]").forEach((button) => button.addEventListener("click", () => render(true, records.find((record) => record.id === button.dataset.bankRecordEdit))));
+    dialog.querySelectorAll("[data-bank-record-advance]").forEach((button) => button.addEventListener("click", () => {
+      const record = records.find((item) => item.id === button.dataset.bankRecordAdvance);
+      if (record) openCustomerAdvanceAllocation(record, account, inflowField);
+    }));
     dialog.querySelectorAll("[data-bank-record-void]").forEach((button) => button.addEventListener("click", async () => {
       const record = records.find((item) => item.id === button.dataset.bankRecordVoid);
       if (!record) return;
@@ -11718,6 +11974,20 @@ function renderCommercialSubmenu(area) {
     newOpportunityBtn.classList.add("hidden"); newRiskBtn.classList.add("hidden"); newManagementRequestBtn.classList.add("hidden"); goalsMatrixBtn.classList.add("hidden");
     opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden"); opportunityTable.innerHTML = renderCommercialAgenda(); wireCommercialAgenda();
     if (!state.commercialAgendaLoaded) { state.commercialAgendaLoaded=true; apiJson("/api/commercial-agenda").then((items)=>{state.commercialAgenda=Array.isArray(items)?items:[];if(state.activeSubmenu==="agenda-comercial")renderCommercialSubmenu(areas.comercializacion);}).catch(()=>{}); }
+    return;
+  }
+
+  if (state.activeArea === "comercializacion" && submenu.key === "anticipos") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = `${state.customerAdvances.length} ${state.customerAdvances.length === 1 ? "recibo" : "recibos"}`;
+    opportunityTable.innerHTML = renderCustomerAdvances();
+    wireCustomerAdvances();
+    if (!state.customerAdvancesLoaded) loadCustomerAdvances();
     return;
   }
 
@@ -12423,6 +12693,9 @@ function renderCommercialSubmenu(area) {
           ${!isHistory ? `
             <button class="action-icon-btn" type="button" data-action="edit" data-id="${item.id}" aria-label="Editar">
               <span aria-hidden="true">✏️</span>
+            </button>
+            <button class="action-icon-btn advance-action-btn" type="button" data-action="advance" data-id="${item.id}" aria-label="Registrar anticipo" title="Registrar anticipo vinculado">
+              <span aria-hidden="true">💵</span>
             </button>
           ` : ""}
           ${isImportedHistory ? `<span class="history-lock">Cierre real</span>` : `
@@ -14286,6 +14559,7 @@ function renderDashboard() {
       "cotizaciones",
       "metricas",
       "meta",
+      "anticipos",
       "disponibilidad",
       "ingresos",
       "produccion-semanal"
@@ -15271,6 +15545,11 @@ opportunityTable.addEventListener("click", (event) => {
 
   if (button.dataset.action === "manage") {
     openManagementDialog(item);
+    return;
+  }
+
+  if (button.dataset.action === "advance") {
+    openCustomerAdvanceDialog(item);
     return;
   }
 
@@ -16342,6 +16621,7 @@ loadControlSalesPeriod();
 loadFinancialOrders();
 syncFinancialOrdersWithApi();
 loadAccountsReceivable();
+loadCustomerAdvances();
 loadPurchaseOrders();
 loadControlSales();
 loadProductionSchedule();
