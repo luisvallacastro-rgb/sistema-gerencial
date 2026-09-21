@@ -5947,15 +5947,32 @@ function customerAdvanceOpportunities() {
     .filter((customer) => customer.active !== false)
     .map((customer) => String(customer.id || ""))
     .filter(Boolean));
-  return (data.opportunities || [])
+  const crmById = new Map((state.crmData?.opportunities || []).map((opportunity) => [String(opportunity.id), opportunity]));
+  const sellerOpportunities = (data.opportunities || [])
     .filter((opportunity) => !isCrmArchivedOpportunity(opportunity))
     .filter((opportunity) => normalizeKey(opportunity.status || "vigente") !== "ganada")
-    .filter((opportunity) => !hasConvertedQuotationOrder(opportunity))
     .filter((opportunity) => activeCustomerIds.has(String(opportunity.customerId || "")))
     .map((opportunity) => ({
       ...crmOpportunityToFormItem(opportunity),
-      crmOpportunityId: opportunity.id
-    }))
+      crmOpportunityId: opportunity.id,
+      advanceSource: "Vendedores"
+    }));
+  const managementOpportunities = opportunityCycleRows(getOpportunitySubmenu().items).active
+    .map(({ item }) => {
+      const crmOpportunity = crmById.get(String(item.crmOpportunityId || "")) || {};
+      const customerId = item.customerId || crmOpportunity.customerId || "";
+      return { ...item, customerId, advanceSource: "Gerencia" };
+    })
+    .filter(canManageQuotationOpportunity)
+    .filter((opportunity) => activeCustomerIds.has(String(opportunity.customerId || "")));
+  const unique = new Map();
+  [...sellerOpportunities, ...managementOpportunities].forEach((opportunity) => {
+    const key = opportunity.crmOpportunityId
+      ? `crm:${opportunity.crmOpportunityId}`
+      : `result:${opportunity.id}`;
+    if (!unique.has(key)) unique.set(key, opportunity);
+  });
+  return [...unique.values()]
     .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(a.company || "").localeCompare(String(b.company || ""), "es"));
 }
 
@@ -6039,13 +6056,13 @@ function openCustomerAdvanceOpportunityPicker(onSelect, selectedId = "") {
   const renderOptions = () => {
     const tokens = normalizeKey(search.value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/).filter(Boolean);
     const visible = opportunities.filter((item) => {
-      const index = normalizeKey(`${item.company || ""} ${item.seller || ""} ${item.stage || ""} ${item.segment || ""} ${item.amount || 0}`).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const index = normalizeKey(`${item.company || ""} ${item.seller || ""} ${item.stage || ""} ${item.segment || ""} ${item.advanceSource || ""} ${item.amount || 0}`).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return tokens.every((token) => index.includes(token));
     });
     count.textContent = String(visible.length);
     list.innerHTML = visible.length ? visible.map((item) => `
       <button type="button" class="quotation-opportunity-option ${String(item.id) === String(selectedId) ? "selected" : ""}" data-advance-picker-select="${escapeHtml(item.id)}">
-        <span class="quotation-opportunity-option__main"><strong>${escapeHtml(item.company || "Oportunidad sin nombre")}</strong><small>${escapeHtml(item.segment || item.product || "Detalle pendiente")}</small><em class="quotation-opportunity-source" data-source="management"><i></i>Oportunidad comercial</em></span>
+        <span class="quotation-opportunity-option__main"><strong>${escapeHtml(item.company || "Oportunidad sin nombre")}</strong><small>${escapeHtml(item.segment || item.product || "Detalle pendiente")}</small><em class="quotation-opportunity-source" data-source="management"><i></i>Oportunidad / ${escapeHtml(item.advanceSource || "Comercial")}</em></span>
         <span><small>Vendedor</small><strong>${escapeHtml(item.seller || "Sin vendedor")}</strong></span>
         <span><small>Etapa</small><strong>${escapeHtml(item.stage || "Sin etapa")}</strong></span>
         <span class="quotation-opportunity-option__amount"><small>Monto</small><strong>${formatMoney(item.amount || 0)}</strong></span>

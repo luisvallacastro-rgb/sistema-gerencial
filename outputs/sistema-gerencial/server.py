@@ -2683,33 +2683,50 @@ def customer_advance_source(conn, payload):
     requested_crm_id = text(payload.get("crmOpportunityId"))
     result_rows = read_result_opportunities(conn)
     result = next((item for item in result_rows if requested_id and text(item.get("id")) == requested_id), None)
-    if not result and requested_crm_id:
-        result = next((item for item in result_rows if text(item.get("crmOpportunityId")) == requested_crm_id), None)
     crm_data = read_crm_data(conn)
     crm_id = requested_crm_id or text((result or {}).get("crmOpportunityId"))
     crm_opportunity = next((item for item in crm_data.get("opportunities", []) if crm_id and text(item.get("id")) == crm_id), None)
     if not crm_opportunity and requested_id:
         crm_opportunity = next((item for item in crm_data.get("opportunities", []) if text(item.get("id")) == requested_id), None)
         crm_id = text((crm_opportunity or {}).get("id"), crm_id)
-    if not crm_opportunity:
-        raise ValueError("La oportunidad seleccionada no existe en el CRM y no puede recibir anticipos")
-    opportunity_status = text(crm_opportunity.get("status"), "Vigente").strip().lower()
-    if (
-        bool(crm_opportunity.get("archived"))
-        or bool(crm_opportunity.get("migratedToResults"))
-        or opportunity_status in {"ganada", "perdida", "cancelada", "anulada", "migrada"}
-    ):
-        raise ValueError("Solo se pueden registrar anticipos en oportunidades vigentes")
+    if result:
+        result_status = text(result.get("status"), "Vigente").strip().lower()
+        managements = result.get("managements") if isinstance(result.get("managements"), list) else []
+        closure = next((management for management in reversed(managements)
+            if not management.get("canceled")
+            and text(management.get("stage")).lower() in {"cierre", "cierre de ventas"}
+            and text(management.get("result"))), None)
+        closure_result = text((closure or {}).get("result")).lower()
+        order_handoff = result.get("orderHandoff") if isinstance(result.get("orderHandoff"), dict) else {}
+        if (
+            bool(result.get("archived"))
+            or result_status in {"perdida", "cancelada", "anulada"}
+            or closure_result in {"perdida", "perdido", "cancelada", "anulada"}
+            or text(order_handoff.get("status")).lower() == "converted"
+            or bool(order_handoff.get("orderId"))
+            or bool(result.get("recoveredFromConvertedQuotation"))
+        ):
+            raise ValueError("Solo se pueden registrar anticipos en oportunidades vigentes de Gerencia")
+    elif crm_opportunity:
+        opportunity_status = text(crm_opportunity.get("status"), "Vigente").strip().lower()
+        if (
+            bool(crm_opportunity.get("archived"))
+            or bool(crm_opportunity.get("migratedToResults"))
+            or opportunity_status in {"ganada", "perdida", "cancelada", "anulada", "migrada"}
+        ):
+            raise ValueError("Solo se pueden registrar anticipos en oportunidades vigentes de Vendedores")
+    else:
+        raise ValueError("La oportunidad seleccionada ya no existe en Vendedores ni en Gerencia")
     customer_id = text(payload.get("customerId")) or text((crm_opportunity or {}).get("customerId")) or text((result or {}).get("customerId"))
     customer = next((item for item in crm_data.get("customers", []) if customer_id and text(item.get("id")) == customer_id and item.get("active") is not False), None)
     if not customer:
         raise ValueError("La oportunidad debe estar vinculada con un cliente activo del panel Clientes")
     opportunity_id = text((result or {}).get("id")) or requested_id or crm_id
     company = text(customer.get("commercialName") or customer.get("legalName"))
-    owner_id = text(crm_opportunity.get("ownerId") or (crm_opportunity.get("owner") or {}).get("id"))
+    owner_id = text((crm_opportunity or {}).get("ownerId") or ((crm_opportunity or {}).get("owner") or {}).get("id"))
     owner = next((item for item in crm_data.get("users", []) if owner_id and text(item.get("id")) == owner_id), None)
-    seller = text(crm_opportunity.get("sellerName") or crm_opportunity.get("seller") or (crm_opportunity.get("owner") or {}).get("name") or (owner or {}).get("name"))
-    opportunity_amount = decimal_number(crm_opportunity.get("estimatedAmount"), crm_opportunity.get("amount", 0))
+    seller = text((result or {}).get("seller") or (crm_opportunity or {}).get("sellerName") or (crm_opportunity or {}).get("seller") or ((crm_opportunity or {}).get("owner") or {}).get("name") or (owner or {}).get("name"))
+    opportunity_amount = decimal_number((result or {}).get("amount"), (crm_opportunity or {}).get("estimatedAmount") or (crm_opportunity or {}).get("amount", 0))
     snapshot = {
         "customerId": customer_id,
         "clientNumber": text(customer.get("clientNumber") or customer.get("customerCode") or customer.get("code")),
@@ -2731,8 +2748,6 @@ def customer_advance_source(conn, payload):
                 ORDER BY datetime(created_at) DESC LIMIT 1""",
             tuple(identifiers),
         ).fetchone()
-    if linked_order:
-        raise ValueError("La oportunidad ya fue convertida a una orden de producción")
     return {
         "opportunityId": opportunity_id,
         "crmOpportunityId": crm_id,
