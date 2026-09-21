@@ -6003,18 +6003,73 @@ function renderCustomerAdvances() {
   </section>`;
 }
 
+function openCustomerAdvanceOpportunityPicker(onSelect, selectedId = "") {
+  const opportunities = customerAdvanceOpportunities();
+  if (!opportunities.length) return alert("No hay oportunidades disponibles para registrar anticipos.");
+  document.querySelector("#customerAdvanceOpportunityPicker")?.remove();
+  document.body.insertAdjacentHTML("beforeend", `
+    <dialog id="customerAdvanceOpportunityPicker" class="quotation-opportunity-picker customer-advance-opportunity-picker">
+      <section>
+        <header>
+          <div><span>Nuevo anticipo</span><h3>Seleccionar oportunidad</h3><p>Busca la oportunidad que dará origen al recibo de anticipo.</p></div>
+          <button type="button" data-advance-picker-close aria-label="Cerrar">×</button>
+        </header>
+        <label class="quotation-opportunity-picker__search"><span aria-hidden="true">⌕</span><input type="search" data-advance-picker-search placeholder="Buscar cliente, vendedor, etapa o monto..." autocomplete="off"></label>
+        <div class="quotation-opportunity-picker__summary"><strong data-advance-picker-count>${opportunities.length}</strong><span>oportunidades disponibles</span></div>
+        <div class="quotation-opportunity-picker__list" data-advance-picker-list></div>
+        <footer><button type="button" data-advance-picker-close>Cancelar</button></footer>
+      </section>
+    </dialog>`);
+  const dialog = document.querySelector("#customerAdvanceOpportunityPicker");
+  const search = dialog.querySelector("[data-advance-picker-search]");
+  const list = dialog.querySelector("[data-advance-picker-list]");
+  const count = dialog.querySelector("[data-advance-picker-count]");
+  const renderOptions = () => {
+    const tokens = normalizeKey(search.value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/).filter(Boolean);
+    const visible = opportunities.filter((item) => {
+      const index = normalizeKey(`${item.company || ""} ${item.seller || ""} ${item.stage || ""} ${item.segment || ""} ${item.amount || 0}`).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return tokens.every((token) => index.includes(token));
+    });
+    count.textContent = String(visible.length);
+    list.innerHTML = visible.length ? visible.map((item) => `
+      <button type="button" class="quotation-opportunity-option ${String(item.id) === String(selectedId) ? "selected" : ""}" data-advance-picker-select="${escapeHtml(item.id)}">
+        <span class="quotation-opportunity-option__main"><strong>${escapeHtml(item.company || "Oportunidad sin nombre")}</strong><small>${escapeHtml(item.segment || item.product || "Detalle pendiente")}</small><em class="quotation-opportunity-source" data-source="management"><i></i>Oportunidad comercial</em></span>
+        <span><small>Vendedor</small><strong>${escapeHtml(item.seller || "Sin vendedor")}</strong></span>
+        <span><small>Etapa</small><strong>${escapeHtml(item.stage || "Sin etapa")}</strong></span>
+        <span class="quotation-opportunity-option__amount"><small>Monto</small><strong>${formatMoney(item.amount || 0)}</strong></span>
+        <i aria-hidden="true">›</i>
+      </button>`).join("") : `<div class="quotation-opportunity-picker__empty"><strong>Sin coincidencias</strong><span>Prueba con otro cliente, vendedor, etapa o monto.</span></div>`;
+    list.querySelectorAll("[data-advance-picker-select]").forEach((button) => button.addEventListener("click", () => {
+      const opportunity = opportunities.find((item) => String(item.id) === String(button.dataset.advancePickerSelect));
+      if (!opportunity) return;
+      dialog.close();
+      onSelect(opportunity);
+    }));
+  };
+  dialog.querySelectorAll("[data-advance-picker-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  search.addEventListener("input", renderOptions);
+  renderOptions();
+  dialog.showModal();
+  search.focus();
+}
+
 function openCustomerAdvanceDialog(initialOpportunity = null) {
   const opportunities = customerAdvanceOpportunities();
   if (!opportunities.length) return alert("No hay oportunidades disponibles para registrar anticipos.");
+  if (!initialOpportunity) {
+    openCustomerAdvanceOpportunityPicker((opportunity) => openCustomerAdvanceDialog(opportunity));
+    return;
+  }
   document.querySelector("#customerAdvanceDialog")?.remove();
   const dialog = document.createElement("dialog");
   dialog.id = "customerAdvanceDialog";
   dialog.className = "customer-advance-dialog";
-  const initialId = initialOpportunity?.id || opportunities[0].id;
-  const optionMarkup = opportunities.map((item) => `<option value="${escapeHtml(item.id)}" ${item.id === initialId ? "selected" : ""}>${escapeHtml(item.company)} · ${escapeHtml(item.seller)} · ${formatMoney(item.amount)}</option>`).join("");
+  let selectedOpportunity = opportunities.find((item) => String(item.id) === String(initialOpportunity.id)) || initialOpportunity;
   dialog.innerHTML = `<form><header><div><span>Comercialización · Anticipos</span><h2>Recibo por anticipo de trabajo</h2><p>El cliente se heredará exclusivamente del maestro de Clientes.</p></div><button type="button" data-advance-close>×</button></header>
     <section class="customer-advance-form-grid">
-      <label class="wide"><span>Oportunidad</span><select name="opportunityId" required>${optionMarkup}</select></label>
+      <div class="wide customer-advance-opportunity-choice"><span>Oportunidad seleccionada</span><button type="button" data-advance-opportunity-change><span><strong data-advance-choice-company></strong><small data-advance-choice-detail></small></span><b>Cambiar / buscar</b></button></div>
       <div class="customer-advance-source wide" data-advance-source></div>
       <label><span>Fecha del recibo</span><input name="receiptDate" type="date" value="${todayISO()}" required></label>
       <label><span>Fecha de entrega</span><input name="deliveryDate" type="date"></label>
@@ -6022,23 +6077,26 @@ function openCustomerAdvanceDialog(initialOpportunity = null) {
       <label><span>Valor recibido</span><input name="amount" type="number" min="0.01" step="0.01" required></label>
       <label class="wide"><span>Detalle</span><textarea name="note" rows="3" placeholder="Concepto del trabajo o referencia del pago"></textarea></label>
     </section><footer><button type="button" data-advance-close>Cancelar</button><button type="submit">Guardar e imprimir</button></footer></form>`;
-  const select = dialog.querySelector("select[name=opportunityId]");
   const source = dialog.querySelector("[data-advance-source]");
   const amount = dialog.querySelector("input[name=amount]");
   const refreshSource = () => {
-    const item = opportunities.find((row) => row.id === select.value) || opportunities[0];
+    const item = selectedOpportunity;
     const paidCents = customerAdvancePaidForOpportunity(item);
     const baseCents = Math.round(Number(item.amount || 0) * 100);
+    dialog.querySelector("[data-advance-choice-company]").textContent = item.company || "Oportunidad sin nombre";
+    dialog.querySelector("[data-advance-choice-detail]").textContent = `${item.seller || "Sin vendedor"} · ${item.stage || "Sin etapa"} · ${formatMoney(item.amount || 0)}`;
     source.innerHTML = `<span><small>Cliente</small><strong>${escapeHtml(item.company || "Sin cliente")}</strong></span><span><small>Vendedor</small><strong>${escapeHtml(item.seller || "Sin vendedor")}</strong></span><span><small>Valor oportunidad</small><strong>${formatMoney(baseCents / 100)}</strong></span><span><small>Disponible</small><strong>${formatMoney(Math.max(0, baseCents - paidCents) / 100)}</strong></span>`;
     amount.max = Math.max(0, baseCents - paidCents) / 100 || "";
   };
   refreshSource();
-  select.addEventListener("change", refreshSource);
+  dialog.querySelector("[data-advance-opportunity-change]").addEventListener("click", () => {
+    openCustomerAdvanceOpportunityPicker((opportunity) => { selectedOpportunity = opportunity; refreshSource(); }, selectedOpportunity.id);
+  });
   dialog.querySelectorAll("[data-advance-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   dialog.querySelector("form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = event.submitter;
-    const item = opportunities.find((row) => row.id === select.value);
+    const item = selectedOpportunity;
     if (!item) return;
     button.disabled = true;
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
