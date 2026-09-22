@@ -10452,7 +10452,7 @@ function openCustomerRequestListDialog() {
       const isDraft = statusKey === "borrador";
       const isSigned = isCustomerRequestSigned(request);
       const date = request.updatedAt || request.requestedAt || request.createdAt || "";
-      return `<article class="customer-request-list-row">
+      return `<article class="customer-request-list-row${["borrador", "pendiente"].includes(statusKey) ? " customer-request-list-row--workflow" : ""}">
         <div><small>${escapeHtml(request.requestNumber || "BORRADOR")}</small><strong>${escapeHtml(request.commercialName || request.legalName || "Cliente sin nombre")}</strong><span>${escapeHtml(request.contactName || request.taxId || "Datos por completar")}</span></div>
         <div><small>Última actualización</small><strong>${date ? escapeHtml(formatDate(String(date).slice(0, 10))) : "—"}</strong></div>
         <div><small>Estado</small><span class="crm-request-status ${statusKey}">${escapeHtml(request.status || "Borrador")}</span>${request.assignedClientNumber ? `<em>ID ${escapeHtml(request.assignedClientNumber)}</em>` : ""}</div>

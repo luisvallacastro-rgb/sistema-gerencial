@@ -18494,6 +18494,8 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .customer-request-list-summary i.draft { background: #91a7c1; }
 .customer-request-list-rows { display: grid; align-content: start; gap: 9px; min-height: 0; padding: 0 28px 25px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #55d8bb #102a43; }
 .customer-request-list-row { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(125px, .55fr) minmax(130px, .6fr) minmax(375px, auto); align-items: center; gap: 16px; padding: 15px 17px; border: 1px solid rgba(123, 162, 201, .23); border-radius: 15px; background: rgba(20, 51, 82, .82); }
+.customer-request-list-row--workflow { grid-template-columns: minmax(0, 1fr) minmax(125px, .55fr) minmax(130px, .6fr); }
+.customer-request-list-row--workflow .customer-request-list-row__actions { grid-column: 1 / -1; flex-wrap: wrap; }
 .customer-request-list-row > div { display: grid; gap: 4px; min-width: 0; }
 .customer-request-list-row small { color: #91a5bd; font-size: .65rem; font-weight: 850; text-transform: uppercase; }
 .customer-request-list-row strong { overflow: hidden; color: #f6f9ff; text-overflow: ellipsis; white-space: nowrap; }
@@ -18528,7 +18530,8 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   .customer-request-list-toolbar { grid-template-columns: 1fr; padding: 14px 15px 8px; }
   .customer-request-list-summary { padding-inline: 17px; }
   .customer-request-list-rows { padding: 0 15px 18px; }
-  .customer-request-list-row { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .customer-request-list-row,
+  .customer-request-list-row--workflow { grid-template-columns: 1fr 1fr; gap: 12px; }
   .customer-request-list-row > div:first-child,
   .customer-request-list-row__actions { grid-column: 1 / -1; }
   .customer-request-list-row__actions { justify-content: stretch; }
