@@ -1426,6 +1426,25 @@ function todayISO() {
   return `${now.getFullYear()}-${padded(now.getMonth() + 1)}-${padded(now.getDate())}`;
 }
 
+function opportunityDatePlusDays(isoDate, days) {
+  const [year, month, day] = String(isoDate).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return `${date.getUTCFullYear()}-${padded(date.getUTCMonth() + 1)}-${padded(date.getUTCDate())}`;
+}
+
+function opportunityDueDateForSave(existingId, selectedDate) {
+  return !trainingMode && !existingId
+    ? opportunityDatePlusDays(todayISO(), 30)
+    : selectedDate;
+}
+
+function opportunityDateCell(date, isOpen = true) {
+  if (trainingMode) return `<span>${formatDate(date)}</span>`;
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date || "")) ? date : "";
+  const overdue = !trainingMode && isOpen && validDate && validDate < todayISO();
+  return `<span class="opportunity-date-cell"><time datetime="${escapeHtml(validDate)}">${escapeHtml(formatDate(validDate) || "Sin fecha")}</time>${overdue ? '<em class="opportunity-overdue-badge">Vencida</em>' : ""}</span>`;
+}
+
 function padded(value) {
   return String(value).padStart(2, "0");
 }
@@ -2433,7 +2452,8 @@ function resetOpportunityForm() {
   opportunityCrmSourceId.value = "";
   opportunityCustomerId.value = "";
   refreshOpportunityCustomerOptions();
-  opportunityDate.valueAsDate = new Date();
+  opportunityDate.value = opportunityDueDateForSave("", todayISO());
+  opportunityDate.readOnly = !trainingMode;
   opportunityAgendaDate.valueAsDate = new Date();
   opportunityNextAction.value = "Primer seguimiento";
   opportunityAgendaType.value = "Seguimiento";
@@ -8573,7 +8593,8 @@ function fillOpportunityForm(item, context = "results") {
   opportunityCrmSourceId.value = "";
   opportunityCustomerId.value = item?.customerId || "";
   refreshOpportunityCustomerOptions(item?.customerId || "", item?.company || "");
-  opportunityDate.value = item?.date || todayISO();
+  opportunityDate.value = item?.date || opportunityDueDateForSave("", todayISO());
+  opportunityDate.readOnly = !trainingMode;
   opportunityCompany.value = item?.company || "";
   if (context === "crm") {
     opportunitySeller.innerHTML = crmSortedSellers().map((seller) => (
@@ -8913,7 +8934,7 @@ function ensureCrmOpportunityDialog() {
         <label>Prioridad<select id="crmPriority"><option>Alta</option><option selected>Media</option><option>Baja</option></select></label>
         <label>Temperatura<select id="crmTemperature" disabled></select></label>
         <label>Monto estimado<input id="crmEstimatedAmount" type="number" min="0" step="1" placeholder="0"></label>
-        <label>Proxima fecha<input id="crmNextDate" type="date"></label>
+        <label>Proxima fecha<input id="crmNextDate" type="date"><small class="opportunity-close-policy">Fecha automática de cierre: 30 días desde la apertura.</small></label>
         <label>Proxima accion<input id="crmNextAction" maxlength="100" placeholder="Primer seguimiento"></label>
         <section class="crm-form-section span-2 initial-agenda-form">
           <span class="eyebrow">Agenda inicial opcional</span>
@@ -8933,6 +8954,7 @@ function ensureCrmOpportunityDialog() {
     </form>
   `;
   document.body.appendChild(dialog);
+  dialog.querySelector("#crmNextDate").readOnly = !trainingMode;
   dialog.querySelectorAll("[data-crm-close]").forEach((button) => {
     button.addEventListener("click", () => dialog.close());
   });
@@ -8971,8 +8993,8 @@ function saveCrmOpportunity() {
     temperature: temperatureRule.temperature,
     estimatedAmount: Number(dialog.querySelector("#crmEstimatedAmount").value || 0),
     closePercent: temperatureRule.percent,
-    nextDate: dialog.querySelector("#crmNextDate").value,
-    deadline: dialog.querySelector("#crmNextDate").value,
+    nextDate: opportunityDueDateForSave(id, dialog.querySelector("#crmNextDate").value),
+    deadline: opportunityDueDateForSave(id, dialog.querySelector("#crmNextDate").value),
     status: id ? (crmData().opportunities.find((item) => item.id === id)?.status || "Vigente") : "Vigente",
     nextAction: dialog.querySelector("#crmNextAction").value || "Seguimiento comercial",
     lastNote: dialog.querySelector("#crmLastNote").value,
@@ -9318,7 +9340,7 @@ function renderCrmDashboard() {
         const canManage = canManageCrmOpportunity(opportunity);
         return `
           <div class="opportunity-row">
-            <span>${formatDate(opportunity.nextDate || opportunity.deadline || opportunity.startDate)}</span>
+            ${opportunityDateCell(opportunity.nextDate || opportunity.deadline || opportunity.startDate)}
             <strong class="company-cell"><span class="company-name">${escapeHtml(opportunity.company || "Sin empresa")}</span>${hasQuotationOnly(opportunity) ? `<span class="closure-badge quotation-only">Cotización</span>` : ""}${hasOutstandingSamples(opportunity) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}</strong>
             <span>${escapeHtml(opportunity.owner?.name || crmOwnerName(opportunity.ownerId))}</span>
             <span>${escapeHtml(crmStageToOpportunityStage(opportunity))}</span>
@@ -12844,7 +12866,7 @@ function renderCommercialSubmenu(area) {
     <div class="opportunity-table-body">
       ${displayRows.length ? displayRows.map(({ item, result, isInherited, isHistory, isPendingOrder, isImportedHistory }) => `
         <div class="opportunity-row ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
-          <span>${formatDate(item.date)}</span>
+          ${opportunityDateCell(item.date, !result)}
           <strong class="company-cell">
             <span class="company-name">${item.company}</span>
             <span class="company-badges">
@@ -15744,6 +15766,7 @@ function openResultOpportunityEditor(item) {
   opportunityCustomerId.value = item.customerId || "";
   refreshOpportunityCustomerOptions(item.customerId || "", item.company || "");
   opportunityDate.value = item.date;
+  opportunityDate.readOnly = !trainingMode;
   opportunityCompany.value = item.company;
   ensureSelectOption(opportunitySeller, item.seller);
   opportunityContact.value = item.contact || "";
@@ -16214,8 +16237,8 @@ opportunityForm.addEventListener("submit", async (event) => {
       temperature,
       estimatedAmount: Number(opportunityAmount.value || 0),
       closePercent: temperatureRule.percent,
-      nextDate: opportunityDate.value,
-      deadline: opportunityDate.value,
+      nextDate: opportunityDueDateForSave(id, opportunityDate.value),
+      deadline: opportunityDueDateForSave(id, opportunityDate.value),
       status: id ? (crmData().opportunities.find((item) => item.id === id)?.status || "Vigente") : "Vigente",
       nextAction: opportunityNextAction.value.trim() || "Seguimiento comercial",
       lastNote: opportunityNote.value.trim(),
@@ -16268,10 +16291,11 @@ opportunityForm.addEventListener("submit", async (event) => {
       editedBy: state.currentUser?.name || roleDisplayName()
     });
   }
+  const dueDate = opportunityDueDateForSave(currentIndex >= 0 ? id : "", opportunityDate.value);
   const payload = {
     ...(previousOpportunity || {}),
     id,
-    date: opportunityDate.value,
+    date: dueDate,
     time: currentIndex >= 0 ? submenu.items[currentIndex].time || createdTime : createdTime,
     customerId: selectedCustomer?.id || "",
     company: typedCustomerName,
@@ -16296,7 +16320,7 @@ opportunityForm.addEventListener("submit", async (event) => {
     sampleCustodies: currentIndex >= 0 ? sampleCustodies(submenu.items[currentIndex]) : [],
     managements: currentIndex >= 0 ? managements : [{
       id: `${id}-mgmt-001`,
-      date: opportunityDate.value,
+      date: todayISO(),
       time: createdTime,
       stage: "Prospeccion",
       comment: opportunityNote.value.trim() || "Ingreso inicial de la oportunidad."

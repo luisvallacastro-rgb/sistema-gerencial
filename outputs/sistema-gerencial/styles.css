@@ -4058,6 +4058,32 @@ html:not(.training-mode) .initial-agenda-form {
   display: none !important;
 }
 
+html:not(.training-mode) .app-shell .opportunity-row > .opportunity-date-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  white-space: normal !important;
+  overflow: visible !important;
+}
+
+html:not(.training-mode) .opportunity-overdue-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 121, 137, .65);
+  border-radius: 999px;
+  background: rgba(157, 39, 58, .23);
+  color: #ff9ba7;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+html.training-mode .opportunity-close-policy {
+  display: none !important;
+}
+
 .crm-opportunity-form label,
 .opportunity-form label {
   display: grid;
