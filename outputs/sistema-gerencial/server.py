@@ -1425,6 +1425,7 @@ def comparable_crm_identifier(value):
 def matching_crm_customer(data, payload, current_id=""):
     candidate = normalize_crm_customer(payload)
     candidate_tax_id = comparable_crm_identifier(payload.get("taxId"))
+    candidate_commercial_name = crm_identity_key(candidate.get("commercialName"))
     candidate_code = comparable_crm_identifier(payload.get("customerCode"))
     candidate_names = {
         crm_identity_key(candidate.get("commercialName")),
@@ -1433,7 +1434,11 @@ def matching_crm_customer(data, payload, current_id=""):
     for customer in data.get("customers", []):
         if text(customer.get("id")) == current_id:
             continue
-        if candidate_tax_id and comparable_crm_identifier(customer.get("taxId")) == candidate_tax_id:
+        # Varias unidades comerciales pueden facturar bajo el mismo NIT.
+        # Solo la misma unidad (NIT + nombre comercial) es un duplicado.
+        if (candidate_tax_id and candidate_commercial_name
+                and comparable_crm_identifier(customer.get("taxId")) == candidate_tax_id
+                and crm_identity_key(customer.get("commercialName")) == candidate_commercial_name):
             return customer, "taxId"
         if candidate_code and comparable_crm_identifier(customer.get("customerCode")) == candidate_code:
             return customer, "customerCode"
@@ -1511,7 +1516,7 @@ def repair_customer_request_id_collisions(data):
 
 
 def repair_duplicate_customers_by_tax_id(conn, data):
-    """Merge customers duplicated only because their NIT used different punctuation."""
+    """Merge equivalent customers, never distinct commercial units with one NIT."""
     version = "merge-duplicate-customers-by-tax-20260902-v1"
     if text(data.get("customerTaxDuplicateMergeVersion")) == version:
         return False
@@ -1520,8 +1525,9 @@ def repair_duplicate_customers_by_tax_id(conn, data):
     groups = {}
     for customer in customers:
         tax_key = comparable_crm_identifier(customer.get("taxId"))
-        if tax_key:
-            groups.setdefault(tax_key, []).append(customer)
+        commercial_key = crm_identity_key(customer.get("commercialName"))
+        if tax_key and commercial_key:
+            groups.setdefault((tax_key, commercial_key), []).append(customer)
 
     duplicate_to_canonical = {}
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())

@@ -10128,22 +10128,11 @@ function isDirectMasterCustomerSigned(customer = {}) {
 }
 
 function customerRequestWithCurrentCustomerData(request = {}) {
+  // El NIT puede ser compartido por más de un nombre comercial. Una solicitud
+  // conserva sus propios datos hasta que quede vinculada explícitamente a un cliente.
+  if (!request.approvedCustomerId) return request;
   const customers = Array.isArray(state.crmData?.customers) ? state.crmData.customers : [];
-  let customer = request.approvedCustomerId
-    ? customers.find((item) => String(item.id || "") === String(request.approvedCustomerId))
-    : null;
-  if (!customer && request.taxId) {
-    const matches = customers.filter((item) => normalizeKey(item.taxId || "") === normalizeKey(request.taxId || ""));
-    if (matches.length === 1) customer = matches[0];
-  }
-  if (!customer && (request.commercialName || request.legalName)) {
-    const requestName = normalizeKey(request.commercialName || request.legalName || "");
-    const matches = customers.filter((item) => (
-      normalizeKey(item.commercialName || "") === requestName
-      || normalizeKey(item.legalName || "") === requestName
-    ));
-    if (matches.length === 1) customer = matches[0];
-  }
+  const customer = customers.find((item) => String(item.id || "") === String(request.approvedCustomerId));
   if (!customer) return request;
   const currentFields = Object.fromEntries(customerRequestFields.map(([, key]) => [key, customer[key] ?? ""]));
   currentFields.sellerName = customer.sellerName || crmOwnerName(customer.sellerId || "");
