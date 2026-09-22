@@ -143,7 +143,7 @@ def is_odaliz_valencia_user(user):
 def commercial_agenda_actor_seller_name(conn, user):
     """Resolve the CRM seller alias linked to a system account."""
     linked = linked_crm_seller(read_crm_data(conn), user or {})
-    return text(linked.get("name") if linked else "", (user or {}).get("name"))
+    return text(linked.get("name") if linked else "")
 
 
 def apply_commercial_agenda_validation(items, event_id, validation):
@@ -7268,7 +7268,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 items = json.loads(row["value"] or "[]") if row else []
             except (TypeError, json.JSONDecodeError):
                 items = []
-            if actor and not is_odaliz_valencia_user(actor):
+            if actor and actor_seller_name and not is_odaliz_valencia_user(actor):
                 seller_key = crm_identity_key(actor_seller_name)
                 items = [item for item in items if isinstance(item, dict) and crm_identity_key(item.get("seller")) == seller_key]
             self.send_json(items if isinstance(items, list) else [])
@@ -8278,6 +8278,9 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             manages_all_sellers = is_odaliz_valencia_user(actor)
             actor_seller_key = crm_identity_key(actor_seller_name)
+            if not manages_all_sellers and not actor_seller_key:
+                self.send_json({"error": "El acceso asignado permite consultar la agenda completa, pero solo los vendedores vinculados y Odaliz pueden modificarla"}, status=403)
+                return
             if not manages_all_sellers and any(
                 not isinstance(item, dict) or crm_identity_key(item.get("seller")) != actor_seller_key
                 for item in items
