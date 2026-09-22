@@ -62,7 +62,9 @@ function readPrintOrder() {
 function renderProforma(order) {
   const data = order.proformaData || {};
   const directCustomerSignature = data.directSignature || {};
-  const hasDirectCustomerSignature = data.workflowSource === "direct-customer" && directCustomerSignature.signed === true;
+  // El origen del cliente no convierte por sí solo una OP normal en flujo directo.
+  const hasDirectCustomerSignature = data.workflow === "direct-final-only"
+    && data.workflowSource === "direct-customer" && directCustomerSignature.signed === true;
   const details = Array.isArray(order.details) ? order.details : [];
   const subtotalCents = Number(order.subtotalCents || 0);
   const perceptionCents = Number(order.perceptionCents || 0);

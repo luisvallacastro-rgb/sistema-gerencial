@@ -3628,6 +3628,14 @@ def save_control_sales_order(conn, data, existing_row=None):
             ) VALUES (?, 'manual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (order_id, financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, commercial_status, commercial_approved_by, commercial_approved_at, commercial_approval_note, actor, actor, now, now))
         action = "creacion"
+        # The financial record is saved before the definitive OP correlative is
+        # allocated. Keep both references atomic when an archived OP consumed
+        # the number displayed in the draft form.
+        if financial_order_id:
+            conn.execute("""
+                UPDATE financial_orders SET order_number = ?, updated_by = ?, updated_at = ?
+                WHERE id = ? AND deleted = 0
+            """, (item["number"], actor, now, financial_order_id))
     for detail in item["details"]:
         conn.execute("""
             INSERT INTO control_sales_details (
@@ -6073,6 +6081,49 @@ def revert_fiaes_quotation_q0033_from_op_2026090028_once(conn):
     return True
 
 
+def correct_fiaes_op_2026090029_financial_reference_once(conn):
+    """Fix the stale financial reference without renumbering or reviving any OP."""
+    if os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    marker = "maintenance.fiaes-op2026090029-financial-reference.2026-09-22.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker,)).fetchone():
+        return False
+    order_id = "cv-5d69bc90-f9bd-4ee1-a8c2-610e1efc7b41"
+    financial_id = "9c858a21-7df9-4c1f-a2bf-02f29f69c1d0"
+    order = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone()
+    financial = conn.execute("SELECT * FROM financial_orders WHERE id = ?", (financial_id,)).fetchone()
+    old_order = conn.execute("SELECT * FROM control_sales_orders WHERE order_number = '2026090028'").fetchone()
+    if not (order and financial and old_order):
+        print("Corrección de referencia FIAES omitida: falta un documento")
+        return False
+    if not (
+        order["order_number"] == "2026090029"
+        and order["client"] == "FIAES"
+        and order["archived"] == 0
+        and order["financial_order_id"] == financial_id
+        and financial["client"] == "FIAES"
+        and financial["order_number"] == "2026090027"
+        and financial["deleted"] == 0
+        and old_order["client"] == "FIAES"
+        and old_order["archived"] == 1
+    ):
+        print("Corrección de referencia FIAES omitida: cambió el estado esperado")
+        return False
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    actor = "Corrección de referencia FIAES"
+    conn.execute("""UPDATE financial_orders
+        SET order_number = ?, updated_by = ?, updated_at = ? WHERE id = ? AND deleted = 0""",
+        (order["order_number"], actor, now, financial_id))
+    conn.execute("INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
+                 (order_id, "correccion_referencia_financiera", actor, now,
+                  "Registro financiero #336: referencia 2026090027 corregida a 2026090029; OP #2026090028 permanece archivada"))
+    conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                 (marker, json.dumps({"orderId": order_id, "financialOrderId": financial_id,
+                                      "previousReference": "2026090027", "newReference": "2026090029", "appliedAt": now})))
+    print("Referencia financiera de FIAES corregida a OP #2026090029; OP #2026090028 permanece archivada")
+    return True
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -6625,6 +6676,7 @@ def init_db():
         restore_asa_order_0296_once(conn)
         restore_asa_quotation_0296_once(conn)
         revert_fiaes_quotation_q0033_from_op_2026090028_once(conn)
+        correct_fiaes_op_2026090029_financial_reference_once(conn)
         removed_duplicate_quotations = deduplicate_identical_quotations(conn)
         if removed_duplicate_quotations:
             print(f"Cotizaciones duplicadas eliminadas: {len(removed_duplicate_quotations)}")
