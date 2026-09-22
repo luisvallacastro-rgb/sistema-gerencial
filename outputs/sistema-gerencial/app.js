@@ -10639,6 +10639,7 @@ function masterCustomerQuotationData(customer, quotation = {}) {
     clientType: customer.clientType || "",
     department: customer.department || "",
     municipality: customer.municipality || "",
+    deliveryDate: quotation.deliveryTerms || quotation.customerData?.deliveryDate || customer.deliveryDate || "",
     paymentTerms: customer.paymentTerms || quotation.paymentTerms || "",
     documentType: ["CF","CCF","CE"].includes(customer.documentType) ? customer.documentType : "CF"
   };
@@ -10693,6 +10694,11 @@ function ensureOrderCustomerDialog() {
   dialog.innerHTML = `<section class="direct-order-customer-card">
     <header><div><span>REQUISITO PARA ORDEN DE PEDIDO</span><h3>Validar cliente registrado</h3><p>Revisa el catálogo y selecciona personalmente el cliente real que heredará la orden de pedido.</p></div><button type="button" data-order-customer-close aria-label="Cerrar">×</button></header>
     <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-order-customer-search placeholder="Buscar nombre, razón social, NIT o contacto..."><button type="button" data-order-customer-toggle aria-label="Mostrar clientes">⌄</button></label></div>
+    <section class="order-conversion-delivery">
+      <label for="orderConversionDelivery"><span>Fecha o condición de entrega</span><input id="orderConversionDelivery" data-order-conversion-delivery type="text" maxlength="180" required autocomplete="off" placeholder="Ej. 30 días hábiles después de la orden de compra"></label>
+      <small>Confirma o modifica este dato antes de seleccionar el cliente. Quedará guardado y se imprimirá en la orden de pedido.</small>
+      <p data-order-conversion-delivery-error hidden>Debes indicar la fecha o condición de entrega antes de convertir la cotización.</p>
+    </section>
     <div class="direct-order-customer-list" data-order-customer-list></div>
   </section>`;
   document.body.appendChild(dialog);
@@ -10700,20 +10706,37 @@ function ensureOrderCustomerDialog() {
   dialog.querySelector("[data-order-customer-close]").addEventListener("click", close);
   dialog.querySelector("[data-order-customer-search]").addEventListener("input", (event) => renderOrderRequirementCustomers(event.target.value));
   dialog.querySelector("[data-order-customer-toggle]").addEventListener("click", () => renderOrderRequirementCustomers(dialog.querySelector("[data-order-customer-search]").value));
+  dialog.querySelector("[data-order-conversion-delivery]").addEventListener("input", (event) => {
+    if (String(event.target.value || "").trim()) dialog.querySelector("[data-order-conversion-delivery-error]").hidden = true;
+  });
   dialog.querySelector("[data-order-customer-list]").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-order-required-customer]");
     if (!button || !dialog.pendingConversion) return;
     const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.orderRequiredCustomer));
     if (!customer) return;
     if (!customerHasAssignedId(customer)) return alert("Este prospecto todavía no tiene ID de cliente asignado y no puede convertirse en OP.");
+    const deliveryInput = dialog.querySelector("[data-order-conversion-delivery]");
+    const deliveryError = dialog.querySelector("[data-order-conversion-delivery-error]");
+    const deliveryDate = String(deliveryInput?.value || "").trim();
+    if (!deliveryDate) {
+      if (deliveryError) deliveryError.hidden = false;
+      deliveryInput?.focus();
+      return;
+    }
+    if (deliveryError) deliveryError.hidden = true;
     button.disabled = true;
     button.querySelector("b").textContent = "Vinculando…";
     try {
       const pending = dialog.pendingConversion;
       const synced = await bindMasterCustomerForOrder(pending.opportunity, pending.quotation, customer);
+      const quotationWithDelivery = {
+        ...synced.quotation,
+        deliveryTerms: deliveryDate,
+        customerData: { ...(synced.quotation.customerData || {}), deliveryDate }
+      };
       dialog.pendingConversion = null;
       dialog.close();
-      pending.onReady(synced.opportunity, synced.quotation, customer);
+      pending.onReady(synced.opportunity, quotationWithDelivery, customer);
     } catch (error) {
       button.disabled = false;
       button.querySelector("b").textContent = "Seleccionar →";
@@ -10736,10 +10759,17 @@ async function prepareQuotationOrderConversion(opportunity, quotation, onReady) 
   const dialog = ensureOrderCustomerDialog();
   dialog.pendingConversion = { opportunity, quotation, onReady };
   const search = dialog.querySelector("[data-order-customer-search]");
+  const deliveryInput = dialog.querySelector("[data-order-conversion-delivery]");
+  const deliveryError = dialog.querySelector("[data-order-conversion-delivery-error]");
   search.value = "";
+  deliveryInput.value = String(quotation?.deliveryTerms || quotation?.customerData?.deliveryDate || "30 días hábiles posterior a la orden de compra").trim();
+  if (deliveryError) deliveryError.hidden = true;
   renderOrderRequirementCustomers("");
   dialog.showModal();
-  requestAnimationFrame(() => search.focus());
+  requestAnimationFrame(() => {
+    deliveryInput.focus();
+    deliveryInput.select();
+  });
 }
 
 function renderCrmCustomerViewTabs(active = "master") {

@@ -7134,6 +7134,32 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   scrollbar-color: #5bdcbb rgba(13,35,55,.65);
 }
 .direct-order-customer-list[hidden] { display: none !important; }
+.order-conversion-delivery {
+  display: grid;
+  gap: 7px;
+  margin: 0 30px 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(103, 229, 203, .35);
+  border-radius: 16px;
+  background: rgba(20, 151, 113, .12);
+}
+#orderCustomerRequirementDialog .direct-order-customer-card { grid-template-rows: auto auto auto minmax(0,1fr); }
+.order-conversion-delivery label { display: grid; gap: 8px; }
+.order-conversion-delivery label > span { color: #7af0d3; font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.order-conversion-delivery input {
+  width: 100%;
+  border: 1px solid rgba(142, 191, 220, .38);
+  border-radius: 12px;
+  outline: 0;
+  padding: 13px 14px;
+  color: #f5fbff;
+  background: rgba(117, 146, 187, .18);
+  font: inherit;
+  font-weight: 750;
+}
+.order-conversion-delivery input:focus { border-color: #62e2c9; box-shadow: 0 0 0 3px rgba(98, 226, 201, .18); }
+.order-conversion-delivery small { color: rgba(220,235,246,.68); line-height: 1.4; }
+.order-conversion-delivery p { margin: 0; color: #ff9da8; font-size: 12px; font-weight: 800; }
 .direct-order-customer-more,
 .crm-customer-combobox-more { display: block; padding: 9px 12px; color: rgba(215,231,242,.58); text-align: center; font-weight: 700; }
 .direct-order-customer-option {
@@ -7229,6 +7255,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .direct-order-customer-toolbar { grid-template-columns: 1fr; padding: 16px 20px; }
   .direct-order-customer-toolbar > button { min-height: 48px; }
   .direct-order-customer-list { padding: 2px 20px 24px; }
+  .order-conversion-delivery { margin: 0 20px 16px; }
   .direct-order-customer-option { grid-template-columns: 36px minmax(0,1fr) auto; gap: 7px 10px; }
   .direct-order-customer-index { grid-row: 1 / span 2; width: 32px; height: 32px; }
   .direct-order-customer-option em { grid-column: 2; }
