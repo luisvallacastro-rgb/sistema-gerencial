@@ -6002,6 +6002,77 @@ def release_mira_provisions(conn):
     print("Se liberaron tres provisiones de Mira S,A de C.V; los movimientos bancarios permanecen intactos.")
 
 
+def revert_fiaes_quotation_q0033_from_op_2026090028_once(conn):
+    """Return one accidentally converted quotation to its editable state, preserving the OP history."""
+    if os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    marker = "maintenance.revert-fiaes-q0033-op2026090028.2026-09-22.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker,)).fetchone():
+        return False
+    quote_id = "quote-714018ec-1aef-4203-94cc-570e3ba488c1"
+    order_id = "cv-4584b2a6-b717-46b3-8558-05ebee2a2f45"
+    financial_id = "69094e66-2f9c-4693-a9d0-6e8588b41f85"
+    quote = conn.execute("SELECT * FROM quotations WHERE id = ?", (quote_id,)).fetchone()
+    order = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone()
+    financial = conn.execute("SELECT * FROM financial_orders WHERE id = ?", (financial_id,)).fetchone()
+    if not (quote and order and financial):
+        print("Reversión FIAES omitida: faltan documentos vinculados")
+        return False
+    expected = (
+        quote["quotation_number"] == "Q-0033"
+        and quote["client"] == "FIAES"
+        and quote["status"] == "Convertida"
+        and quote["converted_order_id"] == order_id
+        and order["order_number"] == "2026090028"
+        and order["client"] == "FIAES"
+        and order["source_quotation_id"] == quote_id
+        and order["financial_order_id"] == financial_id
+        and order["archived"] == 0
+        and order["commercial_approval_status"] == "Pendiente"
+        and order["finance_approval_status"] == "Pendiente"
+        and financial["order_number"] == "2026090028"
+        and financial["deleted"] == 0
+        and not text(financial["invoice"])
+    )
+    if not expected:
+        print("Reversión FIAES omitida: cambió el estado de Q-0033 u OP #2026090028")
+        return False
+    if (conn.execute("SELECT 1 FROM customer_advances WHERE control_sales_order_id = ? OR order_number = ? OR opportunity_id = ? LIMIT 1", (order_id, order["order_number"], order["source_opportunity_id"])).fetchone()
+            or conn.execute("SELECT 1 FROM production_schedule WHERE items LIKE ? OR items LIKE ? LIMIT 1", (f"%{order_id}%", f"%{order['order_number']}%")).fetchone()
+            or conn.execute("SELECT 1 FROM accounts_receivable WHERE reference_number LIKE ? OR description LIKE ? LIMIT 1", (f"%{order['order_number']}%", f"%{order['order_number']}%")).fetchone()
+            or conn.execute("SELECT 1 FROM purchase_orders WHERE order_number LIKE ? LIMIT 1", (f"%{order['order_number']}%",)).fetchone()):
+        print("Reversión FIAES omitida: la OP tiene movimientos posteriores")
+        return False
+    results = read_result_opportunities(conn)
+    linked = [item for item in results if text(item.get("quotationId")) == quote_id]
+    if len(linked) != 1:
+        print("Reversión FIAES omitida: resultado comercial ambiguo")
+        return False
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    actor = "Reversión controlada Q-0033"
+    conn.execute("""UPDATE control_sales_orders
+        SET archived = 1, status = 'Archivada', source_quotation_id = '', source_opportunity_id = '',
+            updated_by = ?, updated_at = ? WHERE id = ?""", (actor, now, order_id))
+    conn.execute("UPDATE financial_orders SET deleted = 1, updated_by = ?, updated_at = ? WHERE id = ?", (actor, now, financial_id))
+    conn.execute("""UPDATE quotations
+        SET status = 'Aprobada', converted_order_id = '', converted_at = '',
+            updated_by = ?, updated_at = ? WHERE id = ?""", (actor, now, quote_id))
+    result = linked[0]
+    result["quotationStatus"] = "Aprobada"
+    previous_handoff = result.get("orderHandoff")
+    result.pop("orderHandoff", None)
+    if isinstance(result.get("quotationData"), dict):
+        result["quotationData"].update({"status": "Aprobada", "convertedOrderId": "", "convertedAt": ""})
+    write_result_opportunities(conn, results)
+    conn.execute("INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
+                 (order_id, "reversion_cotizacion", actor, now, "Q-0033 vuelve a Aprobada; OP #2026090028 archivada y desvinculada"))
+    conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                 (marker, json.dumps({"quotationId": quote_id, "orderId": order_id, "financialOrderId": financial_id,
+                                      "previousOrderHandoff": previous_handoff, "appliedAt": now})))
+    print("Q-0033 de FIAES regresó a Aprobada; OP #2026090028 archivada")
+    return True
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -6553,6 +6624,7 @@ def init_db():
         purge_orphaned_test_orders_0293_0294_once(conn)
         restore_asa_order_0296_once(conn)
         restore_asa_quotation_0296_once(conn)
+        revert_fiaes_quotation_q0033_from_op_2026090028_once(conn)
         removed_duplicate_quotations = deduplicate_identical_quotations(conn)
         if removed_duplicate_quotations:
             print(f"Cotizaciones duplicadas eliminadas: {len(removed_duplicate_quotations)}")
