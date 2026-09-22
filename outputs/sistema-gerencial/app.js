@@ -11886,9 +11886,17 @@ function normalizeCommercialAgendaTime(value) {
 function canViewCommercialAgendaManagement() { return isAdminUser() || state.role === "gerencias" || isCommercialManagementUser(); }
 function commercialAgendaMinutes(value) { const [hours = 0, minutes = 0] = String(value || "00:00").split(":").map(Number); return hours * 60 + minutes; }
 function commercialAgendaVisibleSeller(seller) { return normalizeKey(seller) !== "amadeo alfaro"; }
-function renderCommercialAgendaManagement({ includeAllSellers = false, selectedDate = state.commercialAgendaDate || todayISO(), sellerFilter = "all" } = {}) {
-  const rows = state.commercialAgenda.filter((item) => commercialAgendaVisibleSeller(item.seller)).flatMap((item) => commercialAgendaItemEvents(item).filter((event) => event.date === selectedDate && (sellerFilter === "all" || item.seller === sellerFilter)).map((event) => ({ item, event })));
-  const sellerNames = (sellerFilter === "all" ? (includeAllSellers ? commercialSellerNames() : []) : [sellerFilter]).filter(commercialAgendaVisibleSeller);
+function commercialAgendaOwnSellerName() {
+  const linkedSellerId = crmLinkedSellerId(state.crmData, state.currentUser);
+  const linkedSeller = crmMasterSalesUsers({ includeInactive: true }).find((seller) => String(seller.id) === String(linkedSellerId));
+  return linkedSeller?.name || state.currentUser?.name || "";
+}
+function renderCommercialAgendaManagement({ includeAllSellers = false, selectedDate = state.commercialAgendaDate || todayISO(), sellerFilter = "all", interactive = true } = {}) {
+  const managesAllSellers = isOdalizValenciaUser();
+  const effectiveSellerFilter = managesAllSellers ? sellerFilter : commercialAgendaOwnSellerName();
+  const allowSlotAssignment = interactive && managesAllSellers;
+  const rows = state.commercialAgenda.filter((item) => commercialAgendaVisibleSeller(item.seller) && (managesAllSellers || normalizeKey(item.seller) === normalizeKey(effectiveSellerFilter))).flatMap((item) => commercialAgendaItemEvents(item).filter((event) => event.date === selectedDate && (effectiveSellerFilter === "all" || normalizeKey(item.seller) === normalizeKey(effectiveSellerFilter))).map((event) => ({ item, event })));
+  const sellerNames = (effectiveSellerFilter === "all" ? (includeAllSellers && managesAllSellers ? commercialSellerNames() : []) : [effectiveSellerFilter]).filter(commercialAgendaVisibleSeller);
   const grouped = new Map(sellerNames.map((seller) => [seller, []]));
   rows.forEach((row) => {
     const seller = row.item.seller || "Sin vendedor";
@@ -11912,12 +11920,12 @@ function renderCommercialAgendaManagement({ includeAllSellers = false, selectedD
         return `<td>${active.map(({ item, event }) => {
           const continuing = commercialAgendaMinutes(event.startTime) < slotStart;
           return `<button type="button" class="commercial-agenda-matrix-event${continuing ? " is-continuing" : ""}" data-commercial-agenda-edit="${escapeHtml(item.id)}" title="${escapeHtml(`${commercialAgendaTimeLabel(event.startTime)}–${commercialAgendaTimeLabel(event.endTime)} · ${event.prospect || item.prospect || "Sin cliente"} · ${event.activity || "Actividad"}`)}"><time>${continuing ? "En curso · " : ""}${escapeHtml(commercialAgendaTimeLabel(event.startTime))}–${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</time><strong>${escapeHtml(event.prospect || item.prospect || "Sin cliente")}</strong><span>${escapeHtml(event.activity || "Actividad")}</span></button>`;
-        }).join("") || `<span class="commercial-agenda-matrix-free">—</span>`}</td>`;
+        }).join("") || (allowSlotAssignment ? `<button type="button" class="commercial-agenda-matrix-slot" data-agenda-slot data-agenda-slot-seller="${escapeHtml(seller)}" data-agenda-slot-date="${escapeHtml(selectedDate)}" data-agenda-slot-start="${String(index + 6).padStart(2, "0")}:00" data-agenda-slot-end="${String(index + 7).padStart(2, "0")}:00" aria-pressed="false" title="Seleccionar ${escapeHtml(label)} para ${escapeHtml(seller)}"><span aria-hidden="true">＋</span><small>Seleccionar</small></button>` : `<span class="commercial-agenda-matrix-free">—</span>`)}</td>`;
       }).join("");
       return `<tr><th scope="row">${label}</th>${cells}</tr>`;
     }).join("");
     const outside = rows.filter(({ event }) => commercialAgendaMinutes(event.endTime) <= firstMinute || commercialAgendaMinutes(event.startTime) >= 18 * 60);
-    return `<section class="commercial-agenda-management"><header><div><span>${includeAllSellers ? "Agenda diaria de vendedores" : "Vista gerencial diaria"}</span><strong>${escapeHtml(formatDate(selectedDate))}</strong></div><nav><button type="button" data-agenda-date-step="-1" aria-label="Día anterior" title="Día anterior">‹</button><input type="date" data-agenda-management-date value="${escapeHtml(selectedDate)}" aria-label="Fecha de la agenda"><button type="button" data-agenda-date-step="1" aria-label="Día siguiente" title="Día siguiente">›</button></nav></header><div class="commercial-agenda-matrix"><table><thead><tr><th scope="col">Hora</th>${sellers.map(([seller, sellerRows]) => `<th scope="col"><strong>${escapeHtml(seller)}</strong><small>${sellerRows.length} ${sellerRows.length === 1 ? "actividad" : "actividades"}</small></th>`).join("")}</tr></thead><tbody>${matrixRows}</tbody></table></div>${outside.length ? `<p class="commercial-agenda-matrix-outside">${outside.length} ${outside.length === 1 ? "actividad queda" : "actividades quedan"} fuera del horario visible (6 a. m.–6 p. m.). Consulta el detalle de actividades.</p>` : ""}</section>`;
+    return `<section class="commercial-agenda-management"><header><div><span>${managesAllSellers && includeAllSellers ? "Agenda diaria de vendedores" : "Mi agenda diaria"}</span><strong>${escapeHtml(formatDate(selectedDate))}</strong></div><nav><button type="button" data-agenda-date-step="-1" aria-label="Día anterior" title="Día anterior">‹</button><input type="date" data-agenda-management-date value="${escapeHtml(selectedDate)}" aria-label="Fecha de la agenda"><button type="button" data-agenda-date-step="1" aria-label="Día siguiente" title="Día siguiente">›</button></nav></header>${allowSlotAssignment ? `<div class="commercial-agenda-selection" data-agenda-selection><span data-agenda-selection-status>Haz clic en una casilla disponible. Puedes desplazarte y marcar varios períodos del mismo vendedor.</span><div><button type="button" class="secondary" data-agenda-selection-clear hidden>Limpiar</button><button type="button" data-agenda-selection-open disabled>Agendar selección <kbd>Enter</kbd></button></div></div>` : ""}<div class="commercial-agenda-matrix"><table><thead><tr><th scope="col">Hora</th>${sellers.map(([seller, sellerRows]) => `<th scope="col"><strong>${escapeHtml(seller)}</strong><small>${sellerRows.length} ${sellerRows.length === 1 ? "actividad" : "actividades"}</small></th>`).join("")}</tr></thead><tbody>${matrixRows}</tbody></table></div>${outside.length ? `<p class="commercial-agenda-matrix-outside">${outside.length} ${outside.length === 1 ? "actividad queda" : "actividades quedan"} fuera del horario visible (6 a. m.–6 p. m.). Consulta el detalle de actividades.</p>` : ""}</section>`;
   }
   return `<section class="commercial-agenda-management"><header><div><span>${includeAllSellers ? "Agenda diaria de vendedores" : "Vista gerencial diaria"}</span><strong>${escapeHtml(formatDate(selectedDate))}</strong></div><nav><button type="button" data-agenda-date-step="-1" aria-label="Día anterior" title="Día anterior">‹</button><input type="date" data-agenda-management-date value="${escapeHtml(selectedDate)}" aria-label="Fecha de la agenda"><button type="button" data-agenda-date-step="1" aria-label="Día siguiente" title="Día siguiente">›</button></nav></header><div class="commercial-agenda-gantt"><div class="commercial-agenda-gantt-head"><strong>Vendedor</strong><div>${hours.map((hour) => `<span>${hour}</span>`).join("")}</div></div>${sellers.map(([seller, sellerRows]) => {
     const sorted = sellerRows.sort((a, b) => String(a.event.startTime).localeCompare(String(b.event.startTime)));
@@ -11934,6 +11942,7 @@ function renderCommercialAgendaManagement({ includeAllSellers = false, selectedD
   }).join("") || `<div class="commercial-agenda-gantt-empty">No hay vendedores registrados.</div>`}</div></section>`;
 }
 function commercialAgendaReportSellerOptions() {
+  if (!isOdalizValenciaUser()) return [commercialAgendaOwnSellerName()].filter(Boolean);
   const names = new Set(commercialSellerNames().filter(commercialAgendaVisibleSeller));
   state.commercialAgenda.forEach((item) => { if (item.seller && commercialAgendaVisibleSeller(item.seller)) names.add(item.seller); });
   return [...names].sort((a, b) => a.localeCompare(b, "es"));
@@ -11962,7 +11971,7 @@ function commercialAgendaReportHtml(start, end, sellerFilter = "all") {
   const days = dates.map((date) => {
     const dayEvents = events.filter(({ event }) => event.date === date);
     const detailRows = dayEvents.map(({ item, event }) => `<tr><td>${escapeHtml(item.seller || "—")}</td><td>${escapeHtml(commercialAgendaTimeLabel(event.startTime))}–${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</td><td>${escapeHtml(event.prospect || item.prospect || "—")}</td><td>${escapeHtml(event.activity || "—")}</td><td>${escapeHtml(event.comment || event.result || item.comment || item.result || "—")}</td></tr>`).join("");
-    return `<section class="report-day"><header class="report-day-title"><strong>${escapeHtml(formatDate(date))}</strong><span>${dayEvents.length} ${dayEvents.length === 1 ? "actividad" : "actividades"}</span></header>${renderCommercialAgendaManagement({ includeAllSellers: true, selectedDate: date, sellerFilter })}<div class="report-detail"><h2>Detalle de actividades</h2><table><thead><tr><th>Vendedor</th><th>Horario</th><th>Cliente / prospecto</th><th>Actividad</th><th>Comentario</th></tr></thead><tbody>${detailRows || `<tr><td colspan="5">No se registraron actividades para esta fecha.</td></tr>`}</tbody></table></div></section>`;
+    return `<section class="report-day"><header class="report-day-title"><strong>${escapeHtml(formatDate(date))}</strong><span>${dayEvents.length} ${dayEvents.length === 1 ? "actividad" : "actividades"}</span></header>${renderCommercialAgendaManagement({ includeAllSellers: true, selectedDate: date, sellerFilter, interactive: false })}<div class="report-detail"><h2>Detalle de actividades</h2><table><thead><tr><th>Vendedor</th><th>Horario</th><th>Cliente / prospecto</th><th>Actividad</th><th>Comentario</th></tr></thead><tbody>${detailRows || `<tr><td colspan="5">No se registraron actividades para esta fecha.</td></tr>`}</tbody></table></div></section>`;
   }).join("");
   const matrixReportCss = trainingMode ? "" : `.commercial-agenda-matrix{overflow-x:auto;border:1px solid #b7c9d5}.commercial-agenda-matrix table{width:100%;border-collapse:collapse;table-layout:fixed}.commercial-agenda-matrix th,.commercial-agenda-matrix td{padding:5px;border:1px solid #c7d4df;vertical-align:top;text-align:left;overflow-wrap:anywhere}.commercial-agenda-matrix th:first-child{width:62px;white-space:nowrap}.commercial-agenda-matrix thead th{background:#173b5a;color:#fff;font-size:9px}.commercial-agenda-matrix thead small{display:block;color:#c1d9e2;font-size:7px}.commercial-agenda-matrix tbody th{background:#e6f1ef;color:#176e60;font-size:9px}.commercial-agenda-matrix tbody tr{break-inside:avoid}.commercial-agenda-matrix-event{display:grid;gap:2px;width:100%;margin:0 0 3px;padding:4px;border:1px solid #81b8ab;border-radius:4px;background:#d7f0e8;color:#124d42;text-align:left}.commercial-agenda-matrix-event.is-continuing{background:#e9f0f5;border-color:#b6c8d4}.commercial-agenda-matrix-event time,.commercial-agenda-matrix-event strong,.commercial-agenda-matrix-event span{font-size:7px}.commercial-agenda-matrix-free{color:#a0acb5}.commercial-agenda-matrix-outside{font-size:9px;color:#a36825}`;
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte de agenda · ${escapeHtml(formatDate(start))} al ${escapeHtml(formatDate(end))}</title><style>${matrixReportCss}
@@ -12047,7 +12056,9 @@ function printCommercialAgendaValidationReport() {
 function renderCommercialAgenda() {
   const query = normalizeKey(state.commercialAgendaQuery || "");
   const terms = query.split(/\s+/).filter(Boolean);
-  const rows = state.commercialAgenda.filter((item) => commercialAgendaVisibleSeller(item.seller)).flatMap((item) => commercialAgendaItemEvents(item).map((event) => ({ item, event }))).filter(({ item, event }) => {
+  const managesAllSellers = isOdalizValenciaUser();
+  const ownSellerName = commercialAgendaOwnSellerName();
+  const rows = state.commercialAgenda.filter((item) => commercialAgendaVisibleSeller(item.seller) && (managesAllSellers || normalizeKey(item.seller) === normalizeKey(ownSellerName))).flatMap((item) => commercialAgendaItemEvents(item).map((event) => ({ item, event }))).filter(({ item, event }) => {
     if (!terms.length) return true;
     const relativeDate = event.date === todayISO() ? "hoy" : "";
     const haystack = normalizeKey([event.date, formatDate(event.date), relativeDate, event.startTime, event.endTime, commercialAgendaTimeLabel(event.startTime), commercialAgendaTimeLabel(event.endTime), item.seller, event.prospect, event.activity, item.description || item.objective, event.comment || event.result || item.comment || item.result || "sin comentario"].join(" "));
@@ -12058,7 +12069,7 @@ function renderCommercialAgenda() {
   const listView = `<div class="commercial-agenda-table commercial-agenda-flat-table"><table><thead><tr><th>Fecha</th><th>Horario</th><th>Vendedor</th><th>Cliente / prospecto</th><th>Actividad</th><th>Descripción</th><th>Comentario</th><th>Acciones</th></tr></thead><tbody>${rows.map(({item,event}) => `<tr><td><strong>${escapeHtml(formatDate(event.date))}</strong></td><td><strong>${escapeHtml(commercialAgendaTimeLabel(event.startTime))}</strong><small>${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</small></td><td>${escapeHtml(item.seller || "—")}</td><td><strong>${escapeHtml(event.prospect || item.prospect || "—")}</strong></td><td>${escapeHtml(event.activity)}</td><td>${escapeHtml(item.description || item.objective || "—")}</td><td>${escapeHtml(event.comment || event.result || item.comment || item.result || "Sin comentario")}</td><td><button type="button" data-commercial-agenda-edit="${escapeHtml(item.id)}" title="Editar agenda" aria-label="Editar agenda">✎</button><button class="danger" type="button" data-commercial-agenda-delete="${escapeHtml(item.id)}" title="Eliminar agenda completa" aria-label="Eliminar agenda completa">⌫</button></td></tr>`).join("") || `<tr><td colspan="8" class="empty-state">${terms.length ? "No hay coincidencias para esta búsqueda." : "No hay actividades registradas."}</td></tr>`}</tbody></table></div><small class="commercial-agenda-result-count">${rows.length} ${rows.length === 1 ? "evento encontrado" : "eventos encontrados"}</small>`;
   const reportSellers = commercialAgendaReportSellerOptions();
   const reportControls = `<section class="commercial-agenda-report-controls"><strong>Reporte de agenda</strong><label><span>Vendedor</span><select data-agenda-report-seller><option value="all">Todos</option>${reportSellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.commercialAgendaReportSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label><label><span>Desde</span><input type="date" data-agenda-report-start value="${escapeHtml(state.commercialAgendaReportStart || state.commercialAgendaDate || todayISO())}"></label><label><span>Hasta</span><input type="date" data-agenda-report-end value="${escapeHtml(state.commercialAgendaReportEnd || state.commercialAgendaDate || todayISO())}"></label><button type="button" data-agenda-report-generate>Generar reporte</button></section>`;
-  const agendaView = `${reportControls}${renderCommercialAgendaManagement({ includeAllSellers: true })}<details class="commercial-agenda-details" ${state.commercialAgendaDetailsOpen ? "open" : ""}><summary>Detalle de actividades</summary><label class="commercial-agenda-search"><span aria-hidden="true">⌕</span><input type="search" data-agenda-search value="${escapeHtml(state.commercialAgendaQuery)}" placeholder="Buscar fecha, vendedor, cliente, actividad, descripción o comentario..." autocomplete="off"></label>${listView}</details>`;
+  const agendaView = `${reportControls}${renderCommercialAgendaManagement({ includeAllSellers: managesAllSellers, sellerFilter: managesAllSellers ? "all" : ownSellerName, interactive: managesAllSellers })}<details class="commercial-agenda-details" ${state.commercialAgendaDetailsOpen ? "open" : ""}><summary>Detalle de actividades</summary><label class="commercial-agenda-search"><span aria-hidden="true">⌕</span><input type="search" data-agenda-search value="${escapeHtml(state.commercialAgendaQuery)}" placeholder="Buscar fecha, vendedor, cliente, actividad, descripción o comentario..." autocomplete="off"></label>${listView}</details>`;
   const dailyControls = `<section class="commercial-agenda-daily-controls"><strong>Reporte del vendedor seleccionado</strong><nav class="commercial-agenda-daily-date" aria-label="Desplazar fecha"><button type="button" data-agenda-date-step="-1" aria-label="Día anterior" title="Día anterior">‹</button><input type="date" data-agenda-management-date value="${escapeHtml(state.commercialAgendaDate || todayISO())}" aria-label="Fecha del diario y del reporte"><button type="button" data-agenda-date-step="1" aria-label="Día siguiente" title="Día siguiente">›</button></nav><button type="button" data-agenda-daily-report-generate>Generar reporte</button></section>`;
   const dailyView = `${dailyControls}${renderCommercialAgendaDaily()}`;
   const activeView=state.commercialAgendaView==="management"&&managementAccess?dailyView:agendaView;
@@ -12066,7 +12077,8 @@ function renderCommercialAgenda() {
 }
 function openCommercialAgendaEditor(item = {}) {
   const dialog = document.createElement("dialog"); dialog.className="commercial-agenda-dialog";
-  const sellers = commercialSellerNames();
+  const managesAllSellers = isOdalizValenciaUser();
+  const sellers = managesAllSellers ? commercialSellerNames() : [commercialAgendaOwnSellerName()].filter(Boolean);
   if (item.seller && !sellers.includes(item.seller)) sellers.unshift(item.seller);
   const preferredSeller = item.seller || state.currentUser?.name || "";
   const selectedSeller = sellers.includes(preferredSeller) ? preferredSeller : sellers[0] || "";
@@ -12080,6 +12092,32 @@ function openCommercialAgendaEditor(item = {}) {
   dialog.querySelector('[name="startDate"]').addEventListener("change", synchronizeEventDates); dialog.querySelector('[name="endDate"]').addEventListener("change", synchronizeEventDates); synchronizeEventDates();
   dialog.querySelector("form").addEventListener("submit", async (event)=>{ event.preventDefault(); const values=Object.fromEntries(new FormData(event.currentTarget)); if(values.endDate < values.startDate) return alert("La fecha final no puede ser anterior a la fecha inicial."); const agendaEvents=[...eventsContainer.querySelectorAll("[data-agenda-event]")].map((row,index)=>({id:row.querySelector("[data-event-date]").dataset.eventId||crypto.randomUUID(),date:row.querySelector("[data-event-date]").value,prospect:row.querySelector("[data-event-prospect]").value.trim(),activity:row.querySelector("[data-event-activity]").value,startTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-start]").value),endTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-end]").value),comment:row.querySelector("[data-event-comment]").value.trim(),position:index+1})); const invalidDate=agendaEvents.find((agendaEvent)=>agendaEvent.date<values.startDate||agendaEvent.date>values.endDate); if(invalidDate)return alert(`La fecha ${formatDate(invalidDate.date)} debe estar entre ${formatDate(values.startDate)} y ${formatDate(values.endDate)}.`); const invalidTime=agendaEvents.find((agendaEvent)=>!agendaEvent.startTime||!agendaEvent.endTime); if(invalidTime)return alert(`Escribe una hora válida en el evento ${invalidTime.position}. Ejemplos: 1030, 1200 o 245.`); const invalidChronology=agendaEvents.find((agendaEvent)=>agendaEvent.startTime>=agendaEvent.endTime); if(invalidChronology)return alert(`La hora final del evento ${invalidChronology.position} debe ser posterior a la hora inicial.`); agendaEvents.forEach((agendaEvent)=>delete agendaEvent.position); const record={id:item.id||crypto.randomUUID(),...values,events:agendaEvents}; const nextAgenda=[...state.commercialAgenda]; const index=nextAgenda.findIndex((row)=>row.id===record.id); if(index>=0) nextAgenda[index]=record; else nextAgenda.unshift(record); const submit=event.currentTarget.querySelector('[type="submit"]'); submit.disabled=true; try { const response=await apiJson("/api/commercial-agenda",{method:"PUT",body:JSON.stringify({items:nextAgenda})}); state.commercialAgenda=response.items||[]; dialog.close(); renderCommercialSubmenu(areas.comercializacion); } catch(error) { alert(error.message||"No se pudo guardar la agenda."); submit.disabled=false; } }); dialog.showModal();
 }
+function commercialAgendaSelectionDraft(slotButtons) {
+  const slots = slotButtons.map((button) => ({
+    seller: button.dataset.agendaSlotSeller,
+    date: button.dataset.agendaSlotDate,
+    startTime: button.dataset.agendaSlotStart,
+    endTime: button.dataset.agendaSlotEnd
+  })).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  if (!slots.length) return null;
+  const blocks = [];
+  slots.forEach((slot) => {
+    const previous = blocks.at(-1);
+    if (previous && previous.endTime === slot.startTime) previous.endTime = slot.endTime;
+    else blocks.push({ ...slot });
+  });
+  return {
+    seller: slots[0].seller,
+    startDate: slots[0].date,
+    endDate: slots[0].date,
+    description: "Actividad programada desde la agenda diaria",
+    events: blocks.map((block) => ({
+      id: crypto.randomUUID(), date: block.date, prospect: "",
+      activity: commercialAgendaActivities[0], startTime: block.startTime,
+      endTime: block.endTime, comment: ""
+    }))
+  };
+}
 function wireCommercialAgenda(){
   opportunityTable.querySelector("[data-commercial-agenda-new]")?.addEventListener("click",()=>openCommercialAgendaEditor());
   opportunityTable.querySelector(".commercial-agenda-details")?.addEventListener("toggle",(event)=>{state.commercialAgendaDetailsOpen=event.currentTarget.open;});
@@ -12092,6 +12130,43 @@ function wireCommercialAgenda(){
   opportunityTable.querySelectorAll("[data-agenda-view]").forEach((button)=>button.addEventListener("click",()=>{state.commercialAgendaView=button.dataset.agendaView;renderCommercialSubmenu(areas.comercializacion);}));
   opportunityTable.querySelector("[data-agenda-management-date]")?.addEventListener("change",(event)=>{state.commercialAgendaDate=event.target.value||todayISO();renderCommercialSubmenu(areas.comercializacion);});
   opportunityTable.querySelectorAll("[data-agenda-date-step]").forEach((button)=>button.addEventListener("click",()=>{const date=new Date(`${state.commercialAgendaDate || todayISO()}T12:00:00Z`);date.setUTCDate(date.getUTCDate()+Number(button.dataset.agendaDateStep));state.commercialAgendaDate=date.toISOString().slice(0,10);renderCommercialSubmenu(areas.comercializacion);}));
+  const agendaSlots = [...opportunityTable.querySelectorAll("[data-agenda-slot]")];
+  const selectionStatus = opportunityTable.querySelector("[data-agenda-selection-status]");
+  const selectionOpen = opportunityTable.querySelector("[data-agenda-selection-open]");
+  const selectionClear = opportunityTable.querySelector("[data-agenda-selection-clear]");
+  const selectedAgendaSlots = () => agendaSlots.filter((slot) => slot.getAttribute("aria-pressed") === "true");
+  const refreshAgendaSelection = (notice = "") => {
+    const selected = selectedAgendaSlots();
+    agendaSlots.forEach((slot) => slot.classList.toggle("is-selected", selected.includes(slot)));
+    if (selectionOpen) selectionOpen.disabled = !selected.length;
+    if (selectionClear) selectionClear.hidden = !selected.length;
+    if (!selectionStatus) return;
+    if (!selected.length) selectionStatus.textContent = notice || "Haz clic en una casilla disponible. Puedes desplazarte y marcar varios períodos del mismo vendedor.";
+    else selectionStatus.textContent = notice || `${selected.length} ${selected.length === 1 ? "período seleccionado" : "períodos seleccionados"} para ${selected[0].dataset.agendaSlotSeller}. Presiona Enter para continuar.`;
+  };
+  const openAgendaSelection = () => {
+    const draft = commercialAgendaSelectionDraft(selectedAgendaSlots());
+    if (draft) openCommercialAgendaEditor(draft);
+  };
+  agendaSlots.forEach((slot) => slot.addEventListener("click", () => {
+    const selected = selectedAgendaSlots();
+    const otherSeller = selected.find((item) => item.dataset.agendaSlotSeller !== slot.dataset.agendaSlotSeller);
+    if (otherSeller && slot.getAttribute("aria-pressed") !== "true") {
+      selected.forEach((item) => item.setAttribute("aria-pressed", "false"));
+      slot.setAttribute("aria-pressed", "true");
+      refreshAgendaSelection(`La selección cambió a ${slot.dataset.agendaSlotSeller}; solo se agrupan períodos del mismo vendedor.`);
+      return;
+    }
+    slot.setAttribute("aria-pressed", slot.getAttribute("aria-pressed") === "true" ? "false" : "true");
+    refreshAgendaSelection();
+  }));
+  selectionClear?.addEventListener("click", () => { agendaSlots.forEach((slot) => slot.setAttribute("aria-pressed", "false")); refreshAgendaSelection(); });
+  selectionOpen?.addEventListener("click", openAgendaSelection);
+  opportunityTable.querySelector(".commercial-agenda-matrix")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || !selectedAgendaSlots().length) return;
+    event.preventDefault();
+    openAgendaSelection();
+  });
   const search=opportunityTable.querySelector("[data-agenda-search]"); search?.addEventListener("input",(event)=>{state.commercialAgendaQuery=event.target.value;renderCommercialSubmenu(areas.comercializacion);const next=opportunityTable.querySelector("[data-agenda-search]");next?.focus();next?.setSelectionRange(next.value.length,next.value.length);});
   opportunityTable.querySelectorAll("[data-commercial-agenda-edit]").forEach(button=>button.addEventListener("click",()=>openCommercialAgendaEditor(state.commercialAgenda.find(item=>item.id===button.dataset.commercialAgendaEdit))));
   opportunityTable.querySelectorAll("[data-commercial-agenda-delete]").forEach(button=>button.addEventListener("click",async()=>{const item=state.commercialAgenda.find(row=>row.id===button.dataset.commercialAgendaDelete);if(!item||!confirm("¿Eliminar esta agenda y todos sus eventos?"))return;state.commercialAgenda=state.commercialAgenda.filter(row=>row.id!==item.id);await saveCommercialAgenda();renderCommercialSubmenu(areas.comercializacion);}));
