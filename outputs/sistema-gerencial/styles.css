@@ -21309,3 +21309,22 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .commercial-agenda-commandbar-daily .commercial-agenda-daily-controls .commercial-agenda-daily-date input{width:135px;height:32px;font-size:11px}
 @media(max-width:1100px){.commercial-agenda-commandbar{grid-template-columns:auto minmax(150px,1fr) 120px 120px auto auto;overflow-x:auto}.commercial-agenda-commandbar>*{min-width:0}.commercial-agenda-commandbar-daily{grid-template-columns:auto minmax(500px,1fr) auto}.commercial-agenda-management{grid-template-columns:280px minmax(520px,1fr);overflow-x:auto}.commercial-agenda-management>.commercial-agenda-matrix,.commercial-agenda-management>.commercial-agenda-gantt,.commercial-agenda-management>.commercial-agenda-matrix-outside{min-width:807px}.commercial-agenda-matrix{height:calc(100dvh - 225px)}}
 @media(max-width:700px){.app-shell .commercial-panel.commercial-agenda-mode{height:calc(100dvh - 72px);min-height:460px}.commercial-agenda-commandbar{min-width:820px}.commercial-agenda-management{display:grid;grid-template-columns:260px 530px;min-width:797px}.commercial-agenda-management>header{align-items:center;flex-direction:row}.commercial-agenda-selection{align-items:center;flex-direction:row}.commercial-agenda-matrix{height:calc(100dvh - 200px);min-height:300px}}
+
+/* Diario inmersivo: encabezado en dos franjas, sin áreas verticales vacías. */
+.commercial-agenda-flat{align-content:start;grid-auto-rows:max-content}
+.commercial-agenda-commandbar{align-self:start;min-height:0}
+.commercial-agenda-daily{display:grid;grid-template-rows:auto minmax(0,1fr) auto;align-content:start;gap:7px;height:calc(100dvh - 143px);min-height:0}
+.commercial-agenda-daily>header{display:grid;grid-template-columns:185px minmax(0,1fr);align-items:center;gap:8px;min-height:46px;padding:5px 8px;border-radius:10px}
+.commercial-agenda-daily>header .commercial-agenda-daily-heading{display:grid;grid-template-columns:auto auto;align-items:center;justify-content:start;gap:1px 7px}
+.commercial-agenda-daily>header .commercial-agenda-daily-heading span{font-size:8px;white-space:nowrap}
+.commercial-agenda-daily>header .commercial-agenda-daily-heading strong{font-size:13px;white-space:nowrap}
+.commercial-agenda-daily>header .commercial-agenda-daily-heading small{grid-column:1/-1;font-size:8px;white-space:nowrap}
+.commercial-agenda-daily>header .commercial-agenda-daily-index{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;padding:2px 1px;scrollbar-width:thin}
+.commercial-agenda-daily>header .commercial-agenda-daily-index button{height:30px;min-height:30px;padding:0 9px;border-radius:8px;font-size:9px}
+.commercial-agenda-daily>header .commercial-agenda-daily-index button::before{display:none}
+.commercial-agenda-daily-table{height:100%;max-height:none;min-height:0;border-radius:11px;box-shadow:0 14px 34px rgba(3,15,30,.2)}
+.commercial-agenda-daily-table thead th{padding:9px 12px;font-size:9px}
+.commercial-agenda-daily-table tbody th,.commercial-agenda-daily-table tbody td{padding:8px 12px}
+.commercial-agenda-daily-table thead th:first-child,.commercial-agenda-daily-table tbody th{width:115px}
+.commercial-agenda-daily .daily-activity button{margin-top:5px;padding:4px 9px}
+@media(max-width:900px){.commercial-agenda-daily{min-width:760px}.commercial-agenda-daily>header{grid-template-columns:180px minmax(560px,1fr)}}
