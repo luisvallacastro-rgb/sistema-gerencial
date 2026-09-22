@@ -4053,6 +4053,11 @@ td.empty-state {
   background: rgba(13, 25, 46, .28);
 }
 
+/* Capacitación conserva este formulario hasta que se replique el cambio. */
+html:not(.training-mode) .initial-agenda-form {
+  display: none !important;
+}
+
 .crm-opportunity-form label,
 .opportunity-form label {
   display: grid;
@@ -21174,3 +21179,5 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .customer-advance-opportunity-picker .quotation-opportunity-option.is-unavailable{opacity:.72;border-color:rgba(232,179,84,.38);background:linear-gradient(100deg,rgba(57,69,91,.82),rgba(34,45,60,.88));cursor:not-allowed}.customer-advance-opportunity-picker .quotation-opportunity-option.is-unavailable:hover{transform:none;border-color:rgba(232,179,84,.38);background:linear-gradient(100deg,rgba(57,69,91,.82),rgba(34,45,60,.88))}.customer-advance-opportunity-picker .quotation-opportunity-source.is-pending{border-color:rgba(241,184,78,.5);background:rgba(151,99,17,.2);color:#ffd88d}.customer-advance-opportunity-picker .quotation-opportunity-source.is-pending>i{background:#f0b64e;box-shadow:0 0 0 3px rgba(240,182,78,.14)}
 @media(max-width:900px){.customer-advances-summary{grid-template-columns:1fr 1fr}.customer-advances-toolbar{grid-template-columns:1fr 1fr}.customer-advance-source{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.customer-advances-summary,.customer-advances-toolbar,.customer-advance-form-grid,.customer-advance-source{grid-template-columns:1fr}.customer-advance-form-grid .wide{grid-column:auto}}
+
+html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";position:fixed;right:16px;bottom:16px;z-index:100000;padding:10px 14px;border:2px solid #ffd36e;border-radius:12px;background:#7b4d0b;color:#fff6d6;box-shadow:0 8px 28px #0008;font:900 13px/1.2 system-ui,sans-serif;letter-spacing:.05em;pointer-events:none}

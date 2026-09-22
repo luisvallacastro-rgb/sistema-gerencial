@@ -826,6 +826,17 @@ let internalChatPeer = null;
 let internalChatUnreadCounts = {};
 let internalChatUnreadSenders = {};
 const apiEnabled = window.location.protocol !== "file:";
+let trainingMode = false;
+if (apiEnabled) {
+  fetch("/api/health", { cache: "no-store" })
+    .then((response) => response.ok ? response.json() : null)
+    .then((health) => {
+      trainingMode = health?.training === true;
+      document.documentElement.classList.toggle("training-mode", trainingMode);
+      if (state.currentUser) renderDashboard();
+    })
+    .catch(() => {});
+}
 
 async function apiJson(path, options = {}) {
   const { headers: optionHeaders = {}, ...requestOptions } = options;
@@ -1235,11 +1246,16 @@ function canViewAdminMinuteHistory(user = state.currentUser) {
 
 function userPermissions(user = state.currentUser) {
   if (!user) return new Set();
-  if (isAdminUser(user)) return new Set(allPermissionKeys());
-  return new Set(normalizePermissionList(user.permissions, user.role));
+  const permissions = isAdminUser(user)
+    ? allPermissionKeys()
+    : normalizePermissionList(user.permissions, user.role);
+  return new Set(trainingMode
+    ? permissions.filter((permission) => !permission.startsWith("financiera:"))
+    : permissions);
 }
 
 function visibleSubmenus(areaKey, user = state.currentUser) {
+  if (trainingMode && areaKey === "financiera") return [];
   const area = areas[areaKey];
   if (!Array.isArray(area?.submenus)) return [];
   if (areaKey === adminAreaKey) {
@@ -8899,7 +8915,7 @@ function ensureCrmOpportunityDialog() {
         <label>Monto estimado<input id="crmEstimatedAmount" type="number" min="0" step="1" placeholder="0"></label>
         <label>Proxima fecha<input id="crmNextDate" type="date"></label>
         <label>Proxima accion<input id="crmNextAction" maxlength="100" placeholder="Primer seguimiento"></label>
-        <section class="crm-form-section span-2">
+        <section class="crm-form-section span-2 initial-agenda-form">
           <span class="eyebrow">Agenda inicial opcional</span>
           <div class="crm-form-grid compact">
             <label>Fecha<input id="crmAgendaDate" type="date"></label>
@@ -8961,10 +8977,12 @@ function saveCrmOpportunity() {
     nextAction: dialog.querySelector("#crmNextAction").value || "Seguimiento comercial",
     lastNote: dialog.querySelector("#crmLastNote").value,
     comment: dialog.querySelector("#crmLastNote").value,
-    agendaDate: dialog.querySelector("#crmAgendaDate").value,
-    agendaTime: dialog.querySelector("#crmAgendaTime").value,
-    agendaType: dialog.querySelector("#crmAgendaType").value,
-    agendaPlace: dialog.querySelector("#crmAgendaPlace").value
+    ...(trainingMode ? {
+      agendaDate: dialog.querySelector("#crmAgendaDate").value,
+      agendaTime: dialog.querySelector("#crmAgendaTime").value,
+      agendaType: dialog.querySelector("#crmAgendaType").value,
+      agendaPlace: dialog.querySelector("#crmAgendaPlace").value
+    } : {})
   };
   const method = id ? "PATCH" : "POST";
   const path = id ? `/opportunities/${id}` : "/opportunities";
@@ -16202,10 +16220,12 @@ opportunityForm.addEventListener("submit", async (event) => {
       nextAction: opportunityNextAction.value.trim() || "Seguimiento comercial",
       lastNote: opportunityNote.value.trim(),
       comment: opportunityNote.value.trim(),
-      agendaDate: opportunityAgendaDate.value,
-      agendaTime: opportunityAgendaTime.value,
-      agendaType: opportunityAgendaType.value.trim(),
-      agendaPlace: opportunityAgendaPlace.value.trim()
+      ...(trainingMode ? {
+        agendaDate: opportunityAgendaDate.value,
+        agendaTime: opportunityAgendaTime.value,
+        agendaType: opportunityAgendaType.value.trim(),
+        agendaPlace: opportunityAgendaPlace.value.trim()
+      } : {})
     };
     const method = id ? "PATCH" : "POST";
     const path = id ? `/opportunities/${id}` : "/opportunities";
@@ -16265,10 +16285,12 @@ opportunityForm.addEventListener("submit", async (event) => {
     probability: temperatureRule.key,
     amount: Number(opportunityAmount.value),
     nextAction: opportunityNextAction.value.trim(),
-    agendaDate: opportunityAgendaDate.value,
-    agendaTime: opportunityAgendaTime.value,
-    agendaType: opportunityAgendaType.value.trim(),
-    agendaPlace: opportunityAgendaPlace.value.trim(),
+    ...(trainingMode ? {
+      agendaDate: opportunityAgendaDate.value,
+      agendaTime: opportunityAgendaTime.value,
+      agendaType: opportunityAgendaType.value.trim(),
+      agendaPlace: opportunityAgendaPlace.value.trim()
+    } : {}),
     note: opportunityNote.value.trim(),
     crmOpportunityId: opportunityCrmSourceId.value,
     sampleCustodies: currentIndex >= 0 ? sampleCustodies(submenu.items[currentIndex]) : [],
