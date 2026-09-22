@@ -146,6 +146,22 @@ def commercial_agenda_actor_seller_name(conn, user):
     return text(linked.get("name") if linked else "")
 
 
+def can_manage_all_commercial_agendas(user):
+    """Allow only Odaliz, Luis and Amadeo to assign any seller's agenda."""
+    if is_odaliz_valencia_user(user):
+        return True
+    if not user:
+        return False
+    identity = crm_identity_key(" ".join(text(user.get(field)) for field in ("id", "name", "username", "email")))
+    is_luis = "luisvallacastro" in identity or all(token in identity for token in ("luis", "valladares"))
+    is_amadeo = (
+        all(token in identity for token in ("amadeo", "alfaro"))
+        or "alfaro jan gmail com" in identity
+        or text(user.get("id")) == "u-system-amadeo-alfaro"
+    )
+    return is_luis or is_amadeo
+
+
 def apply_commercial_agenda_validation(items, event_id, validation):
     """Apply validation and upgrade one legacy flat agenda event when necessary."""
     for item in items:
@@ -7257,20 +7273,10 @@ class AppHandler(BaseHTTPRequestHandler):
                 return
             with connect() as conn:
                 row = conn.execute("SELECT value FROM app_state WHERE key = 'commercial_agenda'").fetchone()
-                actor_id = text(self.headers.get("X-System-User-Id"))
-                actor_row = conn.execute(
-                    "SELECT id, name, username, email, role, password, permissions, permissions_customized, admin FROM users WHERE id = ? LIMIT 1",
-                    (actor_id,),
-                ).fetchone() if actor_id else None
-                actor = user_payload(actor_row) if actor_row else None
-                actor_seller_name = commercial_agenda_actor_seller_name(conn, actor) if actor else ""
             try:
                 items = json.loads(row["value"] or "[]") if row else []
             except (TypeError, json.JSONDecodeError):
                 items = []
-            if actor and actor_seller_name and not is_odaliz_valencia_user(actor):
-                seller_key = crm_identity_key(actor_seller_name)
-                items = [item for item in items if isinstance(item, dict) and crm_identity_key(item.get("seller")) == seller_key]
             self.send_json(items if isinstance(items, list) else [])
             return
 
@@ -8276,34 +8282,35 @@ class AppHandler(BaseHTTPRequestHandler):
             if not actor:
                 self.send_json({"error": "Debes iniciar sesión para guardar la agenda"}, status=401)
                 return
-            manages_all_sellers = is_odaliz_valencia_user(actor)
+            manages_all_sellers = can_manage_all_commercial_agendas(actor)
             actor_seller_key = crm_identity_key(actor_seller_name)
             if not manages_all_sellers and not actor_seller_key:
-                self.send_json({"error": "El acceso asignado permite consultar la agenda completa, pero solo los vendedores vinculados y Odaliz pueden modificarla"}, status=403)
-                return
-            if not manages_all_sellers and any(
-                not isinstance(item, dict) or crm_identity_key(item.get("seller")) != actor_seller_key
-                for item in items
-            ):
-                self.send_json({"error": "Cada vendedor solo puede modificar su propia agenda"}, status=403)
+                self.send_json({"error": "El acceso asignado permite consultar la agenda completa, pero solo los vendedores vinculados, Odaliz, Luis y Amadeo pueden modificarla"}, status=403)
                 return
             try:
                 stored_items = json.loads(stored_row["value"] or "[]") if stored_row else []
             except (TypeError, json.JSONDecodeError):
                 stored_items = []
             if not manages_all_sellers:
-                stored_item_owners = {
-                    text(stored_item.get("id")): crm_identity_key(stored_item.get("seller"))
+                stored_items_by_id = {
+                    text(stored_item.get("id")): stored_item
                     for stored_item in stored_items if isinstance(stored_item, dict) and text(stored_item.get("id"))
                 }
-                foreign_item = any(
-                    text(item.get("id")) in stored_item_owners
-                    and stored_item_owners[text(item.get("id"))] != actor_seller_key
-                    for item in items if isinstance(item, dict)
+                foreign_changes = any(
+                    not isinstance(item, dict)
+                    or (
+                        crm_identity_key(item.get("seller")) != actor_seller_key
+                        and stored_items_by_id.get(text(item.get("id"))) != item
+                    )
+                    for item in items
                 )
-                if foreign_item:
+                if foreign_changes:
                     self.send_json({"error": "No puedes modificar actividades asignadas a otro vendedor"}, status=403)
                     return
+                items = [
+                    item for item in items
+                    if isinstance(item, dict) and crm_identity_key(item.get("seller")) == actor_seller_key
+                ]
             stored_validations = {
                 text(event.get("id")): event.get("validation")
                 for stored_item in stored_items if isinstance(stored_item, dict)
