@@ -109,17 +109,10 @@ const areas = {
         status: "Operacion comercial",
         items: []
       },
-      { key: "agenda-comercial", label: "Agenda", status: "Planificación y resultados comerciales", items: [] },
       {
-        key: "crm-seguimiento",
-        label: "Seguimiento",
-        status: "Pipeline por etapa",
-        items: []
-      },
-      {
-        key: "anticipos",
-        label: "Anticipos",
-        status: "Recibos vinculados a oportunidades",
+        key: "cotizaciones",
+        label: "Cotizaciones / OP",
+        status: "Cotizaciones y órdenes de pedido vinculadas",
         items: []
       },
       {
@@ -129,24 +122,31 @@ const areas = {
         items: []
       },
       {
-        key: "resultados-oportunidades",
-        label: "Oportunidades / Gerencia",
-        status: "Pipeline activo",
-        items: []
-      },
-      {
         key: "autorizacion-pedidos",
         label: "Autorización de pedidos",
         status: "Primer visto bueno",
         items: []
       },
+      { key: "resultados-pedidos", label: "Pedidos", status: "Registro comercial de pedidos", items: [] },
       {
-        key: "cotizaciones",
-        label: "Cotizaciones / OP",
-        status: "Cotizaciones y órdenes de pedido vinculadas",
+        key: "crm-seguimiento",
+        label: "Seguimiento",
+        status: "Pipeline por etapa",
         items: []
       },
-      { key: "resultados-pedidos", label: "Pedidos", status: "Registro comercial de pedidos", items: [] },
+      { key: "agenda-comercial", label: "Agenda", status: "Planificación y resultados comerciales", items: [] },
+      {
+        key: "anticipos",
+        label: "Anticipos",
+        status: "Recibos vinculados a oportunidades",
+        items: []
+      },
+      {
+        key: "resultados-oportunidades",
+        label: "Oportunidades / Gerencia",
+        status: "Pipeline activo",
+        items: []
+      },
       { key: "metricas", label: "Métricas", status: "Indicadores y detalle de pedidos", items: [] },
       { key: "meta", label: "Meta", status: "Objetivos comerciales septiembre–diciembre 2026", items: [] },
       {
