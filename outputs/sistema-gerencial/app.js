@@ -4113,7 +4113,10 @@ function renderQuotationsModule() {
       const searchIndex = normalizeKey(`${quotation.number || ""} ${quotation.client || ""} ${quotation.company || ""} ${quotation.customerData?.commercialName || ""} ${quotation.customerData?.legalName || ""} ${quotation.customerData?.taxId || ""} ${quotationResponsibleSeller(quotation)} ${quotation.status || ""} ${quotation.date || ""} ${formatDate(quotation.date)} ${quotation.validity || ""} ${quotation.totalCents || ""} ${formatControlSalesMoney(quotation.totalCents || 0)} ${productText}`);
       return queryTokens.every((token) => searchIndex.includes(token));
     })
-    .sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
+    .sort((a, b) => (
+      String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || ""))
+      || String(b.number || "").localeCompare(String(a.number || ""), "es", { numeric: true })
+    ));
   const hasAvailableOpportunities = availableQuotationOpportunities().length > 0;
   const customerRequests = state.crmData?.customerRequests || [];
   const openCustomerRequests = customerRequests.filter((request) => ["borrador", "pendiente"].includes(normalizeKey(request.status || ""))).length;

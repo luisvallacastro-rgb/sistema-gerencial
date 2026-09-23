@@ -7591,7 +7591,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 restore_missing_linked_quotations(conn)
                 rows = conn.execute("""
                     SELECT * FROM quotations
-                    ORDER BY quotation_date DESC, updated_at DESC, quotation_number DESC
+                    ORDER BY datetime(created_at) DESC, rowid DESC
                 """).fetchall()
             self.send_json([quotation_payload(row) for row in rows])
             return
