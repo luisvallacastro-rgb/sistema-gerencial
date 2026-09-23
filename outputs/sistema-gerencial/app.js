@@ -10988,7 +10988,7 @@ function renderCrmClients() {
   state.crmCustomerStatus = status;
   const clientSequenceValue = (client) => {
     const sequence = Number.parseInt(String(client.clientNumber || "").replace(/\D/g, ""), 10);
-    return Number.isFinite(sequence) ? sequence : Number.MAX_SAFE_INTEGER;
+    return Number.isFinite(sequence) ? sequence : null;
   };
   const searchable = (client) => [
     client.clientNumber, client.customerCode, client.sellerName, client.commercialName, client.legalName, client.contactName,
@@ -11001,8 +11001,15 @@ function renderCrmClients() {
       return matchesStatus && (!query || searchable(client));
     })
     .sort((left, right) => {
-      const sequenceDifference = clientSequenceValue(left) - clientSequenceValue(right);
-      if (sequenceDifference !== 0) return sequenceDifference;
+      const leftSequence = clientSequenceValue(left);
+      const rightSequence = clientSequenceValue(right);
+      if (leftSequence === null && rightSequence !== null) return -1;
+      if (leftSequence !== null && rightSequence === null) return 1;
+      if (leftSequence !== null && rightSequence !== null && leftSequence !== rightSequence) {
+        return rightSequence - leftSequence;
+      }
+      const creationDifference = String(right.createdAt || "").localeCompare(String(left.createdAt || ""));
+      if (creationDifference !== 0) return creationDifference;
       return String(left.commercialName || left.legalName || "").localeCompare(
         String(right.commercialName || right.legalName || ""),
         "es",
