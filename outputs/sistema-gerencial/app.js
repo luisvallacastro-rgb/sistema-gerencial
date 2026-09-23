@@ -978,6 +978,7 @@ const closePurchaseOrderMonthDialog = document.querySelector("#closePurchaseOrde
 const opportunityDashboard = document.querySelector("#opportunityDashboard");
 const newOpportunityBtn = document.querySelector("#newOpportunityBtn");
 const opportunitySellerReportBtn = document.querySelector("#opportunitySellerReportBtn");
+const opportunityEntryReportBtn = document.querySelector("#opportunityEntryReportBtn");
 const newRiskBtn = document.querySelector("#newRiskBtn");
 const newManagementRequestBtn = document.querySelector("#newManagementRequestBtn");
 const goalsMatrixBtn = document.querySelector("#goalsMatrixBtn");
@@ -11059,6 +11060,80 @@ function printCrmSellerValidationReport() {
   popup.document.close();
 }
 
+function opportunityEntryReportRows(month) {
+  return crmData().opportunities
+    .map((opportunity) => ({
+      opportunity,
+      createdDate: opportunityCreatedDate(opportunity),
+      seller: opportunity.owner?.name || crmOwnerName(opportunity.ownerId) || "Sin vendedor",
+      company: opportunity.company || "Sin empresa",
+      amount: Number(opportunity.estimatedAmount || 0)
+    }))
+    .filter((row) => row.createdDate.startsWith(`${month}-`))
+    .sort((left, right) => left.createdDate.localeCompare(right.createdDate)
+      || left.seller.localeCompare(right.seller, "es")
+      || left.company.localeCompare(right.company, "es"));
+}
+
+function printOpportunityEntryReport(month) {
+  const rows = opportunityEntryReportRows(month);
+  const [year, monthNumber] = month.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const monthLabel = new Intl.DateTimeFormat("es-SV", { month: "long", year: "numeric", timeZone: "UTC" })
+    .format(new Date(Date.UTC(year, monthNumber - 1, 1)));
+  const configuredSellers = crmSalesUsers().map((seller) => seller.name).filter(Boolean);
+  const sellers = [...new Set([...configuredSellers, ...rows.map((row) => row.seller)])]
+    .sort((left, right) => left.localeCompare(right, "es"));
+  const totalAmount = rows.reduce((sum, row) => sum + row.amount, 0);
+  const sellerSummary = sellers.map((seller) => {
+    const sellerRows = rows.filter((row) => row.seller === seller);
+    const amount = sellerRows.reduce((sum, row) => sum + row.amount, 0);
+    const activeDays = new Set(sellerRows.map((row) => row.createdDate)).size;
+    return { seller, rows: sellerRows, count: sellerRows.length, amount, activeDays };
+  });
+  const matrixHeader = sellers.map((seller) => `<th><strong>${escapeHtml(seller)}</strong><small>${sellerSummary.find((item) => item.seller === seller)?.count || 0} oportunidades</small></th>`).join("");
+  const matrixRows = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    const isoDate = `${year}-${padded(monthNumber)}-${padded(day)}`;
+    const cells = sellers.map((seller) => {
+      const dayRows = rows.filter((row) => row.createdDate === isoDate && row.seller === seller);
+      if (!dayRows.length) return `<td class="empty-cell">—</td>`;
+      return `<td>${dayRows.map((row) => `<article><strong>${escapeHtml(row.company)}</strong><small>${formatMoney(row.amount)}</small></article>`).join("")}</td>`;
+    }).join("");
+    return `<tr><th scope="row">${padded(day)}</th>${cells}</tr>`;
+  }).join("");
+  const matrixTotals = sellerSummary.map((item) => `<td><strong>${item.count}</strong><small>${formatMoney(item.amount)}</small></td>`).join("");
+  const summaryRows = sellerSummary.map((item) => `<tr><th scope="row">${escapeHtml(item.seller)}</th><td>${item.count}</td><td>${item.activeDays}</td><td class="money">${formatMoney(item.amount)}</td><td class="money">${formatMoney(item.count ? item.amount / item.count : 0)}</td></tr>`).join("");
+  const detailRows = rows.map((row, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(formatDate(row.createdDate))}</td><td><strong>${escapeHtml(row.company)}</strong></td><td class="money">${formatMoney(row.amount)}</td><td>${escapeHtml(row.seller)}</td></tr>`).join("");
+  const generatedAt = new Intl.DateTimeFormat("es-SV", { dateStyle: "long", timeStyle: "short", timeZone: "America/El_Salvador" }).format(new Date());
+  const popup = window.open("", "_blank", "width=1500,height=950");
+  if (!popup) return alert("Permite las ventanas emergentes para generar el reporte.");
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Oportunidades ingresadas · ${escapeHtml(monthLabel)}</title><style>
+  @page{size:A3 landscape;margin:8mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;background:#e9eef4;color:#172b43;font:10px Arial,sans-serif}.report{width:fit-content;min-width:min(1400px,calc(100vw - 32px));max-width:none;margin:18px auto;padding:28px;background:#fff;box-shadow:0 8px 28px #18243a22}.head{display:flex;justify-content:space-between;gap:30px;border-bottom:4px solid #1a9c83;padding-bottom:16px}.head h1{margin:3px 0;font-size:26px}.head p,.head small{display:block;margin:3px 0;color:#5d6879}.brand{color:#087f69;font-size:22px;font-weight:900}.cards{display:grid;grid-template-columns:repeat(3,minmax(170px,1fr));gap:10px;margin:18px 0}.card{padding:12px 14px;border:1px solid #d5e1e8;border-radius:10px}.card span{display:block;color:#687589;font-size:9px;font-weight:800;text-transform:uppercase}.card strong{display:block;margin-top:5px;color:#087f69;font-size:20px}.section{margin-top:20px}.section h2{margin:0 0 9px;font-size:15px}.matrix-wrap{overflow:auto;border:1px solid #cbd7e2;border-radius:8px}.matrix{width:100%;min-width:${Math.max(900, 115 + sellers.length * 185)}px;border-collapse:collapse;table-layout:fixed}.matrix th,.matrix td{padding:6px;border:1px solid #d9e1e9;vertical-align:top}.matrix thead th{background:#173b62;color:#fff}.matrix thead th:first-child,.matrix tbody th,.matrix tfoot th{width:54px;text-align:center}.matrix thead th small,.matrix tfoot td small{display:block;margin-top:3px;color:#aee8db;font-size:8px}.matrix tbody th{background:#edf5f4;color:#087763;font-size:11px}.matrix td{min-width:185px;background:#fff}.matrix td article{display:grid;gap:2px;margin-bottom:4px;padding:5px 6px;border-left:3px solid #1aa387;border-radius:4px;background:#edf8f5}.matrix td article:last-child{margin-bottom:0}.matrix td article strong{font-size:9px}.matrix td article small{color:#087763;font-weight:800}.matrix td.empty-cell{color:#a9b4c1;text-align:center}.matrix tfoot th,.matrix tfoot td{background:#173b62;color:#fff}.matrix tfoot td{text-align:center}.summary,.detail{width:100%;border-collapse:collapse}.summary th,.summary td,.detail th,.detail td{padding:7px 9px;border-bottom:1px solid #dbe3eb;text-align:left}.summary thead th,.detail thead th{background:#173b62;color:#fff}.summary .money,.detail .money{text-align:right;white-space:nowrap}.detail td:nth-child(1),.detail td:nth-child(2){white-space:nowrap}.empty{padding:25px!important;color:#778396;text-align:center!important}.footer{margin-top:16px;color:#6c7787}.actions{position:sticky;bottom:0;display:flex;justify-content:center;gap:10px;padding:13px;background:#13233e}.actions button{padding:10px 16px;border:0;border-radius:8px;font-weight:800;cursor:pointer}.actions button:first-child{background:#39d6b5;color:#10243b}@media print{body{background:#fff}.report{width:auto;min-width:0;margin:0;padding:0;box-shadow:none}.actions{display:none}.matrix{min-width:0;font-size:7px}.matrix th,.matrix td{padding:3px}.matrix td article{padding:3px}.section{break-inside:avoid}.detail-section{break-inside:auto}.detail tr{break-inside:avoid}}</style></head><body><main class="report"><header class="head"><div><div class="brand">KONFI</div><h1>Oportunidades ingresadas por vendedor</h1><p>Matriz diaria de ${escapeHtml(monthLabel)}</p></div><div><small>Generado: ${escapeHtml(generatedAt)}</small><small>Usuario: ${escapeHtml(state.currentUser?.name || roleDisplayName())}</small></div></header><section class="cards"><article class="card"><span>Oportunidades ingresadas</span><strong>${rows.length}</strong></article><article class="card"><span>Valor acumulado</span><strong>${formatMoney(totalAmount)}</strong></article><article class="card"><span>Vendedores medidos</span><strong>${sellers.length}</strong></article></section><section class="section"><h2>Matriz diaria por vendedor</h2><div class="matrix-wrap"><table class="matrix"><thead><tr><th>Día</th>${matrixHeader}</tr></thead><tbody>${matrixRows}</tbody><tfoot><tr><th>Total</th>${matrixTotals}</tr></tfoot></table></div></section><section class="section"><h2>Resumen vertical por vendedor</h2><table class="summary"><thead><tr><th>Vendedor</th><th>Oportunidades</th><th>Días con ingreso</th><th>Valor acumulado</th><th>Valor promedio</th></tr></thead><tbody>${summaryRows || `<tr><td class="empty" colspan="5">No hay vendedores configurados.</td></tr>`}</tbody></table></section><section class="section detail-section"><h2>Detalle de oportunidades ingresadas</h2><table class="detail"><thead><tr><th>#</th><th>Día</th><th>Empresa</th><th>Valor</th><th>Vendedor</th></tr></thead><tbody>${detailRows || `<tr><td class="empty" colspan="5">No se ingresaron oportunidades durante este mes.</td></tr>`}</tbody></table></section><p class="footer">Las fechas corresponden a la creación de cada oportunidad. El reporte incluye los registros conservados en el sistema durante el mes seleccionado.</p></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  popup.document.close();
+}
+
+function openOpportunityEntryReportDialog() {
+  document.querySelector("#opportunityEntryReportDialog")?.remove();
+  const dialog = document.createElement("dialog");
+  dialog.id = "opportunityEntryReportDialog";
+  dialog.className = "opportunity-report-dialog";
+  dialog.innerHTML = `<form method="dialog" class="opportunity-report-form"><header><div><span>Medición comercial</span><h3>Oportunidades ingresadas por vendedor</h3><p>Seleccione el mes para generar la matriz diaria y el resumen por vendedor.</p></div><button type="button" data-entry-report-close aria-label="Cerrar">×</button></header><div class="opportunity-report-filter-grid"><label class="wide"><span>Mes del reporte</span><input type="month" name="month" value="${todayISO().slice(0, 7)}" required></label></div><div class="opportunity-report-preview"><span data-entry-report-count>0 oportunidades ingresadas</span><strong data-entry-report-total>${formatMoney(0)}</strong></div><footer><button class="secondary-btn" type="button" data-entry-report-close>Cancelar</button><button class="primary-btn" type="submit">Generar reporte</button></footer></form>`;
+  document.body.append(dialog);
+  const form = dialog.querySelector("form");
+  const refresh = () => {
+    const rows = opportunityEntryReportRows(form.elements.month.value);
+    dialog.querySelector("[data-entry-report-count]").textContent = `${rows.length} ${rows.length === 1 ? "oportunidad ingresada" : "oportunidades ingresadas"}`;
+    dialog.querySelector("[data-entry-report-total]").textContent = formatMoney(rows.reduce((sum, row) => sum + row.amount, 0));
+  };
+  form.addEventListener("input", refresh);
+  form.addEventListener("submit", (event) => { event.preventDefault(); const month = form.elements.month.value; dialog.close(); printOpportunityEntryReport(month); });
+  dialog.querySelectorAll("[data-entry-report-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.showModal();
+  refresh();
+}
+
 function printManagementSellerValidationReport() {
   const opportunities = opportunityCycleRows(getOpportunitySubmenu().items).active
     .map(({ item }) => item)
@@ -12297,6 +12372,7 @@ function renderCommercialSubmenu(area) {
   opportunityTable.classList.remove("cycle-list-active");
   opportunityTotalAmount.classList.add("hidden");
   opportunitySellerReportBtn?.classList.add("hidden");
+  opportunityEntryReportBtn?.classList.add("hidden");
   commercialSubmenuTitle.classList.remove("hidden");
   financialOrdersViewTabs?.classList.add("hidden");
   accountsReceivableViewTabs?.classList.add("hidden");
@@ -12565,6 +12641,7 @@ function renderCommercialSubmenu(area) {
     }
     newOpportunityBtn.classList.toggle("hidden", !isCrmOpportunityView || state.crmOpportunitiesView !== "list");
     opportunitySellerReportBtn?.classList.toggle("hidden", !isCrmOpportunityView || state.crmOpportunitiesView !== "list");
+    opportunityEntryReportBtn?.classList.toggle("hidden", !isCrmOpportunityView || state.crmOpportunitiesView !== "list");
     crmOpportunitiesViewTabs?.classList.toggle("hidden", !isCrmOpportunityView);
     if (isCrmOpportunityView) {
       crmOpportunitiesViewTabs?.querySelectorAll("[data-crm-opportunities-view]").forEach((button) => {
@@ -16547,6 +16624,7 @@ newOpportunityBtn.addEventListener("click", () => {
   }
 });
 opportunitySellerReportBtn?.addEventListener("click", printCrmSellerValidationReport);
+opportunityEntryReportBtn?.addEventListener("click", openOpportunityEntryReportDialog);
 
 closeOpportunityDialog.addEventListener("click", closeOpportunityForm);
 cancelOpportunityEdit.addEventListener("click", closeOpportunityForm);
