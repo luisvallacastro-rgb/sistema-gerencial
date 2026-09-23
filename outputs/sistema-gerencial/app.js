@@ -12058,6 +12058,19 @@ function commercialAgendaEventOverlapsVisibleHour(event = {}) {
   return commercialAgendaVisibleHours.some((hour) => start < (hour + 1) * 60 && end > hour * 60);
 }
 function commercialAgendaVisibleSeller(seller) { return normalizeKey(seller) !== "amadeo alfaro"; }
+function commercialAgendaSellerNames() {
+  const names = new Map();
+  officialCommercialSellerNames
+    .filter(commercialAgendaVisibleSeller)
+    .forEach((seller) => names.set(normalizeKey(seller), seller));
+  state.commercialAgenda.forEach((item) => {
+    const seller = String(item?.seller || "").trim();
+    if (seller && commercialAgendaVisibleSeller(seller) && !names.has(normalizeKey(seller))) {
+      names.set(normalizeKey(seller), seller);
+    }
+  });
+  return [...names.values()];
+}
 function commercialAgendaOwnSellerName() {
   const linkedSellerId = crmLinkedSellerId(state.crmData, state.currentUser);
   const linkedSeller = crmMasterSalesUsers({ includeInactive: true }).find((seller) => String(seller.id) === String(linkedSellerId));
@@ -12085,7 +12098,9 @@ function renderCommercialAgendaManagement({ includeAllSellers = false, selectedD
   const effectiveSellerFilter = canViewAllSellers ? sellerFilter : ownSellerName;
   const allowSlotAssignment = interactive && managesAllSellers;
   const rows = state.commercialAgenda.filter((item) => commercialAgendaVisibleSeller(item.seller) && (canViewAllSellers || normalizeKey(item.seller) === normalizeKey(effectiveSellerFilter))).flatMap((item) => commercialAgendaItemEvents(item).filter((event) => event.date === selectedDate && (effectiveSellerFilter === "all" || normalizeKey(item.seller) === normalizeKey(effectiveSellerFilter))).map((event) => ({ item, event })));
-  const sellerNames = (effectiveSellerFilter === "all" ? (includeAllSellers && canViewAllSellers ? commercialSellerNames() : []) : [effectiveSellerFilter]).filter(commercialAgendaVisibleSeller);
+  const sellerNames = effectiveSellerFilter === "all"
+    ? (includeAllSellers && canViewAllSellers ? commercialAgendaSellerNames() : [])
+    : [effectiveSellerFilter].filter(commercialAgendaVisibleSeller);
   const grouped = new Map(sellerNames.map((seller) => [seller, []]));
   rows.forEach((row) => {
     const seller = row.item.seller || "Sin vendedor";
@@ -12134,7 +12149,7 @@ function renderCommercialAgendaManagement({ includeAllSellers = false, selectedD
 }
 function commercialAgendaReportSellerOptions() {
   if (!commercialAgendaCanViewAllSellers()) return [commercialAgendaOwnSellerName()].filter(Boolean);
-  const names = new Set(commercialSellerNames().filter(commercialAgendaVisibleSeller));
+  const names = new Set(commercialAgendaSellerNames());
   state.commercialAgenda.forEach((item) => { if (item.seller && commercialAgendaVisibleSeller(item.seller)) names.add(item.seller); });
   return [...names].sort((a, b) => a.localeCompare(b, "es"));
 }
