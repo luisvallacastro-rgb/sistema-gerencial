@@ -1433,9 +1433,26 @@ function opportunityDatePlusDays(isoDate, days) {
 }
 
 function opportunityDueDateForSave(existingId, selectedDate) {
-  return !trainingMode && !existingId
+  return !existingId
     ? opportunityDatePlusDays(todayISO(), 30)
     : selectedDate;
+}
+
+function opportunityIsoDate(value) {
+  const isoDate = String(value || "").slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(isoDate) ? isoDate : "";
+}
+
+function opportunityDeadlineDate(opportunity = {}, crmSource = null) {
+  const item = typeof opportunity === "object" && opportunity ? opportunity : { date: opportunity };
+  const candidates = [
+    crmSource?.deadline,
+    crmSource?.nextDate,
+    item.deadline,
+    item.nextDate,
+    item.date
+  ];
+  return candidates.map(opportunityIsoDate).find(Boolean) || "";
 }
 
 function opportunityCreatedDate(opportunity = {}) {
@@ -1443,20 +1460,22 @@ function opportunityCreatedDate(opportunity = {}) {
   const crmSource = item.crmOpportunityId
     ? crmData().opportunities.find((record) => String(record.id) === String(item.crmOpportunityId))
     : null;
-  const firstManagementDate = [...(item.managements || [])]
-    .map((management) => String(management?.date || "").slice(0, 10))
-    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
-    .sort()[0] || "";
-  const candidates = [
-    crmSource?.createdAt,
-    item.createdAt,
+  const deadline = opportunityDeadlineDate(item, crmSource);
+  const derivedCreationDate = deadline ? opportunityDatePlusDays(deadline, -30) : "";
+  const storedCreationDates = [
+    crmSource?.startDate,
     item.startDate,
-    firstManagementDate,
-    item.date
-  ];
-  return candidates
-    .map((value) => String(value || "").slice(0, 10))
-    .find((value) => /^\d{4}-\d{2}-\d{2}$/.test(value)) || "";
+    crmSource?.createdAt,
+    item.createdAt
+  ].map(opportunityIsoDate).filter(Boolean);
+  const creationConsistentWithDeadline = deadline
+    ? storedCreationDates.find((date) => opportunityDatePlusDays(date, 30) === deadline)
+    : storedCreationDates[0];
+  const firstManagementDate = [...(item.managements || [])]
+    .map((management) => opportunityIsoDate(management?.date))
+    .filter(Boolean)
+    .sort()[0] || "";
+  return creationConsistentWithDeadline || derivedCreationDate || firstManagementDate || "";
 }
 
 function opportunityAgeInDays(createdDate) {
@@ -2487,7 +2506,7 @@ function resetOpportunityForm() {
   opportunityCustomerId.value = "";
   refreshOpportunityCustomerOptions();
   opportunityDate.value = opportunityDueDateForSave("", todayISO());
-  opportunityDate.readOnly = !trainingMode;
+  opportunityDate.readOnly = true;
   opportunityAgendaDate.valueAsDate = new Date();
   opportunityNextAction.value = "Primer seguimiento";
   opportunityAgendaType.value = "Seguimiento";
@@ -8628,7 +8647,7 @@ function fillOpportunityForm(item, context = "results") {
   opportunityCustomerId.value = item?.customerId || "";
   refreshOpportunityCustomerOptions(item?.customerId || "", item?.company || "");
   opportunityDate.value = item?.date || opportunityDueDateForSave("", todayISO());
-  opportunityDate.readOnly = !trainingMode;
+  opportunityDate.readOnly = true;
   opportunityCompany.value = item?.company || "";
   if (context === "crm") {
     opportunitySeller.innerHTML = crmSortedSellers().map((seller) => (
@@ -8968,7 +8987,7 @@ function ensureCrmOpportunityDialog() {
         <label>Prioridad<select id="crmPriority"><option>Alta</option><option selected>Media</option><option>Baja</option></select></label>
         <label>Temperatura<select id="crmTemperature" disabled></select></label>
         <label>Monto estimado<input id="crmEstimatedAmount" type="number" min="0" step="1" placeholder="0"></label>
-        <label>Proxima fecha<input id="crmNextDate" type="date"><small class="opportunity-close-policy">Fecha automática de cierre: 30 días desde la apertura.</small></label>
+        <label>Fecha límite<input id="crmNextDate" type="date"><small class="opportunity-close-policy">Fecha automática: 30 días después de la creación.</small></label>
         <label>Proxima accion<input id="crmNextAction" maxlength="100" placeholder="Primer seguimiento"></label>
         <section class="crm-form-section span-2 initial-agenda-form">
           <span class="eyebrow">Agenda inicial opcional</span>
@@ -8988,7 +9007,7 @@ function ensureCrmOpportunityDialog() {
     </form>
   `;
   document.body.appendChild(dialog);
-  dialog.querySelector("#crmNextDate").readOnly = !trainingMode;
+  dialog.querySelector("#crmNextDate").readOnly = true;
   dialog.querySelectorAll("[data-crm-close]").forEach((button) => {
     button.addEventListener("click", () => dialog.close());
   });
@@ -9360,7 +9379,7 @@ function renderCrmDashboard() {
   if (state.crmOpportunitiesView === "seller-kpi") return renderCrmSellerKpi(rows);
   return `
     <div class="opportunity-row opportunity-header">
-      <strong>Fecha</strong>
+      <strong>Fecha de creación</strong>
       <strong>Empresa</strong>
       <strong>Vendedor</strong>
       <strong>Etapa</strong>
@@ -13022,7 +13041,7 @@ function renderCommercialSubmenu(area) {
       ` : ""}
     </section>
     <div class="opportunity-row opportunity-header">
-      <strong>Fecha</strong>
+      <strong>Fecha de creación</strong>
       <strong>Empresa</strong>
       <strong>Vendedor</strong>
       <strong>Etapa</strong>
@@ -15935,7 +15954,7 @@ function openResultOpportunityEditor(item) {
   opportunityCustomerId.value = item.customerId || "";
   refreshOpportunityCustomerOptions(item.customerId || "", item.company || "");
   opportunityDate.value = item.date;
-  opportunityDate.readOnly = !trainingMode;
+  opportunityDate.readOnly = true;
   opportunityCompany.value = item.company;
   ensureSelectOption(opportunitySeller, item.seller);
   opportunityContact.value = item.contact || "";
