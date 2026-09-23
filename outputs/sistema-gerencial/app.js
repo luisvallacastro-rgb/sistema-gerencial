@@ -12043,6 +12043,12 @@ function normalizeCommercialAgendaTime(value) {
 }
 function canViewCommercialAgendaManagement() { return isAdminUser() || state.role === "gerencias" || isCommercialManagementUser(); }
 function commercialAgendaMinutes(value) { const [hours = 0, minutes = 0] = String(value || "00:00").split(":").map(Number); return hours * 60 + minutes; }
+const commercialAgendaVisibleHours = [7, 8, 9, 10, 11, 13, 14, 15, 16];
+function commercialAgendaEventOverlapsVisibleHour(event = {}) {
+  const start = commercialAgendaMinutes(event.startTime);
+  const end = commercialAgendaMinutes(event.endTime);
+  return commercialAgendaVisibleHours.some((hour) => start < (hour + 1) * 60 && end > hour * 60);
+}
 function commercialAgendaVisibleSeller(seller) { return normalizeKey(seller) !== "amadeo alfaro"; }
 function commercialAgendaOwnSellerName() {
   const linkedSellerId = crmLinkedSellerId(state.crmData, state.currentUser);
@@ -12079,15 +12085,17 @@ function renderCommercialAgendaManagement({ includeAllSellers = false, selectedD
     grouped.get(seller).push(row);
   });
   const sellers = [...grouped].sort(([a], [b]) => a.localeCompare(b, "es"));
-  const firstMinute = 6 * 60;
+  const firstMinute = 7 * 60;
   const lastMinute = 17 * 60;
-  const hours = Array.from({ length: 12 }, (_, index) => {
-    const hour = index + 6;
-    return hour === 12 ? "12 m." : hour > 12 ? `${hour - 12} p. m.` : `${hour} a. m.`;
+  const hours = commercialAgendaVisibleHours.map((hour) => ({ hour, label: hour > 12 ? `${hour - 12} p. m.` : `${hour} a. m.` }));
+  const ganttHourLabels = Array.from({ length: 11 }, (_, index) => {
+    const hour = index + 7;
+    if (hour === 12 || hour === 17) return "";
+    return hour > 12 ? `${hour - 12} p. m.` : `${hour} a. m.`;
   });
   if (!trainingMode) {
-    const matrixRows = hours.map((label, index) => {
-      const slotStart = (index + 6) * 60;
+    const matrixRows = hours.map(({ hour, label }) => {
+      const slotStart = hour * 60;
       const slotEnd = slotStart + 60;
       const cells = sellers.map(([seller, sellerRows]) => {
         const active = sellerRows.filter(({ event }) => commercialAgendaMinutes(event.startTime) < slotEnd && commercialAgendaMinutes(event.endTime) > slotStart)
@@ -12095,14 +12103,14 @@ function renderCommercialAgendaManagement({ includeAllSellers = false, selectedD
         return `<td>${active.map(({ item, event }) => {
           const continuing = commercialAgendaMinutes(event.startTime) < slotStart;
           return `<button type="button" class="commercial-agenda-matrix-event${continuing ? " is-continuing" : ""}" ${commercialAgendaCanEditSeller(item.seller) ? `data-commercial-agenda-edit="${escapeHtml(item.id)}"` : "disabled"} title="${escapeHtml(`${commercialAgendaTimeLabel(event.startTime)}–${commercialAgendaTimeLabel(event.endTime)} · ${event.prospect || item.prospect || "Sin cliente"} · ${event.activity || "Actividad"}`)}"><time>${continuing ? "En curso · " : ""}${escapeHtml(commercialAgendaTimeLabel(event.startTime))}–${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</time><strong>${escapeHtml(event.prospect || item.prospect || "Sin cliente")}</strong><span>${escapeHtml(event.activity || "Actividad")}</span></button>`;
-        }).join("") || (allowSlotAssignment ? `<button type="button" class="commercial-agenda-matrix-slot" data-agenda-slot data-agenda-slot-seller="${escapeHtml(seller)}" data-agenda-slot-date="${escapeHtml(selectedDate)}" data-agenda-slot-start="${String(index + 6).padStart(2, "0")}:00" data-agenda-slot-end="${String(index + 7).padStart(2, "0")}:00" aria-pressed="false" title="Seleccionar ${escapeHtml(label)} para ${escapeHtml(seller)}"><span aria-hidden="true">＋</span><small>Seleccionar</small></button>` : `<span class="commercial-agenda-matrix-free">—</span>`)}</td>`;
+        }).join("") || (allowSlotAssignment ? `<button type="button" class="commercial-agenda-matrix-slot" data-agenda-slot data-agenda-slot-seller="${escapeHtml(seller)}" data-agenda-slot-date="${escapeHtml(selectedDate)}" data-agenda-slot-start="${String(hour).padStart(2, "0")}:00" data-agenda-slot-end="${String(hour + 1).padStart(2, "0")}:00" aria-pressed="false" title="Seleccionar ${escapeHtml(label)} para ${escapeHtml(seller)}"><span aria-hidden="true">＋</span><small>Seleccionar</small></button>` : `<span class="commercial-agenda-matrix-free">—</span>`)}</td>`;
       }).join("");
       return `<tr><th scope="row">${label}</th>${cells}</tr>`;
     }).join("");
-    const outside = rows.filter(({ event }) => commercialAgendaMinutes(event.endTime) <= firstMinute || commercialAgendaMinutes(event.startTime) >= 18 * 60);
-    return `<section class="commercial-agenda-management"><header><div><span>${canViewAllSellers && includeAllSellers ? "Agenda diaria de vendedores" : "Mi agenda diaria"}</span><strong>${escapeHtml(formatDate(selectedDate))}</strong></div><nav><button type="button" data-agenda-date-step="-1" aria-label="Día anterior" title="Día anterior">‹</button><input type="date" data-agenda-management-date value="${escapeHtml(selectedDate)}" aria-label="Fecha de la agenda"><button type="button" data-agenda-date-step="1" aria-label="Día siguiente" title="Día siguiente">›</button></nav></header>${allowSlotAssignment ? `<div class="commercial-agenda-selection" data-agenda-selection><span data-agenda-selection-status>Haz clic en una casilla disponible. Puedes desplazarte y marcar varios períodos del mismo vendedor.</span><div><button type="button" class="secondary" data-agenda-selection-clear hidden>Limpiar</button><button type="button" data-agenda-selection-open disabled>Agendar selección <kbd>Enter</kbd></button></div></div>` : ""}<div class="commercial-agenda-matrix"><table><thead><tr><th scope="col">Hora</th>${sellers.map(([seller, sellerRows]) => `<th scope="col"><strong>${escapeHtml(seller)}</strong><small>${sellerRows.length} ${sellerRows.length === 1 ? "actividad" : "actividades"}</small></th>`).join("")}</tr></thead><tbody>${matrixRows}</tbody></table></div>${outside.length ? `<p class="commercial-agenda-matrix-outside">${outside.length} ${outside.length === 1 ? "actividad queda" : "actividades quedan"} fuera del horario visible (6 a. m.–6 p. m.). Consulta el detalle de actividades.</p>` : ""}</section>`;
+    const outside = rows.filter(({ event }) => !commercialAgendaEventOverlapsVisibleHour(event));
+    return `<section class="commercial-agenda-management"><header><div><span>${canViewAllSellers && includeAllSellers ? "Agenda diaria de vendedores" : "Mi agenda diaria"}</span><strong>${escapeHtml(formatDate(selectedDate))}</strong></div><nav><button type="button" data-agenda-date-step="-1" aria-label="Día anterior" title="Día anterior">‹</button><input type="date" data-agenda-management-date value="${escapeHtml(selectedDate)}" aria-label="Fecha de la agenda"><button type="button" data-agenda-date-step="1" aria-label="Día siguiente" title="Día siguiente">›</button></nav></header>${allowSlotAssignment ? `<div class="commercial-agenda-selection" data-agenda-selection><span data-agenda-selection-status>Haz clic en una casilla disponible. Puedes desplazarte y marcar varios períodos del mismo vendedor.</span><div><button type="button" class="secondary" data-agenda-selection-clear hidden>Limpiar</button><button type="button" data-agenda-selection-open disabled>Agendar selección <kbd>Enter</kbd></button></div></div>` : ""}<div class="commercial-agenda-matrix"><table><thead><tr><th scope="col">Hora</th>${sellers.map(([seller, sellerRows]) => `<th scope="col"><strong>${escapeHtml(seller)}</strong><small>${sellerRows.length} ${sellerRows.length === 1 ? "actividad" : "actividades"}</small></th>`).join("")}</tr></thead><tbody>${matrixRows}</tbody></table></div>${outside.length ? `<p class="commercial-agenda-matrix-outside">${outside.length} ${outside.length === 1 ? "actividad queda" : "actividades quedan"} fuera de las franjas visibles. Consulta el detalle de actividades.</p>` : ""}</section>`;
   }
-  return `<section class="commercial-agenda-management"><header><div><span>${includeAllSellers ? "Agenda diaria de vendedores" : "Vista gerencial diaria"}</span><strong>${escapeHtml(formatDate(selectedDate))}</strong></div><nav><button type="button" data-agenda-date-step="-1" aria-label="Día anterior" title="Día anterior">‹</button><input type="date" data-agenda-management-date value="${escapeHtml(selectedDate)}" aria-label="Fecha de la agenda"><button type="button" data-agenda-date-step="1" aria-label="Día siguiente" title="Día siguiente">›</button></nav></header><div class="commercial-agenda-gantt"><div class="commercial-agenda-gantt-head"><strong>Vendedor</strong><div>${hours.map((hour) => `<span>${hour}</span>`).join("")}</div></div>${sellers.map(([seller, sellerRows]) => {
+  return `<section class="commercial-agenda-management"><header><div><span>${includeAllSellers ? "Agenda diaria de vendedores" : "Vista gerencial diaria"}</span><strong>${escapeHtml(formatDate(selectedDate))}</strong></div><nav><button type="button" data-agenda-date-step="-1" aria-label="Día anterior" title="Día anterior">‹</button><input type="date" data-agenda-management-date value="${escapeHtml(selectedDate)}" aria-label="Fecha de la agenda"><button type="button" data-agenda-date-step="1" aria-label="Día siguiente" title="Día siguiente">›</button></nav></header><div class="commercial-agenda-gantt"><div class="commercial-agenda-gantt-head"><strong>Vendedor</strong><div>${ganttHourLabels.map((label) => `<span>${label}</span>`).join("")}</div></div>${sellers.map(([seller, sellerRows]) => {
     const sorted = sellerRows.sort((a, b) => String(a.event.startTime).localeCompare(String(b.event.startTime)));
     const visible = sorted.filter(({ event }) => commercialAgendaMinutes(event.endTime) > firstMinute && commercialAgendaMinutes(event.startTime) < lastMinute);
     const outsideCount = sorted.length - visible.length;
@@ -12175,13 +12183,13 @@ function commercialAgendaDailyHourLabel(hour) {
 }
 function renderCommercialAgendaDaily({ selectedDate = state.commercialAgendaDate || todayISO(), sellerFilter = commercialAgendaDailySellerSelection(), report = false } = {}) {
   const events = commercialAgendaDailyEvents(selectedDate, sellerFilter);
-  const buckets = new Map(Array.from({ length: 12 }, (_, index) => [index + 6, []]));
+  const buckets = new Map(commercialAgendaVisibleHours.map((hour) => [hour, []]));
   const outside = [];
   events.forEach((row) => {
     const start = commercialAgendaMinutes(row.event.startTime);
-    const end = commercialAgendaMinutes(row.event.endTime);
-    if (end <= 360 || start > 1020) outside.push(row);
-    else buckets.get(Math.max(6, Math.min(17, Math.floor(start / 60)))).push(row);
+    const startHour = Math.floor(start / 60);
+    if (!commercialAgendaEventOverlapsVisibleHour(row.event)) outside.push(row);
+    else if (buckets.has(startHour)) buckets.get(startHour).push(row);
   });
   const activityCells = ({ item, event }, continuing = false) => {
     const description = continuing ? "" : item.description || item.objective || "";
@@ -12189,7 +12197,7 @@ function renderCommercialAgendaDaily({ selectedDate = state.commercialAgendaDate
     return `<td class="daily-activity"><strong>${escapeHtml(event.activity || "Actividad")}</strong><small>${continuing ? "En curso · " : ""}${escapeHtml(commercialAgendaTimeLabel(event.startTime))}–${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</small>${report || continuing || !commercialAgendaCanEditSeller(item.seller) ? "" : `<button type="button" data-commercial-agenda-edit="${escapeHtml(item.id)}" aria-label="Editar actividad">Editar</button>`}</td><td class="daily-detail"><strong>${escapeHtml(event.prospect || item.prospect || "Sin cliente")}</strong>${description ? `<p>${escapeHtml(description)}</p>` : ""}${comment ? `<small>Comentario: ${escapeHtml(comment)}</small>` : ""}${sellerFilter === "all" ? `<em>${escapeHtml(item.seller || "Sin vendedor")}</em>` : ""}</td>`;
   };
   const hourRows = [...buckets].map(([hour, starts]) => {
-    const continuing = hour === 6 ? [] : events.filter(({ event }) => commercialAgendaMinutes(event.startTime) < hour * 60 && commercialAgendaMinutes(event.endTime) > hour * 60);
+    const continuing = events.filter(({ event }) => commercialAgendaMinutes(event.startTime) < hour * 60 && commercialAgendaMinutes(event.endTime) > hour * 60);
     const rows = [...starts.map((row) => ({ row, continuing: false })), ...continuing.map((row) => ({ row, continuing: true }))];
     return rows.length
       ? rows.map(({ row, continuing: inProgress }, index) => `<tr>${index === 0 ? `<th scope="row" rowspan="${rows.length}">${commercialAgendaDailyHourLabel(hour)}</th>` : ""}${activityCells(row, inProgress)}</tr>`).join("")
