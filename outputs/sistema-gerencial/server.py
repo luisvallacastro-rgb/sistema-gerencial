@@ -8526,7 +8526,11 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         return
                     current = quotation_payload(row)
                     linked_order = conn.execute(
-                        "SELECT proforma_data FROM control_sales_orders WHERE archived = 0 AND (id = ? OR source_quotation_id = ?) LIMIT 1",
+                        """SELECT id, proforma_data, commercial_approval_status, commercial_approved_at,
+                                  finance_approval_status, finance_approved_at
+                           FROM control_sales_orders
+                           WHERE archived = 0 AND (id = ? OR source_quotation_id = ?)
+                           LIMIT 1""",
                         (text(current.get("convertedOrderId")), item_id),
                     ).fetchone()
                     try:
@@ -8538,6 +8542,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         or linked_workflow == "direct-final-only"
                     )
                     if is_converted_direct:
+                        finance_signed = (
+                            text(linked_order["finance_approval_status"]) == "Aprobada"
+                            or bool(text(linked_order["finance_approved_at"]))
+                        )
+                        if finance_signed:
+                            self.send_json({"error": "La cotizacion no puede modificarse porque Edgar Menjivar ya firmó la OP"}, status=409)
+                            return
                         actor_id = text(self.headers.get("X-System-User-Id"))
                         actor_row = conn.execute(
                             "SELECT id, name, username, email FROM users WHERE id = ? LIMIT 1",
@@ -8545,6 +8556,21 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         ).fetchone() if actor_id else None
                         if not is_direct_quotation_revision_authorized(dict(actor_row) if actor_row else None):
                             self.send_json({"error": "Solo Judith Esmeralda o Luis Valladares pueden modificar una cotizacion directa convertida"}, status=403)
+                            return
+                    elif linked_order:
+                        finance_signed = (
+                            text(linked_order["finance_approval_status"]) == "Aprobada"
+                            or bool(text(linked_order["finance_approved_at"]))
+                        )
+                        commercial_signed = (
+                            text(linked_order["commercial_approval_status"]) == "Autorizada"
+                            or bool(text(linked_order["commercial_approved_at"]))
+                        )
+                        if finance_signed:
+                            self.send_json({"error": "La cotizacion no puede modificarse porque Edgar Menjivar ya firmó la OP"}, status=409)
+                            return
+                        if commercial_signed:
+                            self.send_json({"error": "Retira primero la firma de Odaliz para modificar la cotizacion y actualizar la OP"}, status=409)
                             return
                     item = save_quotation(conn, data, row)
             except ValueError as error:
@@ -8899,7 +8925,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             changes = self.read_json()
             status = text(changes.get("status"))
             allowed = {
-                "commercial-approval": {"Autorizada", "Devuelta"},
+                "commercial-approval": {"Autorizada", "Devuelta", "Pendiente"},
                 "finance-approval": {"Aprobada", "Observada"},
             }
             if status not in allowed[stage]:
@@ -8910,7 +8936,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             note = text(changes.get("note"))
             with connect() as conn:
                 actor_row = conn.execute(
-                    "SELECT name, role, admin, permissions FROM users WHERE id = ? LIMIT 1", (actor_id,)
+                    "SELECT id, name, username, email, role, admin, permissions FROM users WHERE id = ? LIMIT 1", (actor_id,)
                 ).fetchone() if actor_id else None
                 required_permission = (
                     "comercializacion:autorizacion-pedidos"
@@ -8924,9 +8950,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 actor_identity = crm_identity_key(actor_row["name"] if actor_row else "")
                 expected_signer = "odaliz valencia" if stage == "commercial-approval" else "edgar menjivar"
                 is_designated_signer = actor_identity == expected_signer
-                authorized_role = actor_row and text(actor_row["role"]) in {"gerencias", "jefaturas"}
-                authorized_permission = required_permission in actor_permissions
-                if not actor_row or not is_designated_signer:
+                is_commercial_recovery = stage == "commercial-approval" and status == "Pendiente"
+                actor_user = dict(actor_row) if actor_row else None
+                can_recover_commercial = is_commercial_recovery and is_standalone_quotation_delete_authorized(actor_user)
+                if not actor_row or (is_commercial_recovery and not can_recover_commercial) or (not is_commercial_recovery and not is_designated_signer):
+                    if is_commercial_recovery:
+                        self.send_json({"error": "Solo Luis Valladares u Odaliz Valencia pueden retirar la firma comercial"}, status=403)
+                        return
                     self.send_json({"error": f"Esta firma corresponde únicamente a {'Odaliz Valencia' if stage == 'commercial-approval' else 'Edgar Menjivar'}"}, status=403)
                     return
                 row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (item_id,)).fetchone()
@@ -8948,6 +8978,21 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 if direct_order_flow and stage == "commercial-approval":
                     self.send_json({"error": "Las órdenes directas de Clientes no requieren firma de Odaliz"}, status=409)
                     return
+                if is_commercial_recovery:
+                    commercial_signed = (
+                        text(row["commercial_approval_status"]) == "Autorizada"
+                        or bool(text(row["commercial_approved_at"]))
+                    )
+                    finance_signed = (
+                        text(row["finance_approval_status"]) == "Aprobada"
+                        or bool(text(row["finance_approved_at"]))
+                    )
+                    if not commercial_signed:
+                        self.send_json({"error": "La orden no tiene una firma comercial que retirar"}, status=409)
+                        return
+                    if finance_signed:
+                        self.send_json({"error": "No se puede retirar la firma de Odaliz porque Edgar Menjivar ya firmó la orden"}, status=409)
+                        return
                 if stage == "finance-approval" and status == "Aprobada":
                     financial_order_id = text(row["financial_order_id"])
                     financial_row = conn.execute(
@@ -8979,13 +9024,22 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                             text(financial_row["client"]), actor, now, item_id,
                         ))
                 if stage == "commercial-approval":
-                    conn.execute("""
-                        UPDATE control_sales_orders
-                        SET commercial_approval_status=?, commercial_approved_by=?, commercial_approved_at=?,
-                            commercial_approval_note=?, updated_by=?, updated_at=?
-                        WHERE id=?
-                    """, (status, actor, now, note, actor, now, item_id))
-                    action = "autorizacion_comercial" if status == "Autorizada" else "devolucion_comercial"
+                    if is_commercial_recovery:
+                        conn.execute("""
+                            UPDATE control_sales_orders
+                            SET commercial_approval_status='Pendiente', commercial_approved_by='', commercial_approved_at='',
+                                commercial_approval_note=?, updated_by=?, updated_at=?
+                            WHERE id=?
+                        """, (note, actor, now, item_id))
+                        action = "retiro_autorizacion_comercial"
+                    else:
+                        conn.execute("""
+                            UPDATE control_sales_orders
+                            SET commercial_approval_status=?, commercial_approved_by=?, commercial_approved_at=?,
+                                commercial_approval_note=?, updated_by=?, updated_at=?
+                            WHERE id=?
+                        """, (status, actor, now, note, actor, now, item_id))
+                        action = "autorizacion_comercial" if status == "Autorizada" else "devolucion_comercial"
                 else:
                     conn.execute("""
                         UPDATE control_sales_orders

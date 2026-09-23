@@ -4205,11 +4205,25 @@ function canReviseConvertedDirectQuotation(quotation = {}) {
   const linkedOrder = quotationLinkedOrder(quotation);
   const isDirect = String(quotation.opportunityId || "").startsWith("direct-quotation:")
     || String(linkedOrder?.proformaData?.workflow || "") === "direct-final-only";
-  if (!isDirect || !linkedOrder) return true;
+  if (!linkedOrder) return true;
+  const financeSigned = linkedOrder.financeApprovalStatus === "Aprobada" || Boolean(linkedOrder.financeApprovedAt);
+  if (!isDirect) {
+    const commercialSigned = linkedOrder.commercialApprovalStatus === "Autorizada" || Boolean(linkedOrder.commercialApprovedAt);
+    return !commercialSigned && !financeSigned;
+  }
+  if (financeSigned) return false;
   const identity = normalizeKey(`${state.currentUser?.id || ""} ${state.currentUser?.name || ""} ${state.currentUser?.username || ""} ${state.currentUser?.email || ""}`);
   const isJudith = identity.includes("esmeraldar") || ["judith", "esmeralda", "rivera"].every((token) => identity.includes(token));
   const isLuis = identity.includes("luisvallacastro") || ["luis", "valladares"].every((token) => identity.includes(token));
   return isJudith || isLuis;
+}
+
+function canRecoverCommercialOrderSignature(order = {}, user = state.currentUser) {
+  const identity = normalizeKey(`${user?.id || ""} ${user?.name || ""} ${user?.username || ""} ${user?.email || ""}`);
+  const isLuis = identity.includes("luisvallacastro") || ["luis", "valladares"].every((token) => identity.includes(token));
+  const commercialSigned = order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt);
+  const financeSigned = order.financeApprovalStatus === "Aprobada" || Boolean(order.financeApprovedAt);
+  return !isDirectOrderFlow(order) && commercialSigned && !financeSigned && (isOdalizValenciaUser(user) || isLuis);
 }
 
 function quotationSourceOpportunity(quotation = {}) {
@@ -4415,6 +4429,7 @@ function renderCommercialOrderAuthorization() {
       <div class="commercial-approval__list">
         ${visibleRows.map((order) => {
           const isAuthorized = order.commercialApprovalStatus === "Autorizada";
+          const canRecoverSignature = canRecoverCommercialOrderSignature(order);
           return `
             <article class="commercial-approval__row">
               <div class="commercial-approval__identity"><small>ORDEN DE PEDIDO</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><span>${formatDate(order.date)}</span></div>
@@ -4424,7 +4439,7 @@ function renderCommercialOrderAuthorization() {
               <div class="commercial-approval__actions">
                 <button type="button" data-commercial-order-view="${escapeHtml(order.id)}">Ver</button>
                 ${isAuthorized
-                  ? `<button type="button" class="primary" data-commercial-order-print="${escapeHtml(order.id)}">Imprimir</button>`
+                  ? `${canRecoverSignature ? `<button type="button" class="secondary" data-commercial-order-revoke-signature="${escapeHtml(order.id)}">Retirar firma</button>` : ""}<button type="button" class="primary" data-commercial-order-print="${escapeHtml(order.id)}">Imprimir</button>`
                   : `<button type="button" data-commercial-order-edit="${escapeHtml(order.id)}">Editar</button>
                      <button type="button" class="secondary" data-commercial-order-return="${escapeHtml(order.id)}">Devolver</button>
                      <button type="button" class="primary" data-commercial-order-approve="${escapeHtml(order.id)}">✓ Firmar y autorizar</button>`}
@@ -4455,6 +4470,18 @@ function wireCommercialOrderAuthorization() {
     if (!confirm("¿Confirmas el primer visto bueno y la autorización comercial de esta orden?")) return;
     try { await updateControlSalesApproval(button.dataset.commercialOrderApprove, "commercial", "Autorizada"); renderCommercialSubmenu(areas.comercializacion); }
     catch (error) { alert(error.message || "No se pudo autorizar la orden."); }
+  }));
+  opportunityTable.querySelectorAll("[data-commercial-order-revoke-signature]").forEach((button) => button.addEventListener("click", async () => {
+    if (!confirm("¿Retirar la firma de Odaliz y devolver la OP al estado pendiente para modificar la cotización?")) return;
+    try {
+      await updateControlSalesApproval(
+        button.dataset.commercialOrderRevokeSignature,
+        "commercial",
+        "Pendiente",
+        "Firma comercial retirada para modificar la cotización y actualizar la OP."
+      );
+      renderCommercialSubmenu(areas.comercializacion);
+    } catch (error) { alert(error.message || "No se pudo retirar la firma comercial."); }
   }));
   opportunityTable.querySelectorAll("[data-commercial-order-return]").forEach((button) => button.addEventListener("click", async () => {
     const note = prompt("Indica qué debe corregirse antes de autorizar:");
@@ -6787,6 +6814,7 @@ function renderFinancialOrderNotifications() {
           const commercialSigned = order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt);
           const financeSigned = order.financeApprovalStatus === "Aprobada" || Boolean(order.financeApprovedAt);
           const customerDirectFlow = isDirectOrderFlow(order);
+          const canRecoverCommercialSignature = canRecoverCommercialOrderSignature(order);
           const quotation = linkedQuotationForControlSalesOrder(order);
           return `
             <article class="financial-order-notification-card">
@@ -6811,6 +6839,7 @@ function renderFinancialOrderNotifications() {
                 <button type="button" class="secondary" data-finance-order-complete="${escapeHtml(order.id)}">${financialComplete ? "Revisar registro" : "Completar registro"}</button>
                 <button type="button" class="secondary observation" data-finance-order-observe="${escapeHtml(order.id)}" ${signerStage === "finance" ? "" : "disabled"}>Agregar observación</button>
                 ${customerDirectFlow ? "" : `<button type="button" class="signature commercial ${commercialSigned ? "is-signed" : ""}" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="commercial" ${financialComplete && signerStage === "commercial" && !commercialSigned ? "" : "disabled"}>${commercialSigned ? "✓ Odaliz firmó" : "Firma Odaliz Valencia"}</button>`}
+                ${canRecoverCommercialSignature ? `<button type="button" class="secondary" data-order-commercial-revoke="${escapeHtml(order.id)}">Retirar firma de Odaliz</button>` : ""}
                 <button type="button" class="signature finance ${financeSigned ? "is-signed" : ""}" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="finance" ${financialComplete && signerStage === "finance" && !financeSigned ? "" : "disabled"}>${financeSigned ? "✓ Edgar firmó" : "Firma Edgar Menjívar"}</button>
               </div>
             </article>`;
@@ -7393,6 +7422,22 @@ function wireFinancialOrders() {
       refreshFinancialOrdersModule();
     } catch (error) {
       alert(error.message || "No se pudo registrar la firma de la orden.");
+    }
+  }));
+  opportunityTable.querySelectorAll("[data-order-commercial-revoke]").forEach((button) => button.addEventListener("click", async () => {
+    if (!confirm("¿Retirar la firma de Odaliz y devolver esta OP al estado pendiente? Después podrás modificar su cotización.")) return;
+    button.disabled = true;
+    try {
+      await updateControlSalesApproval(
+        button.dataset.orderCommercialRevoke,
+        "commercial",
+        "Pendiente",
+        "Firma comercial retirada para modificar la cotización y actualizar la OP."
+      );
+      refreshFinancialOrdersModule();
+    } catch (error) {
+      button.disabled = false;
+      alert(error.message || "No se pudo retirar la firma comercial.");
     }
   }));
   opportunityTable.querySelectorAll("[data-finance-order-observe]").forEach((button) => button.addEventListener("click", async () => {
