@@ -4058,7 +4058,7 @@ html:not(.training-mode) .initial-agenda-form {
   display: none !important;
 }
 
-html:not(.training-mode) .app-shell .opportunity-row > .opportunity-date-cell {
+.app-shell .opportunity-row > .opportunity-date-cell {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -4067,17 +4067,26 @@ html:not(.training-mode) .app-shell .opportunity-row > .opportunity-date-cell {
   overflow: visible !important;
 }
 
-html:not(.training-mode) .opportunity-overdue-badge {
+.opportunity-age-badge {
   display: inline-block;
   padding: 3px 8px;
-  border: 1px solid rgba(255, 121, 137, .65);
   border-radius: 999px;
-  background: rgba(157, 39, 58, .23);
-  color: #ff9ba7;
   font-size: 11px;
   font-style: normal;
   font-weight: 900;
   line-height: 1.1;
+}
+
+.opportunity-age-badge.is-active {
+  border: 1px solid rgba(92, 226, 192, .55);
+  background: rgba(22, 145, 113, .2);
+  color: #7ef0d2;
+}
+
+.opportunity-age-badge.is-overdue {
+  border: 1px solid rgba(255, 121, 137, .65);
+  background: rgba(157, 39, 58, .23);
+  color: #ff9ba7;
 }
 
 html.training-mode .opportunity-close-policy {

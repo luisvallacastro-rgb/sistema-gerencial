@@ -1438,11 +1438,45 @@ function opportunityDueDateForSave(existingId, selectedDate) {
     : selectedDate;
 }
 
-function opportunityDateCell(date, isOpen = true) {
-  if (trainingMode) return `<span>${formatDate(date)}</span>`;
-  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date || "")) ? date : "";
-  const overdue = !trainingMode && isOpen && validDate && validDate < todayISO();
-  return `<span class="opportunity-date-cell"><time datetime="${escapeHtml(validDate)}">${escapeHtml(formatDate(validDate) || "Sin fecha")}</time>${overdue ? '<em class="opportunity-overdue-badge">Vencida</em>' : ""}</span>`;
+function opportunityCreatedDate(opportunity = {}) {
+  const item = typeof opportunity === "object" && opportunity ? opportunity : { date: opportunity };
+  const crmSource = item.crmOpportunityId
+    ? crmData().opportunities.find((record) => String(record.id) === String(item.crmOpportunityId))
+    : null;
+  const firstManagementDate = [...(item.managements || [])]
+    .map((management) => String(management?.date || "").slice(0, 10))
+    .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+    .sort()[0] || "";
+  const candidates = [
+    crmSource?.createdAt,
+    item.createdAt,
+    item.startDate,
+    firstManagementDate,
+    item.date
+  ];
+  return candidates
+    .map((value) => String(value || "").slice(0, 10))
+    .find((value) => /^\d{4}-\d{2}-\d{2}$/.test(value)) || "";
+}
+
+function opportunityAgeInDays(createdDate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(createdDate || ""))) return null;
+  const [createdYear, createdMonth, createdDay] = createdDate.split("-").map(Number);
+  const [todayYear, todayMonth, todayDay] = todayISO().split("-").map(Number);
+  const elapsed = Date.UTC(todayYear, todayMonth - 1, todayDay) - Date.UTC(createdYear, createdMonth - 1, createdDay);
+  return Math.max(0, Math.floor(elapsed / 86400000));
+}
+
+function opportunityDateCell(opportunity, isOpen = true) {
+  const createdDate = opportunityCreatedDate(opportunity);
+  const ageDays = opportunityAgeInDays(createdDate);
+  const overdue = isOpen && ageDays !== null && ageDays > 30;
+  const ageLabel = ageDays === 1 ? "1 día" : `${ageDays ?? 0} días`;
+  const status = overdue ? "Vencida" : "Vigente";
+  const badge = isOpen && ageDays !== null
+    ? `<em class="opportunity-age-badge ${overdue ? "is-overdue" : "is-active"}">${status} · ${ageLabel}</em>`
+    : "";
+  return `<span class="opportunity-date-cell"><time datetime="${escapeHtml(createdDate)}">${escapeHtml(formatDate(createdDate) || "Sin fecha de creación")}</time>${badge}</span>`;
 }
 
 function padded(value) {
@@ -9340,7 +9374,7 @@ function renderCrmDashboard() {
         const canManage = canManageCrmOpportunity(opportunity);
         return `
           <div class="opportunity-row">
-            ${opportunityDateCell(opportunity.nextDate || opportunity.deadline || opportunity.startDate)}
+            ${opportunityDateCell(opportunity)}
             <strong class="company-cell"><span class="company-name">${escapeHtml(opportunity.company || "Sin empresa")}</span>${hasQuotationOnly(opportunity) ? `<span class="closure-badge quotation-only">Cotización</span>` : ""}${hasOutstandingSamples(opportunity) ? `<span class="closure-badge samples-assigned">Muestras asignadas</span>` : ""}</strong>
             <span>${escapeHtml(opportunity.owner?.name || crmOwnerName(opportunity.ownerId))}</span>
             <span>${escapeHtml(crmStageToOpportunityStage(opportunity))}</span>
@@ -12999,7 +13033,7 @@ function renderCommercialSubmenu(area) {
     <div class="opportunity-table-body">
       ${displayRows.length ? displayRows.map(({ item, result, isInherited, isHistory, isPendingOrder, isImportedHistory }) => `
         <div class="opportunity-row ${isInherited ? "inherited" : ""} ${isHistory ? "archived" : ""} ${isImportedHistory ? "imported-history" : ""}">
-          ${opportunityDateCell(item.date, !result)}
+          ${opportunityDateCell(item, !result)}
           <strong class="company-cell">
             <span class="company-name">${item.company}</span>
             <span class="company-badges">
@@ -16359,6 +16393,9 @@ opportunityForm.addEventListener("submit", async (event) => {
     const temperature = temperatureRule.temperature;
     const payload = {
       customerId: selectedCustomer?.id || "",
+      startDate: id
+        ? (crmData().opportunities.find((item) => item.id === id)?.startDate || "")
+        : todayISO(),
       company: typedCustomerName,
       product: opportunitySegment.value.trim(),
       contact: opportunityContact.value.trim(),
@@ -16430,6 +16467,7 @@ opportunityForm.addEventListener("submit", async (event) => {
   const payload = {
     ...(previousOpportunity || {}),
     id,
+    createdAt: previousOpportunity?.createdAt || new Date().toISOString(),
     date: dueDate,
     time: currentIndex >= 0 ? submenu.items[currentIndex].time || createdTime : createdTime,
     customerId: selectedCustomer?.id || "",
