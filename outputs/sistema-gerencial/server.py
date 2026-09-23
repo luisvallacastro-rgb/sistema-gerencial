@@ -6168,8 +6168,8 @@ def correct_fiaes_op_2026090029_financial_reference_once(conn):
 
 
 def purge_commercial_training_data_20260923_once(conn):
-    """Remove only the production records created during the 2026-09-23 training."""
-    marker = "maintenance.purge-commercial-training.2026-09-23.v1"
+    """Remove the production records created for the 2026-09-22/23 training."""
+    marker = "maintenance.purge-commercial-training.2026-09-23.v2"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker,)).fetchone():
         return False
 
@@ -6183,20 +6183,35 @@ def purge_commercial_training_data_20260923_once(conn):
         "quote-268ae7ad-9ddf-4a8e-9842-5fcc72d6c728",  # Q-0047 Almacenes Esme
         "quote-1b610901-debf-4393-a2cf-25135f98cb91",  # Q-0048 Credicampo
         "quote-75944922-9b3c-4569-a1c6-6c56ca663f2f",  # Q-0049 POCOYO
+        "quote-6a68f7a8-35f2-4750-b7e0-549de773d61c",  # Q-0039 Carlos Lobato PRUEBA
     }
     opportunity_ids = {
         "opp-1790169758922", "opp-1790169789044", "opp-1790169982156",
         "opp-1790169991571", "opp-1790170012647", "opp-1790170015063",
         "opp-1790170074444", "opp-1790170083550", "opp-1790170111596",
         "opp-1790170112460",
+        "opp-1790112934249",
     }
-    result_opportunity_id = "result-opp-1790169982156-quote-e6c25750-0f68-4e38-8a70-406d0c7bec9a"
-    order_id = "cv-5a383902-96b5-4b88-a3ea-eb85720899f3"
-    financial_order_id = "731c9529-ddf5-4d94-9646-f6e8def60350"
-    customer_id = "customer-1790175568129"
+    result_opportunity_ids = {
+        "result-opp-1790169982156-quote-e6c25750-0f68-4e38-8a70-406d0c7bec9a",
+        "result-opp-1790112934249-quote-6a68f7a8-35f2-4750-b7e0-549de773d61c",
+    }
+    order_ids = {
+        "cv-5a383902-96b5-4b88-a3ea-eb85720899f3",
+        "cv-62290d5b-d828-43dd-9ccd-fc7886d3aef9",
+    }
+    financial_order_ids = {
+        "731c9529-ddf5-4d94-9646-f6e8def60350",
+        "705462e0-dba5-4f89-8be2-b707a81fc07b",
+    }
+    customer_ids = {
+        "customer-1790175568129",
+        "customer-1790114477819",
+    }
     customer_request_ids = {
         "customer-request-1790175106393",
         "customer-request-1790175316027",
+        "customer-request-1790114321540",
     }
     agenda_ids = {
         "ab64d93c-3d75-4e3a-a419-739cfeb23111",
@@ -6212,14 +6227,17 @@ def purge_commercial_training_data_20260923_once(conn):
         SELECT id, quotation_number, client, created_at
         FROM quotations
         WHERE id IN ({quote_placeholders})
-          AND (substr(created_at, 1, 10) <> '2026-09-23'
-               OR quotation_number NOT BETWEEN 'Q-0041' AND 'Q-0049')
+          AND (substr(created_at, 1, 10) NOT IN ('2026-09-22', '2026-09-23')
+               OR quotation_number NOT IN (
+                   'Q-0039', 'Q-0041', 'Q-0042', 'Q-0043', 'Q-0044',
+                   'Q-0045', 'Q-0046', 'Q-0047', 'Q-0048', 'Q-0049'
+               ))
     """, tuple(quotation_ids)).fetchall()
     if unexpected_quotes:
         raise RuntimeError("Limpieza de capacitación detenida: cambió la identidad de una cotización")
     training_order = conn.execute(
         "SELECT order_number, client, created_at FROM control_sales_orders WHERE id = ?",
-        (order_id,),
+        ("cv-5a383902-96b5-4b88-a3ea-eb85720899f3",),
     ).fetchone()
     if training_order and not (
         text(training_order["order_number"]) == "2026090033"
@@ -6227,18 +6245,30 @@ def purge_commercial_training_data_20260923_once(conn):
         and text(training_order["created_at"]).startswith("2026-09-23")
     ):
         raise RuntimeError("Limpieza de capacitación detenida: la OP de POCOYO no coincide")
+    carlos_order = conn.execute(
+        "SELECT order_number, client, created_at FROM control_sales_orders WHERE id = ?",
+        ("cv-62290d5b-d828-43dd-9ccd-fc7886d3aef9",),
+    ).fetchone()
+    if carlos_order and not (
+        text(carlos_order["order_number"]) == "2026090032"
+        and text(carlos_order["client"]) == "C E PROF CARLOS LOBATO PRUEBA"
+        and text(carlos_order["created_at"]).startswith("2026-09-22")
+    ):
+        raise RuntimeError("Limpieza de capacitación detenida: la OP de Carlos Lobato no coincide")
 
     production_summary = remove_production_schedule_links(
         conn,
-        order_ids=[order_id],
-        order_numbers=["2026090033", "OP-2026090033"],
-        opportunity_ids=opportunity_ids | {result_opportunity_id},
+        order_ids=order_ids,
+        order_numbers=["2026090032", "OP-2026090032", "2026090033", "OP-2026090033"],
+        opportunity_ids=opportunity_ids | result_opportunity_ids,
         quotation_ids=quotation_ids,
     )
-    conn.execute("DELETE FROM control_sales_audit WHERE order_id = ?", (order_id,))
-    conn.execute("DELETE FROM control_sales_details WHERE order_id = ?", (order_id,))
-    conn.execute("DELETE FROM control_sales_orders WHERE id = ?", (order_id,))
-    conn.execute("DELETE FROM financial_orders WHERE id = ?", (financial_order_id,))
+    order_placeholders = ",".join("?" for _ in order_ids)
+    financial_placeholders = ",".join("?" for _ in financial_order_ids)
+    conn.execute(f"DELETE FROM control_sales_audit WHERE order_id IN ({order_placeholders})", tuple(order_ids))
+    conn.execute(f"DELETE FROM control_sales_details WHERE order_id IN ({order_placeholders})", tuple(order_ids))
+    conn.execute(f"DELETE FROM control_sales_orders WHERE id IN ({order_placeholders})", tuple(order_ids))
+    conn.execute(f"DELETE FROM financial_orders WHERE id IN ({financial_placeholders})", tuple(financial_order_ids))
     conn.execute(f"DELETE FROM quotations WHERE id IN ({quote_placeholders})", tuple(quotation_ids))
 
     # Restore the pre-training authorization state of the existing SHRIMP STATION
@@ -6283,7 +6313,7 @@ def purge_commercial_training_data_20260923_once(conn):
     ]
     crm["customers"] = [
         item for item in crm.get("customers", [])
-        if text(item.get("id")) != customer_id
+        if text(item.get("id")) not in customer_ids
     ]
     crm["customerRequests"] = [
         item for item in crm.get("customerRequests", [])
@@ -6299,7 +6329,7 @@ def purge_commercial_training_data_20260923_once(conn):
     ]
     crm["resultWins"] = [
         item for item in crm.get("resultWins", [])
-        if text(item.get("id")) != result_opportunity_id
+        if text(item.get("id")) not in result_opportunity_ids
         and text(item.get("crmOpportunityId")) not in opportunity_ids
     ]
     for item in crm.get("opportunities", []):
@@ -6312,7 +6342,7 @@ def purge_commercial_training_data_20260923_once(conn):
 
     result_rows = [
         item for item in read_result_opportunities(conn)
-        if text(item.get("id")) != result_opportunity_id
+        if text(item.get("id")) not in result_opportunity_ids
         and text(item.get("crmOpportunityId")) not in opportunity_ids
     ]
     for item in result_rows:
@@ -6369,9 +6399,9 @@ def purge_commercial_training_data_20260923_once(conn):
         "date": "2026-09-23",
         "opportunities": len(opportunity_ids),
         "quotations": len(quotation_ids),
-        "orders": 1,
-        "financialOrders": 1,
-        "customers": 1,
+        "orders": len(order_ids),
+        "financialOrders": len(financial_order_ids),
+        "customers": len(customer_ids),
         "customerRequests": len(customer_request_ids),
         "agendaActivities": len(agenda_ids),
         "restoredOrder": "2026090012",
