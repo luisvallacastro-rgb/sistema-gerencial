@@ -4628,7 +4628,7 @@ function ensureQuotationDialog() {
       <div class="quotation-totals-comparison"><article class="quotation-reference"><span>Monto original de la oportunidad</span><strong id="quotationReference" data-reference-cents="0">$0.00</strong></article><article class="quotation-variation" id="quotationVariationCard" data-variation="neutral"><span id="quotationVariationLabel">Saldo pendiente por cotizar</span><strong id="quotationVariation">$0.00</strong><small>Calculado contra el total acumulado de las líneas</small></article></div>
       <div class="quotation-totals-breakdown"><article id="quotationSubtotalCard" class="hidden"><span>Subtotal</span><strong id="quotationSubtotal">$0.00</strong></article><article id="quotationVatCard" class="hidden"><span>IVA 13%</span><strong id="quotationVat">$0.00</strong></article><article class="quotation-grand-total"><span>Total cotización · nuevo valor oportunidad</span><strong id="quotationTotal">$0.00</strong></article></div>
     </section>
-    <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Selecciona pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required>${commercialPaymentTermOptions()}</select></label><label class="quotation-field-editable">Tiempo de entrega<select id="quotationDeliveryTerms" required><option>30 días hábiles posterior a la orden de compra</option><option>60 días hábiles posterior a la orden de compra</option><option>90 días hábiles posterior a la orden de compra</option></select></label><label class="span-2 quotation-field-editable"><span>Observación impresa <em>Se heredará en la orden de pedido</em></span><textarea id="quotationPrintObservation" rows="2" placeholder="Escribe la observación que aparecerá en la cotización y en la orden"></textarea></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2" readonly></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
+    <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Define pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required>${commercialPaymentTermOptions()}</select></label><label class="quotation-field-editable">Fecha o condición de entrega<input id="quotationDeliveryTerms" type="text" maxlength="180" required placeholder="Escribe la fecha o condición que se imprimirá en la OP"></label><label class="span-2 quotation-field-editable"><span>Observación impresa <em>Se heredará en la orden de pedido</em></span><textarea id="quotationPrintObservation" rows="2" placeholder="Escribe la observación que aparecerá en la cotización y en la orden"></textarea></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2" readonly></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
     <footer><button type="button" class="quotation-crud-action quotation-delete-action hidden" data-quotation-delete>Eliminar</button><button type="button" class="quotation-crud-action quotation-print-action" data-quotation-preview aria-label="Vista previa e imprimir" title="Vista previa e imprimir">🖨️</button><button type="button" class="quotation-crud-action quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="quotation-crud-action primary-btn">Guardar cotización</button><button type="button" class="quotation-crud-action quotation-new-action" data-quotation-new>Nuevo</button></footer>
@@ -4871,7 +4871,7 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
   const values = {
     quotationId:quote?.id || "", quotationNumber:quote?.number || "", quotationDate:quote?.date || todayISO(), quotationValidDays:quote?.validDays || 30, quotationStatus:quote?.status || "Borrador",
     quotationCommercialName:customer.commercialName || customer.name || quote?.client || opportunity?.company || "", quotationLegalName:customer.legalName || "", quotationContactName:customer.contactName || customer.manager || opportunity?.contact || "", quotationPhone:customer.phone || opportunity?.phone || "", quotationEmail:customer.email || "", quotationAddress:customer.address || opportunity?.location || "", quotationBusinessActivity:customer.businessActivity || customer.businessLine || opportunity?.segment || "", quotationTaxId:customer.taxId || customer.nit || "", quotationRegistrationNumber:customer.registrationNumber || customer.nrc || "", quotationTaxpayerType:customer.taxpayerType || "", quotationCustomerCode:customer.customerCode || customer.code || "", quotationStrategy:customer.strategy || opportunity?.strategy || "", quotationSeller:assignedSeller, quotationSellerPhone:sellerContact.phone, quotationSellerEmail:sellerContact.email,
-    quotationClientType:customer.clientType || "", quotationDepartment:customer.department || "", quotationMunicipality:customer.municipality || "", quotationDocumentType:["CF","CCF","CE"].includes(quote?.documentType || customer.documentType) ? (quote?.documentType || customer.documentType) : "CF", quotationPrintObservation:quote?.printObservation || customer.printObservation || "", quotationPaymentTerms:quote?.paymentTerms || customer.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "30 días hábiles posterior a la orden de compra", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:(quote?.documentType || customer.documentType) === "CCF" ? "Precios unitarios no incluyen IVA" : "Los precios unitarios ya incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
+    quotationClientType:customer.clientType || "", quotationDepartment:customer.department || "", quotationMunicipality:customer.municipality || "", quotationDocumentType:["CF","CCF","CE"].includes(quote?.documentType || customer.documentType) ? (quote?.documentType || customer.documentType) : "CF", quotationPrintObservation:quote?.printObservation || customer.printObservation || "", quotationPaymentTerms:quote?.paymentTerms || customer.paymentTerms || "50% anticipo, 50% previo a la entrega del pedido", quotationDeliveryTerms:quote?.deliveryTerms || "", quotationWarrantyNote:quote?.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", quotationCommercialNotes:(quote?.documentType || customer.documentType) === "CCF" ? "Precios unitarios no incluyen IVA" : "Los precios unitarios ya incluyen IVA", quotationSpecialSizesNote:quote?.specialSizesNote || "Tallas especiales arriba de XXL tienen costo adicional"
   };
   if (normalizeKey(values.quotationSeller) === "amadeo alfaro") {
     values.quotationSellerEmail = "arteycolor.bordados@gmail.com";
@@ -5606,6 +5606,8 @@ function orderWithCurrentQuotationData(order = {}) {
     ? preserveManualBreakdown ? Number(order.vatTotalCents ?? detailVatCents) : Number(quotation.vatCents ?? Math.round(subtotalCents * 0.13))
     : 0;
   const totalCents = preserveManualBreakdown ? Number(order.totalCents ?? subtotalCents + vatTotalCents) : Number(quotation.totalCents ?? subtotalCents + vatTotalCents);
+  const confirmedDelivery = String(order.proformaData?.deliveryDate || "").trim();
+  const quotationDelivery = String(quotation.deliveryTerms || quotation.customerData?.deliveryDate || "").trim();
   return {
     ...order,
     client: quotation.client || order.client || "",
@@ -5619,6 +5621,9 @@ function orderWithCurrentQuotationData(order = {}) {
     proformaData: {
       ...(order.proformaData || {}),
       ...(quotation.customerData || {}),
+      // La entrega confirmada al convertir pertenece a la OP. No debe ser
+      // reemplazada por la condición anterior que conserve la cotización.
+      deliveryDate: confirmedDelivery || quotationDelivery,
       detailSource: preserveManualBreakdown ? "manual-breakdown" : "quotation",
       paymentTerms: quotation.paymentTerms || order.proformaData?.paymentTerms || "",
       generalNotes: quotation.printObservation || quotation.customerData?.printObservation || quotation.commercialNotes || "",
@@ -5761,10 +5766,6 @@ function printControlSalesProforma(order, options = {}) {
   const popup = window.open("", "_blank", "width=980,height=900");
   if (!popup) {
     alert("El navegador bloqueó la ventana de impresión. Habilita las ventanas emergentes e inténtalo nuevamente.");
-    return;
-  }
-  if (options.strictDraft) {
-    openControlSalesDeliveryPrintPrompt(order, popup);
     return;
   }
   loadControlSalesOrderPrint(order, popup);
@@ -10699,7 +10700,7 @@ function masterCustomerQuotationData(customer, quotation = {}) {
   };
 }
 
-async function bindMasterCustomerForOrder(opportunity, quotation, customer) {
+async function bindMasterCustomerForOrder(opportunity, quotation, customer, confirmedDelivery = "") {
   const officialName = customer.commercialName || customer.legalName;
   const opportunityPatch = {
     customerId: customer.id,
@@ -10724,8 +10725,19 @@ async function bindMasterCustomerForOrder(opportunity, quotation, customer) {
   }
   Object.assign(opportunity, opportunityPatch);
 
-  const customerData = masterCustomerQuotationData(customer, quotation);
-  const quotePatch = { ...quotation, customerId:customer.id, client:officialName, customerData, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+  const deliveryDate = String(confirmedDelivery || quotation.deliveryTerms || quotation.customerData?.deliveryDate || "").trim();
+  const customerData = {
+    ...masterCustomerQuotationData(customer, quotation),
+    ...(deliveryDate ? { deliveryDate } : {})
+  };
+  const quotePatch = {
+    ...quotation,
+    customerId:customer.id,
+    client:officialName,
+    customerData,
+    ...(deliveryDate ? { deliveryTerms:deliveryDate } : {}),
+    updatedBy:state.currentUser?.name || "Sistema Gerencial"
+  };
   let savedQuotation = quotePatch;
   if (apiEnabled) {
     const response = await apiJson(`/api/quotations/${encodeURIComponent(quotation.id)}`, { method:"PUT", body:JSON.stringify(quotePatch) });
@@ -10748,11 +10760,6 @@ function ensureOrderCustomerDialog() {
   dialog.innerHTML = `<section class="direct-order-customer-card">
     <header><div><span>REQUISITO PARA ORDEN DE PEDIDO</span><h3>Validar cliente registrado</h3><p>Revisa el catálogo y selecciona personalmente el cliente real que heredará la orden de pedido.</p></div><button type="button" data-order-customer-close aria-label="Cerrar">×</button></header>
     <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-order-customer-search placeholder="Buscar nombre, razón social, NIT o contacto..."><button type="button" data-order-customer-toggle aria-label="Mostrar clientes">⌄</button></label></div>
-    <section class="order-conversion-delivery">
-      <label for="orderConversionDelivery"><span>Fecha o condición de entrega</span><input id="orderConversionDelivery" data-order-conversion-delivery type="text" maxlength="180" required autocomplete="off" placeholder="Ej. 30 días hábiles después de la orden de compra"></label>
-      <small>Confirma o modifica este dato antes de seleccionar el cliente. Quedará guardado y se imprimirá en la orden de pedido.</small>
-      <p data-order-conversion-delivery-error hidden>Debes indicar la fecha o condición de entrega antes de convertir la cotización.</p>
-    </section>
     <div class="direct-order-customer-list" data-order-customer-list></div>
   </section>`;
   document.body.appendChild(dialog);
@@ -10760,29 +10767,22 @@ function ensureOrderCustomerDialog() {
   dialog.querySelector("[data-order-customer-close]").addEventListener("click", close);
   dialog.querySelector("[data-order-customer-search]").addEventListener("input", (event) => renderOrderRequirementCustomers(event.target.value));
   dialog.querySelector("[data-order-customer-toggle]").addEventListener("click", () => renderOrderRequirementCustomers(dialog.querySelector("[data-order-customer-search]").value));
-  dialog.querySelector("[data-order-conversion-delivery]").addEventListener("input", (event) => {
-    if (String(event.target.value || "").trim()) dialog.querySelector("[data-order-conversion-delivery-error]").hidden = true;
-  });
   dialog.querySelector("[data-order-customer-list]").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-order-required-customer]");
     if (!button || !dialog.pendingConversion) return;
     const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.orderRequiredCustomer));
     if (!customer) return;
     if (!customerHasAssignedId(customer)) return alert("Este prospecto todavía no tiene ID de cliente asignado y no puede convertirse en OP.");
-    const deliveryInput = dialog.querySelector("[data-order-conversion-delivery]");
-    const deliveryError = dialog.querySelector("[data-order-conversion-delivery-error]");
-    const deliveryDate = String(deliveryInput?.value || "").trim();
+    const deliveryDate = String(dialog.pendingConversion.quotation?.deliveryTerms || dialog.pendingConversion.quotation?.customerData?.deliveryDate || "").trim();
     if (!deliveryDate) {
-      if (deliveryError) deliveryError.hidden = false;
-      deliveryInput?.focus();
+      alert("La cotización no tiene fecha o condición de entrega. Edítala antes de convertirla en OP.");
       return;
     }
-    if (deliveryError) deliveryError.hidden = true;
     button.disabled = true;
     button.querySelector("b").textContent = "Vinculando…";
     try {
       const pending = dialog.pendingConversion;
-      const synced = await bindMasterCustomerForOrder(pending.opportunity, pending.quotation, customer);
+      const synced = await bindMasterCustomerForOrder(pending.opportunity, pending.quotation, customer, deliveryDate);
       const quotationWithDelivery = {
         ...synced.quotation,
         deliveryTerms: deliveryDate,
@@ -10810,20 +10810,28 @@ function renderOrderRequirementCustomers(search = "") {
 }
 
 async function prepareQuotationOrderConversion(opportunity, quotation, onReady) {
+  const deliveryDate = String(quotation?.deliveryTerms || quotation?.customerData?.deliveryDate || "").trim();
+  if (!deliveryDate) {
+    throw new Error("La cotización no tiene fecha o condición de entrega. Edítala antes de convertirla en OP.");
+  }
+  const linkedCustomerIds = [quotation?.customerId, quotation?.customerData?.customerId, opportunity?.customerId]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  const linkedCustomer = crmMasterCustomers(true).find((customer) => (
+    linkedCustomerIds.includes(String(customer.id || "")) && customerHasAssignedId(customer)
+  ));
+  if (linkedCustomer) {
+    const synced = await bindMasterCustomerForOrder(opportunity, quotation, linkedCustomer, deliveryDate);
+    onReady(synced.opportunity, synced.quotation, linkedCustomer);
+    return;
+  }
   const dialog = ensureOrderCustomerDialog();
   dialog.pendingConversion = { opportunity, quotation, onReady };
   const search = dialog.querySelector("[data-order-customer-search]");
-  const deliveryInput = dialog.querySelector("[data-order-conversion-delivery]");
-  const deliveryError = dialog.querySelector("[data-order-conversion-delivery-error]");
   search.value = "";
-  deliveryInput.value = String(quotation?.deliveryTerms || quotation?.customerData?.deliveryDate || "30 días hábiles posterior a la orden de compra").trim();
-  if (deliveryError) deliveryError.hidden = true;
   renderOrderRequirementCustomers("");
   dialog.showModal();
-  requestAnimationFrame(() => {
-    deliveryInput.focus();
-    deliveryInput.select();
-  });
+  requestAnimationFrame(() => search.focus());
 }
 
 function renderCrmCustomerViewTabs(active = "master") {

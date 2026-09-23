@@ -39,6 +39,15 @@ CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
 API_VERSION = "kmi-customer-advances-v35"
+TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
+TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
+TRAINING_SESSION_SECONDS = 8 * 60 * 60
+TRAINING_COOKIE_NAME = "konfi_training_access"
+TRAINING_FINANCIAL_API_PREFIXES = (
+    "/api/bank-availability", "/api/pending-expenses", "/api/pending-checks",
+    "/api/financial-income", "/api/accounts-receivable", "/api/purchase-orders",
+    "/api/customer-advances/allocate",
+)
 CRM_DATA_LOCK = threading.RLock()
 BACKUP_LOCK = threading.Lock()
 ADMIN_EMAIL = "luisvallacastro@gmail.com"
@@ -6158,6 +6167,226 @@ def correct_fiaes_op_2026090029_financial_reference_once(conn):
     return True
 
 
+def purge_commercial_training_data_20260923_once(conn):
+    """Remove only the production records created during the 2026-09-23 training."""
+    marker = "maintenance.purge-commercial-training.2026-09-23.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker,)).fetchone():
+        return False
+
+    quotation_ids = {
+        "quote-d061f7ca-2535-4759-b223-b7e1742aab85",  # Q-0041 PRUEBA ALMACENES PRIME
+        "quote-2e74521a-138a-4558-b60b-41a20f1330a0",  # Q-0042 Sherwin Williams PRUEBA
+        "quote-13a2e51d-700e-41ec-9fbc-17f21ec3b354",  # Q-0043 Juna Perez Prueba
+        "quote-e6c25750-0f68-4e38-8a70-406d0c7bec9a",  # Q-0044 POCOYO
+        "quote-64510c1c-d7a7-498e-b9ce-ff54ea9964a9",  # Q-0045 Colegio Garcia Flamenco
+        "quote-acedc511-8c5e-4b16-99a2-cc22aed675e2",  # Q-0046 IMPRESORA LA UNION
+        "quote-268ae7ad-9ddf-4a8e-9842-5fcc72d6c728",  # Q-0047 Almacenes Esme
+        "quote-1b610901-debf-4393-a2cf-25135f98cb91",  # Q-0048 Credicampo
+        "quote-75944922-9b3c-4569-a1c6-6c56ca663f2f",  # Q-0049 POCOYO
+    }
+    opportunity_ids = {
+        "opp-1790169758922", "opp-1790169789044", "opp-1790169982156",
+        "opp-1790169991571", "opp-1790170012647", "opp-1790170015063",
+        "opp-1790170074444", "opp-1790170083550", "opp-1790170111596",
+        "opp-1790170112460",
+    }
+    result_opportunity_id = "result-opp-1790169982156-quote-e6c25750-0f68-4e38-8a70-406d0c7bec9a"
+    order_id = "cv-5a383902-96b5-4b88-a3ea-eb85720899f3"
+    financial_order_id = "731c9529-ddf5-4d94-9646-f6e8def60350"
+    customer_id = "customer-1790175568129"
+    customer_request_ids = {
+        "customer-request-1790175106393",
+        "customer-request-1790175316027",
+    }
+    agenda_ids = {
+        "ab64d93c-3d75-4e3a-a419-739cfeb23111",
+        "6bca34b1-a9f6-427a-b9de-a61b6ef85988",
+        "5b518eb7-72db-4d90-8c19-afdc8a466404",
+        "5b18441b-95fe-4783-b22e-4274988b94b3",
+    }
+
+    # The identifiers were captured from the verified post-training backup.
+    # Refuse to touch an ID if it no longer describes the expected training row.
+    quote_placeholders = ",".join("?" for _ in quotation_ids)
+    unexpected_quotes = conn.execute(f"""
+        SELECT id, quotation_number, client, created_at
+        FROM quotations
+        WHERE id IN ({quote_placeholders})
+          AND (substr(created_at, 1, 10) <> '2026-09-23'
+               OR quotation_number NOT BETWEEN 'Q-0041' AND 'Q-0049')
+    """, tuple(quotation_ids)).fetchall()
+    if unexpected_quotes:
+        raise RuntimeError("Limpieza de capacitación detenida: cambió la identidad de una cotización")
+    training_order = conn.execute(
+        "SELECT order_number, client, created_at FROM control_sales_orders WHERE id = ?",
+        (order_id,),
+    ).fetchone()
+    if training_order and not (
+        text(training_order["order_number"]) == "2026090033"
+        and text(training_order["client"]) == "POCOYO"
+        and text(training_order["created_at"]).startswith("2026-09-23")
+    ):
+        raise RuntimeError("Limpieza de capacitación detenida: la OP de POCOYO no coincide")
+
+    production_summary = remove_production_schedule_links(
+        conn,
+        order_ids=[order_id],
+        order_numbers=["2026090033", "OP-2026090033"],
+        opportunity_ids=opportunity_ids | {result_opportunity_id},
+        quotation_ids=quotation_ids,
+    )
+    conn.execute("DELETE FROM control_sales_audit WHERE order_id = ?", (order_id,))
+    conn.execute("DELETE FROM control_sales_details WHERE order_id = ?", (order_id,))
+    conn.execute("DELETE FROM control_sales_orders WHERE id = ?", (order_id,))
+    conn.execute("DELETE FROM financial_orders WHERE id = ?", (financial_order_id,))
+    conn.execute(f"DELETE FROM quotations WHERE id IN ({quote_placeholders})", tuple(quotation_ids))
+
+    # Restore the pre-training authorization state of the existing SHRIMP STATION
+    # order. Training only changed approvals and timestamps; its commercial data
+    # and amounts remain untouched.
+    restored_order_id = "cv-2e9858df-44b6-4019-a3eb-9ed2b73c2561"
+    restored_quote_id = "quote-8893e952-7350-4918-8b5a-cfb02ae7b955"
+    conn.execute("""
+        UPDATE control_sales_orders
+        SET updated_by = 'Odaliz Valencia', updated_at = '2026-09-11T18:12:54Z',
+            commercial_approval_status = 'Autorizada',
+            commercial_approved_by = 'Odaliz Valencia',
+            commercial_approved_at = '2026-09-11T18:12:54Z',
+            finance_approval_status = 'Aprobada',
+            finance_approved_by = 'Edgar Menjivar',
+            finance_approved_at = '2026-09-10T14:48:45Z'
+        WHERE id = ? AND order_number = '2026090012'
+    """, (restored_order_id,))
+    conn.execute(
+        "UPDATE control_sales_details SET updated_at = '2026-09-10T14:03:05' WHERE order_id = ?",
+        (restored_order_id,),
+    )
+    conn.execute("""
+        DELETE FROM control_sales_audit
+        WHERE order_id = ? AND action = 'edicion' AND user_name = 'Erick Orantes'
+          AND substr(created_at, 1, 10) = '2026-09-23'
+    """, (restored_order_id,))
+    conn.execute("""
+        UPDATE quotations
+        SET converted_at = '2026-09-10T14:03:05', updated_at = '2026-09-10T14:03:05'
+        WHERE id = ? AND quotation_number = 'Q-0012'
+    """, (restored_quote_id,))
+    conn.execute("""
+        UPDATE financial_orders SET updated_at = '2026-09-11T13:25:43'
+        WHERE id = '2b1d0e40-1343-457c-9ad0-0ff26d569395'
+    """)
+
+    crm = read_crm_data(conn)
+    crm["opportunities"] = [
+        item for item in crm.get("opportunities", [])
+        if text(item.get("id")) not in opportunity_ids
+    ]
+    crm["customers"] = [
+        item for item in crm.get("customers", [])
+        if text(item.get("id")) != customer_id
+    ]
+    crm["customerRequests"] = [
+        item for item in crm.get("customerRequests", [])
+        if text(item.get("id")) not in customer_request_ids
+    ]
+    crm["agenda"] = [
+        item for item in crm.get("agenda", [])
+        if text(item.get("opportunityId")) not in opportunity_ids
+    ]
+    crm["gestiones"] = [
+        item for item in crm.get("gestiones", [])
+        if text(item.get("opportunityId")) not in opportunity_ids
+    ]
+    crm["resultWins"] = [
+        item for item in crm.get("resultWins", [])
+        if text(item.get("id")) != result_opportunity_id
+        and text(item.get("crmOpportunityId")) not in opportunity_ids
+    ]
+    for item in crm.get("opportunities", []):
+        if text(item.get("id")) == "opp-1788355035803":
+            item["quotationAmountUpdatedAt"] = "2026-09-10T14:03:05Z"
+    for item in crm.get("resultWins", []):
+        if text(item.get("id")) == "result-opp-1788355035803-quote-8893e952-7350-4918-8b5a-cfb02ae7b955":
+            item["createdAt"] = "2026-09-10T14:03:05"
+    write_crm_data(conn, crm)
+
+    result_rows = [
+        item for item in read_result_opportunities(conn)
+        if text(item.get("id")) != result_opportunity_id
+        and text(item.get("crmOpportunityId")) not in opportunity_ids
+    ]
+    for item in result_rows:
+        if text(item.get("id")) != "result-opp-1788355035803-quote-8893e952-7350-4918-8b5a-cfb02ae7b955":
+            continue
+        if isinstance(item.get("orderHandoff"), dict):
+            item["orderHandoff"]["convertedAt"] = "2026-09-10T14:03:05"
+        if isinstance(item.get("quotationData"), dict):
+            item["quotationData"]["convertedAt"] = "2026-09-10T14:03:05"
+            item["quotationData"]["updatedAt"] = "2026-09-10T14:03:05"
+        if isinstance(item.get("trackingWin"), dict):
+            item["trackingWin"]["createdAt"] = "2026-09-10T14:03:05"
+    write_result_opportunities(conn, result_rows)
+
+    agenda_row = conn.execute("SELECT value FROM app_state WHERE key = 'commercial_agenda'").fetchone()
+    if agenda_row:
+        try:
+            commercial_agenda = json.loads(agenda_row["value"] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            commercial_agenda = []
+        commercial_agenda = [
+            item for item in commercial_agenda
+            if text(item.get("id")) not in agenda_ids
+        ]
+        conn.execute(
+            "UPDATE app_state SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = 'commercial_agenda'",
+            (json.dumps(commercial_agenda, ensure_ascii=False),),
+        )
+
+    requests_row = conn.execute("SELECT value FROM app_state WHERE key = 'management_requests'").fetchone()
+    if requests_row:
+        try:
+            requests = json.loads(requests_row["value"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            requests = {}
+        original_statuses = {
+            "f061e608-a650-4786-b5b4-a9c954ba07a7-comercializacion": "Atendida",
+            "d6103791-fabf-4733-ab69-5c83070e116c": "Atendida",
+            "3e8607c1-a20e-497a-8e55-ce21d3422a96": "En revision",
+        }
+        for items in requests.values():
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                item_id = text(item.get("id"))
+                if item_id in original_statuses:
+                    item["status"] = original_statuses[item_id]
+        conn.execute(
+            "UPDATE app_state SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = 'management_requests'",
+            (json.dumps(requests, ensure_ascii=False),),
+        )
+
+    summary = {
+        "date": "2026-09-23",
+        "opportunities": len(opportunity_ids),
+        "quotations": len(quotation_ids),
+        "orders": 1,
+        "financialOrders": 1,
+        "customers": 1,
+        "customerRequests": len(customer_request_ids),
+        "agendaActivities": len(agenda_ids),
+        "restoredOrder": "2026090012",
+        "production": production_summary,
+        "backup": "sistema-gerencial_2026-09-23_10-55-06.zip",
+        "executedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker, json.dumps(summary, ensure_ascii=True)),
+    )
+    print(f"Limpieza de capacitación 2026-09-23 completada: {summary}")
+    return True
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -6711,6 +6940,7 @@ def init_db():
         restore_asa_quotation_0296_once(conn)
         revert_fiaes_quotation_q0033_from_op_2026090028_once(conn)
         correct_fiaes_op_2026090029_financial_reference_once(conn)
+        purge_commercial_training_data_20260923_once(conn)
         removed_duplicate_quotations = deduplicate_identical_quotations(conn)
         if removed_duplicate_quotations:
             print(f"Cotizaciones duplicadas eliminadas: {len(removed_duplicate_quotations)}")
@@ -6734,6 +6964,91 @@ def init_db():
 
 
 class AppHandler(BaseHTTPRequestHandler):
+    def training_access_token(self, issued_at):
+        signature = hmac.new(
+            TRAINING_ACCESS_PASSWORD.encode("utf-8"),
+            f"training-session:{issued_at}".encode("ascii"),
+            hashlib.sha256,
+        ).hexdigest()
+        return f"{issued_at}.{signature}"
+
+    def has_training_access(self):
+        for cookie in self.headers.get("Cookie", "").split(";"):
+            name, separator, value = cookie.strip().partition("=")
+            if not separator or name != TRAINING_COOKIE_NAME:
+                continue
+            issued, separator, _signature = value.partition(".")
+            if not separator or not issued.isdigit():
+                return False
+            issued_at = int(issued)
+            age = int(time.time()) - issued_at
+            return 0 <= age <= TRAINING_SESSION_SECONDS and hmac.compare_digest(
+                value, self.training_access_token(issued_at)
+            )
+        return False
+
+    def send_training_access_form(self, invalid=False):
+        error = '<p class="error" role="alert">Clave incorrecta. Inténtalo de nuevo.</p>' if invalid else ""
+        page = f'''<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Acceso · Capacitación KONFI</title><style>
+*{{box-sizing:border-box}}body{{min-height:100vh;margin:0;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#13233e,#133d46);color:#f4f8ff;font:16px system-ui,sans-serif}}
+main{{width:min(440px,100%);padding:32px;border:1px solid #52758a;border-radius:22px;background:#1d3452;box-shadow:0 24px 70px #07142499}}
+small{{color:#9cf1df;font-weight:900;letter-spacing:.12em;text-transform:uppercase}}h1{{margin:10px 0 8px;font-size:30px}}p{{color:#b9ccdc;line-height:1.45}}
+label{{display:grid;gap:9px;margin:25px 0 14px;font-weight:800}}input{{width:100%;min-height:50px;padding:12px 14px;border:1px solid #63829b;border-radius:11px;background:#2c4866;color:white;font:inherit}}
+button{{width:100%;min-height:50px;border:0;border-radius:11px;background:#168e75;color:white;font:900 16px system-ui,sans-serif;cursor:pointer}}
+.error{{padding:10px 12px;border:1px solid #d98089;border-radius:10px;background:#63313b;color:#ffdae0}}
+footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
+</style></head><body><main><small>KONFI · Datos de prueba</small><h1>Acceso a capacitación</h1><p>Ingresa la clave de esta capacitación. Después podrás iniciar sesión con tu usuario de prueba.</p>{error}
+<form method="post" action="/training-access"><label for="training-password">Clave de acceso<input id="training-password" name="password" type="password" autocomplete="off" required autofocus></label><button type="submit">Entrar a capacitación</button></form>
+<footer>Entorno separado de producción · Solo red de oficina</footer></main></body></html>'''.encode("utf-8")
+        self.send_response(403 if invalid else 200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(page)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Frame-Options", "DENY")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(page)
+
+    def handle_training_access_post(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            length = 0
+        if length < 1 or length > 4096:
+            self.send_error(413)
+            return
+        try:
+            form = parse_qs(self.rfile.read(length).decode("utf-8"), keep_blank_values=True)
+        except UnicodeDecodeError:
+            self.send_training_access_form(invalid=True)
+            return
+        supplied = form.get("password", [""])[0]
+        if not hmac.compare_digest(supplied, TRAINING_ACCESS_PASSWORD):
+            self.send_training_access_form(invalid=True)
+            return
+        issued_at = int(time.time())
+        self.send_response(303)
+        self.send_header("Location", "/")
+        self.send_header("Set-Cookie", f"{TRAINING_COOKIE_NAME}={self.training_access_token(issued_at)}; Path=/; HttpOnly; SameSite=Strict; Max-Age={TRAINING_SESSION_SECONDS}")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def require_training_access(self):
+        if not TRAINING_ACCESS_PASSWORD:
+            return True
+        if self.has_training_access():
+            return True
+        if self.path.startswith("/api/"):
+            self.send_json({"error": "Acceso a capacitación requerido"}, status=401)
+            return False
+        self.send_response(303)
+        self.send_header("Location", "/training-access")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return False
+
     def send_system_backup(self):
         secret = os.environ.get("SYSTEM_BACKUP_TOKEN", "")
         if len(secret) < 32:
@@ -6797,6 +7112,9 @@ class AppHandler(BaseHTTPRequestHandler):
             BACKUP_LOCK.release()
 
     def require_permission(self, permission):
+        if TRAINING_MODE and permission.startswith("financiera:"):
+            self.send_json({"error": "Financiera no está disponible en capacitación"}, status=403)
+            return False
         actor_id = text(self.headers.get("X-System-User-Id"))
         with connect() as conn:
             row = conn.execute(
@@ -6813,6 +7131,9 @@ class AppHandler(BaseHTTPRequestHandler):
         return False
 
     def require_any_permission(self, *permissions):
+        if TRAINING_MODE and all(permission.startswith("financiera:") for permission in permissions):
+            self.send_json({"error": "Financiera no está disponible en capacitación"}, status=403)
+            return False
         actor_id = text(self.headers.get("X-System-User-Id"))
         with connect() as conn:
             row = conn.execute(
@@ -6833,7 +7154,17 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-System-User-Id")
 
+    def block_training_financial_api(self):
+        path = urlparse(self.path).path
+        if TRAINING_MODE and any(path == prefix or path.startswith(prefix + "/")
+                                 for prefix in TRAINING_FINANCIAL_API_PREFIXES):
+            self.send_json({"error": "Financiera no está disponible en capacitación"}, status=403)
+            return True
+        return False
+
     def do_OPTIONS(self):
+        if not self.require_training_access():
+            return
         if self.path.startswith("/api/"):
             self.send_response(204)
             self.send_cors_headers()
@@ -6843,12 +7174,26 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def do_GET(self):
+        if TRAINING_ACCESS_PASSWORD and self.path.split("?", 1)[0] == "/training-access":
+            self.send_training_access_form()
+            return
+        if not self.require_training_access():
+            return
+        if self.block_training_financial_api():
+            return
         if self.path.startswith("/api/"):
             self.handle_api_get()
             return
         self.serve_static()
 
     def do_HEAD(self):
+        if TRAINING_ACCESS_PASSWORD and self.path.split("?", 1)[0] == "/training-access":
+            self.send_training_access_form()
+            return
+        if not self.require_training_access():
+            return
+        if self.block_training_financial_api():
+            return
         if self.path.startswith("/api/"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -6858,12 +7203,23 @@ class AppHandler(BaseHTTPRequestHandler):
         self.serve_static(send_body=False)
 
     def do_POST(self):
+        if TRAINING_ACCESS_PASSWORD and self.path.split("?", 1)[0] == "/training-access":
+            self.handle_training_access_post()
+            return
+        if not self.require_training_access():
+            return
+        if self.block_training_financial_api():
+            return
         if self.path.startswith("/api/"):
             self.handle_api_post()
             return
         self.send_error(404)
 
     def do_PUT(self):
+        if not self.require_training_access():
+            return
+        if self.block_training_financial_api():
+            return
         if self.path.startswith("/api/"):
             self.handle_api_put()
             return
@@ -6874,7 +7230,7 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_system_backup()
             return
         if self.path == "/api/health":
-            self.send_json({"ok": True, "version": API_VERSION})
+            self.send_json({"ok": True, "version": API_VERSION, "training": TRAINING_MODE})
             return
 
         if self.path.startswith("/api/crm/"):
@@ -8408,12 +8764,20 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def do_PATCH(self):
+        if not self.require_training_access():
+            return
+        if self.block_training_financial_api():
+            return
         if self.path.startswith("/api/"):
             self.handle_api_patch()
             return
         self.send_error(404)
 
     def do_DELETE(self):
+        if not self.require_training_access():
+            return
+        if self.block_training_financial_api():
+            return
         if self.path.startswith("/api/"):
             self.handle_api_delete()
             return
@@ -9934,6 +10298,8 @@ class AppHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    if TRAINING_MODE and HOST not in {"127.0.0.1", "::1", "localhost"} and len(TRAINING_ACCESS_PASSWORD) < 20:
+        raise RuntimeError("La capacitación en red requiere TRAINING_ACCESS_PASSWORD de al menos 20 caracteres")
     init_db()
     print(f"Sistema Gerencial en http://{HOST}:{PORT}")
     print(f"Base de datos: {DB_PATH}")
