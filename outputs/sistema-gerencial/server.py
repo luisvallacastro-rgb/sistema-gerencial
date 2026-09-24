@@ -4591,12 +4591,16 @@ def grant_purchase_order_permissions(conn):
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
         return
     permission = "financiera:resultados-ordenes-de-pedido"
-    for row in conn.execute("SELECT id, permissions FROM users").fetchall():
+    for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
         try:
             permissions = json.loads(row["permissions"] or "[]")
         except json.JSONDecodeError:
             permissions = []
-        if ("comercializacion:resultados-pedidos" in permissions or "financiera:resultados-pedidos" in permissions) and permission not in permissions:
+        if (
+            row["role"] in {"gerencias", "jefaturas"}
+            and ("comercializacion:resultados-pedidos" in permissions or "financiera:resultados-pedidos" in permissions)
+            and permission not in permissions
+        ):
             permissions.append(permission)
             conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions, ensure_ascii=True), row["id"]))
     conn.execute("INSERT INTO app_state (key, value) VALUES (?, ?)", (migration_key, "completed"))
@@ -4610,8 +4614,10 @@ def grant_financial_income_permissions(conn):
             permissions = json.loads(row["permissions"] or "[]")
         except json.JSONDecodeError:
             permissions = []
-        has_financial_access = row["role"] in {"gerencias", "jefaturas"} or any(
-            text(item).startswith("financiera:") for item in permissions
+        has_financial_access = row["role"] in {"gerencias", "jefaturas"} or (
+            row["role"] != "vendedores" and any(
+                text(item).startswith("financiera:") for item in permissions
+            )
         )
         if has_financial_access and permission not in permissions:
             permissions.append(permission)
@@ -4619,6 +4625,36 @@ def grant_financial_income_permissions(conn):
                 "UPDATE users SET permissions = ? WHERE id = ?",
                 (json.dumps(permissions, ensure_ascii=True), row["id"]),
             )
+
+
+def remove_seller_financial_permissions_once(conn):
+    """Remove legacy Financiera grants from seller accounts without touching Comercialización."""
+    migration_key = "maintenance.remove-seller-financial-permissions.2026-09-23.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    corrected = []
+    rows = conn.execute("SELECT id, name, permissions FROM users WHERE role = 'vendedores'").fetchall()
+    for row in rows:
+        try:
+            permissions = json.loads(row["permissions"] or "[]")
+        except json.JSONDecodeError:
+            permissions = []
+        permissions = permissions if isinstance(permissions, list) else []
+        clean_permissions = [
+            permission for permission in permissions
+            if not text(permission).startswith("financiera:")
+        ]
+        if clean_permissions == permissions:
+            continue
+        conn.execute(
+            "UPDATE users SET permissions = ?, permissions_customized = 1 WHERE id = ?",
+            (json.dumps(clean_permissions, ensure_ascii=True), row["id"]),
+        )
+        corrected.append(text(row["name"]))
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (migration_key, json.dumps({"corrected": corrected}, ensure_ascii=False)),
+    )
 
 
 def migrate_consolidated_permissions(conn):
@@ -6989,6 +7025,7 @@ def init_db():
         recover_purchase_orders_if_empty(conn)
         grant_purchase_order_permissions(conn)
         grant_financial_income_permissions(conn)
+        remove_seller_financial_permissions_once(conn)
         seed_control_sales(conn)
         normalize_control_sales_order_descriptions_once(conn)
         repair_document_customer_seals_once(conn)
