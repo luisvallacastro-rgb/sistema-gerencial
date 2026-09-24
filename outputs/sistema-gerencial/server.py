@@ -262,16 +262,98 @@ COMMERCIAL_STAGE_PROBABILITY = {
     "Compilado de informacion": "caliente",
     "Postventa": "cerrado",
 }
+COMMERCIAL_STAGE_TEMPERATURE = {
+    "Prospeccion": ("Congelado", 10),
+    "Contacto inicial": ("Frio", 30),
+    "Deteccion de necesidades": ("Tibio", 50),
+    "Presentacion de solucion": ("Tibio", 55),
+    "Manejo de objeciones": ("Tibio", 65),
+    "Cierre de ventas": ("Caliente", 85),
+    "Compilado de informacion": ("Caliente", 95),
+    "Postventa": ("Cerrado", 100),
+}
 
 
-def apply_commercial_agenda_opportunity_stage(result_items, clean_event, seller, actor_name):
+def apply_commercial_agenda_opportunity_stage(result_items, crm_data, clean_event, seller, actor_name):
     """Validate an agenda follow-up and record its scheduled stage change once."""
     if clean_event.get("activity") != "Seguimiento a Oportunidad":
         return None, False
     opportunity_id = text(clean_event.get("opportunityId"))
+    opportunity_source = text(clean_event.get("opportunitySource"), "result").lower()
     next_stage = text(clean_event.get("nextStage"))
     if not opportunity_id:
         return "Selecciona una oportunidad vigente para el seguimiento", False
+    if opportunity_source == "crm":
+        opportunity = next((item for item in crm_data.get("opportunities", [])
+            if isinstance(item, dict) and text(item.get("id")) == opportunity_id), None)
+        if not opportunity:
+            return "La oportunidad de Vendedores seleccionada ya no existe", False
+        owner = next((user for user in crm_data.get("users", [])
+            if text(user.get("id")) == text(opportunity.get("ownerId"))), {})
+        owner_name = text(opportunity.get("owner", {}).get("name")) if isinstance(opportunity.get("owner"), dict) else ""
+        owner_name = owner_name or text(owner.get("name"))
+        if crm_identity_key(owner_name) != crm_identity_key(seller):
+            return "La oportunidad seleccionada no pertenece al vendedor de la agenda", False
+        managements = [management for management in crm_data.get("gestiones", [])
+            if isinstance(management, dict) and text(management.get("opportunityId")) == opportunity_id]
+        existing_management = next((management for management in managements
+            if text(management.get("agendaEventId")) == text(clean_event.get("id"))), None)
+        status = text(opportunity.get("status"), "Vigente").lower()
+        if not existing_management and (opportunity.get("archived") or opportunity.get("migratedToResults") or status in {"ganada", "perdida", "cancelada", "anulada", "migrada"}):
+            return "La oportunidad seleccionada ya no está vigente", False
+        if next_stage not in COMMERCIAL_OPPORTUNITY_STAGES:
+            return "Selecciona una etapa válida para el seguimiento", False
+        current_stage_id = max(1, min(len(COMMERCIAL_OPPORTUNITY_STAGES), int(opportunity.get("stageId") or 1)))
+        active_managements = sorted(
+            (management for management in managements
+                if not management.get("canceled") and not management.get("notified")),
+            key=lambda management: f"{text(management.get('date'))} {text(management.get('time'))}",
+        )
+        current_stage = text(active_managements[-1].get("stageName")) if active_managements else ""
+        current_stage = current_stage or COMMERCIAL_OPPORTUNITY_STAGES[current_stage_id - 1]
+        current_stage = "Cierre de ventas" if current_stage == "Cierre" else current_stage
+        clean_event.update({
+            "opportunityId": opportunity_id,
+            "opportunitySource": "crm",
+            "opportunityCompany": text(opportunity.get("company")),
+            "previousStage": text(clean_event.get("previousStage")) or current_stage,
+            "nextStage": next_stage,
+        })
+        if next_stage == current_stage and not existing_management:
+            return None, False
+        transition = f"{clean_event['previousStage']} → {next_stage}"
+        note = f"Cambio de etapa programado desde Agenda por {actor_name or 'usuario'}: {transition}."
+        if clean_event.get("comment"):
+            note = f"{note} {clean_event['comment']}"
+        stage_id = COMMERCIAL_OPPORTUNITY_STAGES.index(next_stage) + 1
+        now = datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")
+        if existing_management:
+            existing_management.update({
+                "date": clean_event.get("date"), "time": clean_event.get("startTime"),
+                "stageId": stage_id, "stageName": next_stage, "note": note,
+                "editedAt": now, "editedBy": actor_name,
+            })
+            management_id = text(existing_management.get("id"))
+        else:
+            management_id = f"agenda-{clean_event.get('id')}"
+            crm_data.setdefault("gestiones", []).append({
+                "id": management_id, "agendaEventId": text(clean_event.get("id")),
+                "opportunityId": opportunity_id, "company": opportunity.get("company"),
+                "ownerId": opportunity.get("ownerId"), "date": clean_event.get("date"),
+                "time": clean_event.get("startTime"), "stageId": stage_id,
+                "stageName": next_stage, "note": note, "status": "Realizada",
+                "createdAt": now, "createdBy": actor_name,
+            })
+        temperature, close_percent = COMMERCIAL_STAGE_TEMPERATURE[next_stage]
+        opportunity.update({
+            "stageId": stage_id, "temperature": temperature, "closePercent": close_percent,
+            "lastNote": note, "updatedAt": now, "updatedBy": actor_name,
+        })
+        clean_event["stageManagementId"] = management_id
+        clean_event["stageAppliedAt"] = now
+        return None, True
+    if opportunity_source != "result":
+        return "El origen de la oportunidad no es válido", False
     opportunity = next((item for item in result_items
         if isinstance(item, dict) and text(item.get("id")) == opportunity_id), None)
     if not opportunity:
@@ -300,6 +382,7 @@ def apply_commercial_agenda_opportunity_stage(result_items, clean_event, seller,
     current_stage = text(active_before_change[-1].get("stage")) if active_before_change else text(opportunity.get("stage"))
     current_stage = "Cierre de ventas" if current_stage == "Cierre" else (current_stage or "Prospeccion")
     clean_event["opportunityId"] = opportunity_id
+    clean_event["opportunitySource"] = "result"
     clean_event["opportunityCompany"] = text(opportunity.get("company"))
     clean_event["previousStage"] = text(clean_event.get("previousStage")) or current_stage
     clean_event["nextStage"] = next_stage
@@ -8875,6 +8958,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             with connect() as conn:
                 stored_row = conn.execute("SELECT value FROM app_state WHERE key = 'commercial_agenda'").fetchone()
                 result_items = read_result_opportunities(conn)
+                crm_data = read_crm_data(conn)
                 actor_id = text(self.headers.get("X-System-User-Id"))
                 actor_row = conn.execute(
                     "SELECT id, name, username, email, role, password, permissions, permissions_customized, admin FROM users WHERE id = ? LIMIT 1",
@@ -8914,6 +8998,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             }
             activities = COMMERCIAL_AGENDA_ACTIVITIES | COMMERCIAL_AGENDA_LEGACY_ACTIVITIES
             opportunities_changed = False
+            crm_changed = False
             clean = []
             for item_index, item in enumerate(items, start=1):
                 if not isinstance(item, dict) or not text(item.get("seller")):
@@ -8951,14 +9036,14 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         return
                     event_id = text(event.get("id")) or str(uuid.uuid4())
                     clean_event = {"id": event_id, "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "comment": text(event.get("comment")) or text(event.get("result"))}
-                    for field in ("opportunityId", "nextStage"):
+                    for field in ("opportunityId", "opportunitySource", "nextStage"):
                         if text(event.get(field)):
                             clean_event[field] = text(event.get(field))
                     stored_event = stored_events.get(event_id, {})
                     for field in ("opportunityCompany", "previousStage", "stageManagementId", "stageAppliedAt"):
                         if text(stored_event.get(field)):
                             clean_event[field] = text(stored_event.get(field))
-                    follow_up_fields = ("opportunityId", "nextStage", "date", "startTime", "comment")
+                    follow_up_fields = ("opportunityId", "opportunitySource", "nextStage", "date", "startTime", "comment")
                     unchanged_follow_up = (
                         activity == "Seguimiento a Oportunidad"
                         and text(stored_event.get("activity")) == activity
@@ -8968,12 +9053,14 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         stage_error, stage_changed = None, False
                     else:
                         stage_error, stage_changed = apply_commercial_agenda_opportunity_stage(
-                            result_items, clean_event, item.get("seller"), actor.get("name")
+                            result_items, crm_data, clean_event, item.get("seller"), actor.get("name")
                         )
                     if stage_error:
                         self.send_json({"error": f"Evento {event_index}: {stage_error}"}, status=400)
                         return
-                    opportunities_changed = opportunities_changed or stage_changed
+                    opportunity_source = text(clean_event.get("opportunitySource"), "result")
+                    opportunities_changed = opportunities_changed or (stage_changed and opportunity_source == "result")
+                    crm_changed = crm_changed or (stage_changed and opportunity_source == "crm")
                     if event_id in stored_validations:
                         clean_event["validation"] = stored_validations[event_id]
                     clean_events.append(clean_event)
@@ -8991,7 +9078,9 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 conn.execute("""INSERT INTO app_state (key,value,updated_at) VALUES ('commercial_agenda',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
                 if opportunities_changed:
                     write_result_opportunities(conn, result_items)
-            self.send_json({"ok": True, "items": clean, "opportunities": result_items})
+                if crm_changed:
+                    write_crm_data(conn, crm_data)
+            self.send_json({"ok": True, "items": clean, "opportunities": result_items, "crm": build_crm_view_model(crm_data)})
             return
 
         if self.path == "/api/strategic-risks":

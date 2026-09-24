@@ -12141,17 +12141,71 @@ function commercialAgendaOpportunityIsActive(item = {}) {
   const status = normalizeKey(item.status || "vigente");
   return !item.archived && !["ganada", "perdida", "anulada"].includes(status) && !closureResult(item);
 }
-function commercialAgendaOpportunityStage(item = {}) {
+function commercialAgendaOpportunityLatestManagement(item = {}) {
   const managements = orderedManagements(normalizeManagements(item))
     .filter((management) => !management.canceled && !management.notified);
-  return normalizeStage(managements.at(-1)?.stage || item.stage || "Prospeccion");
+  return managements.at(-1) || null;
+}
+function commercialAgendaOpportunityStage(item = {}) {
+  const latest = commercialAgendaOpportunityLatestManagement(item);
+  return normalizeStage(latest?.stage || item.stage || "Prospeccion");
+}
+function commercialAgendaOpportunityKey(item = {}) {
+  return `${item.agendaOpportunitySource || "result"}:${item.agendaOpportunityId || item.id || ""}`;
+}
+function commercialAgendaCrmOpportunityItem(opportunity = {}) {
+  const owner = (state.crmData?.users || []).find((user) => String(user.id) === String(opportunity.ownerId));
+  const managements = (state.crmData?.gestiones || [])
+    .filter((management) => String(management.opportunityId) === String(opportunity.id))
+    .map((management) => ({
+      ...management,
+      stage: management.stageName || crmStageToOpportunityStage(opportunity),
+      comment: management.note || management.comment || management.result || "Gestión registrada."
+    }));
+  return {
+    ...crmOpportunityToFormItem(opportunity),
+    seller: opportunity.owner?.name || owner?.name || crmOwnerName(opportunity.ownerId),
+    managements,
+    agendaOpportunitySource:"crm",
+    agendaOpportunityId:opportunity.id
+  };
+}
+function commercialAgendaOpportunityByKey(reference = "") {
+  const [source, ...idParts] = String(reference).split(":");
+  const opportunityId = idParts.join(":");
+  if (source === "crm") {
+    const opportunity = (state.crmData?.opportunities || []).find((item) => String(item.id) === opportunityId);
+    return opportunity ? commercialAgendaCrmOpportunityItem(opportunity) : null;
+  }
+  const resultId = source === "result" ? opportunityId : String(reference);
+  const opportunity = getOpportunitySubmenu().items.find((item) => String(item.id) === resultId);
+  return opportunity ? { ...opportunity, agendaOpportunitySource:"result", agendaOpportunityId:opportunity.id } : null;
 }
 function commercialAgendaActiveOpportunities(seller = "") {
   const sellerKey = normalizeKey(seller);
-  return getOpportunitySubmenu().items
+  const crmOpportunities = (state.crmData?.opportunities || [])
+    .filter((opportunity) => !isCrmArchivedOpportunity(opportunity))
+    .filter((opportunity) => normalizeKey(opportunity.status || "vigente") !== "ganada")
+    .map(commercialAgendaCrmOpportunityItem);
+  const resultOpportunities = getOpportunitySubmenu().items
     .filter(commercialAgendaOpportunityIsActive)
-    .filter((item) => !sellerKey || normalizeKey(item.seller) === sellerKey)
-    .sort((a, b) => String(a.company || "").localeCompare(String(b.company || ""), "es"));
+    .map((opportunity) => ({
+      ...opportunity,
+      agendaOpportunitySource:"result",
+      agendaOpportunityId:opportunity.id
+    }));
+  const unique = new Map();
+  crmOpportunities.forEach((opportunity) => unique.set(`crm:${opportunity.agendaOpportunityId}`, opportunity));
+  resultOpportunities.forEach((opportunity) => {
+    const crmKey = opportunity.crmOpportunityId ? `crm:${opportunity.crmOpportunityId}` : "";
+    if (crmKey) unique.delete(crmKey);
+    unique.set(commercialAgendaOpportunityKey(opportunity), opportunity);
+  });
+  return [...unique.values()].sort((a, b) => {
+    const aOwn = sellerKey && normalizeKey(a.seller) === sellerKey ? 0 : 1;
+    const bOwn = sellerKey && normalizeKey(b.seller) === sellerKey ? 0 : 1;
+    return aOwn - bOwn || String(a.company || "").localeCompare(String(b.company || ""), "es");
+  });
 }
 function saveCommercialAgenda() { return apiJson("/api/commercial-agenda", { method:"PUT", body:JSON.stringify({items:state.commercialAgenda}) }).then((response) => { state.commercialAgenda = response.items || []; }); }
 function commercialAgendaItemEvents(item) {
@@ -12411,7 +12465,8 @@ function renderCommercialAgenda() {
   const activeView=state.commercialAgendaView==="management"&&managementAccess?dailyView:agendaView;
   return `<section class="commercial-agenda commercial-agenda-flat">${activeView}</section>`;
 }
-function openCommercialAgendaEditor(item = {}) {
+async function openCommercialAgendaEditor(item = {}) {
+  if (!state.crmData && apiEnabled) await loadCrmData();
   const dialog = document.createElement("dialog"); dialog.className="commercial-agenda-dialog";
   const managesAllSellers = canManageAllCommercialAgendas();
   const sellers = managesAllSellers ? commercialSellerNames() : [commercialAgendaOwnSellerName()].filter(Boolean);
@@ -12419,17 +12474,26 @@ function openCommercialAgendaEditor(item = {}) {
   const preferredSeller = item.seller || state.currentUser?.name || "";
   const selectedSeller = sellers.includes(preferredSeller) ? preferredSeller : sellers[0] || "";
   const startDate = item.startDate || item.date || todayISO(); const endDate = item.endDate || item.date || startDate; const events = commercialAgendaItemEvents(item);
-  const opportunityOptions = (seller, selectedId = "") => {
+  const opportunityOptions = (seller, selectedReference = "") => {
     const options = commercialAgendaActiveOpportunities(seller);
-    const linked = getOpportunitySubmenu().items.find((opportunity) => String(opportunity.id) === String(selectedId));
-    if (linked && !options.some((opportunity) => String(opportunity.id) === String(linked.id))) options.unshift(linked);
-    return `<option value="">Seleccionar oportunidad vigente...</option>${options.map((opportunity) => `<option value="${escapeHtml(opportunity.id)}" ${String(opportunity.id)===String(selectedId)?"selected":""}>${escapeHtml(opportunity.company || "Sin empresa")} · ${escapeHtml(commercialAgendaOpportunityStage(opportunity))}</option>`).join("")}`;
+    const linked = commercialAgendaOpportunityByKey(selectedReference);
+    if (linked && !options.some((opportunity) => commercialAgendaOpportunityKey(opportunity) === commercialAgendaOpportunityKey(linked))) options.unshift(linked);
+    return `<option value="">Seleccionar oportunidad vigente...</option>${options.map((opportunity) => {
+      const key = commercialAgendaOpportunityKey(opportunity);
+      const source = opportunity.agendaOpportunitySource === "crm" ? "Vendedores" : "Gerencia";
+      const latest = commercialAgendaOpportunityLatestManagement(opportunity);
+      const belongsToSeller = normalizeKey(opportunity.seller) === normalizeKey(seller);
+      const latestDate = latest?.date ? formatDate(latest.date) : "sin fecha";
+      return `<option value="${escapeHtml(key)}" ${key===selectedReference?"selected":""} ${belongsToSeller?"":"disabled"}>${escapeHtml(opportunity.company || "Sin empresa")} · ${escapeHtml(commercialAgendaOpportunityStage(opportunity))} · ${escapeHtml(latestDate)} · ${escapeHtml(opportunity.seller || "Sin vendedor")} · ${source}${belongsToSeller?"":" · solo consulta"}</option>`;
+    }).join("")}`;
   };
   const eventMarkup = (event = {}) => {
     const activity = event.activity || commercialAgendaActivities[0];
     const isFollowUp = activity === "Seguimiento a Oportunidad";
-    const linked = getOpportunitySubmenu().items.find((opportunity) => String(opportunity.id) === String(event.opportunityId));
+    const selectedReference = `${event.opportunitySource || "result"}:${event.opportunityId || ""}`;
+    const linked = event.opportunityId ? commercialAgendaOpportunityByKey(selectedReference) : null;
     const currentStage = linked ? commercialAgendaOpportunityStage(linked) : normalizeStage(event.nextStage || event.previousStage || "Prospeccion");
+    const latestManagement = linked ? commercialAgendaOpportunityLatestManagement(linked) : null;
     const nextStage = normalizeStage(event.nextStage || currentStage);
     return `<div class="commercial-agenda-event" data-agenda-event>
       <label><span>Fecha</span><input data-event-date data-event-id="${escapeHtml(event.id || "")}" type="date" required value="${escapeHtml(event.date || startDate)}"></label>
@@ -12440,8 +12504,8 @@ function openCommercialAgendaEditor(item = {}) {
       <label class="event-result"><span>Comentario del vendedor</span><input data-event-comment value="${escapeHtml(event.comment || event.result || "")}" placeholder="Agregar comentario"></label>
       <button type="button" class="danger" data-agenda-remove-event title="Quitar evento" aria-label="Quitar evento">×</button>
       <section class="event-opportunity-link ${isFollowUp ? "" : "hidden"}" data-event-opportunity-link>
-        <label><span>Oportunidad vigente</span><select data-event-opportunity ${isFollowUp ? "required" : ""}>${opportunityOptions(selectedSeller, event.opportunityId)}</select></label>
-        <div class="event-current-stage"><span>Última etapa registrada</span><strong data-event-current-stage>${escapeHtml(currentStage)}</strong></div>
+        <label><span>Oportunidad vigente · Vendedores + Gerencia</span><select data-event-opportunity ${isFollowUp ? "required" : ""}>${opportunityOptions(selectedSeller, event.opportunityId ? selectedReference : "")}</select></label>
+        <div class="event-current-stage"><span>Última actividad realizada</span><strong data-event-current-stage>${escapeHtml(currentStage)}</strong><small data-event-latest-management>${latestManagement ? `${escapeHtml(formatDate(latestManagement.date))} · ${escapeHtml(latestManagement.comment || latestManagement.note || "Sin comentario")}` : "Selecciona una oportunidad"}</small></div>
         <label><span>Etapa después del seguimiento</span><select data-event-next-stage>${opportunityStages.map((stage) => `<option value="${escapeHtml(stage)}" ${stage===nextStage?"selected":""}>${escapeHtml(stage)}</option>`).join("")}</select></label>
         <small>Si eliges una etapa distinta, el cambio quedará guardado en el historial de la oportunidad.</small>
       </section>
@@ -12457,13 +12521,16 @@ function openCommercialAgendaEditor(item = {}) {
     const opportunitySelect = row.querySelector("[data-event-opportunity]");
     const nextStageSelect = row.querySelector("[data-event-next-stage]");
     const currentStageLabel = row.querySelector("[data-event-current-stage]");
+    const latestManagementLabel = row.querySelector("[data-event-latest-management]");
     const selectedId = preserveSelection ? opportunitySelect.value : "";
     link.classList.toggle("hidden", activity !== "Seguimiento a Oportunidad");
     opportunitySelect.required = activity === "Seguimiento a Oportunidad";
     opportunitySelect.innerHTML = opportunityOptions(sellerSelect.value, selectedId);
-    const selected = getOpportunitySubmenu().items.find((opportunity) => String(opportunity.id) === String(opportunitySelect.value));
+    const selected = commercialAgendaOpportunityByKey(opportunitySelect.value);
     const currentStage = selected ? commercialAgendaOpportunityStage(selected) : "Prospeccion";
     currentStageLabel.textContent = selected ? currentStage : "Selecciona una oportunidad";
+    const latestManagement = selected ? commercialAgendaOpportunityLatestManagement(selected) : null;
+    latestManagementLabel.textContent = latestManagement ? `${formatDate(latestManagement.date)} · ${latestManagement.comment || latestManagement.note || "Sin comentario"}` : "Selecciona una oportunidad";
     if (selected && (!preserveSelection || !nextStageSelect.value)) nextStageSelect.value = currentStage;
   };
   const wireEvent = (row) => {
@@ -12473,9 +12540,11 @@ function openCommercialAgendaEditor(item = {}) {
     };
     row.querySelector("[data-event-activity]").addEventListener("change", () => refreshOpportunityLink(row));
     row.querySelector("[data-event-opportunity]").addEventListener("change", (event) => {
-      const opportunity = getOpportunitySubmenu().items.find((record) => String(record.id) === String(event.target.value));
+      const opportunity = commercialAgendaOpportunityByKey(event.target.value);
       const currentStage = opportunity ? commercialAgendaOpportunityStage(opportunity) : "Prospeccion";
       row.querySelector("[data-event-current-stage]").textContent = opportunity ? currentStage : "Selecciona una oportunidad";
+      const latestManagement = opportunity ? commercialAgendaOpportunityLatestManagement(opportunity) : null;
+      row.querySelector("[data-event-latest-management]").textContent = latestManagement ? `${formatDate(latestManagement.date)} · ${latestManagement.comment || latestManagement.note || "Sin comentario"}` : "Selecciona una oportunidad";
       row.querySelector("[data-event-next-stage]").value = currentStage;
       if (opportunity) row.querySelector("[data-event-prospect]").value = opportunity.company || "";
     });
@@ -12495,9 +12564,9 @@ function openCommercialAgendaEditor(item = {}) {
     if(values.endDate < values.startDate) return alert("La fecha final no puede ser anterior a la fecha inicial.");
     const agendaEvents=[...eventsContainer.querySelectorAll("[data-agenda-event]")].map((row,index)=>{
       const activity=row.querySelector("[data-event-activity]").value;
-      const opportunityId=activity==="Seguimiento a Oportunidad"?row.querySelector("[data-event-opportunity]").value:"";
-      const opportunity=getOpportunitySubmenu().items.find((record)=>String(record.id)===String(opportunityId));
-      return {id:row.querySelector("[data-event-date]").dataset.eventId||crypto.randomUUID(),date:row.querySelector("[data-event-date]").value,prospect:row.querySelector("[data-event-prospect]").value.trim(),activity,startTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-start]").value),endTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-end]").value),comment:row.querySelector("[data-event-comment]").value.trim(),...(opportunityId?{opportunityId,opportunityCompany:opportunity?.company||"",previousStage:commercialAgendaOpportunityStage(opportunity||{}),nextStage:row.querySelector("[data-event-next-stage]").value}:{}),position:index+1};
+      const opportunityReference=activity==="Seguimiento a Oportunidad"?row.querySelector("[data-event-opportunity]").value:"";
+      const opportunity=commercialAgendaOpportunityByKey(opportunityReference);
+      return {id:row.querySelector("[data-event-date]").dataset.eventId||crypto.randomUUID(),date:row.querySelector("[data-event-date]").value,prospect:row.querySelector("[data-event-prospect]").value.trim(),activity,startTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-start]").value),endTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-end]").value),comment:row.querySelector("[data-event-comment]").value.trim(),...(opportunity?{opportunityId:opportunity.agendaOpportunityId,opportunitySource:opportunity.agendaOpportunitySource,opportunityCompany:opportunity.company||"",previousStage:commercialAgendaOpportunityStage(opportunity),nextStage:row.querySelector("[data-event-next-stage]").value}:{}),position:index+1};
     });
     const missingOpportunity=agendaEvents.find((agendaEvent)=>agendaEvent.activity==="Seguimiento a Oportunidad"&&!agendaEvent.opportunityId);
     if(missingOpportunity)return alert(`Selecciona una oportunidad vigente en el evento ${missingOpportunity.position}.`);
@@ -12514,6 +12583,7 @@ function openCommercialAgendaEditor(item = {}) {
         getOpportunitySubmenu().items=sanitizeTestOpportunities(normalizeOpportunities(response.opportunities));
         localStorage.setItem(opportunitiesStorageKey,JSON.stringify(getOpportunitySubmenu().items));
       }
+      if(response.crm) state.crmData=response.crm;
       dialog.close(); renderCommercialSubmenu(areas.comercializacion);
     } catch(error) { alert(error.message||"No se pudo guardar la agenda."); submit.disabled=false; }
   }); dialog.showModal();
