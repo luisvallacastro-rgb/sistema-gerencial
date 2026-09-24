@@ -12131,7 +12131,28 @@ function wireBankAvailability() {
   }, { passive:false }));
 }
 
-const commercialAgendaActivities = ["Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico", "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido", "Preparación de oferta", "Gestión de cobro"];
+const commercialAgendaActivities = ["Trabajo en Oficina", "Seguimiento a Oportunidad", "Visita a Nuevo Prospecto", "Reunión Interna", "Prospectos Nuevos"];
+function commercialAgendaActivityOptions(current = "") {
+  return commercialAgendaActivities.includes(current) || !current
+    ? commercialAgendaActivities
+    : [current, ...commercialAgendaActivities];
+}
+function commercialAgendaOpportunityIsActive(item = {}) {
+  const status = normalizeKey(item.status || "vigente");
+  return !item.archived && !["ganada", "perdida", "anulada"].includes(status) && !closureResult(item);
+}
+function commercialAgendaOpportunityStage(item = {}) {
+  const managements = orderedManagements(normalizeManagements(item))
+    .filter((management) => !management.canceled && !management.notified);
+  return normalizeStage(managements.at(-1)?.stage || item.stage || "Prospeccion");
+}
+function commercialAgendaActiveOpportunities(seller = "") {
+  const sellerKey = normalizeKey(seller);
+  return getOpportunitySubmenu().items
+    .filter(commercialAgendaOpportunityIsActive)
+    .filter((item) => !sellerKey || normalizeKey(item.seller) === sellerKey)
+    .sort((a, b) => String(a.company || "").localeCompare(String(b.company || ""), "es"));
+}
 function saveCommercialAgenda() { return apiJson("/api/commercial-agenda", { method:"PUT", body:JSON.stringify({items:state.commercialAgenda}) }).then((response) => { state.commercialAgenda = response.items || []; }); }
 function commercialAgendaItemEvents(item) {
   if (Array.isArray(item.events) && item.events.length) return item.events.map((event,index)=>({...event,id:event.id||`${item.id}-event-${index+1}`}));
@@ -12398,14 +12419,104 @@ function openCommercialAgendaEditor(item = {}) {
   const preferredSeller = item.seller || state.currentUser?.name || "";
   const selectedSeller = sellers.includes(preferredSeller) ? preferredSeller : sellers[0] || "";
   const startDate = item.startDate || item.date || todayISO(); const endDate = item.endDate || item.date || startDate; const events = commercialAgendaItemEvents(item);
-  const eventMarkup = (event = {}) => `<div class="commercial-agenda-event" data-agenda-event><label><span>Fecha</span><input data-event-date data-event-id="${escapeHtml(event.id || "")}" type="date" required value="${escapeHtml(event.date || startDate)}"></label><label class="event-prospect"><span>Cliente / prospecto</span><input data-event-prospect required value="${escapeHtml(event.prospect || item.prospect || "")}"></label><label><span>Actividad</span><select data-event-activity required>${commercialAgendaActivities.map((activity) => `<option ${activity===event.activity?"selected":""}>${escapeHtml(activity)}</option>`).join("")}</select></label><label><span>Desde</span><input data-event-start type="text" required value="${escapeHtml(commercialAgendaTimeLabel(event.startTime || "07:00"))}" placeholder="Ej. 730"></label><label><span>Hasta</span><input data-event-end type="text" required value="${escapeHtml(commercialAgendaTimeLabel(event.endTime || "08:00"))}" placeholder="Ej. 245"></label><label class="event-result"><span>Comentario del vendedor</span><input data-event-comment value="${escapeHtml(event.comment || event.result || "")}" placeholder="Agregar comentario"></label><button type="button" class="danger" data-agenda-remove-event title="Quitar evento" aria-label="Quitar evento">×</button></div>`;
+  const opportunityOptions = (seller, selectedId = "") => {
+    const options = commercialAgendaActiveOpportunities(seller);
+    const linked = getOpportunitySubmenu().items.find((opportunity) => String(opportunity.id) === String(selectedId));
+    if (linked && !options.some((opportunity) => String(opportunity.id) === String(linked.id))) options.unshift(linked);
+    return `<option value="">Seleccionar oportunidad vigente...</option>${options.map((opportunity) => `<option value="${escapeHtml(opportunity.id)}" ${String(opportunity.id)===String(selectedId)?"selected":""}>${escapeHtml(opportunity.company || "Sin empresa")} · ${escapeHtml(commercialAgendaOpportunityStage(opportunity))}</option>`).join("")}`;
+  };
+  const eventMarkup = (event = {}) => {
+    const activity = event.activity || commercialAgendaActivities[0];
+    const isFollowUp = activity === "Seguimiento a Oportunidad";
+    const linked = getOpportunitySubmenu().items.find((opportunity) => String(opportunity.id) === String(event.opportunityId));
+    const currentStage = linked ? commercialAgendaOpportunityStage(linked) : normalizeStage(event.nextStage || event.previousStage || "Prospeccion");
+    const nextStage = normalizeStage(event.nextStage || currentStage);
+    return `<div class="commercial-agenda-event" data-agenda-event>
+      <label><span>Fecha</span><input data-event-date data-event-id="${escapeHtml(event.id || "")}" type="date" required value="${escapeHtml(event.date || startDate)}"></label>
+      <label class="event-prospect"><span>Cliente / prospecto / referencia</span><input data-event-prospect required value="${escapeHtml(event.prospect || item.prospect || event.opportunityCompany || "")}"></label>
+      <label><span>Actividad</span><select data-event-activity required>${commercialAgendaActivityOptions(activity).map((option) => `<option ${option===activity?"selected":""}>${escapeHtml(option)}</option>`).join("")}</select></label>
+      <label><span>Desde</span><input data-event-start type="text" required value="${escapeHtml(commercialAgendaTimeLabel(event.startTime || "07:00"))}" placeholder="Ej. 730"></label>
+      <label><span>Hasta</span><input data-event-end type="text" required value="${escapeHtml(commercialAgendaTimeLabel(event.endTime || "08:00"))}" placeholder="Ej. 245"></label>
+      <label class="event-result"><span>Comentario del vendedor</span><input data-event-comment value="${escapeHtml(event.comment || event.result || "")}" placeholder="Agregar comentario"></label>
+      <button type="button" class="danger" data-agenda-remove-event title="Quitar evento" aria-label="Quitar evento">×</button>
+      <section class="event-opportunity-link ${isFollowUp ? "" : "hidden"}" data-event-opportunity-link>
+        <label><span>Oportunidad vigente</span><select data-event-opportunity ${isFollowUp ? "required" : ""}>${opportunityOptions(selectedSeller, event.opportunityId)}</select></label>
+        <div class="event-current-stage"><span>Última etapa registrada</span><strong data-event-current-stage>${escapeHtml(currentStage)}</strong></div>
+        <label><span>Etapa después del seguimiento</span><select data-event-next-stage>${opportunityStages.map((stage) => `<option value="${escapeHtml(stage)}" ${stage===nextStage?"selected":""}>${escapeHtml(stage)}</option>`).join("")}</select></label>
+        <small>Si eliges una etapa distinta, el cambio quedará guardado en el historial de la oportunidad.</small>
+      </section>
+    </div>`;
+  };
   dialog.innerHTML = `<form method="dialog"><header><div><span>Agenda comercial</span><h2>${item.id ? "Editar agenda" : "Nueva agenda"}</h2></div><button type="button" data-agenda-close>×</button></header><div class="fields commercial-agenda-main-fields"><label><span>Fecha inicial</span><input name="startDate" type="date" required value="${escapeHtml(startDate)}"></label><label><span>Fecha final</span><input name="endDate" type="date" required value="${escapeHtml(endDate)}"></label><label class="wide"><span>Vendedor</span><select name="seller" required>${sellers.map((seller) => `<option ${seller===selectedSeller?"selected":""}>${escapeHtml(seller)}</option>`).join("")}</select></label><label class="wide"><span>Descripción general de la agenda</span><textarea name="description" required>${escapeHtml(item.description || item.objective || "")}</textarea></label><section class="commercial-agenda-events wide"><header><div><strong>Eventos</strong><small>Puedes registrar cualquier horario; la hora final debe ser posterior a la inicial. Ejemplos: 1030, 1200 o 945 pm.</small></div><button type="button" data-agenda-add-event aria-label="Agregar evento" title="Agregar evento">+</button></header><div data-agenda-events>${events.map(eventMarkup).join("")}</div></section></div><footer><button type="button" data-agenda-close>Cancelar</button><button type="submit">Guardar agenda</button></footer></form>`;
   document.body.append(dialog); dialog.querySelectorAll("[data-agenda-close]").forEach((button)=>button.addEventListener("click",()=>dialog.close())); dialog.addEventListener("close",()=>dialog.remove(),{once:true});
-  const eventsContainer = dialog.querySelector("[data-agenda-events]"); const wireRemoveEvents = () => dialog.querySelectorAll("[data-agenda-remove-event]").forEach((button) => { button.onclick = () => { if (eventsContainer.children.length === 1) return alert("La agenda debe conservar al menos un evento."); button.closest("[data-agenda-event]").remove(); }; });
-  dialog.querySelector("[data-agenda-add-event]").addEventListener("click", () => { eventsContainer.insertAdjacentHTML("beforeend", eventMarkup({ date:dialog.querySelector('[name="startDate"]').value })); wireRemoveEvents(); synchronizeEventDates(); }); wireRemoveEvents();
+  const eventsContainer = dialog.querySelector("[data-agenda-events]");
+  const sellerSelect = dialog.querySelector('[name="seller"]');
+  const refreshOpportunityLink = (row, { preserveSelection = true } = {}) => {
+    const activity = row.querySelector("[data-event-activity]").value;
+    const link = row.querySelector("[data-event-opportunity-link]");
+    const opportunitySelect = row.querySelector("[data-event-opportunity]");
+    const nextStageSelect = row.querySelector("[data-event-next-stage]");
+    const currentStageLabel = row.querySelector("[data-event-current-stage]");
+    const selectedId = preserveSelection ? opportunitySelect.value : "";
+    link.classList.toggle("hidden", activity !== "Seguimiento a Oportunidad");
+    opportunitySelect.required = activity === "Seguimiento a Oportunidad";
+    opportunitySelect.innerHTML = opportunityOptions(sellerSelect.value, selectedId);
+    const selected = getOpportunitySubmenu().items.find((opportunity) => String(opportunity.id) === String(opportunitySelect.value));
+    const currentStage = selected ? commercialAgendaOpportunityStage(selected) : "Prospeccion";
+    currentStageLabel.textContent = selected ? currentStage : "Selecciona una oportunidad";
+    if (selected && (!preserveSelection || !nextStageSelect.value)) nextStageSelect.value = currentStage;
+  };
+  const wireEvent = (row) => {
+    row.querySelector("[data-agenda-remove-event]").onclick = () => {
+      if (eventsContainer.children.length === 1) return alert("La agenda debe conservar al menos un evento.");
+      row.remove();
+    };
+    row.querySelector("[data-event-activity]").addEventListener("change", () => refreshOpportunityLink(row));
+    row.querySelector("[data-event-opportunity]").addEventListener("change", (event) => {
+      const opportunity = getOpportunitySubmenu().items.find((record) => String(record.id) === String(event.target.value));
+      const currentStage = opportunity ? commercialAgendaOpportunityStage(opportunity) : "Prospeccion";
+      row.querySelector("[data-event-current-stage]").textContent = opportunity ? currentStage : "Selecciona una oportunidad";
+      row.querySelector("[data-event-next-stage]").value = currentStage;
+      if (opportunity) row.querySelector("[data-event-prospect]").value = opportunity.company || "";
+    });
+  };
+  eventsContainer.querySelectorAll("[data-agenda-event]").forEach(wireEvent);
+  sellerSelect.addEventListener("change", () => eventsContainer.querySelectorAll("[data-agenda-event]").forEach((row) => refreshOpportunityLink(row, { preserveSelection:false })));
+  dialog.querySelector("[data-agenda-add-event]").addEventListener("click", () => {
+    eventsContainer.insertAdjacentHTML("beforeend", eventMarkup({ date:dialog.querySelector('[name="startDate"]').value }));
+    wireEvent(eventsContainer.lastElementChild);
+    synchronizeEventDates();
+  });
   const synchronizeEventDates = () => { const start=dialog.querySelector('[name="startDate"]').value; const end=dialog.querySelector('[name="endDate"]').value; if(end < start) dialog.querySelector('[name="endDate"]').value=start; const safeEnd=dialog.querySelector('[name="endDate"]').value; eventsContainer.querySelectorAll("[data-event-date]").forEach((input)=>{ input.min=start; input.max=safeEnd; if(!input.value||input.value<start||input.value>safeEnd) input.value=start; }); };
   dialog.querySelector('[name="startDate"]').addEventListener("change", synchronizeEventDates); dialog.querySelector('[name="endDate"]').addEventListener("change", synchronizeEventDates); synchronizeEventDates();
-  dialog.querySelector("form").addEventListener("submit", async (event)=>{ event.preventDefault(); const values=Object.fromEntries(new FormData(event.currentTarget)); if(values.endDate < values.startDate) return alert("La fecha final no puede ser anterior a la fecha inicial."); const agendaEvents=[...eventsContainer.querySelectorAll("[data-agenda-event]")].map((row,index)=>({id:row.querySelector("[data-event-date]").dataset.eventId||crypto.randomUUID(),date:row.querySelector("[data-event-date]").value,prospect:row.querySelector("[data-event-prospect]").value.trim(),activity:row.querySelector("[data-event-activity]").value,startTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-start]").value),endTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-end]").value),comment:row.querySelector("[data-event-comment]").value.trim(),position:index+1})); const invalidDate=agendaEvents.find((agendaEvent)=>agendaEvent.date<values.startDate||agendaEvent.date>values.endDate); if(invalidDate)return alert(`La fecha ${formatDate(invalidDate.date)} debe estar entre ${formatDate(values.startDate)} y ${formatDate(values.endDate)}.`); const invalidTime=agendaEvents.find((agendaEvent)=>!agendaEvent.startTime||!agendaEvent.endTime); if(invalidTime)return alert(`Escribe una hora válida en el evento ${invalidTime.position}. Ejemplos: 1030, 1200 o 245.`); const invalidChronology=agendaEvents.find((agendaEvent)=>agendaEvent.startTime>=agendaEvent.endTime); if(invalidChronology)return alert(`La hora final del evento ${invalidChronology.position} debe ser posterior a la hora inicial.`); agendaEvents.forEach((agendaEvent)=>delete agendaEvent.position); const record={id:item.id||crypto.randomUUID(),...values,events:agendaEvents}; const nextAgenda=[...state.commercialAgenda]; const index=nextAgenda.findIndex((row)=>row.id===record.id); if(index>=0) nextAgenda[index]=record; else nextAgenda.unshift(record); const submit=event.currentTarget.querySelector('[type="submit"]'); submit.disabled=true; try { const response=await apiJson("/api/commercial-agenda",{method:"PUT",body:JSON.stringify({items:nextAgenda})}); state.commercialAgenda=response.items||[]; dialog.close(); renderCommercialSubmenu(areas.comercializacion); } catch(error) { alert(error.message||"No se pudo guardar la agenda."); submit.disabled=false; } }); dialog.showModal();
+  dialog.querySelector("form").addEventListener("submit", async (event)=>{
+    event.preventDefault();
+    const values=Object.fromEntries(new FormData(event.currentTarget));
+    if(values.endDate < values.startDate) return alert("La fecha final no puede ser anterior a la fecha inicial.");
+    const agendaEvents=[...eventsContainer.querySelectorAll("[data-agenda-event]")].map((row,index)=>{
+      const activity=row.querySelector("[data-event-activity]").value;
+      const opportunityId=activity==="Seguimiento a Oportunidad"?row.querySelector("[data-event-opportunity]").value:"";
+      const opportunity=getOpportunitySubmenu().items.find((record)=>String(record.id)===String(opportunityId));
+      return {id:row.querySelector("[data-event-date]").dataset.eventId||crypto.randomUUID(),date:row.querySelector("[data-event-date]").value,prospect:row.querySelector("[data-event-prospect]").value.trim(),activity,startTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-start]").value),endTime:normalizeCommercialAgendaTime(row.querySelector("[data-event-end]").value),comment:row.querySelector("[data-event-comment]").value.trim(),...(opportunityId?{opportunityId,opportunityCompany:opportunity?.company||"",previousStage:commercialAgendaOpportunityStage(opportunity||{}),nextStage:row.querySelector("[data-event-next-stage]").value}:{}),position:index+1};
+    });
+    const missingOpportunity=agendaEvents.find((agendaEvent)=>agendaEvent.activity==="Seguimiento a Oportunidad"&&!agendaEvent.opportunityId);
+    if(missingOpportunity)return alert(`Selecciona una oportunidad vigente en el evento ${missingOpportunity.position}.`);
+    const invalidDate=agendaEvents.find((agendaEvent)=>agendaEvent.date<values.startDate||agendaEvent.date>values.endDate); if(invalidDate)return alert(`La fecha ${formatDate(invalidDate.date)} debe estar entre ${formatDate(values.startDate)} y ${formatDate(values.endDate)}.`);
+    const invalidTime=agendaEvents.find((agendaEvent)=>!agendaEvent.startTime||!agendaEvent.endTime); if(invalidTime)return alert(`Escribe una hora válida en el evento ${invalidTime.position}. Ejemplos: 1030, 1200 o 245.`);
+    const invalidChronology=agendaEvents.find((agendaEvent)=>agendaEvent.startTime>=agendaEvent.endTime); if(invalidChronology)return alert(`La hora final del evento ${invalidChronology.position} debe ser posterior a la hora inicial.`);
+    agendaEvents.forEach((agendaEvent)=>delete agendaEvent.position);
+    const record={id:item.id||crypto.randomUUID(),...values,events:agendaEvents}; const nextAgenda=[...state.commercialAgenda]; const index=nextAgenda.findIndex((row)=>row.id===record.id); if(index>=0) nextAgenda[index]=record; else nextAgenda.unshift(record);
+    const submit=event.currentTarget.querySelector('[type="submit"]'); submit.disabled=true;
+    try {
+      const response=await apiJson("/api/commercial-agenda",{method:"PUT",body:JSON.stringify({items:nextAgenda})});
+      state.commercialAgenda=response.items||[];
+      if(Array.isArray(response.opportunities)){
+        getOpportunitySubmenu().items=sanitizeTestOpportunities(normalizeOpportunities(response.opportunities));
+        localStorage.setItem(opportunitiesStorageKey,JSON.stringify(getOpportunitySubmenu().items));
+      }
+      dialog.close(); renderCommercialSubmenu(areas.comercializacion);
+    } catch(error) { alert(error.message||"No se pudo guardar la agenda."); submit.disabled=false; }
+  }); dialog.showModal();
 }
 function commercialAgendaSelectionDraft(slotButtons) {
   const slots = slotButtons.map((button) => ({

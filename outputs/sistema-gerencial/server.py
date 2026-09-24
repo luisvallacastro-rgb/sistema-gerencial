@@ -235,6 +235,118 @@ def apply_commercial_agenda_validation(items, event_id, validation):
     return False
 
 
+COMMERCIAL_AGENDA_ACTIVITIES = {
+    "Trabajo en Oficina",
+    "Seguimiento a Oportunidad",
+    "Visita a Nuevo Prospecto",
+    "Reunión Interna",
+    "Prospectos Nuevos",
+}
+COMMERCIAL_AGENDA_LEGACY_ACTIVITIES = {
+    "Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico",
+    "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido",
+    "Preparación de oferta", "Gestión de cobro",
+}
+COMMERCIAL_OPPORTUNITY_STAGES = [
+    "Prospeccion", "Contacto inicial", "Deteccion de necesidades",
+    "Presentacion de solucion", "Manejo de objeciones", "Cierre de ventas",
+    "Compilado de informacion", "Postventa",
+]
+COMMERCIAL_STAGE_PROBABILITY = {
+    "Prospeccion": "congelado",
+    "Contacto inicial": "frio",
+    "Deteccion de necesidades": "tibio",
+    "Presentacion de solucion": "tibio",
+    "Manejo de objeciones": "tibio",
+    "Cierre de ventas": "caliente",
+    "Compilado de informacion": "caliente",
+    "Postventa": "cerrado",
+}
+
+
+def apply_commercial_agenda_opportunity_stage(result_items, clean_event, seller, actor_name):
+    """Validate an agenda follow-up and record its scheduled stage change once."""
+    if clean_event.get("activity") != "Seguimiento a Oportunidad":
+        return None, False
+    opportunity_id = text(clean_event.get("opportunityId"))
+    next_stage = text(clean_event.get("nextStage"))
+    if not opportunity_id:
+        return "Selecciona una oportunidad vigente para el seguimiento", False
+    opportunity = next((item for item in result_items
+        if isinstance(item, dict) and text(item.get("id")) == opportunity_id), None)
+    if not opportunity:
+        return "La oportunidad seleccionada ya no existe", False
+    if crm_identity_key(opportunity.get("seller")) != crm_identity_key(seller):
+        return "La oportunidad seleccionada no pertenece al vendedor de la agenda", False
+    managements = opportunity.get("managements") if isinstance(opportunity.get("managements"), list) else []
+    existing_management = next((management for management in managements
+        if isinstance(management, dict) and text(management.get("agendaEventId")) == text(clean_event.get("id"))), None)
+    has_closure = any(
+        not management.get("canceled")
+        and text(management.get("stage")) in {"Cierre", "Cierre de ventas"}
+        and text(management.get("result"))
+        for management in managements if isinstance(management, dict)
+    )
+    if not existing_management and (opportunity.get("archived") or text(opportunity.get("status")).lower() in {"ganada", "perdida", "anulada"} or has_closure):
+        return "La oportunidad seleccionada ya no está vigente", False
+    if next_stage not in COMMERCIAL_OPPORTUNITY_STAGES:
+        return "Selecciona una etapa válida para el seguimiento", False
+
+    active_before_change = sorted(
+        (management for management in managements
+            if isinstance(management, dict) and not management.get("canceled") and not management.get("notified")),
+        key=lambda management: f"{text(management.get('date'))} {text(management.get('time'))}",
+    )
+    current_stage = text(active_before_change[-1].get("stage")) if active_before_change else text(opportunity.get("stage"))
+    current_stage = "Cierre de ventas" if current_stage == "Cierre" else (current_stage or "Prospeccion")
+    clean_event["opportunityId"] = opportunity_id
+    clean_event["opportunityCompany"] = text(opportunity.get("company"))
+    clean_event["previousStage"] = text(clean_event.get("previousStage")) or current_stage
+    clean_event["nextStage"] = next_stage
+    if next_stage == current_stage and not existing_management:
+        return None, False
+
+    transition = f"{clean_event['previousStage']} → {next_stage}"
+    note = f"Cambio de etapa programado desde Agenda por {actor_name or 'usuario'}: {transition}."
+    if clean_event.get("comment"):
+        note = f"{note} {clean_event['comment']}"
+    if existing_management:
+        existing_management.update({
+            "date": clean_event.get("date"),
+            "time": clean_event.get("startTime"),
+            "stage": next_stage,
+            "comment": note,
+            "editedAt": datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds"),
+            "editedBy": actor_name,
+        })
+        management_id = text(existing_management.get("id"))
+    else:
+        management_id = f"agenda-{clean_event.get('id')}"
+        managements.append({
+            "id": management_id,
+            "agendaEventId": text(clean_event.get("id")),
+            "date": clean_event.get("date"),
+            "time": clean_event.get("startTime"),
+            "stage": next_stage,
+            "comment": note,
+            "createdBy": actor_name,
+        })
+    opportunity["managements"] = managements
+    active_managements = sorted(
+        (management for management in managements
+            if isinstance(management, dict) and not management.get("canceled") and not management.get("notified")),
+        key=lambda management: f"{text(management.get('date'))} {text(management.get('time'))}",
+    )
+    latest_stage = text(active_managements[-1].get("stage")) if active_managements else next_stage
+    if latest_stage == "Cierre":
+        latest_stage = "Cierre de ventas"
+    opportunity["stage"] = latest_stage
+    opportunity["probability"] = COMMERCIAL_STAGE_PROBABILITY.get(latest_stage, opportunity.get("probability"))
+    clean_event["stageManagementId"] = management_id
+    clean_event["stageAppliedAt"] = datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")
+    return None, True
+
+
 def is_customer_request_reviewer(user):
     """Authorize the designated reviewer without broadening other CRM permissions."""
     if is_commercial_management_user(user):
@@ -8762,6 +8874,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 return
             with connect() as conn:
                 stored_row = conn.execute("SELECT value FROM app_state WHERE key = 'commercial_agenda'").fetchone()
+                result_items = read_result_opportunities(conn)
                 actor_id = text(self.headers.get("X-System-User-Id"))
                 actor_row = conn.execute(
                     "SELECT id, name, username, email, role, password, permissions, permissions_customized, admin FROM users WHERE id = ? LIMIT 1",
@@ -8794,7 +8907,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 for event in stored_item.get("events", []) if isinstance(event, dict)
                 and text(event.get("id")) and isinstance(event.get("validation"), dict)
             }
-            activities = {"Mensaje WhatsApp", "Llamada Telefónica", "Correo Electrónico", "Visita Presencial", "Elaboración de pedido", "Ingreso de pedido", "Preparación de oferta", "Gestión de cobro"}
+            stored_events = {
+                text(event.get("id")): event
+                for stored_item in stored_items if isinstance(stored_item, dict)
+                for event in stored_item.get("events", []) if isinstance(event, dict) and text(event.get("id"))
+            }
+            activities = COMMERCIAL_AGENDA_ACTIVITIES | COMMERCIAL_AGENDA_LEGACY_ACTIVITIES
+            opportunities_changed = False
             clean = []
             for item_index, item in enumerate(items, start=1):
                 if not isinstance(item, dict) or not text(item.get("seller")):
@@ -8832,6 +8951,29 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         return
                     event_id = text(event.get("id")) or str(uuid.uuid4())
                     clean_event = {"id": event_id, "date": event_date, "prospect": prospect, "activity": activity, "startTime": start_time, "endTime": end_time, "comment": text(event.get("comment")) or text(event.get("result"))}
+                    for field in ("opportunityId", "nextStage"):
+                        if text(event.get(field)):
+                            clean_event[field] = text(event.get(field))
+                    stored_event = stored_events.get(event_id, {})
+                    for field in ("opportunityCompany", "previousStage", "stageManagementId", "stageAppliedAt"):
+                        if text(stored_event.get(field)):
+                            clean_event[field] = text(stored_event.get(field))
+                    follow_up_fields = ("opportunityId", "nextStage", "date", "startTime", "comment")
+                    unchanged_follow_up = (
+                        activity == "Seguimiento a Oportunidad"
+                        and text(stored_event.get("activity")) == activity
+                        and all(text(stored_event.get(field)) == text(clean_event.get(field)) for field in follow_up_fields)
+                    )
+                    if unchanged_follow_up:
+                        stage_error, stage_changed = None, False
+                    else:
+                        stage_error, stage_changed = apply_commercial_agenda_opportunity_stage(
+                            result_items, clean_event, item.get("seller"), actor.get("name")
+                        )
+                    if stage_error:
+                        self.send_json({"error": f"Evento {event_index}: {stage_error}"}, status=400)
+                        return
+                    opportunities_changed = opportunities_changed or stage_changed
                     if event_id in stored_validations:
                         clean_event["validation"] = stored_validations[event_id]
                     clean_events.append(clean_event)
@@ -8847,7 +8989,9 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 clean = preserved + clean
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key,value,updated_at) VALUES ('commercial_agenda',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
-            self.send_json({"ok": True, "items": clean})
+                if opportunities_changed:
+                    write_result_opportunities(conn, result_items)
+            self.send_json({"ok": True, "items": clean, "opportunities": result_items})
             return
 
         if self.path == "/api/strategic-risks":
