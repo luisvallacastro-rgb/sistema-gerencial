@@ -171,6 +171,41 @@ def can_manage_all_commercial_agendas(user):
     return is_luis or is_amadeo
 
 
+def commercial_agenda_items_for_actor(items, stored_items, actor_seller_name):
+    """Keep only the connected seller's changes while preserving foreign rows server-side."""
+    actor_seller_key = crm_identity_key(actor_seller_name)
+    stored_by_id = {
+        text(item.get("id")): item
+        for item in stored_items
+        if isinstance(item, dict) and text(item.get("id"))
+    }
+    actor_items = []
+    for item in items:
+        if not isinstance(item, dict):
+            actor_items.append(item)
+            continue
+        item_id = text(item.get("id"))
+        item_seller_key = crm_identity_key(item.get("seller"))
+        stored_item = stored_by_id.get(item_id)
+        if stored_item:
+            stored_seller_key = crm_identity_key(stored_item.get("seller"))
+            if stored_seller_key != actor_seller_key:
+                # The browser sends the complete agenda. Foreign rows can be stale
+                # because another seller saved after this screen was opened, so the
+                # server ignores them and keeps its current stored copy.
+                if item_seller_key == actor_seller_key:
+                    return [], True
+                continue
+            if item_seller_key != actor_seller_key:
+                return [], True
+            actor_items.append(item)
+            continue
+        if item_seller_key != actor_seller_key:
+            return [], True
+        actor_items.append(item)
+    return actor_items, False
+
+
 def apply_commercial_agenda_validation(items, event_id, validation):
     """Apply validation and upgrade one legacy flat agenda event when necessary."""
     for item in items:
@@ -2292,6 +2327,7 @@ def normalize_user(data, index=0):
         "name": item.get("name") or username or "Usuario",
         "username": username,
         "email": email,
+        "phone": str(item.get("phone") or "").strip(),
         "role": "gerencias" if admin else role,
         "password": item.get("password") or "admin123",
         "permissions": permissions,
@@ -2321,12 +2357,13 @@ def user_payload(row):
 def upsert_user(conn, user):
     normalized = normalize_user(user)
     conn.execute("""
-        INSERT INTO users (id, name, username, email, role, password, permissions, permissions_customized, admin)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, name, username, email, phone, role, password, permissions, permissions_customized, admin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             name = excluded.name,
             username = excluded.username,
             email = excluded.email,
+            phone = excluded.phone,
             role = excluded.role,
             password = excluded.password,
             permissions = excluded.permissions,
@@ -2337,6 +2374,7 @@ def upsert_user(conn, user):
         normalized["name"],
         normalized["username"],
         normalized["email"],
+        normalized["phone"],
         normalized["role"],
         normalized["password"],
         json.dumps(normalized["permissions"], ensure_ascii=True),
@@ -2348,14 +2386,14 @@ def upsert_user(conn, user):
 
 def patch_user(conn, user_id, changes):
     row = conn.execute("""
-        SELECT id, name, username, email, role, password,
+        SELECT id, name, username, email, phone, role, password,
                permissions, permissions_customized, admin
         FROM users WHERE id = ? LIMIT 1
     """, (user_id,)).fetchone()
     if not row:
         return None
     merged = dict(user_payload(row))
-    for key in ("name", "username", "email", "role", "permissions", "permissionsCustomized", "admin"):
+    for key in ("name", "username", "email", "phone", "role", "permissions", "permissionsCustomized", "admin"):
         if key in changes:
             merged[key] = changes[key]
     password = str(changes.get("password") or "")
@@ -6425,12 +6463,15 @@ def init_db():
                 name TEXT NOT NULL,
                 username TEXT NOT NULL UNIQUE,
                 email TEXT NOT NULL,
+                phone TEXT DEFAULT '',
                 role TEXT NOT NULL,
                 password TEXT NOT NULL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "phone" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''")
         if "permissions" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN permissions TEXT DEFAULT '[]'")
         if "admin" not in columns:
@@ -7270,7 +7311,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
         if self.path == "/api/users":
             with connect() as conn:
                 rows = conn.execute("""
-                    SELECT id, name, username, email, role, password, permissions, permissions_customized, admin
+                    SELECT id, name, username, email, phone, role, password, permissions, permissions_customized, admin
                     FROM users
                     ORDER BY created_at, username
                 """).fetchall()
@@ -8704,25 +8745,12 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             except (TypeError, json.JSONDecodeError):
                 stored_items = []
             if not manages_all_sellers:
-                stored_items_by_id = {
-                    text(stored_item.get("id")): stored_item
-                    for stored_item in stored_items if isinstance(stored_item, dict) and text(stored_item.get("id"))
-                }
-                foreign_changes = any(
-                    not isinstance(item, dict)
-                    or (
-                        crm_identity_key(item.get("seller")) != actor_seller_key
-                        and stored_items_by_id.get(text(item.get("id"))) != item
-                    )
-                    for item in items
+                items, attempted_foreign_change = commercial_agenda_items_for_actor(
+                    items, stored_items, actor_seller_name
                 )
-                if foreign_changes:
+                if attempted_foreign_change:
                     self.send_json({"error": "No puedes modificar actividades asignadas a otro vendedor"}, status=403)
                     return
-                items = [
-                    item for item in items
-                    if isinstance(item, dict) and crm_identity_key(item.get("seller")) == actor_seller_key
-                ]
             stored_validations = {
                 text(event.get("id")): event.get("validation")
                 for stored_item in stored_items if isinstance(stored_item, dict)

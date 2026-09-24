@@ -1098,6 +1098,7 @@ const adminUserId = document.querySelector("#adminUserId");
 const adminUserName = document.querySelector("#adminUserName");
 const adminUsername = document.querySelector("#adminUsername");
 const adminUserEmail = document.querySelector("#adminUserEmail");
+const adminUserPhone = document.querySelector("#adminUserPhone");
 const adminUserRole = document.querySelector("#adminUserRole");
 const adminUserPassword = document.querySelector("#adminUserPassword");
 const adminPermissionGrid = document.querySelector("#adminPermissionGrid");
@@ -3905,9 +3906,13 @@ function quotationSellerContact(sellerName = "") {
   const linkedUser = crmSellerLinkedSystemUser(seller) || systemUsers.find((user) => (
     normalizeKey(user.name) === normalizeKey(sellerName)
   )) || {};
-  const email = linkedUser.email || seller.email || "";
+  const cleanContactValue = (value) => {
+    const contact = String(value ?? "").trim();
+    return /^(?:none|null|undefined|n\/a|na|-|—)$/i.test(contact) ? "" : contact;
+  };
+  const email = cleanContactValue(linkedUser.email) || cleanContactValue(seller.email);
   return {
-    phone: linkedUser.phone || seller.phone || "",
+    phone: cleanContactValue(linkedUser.phone) || cleanContactValue(seller.phone),
     email: /@konfi\.local$/i.test(email) ? "" : email
   };
 }
@@ -12128,7 +12133,10 @@ function commercialAgendaSellerNames() {
 }
 function commercialAgendaOwnSellerName() {
   const linkedSellerId = crmLinkedSellerId(state.crmData, state.currentUser);
-  const linkedSeller = crmMasterSalesUsers({ includeInactive: true }).find((seller) => String(seller.id) === String(linkedSellerId));
+  const sellers = crmMasterSalesUsers({ includeInactive: true });
+  const linkedSeller = sellers.find((seller) => String(seller.id) === String(linkedSellerId))
+    || sellers.find((seller) => crmSellerLinkedSystemUser(seller)?.id === state.currentUser?.id)
+    || sellers.find((seller) => crmIdentityKey(seller.name) === crmIdentityKey(state.currentUser?.name));
   return linkedSeller?.name || "";
 }
 function canManageAllCommercialAgendas(user = state.currentUser) {
@@ -13867,6 +13875,7 @@ function openAdminUserDialog(userId = "") {
   adminUserName.value = user?.name || "";
   adminUsername.value = user?.username || "";
   adminUserEmail.value = user?.email || "";
+  adminUserPhone.value = user?.phone || "";
   adminUserRole.innerHTML = accessRoles
     .map(([key, label]) => `<option value="${key}">${label}</option>`)
     .join("");
@@ -13914,6 +13923,7 @@ async function saveAdminUserFromForm(event) {
     name: adminUserName.value.trim(),
     username,
     email,
+    phone: adminUserPhone.value.trim(),
     role,
     admin,
     permissionsCustomized: !admin,
@@ -14309,7 +14319,7 @@ function adminSellerInitials(name = "") {
 function renderAdminSellersPanel() {
   const users = [...systemUsers].sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const query = normalizeKey(state.adminSellerQuery);
-  const filtered = users.filter((user) => !query || normalizeKey([user.name, user.email, user.username, roleDisplayName(user.role)].join(" ")).includes(query));
+  const filtered = users.filter((user) => !query || normalizeKey([user.name, user.email, user.phone, user.username, roleDisplayName(user.role)].join(" ")).includes(query));
   const selected = users.find((user) => user.id === state.adminSellerEditingId) || filtered[0] || null;
   const sellerCount = users.filter((user) => user.role === "vendedores").length;
   const linkedSeller = selected ? crmMasterSalesUsers({ includeInactive: true }).find((seller) => crmSellerLinkedSystemUser(seller)?.id === selected.id) : null;
@@ -14330,7 +14340,7 @@ function renderAdminSellersPanel() {
       </aside>
       <article class="seller-admin-form user-directory-detail">${selected ? `
         <div class="seller-admin-form-head"><div><span>Cuenta registrada</span><h3>${escapeHtml(selected.name)}</h3></div><b>${escapeHtml(roleDisplayName(selected.role))}</b></div>
-        <section class="seller-access-card"><header><div><span>Estado de acceso</span><strong>Usuario habilitado</strong></div></header><dl><div><dt>Nombre</dt><dd>${escapeHtml(selected.name || "—")}</dd></div><div><dt>Usuario</dt><dd>${escapeHtml(selected.username || "—")}</dd></div><div><dt>Correo</dt><dd>${escapeHtml(selected.email || "—")}</dd></div><div><dt>Perfil</dt><dd>${escapeHtml(roleDisplayName(selected.role))}</dd></div><div><dt>Contraseña</dt><dd>••••••••</dd></div><div><dt>Permisos</dt><dd>${userPermissions(selected).size}</dd></div><div><dt>Vendedor CRM</dt><dd>${escapeHtml(linkedSeller?.name || (selected.role === "vendedores" ? "Pendiente de sincronizar" : "No aplica"))}</dd></div></dl><small>Por seguridad la contraseña actual no se revela. Puedes definir una clave temporal y el usuario podrá cambiarla después de ingresar.</small></section>
+        <section class="seller-access-card"><header><div><span>Estado de acceso</span><strong>Usuario habilitado</strong></div></header><dl><div><dt>Nombre</dt><dd>${escapeHtml(selected.name || "—")}</dd></div><div><dt>Usuario</dt><dd>${escapeHtml(selected.username || "—")}</dd></div><div><dt>Correo</dt><dd>${escapeHtml(selected.email || "—")}</dd></div><div><dt>Teléfono</dt><dd>${escapeHtml(selected.phone || "—")}</dd></div><div><dt>Perfil</dt><dd>${escapeHtml(roleDisplayName(selected.role))}</dd></div><div><dt>Contraseña</dt><dd>••••••••</dd></div><div><dt>Permisos</dt><dd>${userPermissions(selected).size}</dd></div><div><dt>Vendedor CRM</dt><dd>${escapeHtml(linkedSeller?.name || (selected.role === "vendedores" ? "Pendiente de sincronizar" : "No aplica"))}</dd></div></dl><small>El correo y el teléfono se utilizan como datos de contacto del vendedor en las cotizaciones. Por seguridad la contraseña actual no se revela.</small></section>
         <div class="user-directory-actions"><button type="button" data-user-directory-action="edit" data-user-id="${escapeHtml(selected.id)}">Editar usuario y permisos</button><button class="seller-primary" type="button" data-user-directory-action="password" data-user-id="${escapeHtml(selected.id)}">Cambiar contraseña</button></div>
       ` : `<div class="seller-admin-empty">Selecciona un usuario para consultar su información.</div>`}</article>
     </div>
@@ -15206,6 +15216,7 @@ function normalizeUsers(items) {
       name: item.name || item.username || item.email || "Usuario",
       username,
       email,
+      phone: String(item.phone || "").trim(),
       role,
       password: item.password || "admin123",
       permissionManager: Boolean(item.permissionManager)
