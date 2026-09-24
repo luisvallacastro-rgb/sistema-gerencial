@@ -12228,6 +12228,17 @@ function normalizeCommercialAgendaTime(value) {
 }
 function canViewCommercialAgendaManagement() { return true; }
 function commercialAgendaMinutes(value) { const [hours = 0, minutes = 0] = String(value || "00:00").split(":").map(Number); return hours * 60 + minutes; }
+function commercialAgendaEventSlotStatus(event = {}, slotStart = null) {
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const start = commercialAgendaMinutes(event.startTime);
+  const end = commercialAgendaMinutes(event.endTime);
+  const hasSlot = Number.isFinite(slotStart);
+  const isCurrentSlot = !hasSlot || (nowMinutes >= slotStart && nowMinutes < slotStart + 60);
+  if (event.date === todayISO() && start <= nowMinutes && end > nowMinutes && isCurrentSlot) return "En curso";
+  if (hasSlot && start < slotStart) return "Continúa";
+  return "";
+}
 const commercialAgendaVisibleHours = [7, 8, 9, 10, 11, 13, 14, 15, 16];
 function commercialAgendaEventOverlapsVisibleHour(event = {}) {
   const start = commercialAgendaMinutes(event.startTime);
@@ -12305,7 +12316,8 @@ function renderCommercialAgendaManagement({ includeAllSellers = false, selectedD
           .sort((a, b) => String(a.event.startTime).localeCompare(String(b.event.startTime)));
         return `<td>${active.map(({ item, event }) => {
           const continuing = commercialAgendaMinutes(event.startTime) < slotStart;
-          return `<button type="button" class="commercial-agenda-matrix-event${continuing ? " is-continuing" : ""}" ${commercialAgendaCanEditSeller(item.seller) ? `data-commercial-agenda-edit="${escapeHtml(item.id)}"` : "disabled"} title="${escapeHtml(`${commercialAgendaTimeLabel(event.startTime)}–${commercialAgendaTimeLabel(event.endTime)} · ${event.prospect || item.prospect || "Sin cliente"} · ${event.activity || "Actividad"}`)}"><time>${continuing ? "En curso · " : ""}${escapeHtml(commercialAgendaTimeLabel(event.startTime))}–${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</time><strong>${escapeHtml(event.prospect || item.prospect || "Sin cliente")}</strong><span>${escapeHtml(event.activity || "Actividad")}</span></button>`;
+          const status = commercialAgendaEventSlotStatus(event, slotStart);
+          return `<button type="button" class="commercial-agenda-matrix-event${continuing ? " is-continuing" : ""}" ${commercialAgendaCanEditSeller(item.seller) ? `data-commercial-agenda-edit="${escapeHtml(item.id)}"` : "disabled"} title="${escapeHtml(`${commercialAgendaTimeLabel(event.startTime)}–${commercialAgendaTimeLabel(event.endTime)} · ${event.prospect || item.prospect || "Sin cliente"} · ${event.activity || "Actividad"}`)}"><time>${status ? `${status} · ` : ""}${escapeHtml(commercialAgendaTimeLabel(event.startTime))}–${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</time><strong>${escapeHtml(event.prospect || item.prospect || "Sin cliente")}</strong><span>${escapeHtml(event.activity || "Actividad")}</span></button>`;
         }).join("") || (allowSlotAssignment && commercialAgendaCanEditSeller(seller) ? `<button type="button" class="commercial-agenda-matrix-slot" data-agenda-slot data-agenda-slot-seller="${escapeHtml(seller)}" data-agenda-slot-date="${escapeHtml(selectedDate)}" data-agenda-slot-start="${String(hour).padStart(2, "0")}:00" data-agenda-slot-end="${String(hour + 1).padStart(2, "0")}:00" aria-pressed="false" title="Seleccionar ${escapeHtml(label)} para ${escapeHtml(seller)}"><span aria-hidden="true">＋</span><small>Seleccionar</small></button>` : `<span class="commercial-agenda-matrix-free">—</span>`)}</td>`;
       }).join("");
       return `<tr><th scope="row">${label}</th>${cells}</tr>`;
@@ -12414,16 +12426,17 @@ function renderCommercialAgendaDaily({ selectedDate = state.commercialAgendaDate
     if (!commercialAgendaEventOverlapsVisibleHour(row.event)) outside.push(row);
     else if (buckets.has(startHour)) buckets.get(startHour).push(row);
   });
-  const activityCells = ({ item, event }, continuing = false) => {
+  const activityCells = ({ item, event }, continuing = false, slotStart = null) => {
     const description = continuing ? "" : item.description || item.objective || "";
     const comment = continuing ? "" : event.comment || event.result || item.comment || item.result || "";
-    return `<td class="daily-activity"><strong>${escapeHtml(event.activity || "Actividad")}</strong><small>${continuing ? "En curso · " : ""}${escapeHtml(commercialAgendaTimeLabel(event.startTime))}–${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</small>${report || continuing || !commercialAgendaCanEditSeller(item.seller) ? "" : `<button type="button" data-commercial-agenda-edit="${escapeHtml(item.id)}" aria-label="Editar actividad">Editar</button>`}</td><td class="daily-detail"><strong>${escapeHtml(event.prospect || item.prospect || "Sin cliente")}</strong>${description ? `<p>${escapeHtml(description)}</p>` : ""}${comment ? `<small>Comentario: ${escapeHtml(comment)}</small>` : ""}${sellerFilter === "all" ? `<em>${escapeHtml(item.seller || "Sin vendedor")}</em>` : ""}</td>`;
+    const status = commercialAgendaEventSlotStatus(event, slotStart);
+    return `<td class="daily-activity"><strong>${escapeHtml(event.activity || "Actividad")}</strong><small>${status ? `${status} · ` : ""}${escapeHtml(commercialAgendaTimeLabel(event.startTime))}–${escapeHtml(commercialAgendaTimeLabel(event.endTime))}</small>${report || continuing || !commercialAgendaCanEditSeller(item.seller) ? "" : `<button type="button" data-commercial-agenda-edit="${escapeHtml(item.id)}" aria-label="Editar actividad">Editar</button>`}</td><td class="daily-detail"><strong>${escapeHtml(event.prospect || item.prospect || "Sin cliente")}</strong>${description ? `<p>${escapeHtml(description)}</p>` : ""}${comment ? `<small>Comentario: ${escapeHtml(comment)}</small>` : ""}${sellerFilter === "all" ? `<em>${escapeHtml(item.seller || "Sin vendedor")}</em>` : ""}</td>`;
   };
   const hourRows = [...buckets].map(([hour, starts]) => {
     const continuing = events.filter(({ event }) => commercialAgendaMinutes(event.startTime) < hour * 60 && commercialAgendaMinutes(event.endTime) > hour * 60);
     const rows = [...starts.map((row) => ({ row, continuing: false })), ...continuing.map((row) => ({ row, continuing: true }))];
     return rows.length
-      ? rows.map(({ row, continuing: inProgress }, index) => `<tr>${index === 0 ? `<th scope="row" rowspan="${rows.length}">${commercialAgendaDailyHourLabel(hour)}</th>` : ""}${activityCells(row, inProgress)}</tr>`).join("")
+      ? rows.map(({ row, continuing: inProgress }, index) => `<tr>${index === 0 ? `<th scope="row" rowspan="${rows.length}">${commercialAgendaDailyHourLabel(hour)}</th>` : ""}${activityCells(row, inProgress, hour * 60)}</tr>`).join("")
       : `<tr class="is-empty"><th scope="row">${commercialAgendaDailyHourLabel(hour)}</th><td>Sin actividad</td><td>—</td></tr>`;
   }).join("");
   const outsideRows = outside.map((row) => `<tr><th scope="row">${escapeHtml(commercialAgendaTimeLabel(row.event.startTime))}</th>${activityCells(row)}</tr>`).join("");
