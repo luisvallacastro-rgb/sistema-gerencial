@@ -21444,3 +21444,82 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .commercial-agenda-daily-table thead th:first-child,.commercial-agenda-daily-table tbody th{width:115px}
 .commercial-agenda-daily .daily-activity button{margin-top:5px;padding:4px 9px}
 @media(max-width:900px){.commercial-agenda-daily{min-width:760px}.commercial-agenda-daily>header{grid-template-columns:180px minmax(560px,1fr)}}
+
+/* Oportunidades / Gerencia: el monto y las acciones conservan carriles separados. */
+.app-shell .commercial-panel.opportunity-mode .opportunity-header,
+.app-shell .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row {
+  grid-template-columns: 118px minmax(220px,1.35fr) minmax(165px,.95fr) minmax(145px,.82fr) minmax(160px,.95fr) minmax(130px,.7fr) 230px !important;
+  column-gap: 12px !important;
+}
+.app-shell .commercial-panel.opportunity-mode .opportunity-row .row-actions {
+  display:flex !important;
+  grid-auto-flow:row !important;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:nowrap;
+  gap:5px !important;
+  width:230px !important;
+  min-width:230px !important;
+  max-width:230px !important;
+  overflow:hidden;
+}
+.app-shell .commercial-panel.opportunity-mode .opportunity-row .action-icon-btn {
+  flex:0 0 34px;
+  width:34px !important;
+  min-width:34px !important;
+  height:34px !important;
+  min-height:34px !important;
+}
+.app-shell .commercial-panel.opportunity-mode .opportunity-row > :nth-child(6) {
+  position:relative;
+  z-index:1;
+  padding-right:4px;
+  text-align:right;
+}
+
+/* Con barra lateral o en anchos menores, las acciones usan dos filas compactas. */
+.app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-header,
+.app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row {
+  grid-template-columns:minmax(86px,.62fr) minmax(170px,1.22fr) minmax(138px,.98fr) minmax(116px,.82fr) minmax(138px,1fr) minmax(106px,.72fr) 110px !important;
+  column-gap:8px !important;
+}
+.app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row {
+  min-height:88px !important;
+  height:88px !important;
+}
+.app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-row .row-actions {
+  display:grid !important;
+  grid-template-columns:repeat(3,30px) !important;
+  grid-auto-flow:row !important;
+  justify-content:end;
+  gap:4px !important;
+  width:110px !important;
+  min-width:110px !important;
+  max-width:110px !important;
+}
+.app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-row .action-icon-btn {
+  width:30px !important;
+  min-width:30px !important;
+  height:30px !important;
+  min-height:30px !important;
+}
+@media(max-width:1450px){
+  .app-shell .commercial-panel.opportunity-mode .opportunity-header,
+  .app-shell .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row {
+    grid-template-columns:90px minmax(160px,1.2fr) minmax(132px,.92fr) minmax(112px,.78fr) minmax(132px,.92fr) minmax(102px,.7fr) 104px !important;
+    column-gap:7px !important;
+  }
+  .app-shell .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row {min-height:86px !important;height:86px !important}
+  .app-shell .commercial-panel.opportunity-mode .opportunity-row .row-actions {
+    display:grid !important;
+    grid-template-columns:repeat(3,28px) !important;
+    grid-auto-flow:row !important;
+    gap:4px !important;
+    width:104px !important;
+    min-width:104px !important;
+    max-width:104px !important;
+  }
+  .app-shell .commercial-panel.opportunity-mode .opportunity-row .action-icon-btn {
+    width:28px !important;min-width:28px !important;height:28px !important;min-height:28px !important;
+  }
+}
