@@ -1,0 +1,1263 @@
+/*
+ * KMI Modern Light 2026
+ * Capa final del sistema visual claro. Se carga despues del tema heredado.
+ * Toda regla queda aislada por .theme-light / .theme-light-active.
+ */
+
+html body.theme-light-active {
+  background: #eef2f7 !important;
+  color: #172033 !important;
+}
+
+.app-shell.theme-light {
+  --ml-bg: #f3f6fa;
+  --ml-surface: #ffffff;
+  --ml-surface-subtle: #f8fafc;
+  --ml-surface-raised: #ffffff;
+  --ml-text: #172033;
+  --ml-text-soft: #536176;
+  --ml-muted: #718096;
+  --ml-border: #d8e1ec;
+  --ml-border-strong: #bcc9d8;
+  --ml-primary: #5958e8;
+  --ml-primary-dark: #4544c9;
+  --ml-primary-soft: #eeedff;
+  --ml-cyan: #089bb3;
+  --ml-cyan-soft: #e8f8fb;
+  --ml-teal: #0d927b;
+  --ml-teal-soft: #e7f7f3;
+  --ml-green: #138a63;
+  --ml-green-soft: #eaf7f1;
+  --ml-amber: #b76e00;
+  --ml-amber-soft: #fff7e7;
+  --ml-red: #c63f5a;
+  --ml-red-soft: #fff0f3;
+  --ml-shadow-xs: 0 1px 2px rgba(15, 23, 42, .04);
+  --ml-shadow-sm: 0 5px 16px rgba(28, 45, 72, .07);
+  --ml-shadow-md: 0 16px 40px rgba(28, 45, 72, .10);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(89, 88, 232, .08), transparent 27%),
+    radial-gradient(circle at 94% 96%, rgba(8, 155, 179, .07), transparent 26%),
+    var(--ml-bg) !important;
+  color: var(--ml-text) !important;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+/* Base tipografica */
+.app-shell.theme-light h1,
+.app-shell.theme-light h2,
+.app-shell.theme-light h3,
+.app-shell.theme-light h4,
+.app-shell.theme-light h5,
+.app-shell.theme-light strong { color: var(--ml-text) !important; }
+.app-shell.theme-light p,
+.app-shell.theme-light small,
+.app-shell.theme-light time { color: var(--ml-muted); }
+.app-shell.theme-light .money,
+.app-shell.theme-light .amount,
+.app-shell.theme-light .money-cell { color: var(--ml-teal) !important; font-variant-numeric: tabular-nums; }
+.app-shell.theme-light .eyebrow {
+  color: var(--ml-primary) !important;
+  font-size: 10px !important;
+  font-weight: 850 !important;
+  letter-spacing: .12em !important;
+}
+
+/* Cascaron y navegacion */
+.app-shell.theme-light .sidebar {
+  border: 1px solid rgba(210, 220, 232, .92) !important;
+  background: rgba(255, 255, 255, .94) !important;
+  box-shadow: 8px 0 30px rgba(39, 55, 82, .07) !important;
+  backdrop-filter: blur(22px) saturate(140%) !important;
+}
+.app-shell.theme-light .sidebar-head {
+  border-bottom: 1px solid var(--ml-border) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(246,248,252,.94)) !important;
+}
+.app-shell.theme-light .sidebar-toggle,
+.app-shell.theme-light .sidebar-restore {
+  border: 1px solid var(--ml-border) !important;
+  background: #f7f9fc !important;
+  color: #4d5b70 !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .nav-item,
+.app-shell.theme-light .submenu-item,
+.app-shell.theme-light .side-nav button,
+.app-shell.theme-light .nav-group > button {
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  color: #4d5b70 !important;
+  box-shadow: none !important;
+  transition: background .16s ease, color .16s ease, transform .16s ease !important;
+}
+.app-shell.theme-light .nav-item:hover,
+.app-shell.theme-light .submenu-item:hover,
+.app-shell.theme-light .side-nav button:hover,
+.app-shell.theme-light .nav-group > button:hover {
+  background: #f2f4ff !important;
+  color: var(--ml-primary-dark) !important;
+  transform: translateX(2px);
+}
+.app-shell.theme-light .nav-item.active,
+.app-shell.theme-light .submenu-item.active,
+.app-shell.theme-light .side-nav button.active,
+.app-shell.theme-light .nav-group.active > button {
+  border-color: #dcdafd !important;
+  background: linear-gradient(105deg, #eeedff, #f5f7ff) !important;
+  color: var(--ml-primary-dark) !important;
+  box-shadow: inset 3px 0 0 var(--ml-primary) !important;
+}
+.app-shell.theme-light .nav-caret { color: var(--ml-primary) !important; }
+.app-shell.theme-light .online-pill,
+.app-shell.theme-light .presence-head {
+  border: 1px solid #bde7da !important;
+  background: #ecfaf5 !important;
+  color: #08745f !important;
+}
+.app-shell.theme-light .online-pill i,
+.app-shell.theme-light .presence-dot,
+.app-shell.theme-light .presence-head i {
+  background: #19a982 !important;
+  box-shadow: 0 0 0 4px rgba(25, 169, 130, .12) !important;
+}
+.app-shell.theme-light .presence-panel {
+  border: 1px solid var(--ml-border) !important;
+  background: #fbfcfe !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .presence-user { border-color: #e2e8f0 !important; background: #fff !important; color: var(--ml-text-soft) !important; }
+.app-shell.theme-light .ghost-btn.logout {
+  border: 1px solid var(--ml-border) !important;
+  background: #f8fafc !important;
+  color: #4d5b70 !important;
+}
+
+/* Encabezado y espacios de trabajo */
+.app-shell.theme-light .topbar {
+  min-height: 72px !important;
+  border: 1px solid rgba(211, 221, 233, .95) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, .92) !important;
+  box-shadow: 0 10px 28px rgba(31, 49, 75, .07) !important;
+  backdrop-filter: blur(20px) saturate(135%) !important;
+}
+.app-shell.theme-light .topbar h2 {
+  color: #15233a !important;
+  font-size: clamp(27px, 2.6vw, 38px) !important;
+  letter-spacing: -.035em !important;
+}
+.app-shell.theme-light .panel,
+.app-shell.theme-light .crm-panel,
+.app-shell.theme-light .commercial-panel,
+.app-shell.theme-light .financial-orders-shell,
+.app-shell.theme-light .purchase-orders-shell,
+.app-shell.theme-light .control-sales-shell,
+.app-shell.theme-light .accounts-receivable-shell,
+.app-shell.theme-light .admin-shell {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, .96) !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-md) !important;
+  backdrop-filter: none !important;
+}
+.app-shell.theme-light .panel-head {
+  border-bottom: 1px solid var(--ml-border) !important;
+  background: transparent !important;
+}
+.app-shell.theme-light .panel-head h3,
+.app-shell.theme-light .commercial-panel-title-row h3 { letter-spacing: -.02em !important; }
+
+/* Controles */
+.app-shell.theme-light input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.app-shell.theme-light select,
+.app-shell.theme-light textarea,
+.app-shell.theme-light .opportunity-search,
+.app-shell.theme-light .crm-search-box,
+.app-shell.theme-light .control-sales-search,
+.app-shell.theme-light .commercial-approval__search,
+.app-shell.theme-light .commercial-agenda-search {
+  border: 1px solid var(--ml-border-strong) !important;
+  border-radius: 11px !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+  opacity: 1 !important;
+}
+.app-shell.theme-light input::placeholder,
+.app-shell.theme-light textarea::placeholder { color: #8794a7 !important; opacity: 1 !important; }
+.app-shell.theme-light input:focus,
+.app-shell.theme-light select:focus,
+.app-shell.theme-light textarea:focus,
+.app-shell.theme-light .opportunity-search:focus-within,
+.app-shell.theme-light .crm-search-box:focus-within,
+.app-shell.theme-light .control-sales-search:focus-within,
+.app-shell.theme-light .commercial-approval__search:focus-within {
+  border-color: #7775ee !important;
+  box-shadow: 0 0 0 3px rgba(89, 88, 232, .13) !important;
+  outline: 0 !important;
+}
+.app-shell.theme-light .primary-btn,
+.app-shell.theme-light button.primary,
+.app-shell.theme-light .financial-orders-toolbar > button,
+.app-shell.theme-light .purchase-orders-toolbar > button:not(.purchase-order-report-button) {
+  border: 1px solid var(--ml-primary-dark) !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #6765ed, #4d4bd2) !important;
+  color: #fff !important;
+  box-shadow: 0 7px 16px rgba(89, 88, 232, .22) !important;
+}
+.app-shell.theme-light .primary-btn:hover,
+.app-shell.theme-light button.primary:hover { filter: brightness(.97); transform: translateY(-1px); }
+.app-shell.theme-light .secondary-btn,
+.app-shell.theme-light .ghost-btn,
+.app-shell.theme-light .compact-btn {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 10px !important;
+  background: #f8fafc !important;
+  color: #435168 !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light button.danger,
+.app-shell.theme-light .danger-btn {
+  border-color: #f0bec8 !important;
+  background: var(--ml-red-soft) !important;
+  color: var(--ml-red) !important;
+}
+
+/* Tabs modernos */
+.app-shell.theme-light .crm-tracking-view-tabs,
+.app-shell.theme-light .quotations-module__tabs,
+.app-shell.theme-light .financial-orders-view-tabs,
+.app-shell.theme-light .bank-availability-view-tabs,
+.app-shell.theme-light .accounts-receivable-status-tabs,
+.app-shell.theme-light .commercial-agenda-view-tabs,
+.app-shell.theme-light .crm-customer-view-tabs,
+.app-shell.theme-light .opportunity-cycle-tabs {
+  border: 1px solid #e1e6ef !important;
+  border-radius: 11px !important;
+  background: #f4f6fa !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .crm-tracking-view-tabs button,
+.app-shell.theme-light .quotations-module__tabs button,
+.app-shell.theme-light .financial-orders-view-tabs button,
+.app-shell.theme-light .bank-availability-view-tabs button,
+.app-shell.theme-light .accounts-receivable-status-tabs button,
+.app-shell.theme-light .commercial-agenda-view-tabs button,
+.app-shell.theme-light .crm-customer-view-tabs button,
+.app-shell.theme-light .opportunity-cycle-tabs button {
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #657187 !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .crm-tracking-view-tabs button.active,
+.app-shell.theme-light .crm-tracking-view-tabs button.is-active,
+.app-shell.theme-light .quotations-module__tabs button.active,
+.app-shell.theme-light .financial-orders-view-tabs button.active,
+.app-shell.theme-light .bank-availability-view-tabs button.active,
+.app-shell.theme-light .accounts-receivable-status-tabs button.active,
+.app-shell.theme-light .commercial-agenda-view-tabs button.active,
+.app-shell.theme-light .crm-customer-view-tabs button.active,
+.app-shell.theme-light .opportunity-cycle-tabs button.active {
+  background: #fff !important;
+  color: var(--ml-primary-dark) !important;
+  box-shadow: 0 2px 8px rgba(28, 45, 72, .10), inset 0 0 0 1px #dddffc !important;
+}
+
+/* Tarjetas, metricas y listas comunes */
+.app-shell.theme-light .summary-card,
+.app-shell.theme-light .metric-card,
+.app-shell.theme-light .metric-tile,
+.app-shell.theme-light .crm-metric,
+.app-shell.theme-light .availability-summary-card,
+.app-shell.theme-light .accounts-receivable-kpi,
+.app-shell.theme-light .operations-kpi-card,
+.app-shell.theme-light .admin-metric,
+.app-shell.theme-light .kpi-count-split section,
+.app-shell.theme-light .kpi-detail-summary article,
+.app-shell.theme-light .control-sales-kpis article,
+.app-shell.theme-light .commercial-approval__metrics article,
+.app-shell.theme-light .commercial-metrics-totals article {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(145deg, #fff, #f7f9fc) !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .summary-card:first-child,
+.app-shell.theme-light .metric-tile.total,
+.app-shell.theme-light .commercial-metrics-totals article:first-child {
+  border-color: #cfd0fa !important;
+  background: linear-gradient(145deg, #f0efff, #fafaff) !important;
+}
+.app-shell.theme-light .summary-card strong,
+.app-shell.theme-light .metric-card strong,
+.app-shell.theme-light .metric-tile strong,
+.app-shell.theme-light .crm-metric strong,
+.app-shell.theme-light .availability-summary-card strong,
+.app-shell.theme-light .accounts-receivable-kpi strong,
+.app-shell.theme-light .operations-kpi-card strong,
+.app-shell.theme-light .admin-metric strong,
+.app-shell.theme-light .control-sales-kpis strong,
+.app-shell.theme-light .commercial-approval__metrics strong,
+.app-shell.theme-light .commercial-metrics-totals strong { color: var(--ml-text) !important; text-shadow: none !important; }
+.app-shell.theme-light .summary-card span,
+.app-shell.theme-light .summary-card small,
+.app-shell.theme-light .metric-tile span,
+.app-shell.theme-light .metric-tile small,
+.app-shell.theme-light .control-sales-kpis small,
+.app-shell.theme-light .control-sales-kpis span,
+.app-shell.theme-light .commercial-approval__metrics small { color: var(--ml-muted) !important; opacity: 1 !important; }
+
+/* Tablas y filas comunes */
+.app-shell.theme-light table {
+  color: var(--ml-text) !important;
+  border-color: var(--ml-border) !important;
+}
+.app-shell.theme-light table thead th,
+.app-shell.theme-light .opportunity-header,
+.app-shell.theme-light .crm-table-head,
+.app-shell.theme-light .quotation-table-head,
+.app-shell.theme-light .financial-order-row.header,
+.app-shell.theme-light .control-sales-row.head,
+.app-shell.theme-light .control-sales-detail-row.head,
+.app-shell.theme-light .won-kpi-header,
+.app-shell.theme-light .table-head {
+  border-color: #cad5e2 !important;
+  background: #edf2f7 !important;
+  color: #49596f !important;
+  text-shadow: none !important;
+}
+.app-shell.theme-light table td,
+.app-shell.theme-light table th,
+.app-shell.theme-light .opportunity-row,
+.app-shell.theme-light .financial-order-row,
+.app-shell.theme-light .control-sales-row,
+.app-shell.theme-light .crm-table-row,
+.app-shell.theme-light .request-row,
+.app-shell.theme-light .strategic-risk-row,
+.app-shell.theme-light .management-request-row,
+.app-shell.theme-light .receivable-week-row,
+.app-shell.theme-light .accounts-receivable-aging-row,
+.app-shell.theme-light .crm-mail-row,
+.app-shell.theme-light .crm-tracking-list-row {
+  border-color: var(--ml-border) !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light table tbody tr,
+.app-shell.theme-light .opportunity-row:not(.opportunity-header),
+.app-shell.theme-light .financial-order-row:not(.header),
+.app-shell.theme-light .control-sales-row:not(.head),
+.app-shell.theme-light .crm-table-row,
+.app-shell.theme-light .request-row,
+.app-shell.theme-light .strategic-risk-row,
+.app-shell.theme-light .management-request-row,
+.app-shell.theme-light .receivable-week-row,
+.app-shell.theme-light .accounts-receivable-aging-row,
+.app-shell.theme-light .crm-mail-row,
+.app-shell.theme-light .crm-tracking-list-row {
+  background: #fff !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light table tbody tr:hover,
+.app-shell.theme-light .opportunity-row:not(.opportunity-header):hover,
+.app-shell.theme-light .financial-order-row:not(.header):hover,
+.app-shell.theme-light .control-sales-row:not(.head):hover,
+.app-shell.theme-light .crm-table-row:hover,
+.app-shell.theme-light .request-row:hover,
+.app-shell.theme-light .crm-mail-row:hover,
+.app-shell.theme-light .crm-tracking-list-row:hover { background: #f7f9fc !important; }
+.app-shell.theme-light .opportunity-table,
+.app-shell.theme-light .quotation-table,
+.app-shell.theme-light .financial-orders-table-wrap,
+.app-shell.theme-light .control-sales-table,
+.app-shell.theme-light .crm-data-table,
+.app-shell.theme-light .accounts-receivable-matrix-wrap,
+.app-shell.theme-light .commercial-goals-table-wrap,
+.app-shell.theme-light .goals-matrix-wrap,
+.app-shell.theme-light .control-sales-matrix-wrap {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+
+/* Acciones, etiquetas y estados */
+.app-shell.theme-light .action-icon-btn,
+.app-shell.theme-light .quotation-action,
+.app-shell.theme-light .row-actions button,
+.app-shell.theme-light .crm-row-actions button,
+.app-shell.theme-light .control-sales-actions button {
+  border: 1px solid #d5dfeb !important;
+  border-radius: 10px !important;
+  background: #f7f9fc !important;
+  color: #40516a !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .action-icon-btn:hover,
+.app-shell.theme-light .quotation-action:hover,
+.app-shell.theme-light .row-actions button:hover,
+.app-shell.theme-light .crm-row-actions button:hover,
+.app-shell.theme-light .control-sales-actions button:hover {
+  border-color: #aaaaf1 !important;
+  background: #f0efff !important;
+  color: var(--ml-primary-dark) !important;
+  transform: translateY(-1px);
+}
+.app-shell.theme-light .tag,
+.app-shell.theme-light .status-pill,
+.app-shell.theme-light .closure-badge,
+.app-shell.theme-light .financial-order-status,
+.app-shell.theme-light .control-sales-status {
+  border: 1px solid #d6e0ec !important;
+  background: #f1f5f9 !important;
+  color: #526176 !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .tag.warn,
+.app-shell.theme-light .status-pill.attention,
+.app-shell.theme-light .control-sales-status.warning { border-color: #f2d49b !important; background: var(--ml-amber-soft) !important; color: #9a5c00 !important; }
+.app-shell.theme-light .tag.danger,
+.app-shell.theme-light .closure-badge.lost { border-color: #f1bdc7 !important; background: var(--ml-red-soft) !important; color: var(--ml-red) !important; }
+.app-shell.theme-light .tag.info { border-color: #bcd7f5 !important; background: #eef6ff !important; color: #2869a7 !important; }
+.app-shell.theme-light .status-pill.done,
+.app-shell.theme-light .closure-badge.won,
+.app-shell.theme-light .financial-order-status { border-color: #bde2d4 !important; background: var(--ml-green-soft) !important; color: #0b7656 !important; }
+
+/* Oportunidades / Vendedores */
+.app-shell.theme-light .opportunity-cycle-toolbar,
+.app-shell.theme-light .opportunity-summary-strip,
+.app-shell.theme-light .opportunity-closed-filters {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 13px !important;
+  background: #f8fafc !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .opportunity-row:not(.opportunity-header) {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 3px 10px rgba(28,45,72,.045) !important;
+}
+.app-shell.theme-light .opportunity-row * { color: var(--ml-text) !important; opacity: 1 !important; }
+.app-shell.theme-light .opportunity-total strong { color: var(--ml-teal) !important; }
+
+/* KPI comercial de oportunidades: clases reales de esta vista. */
+.app-shell.theme-light .financial-seller-kpi {
+  color: var(--ml-text) !important;
+  background: transparent !important;
+}
+.app-shell.theme-light .financial-seller-kpi-summary article {
+  border: 1px solid #d5dfeb !important;
+  border-radius: 14px !important;
+  background: linear-gradient(145deg,#fff,#f6f8fc) !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .financial-seller-kpi-summary article:first-child { border-color: #cbcafa !important; background: linear-gradient(145deg,#efefff,#fafaff) !important; }
+.app-shell.theme-light .financial-seller-kpi-summary article:nth-child(2) { border-color: #bae4db !important; background: linear-gradient(145deg,#e9f8f4,#f9fffd) !important; }
+.app-shell.theme-light .financial-seller-kpi-summary span { color: #66758a !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-seller-kpi-summary strong { color: #172033 !important; text-shadow: none !important; }
+.app-shell.theme-light .financial-seller-chart-head { border-bottom: 1px solid var(--ml-border) !important; }
+.app-shell.theme-light .financial-seller-chart-head span { color: var(--ml-primary) !important; }
+.app-shell.theme-light .financial-seller-chart-head h4 { color: var(--ml-text) !important; }
+.app-shell.theme-light .financial-seller-chart-head small { color: var(--ml-muted) !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-seller-bar-row {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .financial-seller-bar-row:hover { border-color: #c7c7f6 !important; background: #fafaff !important; transform: translateX(2px) !important; }
+.app-shell.theme-light .financial-seller-bar-label strong,
+.app-shell.theme-light .financial-seller-bar-values span { color: var(--ml-text) !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-seller-bar-label span { color: var(--ml-muted) !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-seller-bar-values strong { color: var(--ml-primary-dark) !important; }
+.app-shell.theme-light .financial-seller-bar-track { border: 1px solid #d8e1ec !important; background: #e7edf4 !important; box-shadow: inset 0 1px 2px rgba(28,45,72,.08) !important; }
+
+/* KPI general */
+.app-shell.theme-light .won-kpi-sticky,
+.app-shell.theme-light .won-kpi-summary,
+.app-shell.theme-light .kpi-summary-band { background: transparent !important; }
+.app-shell.theme-light .won-kpi-caption,
+.app-shell.theme-light .won-kpi-header {
+  border: 1px solid var(--ml-border) !important;
+  background: #edf2f7 !important;
+  color: #4a5a70 !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .won-kpi-caption *,
+.app-shell.theme-light .won-kpi-header * { color: #4a5a70 !important; opacity: 1 !important; }
+.app-shell.theme-light .won-kpi-row {
+  border: 1px solid var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .won-kpi-row * { color: var(--ml-text) !important; opacity: 1 !important; }
+.app-shell.theme-light .won-kpi-row small { color: var(--ml-muted) !important; }
+.app-shell.theme-light .won-kpi-row.selected { border-color: #a8a8ef !important; background: #f6f5ff !important; box-shadow: inset 3px 0 0 var(--ml-primary) !important; }
+.app-shell.theme-light .won-kpi-row.vacancy { border-color: #ead19f !important; background: #fffaf0 !important; }
+.app-shell.theme-light .achievement-progress,
+.app-shell.theme-light .kpi-progress { border: 1px solid #d5deea !important; background: #e6ecf3 !important; }
+.app-shell.theme-light .count-chip {
+  border: 1px solid #d4deea !important;
+  background: #f2f5f9 !important;
+  color: #46566d !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .count-chip.total { border-color: #c9c8f7 !important; background: #eeedff !important; color: #4b49ca !important; }
+.app-shell.theme-light .count-chip.won { border-color: #aedaCC !important; background: #e8f7f2 !important; color: #08745b !important; }
+.app-shell.theme-light .count-chip.lost { border-color: #efbdc7 !important; background: #fff0f3 !important; color: #bd3652 !important; }
+.app-shell.theme-light .count-chip.pending { border-color: #efd39d !important; background: #fff7e7 !important; color: #9b5f00 !important; }
+
+/* Anuladas */
+.app-shell.theme-light .crm-cancelled-view {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .crm-cancelled-summary { border-bottom: 1px solid var(--ml-border) !important; background: #f7f8ff !important; color: var(--ml-primary-dark) !important; text-shadow: none !important; }
+.app-shell.theme-light .crm-cancelled-view thead th { background: #edf2f7 !important; color: #526176 !important; }
+.app-shell.theme-light .crm-cancelled-view tbody tr { background: #fff !important; }
+.app-shell.theme-light .crm-cancelled-view tbody tr:nth-child(even) { background: #f9fafc !important; }
+.app-shell.theme-light .crm-cancelled-view th,
+.app-shell.theme-light .crm-cancelled-view td { border-color: var(--ml-border) !important; color: var(--ml-text) !important; opacity: 1 !important; }
+
+/* Cotizaciones / OP: semantica elegante, no bloques saturados. */
+.app-shell.theme-light .quotations-module__toolbar { border: 1px solid var(--ml-border) !important; border-radius: 13px !important; background: #f8fafc !important; }
+.app-shell.theme-light .quotation-table-row {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: 0 3px 10px rgba(28,45,72,.045) !important;
+}
+.app-shell.theme-light .quotation-table-row.quotation-only {
+  border-color: #ead6aa !important;
+  background: linear-gradient(90deg,#fff9ec 0,#fffdf8 34%,#fff 100%) !important;
+  box-shadow: inset 4px 0 0 #e7a91f,0 3px 10px rgba(28,45,72,.045) !important;
+}
+.app-shell.theme-light .quotation-table-row.has-order {
+  border-color: #b8dfd3 !important;
+  background: linear-gradient(90deg,#eefaf6 0,#f9fdfb 34%,#fff 100%) !important;
+  box-shadow: inset 4px 0 0 #159b76,0 3px 10px rgba(28,45,72,.045) !important;
+}
+.app-shell.theme-light .quotation-table-row:hover { transform: translateY(-1px) !important; }
+.app-shell.theme-light .quotation-table-row * { color: var(--ml-text) !important; opacity: 1 !important; }
+.app-shell.theme-light .quotation-table-row small { color: var(--ml-muted) !important; }
+.app-shell.theme-light .quotation-table-row__amount { color: var(--ml-teal) !important; }
+.app-shell.theme-light .quotation-record__status[data-status="solo-cotizacion"] { border: 1px solid #e6c77f !important; background: #fff0c8 !important; color: #8b5700 !important; box-shadow: none !important; }
+.app-shell.theme-light .quotation-record__status[data-status="orden-creada"] { border: 1px solid #9fd4c4 !important; background: #dcf5ec !important; color: #087158 !important; box-shadow: none !important; }
+
+/* Clientes, autorizaciones y seguimiento CRM */
+.app-shell.theme-light .crm-tracking-overview,
+.app-shell.theme-light .crm-tracking-sidebar,
+.app-shell.theme-light .crm-won-history-panel,
+.app-shell.theme-light .crm-kanban-column,
+.app-shell.theme-light .crm-customer-fields,
+.app-shell.theme-light .commercial-approval,
+.app-shell.theme-light .commercial-approval__hero {
+  border-color: var(--ml-border) !important;
+  background: #f8fafc !important;
+  color: var(--ml-text) !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .crm-seller-chip,
+.app-shell.theme-light .crm-tracking-card,
+.app-shell.theme-light .crm-won-history-card,
+.app-shell.theme-light .crm-opportunity-row,
+.app-shell.theme-light .crm-stage-row,
+.app-shell.theme-light .crm-mini-card,
+.app-shell.theme-light .commercial-approval__row,
+.app-shell.theme-light .customer-request-list-row {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .crm-seller-chip *,
+.app-shell.theme-light .crm-tracking-card *,
+.app-shell.theme-light .crm-won-history-card *,
+.app-shell.theme-light .crm-opportunity-row *,
+.app-shell.theme-light .crm-stage-row *,
+.app-shell.theme-light .crm-mini-card *,
+.app-shell.theme-light .commercial-approval__row * { color: var(--ml-text) !important; opacity: 1 !important; }
+.app-shell.theme-light .crm-seller-chip span,
+.app-shell.theme-light .crm-tracking-card p,
+.app-shell.theme-light .crm-won-history-card p,
+.app-shell.theme-light .commercial-approval__identity span,
+.app-shell.theme-light .commercial-approval__client span { color: var(--ml-muted) !important; }
+.app-shell.theme-light .crm-seller-chip.is-active { border-color: #bcbcf4 !important; background: #f1f0ff !important; box-shadow: inset 3px 0 0 var(--ml-primary) !important; }
+.app-shell.theme-light .commercial-approval__hero h3,
+.app-shell.theme-light .commercial-approval__identity strong,
+.app-shell.theme-light .commercial-approval__client strong { color: var(--ml-text) !important; }
+.app-shell.theme-light .commercial-approval__hero p { color: var(--ml-muted) !important; }
+
+/* Finanzas, pedidos y cuentas por cobrar */
+.app-shell.theme-light .financial-orders-toolbar,
+.app-shell.theme-light .purchase-orders-toolbar,
+.app-shell.theme-light .accounts-receivable-toolbar,
+.app-shell.theme-light .bank-report-toolbar,
+.app-shell.theme-light .control-sales-toolbar {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 13px !important;
+  background: #f8fafc !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .financial-order-card,
+.app-shell.theme-light .purchase-order-card,
+.app-shell.theme-light .purchase-order-month-card,
+.app-shell.theme-light .bank-simple-table,
+.app-shell.theme-light .bank-movements-table,
+.app-shell.theme-light .bank-provision-breakdown,
+.app-shell.theme-light .availability-summary-panel,
+.app-shell.theme-light .availability-derived-report,
+.app-shell.theme-light .pending-expenses-panel,
+.app-shell.theme-light .financial-income-annex {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .financial-order-card *,
+.app-shell.theme-light .purchase-order-card *,
+.app-shell.theme-light .bank-simple-table *,
+.app-shell.theme-light .bank-movements-table *,
+.app-shell.theme-light .availability-derived-report * { color: var(--ml-text) !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-order-card small,
+.app-shell.theme-light .purchase-order-card small,
+.app-shell.theme-light .availability-derived-report small { color: var(--ml-muted) !important; }
+.app-shell.theme-light .bank-daily-status,
+.app-shell.theme-light .availability-data-status { border-color: #efd194 !important; background: var(--ml-amber-soft) !important; color: #8d5900 !important; }
+.app-shell.theme-light .bank-report-toolbar > div > span,
+.app-shell.theme-light .bank-report-toolbar > div > strong {
+  color: var(--ml-text) !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+.app-shell.theme-light .bank-report-toolbar > div > small {
+  color: var(--ml-muted) !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+.app-shell.theme-light .bank-view-btn {
+  border: 1px solid #c9caf6 !important;
+  background: #efefff !important;
+  color: #4947c7 !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .bank-view-btn:hover,
+.app-shell.theme-light .bank-view-btn.is-active {
+  border-color: #7775ee !important;
+  background: #dfdfff !important;
+  color: #3533a9 !important;
+}
+.app-shell.theme-light .availability-dashboard-grid,
+.app-shell.theme-light .pending-expenses-grid,
+.app-shell.theme-light .accounts-receivable-kpi-summary { background: transparent !important; }
+.app-shell.theme-light .availability-history-chart,
+.app-shell.theme-light .availability-archive-list,
+.app-shell.theme-light .availability-signatures,
+.app-shell.theme-light .pending-expenses-table,
+.app-shell.theme-light .pending-checks-table,
+.app-shell.theme-light .pending-expenses-crud-list,
+.app-shell.theme-light .pending-checks-crud-list,
+.app-shell.theme-light .bank-maintenance-summary {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .availability-statistics-shell { color: var(--ml-text) !important; }
+.app-shell.theme-light .availability-statistics-shell > header {
+  border: 1px solid #cfd0fa !important;
+  background: linear-gradient(135deg,#f0efff,#eff9fb) !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .availability-statistics-shell > header span { color: var(--ml-primary) !important; }
+.app-shell.theme-light .availability-statistics-shell > header h2 { color: var(--ml-text) !important; }
+.app-shell.theme-light .availability-statistics-shell > header p { color: var(--ml-muted) !important; }
+.app-shell.theme-light .availability-statistics-shell > header > strong {
+  border-color: #bcbcf4 !important;
+  background: #fff !important;
+  color: var(--ml-primary-dark) !important;
+}
+.app-shell.theme-light .availability-statistics-title,
+.app-shell.theme-light .availability-archive-list > header { border-color: var(--ml-border) !important; }
+.app-shell.theme-light .availability-statistics-title h3,
+.app-shell.theme-light .availability-archive-list h3,
+.app-shell.theme-light .availability-statistics-empty strong { color: var(--ml-text) !important; }
+.app-shell.theme-light .availability-statistics-title p,
+.app-shell.theme-light .availability-archive-list p,
+.app-shell.theme-light .availability-statistics-empty,
+.app-shell.theme-light .availability-chart-note { color: var(--ml-muted) !important; opacity: 1 !important; }
+.app-shell.theme-light .pending-expense-detail,
+.app-shell.theme-light .pending-expense-form,
+.app-shell.theme-light .bank-bulk-form,
+.app-shell.theme-light .bank-inline-form,
+.app-shell.theme-light .bank-record-form {
+  border-color: var(--ml-border) !important;
+  background: #f8fafc !important;
+  color: var(--ml-text) !important;
+}
+
+/* Disponibilidad: elimina los ultimos contenedores heredados del tema oscuro. */
+.app-shell.theme-light .pending-checks-panel {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .pending-checks-panel > header span {
+  color: var(--ml-primary) !important;
+  opacity: 1 !important;
+}
+.app-shell.theme-light .pending-checks-panel > header h2,
+.app-shell.theme-light .pending-checks-panel > header strong {
+  color: var(--ml-text) !important;
+  text-shadow: none !important;
+}
+.app-shell.theme-light .pending-checks-table thead th {
+  border-color: var(--ml-border) !important;
+  background: #eef2f8 !important;
+  color: #4f5e73 !important;
+}
+.app-shell.theme-light .pending-checks-table tbody td {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .pending-checks-table tfoot th,
+.app-shell.theme-light .pending-checks-table tfoot td {
+  border-color: var(--ml-border) !important;
+  background: #f1f4f9 !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .pending-checks-table td.money,
+.app-shell.theme-light .pending-checks-table tfoot .money { color: var(--ml-teal) !important; }
+
+.app-shell.theme-light .availability-signatures {
+  border-top: 1px solid var(--ml-border) !important;
+  background: #f8fafc !important;
+}
+.app-shell.theme-light .availability-signatures > header span { color: var(--ml-primary) !important; }
+.app-shell.theme-light .availability-signatures > header strong { color: var(--ml-text) !important; }
+.app-shell.theme-light .availability-signatures > header small { color: var(--ml-muted) !important; }
+.app-shell.theme-light .availability-signatures article {
+  border: 1px solid var(--ml-border) !important;
+  background: #fff !important;
+  box-shadow: 0 2px 8px rgba(28,45,72,.04) !important;
+}
+.app-shell.theme-light .availability-signatures article.is-signed {
+  border-color: #9fd4c4 !important;
+  background: #effaf6 !important;
+}
+.app-shell.theme-light .availability-signatures article i {
+  background: #eceeff !important;
+  color: var(--ml-primary) !important;
+}
+.app-shell.theme-light .availability-signatures article.is-signed i { background: var(--ml-teal) !important; color: #fff !important; }
+.app-shell.theme-light .availability-signatures article strong { color: var(--ml-text) !important; }
+.app-shell.theme-light .availability-signatures article span { color: var(--ml-primary-dark) !important; }
+.app-shell.theme-light .availability-signatures article small { color: var(--ml-muted) !important; }
+
+.app-shell.theme-light .availability-derived-report > footer {
+  border-top: 1px solid var(--ml-border) !important;
+  background: #f8fafc !important;
+  color: var(--ml-muted) !important;
+}
+.app-shell.theme-light .availability-derived-report > header {
+  border-bottom: 1px solid #c9caf6 !important;
+  background: linear-gradient(135deg,#eeedff,#eef9fb) !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .availability-derived-report > header span { color: var(--ml-primary) !important; }
+.app-shell.theme-light .availability-derived-report > header h2 { color: var(--ml-text) !important; }
+.app-shell.theme-light .availability-derived-report > header p { color: var(--ml-muted) !important; }
+.app-shell.theme-light .availability-derived-report > header > strong {
+  color: var(--ml-primary-dark) !important;
+  text-shadow: none !important;
+}
+.app-shell.theme-light .availability-derived-report th,
+.app-shell.theme-light .availability-derived-report td { border-color: var(--ml-border) !important; color: var(--ml-text) !important; }
+.app-shell.theme-light .availability-derived-report th > small { color: var(--ml-muted) !important; }
+.app-shell.theme-light .availability-derived-report tbody tr:not(.subtotal):not(.highlight):not(.total):nth-child(even) { background: #f8fafc !important; }
+.app-shell.theme-light .availability-derived-report tr.subtotal {
+  background: #edf2f8 !important;
+  color: var(--ml-text) !important;
+  box-shadow: inset 4px 0 #91a7c0 !important;
+}
+.app-shell.theme-light .availability-derived-report tr.highlight {
+  background: #e8f8f3 !important;
+  color: #087158 !important;
+  box-shadow: inset 4px 0 var(--ml-teal) !important;
+}
+.app-shell.theme-light .availability-derived-report tr.total {
+  background: #e8e8ff !important;
+  color: var(--ml-primary-dark) !important;
+  box-shadow: inset 4px 0 var(--ml-primary) !important;
+}
+.app-shell.theme-light .availability-derived-report tr.total td:last-child { color: var(--ml-primary-dark) !important; }
+.app-shell.theme-light .availability-editable-amount {
+  border-color: #bdcad9 !important;
+  background: #fff !important;
+}
+.app-shell.theme-light .availability-editable-amount b { background: #eef2f8 !important; color: var(--ml-muted) !important; }
+.app-shell.theme-light .availability-editable-amount input { color: var(--ml-text) !important; }
+.app-shell.theme-light .availability-derived-report > footer > span { color: var(--ml-muted) !important; }
+.app-shell.theme-light .availability-derived-report footer button {
+  border-color: #c9caf6 !important;
+  background: #efefff !important;
+  color: #4846c5 !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .availability-derived-report footer button:hover {
+  border-color: #7775ee !important;
+  background: #dfdfff !important;
+  color: #3432a8 !important;
+}
+.app-shell.theme-light .availability-derived-report footer button[data-bank-availability-print],
+.app-shell.theme-light .availability-derived-report footer button[data-bank-availability-report] {
+  border-color: #9fd4c4 !important;
+  background: #e4f6f0 !important;
+  color: #087158 !important;
+}
+.app-shell.theme-light .availability-derived-report footer button.availability-remittances-save {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+}
+
+/* Control de ventas */
+.app-shell.theme-light .control-sales-hero {
+  border: 1px solid #cfd0fa !important;
+  border-radius: 16px !important;
+  background: linear-gradient(135deg,#f0efff,#f5fbff) !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .control-sales-hero h3 { color: var(--ml-text) !important; }
+.app-shell.theme-light .control-sales-hero p { color: var(--ml-muted) !important; }
+.app-shell.theme-light .control-sales-hero > div:first-child span,
+.app-shell.theme-light .control-sales-lines-title span { color: var(--ml-primary) !important; }
+.app-shell.theme-light .control-sales-pagination,
+.app-shell.theme-light .control-sales-line,
+.app-shell.theme-light .control-sales-audit article,
+.app-shell.theme-light .control-sales-detail-summary article {
+  border-color: var(--ml-border) !important;
+  background: #f8fafc !important;
+  color: var(--ml-text) !important;
+}
+
+/* Metricas comerciales */
+.app-shell.theme-light .commercial-metrics-hero {
+  border: 1px solid #cfd0fa !important;
+  background: linear-gradient(135deg,#f0efff,#f4fbfd) !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .commercial-metrics-hero h2 { color: var(--ml-text) !important; }
+.app-shell.theme-light .commercial-metrics-hero p { color: var(--ml-muted) !important; }
+.app-shell.theme-light .commercial-metrics-filter-panel,
+.app-shell.theme-light .commercial-metrics-master,
+.app-shell.theme-light .commercial-metrics-summary,
+.app-shell.theme-light .commercial-metrics-detail-table {
+  border: 1px solid var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .commercial-metrics-filter-panel > header,
+.app-shell.theme-light .commercial-metrics-master > header { border-color: var(--ml-border) !important; background: #f8fafc !important; }
+.app-shell.theme-light .commercial-metrics-filter-panel > header h3,
+.app-shell.theme-light .commercial-metrics-master > header h3 { color: var(--ml-text) !important; }
+.app-shell.theme-light .commercial-metrics-filter-panel > header span,
+.app-shell.theme-light .commercial-metrics-master > header span { color: var(--ml-primary) !important; }
+.app-shell.theme-light .commercial-metrics-filter-row,
+.app-shell.theme-light .commercial-metrics-master-row,
+.app-shell.theme-light .commercial-metrics-summary-row,
+.app-shell.theme-light .commercial-metrics-detail-row { border-color: var(--ml-border) !important; background: #fff !important; color: var(--ml-text) !important; }
+.app-shell.theme-light .commercial-metrics-filter-row.table-head,
+.app-shell.theme-light .commercial-metrics-master-row.table-head { background: #edf2f7 !important; color: #526176 !important; }
+.app-shell.theme-light .commercial-metrics-filter-row.active,
+.app-shell.theme-light .commercial-metrics-summary-row.active { background: #f0efff !important; box-shadow: inset 3px 0 var(--ml-primary) !important; }
+.app-shell.theme-light .commercial-metrics-filter-row.total,
+.app-shell.theme-light .commercial-metrics-summary-row.total { background: #eef4f7 !important; color: var(--ml-text) !important; }
+
+/* Meta comercial */
+.app-shell.theme-light .commercial-goals {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .commercial-goals-header { border-color: var(--ml-border) !important; background: #f8fafc !important; }
+.app-shell.theme-light .commercial-goals-header h2 { color: var(--ml-text) !important; }
+.app-shell.theme-light .commercial-goals-header label { color: var(--ml-muted) !important; }
+.app-shell.theme-light .commercial-goals thead th { background: #edf2f7 !important; color: #526176 !important; }
+.app-shell.theme-light .commercial-goals th,
+.app-shell.theme-light .commercial-goals td { border-color: var(--ml-border) !important; color: var(--ml-text) !important; }
+.app-shell.theme-light .commercial-goals tbody td:nth-child(3),
+.app-shell.theme-light .commercial-goals-kpi { color: var(--ml-teal) !important; }
+.app-shell.theme-light .commercial-goals-total { background: #eef4f7 !important; }
+.app-shell.theme-light .commercial-goals-chart,
+.app-shell.theme-light .commercial-goals-seller-row {
+  border-color: var(--ml-border) !important;
+  background: #f8fafc !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .commercial-goals-chart h3,
+.app-shell.theme-light .commercial-goals-seller-heading strong,
+.app-shell.theme-light .commercial-goals-seller-values strong,
+.app-shell.theme-light .commercial-goals-progress-values strong { color: var(--ml-text) !important; }
+.app-shell.theme-light .commercial-goals-seller-values,
+.app-shell.theme-light .commercial-goals-progress-values span { color: var(--ml-muted) !important; }
+.app-shell.theme-light .commercial-goals-seller-track,
+.app-shell.theme-light .commercial-goals-progress-track { background: #e2e9f1 !important; }
+.app-shell.theme-light .commercial-goals-progress-ring > div { background: #fff !important; }
+.app-shell.theme-light .commercial-goals-title-kpi {
+  border: 1px solid #d2d2f9 !important;
+  background: #f5f4ff !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .commercial-goals-title-kpi small { color: var(--ml-muted) !important; }
+.app-shell.theme-light .commercial-goals-title-kpi strong { color: var(--ml-primary-dark) !important; }
+
+/* Agenda */
+.app-shell.theme-light .commercial-agenda-commandbar,
+.app-shell.theme-light .commercial-agenda-daily-controls,
+.app-shell.theme-light .commercial-agenda-report-controls,
+.app-shell.theme-light .commercial-agenda-validation-summary {
+  border: 1px solid var(--ml-border) !important;
+  background: #f8fafc !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .commercial-agenda-management,
+.app-shell.theme-light .commercial-agenda-daily,
+.app-shell.theme-light .commercial-agenda-flat,
+.app-shell.theme-light .commercial-agenda-validation {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .commercial-agenda-matrix,
+.app-shell.theme-light .commercial-agenda-flat-table,
+.app-shell.theme-light .commercial-agenda-daily-table,
+.app-shell.theme-light .commercial-agenda-validation-table {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+}
+.app-shell.theme-light .commercial-agenda-matrix th,
+.app-shell.theme-light .commercial-agenda-flat-table th,
+.app-shell.theme-light .commercial-agenda-daily-table th,
+.app-shell.theme-light .commercial-agenda-validation-table th { border-color: var(--ml-border) !important; background: #edf2f7 !important; color: #4d5d72 !important; }
+.app-shell.theme-light .commercial-agenda-matrix td,
+.app-shell.theme-light .commercial-agenda-flat-table td,
+.app-shell.theme-light .commercial-agenda-daily-table td,
+.app-shell.theme-light .commercial-agenda-validation-table td { border-color: var(--ml-border) !important; background: #fff !important; color: var(--ml-text) !important; }
+.app-shell.theme-light .commercial-agenda-event,
+.app-shell.theme-light .crm-agenda-visit,
+.app-shell.theme-light .production-agenda-card {
+  border: 1px solid #a9ddd1 !important;
+  border-radius: 10px !important;
+  background: #eaf8f4 !important;
+  color: #154e43 !important;
+  box-shadow: none !important;
+}
+.app-shell.theme-light .commercial-agenda-event *,
+.app-shell.theme-light .crm-agenda-visit * { color: #154e43 !important; opacity: 1 !important; }
+
+/* Operaciones y produccion */
+.app-shell.theme-light .production-week-hero,
+.app-shell.theme-light .operations-slide-head {
+  border-color: #cfd0fa !important;
+  background: linear-gradient(135deg,#f0efff,#f4fbfd) !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .production-week-hero h3,
+.app-shell.theme-light .operations-slide-head h3 { color: var(--ml-text) !important; }
+.app-shell.theme-light .production-week-hero p,
+.app-shell.theme-light .operations-slide-head p { color: var(--ml-muted) !important; }
+.app-shell.theme-light .production-gantt-lane,
+.app-shell.theme-light .production-capacity-slot,
+.app-shell.theme-light .purchase-orders-matrix-row,
+.app-shell.theme-light .operations-presentation-index {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .control-sales-matrix th { background: #edf2f7 !important; color: #526176 !important; }
+.app-shell.theme-light .control-sales-matrix td { background: #fff !important; color: var(--ml-text) !important; border-color: var(--ml-border) !important; }
+.app-shell.theme-light .control-sales-matrix tbody tr.is-production-selected { background: #eefaf6 !important; box-shadow: inset 3px 0 #159b76 !important; }
+
+/* Administracion, actas, riesgos y solicitudes */
+.app-shell.theme-light .admin-hero,
+.app-shell.theme-light .admin-permissions-toolbar,
+.app-shell.theme-light .minutes-editor-head,
+.app-shell.theme-light .minutes-history-head {
+  border-color: var(--ml-border) !important;
+  background: #f8fafc !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .seller-access-card,
+.app-shell.theme-light .seller-admin-item,
+.app-shell.theme-light .admin-person,
+.app-shell.theme-light .permission-matrix-user,
+.app-shell.theme-light .minutes-editor-card,
+.app-shell.theme-light .minute-history-item {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .permission-matrix-shell,
+.app-shell.theme-light .permission-matrix-row,
+.app-shell.theme-light .permission-matrix-section-row,
+.app-shell.theme-light .permission-matrix-area-row,
+.app-shell.theme-light .minutes-history-table {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .permission-matrix-section-head,
+.app-shell.theme-light .permission-matrix-user-head { background: #edf2f7 !important; color: #4d5d72 !important; }
+.app-shell.theme-light .minutes-editor { border-color: #cbd6e3 !important; background: #fff !important; color: var(--ml-text) !important; }
+
+/* Resumen general, riesgos y solicitudes */
+.app-shell.theme-light .bar-track,
+.app-shell.theme-light .accumulated-track,
+.app-shell.theme-light .control-sales-range-track { border: 1px solid #d5deea !important; background: #e7edf4 !important; box-shadow: inset 0 1px 2px rgba(28,45,72,.06) !important; }
+.app-shell.theme-light .bar-fill { background: linear-gradient(90deg,#6664ea,#33b8cf) !important; }
+.app-shell.theme-light .kpi-item,
+.app-shell.theme-light .risk-item,
+.app-shell.theme-light .temperature-card,
+.app-shell.theme-light .kpi-compliance-row,
+.app-shell.theme-light .kpi-sale-row,
+.app-shell.theme-light .kpi-active-row,
+.app-shell.theme-light .kpi-period-row,
+.app-shell.theme-light .kpi-history-item,
+.app-shell.theme-light .management-requests-summary,
+.app-shell.theme-light .management-request-reader-card {
+  border: 1px solid var(--ml-border) !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .kpi-item *,
+.app-shell.theme-light .risk-item *,
+.app-shell.theme-light .temperature-card *,
+.app-shell.theme-light .kpi-compliance-row *,
+.app-shell.theme-light .kpi-sale-row *,
+.app-shell.theme-light .kpi-active-row *,
+.app-shell.theme-light .kpi-period-row * { color: var(--ml-text) !important; opacity: 1 !important; }
+.app-shell.theme-light .kpi-meta,
+.app-shell.theme-light .risk-meta { color: var(--ml-muted) !important; }
+
+/* Anticipos */
+.app-shell.theme-light .customer-advance-card,
+.app-shell.theme-light .customer-advance-row,
+.app-shell.theme-light .advance-card,
+.app-shell.theme-light .advance-allocation-row {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .advance-value { color: var(--ml-teal) !important; }
+
+/* Matrices */
+.app-shell.theme-light .matrix-card,
+.app-shell.theme-light .goals-matrix-wrap,
+.app-shell.theme-light .permission-matrix-shell {
+  border: 1px solid var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .goals-matrix th,
+.app-shell.theme-light .permission-matrix-row.table-head { background: #edf2f7 !important; color: #4d5d72 !important; }
+.app-shell.theme-light .goals-matrix td,
+.app-shell.theme-light .goals-matrix th,
+.app-shell.theme-light .permission-matrix-cell,
+.app-shell.theme-light .permission-matrix-row { border-color: var(--ml-border) !important; color: var(--ml-text) !important; }
+
+/* Dialogos especificos: cotizaciones, pedidos, finanzas y agenda. */
+html body.theme-light-active .quotation-dialog,
+html body.theme-light-active .financial-seller-dialog,
+html body.theme-light-active .commercial-agenda-dialog,
+html body.theme-light-active .customer-advance-dialog,
+html body.theme-light-active .customer-advance-allocation-dialog,
+html body.theme-light-active .financial-order-observation-dialog,
+html body.theme-light-active .control-sales-dialog,
+html body.theme-light-active .control-sales-detail-dialog,
+html body.theme-light-active .bank-detail-dialog {
+  color: #172033 !important;
+}
+html body.theme-light-active .quotation-line,
+html body.theme-light-active .quotation-totals,
+html body.theme-light-active .quotation-history,
+html body.theme-light-active .quotation-variation,
+html body.theme-light-active .quotation-terms,
+html body.theme-light-active .quotation-customer,
+html body.theme-light-active .quotation-opportunity-picker,
+html body.theme-light-active .quotation-opportunity-option,
+html body.theme-light-active .direct-order-customer-option,
+html body.theme-light-active .control-sales-line,
+html body.theme-light-active .control-sales-detail-summary article,
+html body.theme-light-active .control-sales-audit article,
+html body.theme-light-active .financial-multiselect {
+  border-color: #d8e1ec !important;
+  background: #f8fafc !important;
+  color: #172033 !important;
+  box-shadow: none !important;
+}
+html body.theme-light-active .quotation-line *,
+html body.theme-light-active .quotation-totals *,
+html body.theme-light-active .quotation-history *,
+html body.theme-light-active .quotation-variation *,
+html body.theme-light-active .quotation-terms *,
+html body.theme-light-active .quotation-customer *,
+html body.theme-light-active .quotation-opportunity-option *,
+html body.theme-light-active .direct-order-customer-option *,
+html body.theme-light-active .control-sales-line *,
+html body.theme-light-active .control-sales-detail-summary article *,
+html body.theme-light-active .control-sales-audit article * { color: #172033 !important; opacity: 1 !important; }
+html body.theme-light-active .quotation-section-title,
+html body.theme-light-active .quotation-step-heading,
+html body.theme-light-active .quotation-title-line { border-color: #d8e1ec !important; color: #172033 !important; }
+html body.theme-light-active .quotation-totals strong,
+html body.theme-light-active .control-sales-detail-summary strong { color: #0d927b !important; }
+
+/* Superficies de pantalla completa */
+html body.theme-light-active .operations-fullscreen-overlay,
+html body.theme-light-active .minute-fullscreen-overlay {
+  background: #eef2f7 !important;
+  color: #172033 !important;
+}
+html body.theme-light-active .operations-fullscreen-overlay .operations-slide-body,
+html body.theme-light-active .minute-fullscreen-overlay .minutes-editor-card {
+  border-color: #d7e0eb !important;
+  background: #fff !important;
+  color: #172033 !important;
+  box-shadow: 0 24px 70px rgba(19,33,55,.16) !important;
+}
+html body.theme-light-active .minute-fullscreen-overlay .minutes-editor,
+html body.theme-light-active .minute-writing-dialog,
+html body.theme-light-active .minute-agreements-dialog { border-color: #d7e0eb !important; background: #fff !important; color: #172033 !important; }
+
+/* Acceso */
+html body.theme-light-active .login-view { background: radial-gradient(circle at 15% 10%,rgba(89,88,232,.12),transparent 30%),linear-gradient(145deg,#f6f8fc,#eaf0f7) !important; }
+html body.theme-light-active .login-panel,
+html body.theme-light-active .brand-panel {
+  border: 1px solid #d6e0eb !important;
+  background: rgba(255,255,255,.94) !important;
+  color: #172033 !important;
+  box-shadow: 0 24px 70px rgba(19,33,55,.14) !important;
+}
+html body.theme-light-active .login-panel h1,
+html body.theme-light-active .login-panel h2,
+html body.theme-light-active .brand-panel h1,
+html body.theme-light-active .brand-panel h2 { color: #172033 !important; }
+html body.theme-light-active .login-panel p,
+html body.theme-light-active .brand-panel p { color: #66758a !important; }
+
+/* Dialogos y formularios fuera del cascaron */
+html body.theme-light-active dialog[open]::backdrop { background: rgba(29, 41, 61, .32) !important; backdrop-filter: blur(8px) !important; }
+html body.theme-light-active dialog .dialog-card,
+html body.theme-light-active dialog form.dialog-card,
+html body.theme-light-active dialog section.dialog-card,
+html body.theme-light-active #opportunityDialog .opportunity-form,
+html body.theme-light-active #managementDialog .management-card {
+  border: 1px solid #d7e0eb !important;
+  border-radius: 18px !important;
+  background: #fff !important;
+  background-image: none !important;
+  color: #172033 !important;
+  box-shadow: 0 30px 90px rgba(19, 33, 55, .22) !important;
+}
+html body.theme-light-active dialog header,
+html body.theme-light-active dialog .panel-head,
+html body.theme-light-active dialog menu,
+html body.theme-light-active dialog footer { border-color: #dce4ee !important; background: #fff !important; color: #172033 !important; }
+html body.theme-light-active dialog h2,
+html body.theme-light-active dialog h3,
+html body.theme-light-active dialog h4,
+html body.theme-light-active dialog strong { color: #172033 !important; }
+html body.theme-light-active dialog p,
+html body.theme-light-active dialog small,
+html body.theme-light-active dialog label { color: #657187 !important; opacity: 1 !important; }
+html body.theme-light-active dialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+html body.theme-light-active dialog select,
+html body.theme-light-active dialog textarea {
+  border: 1px solid #bdcad9 !important;
+  border-radius: 11px !important;
+  background: #f8fafc !important;
+  color: #172033 !important;
+  box-shadow: inset 0 1px 2px rgba(28,45,72,.05) !important;
+}
+html body.theme-light-active dialog input:focus,
+html body.theme-light-active dialog select:focus,
+html body.theme-light-active dialog textarea:focus { border-color: #7775ee !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(89,88,232,.13) !important; }
+html body.theme-light-active #opportunityDialog .crm-form-section,
+html body.theme-light-active #managementDialog .management-section,
+html body.theme-light-active #managementDialog .management-quotations {
+  border: 1px solid #d9e2ec !important;
+  border-radius: 14px !important;
+  background: #f8fafc !important;
+  color: #172033 !important;
+  box-shadow: none !important;
+}
+html body.theme-light-active #managementDialog .management-row,
+html body.theme-light-active #managementDialog .management-quotation-card,
+html body.theme-light-active #managementDialog .management-order-card,
+html body.theme-light-active .sample-custody-record {
+  border-color: #d9e2ec !important;
+  background: #fff !important;
+  color: #172033 !important;
+  box-shadow: 0 2px 8px rgba(28,45,72,.045) !important;
+}
+
+/* Chat claro */
+html body.theme-light-active .internal-chat-window {
+  border: 1px solid #cfd9e5 !important;
+  border-radius: 18px !important;
+  background: #fff !important;
+  color: #172033 !important;
+  box-shadow: 0 24px 64px rgba(19,33,55,.20) !important;
+}
+html body.theme-light-active .internal-chat-window > header { border-bottom: 1px solid #dbe3ed !important; background: linear-gradient(120deg,#f0efff,#eef9fb) !important; }
+html body.theme-light-active .internal-chat-window > header strong { color: #172033 !important; }
+html body.theme-light-active .internal-chat-window > header small { color: #68758a !important; }
+html body.theme-light-active .internal-chat-messages { background: #f5f7fb !important; }
+html body.theme-light-active .internal-chat-message.received > div { border: 1px solid #d8e1ec !important; background: #fff !important; color: #26364c !important; box-shadow: 0 2px 7px rgba(28,45,72,.05) !important; }
+html body.theme-light-active .internal-chat-message.own > div { border: 1px solid #4f4dcc !important; background: linear-gradient(135deg,#6765ed,#4d4bd2) !important; color: #fff !important; }
+html body.theme-light-active .internal-chat-window form { border-top: 1px solid #dbe3ed !important; background: #fff !important; }
+html body.theme-light-active .internal-chat-window textarea { border-color: #bdcad9 !important; background: #f8fafc !important; color: #172033 !important; }
+html body.theme-light-active .internal-chat-window form button.internal-chat-send { background: linear-gradient(135deg,#6765ed,#4d4bd2) !important; color: #fff !important; }
+
+/* Seleccion y accesibilidad */
+.app-shell.theme-light ::selection,
+html body.theme-light-active dialog ::selection { background: rgba(89,88,232,.22); color: #172033; }
+.app-shell.theme-light :focus-visible,
+html body.theme-light-active dialog :focus-visible { outline: 2px solid rgba(89,88,232,.72); outline-offset: 2px; }
+
+@media (max-width: 820px) {
+  .app-shell.theme-light .topbar { border-radius: 14px !important; }
+  .app-shell.theme-light .panel,
+  .app-shell.theme-light .crm-panel,
+  .app-shell.theme-light .commercial-panel,
+  .app-shell.theme-light .financial-orders-shell,
+  .app-shell.theme-light .purchase-orders-shell { border-radius: 14px !important; }
+}
