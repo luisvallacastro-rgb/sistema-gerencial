@@ -21390,17 +21390,18 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .commercial-agenda-commandbar button:hover{filter:brightness(1.1);transform:translateY(-1px)}
 .commercial-agenda-commandbar button:focus-visible{outline:2px solid #9ff5e0;outline-offset:2px}
 .commercial-agenda-readonly{align-self:center;color:#aebed0;font-size:10px;white-space:nowrap}
-.commercial-agenda-management{grid-template-columns:minmax(285px,.72fr) minmax(0,1.28fr);gap:7px;min-height:0}
+.commercial-agenda-management{grid-template-columns:minmax(560px,.85fr) minmax(520px,1.15fr);gap:9px;min-height:0}
 .commercial-agenda-management:not(:has(.commercial-agenda-selection))>header{grid-column:1/-1}
-.commercial-agenda-management>header{min-height:42px;padding:5px 8px;border-radius:10px}
-.commercial-agenda-management>header>div{display:flex;align-items:center;gap:8px}
-.commercial-agenda-management>header span{font-size:8px;white-space:nowrap}
-.commercial-agenda-management>header strong{font-size:13px;white-space:nowrap}
-.commercial-agenda-management>header nav{gap:4px}
-.commercial-agenda-management>header button{width:30px;height:30px;border-radius:7px;font-size:19px}
-.commercial-agenda-management>header input{width:142px;height:30px;padding:0 7px;border-radius:7px;font-size:11px}
-.commercial-agenda-selection{min-height:42px;padding:5px 8px;border-radius:10px;font-size:9px}
-.commercial-agenda-selection>div{gap:5px}
+.commercial-agenda-management>header{min-width:0;min-height:42px;padding:5px 8px;border-radius:10px}
+.commercial-agenda-management>header>div{display:flex;flex:1 1 auto;align-items:center;gap:8px;min-width:0}
+.commercial-agenda-management>header span{min-width:0;overflow:hidden;font-size:8px;text-overflow:ellipsis;white-space:nowrap}
+.commercial-agenda-management>header strong{flex:0 0 auto;font-size:13px;white-space:nowrap}
+.commercial-agenda-management>header nav{flex:0 0 auto;gap:4px;min-width:210px}
+.commercial-agenda-management>header button{flex:0 0 30px;width:30px;height:30px;border-radius:7px;font-size:19px}
+.commercial-agenda-management>header input{flex:0 0 142px;width:142px;height:30px;padding:0 7px;border-radius:7px;font-size:11px}
+.commercial-agenda-selection{min-width:0;min-height:42px;padding:5px 8px;border-radius:10px;font-size:9px}
+.commercial-agenda-selection>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.commercial-agenda-selection>div{flex:0 0 auto;gap:5px}
 .commercial-agenda-selection button{height:30px;min-height:30px;padding:0 9px;font-size:9px}
 .commercial-agenda-management>.commercial-agenda-matrix,.commercial-agenda-management>.commercial-agenda-gantt,.commercial-agenda-management>.commercial-agenda-matrix-outside{grid-column:1/-1}
 .commercial-agenda-matrix{height:calc(100dvh - 225px);max-height:none;min-height:360px;border-color:#466d89;border-radius:11px;box-shadow:0 14px 34px rgba(3,15,30,.2)}
@@ -21420,8 +21421,8 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .commercial-agenda-commandbar-daily .commercial-agenda-daily-controls button,.commercial-agenda-commandbar-daily .commercial-agenda-daily-controls .commercial-agenda-daily-date button{width:auto;height:32px;min-height:32px;padding:0 10px;font-size:11px}
 .commercial-agenda-commandbar-daily .commercial-agenda-daily-controls .commercial-agenda-daily-date button{width:32px;padding:0;font-size:18px}
 .commercial-agenda-commandbar-daily .commercial-agenda-daily-controls .commercial-agenda-daily-date input{width:135px;height:32px;font-size:11px}
-@media(max-width:1100px){.commercial-agenda-commandbar{grid-template-columns:auto minmax(150px,1fr) 120px 120px auto auto;overflow-x:auto}.commercial-agenda-commandbar>*{min-width:0}.commercial-agenda-commandbar-daily{grid-template-columns:auto minmax(500px,1fr) auto}.commercial-agenda-management{grid-template-columns:280px minmax(520px,1fr);overflow-x:auto}.commercial-agenda-management>.commercial-agenda-matrix,.commercial-agenda-management>.commercial-agenda-gantt,.commercial-agenda-management>.commercial-agenda-matrix-outside{min-width:807px}.commercial-agenda-matrix{height:calc(100dvh - 225px)}}
-@media(max-width:700px){.app-shell .commercial-panel.commercial-agenda-mode{height:calc(100dvh - 72px);min-height:460px}.commercial-agenda-commandbar{min-width:820px}.commercial-agenda-management{display:grid;grid-template-columns:260px 530px;min-width:797px}.commercial-agenda-management>header{align-items:center;flex-direction:row}.commercial-agenda-selection{align-items:center;flex-direction:row}.commercial-agenda-matrix{height:calc(100dvh - 200px);min-height:300px}}
+@media(max-width:1100px){.commercial-agenda-commandbar{grid-template-columns:auto minmax(150px,1fr) 120px 120px auto auto;overflow-x:auto}.commercial-agenda-commandbar>*{min-width:0}.commercial-agenda-commandbar-daily{grid-template-columns:auto minmax(500px,1fr) auto}.commercial-agenda-management{grid-template-columns:560px minmax(520px,1fr);min-width:1089px;overflow-x:auto}.commercial-agenda-management>.commercial-agenda-matrix,.commercial-agenda-management>.commercial-agenda-gantt,.commercial-agenda-management>.commercial-agenda-matrix-outside{min-width:1089px}.commercial-agenda-matrix{height:calc(100dvh - 225px)}}
+@media(max-width:700px){.app-shell .commercial-panel.commercial-agenda-mode{height:calc(100dvh - 72px);min-height:460px}.commercial-agenda-commandbar{min-width:820px}.commercial-agenda-management{display:grid;grid-template-columns:560px 520px;min-width:1089px}.commercial-agenda-management>header{align-items:center;flex-direction:row}.commercial-agenda-selection{align-items:center;flex-direction:row}.commercial-agenda-matrix{height:calc(100dvh - 200px);min-height:300px}}
 
 /* Diario inmersivo: encabezado en dos franjas, sin áreas verticales vacías. */
 .commercial-agenda-flat{align-content:start;grid-auto-rows:max-content}
