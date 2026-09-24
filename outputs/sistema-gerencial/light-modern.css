@@ -636,6 +636,142 @@ html body.theme-light-active {
 .app-shell.theme-light .financial-order-card small,
 .app-shell.theme-light .purchase-order-card small,
 .app-shell.theme-light .availability-derived-report small { color: var(--ml-muted) !important; }
+
+/* Ingresos financieros */
+.app-shell.theme-light .dashboard.opportunity-focus .commercial-panel.financial-income-mode > .opportunity-table {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+}
+.app-shell.theme-light .financial-income-module { color: var(--ml-text) !important; }
+.app-shell.theme-light .financial-income-hero {
+  border: 1px solid #c9d0fa !important;
+  background: linear-gradient(135deg,#efefff 0%,#edf9f8 100%) !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .financial-income-hero span,
+.app-shell.theme-light .financial-income-chart header span,
+.app-shell.theme-light .financial-income-annex header span { color: var(--ml-primary) !important; }
+.app-shell.theme-light .financial-income-hero h2,
+.app-shell.theme-light .financial-income-chart h3,
+.app-shell.theme-light .financial-income-annex h3 { color: var(--ml-text) !important; }
+.app-shell.theme-light .financial-income-hero p,
+.app-shell.theme-light .financial-income-hero aside small { color: var(--ml-muted) !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-income-hero aside strong { color: var(--ml-teal) !important; text-shadow: none !important; }
+.app-shell.theme-light .financial-income-summary article {
+  border: 1px solid var(--ml-border) !important;
+  background: #fff !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .financial-income-summary article:first-child { box-shadow: inset 4px 0 0 var(--ml-teal),var(--ml-shadow-sm) !important; }
+.app-shell.theme-light .financial-income-summary article:last-child { box-shadow: inset 4px 0 0 var(--ml-primary),var(--ml-shadow-sm) !important; }
+.app-shell.theme-light .financial-income-summary span { color: var(--ml-muted) !important; }
+.app-shell.theme-light .financial-income-summary strong { color: var(--ml-teal) !important; }
+.app-shell.theme-light .financial-income-summary article:last-child strong { color: var(--ml-primary-dark) !important; }
+.app-shell.theme-light .financial-income-summary small { color: var(--ml-text-soft) !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-income-chart,
+.app-shell.theme-light .financial-income-annex {
+  border: 1px solid var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-sm) !important;
+}
+.app-shell.theme-light .financial-income-chart > header,
+.app-shell.theme-light .financial-income-annex > header { border-color: var(--ml-border) !important; background: #f8fafc !important; }
+.app-shell.theme-light .financial-income-goal small { color: var(--ml-muted) !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-income-goal strong { color: var(--ml-text) !important; }
+.app-shell.theme-light .financial-income-scale span { border-color: #d8e1ec !important; }
+.app-shell.theme-light .financial-income-scale span:first-child { border-color: #8fd9ca !important; }
+.app-shell.theme-light .financial-income-scale b { color: #7a8799 !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-income-scale span:first-child b { color: var(--ml-teal) !important; }
+.app-shell.theme-light .financial-income-month > strong { color: var(--ml-text) !important; }
+.app-shell.theme-light .financial-income-month-values b { color: var(--ml-muted) !important; }
+.app-shell.theme-light .financial-income-month-values em { color: var(--ml-teal) !important; }
+.app-shell.theme-light .financial-income-month-values span:last-child em { color: var(--ml-primary) !important; }
+.app-shell.theme-light .financial-income-month > small { color: var(--ml-muted) !important; opacity: 1 !important; }
+.app-shell.theme-light .financial-income-annex th,
+.app-shell.theme-light .financial-income-annex td { border-color: var(--ml-border) !important; color: var(--ml-text) !important; }
+.app-shell.theme-light .financial-income-annex th { background: #eef2f8 !important; color: #526176 !important; }
+.app-shell.theme-light .financial-income-annex tbody tr:nth-child(even) { background: #f8fafc !important; }
+.app-shell.theme-light .financial-income-annex td.labor { color: var(--ml-primary) !important; }
+.app-shell.theme-light .financial-income-annex tfoot th { background: #eef8f5 !important; color: var(--ml-text) !important; }
+.app-shell.theme-light .financial-income-annex .empty { color: var(--ml-muted) !important; }
+
+/* Maestro de clientes */
+.app-shell.theme-light .crm-customers-module,
+.app-shell.theme-light .crm-customers-hero { color: var(--ml-text) !important; }
+.app-shell.theme-light .crm-customers-hero { border-color: var(--ml-border) !important; background: #fff !important; }
+.app-shell.theme-light .crm-customers-hero h3 { color: var(--ml-text) !important; }
+.app-shell.theme-light .crm-customer-metrics span { border-color: var(--ml-border) !important; color: var(--ml-muted) !important; }
+.app-shell.theme-light .crm-customer-metrics b { color: var(--ml-primary) !important; }
+.app-shell.theme-light .crm-customer-search {
+  border: 1px solid var(--ml-border-strong) !important;
+  background: #fff !important;
+  color: var(--ml-primary) !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .crm-customer-search input { background: transparent !important; color: var(--ml-text) !important; }
+.app-shell.theme-light .crm-customer-search input::placeholder { color: #8b97a8 !important; opacity: 1 !important; }
+.app-shell.theme-light .crm-customer-filter { color: var(--ml-primary) !important; }
+.app-shell.theme-light .crm-customer-filter select {
+  border-color: var(--ml-border-strong) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .crm-customer-result {
+  border: 1px solid #cbe8df !important;
+  background: #eff9f6 !important;
+  color: var(--ml-text) !important;
+}
+.app-shell.theme-light .crm-customer-result b { color: var(--ml-teal) !important; }
+.app-shell.theme-light .crm-customer-table-wrap { border-radius: 13px !important; background: #fff !important; }
+.app-shell.theme-light .crm-customer-table .crm-customer-row {
+  border: 1px solid var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: 0 2px 7px rgba(28,45,72,.04) !important;
+}
+.app-shell.theme-light .crm-customer-table .crm-customer-row:not(.crm-customer-head):nth-child(odd) { background: #f9fafc !important; }
+.app-shell.theme-light .crm-customer-table .crm-customer-head {
+  border-color: #cfd6e3 !important;
+  background: #eef2f8 !important;
+  color: #526176 !important;
+  box-shadow: 0 4px 0 #fff !important;
+}
+.app-shell.theme-light .crm-customer-row strong,
+.app-shell.theme-light .crm-customer-name strong,
+.app-shell.theme-light .crm-customer-number strong { color: var(--ml-text) !important; opacity: 1 !important; }
+.app-shell.theme-light .crm-customer-row small { color: var(--ml-muted) !important; opacity: 1 !important; }
+.app-shell.theme-light .crm-customer-number strong { color: var(--ml-primary-dark) !important; }
+.app-shell.theme-light .crm-customer-status b.complete { border: 1px solid #9fd4c4 !important; background: #e5f7f1 !important; color: #087158 !important; }
+.app-shell.theme-light .crm-customer-status b.pending { border: 1px solid #ebcf91 !important; background: #fff5dc !important; color: #8b5700 !important; }
+.app-shell.theme-light .crm-row-actions button {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: #4a5b72 !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .crm-row-actions button:hover { border-color: #bcbcf4 !important; background: #efefff !important; color: var(--ml-primary-dark) !important; box-shadow: none !important; }
+.app-shell.theme-light .crm-row-actions button.assign-client-id,
+.app-shell.theme-light .crm-row-actions button.edit-request { border-color: #bcbcf4 !important; background: #efefff !important; color: var(--ml-primary-dark) !important; }
+.app-shell.theme-light .crm-row-actions button.danger { border-color: #f0bec8 !important; background: var(--ml-red-soft) !important; color: var(--ml-red) !important; }
+.app-shell.theme-light .crm-customer-document-row {
+  border-color: var(--ml-border) !important;
+  background: #fff !important;
+  color: var(--ml-text) !important;
+  box-shadow: var(--ml-shadow-xs) !important;
+}
+.app-shell.theme-light .crm-customer-document-row small { color: var(--ml-muted) !important; }
+.app-shell.theme-light .crm-customer-document-row.quotation-only {
+  border-color: #ead6aa !important;
+  background: linear-gradient(90deg,#fff9ec,#fff 42%) !important;
+  box-shadow: inset 4px 0 0 #e7a91f !important;
+}
+.app-shell.theme-light .crm-customer-document-row.has-order {
+  border-color: #b8dfd3 !important;
+  background: linear-gradient(90deg,#eefaf6,#fff 42%) !important;
+  box-shadow: inset 4px 0 0 #159b76 !important;
+}
 .app-shell.theme-light .bank-daily-status,
 .app-shell.theme-light .availability-data-status { border-color: #efd194 !important; background: var(--ml-amber-soft) !important; color: #8d5900 !important; }
 .app-shell.theme-light .bank-report-toolbar > div > span,
