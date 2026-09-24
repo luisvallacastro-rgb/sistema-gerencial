@@ -12474,18 +12474,37 @@ async function openCommercialAgendaEditor(item = {}) {
   const preferredSeller = item.seller || state.currentUser?.name || "";
   const selectedSeller = sellers.includes(preferredSeller) ? preferredSeller : sellers[0] || "";
   const startDate = item.startDate || item.date || todayISO(); const endDate = item.endDate || item.date || startDate; const events = commercialAgendaItemEvents(item);
-  const opportunityOptions = (seller, selectedReference = "") => {
+  const opportunityPickerItems = (seller, selectedReference = "") => {
     const options = commercialAgendaActiveOpportunities(seller);
     const linked = commercialAgendaOpportunityByKey(selectedReference);
     if (linked && !options.some((opportunity) => commercialAgendaOpportunityKey(opportunity) === commercialAgendaOpportunityKey(linked))) options.unshift(linked);
-    return `<option value="">Seleccionar oportunidad vigente...</option>${options.map((opportunity) => {
+    return options;
+  };
+  const opportunityPickerSummary = (opportunity) => opportunity
+    ? `${opportunity.company || "Sin empresa"} · ${commercialAgendaOpportunityStage(opportunity)}`
+    : "Seleccionar oportunidad vigente...";
+  const opportunityPickerResults = (seller, selectedReference = "", query = "") => {
+    const queryKey = crmIdentityKey(query);
+    const options = opportunityPickerItems(seller, selectedReference).filter((opportunity) => !queryKey || crmIdentityKey([
+      opportunity.company,
+      commercialAgendaOpportunityStage(opportunity),
+      opportunity.seller,
+      opportunity.agendaOpportunitySource === "crm" ? "Vendedores" : "Gerencia",
+      commercialAgendaOpportunityLatestManagement(opportunity)?.date
+    ].join(" ")).includes(queryKey));
+    if (!options.length) return `<p class="event-opportunity-picker-empty">No hay oportunidades que coincidan con la búsqueda.</p>`;
+    return options.map((opportunity) => {
       const key = commercialAgendaOpportunityKey(opportunity);
       const source = opportunity.agendaOpportunitySource === "crm" ? "Vendedores" : "Gerencia";
       const latest = commercialAgendaOpportunityLatestManagement(opportunity);
       const belongsToSeller = normalizeKey(opportunity.seller) === normalizeKey(seller);
       const latestDate = latest?.date ? formatDate(latest.date) : "sin fecha";
-      return `<option value="${escapeHtml(key)}" ${key===selectedReference?"selected":""} ${belongsToSeller?"":"disabled"}>${escapeHtml(opportunity.company || "Sin empresa")} · ${escapeHtml(commercialAgendaOpportunityStage(opportunity))} · ${escapeHtml(latestDate)} · ${escapeHtml(opportunity.seller || "Sin vendedor")} · ${source}${belongsToSeller?"":" · solo consulta"}</option>`;
-    }).join("")}`;
+      return `<button type="button" class="event-opportunity-picker-option ${key===selectedReference?"is-selected":""} ${belongsToSeller?"":"is-readonly"}" data-opportunity-option="${escapeHtml(key)}" ${belongsToSeller?"":"disabled"}>
+        <strong>${escapeHtml(opportunity.company || "Sin empresa")}</strong>
+        <span>${escapeHtml(commercialAgendaOpportunityStage(opportunity))} · ${escapeHtml(latestDate)}</span>
+        <small>${escapeHtml(opportunity.seller || "Sin vendedor")} · ${source}${belongsToSeller?"":" · Solo consulta"}</small>
+      </button>`;
+    }).join("");
   };
   const eventMarkup = (event = {}) => {
     const activity = event.activity || commercialAgendaActivities[0];
@@ -12504,7 +12523,16 @@ async function openCommercialAgendaEditor(item = {}) {
       <label class="event-result"><span>Comentario del vendedor</span><input data-event-comment value="${escapeHtml(event.comment || event.result || "")}" placeholder="Agregar comentario"></label>
       <button type="button" class="danger" data-agenda-remove-event title="Quitar evento" aria-label="Quitar evento">×</button>
       <section class="event-opportunity-link ${isFollowUp ? "" : "hidden"}" data-event-opportunity-link>
-        <label><span>Oportunidad vigente · Vendedores + Gerencia</span><select data-event-opportunity ${isFollowUp ? "required" : ""}>${opportunityOptions(selectedSeller, event.opportunityId ? selectedReference : "")}</select></label>
+        <label class="event-opportunity-picker-label"><span>Oportunidad vigente · Vendedores + Gerencia</span>
+          <div class="event-opportunity-picker" data-opportunity-picker>
+            <input type="hidden" data-event-opportunity value="${escapeHtml(event.opportunityId ? selectedReference : "")}">
+            <button type="button" class="event-opportunity-picker-toggle" data-opportunity-picker-toggle aria-expanded="false"><span data-opportunity-picker-value>${escapeHtml(opportunityPickerSummary(linked))}</span><b aria-hidden="true">⌄</b></button>
+            <div class="event-opportunity-picker-panel" data-opportunity-picker-panel hidden>
+              <input type="search" data-opportunity-picker-search placeholder="Buscar empresa, etapa o vendedor..." autocomplete="off">
+              <div class="event-opportunity-picker-results" data-opportunity-picker-results>${opportunityPickerResults(selectedSeller, event.opportunityId ? selectedReference : "")}</div>
+            </div>
+          </div>
+        </label>
         <div class="event-current-stage"><span>Última actividad realizada</span><strong data-event-current-stage>${escapeHtml(currentStage)}</strong><small data-event-latest-management>${latestManagement ? `${escapeHtml(formatDate(latestManagement.date))} · ${escapeHtml(latestManagement.comment || latestManagement.note || "Sin comentario")}` : "Selecciona una oportunidad"}</small></div>
         <label><span>Etapa después del seguimiento</span><select data-event-next-stage>${opportunityStages.map((stage) => `<option value="${escapeHtml(stage)}" ${stage===nextStage?"selected":""}>${escapeHtml(stage)}</option>`).join("")}</select></label>
         <small>Si eliges una etapa distinta, el cambio quedará guardado en el historial de la oportunidad.</small>
@@ -12515,23 +12543,44 @@ async function openCommercialAgendaEditor(item = {}) {
   document.body.append(dialog); dialog.querySelectorAll("[data-agenda-close]").forEach((button)=>button.addEventListener("click",()=>dialog.close())); dialog.addEventListener("close",()=>dialog.remove(),{once:true});
   const eventsContainer = dialog.querySelector("[data-agenda-events]");
   const sellerSelect = dialog.querySelector('[name="seller"]');
+  const closeOpportunityPicker = (row) => {
+    row.querySelector("[data-opportunity-picker-panel]").hidden = true;
+    row.querySelector("[data-opportunity-picker-toggle]").setAttribute("aria-expanded", "false");
+  };
+  const applyOpportunitySelection = (row, opportunity, { updateStage = true } = {}) => {
+    const reference = opportunity ? commercialAgendaOpportunityKey(opportunity) : "";
+    row.querySelector("[data-event-opportunity]").value = reference;
+    row.querySelector("[data-opportunity-picker-value]").textContent = opportunityPickerSummary(opportunity);
+    const currentStage = opportunity ? commercialAgendaOpportunityStage(opportunity) : "Prospeccion";
+    row.querySelector("[data-event-current-stage]").textContent = opportunity ? currentStage : "Selecciona una oportunidad";
+    const latestManagement = opportunity ? commercialAgendaOpportunityLatestManagement(opportunity) : null;
+    row.querySelector("[data-event-latest-management]").textContent = latestManagement ? `${formatDate(latestManagement.date)} · ${latestManagement.comment || latestManagement.note || "Sin comentario"}` : "Selecciona una oportunidad";
+    if (updateStage) row.querySelector("[data-event-next-stage]").value = currentStage;
+    if (opportunity) row.querySelector("[data-event-prospect]").value = opportunity.company || "";
+  };
+  const renderOpportunityPickerResults = (row) => {
+    const reference = row.querySelector("[data-event-opportunity]").value;
+    const query = row.querySelector("[data-opportunity-picker-search]").value;
+    const results = row.querySelector("[data-opportunity-picker-results]");
+    results.innerHTML = opportunityPickerResults(sellerSelect.value, reference, query);
+    results.querySelectorAll("[data-opportunity-option]").forEach((button) => button.addEventListener("click", () => {
+      applyOpportunitySelection(row, commercialAgendaOpportunityByKey(button.dataset.opportunityOption));
+      closeOpportunityPicker(row);
+    }));
+  };
   const refreshOpportunityLink = (row, { preserveSelection = true } = {}) => {
     const activity = row.querySelector("[data-event-activity]").value;
     const link = row.querySelector("[data-event-opportunity-link]");
-    const opportunitySelect = row.querySelector("[data-event-opportunity]");
+    const opportunityInput = row.querySelector("[data-event-opportunity]");
     const nextStageSelect = row.querySelector("[data-event-next-stage]");
-    const currentStageLabel = row.querySelector("[data-event-current-stage]");
-    const latestManagementLabel = row.querySelector("[data-event-latest-management]");
-    const selectedId = preserveSelection ? opportunitySelect.value : "";
+    const selectedId = preserveSelection ? opportunityInput.value : "";
     link.classList.toggle("hidden", activity !== "Seguimiento a Oportunidad");
-    opportunitySelect.required = activity === "Seguimiento a Oportunidad";
-    opportunitySelect.innerHTML = opportunityOptions(sellerSelect.value, selectedId);
-    const selected = commercialAgendaOpportunityByKey(opportunitySelect.value);
-    const currentStage = selected ? commercialAgendaOpportunityStage(selected) : "Prospeccion";
-    currentStageLabel.textContent = selected ? currentStage : "Selecciona una oportunidad";
-    const latestManagement = selected ? commercialAgendaOpportunityLatestManagement(selected) : null;
-    latestManagementLabel.textContent = latestManagement ? `${formatDate(latestManagement.date)} · ${latestManagement.comment || latestManagement.note || "Sin comentario"}` : "Selecciona una oportunidad";
-    if (selected && (!preserveSelection || !nextStageSelect.value)) nextStageSelect.value = currentStage;
+    const selected = commercialAgendaOpportunityByKey(selectedId);
+    const validSelection = selected && normalizeKey(selected.seller) === normalizeKey(sellerSelect.value) ? selected : null;
+    applyOpportunitySelection(row, validSelection, { updateStage: Boolean(validSelection && (!preserveSelection || !nextStageSelect.value)) });
+    row.querySelector("[data-opportunity-picker-search]").value = "";
+    renderOpportunityPickerResults(row);
+    closeOpportunityPicker(row);
   };
   const wireEvent = (row) => {
     row.querySelector("[data-agenda-remove-event]").onclick = () => {
@@ -12539,15 +12588,20 @@ async function openCommercialAgendaEditor(item = {}) {
       row.remove();
     };
     row.querySelector("[data-event-activity]").addEventListener("change", () => refreshOpportunityLink(row));
-    row.querySelector("[data-event-opportunity]").addEventListener("change", (event) => {
-      const opportunity = commercialAgendaOpportunityByKey(event.target.value);
-      const currentStage = opportunity ? commercialAgendaOpportunityStage(opportunity) : "Prospeccion";
-      row.querySelector("[data-event-current-stage]").textContent = opportunity ? currentStage : "Selecciona una oportunidad";
-      const latestManagement = opportunity ? commercialAgendaOpportunityLatestManagement(opportunity) : null;
-      row.querySelector("[data-event-latest-management]").textContent = latestManagement ? `${formatDate(latestManagement.date)} · ${latestManagement.comment || latestManagement.note || "Sin comentario"}` : "Selecciona una oportunidad";
-      row.querySelector("[data-event-next-stage]").value = currentStage;
-      if (opportunity) row.querySelector("[data-event-prospect]").value = opportunity.company || "";
+    row.querySelector("[data-opportunity-picker-toggle]").addEventListener("click", () => {
+      const panel = row.querySelector("[data-opportunity-picker-panel]");
+      const opening = panel.hidden;
+      eventsContainer.querySelectorAll("[data-agenda-event]").forEach((eventRow) => closeOpportunityPicker(eventRow));
+      panel.hidden = !opening;
+      row.querySelector("[data-opportunity-picker-toggle]").setAttribute("aria-expanded", String(opening));
+      if (opening) {
+        renderOpportunityPickerResults(row);
+        row.querySelector("[data-opportunity-picker-search]").focus();
+      }
     });
+    row.querySelector("[data-opportunity-picker-search]").addEventListener("input", () => renderOpportunityPickerResults(row));
+    row.querySelector("[data-opportunity-picker-search]").addEventListener("keydown", (event) => { if (event.key === "Escape") closeOpportunityPicker(row); });
+    refreshOpportunityLink(row);
   };
   eventsContainer.querySelectorAll("[data-agenda-event]").forEach(wireEvent);
   sellerSelect.addEventListener("change", () => eventsContainer.querySelectorAll("[data-agenda-event]").forEach((row) => refreshOpportunityLink(row, { preserveSelection:false })));
