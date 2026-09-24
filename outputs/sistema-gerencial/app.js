@@ -778,6 +778,7 @@ const historicalClosedSales = (window.historicalClosedSalesCsv || "")
 const opportunitiesStorageKey = "sistemaGerencial.oportunidades.v6";
 const usersStorageKey = "sistemaGerencial.usuarios.v2";
 const sessionStorageKey = "sistemaGerencial.sesion.v1";
+const adminValidationSessionKey = "sistemaGerencial.validacionUsuario.v1";
 const navigationSessionKey = "sistemaGerencial.navigation.v1";
 const minutesStorageKey = "sistemaGerencial.actas.v1";
 const strategicRisksStorageKey = "sistemaGerencial.riesgos.v2";
@@ -1220,6 +1221,46 @@ function normalizePermissionList(value, role) {
 
 function isAdminUser(user = state.currentUser) {
   return Boolean(user?.admin) || normalizeKey(user?.email) === adminEmail;
+}
+
+function adminValidationSession() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(adminValidationSessionKey) || "null");
+    const administrator = systemUsers.find((user) => user.id === saved?.administratorId);
+    const target = systemUsers.find((user) => user.id === saved?.targetId);
+    if (!administrator || !target || !isAdminUser(administrator)) return null;
+    return { ...saved, administrator, target };
+  } catch {
+    return null;
+  }
+}
+
+function renderAdminValidationBanner() {
+  document.querySelector(".admin-validation-banner")?.remove();
+  const validation = adminValidationSession();
+  if (!validation || state.currentUser?.id !== validation.target.id) return;
+  const banner = document.createElement("aside");
+  banner.className = "admin-validation-banner";
+  banner.setAttribute("role", "status");
+  banner.innerHTML = `<span><small>VALIDACIÓN ADMINISTRATIVA</small><strong>Vista de ${escapeHtml(validation.target.name)}</strong></span><button type="button">Volver a ${escapeHtml(validation.administrator.name)}</button>`;
+  banner.querySelector("button").addEventListener("click", () => {
+    sessionStorage.removeItem(adminValidationSessionKey);
+    openApp(validation.administrator);
+  });
+  document.body.append(banner);
+}
+
+function startAdminUserValidation(userId) {
+  if (!isAdminUser()) return;
+  const target = systemUsers.find((user) => user.id === userId);
+  if (!target || isAdminUser(target)) return;
+  const administrator = state.currentUser;
+  sessionStorage.setItem(adminValidationSessionKey, JSON.stringify({
+    administratorId: administrator.id,
+    targetId: target.id,
+    startedAt: new Date().toISOString()
+  }));
+  openApp(target, { validationMode: true });
 }
 
 function canOpenAdminModule(sectionKey, user = state.currentUser) {
@@ -14341,7 +14382,7 @@ function renderAdminSellersPanel() {
       <article class="seller-admin-form user-directory-detail">${selected ? `
         <div class="seller-admin-form-head"><div><span>Cuenta registrada</span><h3>${escapeHtml(selected.name)}</h3></div><b>${escapeHtml(roleDisplayName(selected.role))}</b></div>
         <section class="seller-access-card"><header><div><span>Estado de acceso</span><strong>Usuario habilitado</strong></div></header><dl><div><dt>Nombre</dt><dd>${escapeHtml(selected.name || "—")}</dd></div><div><dt>Usuario</dt><dd>${escapeHtml(selected.username || "—")}</dd></div><div><dt>Correo</dt><dd>${escapeHtml(selected.email || "—")}</dd></div><div><dt>Teléfono</dt><dd>${escapeHtml(selected.phone || "—")}</dd></div><div><dt>Perfil</dt><dd>${escapeHtml(roleDisplayName(selected.role))}</dd></div><div><dt>Contraseña</dt><dd>••••••••</dd></div><div><dt>Permisos</dt><dd>${userPermissions(selected).size}</dd></div><div><dt>Vendedor CRM</dt><dd>${escapeHtml(linkedSeller?.name || (selected.role === "vendedores" ? "Pendiente de sincronizar" : "No aplica"))}</dd></div></dl><small>El correo y el teléfono se utilizan como datos de contacto del vendedor en las cotizaciones. Por seguridad la contraseña actual no se revela.</small></section>
-        <div class="user-directory-actions"><button type="button" data-user-directory-action="edit" data-user-id="${escapeHtml(selected.id)}">Editar usuario y permisos</button><button class="seller-primary" type="button" data-user-directory-action="password" data-user-id="${escapeHtml(selected.id)}">Cambiar contraseña</button></div>
+        <div class="user-directory-actions">${isAdminUser() && !isAdminUser(selected) ? `<button class="seller-validation" type="button" data-user-directory-action="validate" data-user-id="${escapeHtml(selected.id)}">Validar como usuario</button>` : ""}<button type="button" data-user-directory-action="edit" data-user-id="${escapeHtml(selected.id)}">Editar usuario y permisos</button><button class="seller-primary" type="button" data-user-directory-action="password" data-user-id="${escapeHtml(selected.id)}">Cambiar contraseña</button></div>
       ` : `<div class="seller-admin-empty">Selecciona un usuario para consultar su información.</div>`}</article>
     </div>
   </section>`;
@@ -14354,6 +14395,7 @@ function wireAdminSellersPanel() {
   });
   adminPanel.querySelectorAll("[data-user-directory-action='select']").forEach((button) => button.addEventListener("click", () => { state.adminSellerEditingId = button.dataset.userId; renderAdminPanel(); }));
   adminPanel.querySelector("[data-user-directory-action='new']")?.addEventListener("click", () => openAdminUserDialog());
+  adminPanel.querySelector("[data-user-directory-action='validate']")?.addEventListener("click", (event) => startAdminUserValidation(event.currentTarget.dataset.userId));
   adminPanel.querySelector("[data-user-directory-action='edit']")?.addEventListener("click", (event) => openAdminUserDialog(event.currentTarget.dataset.userId));
   adminPanel.querySelector("[data-user-directory-action='password']")?.addEventListener("click", (event) => openAdminPasswordDialog(event.currentTarget.dataset.userId));
   adminPanel.querySelector("[data-seller-action='new']")?.addEventListener("click", () => {
@@ -15525,6 +15567,8 @@ function clearSession() {
   stopPresence();
   closeInternalChat();
   localStorage.removeItem(sessionStorageKey);
+  sessionStorage.removeItem(adminValidationSessionKey);
+  document.querySelector(".admin-validation-banner")?.remove();
   sessionRestored = false;
   state.currentUser = null;
   state.onlineUsers = [];
@@ -15550,14 +15594,16 @@ function restoreSession() {
   try {
     const saved = JSON.parse(localStorage.getItem(sessionStorageKey) || "null");
     if (!saved) return false;
-    const user = systemUsers.find((item) =>
+    const signedInUser = systemUsers.find((item) =>
       item.id === saved.id ||
       normalizeKey(item.username) === normalizeKey(saved.username) ||
       normalizeKey(item.email) === normalizeKey(saved.email)
     );
-    if (!user) return false;
+    if (!signedInUser) return false;
+    const validation = adminValidationSession();
+    const user = validation?.administrator.id === signedInUser.id ? validation.target : signedInUser;
     sessionRestored = true;
-    openApp(user, { restoreSession: true });
+    openApp(user, { restoreSession: true, validationMode: Boolean(validation && user.id === validation.target.id) });
     return true;
   } catch {
     clearSession();
@@ -15682,11 +15728,12 @@ function openApp(userOrRole, options = {}) {
   if (usesTabletDrawer()) setSidebarCollapsed(true);
   state.pendingExpenses = [];
   state.pendingExpensesLoadState = "loading";
-  persistSession(user);
+  if (!options.validationMode) persistSession(user);
   loginView.classList.add("hidden");
   appShell.classList.remove("hidden");
   startPresence();
   renderDashboard();
+  renderAdminValidationBanner();
   if (userPermissions(user).has(permissionKey("financiera", "disponibilidad"))) {
     loadBankAvailability();
   } else {
