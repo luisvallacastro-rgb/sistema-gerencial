@@ -2502,3 +2502,69 @@ html body.theme-light-active .internal-chat-emojis-head{border-bottom-color:#d9e
 html body.theme-light-active .internal-chat-emojis .internal-chat-emojis-close{background:#edf2f6!important;color:#42546b!important}
 html body.theme-light-active .internal-chat-emojis-grid button:hover,html body.theme-light-active .internal-chat-emojis-grid button:focus-visible{background:#e5f3ef!important}
 html body.theme-light-active .internal-chat-attachment{border-color:#b8d8cf!important;background:#eef8f5!important;color:#24473f!important}
+
+/* TEMA CLARO NEON v55: identidad, contraste y reglas de negocio. */
+.app-shell.theme-light{--light-ink:#10213b;--light-muted:#596a82;--light-line:#aebfd2;--light-cyan:#00a9bd;--light-mint:#00a982;--light-blue:#2368e8;--light-violet:#6558e8;--light-amber:#d28a00}
+
+/* Estructura y marcos visibles. */
+.app-shell.theme-light .commercial-panel,.app-shell.theme-light .crm-panel,.app-shell.theme-light .module-panel{border:1.5px solid #b3c4d6!important;box-shadow:0 18px 48px rgba(37,62,91,.12),inset 0 0 0 1px rgba(255,255,255,.95)!important}
+.app-shell.theme-light .opportunity-table,.app-shell.theme-light .quotation-table,.app-shell.theme-light .crm-data-table-wrap{border-color:#9fb4c8!important}
+.app-shell.theme-light .opportunity-header,.app-shell.theme-light .crm-table-head,.app-shell.theme-light .quotation-table-head{border:1.5px solid #9bb0c5!important;background:linear-gradient(110deg,#e4ebf4,#eef4fa)!important;color:#263b57!important;box-shadow:inset 0 1px 0 #fff,0 4px 12px rgba(37,62,91,.06)!important}
+.app-shell.theme-light .opportunity-row{border:1.5px solid #c2cfdd!important;box-shadow:0 5px 15px rgba(37,62,91,.075)!important}
+.app-shell.theme-light .opportunity-row:hover{border-color:#48bfa9!important;box-shadow:0 7px 20px rgba(0,169,130,.13)!important}
+
+/* Navegacion activa con acentos electricos. */
+.app-shell.theme-light .crm-tracking-view-tabs button.active,.app-shell.theme-light .kpi-view-tab.active,.app-shell.theme-light .quotations-module__tabs button.active{border-color:#5147d8!important;background:linear-gradient(135deg,#675bed,#3d70e8)!important;color:#fff!important;box-shadow:0 0 0 2px rgba(101,88,232,.12),0 8px 22px rgba(67,78,209,.22)!important}
+.app-shell.theme-light .crm-tracking-view-tabs button.active *,.app-shell.theme-light .kpi-view-tab.active *,.app-shell.theme-light .quotations-module__tabs button.active *{color:#fff!important}
+.app-shell.theme-light .opportunity-search:focus-within,.app-shell.theme-light .crm-search-box:focus-within{border-color:#08a8b5!important;box-shadow:0 0 0 3px rgba(0,169,189,.13),0 8px 22px rgba(31,104,158,.08)!important}
+
+/* KPI: elimina texto blanco sobre gris y conserva color neon. */
+.app-shell.theme-light .won-kpi-sticky,.app-shell.theme-light .won-kpi-summary,.app-shell.theme-light .kpi-summary-band{background:transparent!important}
+.app-shell.theme-light .won-kpi-summary>.summary-card,.app-shell.theme-light .commercial-panel .won-kpi-summary>.summary-card,.app-shell.theme-light .commercial-panel .summary-card,.app-shell.theme-light .kpi-count-split section{border:1.5px solid #aebfd2!important;background:linear-gradient(145deg,#fff,#edf3f9)!important;color:var(--light-ink)!important;box-shadow:0 8px 22px rgba(37,62,91,.09),inset 4px 0 0 #6558e8!important}
+.app-shell.theme-light .won-kpi-summary>.summary-card:first-child,.app-shell.theme-light .commercial-panel .summary-card:first-child,.app-shell.theme-light .kpi-count-split section:first-child{border-color:#69cdb8!important;background:linear-gradient(145deg,#e7fbf5,#f5fffc)!important;box-shadow:0 8px 22px rgba(0,169,130,.11),inset 4px 0 0 #00ad84!important}
+.app-shell.theme-light .won-kpi-summary .summary-card strong,.app-shell.theme-light .won-kpi-summary .summary-card span,.app-shell.theme-light .won-kpi-summary .summary-card small,.app-shell.theme-light .kpi-count-split strong,.app-shell.theme-light .kpi-count-split span,.app-shell.theme-light .kpi-count-split small{color:var(--light-ink)!important;opacity:1!important}
+.app-shell.theme-light .won-kpi-summary .summary-card strong,.app-shell.theme-light .kpi-count-split strong{color:#087c69!important}
+.app-shell.theme-light .won-kpi-caption,.app-shell.theme-light .won-kpi-header{border:1.5px solid #9fb3c8!important;background:linear-gradient(110deg,#dfe8f2,#eef4f9)!important;color:#304761!important;box-shadow:none!important}
+.app-shell.theme-light .won-kpi-caption *,.app-shell.theme-light .won-kpi-header *{color:#304761!important;opacity:1!important}
+.app-shell.theme-light .won-kpi-row,.app-shell.theme-light .won-kpi-row.vacancy,.app-shell.theme-light .won-kpi-row.selected{border:1.5px solid #bdcad8!important;background:linear-gradient(100deg,#fff,#f5f8fc)!important;color:var(--light-ink)!important;box-shadow:0 5px 14px rgba(37,62,91,.07)!important}
+.app-shell.theme-light .won-kpi-row.selected{border-color:#00a982!important;background:linear-gradient(100deg,#e8fbf6,#f8fffd)!important;box-shadow:0 0 0 2px rgba(0,169,130,.12),0 7px 18px rgba(0,169,130,.1)!important}
+.app-shell.theme-light .won-kpi-row.vacancy{border-color:#e5bb62!important;background:linear-gradient(100deg,#fff5d9,#fffaf0)!important}
+.app-shell.theme-light .won-kpi-row *,.app-shell.theme-light .won-kpi-row strong,.app-shell.theme-light .won-kpi-row span,.app-shell.theme-light .won-kpi-row small{color:var(--light-ink)!important;opacity:1!important}
+.app-shell.theme-light .won-kpi-row small{color:var(--light-muted)!important}
+.app-shell.theme-light .kpi-progress,.app-shell.theme-light .won-kpi-row .semaphore{border:1px solid #b9c7d7!important;background:#dce5ef!important}
+
+/* Anuladas: no heredar el cuerpo azul del tema oscuro. */
+.app-shell.theme-light .crm-cancelled-view{border:1.5px solid #9fb4c9!important;background:#fff!important;background-image:none!important;color:var(--light-ink)!important;box-shadow:0 8px 24px rgba(37,62,91,.08)!important}
+.app-shell.theme-light .crm-cancelled-summary{border-bottom:1.5px solid #91a9c0!important;background:linear-gradient(110deg,#183f63,#15506b)!important;color:#72f2d1!important;text-shadow:0 0 14px rgba(75,255,209,.24)!important}
+.app-shell.theme-light .crm-cancelled-view thead th{border-color:#aebfd2!important;background:#dfe7f1!important;color:#43546d!important}
+.app-shell.theme-light .crm-cancelled-view tbody tr{border-bottom:1px solid #c6d2df!important;background:#fff!important}
+.app-shell.theme-light .crm-cancelled-view tbody tr:nth-child(even){background:#f3f7fb!important}
+.app-shell.theme-light .crm-cancelled-view tbody tr:hover{background:#e9f7f4!important}
+.app-shell.theme-light .crm-cancelled-view th,.app-shell.theme-light .crm-cancelled-view td{border-color:#c3d0dd!important;color:var(--light-ink)!important;opacity:1!important}
+.app-shell.theme-light .crm-cancelled-view tbody th{color:#293f5b!important}
+.app-shell.theme-light .crm-cancelled-view .money{color:#008767!important;text-shadow:none!important}
+.app-shell.theme-light .crm-cancelled-actions button{border-color:#8fb1c9!important;background:#edf5fa!important;color:#173c59!important}
+.app-shell.theme-light .crm-cancelled-actions button:hover{border-color:#25ad95!important;background:#def6ef!important}
+
+/* Cotizaciones / OP: codificacion de negocio por fila. */
+.app-shell.theme-light .quotation-table-head{border-color:#98aec4!important;background:linear-gradient(110deg,#dce7f1,#edf4fa)!important;color:#243952!important}
+.app-shell.theme-light .quotation-table-row{border:1.5px solid #b7c7d7!important;background:linear-gradient(100deg,#fff,#f4f8fc)!important;color:var(--light-ink)!important;box-shadow:0 5px 15px rgba(37,62,91,.075)!important}
+.app-shell.theme-light .quotation-table-row.quotation-only{border-color:#dfb253!important;background:linear-gradient(100deg,#fff0bf,#fff8e4 42%,#fffdf7)!important;box-shadow:inset 6px 0 0 #e6a822,0 6px 17px rgba(190,126,0,.12)!important}
+.app-shell.theme-light .quotation-table-row.has-order{border-color:#45bd9c!important;background:linear-gradient(100deg,#d7f8ec,#effcf8 42%,#fbfffd)!important;box-shadow:inset 6px 0 0 #00aa7e,0 6px 17px rgba(0,154,113,.12)!important}
+.app-shell.theme-light .quotation-table-row.quotation-only:hover{border-color:#cf8e08!important;background:linear-gradient(100deg,#ffe7a2,#fff4d4 42%,#fffaf0)!important}
+.app-shell.theme-light .quotation-table-row.has-order:hover{border-color:#079a72!important;background:linear-gradient(100deg,#c8f4e6,#e4faf3 42%,#f7fffc)!important}
+.app-shell.theme-light .quotation-table-row *,.app-shell.theme-light .quotation-table-row__client>strong,.app-shell.theme-light .quotation-table-row__seller>strong,.app-shell.theme-light .quotation-table-row__detail strong{color:var(--light-ink)!important;opacity:1!important}
+.app-shell.theme-light .quotation-table-row__seller>small,.app-shell.theme-light .quotation-table-row__detail small{color:var(--light-muted)!important}
+.app-shell.theme-light .quotation-table-row__amount{color:#007d65!important}
+.app-shell.theme-light .quotation-record__status[data-status="solo-cotizacion"]{border:1px solid #d8a43d!important;background:#e5c27f!important;color:#634000!important;box-shadow:0 0 0 2px rgba(229,194,127,.18)!important}
+.app-shell.theme-light .quotation-record__status[data-status="orden-creada"]{border:1px solid #21a87f!important;background:#bcebdc!important;color:#075d49!important;box-shadow:0 0 0 2px rgba(33,168,127,.14)!important}
+
+/* Formularios de oportunidad claramente delimitados. */
+html body #opportunityDialog .crm-form-section{border:1.5px solid #aec0d2!important;background:linear-gradient(145deg,#f8fbfe,#eef4f9)!important;box-shadow:inset 4px 0 0 #00a982,0 7px 20px rgba(37,62,91,.07)!important}
+html body #opportunityDialog input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),html body #opportunityDialog select,html body #opportunityDialog textarea,html body #opportunityDialog .crm-customer-combobox-input{border:1.5px solid #9eb3c8!important;background:#f4f8fc!important;color:#13263f!important;box-shadow:inset 0 1px 2px rgba(37,62,91,.07),0 2px 5px rgba(37,62,91,.04)!important}
+html body #opportunityDialog input:focus,html body #opportunityDialog select:focus,html body #opportunityDialog textarea:focus,html body #opportunityDialog .crm-customer-combobox-input:focus-within{border-color:#00a9bd!important;background:#fff!important;box-shadow:0 0 0 3px rgba(0,169,189,.14),0 7px 18px rgba(0,169,189,.08)!important}
+html body #opportunityDialog .panel-head{border-bottom:2px solid transparent!important;border-image:linear-gradient(90deg,#00b98c,#00a9bd,#6558e8) 1!important}
+
+/* El chat claro conserva el acento neon del producto. */
+html body.theme-light-active .internal-chat-window{border:1.5px solid #48bfa9!important;box-shadow:0 0 0 2px rgba(0,169,130,.08),0 24px 60px rgba(31,49,73,.22)!important}
+html body.theme-light-active .internal-chat-window>header{background:linear-gradient(125deg,#d8f8ef,#dff3f7 55%,#e9e6ff)!important}
