@@ -7793,7 +7793,7 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .seller-admin-tools label { display: flex; align-items: center; gap: 8px; padding: 0 13px; border: 1px solid rgba(119,144,184,.3); border-radius: 14px; background: rgba(30,52,87,.72); }
 .seller-admin-tools input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #fff; }
 .seller-admin-tools button, .seller-primary { border: 1px solid #6d5df4; border-radius: 14px; background: #5b4ce6; color: #fff; font-weight: 800; }
-.seller-admin-list { display: grid; gap: 8px; max-height: 520px; overflow: auto; }
+.seller-admin-list { display: grid; gap: 8px; max-height: 520px; overflow: auto; scrollbar-gutter: stable; }
 .seller-admin-item { display: grid; grid-template-columns: 42px minmax(0,1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 10px; border: 1px solid rgba(119,144,184,.24); border-radius: 15px; background: rgba(29,51,84,.62); color: #fff; text-align: left; }
 .seller-admin-item:hover, .seller-admin-item.is-selected { border-color: #6ee7d3; background: rgba(42,74,103,.9); transform: translateY(-1px); }
 .seller-admin-item.is-inactive { opacity: .62; }

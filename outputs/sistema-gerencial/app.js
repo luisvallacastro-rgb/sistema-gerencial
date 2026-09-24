@@ -287,6 +287,7 @@ const state = {
   adminQuery: "",
   adminSellerQuery: "",
   adminSellerEditingId: "",
+  adminSellerScrollTop: 0,
   adminSellerNotice: "",
   adminMinuteQuery: "",
   adminMinuteView: "new",
@@ -14389,11 +14390,23 @@ function renderAdminSellersPanel() {
 }
 
 function wireAdminSellersPanel() {
+  const userDirectory = adminPanel.querySelector(".seller-admin-list");
+  if (userDirectory) {
+    userDirectory.scrollTop = Number(state.adminSellerScrollTop || 0);
+    userDirectory.addEventListener("scroll", () => {
+      state.adminSellerScrollTop = userDirectory.scrollTop;
+    }, { passive: true });
+  }
   adminPanel.querySelector("#adminSellerSearch")?.addEventListener("input", (event) => {
     state.adminSellerQuery = event.target.value;
+    state.adminSellerScrollTop = 0;
     renderAdminPanel();
   });
-  adminPanel.querySelectorAll("[data-user-directory-action='select']").forEach((button) => button.addEventListener("click", () => { state.adminSellerEditingId = button.dataset.userId; renderAdminPanel(); }));
+  adminPanel.querySelectorAll("[data-user-directory-action='select']").forEach((button) => button.addEventListener("click", () => {
+    state.adminSellerScrollTop = userDirectory?.scrollTop || 0;
+    state.adminSellerEditingId = button.dataset.userId;
+    renderAdminPanel();
+  }));
   adminPanel.querySelector("[data-user-directory-action='new']")?.addEventListener("click", () => openAdminUserDialog());
   adminPanel.querySelector("[data-user-directory-action='validate']")?.addEventListener("click", (event) => startAdminUserValidation(event.currentTarget.dataset.userId));
   adminPanel.querySelector("[data-user-directory-action='edit']")?.addEventListener("click", (event) => openAdminUserDialog(event.currentTarget.dataset.userId));
