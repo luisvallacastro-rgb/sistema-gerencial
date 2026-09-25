@@ -142,6 +142,12 @@ const areas = {
         items: []
       },
       {
+        key: "custodia-muestras",
+        label: "Custodia de muestras",
+        status: "Control, devolución y liquidación de muestras",
+        items: []
+      },
+      {
         key: "resultados-oportunidades",
         label: "Oportunidades / Gerencia",
         status: "Pipeline activo",
@@ -366,6 +372,9 @@ const state = {
   quotations: [],
   quotationModuleQuery: "",
   quotationModulePage: 1,
+  sampleCustodyQuery: "",
+  sampleCustodyStatus: "open",
+  sampleCustodySource: "all",
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -871,7 +880,7 @@ async function loadCrmData() {
     fillOpportunityOptions();
     if (state.activeArea === adminAreaKey && state.activeSubmenu === "vendedores") renderAdminPanel();
     else if (state.activeArea === "comercializacion" && (
-      state.activeSubmenu?.startsWith("crm") || state.activeSubmenu === "cotizaciones"
+      state.activeSubmenu?.startsWith("crm") || ["cotizaciones", "custodia-muestras"].includes(state.activeSubmenu)
     )) renderDashboard();
     return data;
   } catch {
@@ -1213,6 +1222,9 @@ function normalizePermissionList(value, role) {
     ].includes(item))
       ? [permissionKey("comercializacion", "cotizaciones"), permissionKey("comercializacion", "anticipos")]
       : []),
+    ...(["gerencias", "jefaturas"].includes(role)
+      ? [permissionKey("comercializacion", "custodia-muestras")]
+      : []),
     ...(legacyRisks ? [permissionKey(adminAreaKey, "riesgos")] : []),
     ...(legacyRequests ? [permissionKey(adminAreaKey, "solicitudes")] : [])
   ];
@@ -1316,7 +1328,20 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
     });
   }
   const permissions = userPermissions(user);
-  return area.submenus.filter((item) => permissions.has(permissionKey(areaKey, item.key)));
+  return area.submenus.filter((item) => (
+    permissions.has(permissionKey(areaKey, item.key))
+    || (areaKey === "comercializacion" && item.key === "custodia-muestras" && canAdministerSampleCustody(user))
+  ));
+}
+
+function canAdministerSampleCustody(user = state.currentUser) {
+  if (!user) return false;
+  const identity = normalizeKey([user.name, user.username, user.email].filter(Boolean).join(" "))
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return isAdminUser(user)
+    || ["gerencias", "jefaturas"].includes(user.role)
+    || identity.includes("odaliz")
+    || userPermissions(user).has(permissionKey("comercializacion", "custodia-muestras"));
 }
 
 function fallbackAreaForRole(role) {
@@ -2366,6 +2391,7 @@ function normalizeOpportunities(items) {
       note: item.note || item.comment || "",
       crmOpportunityId: item.crmOpportunityId || "",
       sampleCustodies: Array.isArray(item.sampleCustodies) ? item.sampleCustodies.map((custody) => ({
+        ...custody,
         id: custody.id || crypto.randomUUID(),
         quantity: Math.max(1, Number(custody.quantity || 1)),
         size: custody.size || "",
@@ -3086,7 +3112,7 @@ function loadControlSales() {
         (state.activeArea === "operaciones" && state.activeSubmenu === "resultados-control-ventas")
         || (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos")
         || (state.activeArea === "comercializacion" && state.activeSubmenu === "autorizacion-pedidos")
-        || (state.activeArea === "comercializacion" && state.activeSubmenu === "meta")
+        || (state.activeArea === "comercializacion" && ["meta", "custodia-muestras"].includes(state.activeSubmenu))
       ) renderDashboard();
     })
     .catch((error) => console.error("No se pudo cargar Control de Ventas.", error));
@@ -3818,13 +3844,13 @@ async function loadQuotations() {
     try {
       const items = await apiJson("/api/quotations");
       state.quotations = Array.isArray(items) ? items : [];
-      if (state.activeArea === "comercializacion" && state.activeSubmenu === "meta") renderDashboard();
+      if (state.activeArea === "comercializacion" && ["meta", "custodia-muestras"].includes(state.activeSubmenu)) renderDashboard();
       return state.quotations;
     } catch (error) { console.warn("No fue posible cargar las cotizaciones", error); }
   }
   try { state.quotations = JSON.parse(localStorage.getItem(QUOTATIONS_STORAGE_KEY) || "[]"); }
   catch { state.quotations = []; }
-  if (state.activeArea === "comercializacion" && state.activeSubmenu === "meta") renderDashboard();
+  if (state.activeArea === "comercializacion" && ["meta", "custodia-muestras"].includes(state.activeSubmenu)) renderDashboard();
   return state.quotations;
 }
 
@@ -12754,6 +12780,260 @@ function wireCommercialAgenda(){
   opportunityTable.querySelectorAll("[data-commercial-agenda-delete]").forEach(button=>button.addEventListener("click",async()=>{const item=state.commercialAgenda.find(row=>row.id===button.dataset.commercialAgendaDelete);if(!item||!confirm("¿Eliminar esta agenda y todos sus eventos?"))return;state.commercialAgenda=state.commercialAgenda.filter(row=>row.id!==item.id);await saveCommercialAgenda();renderCommercialSubmenu(areas.comercializacion);}));
 }
 
+function sampleCustodyEntities() {
+  const entities = new Map();
+  const crmOpportunities = Array.isArray(state.crmData?.opportunities) ? state.crmData.opportunities : [];
+  crmOpportunities.forEach((opportunity) => {
+    if (!Array.isArray(opportunity.sampleCustodies) || !opportunity.sampleCustodies.length) return;
+    const owner = (state.crmData?.users || []).find((user) => String(user.id) === String(opportunity.ownerId));
+    entities.set(`crm:${opportunity.id}`, {
+      key: `crm:${opportunity.id}`,
+      context: "crm",
+      item: opportunity,
+      identity: String(opportunity.id),
+      company: opportunity.company || "Oportunidad sin nombre",
+      seller: owner?.name || crmOwnerName(opportunity.ownerId),
+      stage: crmStageToOpportunityStage(opportunity)
+    });
+  });
+  getOpportunitySubmenu().items.forEach((opportunity) => {
+    if (!Array.isArray(opportunity.sampleCustodies) || !opportunity.sampleCustodies.length) return;
+    const crmKey = opportunity.crmOpportunityId ? `crm:${opportunity.crmOpportunityId}` : "";
+    if (crmKey) entities.delete(crmKey);
+    entities.set(`results:${opportunity.id}`, {
+      key: `results:${opportunity.id}`,
+      context: "results",
+      item: opportunity,
+      identity: String(opportunity.crmOpportunityId || opportunity.id),
+      company: opportunity.company || "Oportunidad sin nombre",
+      seller: opportunity.seller || "Sin vendedor",
+      stage: opportunity.stage || "Sin etapa"
+    });
+  });
+  return [...entities.values()];
+}
+
+function sampleCustodyDocumentChain(entity) {
+  const ids = new Set([
+    entity.identity,
+    entity.item.id,
+    entity.item.crmOpportunityId,
+    entity.item.sourceOpportunityId
+  ].map((value) => String(value || "")).filter(Boolean));
+  const quotations = state.quotations.filter((quotation) => (
+    ids.has(String(quotation.opportunityId || ""))
+    || ids.has(String(quotation.resultOpportunityId || ""))
+    || String(quotation.id || "") === String(entity.item.quotationId || "")
+  ));
+  const quotationIds = new Set(quotations.map((quotation) => String(quotation.id || "")));
+  const orders = state.controlSales.filter((order) => (
+    quotationIds.has(String(order.sourceQuotationId || ""))
+    || ids.has(String(order.sourceOpportunityId || ""))
+    || quotations.some((quotation) => String(quotation.convertedOrderId || "") === String(order.id || ""))
+  ));
+  return { quotations, orders };
+}
+
+function sampleCustodyStatus(custody) {
+  if (custody.settledAt || custody.status === "liquidated") return "settled";
+  if (custody.entryDate) return "returned";
+  const elapsed = Math.max(0, Math.floor((Date.now() - new Date(`${custody.exitDate}T12:00:00`).getTime()) / 86400000));
+  return elapsed >= 15 ? "attention" : "open";
+}
+
+function sampleCustodyRows() {
+  return sampleCustodyEntities().flatMap((entity) => {
+    const chain = sampleCustodyDocumentChain(entity);
+    return entity.item.sampleCustodies.map((custody) => ({
+      entity,
+      custody,
+      chain,
+      state: sampleCustodyStatus(custody),
+      elapsed: Math.max(0, Math.floor((Date.now() - new Date(`${custody.exitDate}T12:00:00`).getTime()) / 86400000))
+    }));
+  }).sort((a, b) => {
+    const priority = { attention: 0, open: 1, returned: 2, settled: 3 };
+    return priority[a.state] - priority[b.state] || String(b.custody.exitDate).localeCompare(String(a.custody.exitDate));
+  });
+}
+
+function sampleCustodyOutcomeLabel(value) {
+  return ({ returned: "Devuelta a bodega", applied_order: "Aplicada a la orden", consumed: "Consumida por el cliente", damaged: "Dañada", lost: "Extraviada", other: "Otra liquidación" })[value] || "Liquidada";
+}
+
+function filteredSampleCustodyRows() {
+  const query = normalizeKey(state.sampleCustodyQuery).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return sampleCustodyRows().filter((row) => {
+    const matchesStatus = state.sampleCustodyStatus === "all"
+      || (state.sampleCustodyStatus === "open" && ["open", "attention"].includes(row.state))
+      || row.state === state.sampleCustodyStatus;
+    const hasQuotation = row.chain.quotations.length > 0;
+    const hasOrder = row.chain.orders.length > 0;
+    const matchesSource = state.sampleCustodySource === "all"
+      || (state.sampleCustodySource === "opportunity" && !hasQuotation && !hasOrder)
+      || (state.sampleCustodySource === "quotation" && hasQuotation && !hasOrder)
+      || (state.sampleCustodySource === "order" && hasOrder);
+    const haystack = normalizeKey([
+      row.entity.company, row.entity.seller, row.custody.description, row.custody.size,
+      ...row.chain.quotations.map((item) => item.number),
+      ...row.chain.orders.map((item) => item.number)
+    ].join(" ")).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return matchesStatus && matchesSource && (!query || haystack.includes(query));
+  });
+}
+
+function renderSampleCustodyModule() {
+  const all = sampleCustodyRows();
+  const rows = filteredSampleCustodyRows();
+  const pending = all.filter((row) => ["open", "attention"].includes(row.state));
+  const units = pending.reduce((sum, row) => sum + Number(row.custody.quantity || 1), 0);
+  const attention = all.filter((row) => row.state === "attention").length;
+  const settled = all.filter((row) => ["returned", "settled"].includes(row.state)).length;
+  const statusLabel = { open: "En custodia", attention: "Seguimiento", returned: "Devuelta", settled: "Liquidada" };
+  return `<section class="sample-custody-module">
+    <header class="sample-custody-hero">
+      <div><span>CONTROL TRANSVERSAL</span><h2>Cadena de custodia de muestras</h2><p>Una sola trazabilidad desde la oportunidad hasta la cotización y la orden de pedido, sin perder el historial al convertir.</p></div>
+      <button class="primary-btn" type="button" data-custody-new>+ Nueva asignación</button>
+    </header>
+    <div class="sample-custody-kpis">
+      <article><span>En calle</span><strong>${units}</strong><small>${pending.length} asignaciones activas</small></article>
+      <article class="attention"><span>Más de 15 días</span><strong>${attention}</strong><small>Requieren seguimiento</small></article>
+      <article><span>Liquidadas</span><strong>${settled}</strong><small>Devueltas o cerradas</small></article>
+      <article><span>Expedientes</span><strong>${new Set(all.map((row) => row.entity.key)).size}</strong><small>Oportunidades trazables</small></article>
+    </div>
+    <div class="sample-custody-toolbar">
+      <label class="sample-custody-search"><span>⌕</span><input data-custody-search value="${escapeHtml(state.sampleCustodyQuery)}" placeholder="Buscar cliente, vendedor, muestra u OP"></label>
+      <div class="sample-custody-filters" role="group" aria-label="Estado de custodia">
+        ${[["open","Pendientes"],["attention","+15 días"],["returned","Devueltas"],["settled","Liquidadas"],["all","Todas"]].map(([key,label]) => `<button class="${state.sampleCustodyStatus === key ? "active" : ""}" type="button" data-custody-status="${key}">${label}</button>`).join("")}
+      </div>
+      <select data-custody-source aria-label="Filtrar por documento"><option value="all">Todos los documentos</option><option value="opportunity">Solo oportunidad</option><option value="quotation">Con cotización</option><option value="order">Convertida en OP</option></select>
+    </div>
+    <div class="sample-custody-results-head"><strong>${rows.length} ${rows.length === 1 ? "muestra" : "muestras"}</strong><span>Responsable operativo: Odaliz · Supervisión gerencial</span></div>
+    <div class="sample-custody-ledger">${rows.length ? rows.map((row) => {
+      const quote = row.chain.quotations[0];
+      const order = row.chain.orders[0];
+      const settledCopy = row.state === "settled" ? sampleCustodyOutcomeLabel(row.custody.settlementOutcome) : statusLabel[row.state];
+      return `<article class="sample-custody-ledger-row is-${row.state}">
+        <div class="sample-custody-state"><span>${escapeHtml(settledCopy)}</span><small>${row.state === "open" || row.state === "attention" ? `${row.elapsed} días fuera` : formatDate(row.custody.settledAt || row.custody.entryDate)}</small></div>
+        <div class="sample-custody-client"><strong>${escapeHtml(row.entity.company)}</strong><span>${escapeHtml(row.entity.seller)} · ${escapeHtml(row.entity.stage)}</span><div class="sample-document-chain"><em>Oportunidad</em>${quote ? `<b>→</b><em>Cotización${quote.number ? ` #${escapeHtml(quote.number)}` : ""}</em>` : ""}${order ? `<b>→</b><em class="has-order">OP #${escapeHtml(order.number || order.orderNumber || "—")}</em>` : ""}</div></div>
+        <div class="sample-custody-item"><strong>${escapeHtml(row.custody.description || "Juego de tallas")}</strong><span>${Number(row.custody.quantity || 1)} unidad${Number(row.custody.quantity || 1) === 1 ? "" : "es"} · ${escapeHtml(row.custody.size || "Sin talla")}</span>${row.custody.settlementNote ? `<small>${escapeHtml(row.custody.settlementNote)}</small>` : ""}</div>
+        <div class="sample-custody-dates"><span><small>Salida</small><strong>${formatDate(row.custody.exitDate)}</strong></span><span><small>Cierre</small><strong>${row.custody.settledAt || row.custody.entryDate ? formatDate(row.custody.settledAt || row.custody.entryDate) : "Pendiente"}</strong></span></div>
+        <div class="sample-custody-actions"><button type="button" data-custody-open="${escapeHtml(row.entity.key)}">Expediente</button><button type="button" data-custody-edit="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}">Editar</button>${["open","attention"].includes(row.state) ? `<button class="primary" type="button" data-custody-settle="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}">Liquidar</button>` : ""}</div>
+      </article>`;
+    }).join("") : `<div class="sample-custody-empty-state"><strong>No hay registros con estos filtros</strong><span>Prueba otra búsqueda o registra una nueva asignación.</span></div>`}</div>
+  </section>`;
+}
+
+function resolveSampleCustodyEntity(key) {
+  return sampleCustodyEntities().find((entity) => entity.key === key) || null;
+}
+
+async function persistSampleCustodyEntity(entity) {
+  if (entity.context === "crm") {
+    await crmApi(`/opportunities/${encodeURIComponent(entity.item.id)}`, { method: "PATCH", body: JSON.stringify({ sampleCustodies: entity.item.sampleCustodies }) });
+  } else {
+    await saveOpportunities({ reportErrors: true });
+  }
+}
+
+function allSampleCustodyTargets() {
+  const map = new Map();
+  (state.crmData?.opportunities || []).forEach((item) => {
+    const owner = (state.crmData?.users || []).find((user) => String(user.id) === String(item.ownerId));
+    map.set(`crm:${item.id}`, { key:`crm:${item.id}`, context:"crm", item, company:item.company, seller:owner?.name || crmOwnerName(item.ownerId) });
+  });
+  getOpportunitySubmenu().items.forEach((item) => {
+    const crmKey = item.crmOpportunityId ? `crm:${item.crmOpportunityId}` : "";
+    if (crmKey) map.delete(crmKey);
+    map.set(`results:${item.id}`, { key:`results:${item.id}`, context:"results", item, company:item.company, seller:item.seller });
+  });
+  return [...map.values()].sort((a,b) => String(a.company).localeCompare(String(b.company)));
+}
+
+function ensureSampleCustodyDialogs() {
+  if (document.querySelector("#sampleCustodyAdminDialog")) return;
+  document.body.insertAdjacentHTML("beforeend", `<dialog id="sampleCustodyAdminDialog" class="sample-custody-dialog"><form method="dialog" id="sampleCustodyAdminForm"><header><div><span>CUSTODIA DE MUESTRAS</span><h2 id="sampleCustodyAdminTitle">Nueva asignación</h2></div><button type="button" data-custody-dialog-close>×</button></header><input type="hidden" id="sampleCustodyAdminRecord"><label class="wide">Oportunidad / cliente<select id="sampleCustodyAdminEntity" required></select></label><label>Cantidad<input id="sampleCustodyAdminQuantity" type="number" min="1" value="1" required></label><label>Talla<input id="sampleCustodyAdminSize" placeholder="Ej. S, M, L, XL"></label><label class="wide">Descripción<input id="sampleCustodyAdminDescription" placeholder="Detalle de la muestra o juego de tallas" required></label><label>Fecha de salida<input id="sampleCustodyAdminExit" type="date" required></label><footer><button type="button" class="ghost-btn" data-custody-dialog-close>Cancelar</button><button class="primary-btn" type="submit">Guardar custodia</button></footer></form></dialog>
+  <dialog id="sampleCustodySettlementDialog" class="sample-custody-dialog settlement"><form method="dialog" id="sampleCustodySettlementForm"><header><div><span>LIQUIDACIÓN</span><h2>Resolver custodia</h2></div><button type="button" data-settlement-close>×</button></header><input type="hidden" id="sampleCustodySettlementEntity"><input type="hidden" id="sampleCustodySettlementRecord"><div class="sample-settlement-summary" id="sampleCustodySettlementSummary"></div><label>Resultado<select id="sampleCustodySettlementOutcome" required><option value="returned">Devuelta a bodega</option><option value="applied_order">Aplicada a la orden de pedido</option><option value="consumed">Consumida por el cliente</option><option value="damaged">Dañada</option><option value="lost">Extraviada</option><option value="other">Otra liquidación</option></select></label><label>Fecha de liquidación<input id="sampleCustodySettlementDate" type="date" required></label><label class="wide">Observación<textarea id="sampleCustodySettlementNote" rows="4" placeholder="Constancia, condición de ingreso o motivo de liquidación" required></textarea></label><footer><button type="button" class="ghost-btn" data-settlement-close>Cancelar</button><button class="primary-btn" type="submit">Liquidar muestra</button></footer></form></dialog>`);
+  document.querySelectorAll("[data-custody-dialog-close]").forEach((button) => button.addEventListener("click", () => document.querySelector("#sampleCustodyAdminDialog").close()));
+  document.querySelectorAll("[data-settlement-close]").forEach((button) => button.addEventListener("click", () => document.querySelector("#sampleCustodySettlementDialog").close()));
+  document.querySelector("#sampleCustodyAdminForm").addEventListener("submit", saveSampleCustodyAdminForm);
+  document.querySelector("#sampleCustodySettlementForm").addEventListener("submit", saveSampleCustodySettlement);
+}
+
+function openSampleCustodyAdminDialog(entityKey = "", recordId = "") {
+  ensureSampleCustodyDialogs();
+  const targets = allSampleCustodyTargets();
+  const entity = targets.find((item) => item.key === entityKey);
+  const record = entity?.item.sampleCustodies?.find((item) => item.id === recordId);
+  const select = document.querySelector("#sampleCustodyAdminEntity");
+  select.innerHTML = `<option value="">Seleccionar oportunidad…</option>${targets.map((item) => `<option value="${escapeHtml(item.key)}">${escapeHtml(item.company)} · ${escapeHtml(item.seller || "Sin vendedor")}</option>`).join("")}`;
+  select.value = entityKey;
+  select.disabled = Boolean(record);
+  document.querySelector("#sampleCustodyAdminTitle").textContent = record ? "Editar asignación" : "Nueva asignación";
+  document.querySelector("#sampleCustodyAdminRecord").value = recordId;
+  document.querySelector("#sampleCustodyAdminQuantity").value = record?.quantity || 1;
+  document.querySelector("#sampleCustodyAdminSize").value = record?.size || "";
+  document.querySelector("#sampleCustodyAdminDescription").value = record?.description || "";
+  document.querySelector("#sampleCustodyAdminExit").value = record?.exitDate || todayISO();
+  document.querySelector("#sampleCustodyAdminDialog").showModal();
+}
+
+async function saveSampleCustodyAdminForm(event) {
+  event.preventDefault();
+  const targets = allSampleCustodyTargets();
+  const key = document.querySelector("#sampleCustodyAdminEntity").value;
+  const entity = targets.find((item) => item.key === key);
+  if (!entity) return;
+  if (!Array.isArray(entity.item.sampleCustodies)) entity.item.sampleCustodies = [];
+  const recordId = document.querySelector("#sampleCustodyAdminRecord").value;
+  const existing = entity.item.sampleCustodies.find((item) => item.id === recordId);
+  const payload = { quantity:Math.max(1, Number(document.querySelector("#sampleCustodyAdminQuantity").value || 1)), size:document.querySelector("#sampleCustodyAdminSize").value.trim(), description:document.querySelector("#sampleCustodyAdminDescription").value.trim(), exitDate:document.querySelector("#sampleCustodyAdminExit").value, updatedAt:new Date().toISOString(), updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+  if (existing) Object.assign(existing, payload);
+  else entity.item.sampleCustodies.unshift({ id:crypto.randomUUID(), entryDate:"", status:"assigned", createdAt:new Date().toISOString(), createdBy:state.currentUser?.name || "Sistema Gerencial", ...payload });
+  const submit = event.submitter; if (submit) submit.disabled = true;
+  try { await persistSampleCustodyEntity(entity); document.querySelector("#sampleCustodyAdminDialog").close(); renderCommercialSubmenu(areas.comercializacion); }
+  catch (error) { alert("No fue posible guardar la custodia. Inténtalo nuevamente."); }
+  finally { if (submit) submit.disabled = false; }
+}
+
+function openSampleCustodySettlement(entityKey, recordId) {
+  ensureSampleCustodyDialogs();
+  const row = sampleCustodyRows().find((item) => item.entity.key === entityKey && item.custody.id === recordId);
+  if (!row) return;
+  document.querySelector("#sampleCustodySettlementEntity").value = entityKey;
+  document.querySelector("#sampleCustodySettlementRecord").value = recordId;
+  document.querySelector("#sampleCustodySettlementDate").value = todayISO();
+  document.querySelector("#sampleCustodySettlementOutcome").value = "returned";
+  document.querySelector("#sampleCustodySettlementNote").value = "";
+  document.querySelector("#sampleCustodySettlementSummary").innerHTML = `<strong>${escapeHtml(row.entity.company)}</strong><span>${escapeHtml(row.custody.description || "Juego de tallas")} · ${Number(row.custody.quantity || 1)} unidad${Number(row.custody.quantity || 1) === 1 ? "" : "es"}</span>`;
+  document.querySelector("#sampleCustodySettlementDialog").showModal();
+}
+
+async function saveSampleCustodySettlement(event) {
+  event.preventDefault();
+  const entity = resolveSampleCustodyEntity(document.querySelector("#sampleCustodySettlementEntity").value);
+  const custody = entity?.item.sampleCustodies?.find((item) => item.id === document.querySelector("#sampleCustodySettlementRecord").value);
+  if (!entity || !custody) return;
+  const outcome = document.querySelector("#sampleCustodySettlementOutcome").value;
+  const date = document.querySelector("#sampleCustodySettlementDate").value;
+  Object.assign(custody, { status:"liquidated", settledAt:date, settlementOutcome:outcome, settlementNote:document.querySelector("#sampleCustodySettlementNote").value.trim(), settledBy:state.currentUser?.name || "Sistema Gerencial", updatedAt:new Date().toISOString(), ...(outcome === "returned" ? { entryDate:date } : {}) });
+  const submit = event.submitter; if (submit) submit.disabled = true;
+  try { await persistSampleCustodyEntity(entity); document.querySelector("#sampleCustodySettlementDialog").close(); renderCommercialSubmenu(areas.comercializacion); }
+  catch (error) { alert("No fue posible liquidar la muestra. Inténtalo nuevamente."); }
+  finally { if (submit) submit.disabled = false; }
+}
+
+function wireSampleCustodyModule() {
+  const search = opportunityTable.querySelector("[data-custody-search]");
+  search?.addEventListener("input", (event) => { state.sampleCustodyQuery = event.target.value; renderCommercialSubmenu(areas.comercializacion); const next = opportunityTable.querySelector("[data-custody-search]"); next?.focus(); next?.setSelectionRange(next.value.length, next.value.length); });
+  opportunityTable.querySelectorAll("[data-custody-status]").forEach((button) => button.addEventListener("click", () => { state.sampleCustodyStatus = button.dataset.custodyStatus; renderCommercialSubmenu(areas.comercializacion); }));
+  const source = opportunityTable.querySelector("[data-custody-source]"); if (source) { source.value = state.sampleCustodySource; source.addEventListener("change", () => { state.sampleCustodySource = source.value; renderCommercialSubmenu(areas.comercializacion); }); }
+  opportunityTable.querySelector("[data-custody-new]")?.addEventListener("click", () => openSampleCustodyAdminDialog());
+  opportunityTable.querySelectorAll("[data-custody-edit]").forEach((button) => button.addEventListener("click", () => openSampleCustodyAdminDialog(button.dataset.custodyEdit, button.dataset.custodyRecord)));
+  opportunityTable.querySelectorAll("[data-custody-settle]").forEach((button) => button.addEventListener("click", () => openSampleCustodySettlement(button.dataset.custodySettle, button.dataset.custodyRecord)));
+  opportunityTable.querySelectorAll("[data-custody-open]").forEach((button) => button.addEventListener("click", async () => { const entity = resolveSampleCustodyEntity(button.dataset.custodyOpen); if (!entity) return; if (entity.context === "crm") await openCrmManagementDialog(entity.item.id); else await openManagementDialog(entity.item, "results"); setSampleCustodyMode(true); }));
+}
+
 function renderCommercialSubmenu(area) {
   if (!Array.isArray(area.submenus)) {
     commercialPanel.classList.add("hidden");
@@ -12832,6 +13112,21 @@ function renderCommercialSubmenu(area) {
     opportunityTable.innerHTML = renderCustomerAdvances();
     wireCustomerAdvances();
     if (!state.customerAdvancesLoaded) loadCustomerAdvances();
+    return;
+  }
+
+  if (state.activeArea === "comercializacion" && submenu.key === "custodia-muestras") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    const custodyRows = sampleCustodyRows();
+    const activeCustodies = custodyRows.filter((row) => ["open", "attention"].includes(row.state)).length;
+    commercialSubmenuStatus.textContent = `${activeCustodies} activas · ${custodyRows.length} registros históricos`;
+    opportunityTable.innerHTML = renderSampleCustodyModule();
+    wireSampleCustodyModule();
     return;
   }
 
@@ -15435,6 +15730,7 @@ function renderDashboard() {
       "metricas",
       "meta",
       "anticipos",
+      "custodia-muestras",
       "disponibilidad",
       "ingresos",
       "produccion-semanal"
@@ -16673,7 +16969,7 @@ function sampleCustodies(item) {
 }
 
 function hasOutstandingSamples(item) {
-  return sampleCustodies(item).some((custody) => custody.exitDate && !custody.entryDate);
+  return sampleCustodies(item).some((custody) => custody.exitDate && !custody.entryDate && !custody.settledAt && custody.status !== "liquidated");
 }
 
 function resetSampleCustodyForm() {
@@ -17179,7 +17475,7 @@ saveSampleCustody.addEventListener("click", async () => {
     entryDate
   };
   if (existing) Object.assign(existing, payload, { updatedAt: new Date().toISOString() });
-  else records.unshift({ id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...payload });
+  else records.unshift({ id: crypto.randomUUID(), status: "assigned", createdAt: new Date().toISOString(), createdBy: state.currentUser?.name || "Sistema Gerencial", ...payload });
   if (managementDialog.dataset.context === "crm") await persistCrmSampleCustodies(item);
   else saveOpportunities();
   renderSampleCustodies(item);

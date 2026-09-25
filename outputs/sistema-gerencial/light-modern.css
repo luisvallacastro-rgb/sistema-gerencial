@@ -1397,3 +1397,45 @@ html body.theme-light-active dialog :focus-visible { outline: 2px solid rgba(89,
   .app-shell.theme-light .financial-orders-shell,
   .app-shell.theme-light .purchase-orders-shell { border-radius: 14px !important; }
 }
+/* Custodia de muestras · tema claro */
+body.theme-light-active .sample-custody-hero{border-color:#b7dfd7;background:radial-gradient(circle at 91% -20%,rgba(20,184,166,.17),transparent 42%),linear-gradient(135deg,#ffffff,#edf8f6);box-shadow:0 16px 35px rgba(27,71,83,.10)}
+body.theme-light-active .sample-custody-hero span,body.theme-light-active .sample-custody-dialog header span{color:#087f70}
+body.theme-light-active .sample-custody-hero h2{color:#11243d}
+body.theme-light-active .sample-custody-hero p{color:#566a80}
+body.theme-light-active .sample-custody-kpis article{border-color:#d3e1ea;background:#fff;box-shadow:0 7px 20px rgba(31,59,84,.06)}
+body.theme-light-active .sample-custody-kpis article:after{background:rgba(13,148,136,.08)}
+body.theme-light-active .sample-custody-kpis article.attention{border-color:#f2ce83;background:#fffaf0}
+body.theme-light-active .sample-custody-kpis span{color:#61748a}
+body.theme-light-active .sample-custody-kpis strong{color:#13243c}
+body.theme-light-active .sample-custody-kpis small{color:#087f70}
+body.theme-light-active .sample-custody-toolbar{border-color:#d3e0e9;background:#f7fafc}
+body.theme-light-active .sample-custody-search{border-color:#c8d8e4;background:#fff}
+body.theme-light-active .sample-custody-search input{color:#14243b}
+body.theme-light-active .sample-custody-filters{background:#eaf0f5}
+body.theme-light-active .sample-custody-filters button{color:#5c6e82}
+body.theme-light-active .sample-custody-filters button.active{background:#0f8f7b;color:#fff}
+body.theme-light-active .sample-custody-toolbar select{border-color:#c8d8e4;background:#fff;color:#17283f}
+body.theme-light-active .sample-custody-results-head{color:#17283f}
+body.theme-light-active .sample-custody-results-head span{color:#667a8f}
+body.theme-light-active .sample-custody-ledger-row{border-color:#d4e0e8;border-left-color:#16a98f;background:#fff;box-shadow:0 7px 20px rgba(30,58,82,.055)}
+body.theme-light-active .sample-custody-ledger-row.is-attention{border-left-color:#e9a51e;background:#fffcf5}
+body.theme-light-active .sample-custody-ledger-row.is-returned,body.theme-light-active .sample-custody-ledger-row.is-settled{border-left-color:#8ba1b4;background:#f8fafc}
+body.theme-light-active .sample-custody-state span{background:#ddf7f1;color:#087f70}
+body.theme-light-active .is-attention .sample-custody-state span{background:#fff0cd;color:#99620b}
+body.theme-light-active .sample-custody-state small,body.theme-light-active .sample-custody-client>span,body.theme-light-active .sample-custody-item>span,body.theme-light-active .sample-custody-item>small{color:#65798d}
+body.theme-light-active .sample-custody-client>strong,body.theme-light-active .sample-custody-item>strong,body.theme-light-active .sample-custody-dates strong{color:#13243c}
+body.theme-light-active .sample-document-chain em{border-color:#c8d7e2;color:#50677d;background:#f5f8fa}
+body.theme-light-active .sample-document-chain em.has-order{border-color:#8edcca;color:#087f70;background:#e9faf6}
+body.theme-light-active .sample-custody-dates small{color:#70859a}
+body.theme-light-active .sample-custody-actions button{border-color:#ccdae4;background:#f5f8fb;color:#30485e}
+body.theme-light-active .sample-custody-actions button.primary{border-color:#0f8f7b;background:#0f8f7b;color:#fff}
+body.theme-light-active .sample-custody-empty-state{border-color:#c8d8e4;color:#24384c}
+body.theme-light-active .sample-custody-dialog{border-color:#cddce6;background:#fff;color:#17283f;box-shadow:0 32px 80px rgba(24,49,75,.24)}
+body.theme-light-active .sample-custody-dialog::backdrop{background:rgba(27,43,60,.42)}
+body.theme-light-active .sample-custody-dialog header{border-color:#dce6ed}
+body.theme-light-active .sample-custody-dialog header h2{color:#13243c}
+body.theme-light-active .sample-custody-dialog header button{border-color:#cbd9e3;background:#f2f6f9;color:#263c51}
+body.theme-light-active .sample-custody-dialog label{color:#51677d}
+body.theme-light-active .sample-custody-dialog input,body.theme-light-active .sample-custody-dialog select,body.theme-light-active .sample-custody-dialog textarea{border-color:#c9d8e3;background:#f8fafc;color:#15263d}
+body.theme-light-active .sample-settlement-summary{border-color:#a9e0d5;background:#edfaf7}
+body.theme-light-active .sample-settlement-summary span{color:#60778b}

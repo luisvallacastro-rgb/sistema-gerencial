@@ -9671,7 +9671,15 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 LIMIT 1
             """, (request_user_id,)).fetchone() if request_user_id else None
             request_user = dict(request_user_row) if request_user_row else None
-            is_restricted_operator = bool(request_user and request_user.get("role") == "vendedores" and not request_user.get("admin"))
+            # Odaliz custodia las muestras de toda la operación comercial. Su
+            # acceso transversal no depende del vendedor propietario y se
+            # conserva incluso cuando la oportunidad ya fue convertida en OP.
+            is_restricted_operator = bool(
+                request_user
+                and request_user.get("role") == "vendedores"
+                and not request_user.get("admin")
+                and not is_odaliz_valencia_user(request_user)
+            )
             request_linked_seller = linked_crm_seller(data, request_user) if is_restricted_operator else None
 
             def response_model():
