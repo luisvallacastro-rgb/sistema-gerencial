@@ -12859,49 +12859,93 @@ function sampleCustodyOutcomeLabel(value) {
   return ({ returned: "Devuelta a bodega", applied_order: "Aplicada a la orden", consumed: "Consumida por el cliente", damaged: "Dañada", lost: "Extraviada", other: "Otra liquidación" })[value] || "Liquidada";
 }
 
-function filteredSampleCustodyRows() {
+function sampleCustodyGroups() {
+  const groups = new Map();
+  sampleCustodyRows().forEach((row) => {
+    const key = normalizeKey(row.entity.company).normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (!groups.has(key)) groups.set(key, { id:encodeURIComponent(key), company:row.entity.company, rows:[] });
+    groups.get(key).rows.push(row);
+  });
+  const priority = { attention:0, open:1, returned:2, settled:3 };
+  return [...groups.values()].map((group) => {
+    const active = group.rows.filter((row) => ["open", "attention"].includes(row.state));
+    const quotations = [...new Map(group.rows.flatMap((row) => row.chain.quotations).map((item) => [String(item.id || item.number), item])).values()];
+    const orders = [...new Map(group.rows.flatMap((row) => row.chain.orders).map((item) => [String(item.id || item.number || item.orderNumber), item])).values()];
+    const sellers = [...new Set(group.rows.map((row) => row.entity.seller).filter(Boolean))];
+    const stages = [...new Set(group.rows.map((row) => row.entity.stage).filter(Boolean))];
+    const stateValue = group.rows.reduce((best, row) => priority[row.state] < priority[best] ? row.state : best, "settled");
+    const oldestActive = active.reduce((max, row) => Math.max(max, row.elapsed), 0);
+    return { ...group, active, quotations, orders, sellers, stages, state:stateValue, oldestActive };
+  }).sort((a, b) => priority[a.state] - priority[b.state] || a.company.localeCompare(b.company));
+}
+
+function filteredSampleCustodyGroups() {
   const query = normalizeKey(state.sampleCustodyQuery).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return sampleCustodyRows().filter((row) => {
-    const haystack = normalizeKey([
-      row.entity.company, row.entity.seller, row.custody.description, row.custody.size,
-      ...row.chain.quotations.map((item) => item.number),
-      ...row.chain.orders.map((item) => item.number)
-    ].join(" ")).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return sampleCustodyGroups().filter((group) => {
+    const haystack = normalizeKey(group.rows.flatMap((row) => [
+      row.entity.company, row.entity.seller, row.entity.stage, row.custody.description, row.custody.size,
+      ...row.chain.quotations.map((item) => item.number), ...row.chain.orders.map((item) => item.number || item.orderNumber)
+    ]).join(" ")).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return !query || haystack.includes(query);
   });
 }
 
 function renderSampleCustodyModule() {
   const all = sampleCustodyRows();
-  const rows = filteredSampleCustodyRows();
+  const groups = filteredSampleCustodyGroups();
   const pending = all.filter((row) => ["open", "attention"].includes(row.state));
   const units = pending.reduce((sum, row) => sum + Number(row.custody.quantity || 1), 0);
-  const statusLabel = { open: "En custodia", attention: "+15 días", returned: "Devuelta", settled: "Liquidada" };
+  const statusLabel = { open: "En custodia", attention: "Atención", returned: "Devuelta", settled: "Liquidada" };
   return `<section class="sample-custody-module sample-custody-matrix">
     <div class="sample-custody-matrix-toolbar">
       <label class="sample-custody-search"><span>⌕</span><input data-custody-search value="${escapeHtml(state.sampleCustodyQuery)}" placeholder="Buscar empresa, vendedor, muestra, cotización u OP"></label>
-      <div class="sample-custody-matrix-total"><small>MUESTRAS ACTIVAS</small><strong>${units}</strong><span>${rows.length} filas</span></div>
+      <div class="sample-custody-matrix-total"><small>MUESTRAS ACTIVAS</small><strong>${units}</strong><span>${groups.length} clientes</span></div>
       <button class="sample-custody-new" type="button" data-custody-new aria-label="Nueva asignación" title="Nueva asignación">+</button>
     </div>
-    <div class="sample-custody-matrix-head" role="row"><span>Salida</span><span>Oportunidad</span><span>Vendedor</span><span>Cotización</span><span>OP</span><span>Muestra asignada</span><span>Estado</span><span>Acciones</span></div>
-    <div class="sample-custody-ledger sample-custody-matrix-body">${rows.length ? rows.map((row) => {
-      const quote = row.chain.quotations[0];
-      const order = row.chain.orders[0];
-      const settledCopy = row.state === "settled" ? sampleCustodyOutcomeLabel(row.custody.settlementOutcome) : statusLabel[row.state];
-      const quoteNumber = quote?.number || quote?.quotationNumber || "—";
-      const orderNumber = order?.number || order?.orderNumber || "—";
-      return `<article class="sample-custody-ledger-row is-${row.state}" role="row">
-        <div class="sample-custody-cell custody-date" data-label="Salida"><strong>${formatDate(row.custody.exitDate)}</strong><small>${row.elapsed} días</small></div>
-        <div class="sample-custody-cell custody-opportunity" data-label="Oportunidad"><strong>${escapeHtml(row.entity.company)}</strong><small>${escapeHtml(row.entity.stage)}</small></div>
-        <div class="sample-custody-cell" data-label="Vendedor"><strong>${escapeHtml(row.entity.seller)}</strong></div>
-        <div class="sample-custody-cell custody-document" data-label="Cotización"><strong>${escapeHtml(quoteNumber)}</strong><small>${quote ? escapeHtml(quote.status || "Registrada") : "Sin cotización"}</small></div>
-        <div class="sample-custody-cell custody-document ${order ? "has-order" : ""}" data-label="OP"><strong>${escapeHtml(orderNumber)}</strong><small>${order ? escapeHtml(order.status || "Activa") : "Sin convertir"}</small></div>
-        <div class="sample-custody-cell custody-sample" data-label="Muestra asignada"><strong>${escapeHtml(row.custody.description || "Juego de tallas")}</strong><small>${Number(row.custody.quantity || 1)} unidad${Number(row.custody.quantity || 1) === 1 ? "" : "es"} · ${escapeHtml(row.custody.size || "Sin talla")}</small></div>
-        <div class="sample-custody-state" data-label="Estado"><span>${escapeHtml(settledCopy)}</span><small>${row.custody.settledAt || row.custody.entryDate ? formatDate(row.custody.settledAt || row.custody.entryDate) : "Pendiente"}</small></div>
-        <div class="sample-custody-actions" data-label="Acciones"><button type="button" data-custody-open="${escapeHtml(row.entity.key)}" aria-label="Abrir expediente" title="Abrir expediente">◉</button><button type="button" data-custody-edit="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}" aria-label="Editar muestra" title="Editar muestra">✎</button>${["open","attention"].includes(row.state) ? `<button class="primary" type="button" data-custody-settle="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}" aria-label="Liquidar muestra" title="Liquidar muestra">✓</button>` : ""}</div>
+    <div class="sample-custody-matrix-head" role="row"><span>Cliente / oportunidad</span><span>Vendedor</span><span>Documentos</span><span>Muestras</span><span>En calle</span><span>Estado</span><span>Detalle</span></div>
+    <div class="sample-custody-ledger sample-custody-matrix-body">${groups.length ? groups.map((group) => {
+      const activeUnits = group.active.reduce((sum, row) => sum + Number(row.custody.quantity || 1), 0);
+      const totalUnits = group.rows.reduce((sum, row) => sum + Number(row.custody.quantity || 1), 0);
+      const documentSummary = `${group.quotations.length} cotiz. · ${group.orders.length} OP`;
+      const stateCopy = group.active.length ? statusLabel[group.state] : "Sin pendientes";
+      return `<article class="sample-custody-ledger-row sample-custody-group-row is-${group.state}" role="row">
+        <div class="sample-custody-cell custody-opportunity" data-label="Cliente / oportunidad"><strong>${escapeHtml(group.company)}</strong><small>${escapeHtml(group.stages.join(" · ") || "Oportunidad")}</small></div>
+        <div class="sample-custody-cell" data-label="Vendedor"><strong>${escapeHtml(group.sellers.join(" · ") || "Sin vendedor")}</strong></div>
+        <div class="sample-custody-cell custody-document ${group.orders.length ? "has-order" : ""}" data-label="Documentos"><strong>${documentSummary}</strong><small>${group.orders.length ? "Cadena convertida" : group.quotations.length ? "En cotización" : "Solo oportunidad"}</small></div>
+        <div class="sample-custody-cell custody-sample" data-label="Muestras"><strong>${group.rows.length} registro${group.rows.length === 1 ? "" : "s"}</strong><small>${totalUnits} unidad${totalUnits === 1 ? " asignada" : "es asignadas"}</small></div>
+        <div class="sample-custody-cell custody-active" data-label="En calle"><strong>${activeUnits}</strong><small>${group.active.length} pendiente${group.active.length === 1 ? "" : "s"}</small></div>
+        <div class="sample-custody-state" data-label="Estado"><span>${escapeHtml(stateCopy)}</span><small>${group.active.length ? `${group.oldestActive} días máx.` : "Expediente resuelto"}</small></div>
+        <div class="sample-custody-actions" data-label="Detalle"><button class="sample-custody-detail-btn" type="button" data-custody-group="${escapeHtml(group.id)}">Ver detalle</button></div>
       </article>`;
-    }).join("") : `<div class="sample-custody-empty-state"><strong>No hay muestras asignadas</strong><span>${state.sampleCustodyQuery ? "No existen coincidencias para la búsqueda." : "Registra una asignación para iniciar la matriz."}</span></div>`}</div>
+    }).join("") : `<div class="sample-custody-empty-state"><strong>No hay clientes con muestras asignadas</strong><span>${state.sampleCustodyQuery ? "No existen coincidencias para la búsqueda." : "Registra una asignación para iniciar la matriz."}</span></div>`}</div>
   </section>`;
+}
+
+function openSampleCustodyGroupDialog(groupId) {
+  const group = sampleCustodyGroups().find((item) => item.id === groupId);
+  if (!group) return;
+  document.querySelector("#sampleCustodyGroupDialog")?.remove();
+  const statusLabel = { open:"En custodia", attention:"+15 días", returned:"Devuelta", settled:"Liquidada" };
+  const rows = group.rows.map((row) => {
+    const quote = row.chain.quotations[0];
+    const order = row.chain.orders[0];
+    const stateCopy = row.state === "settled" ? sampleCustodyOutcomeLabel(row.custody.settlementOutcome) : statusLabel[row.state];
+    return `<article class="sample-custody-detail-row is-${row.state}">
+      <div class="sample-custody-cell custody-sample"><strong>${escapeHtml(row.custody.description || "Juego de tallas")}</strong><small>${Number(row.custody.quantity || 1)} unidad${Number(row.custody.quantity || 1) === 1 ? "" : "es"} · ${escapeHtml(row.custody.size || "Sin talla")}</small></div>
+      <div class="sample-custody-cell custody-document ${order ? "has-order" : ""}"><strong>${escapeHtml(order?.number || order?.orderNumber || quote?.number || quote?.quotationNumber || "Oportunidad")}</strong><small>${order ? "Orden de pedido" : quote ? "Cotización" : escapeHtml(row.entity.stage)}</small></div>
+      <div class="sample-custody-cell custody-date"><strong>${formatDate(row.custody.exitDate)}</strong><small>${row.elapsed} días</small></div>
+      <div class="sample-custody-state"><span>${escapeHtml(stateCopy)}</span><small>${row.custody.settledAt || row.custody.entryDate ? formatDate(row.custody.settledAt || row.custody.entryDate) : "Pendiente"}</small></div>
+      <div class="sample-custody-actions"><button type="button" data-custody-open="${escapeHtml(row.entity.key)}" aria-label="Abrir expediente" title="Abrir expediente">◉</button><button type="button" data-custody-edit="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}" aria-label="Editar muestra" title="Editar muestra">✎</button>${["open","attention"].includes(row.state) ? `<button class="primary" type="button" data-custody-settle="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}" aria-label="Liquidar muestra" title="Liquidar muestra">✓</button>` : ""}</div>
+    </article>`;
+  }).join("");
+  document.body.insertAdjacentHTML("beforeend", `<dialog id="sampleCustodyGroupDialog" class="sample-custody-group-dialog"><section><header><div><span>EXPEDIENTE DE MUESTRAS</span><h2>${escapeHtml(group.company)}</h2><p>${escapeHtml(group.sellers.join(" · ") || "Sin vendedor")} · ${group.rows.length} muestras registradas</p></div><button type="button" data-group-close aria-label="Cerrar">×</button></header><div class="sample-custody-detail-summary"><strong>${group.active.length}</strong><span>pendientes</span><strong>${group.quotations.length}</strong><span>cotizaciones</span><strong>${group.orders.length}</strong><span>órdenes</span></div><div class="sample-custody-detail-head"><span>Muestra</span><span>Documento actual</span><span>Salida</span><span>Estado</span><span>Acciones</span></div><div class="sample-custody-detail-list">${rows}</div></section></dialog>`);
+  const dialog = document.querySelector("#sampleCustodyGroupDialog");
+  dialog.querySelector("[data-group-close]").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => dialog.remove(), { once:true });
+  dialog.querySelectorAll("[data-custody-edit]").forEach((button) => button.addEventListener("click", () => { dialog.close(); openSampleCustodyAdminDialog(button.dataset.custodyEdit, button.dataset.custodyRecord); }));
+  dialog.querySelectorAll("[data-custody-settle]").forEach((button) => button.addEventListener("click", () => { dialog.close(); openSampleCustodySettlement(button.dataset.custodySettle, button.dataset.custodyRecord); }));
+  dialog.querySelectorAll("[data-custody-open]").forEach((button) => button.addEventListener("click", async () => { const entity = resolveSampleCustodyEntity(button.dataset.custodyOpen); if (!entity) return; dialog.close(); if (entity.context === "crm") await openCrmManagementDialog(entity.item.id); else await openManagementDialog(entity.item, "results"); setSampleCustodyMode(true); }));
+  dialog.showModal();
 }
 
 function resolveSampleCustodyEntity(key) {
@@ -13007,6 +13051,7 @@ function wireSampleCustodyModule() {
   const search = opportunityTable.querySelector("[data-custody-search]");
   search?.addEventListener("input", (event) => { state.sampleCustodyQuery = event.target.value; renderCommercialSubmenu(areas.comercializacion); const next = opportunityTable.querySelector("[data-custody-search]"); next?.focus(); next?.setSelectionRange(next.value.length, next.value.length); });
   opportunityTable.querySelector("[data-custody-new]")?.addEventListener("click", () => openSampleCustodyAdminDialog());
+  opportunityTable.querySelectorAll("[data-custody-group]").forEach((button) => button.addEventListener("click", () => openSampleCustodyGroupDialog(button.dataset.custodyGroup)));
   opportunityTable.querySelectorAll("[data-custody-edit]").forEach((button) => button.addEventListener("click", () => openSampleCustodyAdminDialog(button.dataset.custodyEdit, button.dataset.custodyRecord)));
   opportunityTable.querySelectorAll("[data-custody-settle]").forEach((button) => button.addEventListener("click", () => openSampleCustodySettlement(button.dataset.custodySettle, button.dataset.custodyRecord)));
   opportunityTable.querySelectorAll("[data-custody-open]").forEach((button) => button.addEventListener("click", async () => { const entity = resolveSampleCustodyEntity(button.dataset.custodyOpen); if (!entity) return; if (entity.context === "crm") await openCrmManagementDialog(entity.item.id); else await openManagementDialog(entity.item, "results"); setSampleCustodyMode(true); }));
@@ -13103,6 +13148,7 @@ function renderCommercialSubmenu(area) {
     const custodyRows = sampleCustodyRows();
     commercialSubmenuStatus.textContent = `${custodyRows.length} filas con muestras asignadas`;
     opportunityTable.innerHTML = renderSampleCustodyModule();
+    opportunityTable.scrollLeft = 0;
     wireSampleCustodyModule();
     return;
   }

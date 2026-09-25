@@ -21569,8 +21569,8 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 @media(max-width:1500px) and (min-width:761px){.sample-custody-kpis{grid-template-columns:repeat(2,1fr)}.sample-custody-toolbar{grid-template-columns:1fr}.sample-custody-ledger-row{grid-template-columns:130px 1fr 1fr}.sample-custody-actions{grid-column:2/-1}}
 
 /* Custodia de muestras · matriz operativa compacta */
-.sample-custody-module.sample-custody-matrix{display:block;overflow-x:auto;padding:0}
-.sample-custody-matrix-toolbar{position:sticky;left:0;display:grid;grid-template-columns:minmax(360px,1fr) auto 48px;gap:12px;align-items:center;min-width:1120px;padding:0 0 12px}
+.sample-custody-module.sample-custody-matrix{display:block;overflow:visible;padding:0}
+.sample-custody-matrix-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) auto 48px;gap:12px;align-items:center;padding:0 0 12px}
 .sample-custody-matrix .sample-custody-search{height:50px;padding:0 16px;border-color:#3a5675;border-radius:12px;background:#263b5d}
 .sample-custody-matrix .sample-custody-search span{font-size:20px}
 .sample-custody-matrix .sample-custody-search input{padding:0;font-size:14px;font-weight:700}
@@ -21580,7 +21580,7 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .sample-custody-matrix-total span{font-size:12px}
 .sample-custody-new{display:grid;place-items:center;width:48px;height:48px;border:1px solid #45cdb1;border-radius:13px;background:#155f65;color:#64efd4;font-size:28px;line-height:1;cursor:pointer}
 .sample-custody-new:hover{background:#168574;color:#fff;transform:translateY(-1px)}
-.sample-custody-matrix-head,.sample-custody-matrix-body .sample-custody-ledger-row{display:grid;grid-template-columns:100px minmax(205px,1.2fr) minmax(135px,.78fr) minmax(115px,.66fr) minmax(105px,.6fr) minmax(210px,1.2fr) 120px 118px;gap:12px;align-items:center;min-width:1320px}
+.sample-custody-matrix-head,.sample-custody-matrix-body .sample-custody-group-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,.9fr) minmax(0,.85fr) minmax(0,.75fr) minmax(0,.6fr) minmax(0,.85fr) minmax(90px,.7fr);gap:10px;align-items:center;width:100%;min-width:0}
 .sample-custody-matrix-head{padding:13px 16px;border:1px solid #486381;border-radius:12px;background:#1d3151;color:#f0f6fb}
 .sample-custody-matrix-head span{overflow:hidden;font-size:11px;font-weight:900;letter-spacing:.035em;text-overflow:ellipsis;text-transform:uppercase;white-space:nowrap}
 .sample-custody-matrix-body{gap:7px;padding-top:8px}
@@ -21600,5 +21600,23 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .sample-custody-matrix .sample-custody-state small{overflow:hidden;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
 .sample-custody-matrix .sample-custody-actions{display:flex;grid-column:auto;justify-content:flex-end;gap:6px;flex-wrap:nowrap}
 .sample-custody-matrix .sample-custody-actions button{display:grid;place-items:center;width:34px;height:34px;padding:0;border-radius:10px;font-size:15px;cursor:pointer}
-.sample-custody-matrix .sample-custody-empty-state{min-width:1320px;min-height:160px}
-@media(max-width:760px){.sample-custody-matrix-toolbar{grid-template-columns:minmax(280px,1fr) auto 44px;min-width:850px}.sample-custody-matrix-head,.sample-custody-matrix-body .sample-custody-ledger-row{grid-template-columns:90px 190px 130px 105px 95px 190px 110px 108px;min-width:1045px}.sample-custody-matrix-body .sample-custody-ledger-row{padding:9px 12px}.sample-custody-matrix .sample-custody-actions{grid-column:auto}.sample-custody-matrix .sample-custody-empty-state{min-width:1045px}}
+.sample-custody-matrix .sample-custody-actions .sample-custody-detail-btn{width:auto;min-width:98px;padding:0 12px;border-color:#36c8aa;background:rgba(37,197,166,.13);color:#70eed4;font-size:11px;white-space:nowrap}
+.sample-custody-matrix .sample-custody-empty-state{min-height:160px}
+.sample-custody-group-dialog{width:min(1180px,calc(100vw - 40px));max-height:calc(100vh - 50px);border:1px solid #3e607b;border-radius:22px;background:#10283f;color:#f5f9fc;padding:0;box-shadow:0 35px 90px rgba(0,0,0,.55)}
+.sample-custody-group-dialog::backdrop{background:rgba(2,11,23,.76);backdrop-filter:blur(7px)}
+.sample-custody-group-dialog>section{display:grid;gap:14px;padding:22px}
+.sample-custody-group-dialog header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:15px;border-bottom:1px solid #2f4b65}
+.sample-custody-group-dialog header span{color:#64efd2;font-size:10px;font-weight:900;letter-spacing:.16em}
+.sample-custody-group-dialog header h2{margin:4px 0;color:#fff;font-size:24px}
+.sample-custody-group-dialog header p{margin:0;color:#8fa7bb;font-size:12px}
+.sample-custody-group-dialog header button{display:grid;place-items:center;width:40px;height:40px;border:1px solid #405f78;border-radius:11px;background:#1a3954;color:#fff;font-size:24px;cursor:pointer}
+.sample-custody-detail-summary{display:flex;align-items:baseline;gap:7px;padding:9px 13px;border:1px solid #2d4c66;border-radius:12px;background:#142f49;color:#91a8ba}
+.sample-custody-detail-summary strong{color:#64efd2;font-size:19px}.sample-custody-detail-summary span{margin-right:13px;font-size:11px}
+.sample-custody-detail-head,.sample-custody-detail-row{display:grid;grid-template-columns:minmax(250px,1.5fr) minmax(170px,1fr) 105px 130px 116px;gap:12px;align-items:center}
+.sample-custody-detail-head{padding:10px 13px;color:#9fb2c3;font-size:10px;font-weight:900;text-transform:uppercase}
+.sample-custody-detail-list{display:grid;gap:7px;max-height:55vh;overflow:auto;padding-right:3px}
+.sample-custody-detail-row{padding:11px 13px;border:1px solid #2e4a64;border-left:4px solid #42dfc0;border-radius:12px;background:#17314a}
+.sample-custody-detail-row.is-attention{border-left-color:#ffb83f;background:#302d33}.sample-custody-detail-row.is-returned,.sample-custody-detail-row.is-settled{border-left-color:#7890a7}
+.sample-custody-detail-row .sample-custody-actions{display:flex;justify-content:flex-end;gap:5px}.sample-custody-detail-row .sample-custody-actions button{display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid #40617c;border-radius:9px;background:#1b3b57;color:#c9dbea;font-weight:800}.sample-custody-detail-row .sample-custody-actions button.primary{border-color:#31c9a9;background:#158670;color:#fff}
+@media(max-width:1050px){.sample-custody-matrix-head,.sample-custody-matrix-body .sample-custody-group-row{grid-template-columns:minmax(0,1.5fr) minmax(0,.8fr) minmax(0,.8fr) minmax(0,.68fr) minmax(0,.5fr) minmax(0,.8fr) 94px;gap:7px}.sample-custody-matrix-body .sample-custody-ledger-row{padding:9px 10px}.sample-custody-matrix-head{padding:12px 10px}.sample-custody-cell strong{font-size:12px}.sample-custody-cell small{font-size:10px}.sample-custody-matrix .sample-custody-state span{font-size:10px}}
+@media(max-width:760px){.sample-custody-matrix-toolbar{grid-template-columns:1fr auto 44px}.sample-custody-matrix-total small,.sample-custody-matrix-total span{display:none}.sample-custody-matrix-total{min-width:auto}.sample-custody-matrix-head{display:none}.sample-custody-matrix-body .sample-custody-group-row{grid-template-columns:1fr 1fr;width:100%;gap:10px}.sample-custody-matrix-body .sample-custody-group-row>div:before{content:attr(data-label);display:block;margin-bottom:3px;color:#7891a6;font-size:9px;font-weight:900;text-transform:uppercase}.sample-custody-matrix .sample-custody-actions{justify-content:flex-start}.sample-custody-group-dialog{width:calc(100vw - 20px)}.sample-custody-detail-head{display:none}.sample-custody-detail-row{grid-template-columns:1fr 1fr}.sample-custody-detail-row .sample-custody-actions{justify-content:flex-start}}

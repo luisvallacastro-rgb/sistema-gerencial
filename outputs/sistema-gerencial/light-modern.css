@@ -1459,3 +1459,19 @@ body.theme-light-active .sample-custody-cell.custody-document.has-order strong{c
 body.theme-light-active .sample-custody-matrix .sample-custody-actions button{border-color:#cbd8e3;background:#f3f7fa;color:#30485e}
 body.theme-light-active .sample-custody-matrix .sample-custody-actions button:hover{border-color:#7d98ad;background:#eaf1f6}
 body.theme-light-active .sample-custody-matrix .sample-custody-actions button.primary{border-color:#0f937d;background:#e0f5f0;color:#087866}
+body.theme-light-active .sample-custody-matrix .sample-custody-actions .sample-custody-detail-btn{border-color:#75cdbd;background:#eaf8f5;color:#087866}
+body.theme-light-active .sample-custody-group-dialog{border-color:#cbd9e4;background:#fff;color:#17283f;box-shadow:0 32px 80px rgba(24,49,75,.24)}
+body.theme-light-active .sample-custody-group-dialog::backdrop{background:rgba(27,43,60,.42)}
+body.theme-light-active .sample-custody-group-dialog header{border-color:#dce6ed}
+body.theme-light-active .sample-custody-group-dialog header span{color:#087f70}
+body.theme-light-active .sample-custody-group-dialog header h2{color:#13243c}
+body.theme-light-active .sample-custody-group-dialog header p{color:#65798d}
+body.theme-light-active .sample-custody-group-dialog header button{border-color:#cbd9e3;background:#f2f6f9;color:#263c51}
+body.theme-light-active .sample-custody-detail-summary{border-color:#d4e1ea;background:#f5f9fb;color:#64798d}
+body.theme-light-active .sample-custody-detail-summary strong{color:#078a74}
+body.theme-light-active .sample-custody-detail-head{color:#627589}
+body.theme-light-active .sample-custody-detail-row{border-color:#d4dfe9;border-left-color:#12a88d;background:#fff}
+body.theme-light-active .sample-custody-detail-row.is-attention{border-left-color:#e9a41c;background:#fffaf0}
+body.theme-light-active .sample-custody-detail-row.is-returned,body.theme-light-active .sample-custody-detail-row.is-settled{border-left-color:#8ca0b2;background:#f8fafc}
+body.theme-light-active .sample-custody-detail-row .sample-custody-actions button{border-color:#cbd8e3;background:#f3f7fa;color:#30485e}
+body.theme-light-active .sample-custody-detail-row .sample-custody-actions button.primary{border-color:#0f937d;background:#e0f5f0;color:#087866}
