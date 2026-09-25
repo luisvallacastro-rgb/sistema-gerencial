@@ -1446,6 +1446,8 @@ body.theme-light-active .sample-custody-matrix .sample-custody-search span{color
 body.theme-light-active .sample-custody-matrix-total{color:#687b8f}
 body.theme-light-active .sample-custody-matrix-total strong{color:#078a74}
 body.theme-light-active .sample-custody-matrix-total small,body.theme-light-active .sample-custody-matrix-total span{color:#62758a !important;opacity:1 !important}
+body.theme-light-active .sample-custody-report{border-color:#b9cbd8;background:#f6f9fb;color:#26435c;box-shadow:0 2px 7px rgba(34,65,87,.06)}
+body.theme-light-active .sample-custody-report span{color:#078a74}body.theme-light-active .sample-custody-report:hover{border-color:#17a98f;background:#e6f7f3;color:#087461}
 body.theme-light-active .sample-custody-new{border-color:#14a88e;background:#e5f7f3;color:#078a74}
 body.theme-light-active .sample-custody-new:hover{background:#0f937d;color:#fff}
 body.theme-light-active .sample-custody-matrix-head{border-color:#c5d4e1;background:#eaf0f6;color:#1c3048}

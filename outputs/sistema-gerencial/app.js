@@ -12938,6 +12938,7 @@ function renderSampleCustodyModule() {
     <div class="sample-custody-matrix-toolbar">
       <label class="sample-custody-search"><span>⌕</span><input data-custody-search value="${escapeHtml(state.sampleCustodyQuery)}" placeholder="Buscar empresa, vendedor, muestra, cotización u OP"></label>
       <div class="sample-custody-matrix-total"><small>MUESTRAS ACTIVAS</small><strong>${units}</strong><span>${groups.length} clientes</span></div>
+      <button class="sample-custody-report" type="button" data-custody-report title="Reporte de custodia por vendedor"><span aria-hidden="true">▤</span><strong>Reporte</strong></button>
       <button class="sample-custody-new" type="button" data-custody-new aria-label="Nueva asignación" title="Nueva asignación">+</button>
     </div>
     <div class="sample-custody-matrix-head" role="row"><span>Cliente / oportunidad</span><span>Vendedor</span><span>Documentos</span><span>Muestras</span><span>En calle</span><span>Estado</span><span>Detalle</span></div>
@@ -12962,6 +12963,69 @@ function renderSampleCustodyModule() {
       </article>`;
     }).join("") : `<div class="sample-custody-empty-state"><strong>No hay clientes con muestras asignadas</strong><span>${state.sampleCustodyQuery ? "No existen coincidencias para la búsqueda." : "Registra una asignación para iniciar la matriz."}</span></div>`}</div>
   </section>`;
+}
+
+function sampleCustodyReportEntries() {
+  const entries = new Map();
+  sampleCustodyRows().forEach((row) => {
+    const seller = row.entity.seller || "Sin vendedor";
+    const key = `${seller}::${row.entity.key}`;
+    if (!entries.has(key)) entries.set(key, { seller, entity:row.entity, rows:[] });
+    entries.get(key).rows.push(row);
+  });
+  return [...entries.values()].map((entry) => {
+    const opportunityState = sampleCustodyOpportunityState(entry.entity);
+    const quotations = [...new Map(entry.rows.flatMap((row) => row.chain.quotations).map((item) => [String(item.id || item.number), item])).values()];
+    const orders = [...new Map(entry.rows.flatMap((row) => row.chain.orders).map((item) => [String(item.id || item.number || item.orderNumber), item])).values()];
+    const pending = entry.rows.filter((row) => ["open", "attention"].includes(row.state));
+    return {
+      ...entry,
+      opportunityState,
+      category:["lost", "deleted"].includes(opportunityState.key) ? "annulled" : "current",
+      quotations,
+      orders,
+      totalUnits:entry.rows.reduce((sum, row) => sum + Number(row.custody.quantity || 1), 0),
+      activeUnits:pending.reduce((sum, row) => sum + Number(row.custody.quantity || 1), 0),
+      pending,
+      oldestActive:pending.reduce((max, row) => Math.max(max, row.elapsed), 0)
+    };
+  }).sort((left, right) => left.seller.localeCompare(right.seller, "es")
+    || ({ current:0, annulled:1 }[left.category] - { current:0, annulled:1 }[right.category])
+    || left.entity.company.localeCompare(right.entity.company, "es"));
+}
+
+function printSampleCustodyReport() {
+  const entries = sampleCustodyReportEntries();
+  if (!entries.length) return alert("No hay muestras asignadas para generar el reporte.");
+  const sellers = [...new Set(entries.map((entry) => entry.seller))];
+  const activeUnits = entries.reduce((sum, entry) => sum + entry.activeUnits, 0);
+  const totalUnits = entries.reduce((sum, entry) => sum + entry.totalUnits, 0);
+  const rowMarkup = (entry) => {
+    const documents = entry.orders.length
+      ? entry.orders.map((item) => `OP ${escapeHtml(sampleCustodyDocumentNumber(item, "order"))}`).join("<br>")
+      : entry.quotations.length
+        ? entry.quotations.map((item) => `COT ${escapeHtml(sampleCustodyDocumentNumber(item, "quotation"))}`).join("<br>")
+        : "Solo oportunidad";
+    const samples = entry.rows.map((row) => `${escapeHtml(row.custody.description || "Juego de tallas")} <small>${Number(row.custody.quantity || 1)} ud. · ${escapeHtml(row.custody.size || "Sin talla")}</small>`).join("<br>");
+    return `<tr><td><strong>${escapeHtml(entry.entity.company)}</strong><small>${escapeHtml(entry.entity.stage || "Sin etapa")}</small></td><td><span class="opportunity-state ${escapeHtml(entry.opportunityState.key)}">${escapeHtml(entry.opportunityState.label)}</span></td><td>${documents}</td><td>${samples}</td><td class="number"><strong>${entry.activeUnits}</strong><small>de ${entry.totalUnits} unidades</small></td><td class="number">${entry.pending.length ? `${entry.oldestActive} días` : "—"}</td></tr>`;
+  };
+  const sellerMarkup = sellers.map((seller) => {
+    const sellerEntries = entries.filter((entry) => entry.seller === seller);
+    const sections = [
+      ["current", "Vigentes", "active"],
+      ["annulled", "Anuladas", "annulled"]
+    ].map(([key, label, className]) => {
+      const rows = sellerEntries.filter((entry) => entry.category === key);
+      if (!rows.length) return "";
+      const units = rows.reduce((sum, entry) => sum + entry.totalUnits, 0);
+      return `<section class="status-section ${className}"><h3>${label}<span>${rows.length} oportunidades · ${units} unidades</span></h3><table><thead><tr><th>Cliente / oportunidad</th><th>Estado</th><th>Documentos</th><th>Muestras asignadas</th><th>En calle</th><th>Antigüedad</th></tr></thead><tbody>${rows.map(rowMarkup).join("")}</tbody></table></section>`;
+    }).join("");
+    return `<article class="seller-block"><header><div><small>VENDEDOR</small><h2>${escapeHtml(seller)}</h2></div><strong>${sellerEntries.length} oportunidades</strong></header>${sections}</article>`;
+  }).join("");
+  const popup = window.open("", "_blank", "width=1400,height=900");
+  if (!popup) return alert("El navegador bloqueó la ventana del reporte.");
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte de custodia de muestras</title><style>@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#e9eef4;color:#17233a;font:11px Arial,sans-serif}.sheet{max-width:1280px;margin:16px auto;padding:20px 24px;background:#fff}.report-head{display:flex;justify-content:space-between;align-items:end;padding-bottom:12px;border-bottom:3px solid #168b73}.report-head small{color:#168b73;font-weight:900;letter-spacing:.1em}.report-head h1{margin:4px 0 0;font-size:26px}.report-head p{margin:0;color:#607389}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.summary div{padding:11px 13px;border:1px solid #cad7e2;border-radius:8px;background:#f7fafc}.summary span,.summary strong{display:block}.summary span{color:#64748b;font-size:9px;font-weight:900;text-transform:uppercase}.summary strong{margin-top:3px;color:#087763;font-size:20px}.seller-block{margin:0 0 18px;break-inside:avoid-page}.seller-block>header{display:flex;justify-content:space-between;align-items:end;padding:9px 12px;background:#173b5f;color:#fff}.seller-block>header small{color:#73dec9;font-size:8px;font-weight:900;letter-spacing:.12em}.seller-block>header h2{margin:2px 0 0;font-size:17px}.seller-block>header>strong{font-size:11px}.status-section{margin-top:8px}.status-section h3{display:flex;justify-content:space-between;margin:0;padding:7px 9px;border-left:4px solid #1a9a82;background:#e6f5f1;color:#0c6f5f;font-size:11px;text-transform:uppercase}.status-section.annulled h3{border-left-color:#8a65d8;background:#f0ecfa;color:#5b3ea1}.status-section h3 span{font-size:9px;font-weight:700;text-transform:none}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:7px 8px;border:1px solid #cad6e0;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#edf2f6;color:#34495e;font-size:8px;text-transform:uppercase}th:nth-child(1){width:20%}th:nth-child(2){width:13%}th:nth-child(3){width:14%}th:nth-child(4){width:35%}th:nth-child(5),th:nth-child(6){width:9%}td strong,td small{display:block}td small{margin-top:2px;color:#687b8e;font-size:8px}.number{text-align:center}.opportunity-state{display:inline-block;padding:3px 6px;border-radius:999px;background:#e1f3ef;color:#08715f;font-size:8px;font-weight:900}.opportunity-state.lost,.opportunity-state.deleted{background:#f1eafa;color:#6343a7}.actions{position:fixed;right:18px;bottom:18px;display:flex;gap:8px}.actions button{padding:10px 15px;border:0;border-radius:8px;background:#16866d;color:#fff;font-weight:800;cursor:pointer}.actions button:last-child{background:#334e67}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}.sheet{max-width:none;margin:0;padding:0}.actions{display:none}.seller-block{break-inside:auto}.status-section{break-inside:avoid-page}}</style></head><body><main class="sheet"><header class="report-head"><div><small>COMERCIALIZACIÓN · CONTROL DE MUESTRAS</small><h1>Reporte de custodia de muestras</h1></div><p>Corte ${escapeHtml(formatDate(todayISO()))}<br>Ordenado por vendedor y vigencia</p></header><section class="summary"><div><span>Vendedores</span><strong>${sellers.length}</strong></div><div><span>Oportunidades</span><strong>${entries.length}</strong></div><div><span>Unidades registradas</span><strong>${totalUnits}</strong></div><div><span>Unidades en calle</span><strong>${activeUnits}</strong></div></section>${sellerMarkup}</main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  popup.document.close();
 }
 
 function openSampleCustodyGroupDialog(groupId) {
@@ -13093,6 +13157,7 @@ async function saveSampleCustodySettlement(event) {
 function wireSampleCustodyModule() {
   const search = opportunityTable.querySelector("[data-custody-search]");
   search?.addEventListener("input", (event) => { state.sampleCustodyQuery = event.target.value; renderCommercialSubmenu(areas.comercializacion); const next = opportunityTable.querySelector("[data-custody-search]"); next?.focus(); next?.setSelectionRange(next.value.length, next.value.length); });
+  opportunityTable.querySelector("[data-custody-report]")?.addEventListener("click", printSampleCustodyReport);
   opportunityTable.querySelector("[data-custody-new]")?.addEventListener("click", () => openSampleCustodyAdminDialog());
   opportunityTable.querySelectorAll("[data-custody-group]").forEach((button) => button.addEventListener("click", () => openSampleCustodyGroupDialog(button.dataset.custodyGroup)));
   opportunityTable.querySelectorAll("[data-custody-edit]").forEach((button) => button.addEventListener("click", () => openSampleCustodyAdminDialog(button.dataset.custodyEdit, button.dataset.custodyRecord)));
