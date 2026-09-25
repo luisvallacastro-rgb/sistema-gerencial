@@ -1439,3 +1439,23 @@ body.theme-light-active .sample-custody-dialog label{color:#51677d}
 body.theme-light-active .sample-custody-dialog input,body.theme-light-active .sample-custody-dialog select,body.theme-light-active .sample-custody-dialog textarea{border-color:#c9d8e3;background:#f8fafc;color:#15263d}
 body.theme-light-active .sample-settlement-summary{border-color:#a9e0d5;background:#edfaf7}
 body.theme-light-active .sample-settlement-summary span{color:#60778b}
+
+/* Custodia de muestras · matriz compacta en modo claro */
+body.theme-light-active .sample-custody-matrix .sample-custody-search{border-color:#c8d6e3;background:#f8fafc;box-shadow:inset 0 0 0 1px rgba(255,255,255,.8)}
+body.theme-light-active .sample-custody-matrix .sample-custody-search span{color:#0e9e87}
+body.theme-light-active .sample-custody-matrix-total{color:#687b8f}
+body.theme-light-active .sample-custody-matrix-total strong{color:#078a74}
+body.theme-light-active .sample-custody-new{border-color:#14a88e;background:#e5f7f3;color:#078a74}
+body.theme-light-active .sample-custody-new:hover{background:#0f937d;color:#fff}
+body.theme-light-active .sample-custody-matrix-head{border-color:#c5d4e1;background:#eaf0f6;color:#1c3048}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row{border-color:#d4dfe9;border-left-color:#12a88d;background:#fff;box-shadow:0 3px 10px rgba(26,48,70,.045)}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row:hover{border-color:#aebfce;background:#fbfdfe}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row.is-attention{border-left-color:#e9a41c;background:#fffaf0}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row.is-returned,body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row.is-settled{border-left-color:#8ca0b2;background:#f8fafc}
+body.theme-light-active .sample-custody-cell strong{color:#17283f}
+body.theme-light-active .sample-custody-cell small{color:#6b7e91}
+body.theme-light-active .sample-custody-cell.custody-document strong{color:#3a536a}
+body.theme-light-active .sample-custody-cell.custody-document.has-order strong{color:#078a74}
+body.theme-light-active .sample-custody-matrix .sample-custody-actions button{border-color:#cbd8e3;background:#f3f7fa;color:#30485e}
+body.theme-light-active .sample-custody-matrix .sample-custody-actions button:hover{border-color:#7d98ad;background:#eaf1f6}
+body.theme-light-active .sample-custody-matrix .sample-custody-actions button.primary{border-color:#0f937d;background:#e0f5f0;color:#087866}

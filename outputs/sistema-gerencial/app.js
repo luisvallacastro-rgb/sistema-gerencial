@@ -373,8 +373,6 @@ const state = {
   quotationModuleQuery: "",
   quotationModulePage: 1,
   sampleCustodyQuery: "",
-  sampleCustodyStatus: "open",
-  sampleCustodySource: "all",
   crmData: null,
   crmSellerId: "",
   crmStatusFilter: "Vigente",
@@ -12864,21 +12862,12 @@ function sampleCustodyOutcomeLabel(value) {
 function filteredSampleCustodyRows() {
   const query = normalizeKey(state.sampleCustodyQuery).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return sampleCustodyRows().filter((row) => {
-    const matchesStatus = state.sampleCustodyStatus === "all"
-      || (state.sampleCustodyStatus === "open" && ["open", "attention"].includes(row.state))
-      || row.state === state.sampleCustodyStatus;
-    const hasQuotation = row.chain.quotations.length > 0;
-    const hasOrder = row.chain.orders.length > 0;
-    const matchesSource = state.sampleCustodySource === "all"
-      || (state.sampleCustodySource === "opportunity" && !hasQuotation && !hasOrder)
-      || (state.sampleCustodySource === "quotation" && hasQuotation && !hasOrder)
-      || (state.sampleCustodySource === "order" && hasOrder);
     const haystack = normalizeKey([
       row.entity.company, row.entity.seller, row.custody.description, row.custody.size,
       ...row.chain.quotations.map((item) => item.number),
       ...row.chain.orders.map((item) => item.number)
     ].join(" ")).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return matchesStatus && matchesSource && (!query || haystack.includes(query));
+    return !query || haystack.includes(query);
   });
 }
 
@@ -12887,40 +12876,31 @@ function renderSampleCustodyModule() {
   const rows = filteredSampleCustodyRows();
   const pending = all.filter((row) => ["open", "attention"].includes(row.state));
   const units = pending.reduce((sum, row) => sum + Number(row.custody.quantity || 1), 0);
-  const attention = all.filter((row) => row.state === "attention").length;
-  const settled = all.filter((row) => ["returned", "settled"].includes(row.state)).length;
-  const statusLabel = { open: "En custodia", attention: "Seguimiento", returned: "Devuelta", settled: "Liquidada" };
-  return `<section class="sample-custody-module">
-    <header class="sample-custody-hero">
-      <div><span>CONTROL TRANSVERSAL</span><h2>Cadena de custodia de muestras</h2><p>Una sola trazabilidad desde la oportunidad hasta la cotización y la orden de pedido, sin perder el historial al convertir.</p></div>
-      <button class="primary-btn" type="button" data-custody-new>+ Nueva asignación</button>
-    </header>
-    <div class="sample-custody-kpis">
-      <article><span>En calle</span><strong>${units}</strong><small>${pending.length} asignaciones activas</small></article>
-      <article class="attention"><span>Más de 15 días</span><strong>${attention}</strong><small>Requieren seguimiento</small></article>
-      <article><span>Liquidadas</span><strong>${settled}</strong><small>Devueltas o cerradas</small></article>
-      <article><span>Expedientes</span><strong>${new Set(all.map((row) => row.entity.key)).size}</strong><small>Oportunidades trazables</small></article>
+  const statusLabel = { open: "En custodia", attention: "+15 días", returned: "Devuelta", settled: "Liquidada" };
+  return `<section class="sample-custody-module sample-custody-matrix">
+    <div class="sample-custody-matrix-toolbar">
+      <label class="sample-custody-search"><span>⌕</span><input data-custody-search value="${escapeHtml(state.sampleCustodyQuery)}" placeholder="Buscar empresa, vendedor, muestra, cotización u OP"></label>
+      <div class="sample-custody-matrix-total"><small>MUESTRAS ACTIVAS</small><strong>${units}</strong><span>${rows.length} filas</span></div>
+      <button class="sample-custody-new" type="button" data-custody-new aria-label="Nueva asignación" title="Nueva asignación">+</button>
     </div>
-    <div class="sample-custody-toolbar">
-      <label class="sample-custody-search"><span>⌕</span><input data-custody-search value="${escapeHtml(state.sampleCustodyQuery)}" placeholder="Buscar cliente, vendedor, muestra u OP"></label>
-      <div class="sample-custody-filters" role="group" aria-label="Estado de custodia">
-        ${[["open","Pendientes"],["attention","+15 días"],["returned","Devueltas"],["settled","Liquidadas"],["all","Todas"]].map(([key,label]) => `<button class="${state.sampleCustodyStatus === key ? "active" : ""}" type="button" data-custody-status="${key}">${label}</button>`).join("")}
-      </div>
-      <select data-custody-source aria-label="Filtrar por documento"><option value="all">Todos los documentos</option><option value="opportunity">Solo oportunidad</option><option value="quotation">Con cotización</option><option value="order">Convertida en OP</option></select>
-    </div>
-    <div class="sample-custody-results-head"><strong>${rows.length} ${rows.length === 1 ? "muestra" : "muestras"}</strong><span>Responsable operativo: Odaliz · Supervisión gerencial</span></div>
-    <div class="sample-custody-ledger">${rows.length ? rows.map((row) => {
+    <div class="sample-custody-matrix-head" role="row"><span>Salida</span><span>Oportunidad</span><span>Vendedor</span><span>Cotización</span><span>OP</span><span>Muestra asignada</span><span>Estado</span><span>Acciones</span></div>
+    <div class="sample-custody-ledger sample-custody-matrix-body">${rows.length ? rows.map((row) => {
       const quote = row.chain.quotations[0];
       const order = row.chain.orders[0];
       const settledCopy = row.state === "settled" ? sampleCustodyOutcomeLabel(row.custody.settlementOutcome) : statusLabel[row.state];
-      return `<article class="sample-custody-ledger-row is-${row.state}">
-        <div class="sample-custody-state"><span>${escapeHtml(settledCopy)}</span><small>${row.state === "open" || row.state === "attention" ? `${row.elapsed} días fuera` : formatDate(row.custody.settledAt || row.custody.entryDate)}</small></div>
-        <div class="sample-custody-client"><strong>${escapeHtml(row.entity.company)}</strong><span>${escapeHtml(row.entity.seller)} · ${escapeHtml(row.entity.stage)}</span><div class="sample-document-chain"><em>Oportunidad</em>${quote ? `<b>→</b><em>Cotización${quote.number ? ` #${escapeHtml(quote.number)}` : ""}</em>` : ""}${order ? `<b>→</b><em class="has-order">OP #${escapeHtml(order.number || order.orderNumber || "—")}</em>` : ""}</div></div>
-        <div class="sample-custody-item"><strong>${escapeHtml(row.custody.description || "Juego de tallas")}</strong><span>${Number(row.custody.quantity || 1)} unidad${Number(row.custody.quantity || 1) === 1 ? "" : "es"} · ${escapeHtml(row.custody.size || "Sin talla")}</span>${row.custody.settlementNote ? `<small>${escapeHtml(row.custody.settlementNote)}</small>` : ""}</div>
-        <div class="sample-custody-dates"><span><small>Salida</small><strong>${formatDate(row.custody.exitDate)}</strong></span><span><small>Cierre</small><strong>${row.custody.settledAt || row.custody.entryDate ? formatDate(row.custody.settledAt || row.custody.entryDate) : "Pendiente"}</strong></span></div>
-        <div class="sample-custody-actions"><button type="button" data-custody-open="${escapeHtml(row.entity.key)}">Expediente</button><button type="button" data-custody-edit="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}">Editar</button>${["open","attention"].includes(row.state) ? `<button class="primary" type="button" data-custody-settle="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}">Liquidar</button>` : ""}</div>
+      const quoteNumber = quote?.number || quote?.quotationNumber || "—";
+      const orderNumber = order?.number || order?.orderNumber || "—";
+      return `<article class="sample-custody-ledger-row is-${row.state}" role="row">
+        <div class="sample-custody-cell custody-date" data-label="Salida"><strong>${formatDate(row.custody.exitDate)}</strong><small>${row.elapsed} días</small></div>
+        <div class="sample-custody-cell custody-opportunity" data-label="Oportunidad"><strong>${escapeHtml(row.entity.company)}</strong><small>${escapeHtml(row.entity.stage)}</small></div>
+        <div class="sample-custody-cell" data-label="Vendedor"><strong>${escapeHtml(row.entity.seller)}</strong></div>
+        <div class="sample-custody-cell custody-document" data-label="Cotización"><strong>${escapeHtml(quoteNumber)}</strong><small>${quote ? escapeHtml(quote.status || "Registrada") : "Sin cotización"}</small></div>
+        <div class="sample-custody-cell custody-document ${order ? "has-order" : ""}" data-label="OP"><strong>${escapeHtml(orderNumber)}</strong><small>${order ? escapeHtml(order.status || "Activa") : "Sin convertir"}</small></div>
+        <div class="sample-custody-cell custody-sample" data-label="Muestra asignada"><strong>${escapeHtml(row.custody.description || "Juego de tallas")}</strong><small>${Number(row.custody.quantity || 1)} unidad${Number(row.custody.quantity || 1) === 1 ? "" : "es"} · ${escapeHtml(row.custody.size || "Sin talla")}</small></div>
+        <div class="sample-custody-state" data-label="Estado"><span>${escapeHtml(settledCopy)}</span><small>${row.custody.settledAt || row.custody.entryDate ? formatDate(row.custody.settledAt || row.custody.entryDate) : "Pendiente"}</small></div>
+        <div class="sample-custody-actions" data-label="Acciones"><button type="button" data-custody-open="${escapeHtml(row.entity.key)}" aria-label="Abrir expediente" title="Abrir expediente">◉</button><button type="button" data-custody-edit="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}" aria-label="Editar muestra" title="Editar muestra">✎</button>${["open","attention"].includes(row.state) ? `<button class="primary" type="button" data-custody-settle="${escapeHtml(row.entity.key)}" data-custody-record="${escapeHtml(row.custody.id)}" aria-label="Liquidar muestra" title="Liquidar muestra">✓</button>` : ""}</div>
       </article>`;
-    }).join("") : `<div class="sample-custody-empty-state"><strong>No hay registros con estos filtros</strong><span>Prueba otra búsqueda o registra una nueva asignación.</span></div>`}</div>
+    }).join("") : `<div class="sample-custody-empty-state"><strong>No hay muestras asignadas</strong><span>${state.sampleCustodyQuery ? "No existen coincidencias para la búsqueda." : "Registra una asignación para iniciar la matriz."}</span></div>`}</div>
   </section>`;
 }
 
@@ -13026,8 +13006,6 @@ async function saveSampleCustodySettlement(event) {
 function wireSampleCustodyModule() {
   const search = opportunityTable.querySelector("[data-custody-search]");
   search?.addEventListener("input", (event) => { state.sampleCustodyQuery = event.target.value; renderCommercialSubmenu(areas.comercializacion); const next = opportunityTable.querySelector("[data-custody-search]"); next?.focus(); next?.setSelectionRange(next.value.length, next.value.length); });
-  opportunityTable.querySelectorAll("[data-custody-status]").forEach((button) => button.addEventListener("click", () => { state.sampleCustodyStatus = button.dataset.custodyStatus; renderCommercialSubmenu(areas.comercializacion); }));
-  const source = opportunityTable.querySelector("[data-custody-source]"); if (source) { source.value = state.sampleCustodySource; source.addEventListener("change", () => { state.sampleCustodySource = source.value; renderCommercialSubmenu(areas.comercializacion); }); }
   opportunityTable.querySelector("[data-custody-new]")?.addEventListener("click", () => openSampleCustodyAdminDialog());
   opportunityTable.querySelectorAll("[data-custody-edit]").forEach((button) => button.addEventListener("click", () => openSampleCustodyAdminDialog(button.dataset.custodyEdit, button.dataset.custodyRecord)));
   opportunityTable.querySelectorAll("[data-custody-settle]").forEach((button) => button.addEventListener("click", () => openSampleCustodySettlement(button.dataset.custodySettle, button.dataset.custodyRecord)));
@@ -13123,8 +13101,7 @@ function renderCommercialSubmenu(area) {
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
     const custodyRows = sampleCustodyRows();
-    const activeCustodies = custodyRows.filter((row) => ["open", "attention"].includes(row.state)).length;
-    commercialSubmenuStatus.textContent = `${activeCustodies} activas · ${custodyRows.length} registros históricos`;
+    commercialSubmenuStatus.textContent = `${custodyRows.length} filas con muestras asignadas`;
     opportunityTable.innerHTML = renderSampleCustodyModule();
     wireSampleCustodyModule();
     return;
