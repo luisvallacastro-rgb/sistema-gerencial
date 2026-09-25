@@ -1483,6 +1483,12 @@ function formatDate(value) {
   return `${day}/${month}/${year}`;
 }
 
+function formatDateShort(value) {
+  if (!value) return "";
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${String(year).slice(-2)}`;
+}
+
 function formatControlSalesDelivery(value) {
   const delivery = String(value || "").trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(delivery) ? formatDate(delivery) : delivery;
@@ -13154,6 +13160,7 @@ function renderCommercialSubmenu(area) {
   }
 
   if (state.activeArea === "comercializacion" && submenu.key === "agenda-comercial") {
+    pageTitle.textContent = `Agenda ${formatDateShort(state.commercialAgendaDate || todayISO())}`;
     commercialPanel.classList.add("commercial-agenda-mode");
     newOpportunityBtn.classList.add("hidden"); newRiskBtn.classList.add("hidden"); newManagementRequestBtn.classList.add("hidden"); goalsMatrixBtn.classList.add("hidden");
     opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden"); opportunityTable.innerHTML = renderCommercialAgenda(); wireCommercialAgenda();
@@ -15679,6 +15686,11 @@ function renderPageTitle(area, activeSubmenu) {
 
   if (isFinancialOrdersView) {
     pageTitle.textContent = "Pedidos";
+    return;
+  }
+
+  if (isAgendaView) {
+    pageTitle.textContent = `Agenda ${formatDateShort(state.commercialAgendaDate || todayISO())}`;
     return;
   }
 
