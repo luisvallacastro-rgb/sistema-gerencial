@@ -1445,17 +1445,31 @@ body.theme-light-active .sample-custody-matrix .sample-custody-search{border-col
 body.theme-light-active .sample-custody-matrix .sample-custody-search span{color:#0e9e87}
 body.theme-light-active .sample-custody-matrix-total{color:#687b8f}
 body.theme-light-active .sample-custody-matrix-total strong{color:#078a74}
+body.theme-light-active .sample-custody-matrix-total small,body.theme-light-active .sample-custody-matrix-total span{color:#62758a !important;opacity:1 !important}
 body.theme-light-active .sample-custody-new{border-color:#14a88e;background:#e5f7f3;color:#078a74}
 body.theme-light-active .sample-custody-new:hover{background:#0f937d;color:#fff}
 body.theme-light-active .sample-custody-matrix-head{border-color:#c5d4e1;background:#eaf0f6;color:#1c3048}
-body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row{border-color:#d4dfe9;border-left-color:#12a88d;background:#fff;box-shadow:0 3px 10px rgba(26,48,70,.045)}
-body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row:hover{border-color:#aebfce;background:#fbfdfe}
-body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row.is-attention{border-left-color:#e9a41c;background:#fffaf0}
-body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row.is-returned,body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row.is-settled{border-left-color:#8ca0b2;background:#f8fafc}
+body.theme-light-active .sample-custody-matrix-head span{color:#1c3048 !important;opacity:1 !important}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row{border-color:#d4dfe9;background:#fff;box-shadow:0 3px 10px rgba(26,48,70,.045)}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-group-row.document-opportunity{border-color:#d2cef8;border-left-color:#7367df;background:linear-gradient(90deg,#f5f3ff 0,#fbfaff 34%,#fff 100%)}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-group-row.document-quotation{border-color:#ead6aa;border-left-color:#e7a91f;background:linear-gradient(90deg,#fff9ec 0,#fffdf8 34%,#fff 100%)}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-group-row.document-order{border-color:#b8dfd3;border-left-color:#159b76;background:linear-gradient(90deg,#eefaf6 0,#f9fdfb 34%,#fff 100%)}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-group-row.document-opportunity:hover{border-color:#aaa2ef;background:#f1efff}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-group-row.document-quotation:hover{border-color:#dfbd70;background:#fff6e2}
+body.theme-light-active .sample-custody-matrix-body .sample-custody-group-row.document-order:hover{border-color:#86c9b5;background:#e8f8f3}
 body.theme-light-active .sample-custody-cell strong{color:#17283f}
 body.theme-light-active .sample-custody-cell small{color:#6b7e91}
 body.theme-light-active .sample-custody-cell.custody-document strong{color:#3a536a}
 body.theme-light-active .sample-custody-cell.custody-document.has-order strong{color:#078a74}
+body.theme-light-active .sample-chain-badge,body.theme-light-active .sample-opportunity-tag{box-shadow:none}
+body.theme-light-active .sample-chain-badge.opportunity{border-color:#c4bef4;background:#ece9ff;color:#5045bd}
+body.theme-light-active .sample-chain-badge.quotation{border-color:#e4c477;background:#fff0c8;color:#8b5700}
+body.theme-light-active .sample-chain-badge.order{border-color:#9fd4c4;background:#dcf5ec;color:#087158}
+body.theme-light-active .sample-chain-badge.more{border-color:#d0dbe5;background:#eef3f7;color:#52677b}
+body.theme-light-active .sample-opportunity-tag.active{border-color:#b6d2ea;background:#eaf5ff;color:#22699d}
+body.theme-light-active .sample-opportunity-tag.won{border-color:#9fd4c4;background:#dcf5ec;color:#087158}
+body.theme-light-active .sample-opportunity-tag.lost{border-color:#efbdc7;background:#fff0f3;color:#bd3652}
+body.theme-light-active .sample-opportunity-tag.deleted{border-color:#ccd5df;background:#f0f3f6;color:#596b7c}
 body.theme-light-active .sample-custody-matrix .sample-custody-actions button{border-color:#cbd8e3;background:#f3f7fa;color:#30485e}
 body.theme-light-active .sample-custody-matrix .sample-custody-actions button:hover{border-color:#7d98ad;background:#eaf1f6}
 body.theme-light-active .sample-custody-matrix .sample-custody-actions button.primary{border-color:#0f937d;background:#e0f5f0;color:#087866}

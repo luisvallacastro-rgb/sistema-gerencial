@@ -12859,6 +12859,33 @@ function sampleCustodyOutcomeLabel(value) {
   return ({ returned: "Devuelta a bodega", applied_order: "Aplicada a la orden", consumed: "Consumida por el cliente", damaged: "Dañada", lost: "Extraviada", other: "Otra liquidación" })[value] || "Liquidada";
 }
 
+function sampleCustodyOpportunityState(entity) {
+  const item = entity?.item || {};
+  const closure = closureResult(item);
+  const rawStatus = normalizeKey(closure?.result || item.status || "vigente");
+  const archiveReason = normalizeKey(item.archivedReason || item.cancellationReason || "");
+  if (["ganado", "ganada", "cerrado", "cerrada"].includes(rawStatus)) return { key:"won", label:"Cerrada · Ganada" };
+  if (["perdido", "perdida"].includes(rawStatus) || archiveReason.includes("perdid")) return { key:"lost", label:"Cerrada · Perdida" };
+  if (["eliminado", "eliminada"].includes(rawStatus) || archiveReason.includes("eliminad")) return { key:"deleted", label:"Eliminada" };
+  if (["anulado", "anulada", "cancelado", "cancelada"].includes(rawStatus) || item.cancelledAt || item.cancellationReason || item.archiveType === "seller_cancellation" || item.archiveType === "manager_cancellation") return { key:"deleted", label:"Anulada" };
+  if (item.archived && item.archiveType !== "migration" && !item.migratedToResults) return { key:"deleted", label:"Archivada" };
+  return { key:"active", label:"Oportunidad activa" };
+}
+
+function sampleCustodyDocumentNumber(item, type) {
+  const value = type === "order"
+    ? (item?.number || item?.orderNumber)
+    : (item?.number || item?.quotationNumber);
+  return String(value || "Sin número").trim();
+}
+
+function sampleCustodyTagList(items, type, limit = 2) {
+  const values = [...new Set(items.map((item) => sampleCustodyDocumentNumber(item, type)))];
+  const prefix = type === "order" ? "OP" : "COT";
+  const visible = values.slice(0, limit).map((value) => `<span class="sample-chain-badge ${type}">${prefix} ${escapeHtml(value)}</span>`).join("");
+  return `${visible}${values.length > limit ? `<span class="sample-chain-badge more">+${values.length - limit}</span>` : ""}`;
+}
+
 function sampleCustodyGroups() {
   const groups = new Map();
   sampleCustodyRows().forEach((row) => {
@@ -12873,9 +12900,14 @@ function sampleCustodyGroups() {
     const orders = [...new Map(group.rows.flatMap((row) => row.chain.orders).map((item) => [String(item.id || item.number || item.orderNumber), item])).values()];
     const sellers = [...new Set(group.rows.map((row) => row.entity.seller).filter(Boolean))];
     const stages = [...new Set(group.rows.map((row) => row.entity.stage).filter(Boolean))];
+    const opportunityStates = [...new Map(group.rows.map((row) => {
+      const value = sampleCustodyOpportunityState(row.entity);
+      return [value.key, value];
+    })).values()];
+    const documentType = orders.length ? "order" : quotations.length ? "quotation" : "opportunity";
     const stateValue = group.rows.reduce((best, row) => priority[row.state] < priority[best] ? row.state : best, "settled");
     const oldestActive = active.reduce((max, row) => Math.max(max, row.elapsed), 0);
-    return { ...group, active, quotations, orders, sellers, stages, state:stateValue, oldestActive };
+    return { ...group, active, quotations, orders, sellers, stages, opportunityStates, documentType, state:stateValue, oldestActive };
   }).sort((a, b) => priority[a.state] - priority[b.state] || a.company.localeCompare(b.company));
 }
 
@@ -12906,12 +12938,17 @@ function renderSampleCustodyModule() {
     <div class="sample-custody-ledger sample-custody-matrix-body">${groups.length ? groups.map((group) => {
       const activeUnits = group.active.reduce((sum, row) => sum + Number(row.custody.quantity || 1), 0);
       const totalUnits = group.rows.reduce((sum, row) => sum + Number(row.custody.quantity || 1), 0);
-      const documentSummary = `${group.quotations.length} cotiz. · ${group.orders.length} OP`;
+      const documentTags = group.orders.length
+        ? sampleCustodyTagList(group.orders, "order")
+        : group.quotations.length
+          ? sampleCustodyTagList(group.quotations, "quotation")
+          : `<span class="sample-chain-badge opportunity">Solo oportunidad</span>`;
+      const opportunityTags = group.opportunityStates.map((item) => `<span class="sample-opportunity-tag ${item.key}">${escapeHtml(item.label)}</span>`).join("");
       const stateCopy = group.active.length ? statusLabel[group.state] : "Sin pendientes";
-      return `<article class="sample-custody-ledger-row sample-custody-group-row is-${group.state}" role="row">
-        <div class="sample-custody-cell custody-opportunity" data-label="Cliente / oportunidad"><strong>${escapeHtml(group.company)}</strong><small>${escapeHtml(group.stages.join(" · ") || "Oportunidad")}</small></div>
+      return `<article class="sample-custody-ledger-row sample-custody-group-row document-${group.documentType} is-${group.state}" role="row">
+        <div class="sample-custody-cell custody-opportunity" data-label="Cliente / oportunidad"><strong>${escapeHtml(group.company)}</strong><small>${escapeHtml(group.stages.join(" · ") || "Oportunidad")}</small><div class="sample-opportunity-tags">${opportunityTags}</div></div>
         <div class="sample-custody-cell" data-label="Vendedor"><strong>${escapeHtml(group.sellers.join(" · ") || "Sin vendedor")}</strong></div>
-        <div class="sample-custody-cell custody-document ${group.orders.length ? "has-order" : ""}" data-label="Documentos"><strong>${documentSummary}</strong><small>${group.orders.length ? "Cadena convertida" : group.quotations.length ? "En cotización" : "Solo oportunidad"}</small></div>
+        <div class="sample-custody-cell custody-document ${group.orders.length ? "has-order" : ""}" data-label="Documentos"><div class="sample-document-tags">${documentTags}</div><small>${group.orders.length ? `${group.quotations.length} cotiz. relacionada${group.quotations.length === 1 ? "" : "s"}` : group.quotations.length ? "Cotización relacionada" : "Sin conversión"}</small></div>
         <div class="sample-custody-cell custody-sample" data-label="Muestras"><strong>${group.rows.length} registro${group.rows.length === 1 ? "" : "s"}</strong><small>${totalUnits} unidad${totalUnits === 1 ? " asignada" : "es asignadas"}</small></div>
         <div class="sample-custody-cell custody-active" data-label="En calle"><strong>${activeUnits}</strong><small>${group.active.length} pendiente${group.active.length === 1 ? "" : "s"}</small></div>
         <div class="sample-custody-state" data-label="Estado"><span>${escapeHtml(stateCopy)}</span><small>${group.active.length ? `${group.oldestActive} días máx.` : "Expediente resuelto"}</small></div>

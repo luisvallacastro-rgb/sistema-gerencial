@@ -21586,14 +21586,29 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .sample-custody-matrix-body{gap:7px;padding-top:8px}
 .sample-custody-matrix-body .sample-custody-ledger-row{min-height:68px;padding:9px 16px;border:1px solid #2d4865;border-left:4px solid #42dfc0;border-radius:13px;background:#162d46;box-shadow:none;opacity:1}
 .sample-custody-matrix-body .sample-custody-ledger-row:hover{border-color:#4d6e8c;background:#1a3450}
-.sample-custody-matrix-body .sample-custody-ledger-row.is-attention{border-left-color:#ffb83f;background:#302d33}
-.sample-custody-matrix-body .sample-custody-ledger-row.is-returned,.sample-custody-matrix-body .sample-custody-ledger-row.is-settled{border-left-color:#7890a7;background:#14283d}
+.sample-custody-matrix-body .sample-custody-group-row.document-opportunity{border-color:rgba(125,108,255,.48);border-left-color:#7d6cff;background:linear-gradient(100deg,rgba(77,63,145,.32),#162d46 42%)}
+.sample-custody-matrix-body .sample-custody-group-row.document-quotation{border-color:rgba(244,183,57,.52);border-left-color:#f4b739;background:linear-gradient(100deg,rgba(125,84,23,.32),#162d46 42%)}
+.sample-custody-matrix-body .sample-custody-group-row.document-order{border-color:rgba(55,211,168,.52);border-left-color:#37d3a8;background:linear-gradient(100deg,rgba(16,112,90,.31),#162d46 42%)}
+.sample-custody-matrix-body .sample-custody-group-row.document-opportunity:hover{border-color:#9486ff;background:linear-gradient(100deg,rgba(83,67,155,.4),#1a3450 42%)}
+.sample-custody-matrix-body .sample-custody-group-row.document-quotation:hover{border-color:#efc463;background:linear-gradient(100deg,rgba(135,91,24,.4),#1a3450 42%)}
+.sample-custody-matrix-body .sample-custody-group-row.document-order:hover{border-color:#5de2bd;background:linear-gradient(100deg,rgba(18,123,97,.39),#1a3450 42%)}
 .sample-custody-cell{display:grid;gap:3px;min-width:0}
 .sample-custody-cell strong{overflow:hidden;color:#f4f8fc;font-size:13px;font-weight:850;text-overflow:ellipsis;white-space:nowrap}
 .sample-custody-cell small{overflow:hidden;color:#8fa7bb;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
 .sample-custody-cell.custody-date strong{font-variant-numeric:tabular-nums}
 .sample-custody-cell.custody-document strong{color:#c8d7e4}
 .sample-custody-cell.custody-document.has-order strong{color:#64efd2}
+.sample-document-tags,.sample-opportunity-tags{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden}
+.sample-opportunity-tags{margin-top:2px}
+.sample-chain-badge,.sample-opportunity-tag{display:inline-flex;align-items:center;width:max-content;max-width:100%;overflow:hidden;border:1px solid #49647e;border-radius:999px;padding:3px 7px;color:#c9d8e5;font-size:9px;font-weight:900;line-height:1;text-overflow:ellipsis;white-space:nowrap}
+.sample-chain-badge.opportunity{border-color:#7668e8;background:rgba(112,94,225,.18);color:#c4bcff}
+.sample-chain-badge.quotation{border-color:#c69131;background:rgba(216,151,36,.17);color:#ffd479}
+.sample-chain-badge.order{border-color:#2ebf98;background:rgba(35,184,143,.17);color:#70efd0}
+.sample-chain-badge.more{background:#203a55;color:#b4c7d7}
+.sample-opportunity-tag.active{border-color:#4185c1;background:rgba(47,126,192,.15);color:#91cbff}
+.sample-opportunity-tag.won{border-color:#2ebf98;background:rgba(35,184,143,.15);color:#70efd0}
+.sample-opportunity-tag.lost{border-color:#d96176;background:rgba(205,76,98,.15);color:#ff9aaa}
+.sample-opportunity-tag.deleted{border-color:#7c8796;background:rgba(122,135,151,.15);color:#bdc7d1}
 .sample-custody-cell.custody-sample strong{white-space:normal}
 .sample-custody-matrix .sample-custody-state{min-width:0}
 .sample-custody-matrix .sample-custody-state span{overflow:hidden;max-width:100%;padding:5px 8px;text-overflow:ellipsis;white-space:nowrap}
