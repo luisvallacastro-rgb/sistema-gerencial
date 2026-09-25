@@ -9280,7 +9280,10 @@ function filteredCrmDashboardOpportunities() {
       opportunity.temperature,
       opportunity.estimatedAmount,
       formatMoney(opportunity.estimatedAmount)
-    ].some((value) => searchTokenMatches(value, query)));
+    ].some((value) => searchTokenMatches(value, query)))
+    .sort((left, right) => opportunityCreatedDate(right).localeCompare(opportunityCreatedDate(left))
+      || String(right.createdAt || "").localeCompare(String(left.createdAt || ""))
+      || String(left.company || "").localeCompare(String(right.company || ""), "es"));
 }
 
 function renderCrmSellerKpi(rows) {
