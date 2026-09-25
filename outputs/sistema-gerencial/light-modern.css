@@ -1450,6 +1450,9 @@ body.theme-light-active .sample-custody-new{border-color:#14a88e;background:#e5f
 body.theme-light-active .sample-custody-new:hover{background:#0f937d;color:#fff}
 body.theme-light-active .sample-custody-matrix-head{border-color:#c5d4e1;background:#eaf0f6;color:#1c3048}
 body.theme-light-active .sample-custody-matrix-head span{color:#1c3048 !important;opacity:1 !important}
+body.theme-light-active .sample-custody-matrix-body{scrollbar-color:#94a7ba #edf2f6}
+body.theme-light-active .sample-custody-matrix-body::-webkit-scrollbar-track{background:#edf2f6}
+body.theme-light-active .sample-custody-matrix-body::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#77cbbb,#8ea9cd)}
 body.theme-light-active .sample-custody-matrix-body .sample-custody-ledger-row{border-color:#d4dfe9;background:#fff;box-shadow:0 3px 10px rgba(26,48,70,.045)}
 body.theme-light-active .sample-custody-matrix-body .sample-custody-group-row.document-opportunity{border-color:#d2cef8;border-left-color:#7367df;background:linear-gradient(90deg,#f5f3ff 0,#fbfaff 34%,#fff 100%)}
 body.theme-light-active .sample-custody-matrix-body .sample-custody-group-row.document-quotation{border-color:#ead6aa;border-left-color:#e7a91f;background:linear-gradient(90deg,#fff9ec 0,#fffdf8 34%,#fff 100%)}
