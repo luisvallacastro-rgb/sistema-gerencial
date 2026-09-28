@@ -3430,7 +3430,7 @@ function ensureControlSalesDialogs() {
           <label>Número de registro<input id="controlSalesRegistrationNumber"></label>
           <label>Tipo de contribuyente<input id="controlSalesTaxpayerType" list="controlSalesTaxpayerTypes"><datalist id="controlSalesTaxpayerTypes"><option value="Gran contribuyente"><option value="Mediano contribuyente"><option value="Pequeño contribuyente"><option value="No contribuyente"></datalist></label>
           <label>Fecha o condición de entrega <small>Quedará guardada en la OP</small><input id="controlSalesDeliveryDate" type="text" maxlength="180" placeholder="Ej. 30 días hábiles después de la orden de compra"></label>
-          <label>Condición de pago<select id="controlSalesPaymentTerms"><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label>
+          <label>Condición de pago<select id="controlSalesPaymentTerms"><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>35% anticipo, 35% contra entrega y 30% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label>
           <label class="control-sales-strategy-field">Tipo de estrategia<select id="controlSalesStrategy"><option value="">Seleccionar estrategia</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label>
           <label>Código de cliente<input id="controlSalesCustomerCode"></label>
           <label class="control-sales-perception-toggle"><input id="controlSalesPerceptionEnabled" type="checkbox"><span><b>Percepción 1%</b><small>Aplicar sobre el subtotal</small></span></label>
@@ -4674,6 +4674,7 @@ const commercialPaymentTerms = Object.freeze([
   "50% anticipo, 50% previo a la entrega del pedido",
   "50% anticipo, 50% crédito a 15 días",
   "50% anticipo, 50% crédito a 30 días",
+  "35% anticipo, 35% contra entrega y 30% crédito a 30 días",
   "Crédito de 100% a 15 días",
   "Crédito de 100% a 30 días",
   "100% previo a la entrega del pedido"
