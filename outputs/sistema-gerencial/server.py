@@ -35,6 +35,7 @@ ACCOUNTS_RECEIVABLE_SEED_PATH = ROOT / "accounts-receivable-seed.json"
 PURCHASE_ORDERS_SEED_PATH = ROOT / "purchase-orders-seed.json"
 CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
 BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
+FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
@@ -45,7 +46,7 @@ TRAINING_SESSION_SECONDS = 8 * 60 * 60
 TRAINING_COOKIE_NAME = "konfi_training_access"
 TRAINING_FINANCIAL_API_PREFIXES = (
     "/api/bank-availability", "/api/pending-expenses", "/api/pending-checks",
-    "/api/financial-income", "/api/accounts-receivable", "/api/purchase-orders",
+    "/api/financial-income", "/api/financial-statements", "/api/accounts-receivable", "/api/purchase-orders",
     "/api/customer-advances/allocate",
 )
 CRM_DATA_LOCK = threading.RLock()
@@ -67,7 +68,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi", "meta"],
-    "financiera": ["disponibilidad", "ingresos", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
+    "financiera": ["disponibilidad", "ingresos", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal"],
     "rrhh": [],
 }
@@ -2464,6 +2465,7 @@ def default_permissions_for_role(role):
             "comercializacion:resultados-pedidos",
             "financiera:disponibilidad",
             "financiera:ingresos",
+            "financiera:estados-financieros",
             "financiera:resultados-cuentas-por-cobrar",
             "financiera:resultados-ordenes-de-pedido",
             *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
@@ -4804,6 +4806,27 @@ def grant_purchase_order_permissions(conn):
 def grant_financial_income_permissions(conn):
     """Expose Ingresos to users who already have access to Financiera."""
     permission = "financiera:ingresos"
+    for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
+        try:
+            permissions = json.loads(row["permissions"] or "[]")
+        except json.JSONDecodeError:
+            permissions = []
+        has_financial_access = row["role"] in {"gerencias", "jefaturas"} or (
+            row["role"] != "vendedores" and any(
+                text(item).startswith("financiera:") for item in permissions
+            )
+        )
+        if has_financial_access and permission not in permissions:
+            permissions.append(permission)
+            conn.execute(
+                "UPDATE users SET permissions = ? WHERE id = ?",
+                (json.dumps(permissions, ensure_ascii=True), row["id"]),
+            )
+
+
+def grant_financial_statements_permissions(conn):
+    """Expose Estados financieros to users who already have access to Financiera."""
+    permission = "financiera:estados-financieros"
     for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
         try:
             permissions = json.loads(row["permissions"] or "[]")
@@ -7220,6 +7243,7 @@ def init_db():
         recover_purchase_orders_if_empty(conn)
         grant_purchase_order_permissions(conn)
         grant_financial_income_permissions(conn)
+        grant_financial_statements_permissions(conn)
         remove_seller_financial_permissions_once(conn)
         seed_control_sales(conn)
         normalize_control_sales_order_descriptions_once(conn)
@@ -7804,6 +7828,17 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 "labor": row["labor_provision_amount"], "paymentType": row["payment_type"],
                 "createdAt": row["created_at"],
             } for row in rows])
+            return
+
+        if self.path == "/api/financial-statements":
+            if not self.require_permission("financiera:estados-financieros"):
+                return
+            try:
+                payload = json.loads(FINANCIAL_STATEMENTS_SEED_PATH.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                self.send_json({"error": f"No se pudo cargar el catálogo financiero: {error}"}, 500)
+                return
+            self.send_json(payload)
             return
 
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")

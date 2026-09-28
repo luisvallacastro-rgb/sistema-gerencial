@@ -1494,3 +1494,29 @@ body.theme-light-active .sample-custody-detail-row.is-attention{border-left-colo
 body.theme-light-active .sample-custody-detail-row.is-returned,body.theme-light-active .sample-custody-detail-row.is-settled{border-left-color:#8ca0b2;background:#f8fafc}
 body.theme-light-active .sample-custody-detail-row .sample-custody-actions button{border-color:#cbd8e3;background:#f3f7fa;color:#30485e}
 body.theme-light-active .sample-custody-detail-row .sample-custody-actions button.primary{border-color:#0f937d;background:#e0f5f0;color:#087866}
+
+body.theme-light-active .financial-statements-module{color:#12243b}
+body.theme-light-active .financial-statement-tabs{border-color:#d1ddea;background:#edf2f7}
+body.theme-light-active .financial-statement-tabs button,body.theme-light-active .financial-statement-filters button{color:#64758a}
+body.theme-light-active .financial-statement-tabs button.active{background:#0f917b;color:#fff}
+body.theme-light-active .financial-statement-actions .secondary-btn{border-color:#79cbbb;background:#eaf8f5;color:#087763}
+body.theme-light-active .financial-statement-filters{border-color:#d4dfea;background:#f6f9fc}
+body.theme-light-active .financial-statement-filters label{color:#607286}
+body.theme-light-active .financial-statement-filters input[type=month]{border-color:#c7d5e2;background:#fff;color:#17283e;color-scheme:light}
+body.theme-light-active .financial-statement-filters button{border-color:#cbd8e4;background:#fff;color:#455b70}
+body.theme-light-active .financial-statement-filters .auxiliary-toggle{color:#455b70}
+body.theme-light-active .financial-statement-heading span{color:#087d6a}
+body.theme-light-active .financial-statement-heading small{color:#687c90}
+body.theme-light-active .financial-statement-cards article{border-color:#d4e0e9;background:linear-gradient(145deg,#fff,#f4f8fb);box-shadow:0 8px 22px rgba(32,65,91,.08)}
+body.theme-light-active .financial-statement-cards span{color:#63788b}
+body.theme-light-active .financial-statement-cards strong{color:#12243b}
+body.theme-light-active .financial-statement-cards small{color:#70859a}
+body.theme-light-active .financial-reconciliation.ok{border-color:#8ad5c7;background:#eaf8f5;color:#087663}
+body.theme-light-active .financial-reconciliation.alert{border-color:#efc36e;background:#fff8e9;color:#9a6300}
+body.theme-light-active .financial-statement-table-wrap{border-color:#cad8e4;background:#fff}
+body.theme-light-active .financial-statement-table-wrap th{background:#e8f0f7;color:#40556b}
+body.theme-light-active .financial-statement-table-wrap td{border-top-color:#dce5ed;color:#344a60}
+body.theme-light-active .financial-statement-table-wrap .positive{color:#087d69}
+body.theme-light-active .financial-statement-table-wrap .negative{color:#c84250}
+body.theme-light-active .financial-statement-table-wrap tr.total td{background:#eef6f5;color:#10283d}
+body.theme-light-active .financial-statements-loading,body.theme-light-active .financial-statements-error{color:#526a7f}

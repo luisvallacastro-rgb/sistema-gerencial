@@ -69,6 +69,7 @@ const areas = {
     submenus: [
       { key: "disponibilidad", label: "Disponibilidad", status: "Saldos bancarios consolidados", items: [] },
       { key: "ingresos", label: "Ingresos", status: "Remesas provisionadas", items: [] },
+      { key: "estados-financieros", label: "Estados financieros", status: "Balance y estado de resultados", items: [] },
       { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
       { key: "resultados-ordenes-de-pedido", label: "Órdenes de Pedido", status: "Control de producción y entregas", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
@@ -312,6 +313,14 @@ const state = {
   financialIncome: [],
   financialIncomeLoaded: false,
   financialIncomeLoading: false,
+  financialStatements: { periods: [], balance: [], income: [], source: {} },
+  financialStatementsLoaded: false,
+  financialStatementsLoading: false,
+  financialStatementsError: "",
+  financialStatementView: "balance",
+  financialStatementFrom: "",
+  financialStatementTo: "",
+  financialStatementShowAuxiliaries: false,
   commercialAgenda: [],
   commercialAgendaLoaded: false,
   commercialAgendaQuery: "",
@@ -1184,6 +1193,7 @@ function defaultPermissionsForRole(role) {
       permissionKey("comercializacion", "resultados-pedidos"),
       permissionKey("financiera", "disponibilidad"),
       permissionKey("financiera", "ingresos"),
+      permissionKey("financiera", "estados-financieros"),
       permissionKey("financiera", "resultados-cuentas-por-cobrar"),
       permissionKey("financiera", "resultados-ordenes-de-pedido"),
       ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
@@ -13168,6 +13178,157 @@ function wireSampleCustodyModule() {
   opportunityTable.querySelectorAll("[data-custody-open]").forEach((button) => button.addEventListener("click", async () => { const entity = resolveSampleCustodyEntity(button.dataset.custodyOpen); if (!entity) return; if (entity.context === "crm") await openCrmManagementDialog(entity.item.id); else await openManagementDialog(entity.item, "results"); setSampleCustodyMode(true); }));
 }
 
+const financialStatementMonthFormatter = new Intl.DateTimeFormat("es-SV", { month: "long", year: "numeric", timeZone: "UTC" });
+
+function financialStatementPeriodLabel(period) {
+  if (!/^\d{4}-\d{2}$/.test(period || "")) return "—";
+  const label = financialStatementMonthFormatter.format(new Date(`${period}-01T12:00:00Z`));
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+}
+
+function financialStatementPeriodsInRange() {
+  const periods = state.financialStatements.periods || [];
+  const from = state.financialStatementFrom || periods.at(-1) || "";
+  const to = state.financialStatementTo || periods.at(-1) || "";
+  return periods.filter((period) => period >= from && period <= to);
+}
+
+function financialStatementRows(kind, period) {
+  return (state.financialStatements[kind] || []).filter((row) => row.period === period);
+}
+
+function financialStatementValue(rows, code, field = "amount") {
+  return Number(rows.find((row) => String(row.code) === String(code))?.[field] || 0);
+}
+
+function financialStatementRangeIncomeRows() {
+  const selected = new Set(financialStatementPeriodsInRange());
+  const map = new Map();
+  (state.financialStatements.income || []).forEach((row) => {
+    if (!selected.has(row.period)) return;
+    const current = map.get(row.code) || { ...row, periodAmount: 0, accumulatedAmount: 0 };
+    current.periodAmount += Number(row.periodAmount || 0);
+    current.accumulatedAmount = Number(row.accumulatedAmount || 0);
+    map.set(row.code, current);
+  });
+  return [...map.values()];
+}
+
+function financialStatementSummary() {
+  const periods = state.financialStatements.periods || [];
+  const closePeriod = state.financialStatementTo || periods.at(-1) || "";
+  const selectedIndex = periods.indexOf(state.financialStatementFrom || closePeriod);
+  const openingPeriod = selectedIndex > 0 ? periods[selectedIndex - 1] : (state.financialStatementFrom || closePeriod);
+  const closeRows = financialStatementRows("balance", closePeriod);
+  const openingRows = financialStatementRows("balance", openingPeriod);
+  const incomeRows = financialStatementRangeIncomeRows();
+  const assets = financialStatementValue(closeRows, "1");
+  const liabilities = financialStatementValue(closeRows, "2");
+  const equity = financialStatementValue(closeRows, "3");
+  const currentAssets = financialStatementValue(closeRows, "11");
+  const currentLiabilities = financialStatementValue(closeRows, "21");
+  const revenue = financialStatementValue(incomeRows, "5", "periodAmount");
+  const costs = financialStatementValue(incomeRows, "41", "periodAmount");
+  const operatingExpenses = financialStatementValue(incomeRows, "42", "periodAmount");
+  const totalDebits = financialStatementValue(incomeRows, "4", "periodAmount");
+  const grossProfit = revenue - costs;
+  const operatingProfit = grossProfit - operatingExpenses;
+  const netProfit = revenue - totalDebits;
+  return { closePeriod, openingPeriod, closeRows, openingRows, incomeRows, assets, liabilities, equity,
+    difference: assets - liabilities - equity,
+    currentRatio: currentLiabilities ? currentAssets / currentLiabilities : null,
+    debtRatio: assets ? liabilities / assets : null,
+    revenue, costs, operatingExpenses, grossProfit, operatingProfit, netProfit,
+    grossMargin: revenue ? grossProfit / revenue : null, netMargin: revenue ? netProfit / revenue : null };
+}
+
+function financialStatementPercent(value) {
+  return Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "—";
+}
+
+function financialStatementAccountRows(summary) {
+  const showAuxiliary = state.financialStatementShowAuxiliaries;
+  if (state.financialStatementView === "balance") {
+    const opening = new Map(summary.openingRows.map((row) => [row.code, Number(row.amount || 0)]));
+    return summary.closeRows.filter((row) => showAuxiliary || !row.isAuxiliary).map((row) => {
+      const start = opening.get(row.code) || 0;
+      const close = Number(row.amount || 0);
+      return { ...row, start, close, variance: close - start };
+    });
+  }
+  return summary.incomeRows.filter((row) => showAuxiliary || !row.isAuxiliary);
+}
+
+function renderFinancialStatements() {
+  if (state.financialStatementsLoading) return `<section class="financial-statements-loading"><span></span><strong>Cargando catálogo contable…</strong></section>`;
+  if (state.financialStatementsError) return `<section class="financial-statements-error"><strong>No fue posible cargar los estados financieros.</strong><p>${escapeHtml(state.financialStatementsError)}</p><button class="secondary-btn" data-financial-retry>Reintentar</button></section>`;
+  const periods = state.financialStatements.periods || [];
+  if (!state.financialStatementsLoaded || !periods.length) return `<section class="financial-statements-loading"><span></span><strong>Preparando estados financieros…</strong></section>`;
+  const summary = financialStatementSummary();
+  const rows = financialStatementAccountRows(summary);
+  const isBalance = state.financialStatementView === "balance";
+  const reconciled = Math.abs(summary.difference) <= 0.05;
+  const rangeLabel = `${financialStatementPeriodLabel(state.financialStatementFrom)} — ${financialStatementPeriodLabel(state.financialStatementTo)}`;
+  const cards = isBalance
+    ? [["Activo", summary.assets, "Recursos controlados"], ["Pasivo", summary.liabilities, financialStatementPercent(summary.debtRatio) + " del activo"], ["Patrimonio", summary.equity, "Capital contable"], ["Razón corriente", summary.currentRatio, "Activo corriente / Pasivo corriente"]]
+    : [["Ingresos", summary.revenue, "Ventas y otros ingresos"], ["Utilidad bruta", summary.grossProfit, financialStatementPercent(summary.grossMargin) + " margen bruto"], ["Utilidad operativa", summary.operatingProfit, "Después de gastos operativos"], ["Resultado neto", summary.netProfit, financialStatementPercent(summary.netMargin) + " margen neto"]];
+  const cardHtml = cards.map(([label, value, note], index) => `<article><span>${label}</span><strong>${isBalance && index === 3 ? (value == null ? "—" : Number(value).toFixed(2)) : formatMoney(value)}</strong><small>${note}</small></article>`).join("");
+  const body = rows.map((row) => {
+    const totalClass = row.level === 0 || row.code === "UTILIDAD_BRUTA" || row.code === "UTILIDAD_NETA" ? " total" : "";
+    if (isBalance) return `<tr class="level-${row.level}${totalClass}"><td>${escapeHtml(row.code)}</td><td style="--account-level:${row.level}">${escapeHtml(row.name)}</td><td class="money">${formatMoney(row.start)}</td><td class="money">${formatMoney(row.close)}</td><td class="money ${row.variance < 0 ? "negative" : "positive"}">${row.variance > 0 ? "+" : ""}${formatMoney(row.variance)}</td></tr>`;
+    const share = summary.revenue ? Number(row.periodAmount || 0) / summary.revenue : null;
+    return `<tr class="level-${row.level}${totalClass}"><td>${escapeHtml(row.code)}</td><td style="--account-level:${row.level}">${escapeHtml(row.name)}</td><td class="money">${formatMoney(row.periodAmount)}</td><td class="money">${financialStatementPercent(share)}</td></tr>`;
+  }).join("");
+  return `<section class="financial-statements-module">
+    <header class="financial-statements-toolbar"><div class="financial-statement-tabs"><button class="${isBalance ? "active" : ""}" data-financial-view="balance">Balance general</button><button class="${!isBalance ? "active" : ""}" data-financial-view="income">Estado de resultados</button></div><div class="financial-statement-actions"><button class="secondary-btn" data-financial-report>▤ Generar reporte</button></div></header>
+    <div class="financial-statement-filters"><label>Desde<input type="month" min="${periods[0]}" max="${periods.at(-1)}" value="${state.financialStatementFrom}" data-financial-from></label><label>Hasta<input type="month" min="${periods[0]}" max="${periods.at(-1)}" value="${state.financialStatementTo}" data-financial-to></label><button data-financial-range="latest">Último mes</button><button data-financial-range="year">Año actual</button><button data-financial-range="all">Histórico</button><label class="auxiliary-toggle"><input type="checkbox" ${state.financialStatementShowAuxiliaries ? "checked" : ""} data-financial-auxiliary> Mostrar subcuentas auxiliares</label></div>
+    <div class="financial-statement-heading"><div><span>${isBalance ? "Situación financiera" : "Desempeño financiero"}</span><h2>${isBalance ? `Al ${financialStatementPeriodLabel(summary.closePeriod)}` : rangeLabel}</h2></div><small>Fuente: ${escapeHtml(state.financialStatements.source?.file || "Catálogo contable")}</small></div>
+    <div class="financial-statement-cards">${cardHtml}</div>
+    ${isBalance ? `<div class="financial-reconciliation ${reconciled ? "ok" : "alert"}"><strong>${reconciled ? "✓ Balance conciliado" : "⚠ Diferencia contable"}</strong><span>Activo − Pasivo − Patrimonio: ${formatMoney(summary.difference)}</span></div>` : ""}
+    <div class="financial-statement-table-wrap"><table><thead><tr><th>Código</th><th>Cuenta</th>${isBalance ? `<th>${financialStatementPeriodLabel(summary.openingPeriod)}</th><th>${financialStatementPeriodLabel(summary.closePeriod)}</th><th>Variación</th>` : `<th>Período</th><th>% ingresos</th>`}</tr></thead><tbody>${body}</tbody></table></div>
+  </section>`;
+}
+
+function printFinancialStatementReport() {
+  const summary = financialStatementSummary();
+  const isBalance = state.financialStatementView === "balance";
+  const rows = financialStatementAccountRows(summary);
+  const popup = window.open("", "_blank", "width=1100,height=800");
+  if (!popup) return alert("Permita ventanas emergentes para generar el reporte.");
+  const body = rows.map((row) => isBalance
+    ? `<tr><td>${escapeHtml(row.code)}</td><td style="padding-left:${12 + row.level * 14}px">${escapeHtml(row.name)}</td><td>${formatMoney(row.start)}</td><td>${formatMoney(row.close)}</td><td>${formatMoney(row.variance)}</td></tr>`
+    : `<tr><td>${escapeHtml(row.code)}</td><td style="padding-left:${12 + row.level * 14}px">${escapeHtml(row.name)}</td><td>${formatMoney(row.periodAmount)}</td><td>${financialStatementPercent(summary.revenue ? row.periodAmount / summary.revenue : null)}</td></tr>`).join("");
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${isBalance ? "Balance general" : "Estado de resultados"}</title><style>@page{size:A4 landscape;margin:12mm}body{font:12px Arial;color:#152238}header{display:flex;justify-content:space-between;border-bottom:3px solid #159b82;margin-bottom:18px}h1{margin:0 0 4px}small{color:#607089}table{width:100%;border-collapse:collapse}th{background:#e8f0f6;text-align:left}th,td{padding:7px;border:1px solid #c9d5e2}td:nth-last-child(-n+3),th:nth-last-child(-n+3){text-align:right}footer{margin-top:12px;display:flex;justify-content:space-between}.check{font-weight:700;color:${Math.abs(summary.difference)<=0.05 ? "#087f69" : "#c2414d"}}</style></head><body><header><div><h1>${isBalance ? "Balance general" : "Estado de resultados"}</h1><p>${isBalance ? `Al ${financialStatementPeriodLabel(summary.closePeriod)}` : `${financialStatementPeriodLabel(state.financialStatementFrom)} — ${financialStatementPeriodLabel(state.financialStatementTo)}`}</p></div><div><strong>KONFI · Sistema Gerencial</strong><p>Moneda: USD</p></div></header><table><thead><tr><th>Código</th><th>Cuenta</th>${isBalance ? "<th>Inicio</th><th>Cierre</th><th>Variación</th>" : "<th>Período</th><th>% ingresos</th>"}</tr></thead><tbody>${body}</tbody></table><footer><span>Generado ${new Date().toLocaleString("es-SV")}</span>${isBalance ? `<span class="check">Diferencia: ${formatMoney(summary.difference)}</span>` : `<span>Resultado neto: ${formatMoney(summary.netProfit)}</span>`}</footer></body></html>`);
+  popup.document.close();
+  setTimeout(() => { popup.focus(); popup.print(); }, 250);
+}
+
+function wireFinancialStatements() {
+  opportunityTable.querySelectorAll("[data-financial-view]").forEach((button) => button.addEventListener("click", () => { state.financialStatementView = button.dataset.financialView; renderCommercialSubmenu(areas.financiera); }));
+  opportunityTable.querySelector("[data-financial-from]")?.addEventListener("change", (event) => { state.financialStatementFrom = event.target.value; if (state.financialStatementFrom > state.financialStatementTo) state.financialStatementTo = state.financialStatementFrom; renderCommercialSubmenu(areas.financiera); });
+  opportunityTable.querySelector("[data-financial-to]")?.addEventListener("change", (event) => { state.financialStatementTo = event.target.value; if (state.financialStatementTo < state.financialStatementFrom) state.financialStatementFrom = state.financialStatementTo; renderCommercialSubmenu(areas.financiera); });
+  opportunityTable.querySelectorAll("[data-financial-range]").forEach((button) => button.addEventListener("click", () => { const periods = state.financialStatements.periods || []; const latest = periods.at(-1) || ""; if (button.dataset.financialRange === "latest") state.financialStatementFrom = state.financialStatementTo = latest; else if (button.dataset.financialRange === "year") { state.financialStatementFrom = `${latest.slice(0,4)}-01`; state.financialStatementTo = latest; } else { state.financialStatementFrom = periods[0] || ""; state.financialStatementTo = latest; } renderCommercialSubmenu(areas.financiera); }));
+  opportunityTable.querySelector("[data-financial-auxiliary]")?.addEventListener("change", (event) => { state.financialStatementShowAuxiliaries = event.target.checked; renderCommercialSubmenu(areas.financiera); });
+  opportunityTable.querySelector("[data-financial-report]")?.addEventListener("click", printFinancialStatementReport);
+  opportunityTable.querySelector("[data-financial-retry]")?.addEventListener("click", loadFinancialStatements);
+}
+
+function loadFinancialStatements() {
+  if (state.financialStatementsLoading) return;
+  state.financialStatementsLoading = true;
+  state.financialStatementsError = "";
+  apiJson("/api/financial-statements").then((payload) => {
+    state.financialStatements = payload || { periods: [], balance: [], income: [], source: {} };
+    state.financialStatementsLoaded = true;
+    const periods = state.financialStatements.periods || [];
+    state.financialStatementTo ||= periods.at(-1) || "";
+    state.financialStatementFrom ||= state.financialStatementTo;
+  }).catch((error) => { state.financialStatementsError = error.message || "Error de lectura."; }).finally(() => {
+    state.financialStatementsLoading = false;
+    if (state.activeArea === "financiera" && state.activeSubmenu === "estados-financieros") renderCommercialSubmenu(areas.financiera);
+  });
+}
+
 function renderCommercialSubmenu(area) {
   if (!Array.isArray(area.submenus)) {
     commercialPanel.classList.add("hidden");
@@ -13181,6 +13342,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("crm-cancelled-mode");
   commercialPanel.classList.remove("bank-availability-mode");
   commercialPanel.classList.remove("financial-income-mode");
+  commercialPanel.classList.remove("financial-statements-mode");
   commercialPanel.classList.remove("commercial-metrics-mode");
   commercialPanel.classList.remove("commercial-goals-mode");
   commercialPanel.classList.remove("commercial-agenda-mode");
@@ -13309,6 +13471,21 @@ function renderCommercialSubmenu(area) {
         if (state.activeArea === "financiera" && state.activeSubmenu === "ingresos") renderCommercialSubmenu(areas.financiera);
       });
     }
+    return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "estados-financieros") {
+    commercialPanel.classList.add("financial-statements-mode");
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = "Balance general · Estado de resultados";
+    opportunityTable.innerHTML = renderFinancialStatements();
+    wireFinancialStatements();
+    if (!state.financialStatementsLoaded && !state.financialStatementsLoading && !state.financialStatementsError) loadFinancialStatements();
     return;
   }
 
@@ -15873,6 +16050,7 @@ function renderDashboard() {
       "custodia-muestras",
       "disponibilidad",
       "ingresos",
+      "estados-financieros",
       "produccion-semanal"
     ].includes(state.activeSubmenu)
     || state.activeSubmenu.startsWith("resultados")
