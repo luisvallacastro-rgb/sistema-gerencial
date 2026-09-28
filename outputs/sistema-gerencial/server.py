@@ -7290,6 +7290,181 @@ def init_db():
         reset_order_flow_for_first_elizabeth_order_once(conn)
 
 
+def financial_statement_source():
+    """Read the module-owned snapshot without touching the operational database."""
+    payload = json.loads(FINANCIAL_STATEMENTS_SEED_PATH.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("El catálogo financiero no tiene un formato válido")
+    return payload
+
+
+def financial_previous_month(period):
+    year, month = (int(part) for part in period.split("-"))
+    month -= 1
+    if month == 0:
+        year, month = year - 1, 12
+    return f"{year:04d}-{month:02d}"
+
+
+def financial_comparison_period(period, period_type, comparison):
+    year, month = (int(part) for part in period.split("-"))
+    if comparison == "previous-month" and period_type == "monthly":
+        return financial_previous_month(period)
+    if comparison in {"year-ago", "previous-year"}:
+        return f"{year - 1:04d}-{month:02d}"
+    return ""
+
+
+def financial_parent_codes(rows):
+    numeric_codes = [str(row.get("code") or "") for row in rows if str(row.get("code") or "").isdigit()]
+    parents = {}
+    for code in numeric_codes:
+        candidates = [candidate for candidate in numeric_codes if len(candidate) < len(code) and code.startswith(candidate)]
+        parents[code] = max(candidates, key=len) if candidates else ""
+    return parents
+
+
+def build_financial_statement_report(query):
+    source = financial_statement_source()
+    periods = sorted(set(str(item) for item in source.get("periods", []) if re.fullmatch(r"\d{4}-\d{2}", str(item))))
+    if not periods:
+        raise ValueError("No existen períodos contables disponibles")
+    report = text((query.get("report") or ["balance"])[0]).lower()
+    report = report if report in {"balance", "income"} else "balance"
+    period_type = text((query.get("period") or ["monthly"])[0]).lower()
+    period_type = period_type if period_type in {"monthly", "annual"} else "monthly"
+    available_years = sorted({period[:4] for period in periods})
+    requested_year = text((query.get("year") or [periods[-1][:4]])[0])
+    year = requested_year if requested_year in available_years else available_years[-1]
+    year_periods = [period for period in periods if period.startswith(year + "-")]
+    requested_month = text((query.get("month") or [year_periods[-1][5:]])[0]).zfill(2)
+    requested_period = f"{year}-{requested_month}"
+    selected_period = (requested_period if requested_period in year_periods else year_periods[-1]) if period_type == "monthly" else year_periods[-1]
+    comparison = text((query.get("comparison") or ["none"])[0]).lower()
+    if comparison not in {"none", "previous-month", "year-ago", "previous-year"}:
+        comparison = "none"
+    comparison_period = financial_comparison_period(selected_period, period_type, comparison)
+    detail = text((query.get("detail") or ["intermediate"])[0]).lower()
+    detail = detail if detail in {"summary", "intermediate", "detailed"} else "intermediate"
+    include_zero = text((query.get("includeZero") or ["0"])[0]).lower() in {"1", "true", "yes"}
+    monthly_detail = period_type == "annual" and text((query.get("monthlyDetail") or ["0"])[0]).lower() in {"1", "true", "yes"}
+    max_level = {"summary": 1, "intermediate": 3, "detailed": 4}[detail]
+    source_key = "balance" if report == "balance" else "income"
+    field = "amount" if report == "balance" else ("periodAmount" if period_type == "monthly" else "accumulatedAmount")
+
+    def rows_for(period):
+        rows = [row for row in source.get(source_key, []) if row.get("period") == period]
+        if report == "balance":
+            # A balance general contiene exclusivamente activo, pasivo y patrimonio.
+            # Las cuentas nominales 4/5/6 pertenecen al estado de resultados/cierre.
+            rows = [row for row in rows if str(row.get("code") or "")[:1] in {"1", "2", "3"}]
+        return rows
+
+    current_source_rows = rows_for(selected_period)
+    comparison_source_rows = rows_for(comparison_period) if comparison_period else []
+    comparison_values = {str(row.get("code")): float(row.get(field) or 0) for row in comparison_source_rows}
+    parent_codes = financial_parent_codes(current_source_rows)
+    children_by_parent = {}
+    for code, parent in parent_codes.items():
+        if parent:
+            children_by_parent.setdefault(parent, []).append(code)
+    all_values = {str(row.get("code")): float(row.get(field) or 0) for row in current_source_rows}
+
+    def branch_has_value(code):
+        if abs(all_values.get(code, 0)) > 0.000001 or abs(comparison_values.get(code, 0)) > 0.000001:
+            return True
+        return any(branch_has_value(child) for child in children_by_parent.get(code, []))
+
+    rows = []
+    for row in current_source_rows:
+        code = str(row.get("code") or "")
+        level = int(row.get("level") or 0)
+        current = float(row.get(field) or 0)
+        compared = comparison_values.get(code, 0.0)
+        if level > max_level or (not include_zero and not branch_has_value(code)):
+            continue
+        variance = current - compared if comparison_period else 0.0
+        variance_percent = (variance / abs(compared) * 100) if comparison_period and abs(compared) > 0.000001 else None
+        rows.append({
+            "code": code,
+            "name": text(row.get("name")),
+            "level": level,
+            "parentCode": parent_codes.get(code, ""),
+            "hasChildren": bool(children_by_parent.get(code)),
+            "isAuxiliary": bool(row.get("isAuxiliary")),
+            "amount": round(current, 2),
+            "comparisonAmount": round(compared, 2) if comparison_period else None,
+            "variance": round(variance, 2) if comparison_period else None,
+            "variancePercent": round(variance_percent, 2) if variance_percent is not None else None,
+        })
+    returned_parents = {row["parentCode"] for row in rows if row.get("parentCode")}
+    for row in rows:
+        row["hasChildren"] = row["code"] in returned_parents
+
+    current_values = {str(row.get("code")): float(row.get(field) or 0) for row in current_source_rows}
+    compared_values = {str(row.get("code")): float(row.get(field) or 0) for row in comparison_source_rows}
+    def value(values, code):
+        return round(float(values.get(code, 0)), 2)
+
+    if report == "balance":
+        assets, liabilities, equity = value(current_values, "1"), value(current_values, "2"), value(current_values, "3")
+        totals = {
+            "assets": assets,
+            "liabilities": liabilities,
+            "equity": equity,
+            "balanceDifference": round(assets - liabilities - equity, 2),
+        }
+        compared_totals = {
+            "assets": value(compared_values, "1"),
+            "liabilities": value(compared_values, "2"),
+            "equity": value(compared_values, "3"),
+        } if comparison_period else None
+    else:
+        revenue = value(current_values, "5")
+        costs = value(current_values, "41")
+        expenses = value(current_values, "42")
+        total_debits = value(current_values, "4")
+        gross_profit = round(revenue - costs, 2)
+        operating_profit = round(gross_profit - expenses, 2)
+        net_profit = round(revenue - total_debits, 2)
+        totals = {
+            "revenue": revenue,
+            "costs": costs,
+            "grossProfit": gross_profit,
+            "operatingExpenses": expenses,
+            "operatingProfit": operating_profit,
+            "netProfit": net_profit,
+        }
+        compared_totals = None
+
+    monthly_breakdown = []
+    if monthly_detail:
+        year_months = [f"{year}-{month:02d}" for month in range(1, 13)]
+        by_month = {period: {str(row.get("code")): float((row.get("periodAmount") if report == "income" else row.get("amount")) or 0) for row in rows_for(period)} for period in year_months}
+        for row in rows:
+            values = [round(by_month[period].get(row["code"], 0), 2) for period in year_months]
+            monthly_breakdown.append({**row, "months": values, "annualAmount": row["amount"]})
+
+    return {
+        "report": report,
+        "period": {"type": period_type, "year": int(year), "month": int(selected_period[5:]), "key": selected_period},
+        "comparison": {"type": comparison, "period": comparison_period or None},
+        "detail": detail,
+        "includeZero": include_zero,
+        "monthlyDetail": monthly_detail,
+        "currency": source.get("source", {}).get("currency", "USD"),
+        "source": source.get("source", {}),
+        "availablePeriods": periods,
+        "availableYears": [int(item) for item in available_years],
+        "monthsByYear": {item: [int(period[5:]) for period in periods if period.startswith(item + "-")] for item in available_years},
+        "rows": rows,
+        "monthlyBreakdown": monthly_breakdown,
+        "totals": totals,
+        "comparisonTotals": compared_totals,
+        "strategy": "Los totales se toman de cuentas consolidadas de nivel superior; nunca se suman simultáneamente cuentas padre e hijas.",
+    }
+
+
 class AppHandler(BaseHTTPRequestHandler):
     def training_access_token(self, issued_at):
         signature = hmac.new(
@@ -7830,13 +8005,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             } for row in rows])
             return
 
-        if self.path == "/api/financial-statements":
+        if urlparse(self.path).path == "/api/financial-statements":
             if not self.require_permission("financiera:estados-financieros"):
                 return
             try:
-                payload = json.loads(FINANCIAL_STATEMENTS_SEED_PATH.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as error:
-                self.send_json({"error": f"No se pudo cargar el catálogo financiero: {error}"}, 500)
+                payload = build_financial_statement_report(parse_qs(urlparse(self.path).query))
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                self.send_json({"error": f"No se pudo generar el estado financiero: {error}"}, 500)
                 return
             self.send_json(payload)
             return

@@ -313,14 +313,20 @@ const state = {
   financialIncome: [],
   financialIncomeLoaded: false,
   financialIncomeLoading: false,
-  financialStatements: { periods: [], balance: [], income: [], source: {} },
+  financialStatements: { rows: [], totals: {}, availablePeriods: [], availableYears: [], monthsByYear: {} },
   financialStatementsLoaded: false,
   financialStatementsLoading: false,
   financialStatementsError: "",
   financialStatementView: "balance",
-  financialStatementFrom: "",
-  financialStatementTo: "",
-  financialStatementShowAuxiliaries: false,
+  financialStatementPeriodType: "monthly",
+  financialStatementYear: 0,
+  financialStatementMonth: 0,
+  financialStatementComparison: "none",
+  financialStatementDetail: "intermediate",
+  financialStatementIncludeZero: false,
+  financialStatementMonthlyDetail: false,
+  financialStatementCollapsed: new Set(),
+  financialStatementFiltersHydrated: false,
   commercialAgenda: [],
   commercialAgendaLoaded: false,
   commercialAgendaQuery: "",
@@ -13179,6 +13185,7 @@ function wireSampleCustodyModule() {
 }
 
 const financialStatementMonthFormatter = new Intl.DateTimeFormat("es-SV", { month: "long", year: "numeric", timeZone: "UTC" });
+const financialStatementShortMonthFormatter = new Intl.DateTimeFormat("es-SV", { month: "short", timeZone: "UTC" });
 
 function financialStatementPeriodLabel(period) {
   if (!/^\d{4}-\d{2}$/.test(period || "")) return "—";
@@ -13186,143 +13193,268 @@ function financialStatementPeriodLabel(period) {
   return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
 }
 
-function financialStatementPeriodsInRange() {
-  const periods = state.financialStatements.periods || [];
-  const from = state.financialStatementFrom || periods.at(-1) || "";
-  const to = state.financialStatementTo || periods.at(-1) || "";
-  return periods.filter((period) => period >= from && period <= to);
+function formatFinancialMoney(value) {
+  return `$ ${Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function financialStatementRows(kind, period) {
-  return (state.financialStatements[kind] || []).filter((row) => row.period === period);
+function hydrateFinancialStatementFilters() {
+  if (state.financialStatementFiltersHydrated) return;
+  const params = new URLSearchParams(location.search);
+  const report = params.get("fsReport");
+  const period = params.get("fsPeriod");
+  const comparison = params.get("fsCompare");
+  const detail = params.get("fsDetail");
+  if (["balance", "income"].includes(report)) state.financialStatementView = report;
+  if (["monthly", "annual"].includes(period)) state.financialStatementPeriodType = period;
+  if (["none", "previous-month", "year-ago", "previous-year"].includes(comparison)) state.financialStatementComparison = comparison;
+  if (["summary", "intermediate", "detailed"].includes(detail)) state.financialStatementDetail = detail;
+  state.financialStatementYear = Number(params.get("fsYear")) || 0;
+  state.financialStatementMonth = Number(params.get("fsMonth")) || 0;
+  state.financialStatementIncludeZero = params.get("fsZero") === "1";
+  state.financialStatementMonthlyDetail = params.get("fsMonths") === "1";
+  state.financialStatementFiltersHydrated = true;
 }
 
-function financialStatementValue(rows, code, field = "amount") {
-  return Number(rows.find((row) => String(row.code) === String(code))?.[field] || 0);
+function syncFinancialStatementFilters() {
+  const params = new URLSearchParams(location.search);
+  const values = {
+    fsReport: state.financialStatementView,
+    fsPeriod: state.financialStatementPeriodType,
+    fsYear: state.financialStatementYear || "",
+    fsMonth: state.financialStatementPeriodType === "monthly" ? state.financialStatementMonth || "" : "",
+    fsCompare: state.financialStatementComparison,
+    fsDetail: state.financialStatementDetail,
+    fsZero: state.financialStatementIncludeZero ? "1" : "",
+    fsMonths: state.financialStatementMonthlyDetail ? "1" : "",
+  };
+  Object.entries(values).forEach(([key, value]) => value === "" || value === "none" ? params.delete(key) : params.set(key, value));
+  history.replaceState(null, "", `${location.pathname}${params.size ? `?${params}` : ""}${location.hash}`);
 }
 
-function financialStatementRangeIncomeRows() {
-  const selected = new Set(financialStatementPeriodsInRange());
-  const map = new Map();
-  (state.financialStatements.income || []).forEach((row) => {
-    if (!selected.has(row.period)) return;
-    const current = map.get(row.code) || { ...row, periodAmount: 0, accumulatedAmount: 0 };
-    current.periodAmount += Number(row.periodAmount || 0);
-    current.accumulatedAmount = Number(row.accumulatedAmount || 0);
-    map.set(row.code, current);
-  });
-  return [...map.values()];
-}
-
-function financialStatementSummary() {
-  const periods = state.financialStatements.periods || [];
-  const closePeriod = state.financialStatementTo || periods.at(-1) || "";
-  const selectedIndex = periods.indexOf(state.financialStatementFrom || closePeriod);
-  const openingPeriod = selectedIndex > 0 ? periods[selectedIndex - 1] : (state.financialStatementFrom || closePeriod);
-  const closeRows = financialStatementRows("balance", closePeriod);
-  const openingRows = financialStatementRows("balance", openingPeriod);
-  const incomeRows = financialStatementRangeIncomeRows();
-  const assets = financialStatementValue(closeRows, "1");
-  const liabilities = financialStatementValue(closeRows, "2");
-  const equity = financialStatementValue(closeRows, "3");
-  const currentAssets = financialStatementValue(closeRows, "11");
-  const currentLiabilities = financialStatementValue(closeRows, "21");
-  const revenue = financialStatementValue(incomeRows, "5", "periodAmount");
-  const costs = financialStatementValue(incomeRows, "41", "periodAmount");
-  const operatingExpenses = financialStatementValue(incomeRows, "42", "periodAmount");
-  const totalDebits = financialStatementValue(incomeRows, "4", "periodAmount");
-  const grossProfit = revenue - costs;
-  const operatingProfit = grossProfit - operatingExpenses;
-  const netProfit = revenue - totalDebits;
-  return { closePeriod, openingPeriod, closeRows, openingRows, incomeRows, assets, liabilities, equity,
-    difference: assets - liabilities - equity,
-    currentRatio: currentLiabilities ? currentAssets / currentLiabilities : null,
-    debtRatio: assets ? liabilities / assets : null,
-    revenue, costs, operatingExpenses, grossProfit, operatingProfit, netProfit,
-    grossMargin: revenue ? grossProfit / revenue : null, netMargin: revenue ? netProfit / revenue : null };
+function financialStatementQuery(overrides = {}) {
+  const settings = {
+    report: state.financialStatementView,
+    period: state.financialStatementPeriodType,
+    year: state.financialStatementYear || "",
+    month: state.financialStatementMonth || "",
+    comparison: state.financialStatementComparison,
+    detail: state.financialStatementDetail,
+    includeZero: state.financialStatementIncludeZero ? "1" : "0",
+    monthlyDetail: state.financialStatementMonthlyDetail ? "1" : "0",
+    ...overrides,
+  };
+  const query = new URLSearchParams();
+  Object.entries(settings).forEach(([key, value]) => { if (value !== "") query.set(key, value); });
+  return query.toString();
 }
 
 function financialStatementPercent(value) {
-  return Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "—";
+  return Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "—";
 }
 
-function financialStatementAccountRows(summary) {
-  const showAuxiliary = state.financialStatementShowAuxiliaries;
-  if (state.financialStatementView === "balance") {
-    const opening = new Map(summary.openingRows.map((row) => [row.code, Number(row.amount || 0)]));
-    return summary.closeRows.filter((row) => showAuxiliary || !row.isAuxiliary).map((row) => {
-      const start = opening.get(row.code) || 0;
-      const close = Number(row.amount || 0);
-      return { ...row, start, close, variance: close - start };
-    });
-  }
-  return summary.incomeRows.filter((row) => showAuxiliary || !row.isAuxiliary);
+function financialStatementVisibleRows(payload = state.financialStatements) {
+  const rows = payload.rows || [];
+  const byCode = new Map(rows.map((row) => [row.code, row]));
+  return rows.filter((row) => {
+    let parent = row.parentCode;
+    while (parent) {
+      if (state.financialStatementCollapsed.has(parent)) return false;
+      parent = byCode.get(parent)?.parentCode || "";
+    }
+    return true;
+  });
+}
+
+function financialStatementPeriodHeading(payload = state.financialStatements) {
+  const period = payload.period || {};
+  if (period.type === "annual") return `Año ${period.year}`;
+  return financialStatementPeriodLabel(period.key);
+}
+
+function financialStatementComparisonLabel(payload = state.financialStatements) {
+  const key = payload.comparison?.period;
+  if (!key) return "";
+  return payload.period?.type === "annual" ? `Año ${String(key).slice(0, 4)}` : financialStatementPeriodLabel(key);
+}
+
+function financialStatementLastDay(period) {
+  if (!/^\d{4}-\d{2}$/.test(period || "")) return "—";
+  const [year, month] = period.split("-").map(Number);
+  return new Date(Date.UTC(year, month, 0)).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+}
+
+function financialStatementReportSubtitle(payload = state.financialStatements) {
+  const key = payload.period?.key;
+  if (payload.report === "balance") return `Al ${financialStatementLastDay(key)}`;
+  if (payload.period?.type === "annual") return `Del 01/01/${payload.period.year} al ${financialStatementLastDay(key)}`;
+  return `Del 01/${String(payload.period?.month || 1).padStart(2, "0")}/${payload.period?.year} al ${financialStatementLastDay(key)}`;
+}
+
+function renderFinancialStatementRows(payload, printable = false) {
+  const comparison = Boolean(payload.comparison?.period);
+  return financialStatementVisibleRows(payload).map((row) => {
+    const varianceClass = Number(row.variance || 0) < 0 ? "negative" : Number(row.variance || 0) > 0 ? "positive" : "";
+    const toggle = row.hasChildren
+      ? `<button class="financial-tree-toggle" data-financial-collapse="${escapeHtml(row.code)}" aria-label="${state.financialStatementCollapsed.has(row.code) ? "Expandir" : "Contraer"} ${escapeHtml(row.name)}">${state.financialStatementCollapsed.has(row.code) ? "+" : "−"}</button>`
+      : `<span class="financial-tree-spacer"></span>`;
+    return `<tr class="level-${row.level}${row.level <= 1 ? " total" : ""}">
+      <td>${escapeHtml(row.code)}</td>
+      <td class="account-name" style="--account-level:${Math.max(0, row.level)}">${printable ? "" : toggle}<button data-financial-account="${escapeHtml(row.code)}">${escapeHtml(row.name)}</button></td>
+      <td class="money"><button data-financial-account="${escapeHtml(row.code)}">${formatFinancialMoney(row.amount)}</button></td>
+      ${comparison ? `<td class="money">${formatFinancialMoney(row.comparisonAmount)}</td><td class="money ${varianceClass}">${Number(row.variance || 0) > 0 ? "+" : ""}${formatFinancialMoney(row.variance)}</td><td class="money ${varianceClass}">${financialStatementPercent(row.variancePercent)}</td>` : ""}
+    </tr>`;
+  }).join("");
+}
+
+function renderFinancialMonthlyBreakdown(payload) {
+  const rows = payload.monthlyBreakdown || [];
+  if (!rows.length) return "";
+  const monthHeads = Array.from({ length: 12 }, (_, index) => financialStatementShortMonthFormatter.format(new Date(Date.UTC(2026, index, 1))).replace(".", ""));
+  return `<section class="financial-monthly-matrix"><h3>Detalle mensual · ${payload.period.year}</h3><div><table><thead><tr><th>Cuenta</th>${monthHeads.map((month) => `<th>${month}</th>`).join("")}<th>Total</th></tr></thead><tbody>${rows.map((row) => `<tr class="level-${row.level}"><td>${escapeHtml(row.code)} · ${escapeHtml(row.name)}</td>${row.months.map((value) => `<td class="money">${formatFinancialMoney(value)}</td>`).join("")}<td class="money"><strong>${formatFinancialMoney(row.annualAmount)}</strong></td></tr>`).join("")}</tbody></table></div></section>`;
 }
 
 function renderFinancialStatements() {
-  if (state.financialStatementsLoading) return `<section class="financial-statements-loading"><span></span><strong>Cargando catálogo contable…</strong></section>`;
+  if (state.financialStatementsLoading) return `<section class="financial-statements-loading"><span></span><strong>Calculando estados financieros…</strong></section>`;
   if (state.financialStatementsError) return `<section class="financial-statements-error"><strong>No fue posible cargar los estados financieros.</strong><p>${escapeHtml(state.financialStatementsError)}</p><button class="secondary-btn" data-financial-retry>Reintentar</button></section>`;
-  const periods = state.financialStatements.periods || [];
-  if (!state.financialStatementsLoaded || !periods.length) return `<section class="financial-statements-loading"><span></span><strong>Preparando estados financieros…</strong></section>`;
-  const summary = financialStatementSummary();
-  const rows = financialStatementAccountRows(summary);
+  const payload = state.financialStatements;
+  if (!state.financialStatementsLoaded || !payload.availablePeriods?.length) return `<section class="financial-statements-loading"><span></span><strong>Preparando estados financieros…</strong></section>`;
   const isBalance = state.financialStatementView === "balance";
-  const reconciled = Math.abs(summary.difference) <= 0.05;
-  const rangeLabel = `${financialStatementPeriodLabel(state.financialStatementFrom)} — ${financialStatementPeriodLabel(state.financialStatementTo)}`;
+  const totals = payload.totals || {};
+  const reconciled = Math.abs(Number(totals.balanceDifference || 0)) <= 0.05;
   const cards = isBalance
-    ? [["Activo", summary.assets, "Recursos controlados"], ["Pasivo", summary.liabilities, financialStatementPercent(summary.debtRatio) + " del activo"], ["Patrimonio", summary.equity, "Capital contable"], ["Razón corriente", summary.currentRatio, "Activo corriente / Pasivo corriente"]]
-    : [["Ingresos", summary.revenue, "Ventas y otros ingresos"], ["Utilidad bruta", summary.grossProfit, financialStatementPercent(summary.grossMargin) + " margen bruto"], ["Utilidad operativa", summary.operatingProfit, "Después de gastos operativos"], ["Resultado neto", summary.netProfit, financialStatementPercent(summary.netMargin) + " margen neto"]];
-  const cardHtml = cards.map(([label, value, note], index) => `<article><span>${label}</span><strong>${isBalance && index === 3 ? (value == null ? "—" : Number(value).toFixed(2)) : formatMoney(value)}</strong><small>${note}</small></article>`).join("");
-  const body = rows.map((row) => {
-    const totalClass = row.level === 0 || row.code === "UTILIDAD_BRUTA" || row.code === "UTILIDAD_NETA" ? " total" : "";
-    if (isBalance) return `<tr class="level-${row.level}${totalClass}"><td>${escapeHtml(row.code)}</td><td style="--account-level:${row.level}">${escapeHtml(row.name)}</td><td class="money">${formatMoney(row.start)}</td><td class="money">${formatMoney(row.close)}</td><td class="money ${row.variance < 0 ? "negative" : "positive"}">${row.variance > 0 ? "+" : ""}${formatMoney(row.variance)}</td></tr>`;
-    const share = summary.revenue ? Number(row.periodAmount || 0) / summary.revenue : null;
-    return `<tr class="level-${row.level}${totalClass}"><td>${escapeHtml(row.code)}</td><td style="--account-level:${row.level}">${escapeHtml(row.name)}</td><td class="money">${formatMoney(row.periodAmount)}</td><td class="money">${financialStatementPercent(share)}</td></tr>`;
-  }).join("");
+    ? [["Activo", totals.assets], ["Pasivo", totals.liabilities], ["Patrimonio", totals.equity], ["Diferencia", totals.balanceDifference]]
+    : [["Ingresos", totals.revenue], ["Costos", totals.costs], ["Utilidad bruta", totals.grossProfit], ["Gastos operativos", totals.operatingExpenses], ["Utilidad operativa", totals.operatingProfit], ["Resultado neto", totals.netProfit]];
+  const years = payload.availableYears || [];
+  const months = payload.monthsByYear?.[String(state.financialStatementYear)] || [];
+  const comparisonOptions = state.financialStatementPeriodType === "annual"
+    ? [["none", "Sin comparar"], ["previous-year", "Año anterior"]]
+    : [["none", "Sin comparar"], ["previous-month", "Mes anterior"], ["year-ago", "Mismo mes, año anterior"]];
+  const comparison = Boolean(payload.comparison?.period);
+  const body = renderFinancialStatementRows(payload);
   return `<section class="financial-statements-module">
-    <header class="financial-statements-toolbar"><div class="financial-statement-tabs"><button class="${isBalance ? "active" : ""}" data-financial-view="balance">Balance general</button><button class="${!isBalance ? "active" : ""}" data-financial-view="income">Estado de resultados</button></div><div class="financial-statement-actions"><button class="secondary-btn" data-financial-report>▤ Generar reporte</button></div></header>
-    <div class="financial-statement-filters"><label>Desde<input type="month" min="${periods[0]}" max="${periods.at(-1)}" value="${state.financialStatementFrom}" data-financial-from></label><label>Hasta<input type="month" min="${periods[0]}" max="${periods.at(-1)}" value="${state.financialStatementTo}" data-financial-to></label><button data-financial-range="latest">Último mes</button><button data-financial-range="year">Año actual</button><button data-financial-range="all">Histórico</button><label class="auxiliary-toggle"><input type="checkbox" ${state.financialStatementShowAuxiliaries ? "checked" : ""} data-financial-auxiliary> Mostrar subcuentas auxiliares</label></div>
-    <div class="financial-statement-heading"><div><span>${isBalance ? "Situación financiera" : "Desempeño financiero"}</span><h2>${isBalance ? `Al ${financialStatementPeriodLabel(summary.closePeriod)}` : rangeLabel}</h2></div><small>Fuente: ${escapeHtml(state.financialStatements.source?.file || "Catálogo contable")}</small></div>
-    <div class="financial-statement-cards">${cardHtml}</div>
-    ${isBalance ? `<div class="financial-reconciliation ${reconciled ? "ok" : "alert"}"><strong>${reconciled ? "✓ Balance conciliado" : "⚠ Diferencia contable"}</strong><span>Activo − Pasivo − Patrimonio: ${formatMoney(summary.difference)}</span></div>` : ""}
-    <div class="financial-statement-table-wrap"><table><thead><tr><th>Código</th><th>Cuenta</th>${isBalance ? `<th>${financialStatementPeriodLabel(summary.openingPeriod)}</th><th>${financialStatementPeriodLabel(summary.closePeriod)}</th><th>Variación</th>` : `<th>Período</th><th>% ingresos</th>`}</tr></thead><tbody>${body}</tbody></table></div>
+    <header class="financial-statements-toolbar">
+      <div class="financial-statement-tabs"><button class="${isBalance ? "active" : ""}" data-financial-view="balance">Balance general</button><button class="${!isBalance ? "active" : ""}" data-financial-view="income">Estado de resultados</button></div>
+      <div class="financial-statement-actions"><button title="Actualizar" data-financial-refresh>↻</button><button data-financial-excel>Excel</button><button data-financial-pdf>PDF</button><button class="primary" data-financial-print>Imprimir</button></div>
+    </header>
+    <div class="financial-statement-filters">
+      <label>Período<select data-financial-period><option value="monthly" ${state.financialStatementPeriodType === "monthly" ? "selected" : ""}>Mensual</option><option value="annual" ${state.financialStatementPeriodType === "annual" ? "selected" : ""}>Anual</option></select></label>
+      <button class="financial-period-step" data-financial-step="-1" aria-label="Período anterior">‹</button>
+      <label>Año<select data-financial-year>${years.map((year) => `<option ${year === state.financialStatementYear ? "selected" : ""}>${year}</option>`).join("")}</select></label>
+      ${state.financialStatementPeriodType === "monthly" ? `<label>Mes<select data-financial-month>${months.map((month) => { const label = financialStatementShortMonthFormatter.format(new Date(Date.UTC(2026, month - 1, 1))).replace(".", ""); return `<option value="${month}" ${month === state.financialStatementMonth ? "selected" : ""}>${label.charAt(0).toUpperCase() + label.slice(1)}</option>`; }).join("")}</select></label>` : ""}
+      <button class="financial-period-step" data-financial-step="1" aria-label="Período siguiente">›</button>
+      <label>Comparar<select data-financial-comparison>${comparisonOptions.map(([value, label]) => `<option value="${value}" ${value === state.financialStatementComparison ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+      <label>Nivel<select data-financial-detail><option value="summary" ${state.financialStatementDetail === "summary" ? "selected" : ""}>Resumen</option><option value="intermediate" ${state.financialStatementDetail === "intermediate" ? "selected" : ""}>Intermedio</option><option value="detailed" ${state.financialStatementDetail === "detailed" ? "selected" : ""}>Detallado</option></select></label>
+      <label class="financial-check"><input type="checkbox" ${state.financialStatementIncludeZero ? "checked" : ""} data-financial-zero> Mostrar ceros</label>
+      ${state.financialStatementPeriodType === "annual" ? `<label class="financial-check"><input type="checkbox" ${state.financialStatementMonthlyDetail ? "checked" : ""} data-financial-monthly-detail> Desglose mensual</label>` : ""}
+    </div>
+    <div class="financial-statement-context"><div><small>${isBalance ? "Situación financiera" : "Desempeño financiero"}</small><h2>${financialStatementPeriodHeading(payload)}</h2></div><span>${escapeHtml(payload.currency || "USD")} · ${payload.rows.length} cuentas</span></div>
+    <div class="financial-statement-cards">${cards.map(([label, value]) => `<article><span>${label}</span><strong>${formatFinancialMoney(value)}</strong></article>`).join("")}</div>
+    ${isBalance ? `<div class="financial-reconciliation ${reconciled ? "ok" : "alert"}"><strong>${reconciled ? "✓ Ecuación contable conciliada" : "⚠ Balance no conciliado"}</strong><span>Activo − Pasivo − Patrimonio: ${formatFinancialMoney(totals.balanceDifference)}</span></div>` : ""}
+    <div class="financial-statement-table-wrap"><table><thead><tr><th>Código</th><th>Cuenta</th><th>${financialStatementPeriodHeading(payload)}</th>${comparison ? `<th>${financialStatementComparisonLabel(payload)}</th><th>Variación $</th><th>Variación %</th>` : ""}</tr></thead><tbody>${body || `<tr><td colspan="${comparison ? 6 : 3}" class="financial-empty">No hay cuentas con saldo para este período.</td></tr>`}</tbody></table></div>
+    ${state.financialStatementPeriodType === "annual" && state.financialStatementMonthlyDetail ? renderFinancialMonthlyBreakdown(payload) : ""}
+    <p class="financial-strategy">${escapeHtml(payload.strategy || "")}</p>
   </section>`;
 }
 
 function printFinancialStatementReport() {
-  const summary = financialStatementSummary();
+  const payload = state.financialStatements;
   const isBalance = state.financialStatementView === "balance";
-  const rows = financialStatementAccountRows(summary);
   const popup = window.open("", "_blank", "width=1100,height=800");
   if (!popup) return alert("Permita ventanas emergentes para generar el reporte.");
-  const body = rows.map((row) => isBalance
-    ? `<tr><td>${escapeHtml(row.code)}</td><td style="padding-left:${12 + row.level * 14}px">${escapeHtml(row.name)}</td><td>${formatMoney(row.start)}</td><td>${formatMoney(row.close)}</td><td>${formatMoney(row.variance)}</td></tr>`
-    : `<tr><td>${escapeHtml(row.code)}</td><td style="padding-left:${12 + row.level * 14}px">${escapeHtml(row.name)}</td><td>${formatMoney(row.periodAmount)}</td><td>${financialStatementPercent(summary.revenue ? row.periodAmount / summary.revenue : null)}</td></tr>`).join("");
-  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${isBalance ? "Balance general" : "Estado de resultados"}</title><style>@page{size:A4 landscape;margin:12mm}body{font:12px Arial;color:#152238}header{display:flex;justify-content:space-between;border-bottom:3px solid #159b82;margin-bottom:18px}h1{margin:0 0 4px}small{color:#607089}table{width:100%;border-collapse:collapse}th{background:#e8f0f6;text-align:left}th,td{padding:7px;border:1px solid #c9d5e2}td:nth-last-child(-n+3),th:nth-last-child(-n+3){text-align:right}footer{margin-top:12px;display:flex;justify-content:space-between}.check{font-weight:700;color:${Math.abs(summary.difference)<=0.05 ? "#087f69" : "#c2414d"}}</style></head><body><header><div><h1>${isBalance ? "Balance general" : "Estado de resultados"}</h1><p>${isBalance ? `Al ${financialStatementPeriodLabel(summary.closePeriod)}` : `${financialStatementPeriodLabel(state.financialStatementFrom)} — ${financialStatementPeriodLabel(state.financialStatementTo)}`}</p></div><div><strong>KONFI · Sistema Gerencial</strong><p>Moneda: USD</p></div></header><table><thead><tr><th>Código</th><th>Cuenta</th>${isBalance ? "<th>Inicio</th><th>Cierre</th><th>Variación</th>" : "<th>Período</th><th>% ingresos</th>"}</tr></thead><tbody>${body}</tbody></table><footer><span>Generado ${new Date().toLocaleString("es-SV")}</span>${isBalance ? `<span class="check">Diferencia: ${formatMoney(summary.difference)}</span>` : `<span>Resultado neto: ${formatMoney(summary.netProfit)}</span>`}</footer></body></html>`);
+  const comparison = Boolean(payload.comparison?.period);
+  const body = renderFinancialStatementRows(payload, true);
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${isBalance ? "Balance general" : "Estado de resultados"}</title><style>@page{size:A4 landscape;margin:12mm}body{font:12px Arial;color:#152238}header{display:flex;justify-content:space-between;border-bottom:3px solid #159b82;margin-bottom:18px}h1{margin:0 0 4px}small{color:#607089}table{width:100%;border-collapse:collapse}th{background:#e8f0f6;text-align:left}th,td{padding:7px;border:1px solid #c9d5e2}.money{text-align:right}.account-name{padding-left:calc(8px + var(--account-level)*12px)}button{all:unset}.positive{color:#087f69}.negative{color:#c2414d}footer{margin-top:12px;display:flex;justify-content:space-between}</style></head><body><header><div><strong>KONFI</strong><h1>${isBalance ? "Balance general" : "Estado de resultados"}</h1><p>${financialStatementReportSubtitle(payload)}</p></div><div><strong>Moneda: ${escapeHtml(payload.currency || "USD")}</strong><p>Generado ${new Date().toLocaleString("es-SV")}</p></div></header><table><thead><tr><th>Código</th><th>Cuenta</th><th>${financialStatementPeriodHeading(payload)}</th>${comparison ? `<th>${financialStatementComparisonLabel(payload)}</th><th>Variación $</th><th>Variación %</th>` : ""}</tr></thead><tbody>${body}</tbody></table><footer><span>${escapeHtml(payload.strategy || "")}</span>${isBalance ? `<strong>Diferencia: ${formatFinancialMoney(payload.totals?.balanceDifference)}</strong>` : `<strong>Resultado neto: ${formatFinancialMoney(payload.totals?.netProfit)}</strong>`}</footer></body></html>`);
   popup.document.close();
   setTimeout(() => { popup.focus(); popup.print(); }, 250);
 }
 
+function exportFinancialStatementExcel() {
+  const payload = state.financialStatements;
+  const comparison = Boolean(payload.comparison?.period);
+  const headers = ["Código", "Cuenta", financialStatementPeriodHeading(payload), ...(comparison ? [financialStatementComparisonLabel(payload), "Variación $", "Variación %"] : [])];
+  const rows = financialStatementVisibleRows(payload).map((row) => [row.code, `${"  ".repeat(row.level)}${row.name}`, row.amount, ...(comparison ? [row.comparisonAmount, row.variance, row.variancePercent == null ? "" : `${row.variancePercent}%`] : [])]);
+  const html = `<html><head><meta charset="utf-8"></head><body><table><tr><th colspan="${headers.length}">KONFI · ${payload.report === "balance" ? "Balance general" : "Estado de resultados"} · ${financialStatementReportSubtitle(payload)}</th></tr><tr>${headers.map((item) => `<th>${escapeHtml(item)}</th>`).join("")}</tr>${rows.map((row) => `<tr>${row.map((item) => `<td>${escapeHtml(String(item ?? ""))}</td>`).join("")}</tr>`).join("")}</table></body></html>`;
+  const url = URL.createObjectURL(new Blob(["\ufeff", html], { type: "application/vnd.ms-excel" }));
+  const link = Object.assign(document.createElement("a"), { href: url, download: `${payload.report === "balance" ? "balance-general" : "estado-resultados"}-${payload.period.key}.xls` });
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function openFinancialAccountDrilldown(code) {
+  try {
+    const payload = await apiJson(`/api/financial-statements?${financialStatementQuery({ detail: "detailed" })}`);
+    const root = payload.rows.find((row) => row.code === code);
+    if (!root) return;
+    const rows = payload.rows.filter((row) => row.code === code || row.code.startsWith(code) && row.level > root.level);
+    let dialog = document.querySelector("#financialAccountDialog");
+    if (!dialog) {
+      dialog = document.createElement("dialog");
+      dialog.id = "financialAccountDialog";
+      dialog.className = "financial-account-dialog";
+      document.body.append(dialog);
+    }
+    dialog.innerHTML = `<form method="dialog"><button class="dialog-close" aria-label="Cerrar">×</button><small>Detalle de cuenta</small><h2>${escapeHtml(root.code)} · ${escapeHtml(root.name)}</h2><p>${financialStatementPeriodHeading(payload)} · ${formatFinancialMoney(root.amount)}</p><div><table><thead><tr><th>Código</th><th>Subcuenta</th><th>Saldo</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${escapeHtml(row.code)}</td><td style="padding-left:${10 + Math.max(0, row.level - root.level) * 14}px">${escapeHtml(row.name)}</td><td>${formatFinancialMoney(row.amount)}</td></tr>`).join("")}</tbody></table></div><p class="financial-drilldown-note">La fuente actual contiene saldos por cuenta. El detalle de movimientos se habilitará cuando exista un libro mayor vinculado; no se generan movimientos ficticios.</p></form>`;
+    dialog.showModal();
+  } catch (error) { alert(`No fue posible abrir el detalle: ${error.message || "Error de lectura"}`); }
+}
+
+function stepFinancialStatementPeriod(direction) {
+  const periods = state.financialStatements.availablePeriods || [];
+  if (state.financialStatementPeriodType === "annual") {
+    const years = state.financialStatements.availableYears || [];
+    const index = years.indexOf(state.financialStatementYear);
+    state.financialStatementYear = years[Math.max(0, Math.min(years.length - 1, index + direction))] || state.financialStatementYear;
+  } else {
+    const current = `${state.financialStatementYear}-${String(state.financialStatementMonth).padStart(2, "0")}`;
+    const index = periods.indexOf(current);
+    const next = periods[Math.max(0, Math.min(periods.length - 1, index + direction))] || current;
+    [state.financialStatementYear, state.financialStatementMonth] = next.split("-").map(Number);
+  }
+  reloadFinancialStatements();
+}
+
+function reloadFinancialStatements() {
+  state.financialStatementsLoaded = false;
+  state.financialStatementCollapsed.clear();
+  opportunityTable.scrollTop = 0;
+  opportunityTable.scrollLeft = 0;
+  syncFinancialStatementFilters();
+  loadFinancialStatements();
+}
+
 function wireFinancialStatements() {
-  opportunityTable.querySelectorAll("[data-financial-view]").forEach((button) => button.addEventListener("click", () => { state.financialStatementView = button.dataset.financialView; renderCommercialSubmenu(areas.financiera); }));
-  opportunityTable.querySelector("[data-financial-from]")?.addEventListener("change", (event) => { state.financialStatementFrom = event.target.value; if (state.financialStatementFrom > state.financialStatementTo) state.financialStatementTo = state.financialStatementFrom; renderCommercialSubmenu(areas.financiera); });
-  opportunityTable.querySelector("[data-financial-to]")?.addEventListener("change", (event) => { state.financialStatementTo = event.target.value; if (state.financialStatementTo < state.financialStatementFrom) state.financialStatementFrom = state.financialStatementTo; renderCommercialSubmenu(areas.financiera); });
-  opportunityTable.querySelectorAll("[data-financial-range]").forEach((button) => button.addEventListener("click", () => { const periods = state.financialStatements.periods || []; const latest = periods.at(-1) || ""; if (button.dataset.financialRange === "latest") state.financialStatementFrom = state.financialStatementTo = latest; else if (button.dataset.financialRange === "year") { state.financialStatementFrom = `${latest.slice(0,4)}-01`; state.financialStatementTo = latest; } else { state.financialStatementFrom = periods[0] || ""; state.financialStatementTo = latest; } renderCommercialSubmenu(areas.financiera); }));
-  opportunityTable.querySelector("[data-financial-auxiliary]")?.addEventListener("change", (event) => { state.financialStatementShowAuxiliaries = event.target.checked; renderCommercialSubmenu(areas.financiera); });
-  opportunityTable.querySelector("[data-financial-report]")?.addEventListener("click", printFinancialStatementReport);
+  opportunityTable.querySelectorAll("[data-financial-view]").forEach((button) => button.addEventListener("click", () => { state.financialStatementView = button.dataset.financialView; reloadFinancialStatements(); }));
+  opportunityTable.querySelector("[data-financial-period]")?.addEventListener("change", (event) => { state.financialStatementPeriodType = event.target.value; state.financialStatementComparison = "none"; reloadFinancialStatements(); });
+  opportunityTable.querySelector("[data-financial-year]")?.addEventListener("change", (event) => { state.financialStatementYear = Number(event.target.value); const months = state.financialStatements.monthsByYear?.[String(state.financialStatementYear)] || []; if (!months.includes(state.financialStatementMonth)) state.financialStatementMonth = months.at(-1) || 1; reloadFinancialStatements(); });
+  opportunityTable.querySelector("[data-financial-month]")?.addEventListener("change", (event) => { state.financialStatementMonth = Number(event.target.value); reloadFinancialStatements(); });
+  opportunityTable.querySelector("[data-financial-comparison]")?.addEventListener("change", (event) => { state.financialStatementComparison = event.target.value; reloadFinancialStatements(); });
+  opportunityTable.querySelector("[data-financial-detail]")?.addEventListener("change", (event) => { state.financialStatementDetail = event.target.value; reloadFinancialStatements(); });
+  opportunityTable.querySelector("[data-financial-zero]")?.addEventListener("change", (event) => { state.financialStatementIncludeZero = event.target.checked; reloadFinancialStatements(); });
+  opportunityTable.querySelector("[data-financial-monthly-detail]")?.addEventListener("change", (event) => { state.financialStatementMonthlyDetail = event.target.checked; reloadFinancialStatements(); });
+  opportunityTable.querySelectorAll("[data-financial-step]").forEach((button) => button.addEventListener("click", () => stepFinancialStatementPeriod(Number(button.dataset.financialStep))));
+  opportunityTable.querySelectorAll("[data-financial-collapse]").forEach((button) => button.addEventListener("click", () => { const code = button.dataset.financialCollapse; state.financialStatementCollapsed.has(code) ? state.financialStatementCollapsed.delete(code) : state.financialStatementCollapsed.add(code); renderCommercialSubmenu(areas.financiera); }));
+  opportunityTable.querySelectorAll("[data-financial-account]").forEach((button) => button.addEventListener("click", () => openFinancialAccountDrilldown(button.dataset.financialAccount)));
+  opportunityTable.querySelector("[data-financial-refresh]")?.addEventListener("click", reloadFinancialStatements);
+  opportunityTable.querySelector("[data-financial-print]")?.addEventListener("click", printFinancialStatementReport);
+  opportunityTable.querySelector("[data-financial-pdf]")?.addEventListener("click", printFinancialStatementReport);
+  opportunityTable.querySelector("[data-financial-excel]")?.addEventListener("click", exportFinancialStatementExcel);
   opportunityTable.querySelector("[data-financial-retry]")?.addEventListener("click", loadFinancialStatements);
 }
 
 function loadFinancialStatements() {
   if (state.financialStatementsLoading) return;
+  hydrateFinancialStatementFilters();
   state.financialStatementsLoading = true;
   state.financialStatementsError = "";
-  apiJson("/api/financial-statements").then((payload) => {
-    state.financialStatements = payload || { periods: [], balance: [], income: [], source: {} };
+  if (state.activeArea === "financiera" && state.activeSubmenu === "estados-financieros") {
+    opportunityTable.innerHTML = renderFinancialStatements();
+  }
+  apiJson(`/api/financial-statements?${financialStatementQuery()}`).then((payload) => {
+    state.financialStatements = payload || { rows: [], totals: {}, availablePeriods: [], availableYears: [], monthsByYear: {} };
     state.financialStatementsLoaded = true;
-    const periods = state.financialStatements.periods || [];
-    state.financialStatementTo ||= periods.at(-1) || "";
-    state.financialStatementFrom ||= state.financialStatementTo;
+    state.financialStatementYear = Number(payload.period?.year || state.financialStatementYear);
+    state.financialStatementMonth = Number(payload.period?.month || state.financialStatementMonth);
+    syncFinancialStatementFilters();
   }).catch((error) => { state.financialStatementsError = error.message || "Error de lectura."; }).finally(() => {
     state.financialStatementsLoading = false;
     if (state.activeArea === "financiera" && state.activeSubmenu === "estados-financieros") renderCommercialSubmenu(areas.financiera);
@@ -13336,6 +13468,12 @@ function renderCommercialSubmenu(area) {
   }
 
   const submenu = area.submenus.find((item) => item.key === state.activeSubmenu) || area.submenus[0];
+  const viewKey = `${state.activeArea}:${submenu.key}`;
+  if (opportunityTable.dataset.viewKey !== viewKey) {
+    opportunityTable.scrollTop = 0;
+    opportunityTable.scrollLeft = 0;
+    opportunityTable.dataset.viewKey = viewKey;
+  }
   commercialPanel.classList.remove("hidden");
   commercialPanel.classList.remove("opportunity-mode");
   commercialPanel.classList.remove("crm-opportunity-tabs");
@@ -13476,6 +13614,7 @@ function renderCommercialSubmenu(area) {
 
   if (state.activeArea === "financiera" && submenu.key === "estados-financieros") {
     commercialPanel.classList.add("financial-statements-mode");
+    commercialSubmenuTitle.classList.add("hidden");
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");

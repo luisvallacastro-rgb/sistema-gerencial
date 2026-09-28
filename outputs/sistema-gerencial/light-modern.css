@@ -1520,3 +1520,31 @@ body.theme-light-active .financial-statement-table-wrap .positive{color:#087d69}
 body.theme-light-active .financial-statement-table-wrap .negative{color:#c84250}
 body.theme-light-active .financial-statement-table-wrap tr.total td{background:#eef6f5;color:#10283d}
 body.theme-light-active .financial-statements-loading,body.theme-light-active .financial-statements-error{color:#526a7f}
+body.theme-light-active .financial-statements-toolbar{border-color:#d4dfe9;background:#f6f9fc}
+body.theme-light-active .financial-statement-filters{border:0;background:transparent}
+
+/* Estados financieros · controles y jerarquía en modo claro */
+body.theme-light-active .financial-statement-actions button{border-color:#c5d4e0;background:#fff;color:#395168}
+body.theme-light-active .financial-statement-actions button.primary{border-color:#0f917b;background:#0f917b;color:#fff}
+body.theme-light-active .financial-statement-filters{border:1px solid #d4dfe9;background:#f6f9fc}
+body.theme-light-active .financial-statement-filters select{border-color:#c7d5e2;background:#fff;color:#17283e;color-scheme:light}
+body.theme-light-active .financial-statement-filters .financial-period-step{border-color:#c6d5e1;background:#fff;color:#087c69}
+body.theme-light-active .financial-statement-context small{color:#087d6a}
+body.theme-light-active .financial-statement-context h2{color:#12243b}
+body.theme-light-active .financial-statement-context>span{color:#65798d}
+body.theme-light-active .financial-tree-toggle{border-color:#b9d5ce!important;background:#e8f7f3!important;color:#087866!important}
+body.theme-light-active .financial-statement-table-wrap td button{color:inherit}
+body.theme-light-active .financial-strategy{color:#64788b}
+body.theme-light-active .financial-monthly-matrix>div{border-color:#cad8e4}
+body.theme-light-active .financial-monthly-matrix h3{color:#15283f}
+body.theme-light-active .financial-monthly-matrix th{background:#e8f0f7;color:#40556b}
+body.theme-light-active .financial-monthly-matrix td{border-color:#dce5ed;background:#fff;color:#344a60}
+body.theme-light-active .financial-account-dialog{border-color:#cbd9e4;background:#fff;color:#17283f;box-shadow:0 32px 80px rgba(24,49,75,.24)}
+body.theme-light-active .financial-account-dialog::backdrop{background:rgba(27,43,60,.42)}
+body.theme-light-active .financial-account-dialog small{color:#087d69}
+body.theme-light-active .financial-account-dialog p{color:#64798d}
+body.theme-light-active .financial-account-dialog .dialog-close{border-color:#cbd9e3;background:#f2f6f9;color:#263c51}
+body.theme-light-active .financial-account-dialog>form>div{border-color:#d4e0e9}
+body.theme-light-active .financial-account-dialog th{background:#e8f0f7;color:#40556b}
+body.theme-light-active .financial-account-dialog td{border-color:#dce5ed;color:#344a60}
+body.theme-light-active .financial-account-dialog .financial-drilldown-note{border-color:#cddce6;background:#f5f9fb;color:#556b7f}

@@ -21663,3 +21663,61 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .financial-statement-table-wrap td{padding:8px 13px;border-top:1px solid #26445d;color:#c5d4df;font-size:12px}.financial-statement-table-wrap td:nth-child(2){padding-left:calc(13px + var(--account-level,0)*18px)}.financial-statement-table-wrap .money{text-align:right;font-variant-numeric:tabular-nums}.financial-statement-table-wrap .positive{color:#62e4c7}.financial-statement-table-wrap .negative{color:#ff9ca6}.financial-statement-table-wrap tr.total td{background:#17364f;color:#fff;font-weight:900}.financial-statement-table-wrap tr.level-0 td{border-top-color:#4a6c86}
 .financial-statements-loading,.financial-statements-error{min-height:340px;display:grid;place-content:center;justify-items:center;gap:12px;text-align:center;color:#aac0d0}.financial-statements-loading span{width:34px;height:34px;border:3px solid #325775;border-top-color:#55e2c5;border-radius:50%;animation:spin .8s linear infinite}
 @media(max-width:1050px){.financial-statement-cards{grid-template-columns:repeat(2,1fr)}.financial-statement-table-wrap{max-height:none}.financial-statement-filters .auxiliary-toggle{margin-left:0}}
+
+/* Estados financieros: densidad ejecutiva */
+.commercial-panel.financial-statements-mode{padding:12px}
+.commercial-panel.financial-statements-mode>.panel-head{display:none}
+.financial-statements-module{gap:8px}
+.financial-statements-toolbar{min-height:46px;padding:5px 7px;border:1px solid #31516b;border-radius:13px;background:#102a41}
+.financial-statement-tabs{flex:0 0 auto;padding:3px;border-radius:10px}
+.financial-statement-tabs button{padding:7px 12px;border-radius:7px;font-size:12px}
+.financial-statement-filters{flex:1;justify-content:flex-end;flex-wrap:nowrap;padding:0;border:0;border-radius:0;background:transparent}
+.financial-statement-filters label:not(.auxiliary-toggle){display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:9px}
+.financial-statement-filters input[type=month]{min-width:138px;padding:7px 9px;border-radius:8px;font-size:11px}
+.financial-statement-filters .auxiliary-toggle{margin-left:3px;white-space:nowrap;font-size:11px;text-transform:none}
+.financial-statement-filters .auxiliary-toggle input{width:16px;height:16px;accent-color:#24b99b}
+.financial-statement-actions .secondary-btn{min-height:34px;padding:7px 11px;font-size:11px}
+.financial-statement-cards{gap:7px}
+.financial-statement-cards article{display:flex;align-items:center;justify-content:space-between;min-height:45px;padding:9px 12px;border-radius:11px}
+.financial-statement-cards article:after{display:none}
+.financial-statement-cards span{font-size:9px}.financial-statement-cards strong{font-size:17px}
+.financial-reconciliation{padding:7px 10px;font-size:10px}
+.financial-statement-table-wrap{max-height:calc(100vh - 280px);min-height:300px;border-radius:12px}
+.financial-statement-table-wrap th{padding:8px 11px}.financial-statement-table-wrap td{padding:6px 11px;font-size:11px}
+@media(max-width:980px){.financial-statements-toolbar{align-items:stretch;flex-wrap:wrap}.financial-statement-filters{order:3;flex-basis:100%;justify-content:flex-start}.financial-statement-cards{grid-template-columns:repeat(2,1fr)}}
+
+/* Estados financieros · reporte jerárquico aislado */
+.financial-statements-module{min-width:680px}
+.financial-statements-toolbar{display:flex;align-items:center;justify-content:space-between}
+.financial-statement-actions{display:flex;align-items:center;gap:6px}
+.financial-statement-actions button{min-height:32px;padding:6px 10px;border:1px solid #3b5e78;border-radius:8px;background:#193851;color:#c7d8e5;font-family:inherit;font-size:11px;font-weight:800;cursor:pointer}
+.financial-statement-actions button.primary{border-color:#20b89a;background:#168b75;color:#fff}
+.financial-statement-filters{display:flex;align-items:end;gap:7px;padding:8px 10px;border:1px solid #31516b;border-radius:12px;background:#102a41}
+.financial-statement-filters label{display:grid!important;gap:3px!important;color:#8fa6b9;font-size:8px!important;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.financial-statement-filters select{height:30px;min-width:92px;padding:4px 25px 4px 8px;border:1px solid #40617c;border-radius:8px;background:#203f5b;color:#eef7ff;font-family:inherit;font-size:10px;font-weight:800;color-scheme:dark}
+.financial-statement-filters label:first-child select,.financial-statement-filters label:nth-of-type(4) select{min-width:126px}
+.financial-statement-filters .financial-check{display:flex!important;align-items:center;gap:6px!important;min-height:30px;white-space:nowrap;text-transform:none;font-size:10px!important;letter-spacing:0}
+.financial-statement-filters .financial-check input{width:15px;height:15px;accent-color:#20b99a}
+.financial-statement-filters .financial-period-step{width:30px;height:30px;padding:0;border:1px solid #3d607b;border-radius:8px;background:#193851;color:#6be7cd;font-size:20px;line-height:1}
+.financial-statement-context{display:flex;align-items:end;justify-content:space-between;padding:1px 3px}
+.financial-statement-context small{color:#62e7cc;font-size:8px;font-weight:900;letter-spacing:.15em;text-transform:uppercase}
+.financial-statement-context h2{margin:2px 0 0;font-size:18px}.financial-statement-context>span{color:#8fa5b7;font-size:10px}
+.financial-statement-cards{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.financial-statement-cards article{min-width:0}.financial-statement-cards strong{font-size:15px;white-space:nowrap}
+.financial-reconciliation span{margin-left:auto}
+.financial-statement-table-wrap{max-height:calc(100vh - 330px)}
+.financial-statement-table-wrap table{table-layout:auto}
+.financial-statement-table-wrap th:first-child,.financial-statement-table-wrap td:first-child{width:85px}
+.financial-statement-table-wrap th:nth-child(n+3),.financial-statement-table-wrap td:nth-child(n+3){white-space:nowrap}
+.financial-statement-table-wrap .account-name{padding-left:calc(8px + var(--account-level,0)*15px)}
+.financial-statement-table-wrap td button{border:0;background:transparent;color:inherit;font:inherit;text-align:inherit;cursor:pointer}
+.financial-statement-table-wrap .money button{font-weight:inherit;font-variant-numeric:tabular-nums}
+.financial-tree-toggle{display:inline-grid!important;place-items:center;width:20px;height:20px;margin-right:5px;border:1px solid #42647e!important;border-radius:6px!important;background:#1b3a55!important;color:#66e4ca!important;font-weight:900!important}
+.financial-tree-spacer{display:inline-block;width:25px}
+.financial-empty{height:120px;text-align:center!important;color:#8ea4b5!important}
+.financial-strategy{margin:0;padding:0 3px;color:#7890a3;font-size:9px}
+.financial-monthly-matrix{display:grid;gap:6px}.financial-monthly-matrix h3{margin:3px 0;font-size:14px}.financial-monthly-matrix>div{overflow:auto;border:1px solid #34546e;border-radius:11px}.financial-monthly-matrix table{width:100%;border-collapse:collapse;min-width:1300px}.financial-monthly-matrix th,.financial-monthly-matrix td{padding:6px 8px;border-right:1px solid #294960;border-bottom:1px solid #294960;font-size:9px}.financial-monthly-matrix th{background:#1c3b59;color:#a9bbca;text-transform:uppercase}.financial-monthly-matrix td{background:#112b42;color:#c4d4df}.financial-monthly-matrix .money{text-align:right;white-space:nowrap}
+.financial-account-dialog{width:min(820px,calc(100vw - 30px));max-height:calc(100vh - 40px);padding:0;border:1px solid #40617b;border-radius:18px;background:#112a42;color:#eef7ff;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.financial-account-dialog::backdrop{background:rgba(2,10,22,.72);backdrop-filter:blur(5px)}
+.financial-account-dialog form{position:relative;display:grid;gap:8px;padding:22px}.financial-account-dialog small{color:#62e7cc;font-weight:900;text-transform:uppercase;letter-spacing:.12em}.financial-account-dialog h2{margin:0;font-size:20px}.financial-account-dialog p{margin:0;color:#9fb1c0}.financial-account-dialog .dialog-close{position:absolute;right:16px;top:16px;width:34px;height:34px;border:1px solid #44647d;border-radius:9px;background:#1b3a54;color:#fff;font-size:22px}.financial-account-dialog>form>div{max-height:50vh;overflow:auto;border:1px solid #34546e;border-radius:11px}.financial-account-dialog table{width:100%;border-collapse:collapse}.financial-account-dialog th,.financial-account-dialog td{padding:8px 10px;border-bottom:1px solid #29475f;text-align:left;font-size:11px}.financial-account-dialog th{position:sticky;top:0;background:#1c3b59;color:#a6b9c8}.financial-account-dialog td:last-child,.financial-account-dialog th:last-child{text-align:right}.financial-account-dialog .financial-drilldown-note{padding:10px;border:1px solid #385871;border-radius:9px;background:#18364f;font-size:10px;line-height:1.4}
+@media(max-width:900px){.financial-statements-module{min-width:620px}.financial-statement-filters{overflow:auto}.financial-statement-context{align-items:center}.financial-statement-table-wrap{max-height:none}.financial-statement-actions button{padding-inline:8px}.financial-reconciliation{flex-wrap:wrap}.financial-reconciliation span{margin-left:0}}
