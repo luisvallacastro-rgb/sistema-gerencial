@@ -5989,6 +5989,17 @@ def seller_commission_rate(net_amount):
     return 0.04
 
 
+def bank_record_comment(values):
+    for key, value in (values or {}).items():
+        normalized_key = "".join(
+            character for character in unicodedata.normalize("NFD", text(key).lower())
+            if unicodedata.category(character) != "Mn"
+        ).strip()
+        if normalized_key in {"comentario", "comment", "comments"} and text(value):
+            return text(value)
+    return "Sin comentario"
+
+
 def bank_seller_income_report_payload(conn):
     rows = conn.execute("""
         SELECT provisions.id, provisions.record_id, provisions.account_id,
@@ -8323,9 +8334,6 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             seller = text(data.get("seller"))
             if seller not in allowed_sellers:
                 self.send_json({"error": "Selecciona un vendedor válido para atribuir el ingreso"}, status=400); return
-            customer_name = text(data.get("customerName"))
-            if not customer_name:
-                self.send_json({"error": "Escribe el nombre del cliente"}, status=400); return
             payment_type = text(data.get("paymentType"))
             allowed_payment_types = {"Anticipo", "Abono", "Cancelación de saldo"}
             if payment_type not in allowed_payment_types:
@@ -8347,6 +8355,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     if conn.execute("SELECT 1 FROM bank_deposit_provisions WHERE record_id = ?", (record_id,)).fetchone():
                         skipped.append(record_id); continue
                     values = json.loads(row["data"] or "{}")
+                    customer_name = bank_record_comment(values)
                     gross = round(max(numeric_bank_value(values.get(inflow_field)), numeric_bank_value(values.get(outflow_field))), 2)
                     if gross <= 0:
                         conn.rollback(); self.send_json({"error": "El movimiento seleccionado no tiene un importe válido"}, status=400); return
