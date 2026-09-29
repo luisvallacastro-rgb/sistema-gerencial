@@ -11808,31 +11808,20 @@ async function printBankProvisionReport(account) {
 
 function selectBankSellerReportScope(report) {
   return new Promise((resolve) => {
-    const sellers = [...(report.sellers || [])].sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
+    const sellers = [...(report.sellers || [])].filter((item) => normalizeKey(item.seller) !== normalizeKey("Odaliz Valencia")).sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
     const odaliz = report.odalizCommission || { seller:"Odaliz Valencia", commissionRate:0.02, baseNet:0, commission:0 };
     const dialog = document.createElement("dialog");
     dialog.className = "bank-seller-report-dialog";
-    dialog.innerHTML = `<form method="dialog"><header><div><span>Comisión automática</span><h2>Reporte de Odaliz</h2><p>Elige las transacciones que deseas incluir en el detalle.</p></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><label class="bank-seller-report-all"><input type="checkbox" data-seller-report-all checked><i></i><span><strong>Todos los vendedores</strong><small>${sellers.length} vendedores · ${Number(report.totals?.deposits || 0)} depósitos</small></span><b>${formatMoney(report.totals?.gross || 0)}</b></label><div class="bank-seller-report-automatic"><i>2%</i><span><strong>${escapeHtml(odaliz.seller)}</strong><small>Automática · neto general sin Amadeo Alfaro</small></span><b>${formatMoney(odaliz.baseNet)}</b><em>Comisión ${formatMoney(odaliz.commission)}</em></div><section>${sellers.map((item) => `<label><input type="checkbox" name="seller" value="${escapeHtml(item.seller)}" checked><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} depósitos · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>${item.odalizEligible === false ? "No aplica a Odaliz" : `Odaliz 2% · ${formatMoney(item.odalizCommission)}`}</em></label>`).join("")}</section><p class="bank-seller-report-warning" data-seller-report-warning hidden>Selecciona al menos un vendedor.</p><footer><span data-seller-report-count>${sellers.length} vendedores seleccionados · Odaliz automática</span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
+    dialog.innerHTML = `<form method="dialog"><header><div><span>Ingresos y comisiones</span><h2>Seleccionar reporte</h2><p>Genera un reporte individual por vendedor o el detalle automático de Odaliz.</p></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><label class="bank-seller-report-all"><input type="radio" name="reportSeller" value="__odaliz__" checked><i></i><span><strong>${escapeHtml(odaliz.seller)}</strong><small>2% automático · Amadeo Alfaro excluido</small></span><b>${formatMoney(odaliz.baseNet)}</b><em>Comisión ${formatMoney(odaliz.commission)}</em></label><section>${sellers.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.seller)}"><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} depósitos · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Un reporte a la vez</span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
     document.body.append(dialog);
-    const all = dialog.querySelector("[data-seller-report-all]");
-    const checks = [...dialog.querySelectorAll('input[name="seller"]')];
-    const refresh = () => {
-      const selected = checks.filter((input) => input.checked).length;
-      all.checked = selected === checks.length;
-      all.indeterminate = selected > 0 && selected < checks.length;
-      dialog.querySelector("[data-seller-report-count]").textContent = `${selected} ${selected === 1 ? "vendedor seleccionado" : "vendedores seleccionados"} · Odaliz automática`;
-      dialog.querySelector("[data-seller-report-warning]").hidden = selected > 0;
-    };
-    all.addEventListener("change", () => { checks.forEach((input) => { input.checked = all.checked; }); refresh(); });
-    checks.forEach((input) => input.addEventListener("change", refresh));
     dialog.querySelectorAll("[data-seller-report-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close("cancel")));
     dialog.querySelector("form").addEventListener("submit", (event) => {
-      const selected = checks.filter((input) => input.checked).map((input) => input.value);
-      if (!selected.length) { event.preventDefault(); refresh(); return; }
-      dialog.dataset.selected = JSON.stringify(selected);
+      const selected = dialog.querySelector('input[name="reportSeller"]:checked')?.value;
+      if (!selected) { event.preventDefault(); return; }
+      dialog.dataset.selected = selected;
     });
     dialog.addEventListener("close", () => {
-      const selected = dialog.returnValue === "generate" ? JSON.parse(dialog.dataset.selected || "[]") : null;
+      const selected = dialog.returnValue === "generate" ? dialog.dataset.selected : null;
       dialog.remove();
       resolve(selected);
     }, { once:true });
@@ -11843,22 +11832,24 @@ function selectBankSellerReportScope(report) {
 async function printBankSellerIncomeReport() {
   const report = await apiJson("/api/bank-availability/provisions-report");
   if (!(report.items || []).length) return alert("Todavía no hay ingresos provisionados para generar este reporte.");
-  const selectedNames = await selectBankSellerReportScope(report);
-  if (!selectedNames?.length) return;
-  const selectedSet = new Set(selectedNames);
-  const sellers = (report.sellers || []).filter((item) => selectedSet.has(item.seller)).sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
-  const items = (report.items || []).filter((item) => selectedSet.has(item.seller));
+  const selectedScope = await selectBankSellerReportScope(report);
+  if (!selectedScope) return;
+  const odalizMode = selectedScope === "__odaliz__";
+  const items = (report.items || []).filter((item) => odalizMode ? item.odalizEligible !== false : item.seller === selectedScope);
+  if (!items.length) return alert("No hay transacciones para el reporte seleccionado.");
   const popup = window.open("", "_blank", "width=900,height=1050");
   if (!popup) return alert("Permite las ventanas emergentes para imprimir el reporte.");
-  const eligibleItems = items.filter((item) => item.odalizEligible !== false);
-  const totals = { gross:eligibleItems.reduce((sum, item) => sum + Number(item.gross || 0), 0), net:eligibleItems.reduce((sum, item) => sum + Number(item.net || 0), 0), commission:eligibleItems.reduce((sum, item) => sum + Number(item.odalizCommission || 0), 0), deposits:items.length, banks:new Set(items.map((item) => item.accountId)).size };
+  const commissionValue = (item) => Number(odalizMode ? item.odalizCommission : item.commission || 0);
+  const commissionRate = (item) => Number(odalizMode ? item.odalizCommissionRate : item.commissionRate || 0);
+  const rateLabel = (rate) => `${Math.round(Number(rate || 0) * 100)}%`;
+  const totals = { gross:items.reduce((sum, item) => sum + Number(item.gross || 0), 0), net:items.reduce((sum, item) => sum + Number(item.net || 0), 0), commission:items.reduce((sum, item) => sum + commissionValue(item), 0), deposits:items.length };
   const dates = items.map((item) => item.date).filter(Boolean).sort();
   const periodLabel = dates.length ? `${formatDate(dates[0])} al ${formatDate(dates[dates.length - 1])}` : "Sin período";
-  const transactionRows = [...items].sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es") || String(b.date).localeCompare(String(a.date)) || String(b.createdAt).localeCompare(String(a.createdAt))).map((item) => `<tr class="${item.odalizEligible === false ? "excluded-commission" : ""}"><td>${escapeHtml(formatDate(item.date))}</td><td><strong>${escapeHtml(item.seller || "Sin vendedor")}</strong><small>${escapeHtml(item.bank || "—")} · ${escapeHtml(item.account || "")}</small></td><td><strong>${escapeHtml(item.customerName || "—")}</strong><small>${escapeHtml(item.paymentType || "—")}</small></td><td>${formatMoney(item.gross)}</td><td>${formatMoney(item.net)}</td><td class="commission"><strong>${item.odalizEligible === false ? "$0.00" : formatMoney(item.odalizCommission)}</strong><small>${item.odalizEligible === false ? "No aplica · Amadeo Alfaro" : "2% Odaliz"}</small></td></tr>`).join("");
-  const scopeLabel = sellers.length === (report.sellers || []).length ? "Todos los vendedores" : sellers.map((item) => item.seller).join(" · ");
+  const transactionRows = [...items].sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es") || String(b.date).localeCompare(String(a.date)) || String(b.createdAt).localeCompare(String(a.createdAt))).map((item) => `<tr><td>${escapeHtml(formatDate(item.date))}</td><td><strong>${escapeHtml(item.seller || "Sin vendedor")}</strong><small>${escapeHtml(item.bank || "—")} · ${escapeHtml(item.account || "")}</small></td><td><strong>${escapeHtml(item.customerName || "—")}</strong><small>${escapeHtml(item.paymentType || "—")}</small></td><td>${formatMoney(item.gross)}</td><td>${formatMoney(item.net)}</td><td class="commission"><strong>${formatMoney(commissionValue(item))}</strong><small>${escapeHtml(rateLabel(commissionRate(item)))}${odalizMode ? " Odaliz" : ""}</small></td></tr>`).join("");
+  const scopeLabel = odalizMode ? "Odaliz Valencia" : selectedScope;
   popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Detalle de ingresos y comisiones</title><style>
-    @page{size:letter portrait;margin:8mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;color:#17233a;font:9px Arial,sans-serif;background:#eef2f7}.sheet{width:100%;max-width:800px;margin:10px auto;padding:12px;background:#fff}.report-context{display:flex;justify-content:space-between;gap:10px;margin:0 0 6px;color:#52657c;font-size:8px}.report-context strong{color:#17233a;font-size:10px}.report-context span{text-align:right}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #cbd5e1;padding:5px 6px;text-align:right;vertical-align:top;overflow-wrap:anywhere}thead th{background:#172f51;color:#fff}th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}th:nth-child(1){width:62px}th:nth-child(2){width:135px}th:nth-child(4),th:nth-child(5),th:nth-child(6){width:74px}.excluded-commission td{background:#f3f5f7;color:#6b7788}.excluded-commission .commission{color:#6b7788}.detail tfoot td{background:#e8f5f1;font-weight:800}.detail small{display:block;margin-top:2px;color:#64748b;font-size:7px;font-weight:400}.commission{color:#12836d;font-weight:800}.actions{position:fixed;right:14px;bottom:14px;display:flex;gap:7px}.actions button{padding:9px 12px;border:0;border-radius:7px;background:#173b62;color:#fff;font-weight:700;cursor:pointer}.actions button:first-child{background:#16866d}@media print{body{background:#fff}.sheet{max-width:none;margin:0;padding:0}.actions{display:none}.report-context{margin-bottom:4px}.detail thead{display:table-header-group}.detail tr{break-inside:avoid}}
-  </style></head><body><main class="sheet"><p class="report-context"><strong>Detalle de comisión Odaliz</strong><span>${escapeHtml(scopeLabel)} · ${escapeHtml(periodLabel)} · ${Number(totals.deposits)} transacciones</span></p><table class="detail"><thead><tr><th>Fecha</th><th>Vendedor / Banco</th><th>Cliente / Concepto</th><th>Depositado</th><th>Neto</th><th>Comisión Odaliz</th></tr></thead><tbody>${transactionRows}</tbody><tfoot><tr><td colspan="3">TOTAL ODALIZ · Amadeo Alfaro excluido</td><td>${formatMoney(totals.gross)}</td><td>${formatMoney(totals.net)}</td><td class="commission">${formatMoney(totals.commission)}</td></tr></tfoot></table></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+    @page{size:letter portrait;margin:8mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;color:#17233a;font:9px Arial,sans-serif;background:#eef2f7}.sheet{width:100%;max-width:800px;margin:10px auto;padding:12px;background:#fff}.report-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 7px}.report-totals article{padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;background:#f7fafc}.report-totals span,.report-totals strong{display:block}.report-totals span{color:#64748b;font-size:7px;font-weight:800;text-transform:uppercase}.report-totals strong{margin-top:2px;font-size:14px}.report-totals article:last-child strong{color:#12836d}table{width:100%;border-collapse:collapse;table-layout:fixed}caption{padding:0 0 5px;text-align:left;color:#52657c;font-size:8px}caption strong{color:#17233a;font-size:10px}caption span{float:right}th,td{border:1px solid #cbd5e1;padding:5px 6px;text-align:right;vertical-align:top;overflow-wrap:anywhere}thead th{background:#172f51;color:#fff}th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}th:nth-child(1){width:62px}th:nth-child(2){width:135px}th:nth-child(4),th:nth-child(5),th:nth-child(6){width:74px}.detail tfoot td{background:#e8f5f1;font-weight:800}.detail small{display:block;margin-top:2px;color:#64748b;font-size:7px;font-weight:400}.commission{color:#12836d;font-weight:800}.actions{position:fixed;right:14px;bottom:14px;display:flex;gap:7px}.actions button{padding:9px 12px;border:0;border-radius:7px;background:#173b62;color:#fff;font-weight:700;cursor:pointer}.actions button:first-child{background:#16866d}@media print{body{background:#fff}.sheet{max-width:none;margin:0;padding:0}.actions{display:none}.detail thead{display:table-header-group}.detail tr{break-inside:avoid}}
+  </style></head><body><main class="sheet"><section class="report-totals"><article><span>Monto recaudado</span><strong>${formatMoney(totals.gross)}</strong></article><article><span>Neto</span><strong>${formatMoney(totals.net)}</strong></article><article><span>Comisión</span><strong>${formatMoney(totals.commission)}</strong></article></section><table class="detail"><caption><strong>${escapeHtml(scopeLabel)}</strong><span>${escapeHtml(periodLabel)} · ${Number(totals.deposits)} transacciones</span></caption><thead><tr><th>Fecha</th><th>Vendedor / Banco</th><th>Cliente / Concepto</th><th>Depositado</th><th>Neto</th><th>Comisión</th></tr></thead><tbody>${transactionRows}</tbody><tfoot><tr><td colspan="3">TOTAL ${escapeHtml(scopeLabel).toUpperCase()}</td><td>${formatMoney(totals.gross)}</td><td>${formatMoney(totals.net)}</td><td class="commission">${formatMoney(totals.commission)}</td></tr></tfoot></table></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
   popup.document.close();
 }
 
@@ -12192,7 +12183,11 @@ function wireBankAvailability() {
     }
   });
   document.querySelector("[data-bank-availability-report]")?.addEventListener("click", () => printBankAvailabilityReport().catch((error) => alert(error.message || "No se pudo generar el reporte.")));
-  document.querySelector("[data-bank-seller-income-report]")?.addEventListener("click", () => printBankSellerIncomeReport().catch((error) => alert(error.message || "No se pudo generar el reporte por vendedor.")));
+  const commissionReportButton = document.querySelector("[data-bank-seller-income-report]");
+  if (commissionReportButton) {
+    commissionReportButton.textContent = "▤ Reportes de comisión";
+    commissionReportButton.addEventListener("click", () => printBankSellerIncomeReport().catch((error) => alert(error.message || "No se pudo generar el reporte de comisión.")));
+  }
   document.querySelector("[data-bank-availability-print]")?.addEventListener("click", printBankAvailabilityVerticalReport);
   document.querySelectorAll("[data-bank-archive-print]").forEach((button) => button.addEventListener("click", () => printArchivedBankAvailability(button.dataset.bankArchivePrint)));
   document.querySelectorAll("[data-availability-archive-print]").forEach((button) => button.addEventListener("click", () => printArchivedDerivedAvailability(button.dataset.availabilityArchivePrint)));
