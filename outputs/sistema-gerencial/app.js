@@ -11810,9 +11810,17 @@ function selectBankSellerReportScope(report) {
   return new Promise((resolve) => {
     const sellers = [...(report.sellers || [])].filter((item) => normalizeKey(item.seller) !== normalizeKey("Odaliz Valencia")).sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
     const odaliz = report.odalizCommission || { seller:"Odaliz Valencia", commissionRate:0.02, baseNet:0, commission:0 };
+    const odalizItems = (report.items || []).filter((item) => item.odalizEligible !== false);
+    const reportOptions = [{
+      value:"__odaliz__", seller:odaliz.seller,
+      deposits:odalizItems.length,
+      bankCount:new Set(odalizItems.map((item) => item.accountId)).size,
+      gross:odalizItems.reduce((sum, item) => sum + Number(item.gross || 0), 0),
+      commission:odaliz.commission,
+    }, ...sellers.map((item) => ({ value:item.seller, ...item }))].sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
     const dialog = document.createElement("dialog");
     dialog.className = "bank-seller-report-dialog";
-    dialog.innerHTML = `<form method="dialog"><header><div><span>Ingresos y comisiones</span><h2>Seleccionar reporte</h2><p>Genera un reporte individual por vendedor o el detalle automático de Odaliz.</p></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><label class="bank-seller-report-all"><input type="radio" name="reportSeller" value="__odaliz__" checked><i></i><span><strong>${escapeHtml(odaliz.seller)}</strong><small>2% automático · Amadeo Alfaro excluido</small></span><b>${formatMoney(odaliz.baseNet)}</b><em>Comisión ${formatMoney(odaliz.commission)}</em></label><section>${sellers.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.seller)}"><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} depósitos · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Un reporte a la vez</span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
+    dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones</h2><p>Selecciona un vendedor para generar su reporte.</p></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}"><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} depósitos · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Selecciona un vendedor</span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
     document.body.append(dialog);
     dialog.querySelectorAll("[data-seller-report-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close("cancel")));
     dialog.querySelector("form").addEventListener("submit", (event) => {
@@ -12185,7 +12193,7 @@ function wireBankAvailability() {
   document.querySelector("[data-bank-availability-report]")?.addEventListener("click", () => printBankAvailabilityReport().catch((error) => alert(error.message || "No se pudo generar el reporte.")));
   const commissionReportButton = document.querySelector("[data-bank-seller-income-report]");
   if (commissionReportButton) {
-    commissionReportButton.textContent = "▤ Reportes de comisión";
+    commissionReportButton.textContent = "▤ Comisiones";
     commissionReportButton.addEventListener("click", () => printBankSellerIncomeReport().catch((error) => alert(error.message || "No se pudo generar el reporte de comisión.")));
   }
   document.querySelector("[data-bank-availability-print]")?.addEventListener("click", printBankAvailabilityVerticalReport);
