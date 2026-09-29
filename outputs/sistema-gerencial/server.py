@@ -7331,26 +7331,33 @@ def build_financial_statement_report(query):
         raise ValueError("No existen períodos contables disponibles")
     report = text((query.get("report") or ["balance"])[0]).lower()
     report = report if report in {"balance", "income"} else "balance"
-    period_type = text((query.get("period") or ["monthly"])[0]).lower()
-    period_type = period_type if period_type in {"monthly", "annual"} else "monthly"
+    source_key = "balance" if report == "balance" else "income"
+    report_periods = sorted({str(row.get("period")) for row in source.get(source_key, []) if str(row.get("period")) in periods})
+    if not report_periods:
+        raise ValueError("El reporte seleccionado no contiene saldos")
     available_years = sorted({period[:4] for period in periods})
-    requested_year = text((query.get("year") or [periods[-1][:4]])[0])
-    year = requested_year if requested_year in available_years else available_years[-1]
-    year_periods = [period for period in periods if period.startswith(year + "-")]
-    requested_month = text((query.get("month") or [year_periods[-1][5:]])[0]).zfill(2)
-    requested_period = f"{year}-{requested_month}"
-    selected_period = (requested_period if requested_period in year_periods else year_periods[-1]) if period_type == "monthly" else year_periods[-1]
-    comparison = text((query.get("comparison") or ["none"])[0]).lower()
-    if comparison not in {"none", "previous-month", "year-ago", "previous-year"}:
-        comparison = "none"
-    comparison_period = financial_comparison_period(selected_period, period_type, comparison)
+    months_by_year = {item: [int(period[5:]) for period in periods if period.startswith(item + "-")] for item in available_years}
+
+    def resolve_period(suffix, fallback_key):
+        period_type = text((query.get(f"period{suffix}") or ["monthly"])[0]).lower()
+        period_type = period_type if period_type in {"monthly", "annual"} else "monthly"
+        fallback_year, fallback_month = fallback_key.split("-")
+        requested_year = text((query.get(f"year{suffix}") or [fallback_year])[0])
+        year = requested_year if requested_year in available_years else fallback_year
+        year_periods = [period for period in periods if period.startswith(year + "-")]
+        requested_month = text((query.get(f"month{suffix}") or [fallback_month])[0]).zfill(2)
+        requested_key = f"{year}-{requested_month}"
+        report_year_periods = [period for period in report_periods if period.startswith(year + "-")]
+        key = (report_year_periods[-1] if report_year_periods else year_periods[-1]) if period_type == "annual" else (requested_key if requested_key in periods else year_periods[-1])
+        return {"type": period_type, "year": int(year), "month": int(key[5:]), "key": key}
+
+    period_a = resolve_period("A", report_periods[-1])
+    prior_index = max(0, report_periods.index(period_a["key"]) - 1) if period_a["key"] in report_periods else max(0, len(report_periods) - 2)
+    period_b = resolve_period("B", report_periods[prior_index])
     detail = text((query.get("detail") or ["intermediate"])[0]).lower()
     detail = detail if detail in {"summary", "intermediate", "detailed"} else "intermediate"
     include_zero = text((query.get("includeZero") or ["0"])[0]).lower() in {"1", "true", "yes"}
-    monthly_detail = period_type == "annual" and text((query.get("monthlyDetail") or ["0"])[0]).lower() in {"1", "true", "yes"}
     max_level = {"summary": 1, "intermediate": 3, "detailed": 4}[detail]
-    source_key = "balance" if report == "balance" else "income"
-    field = "amount" if report == "balance" else ("periodAmount" if period_type == "monthly" else "accumulatedAmount")
 
     def rows_for(period):
         rows = [row for row in source.get(source_key, []) if row.get("period") == period]
@@ -7360,107 +7367,120 @@ def build_financial_statement_report(query):
             rows = [row for row in rows if str(row.get("code") or "")[:1] in {"1", "2", "3"}]
         return rows
 
-    current_source_rows = rows_for(selected_period)
-    comparison_source_rows = rows_for(comparison_period) if comparison_period else []
-    comparison_values = {str(row.get("code")): float(row.get(field) or 0) for row in comparison_source_rows}
-    parent_codes = financial_parent_codes(current_source_rows)
+    def field_for(period):
+        return "amount" if report == "balance" else ("periodAmount" if period["type"] == "monthly" else "accumulatedAmount")
+
+    source_a, source_b = rows_for(period_a["key"]), rows_for(period_b["key"])
+    rows_a = {str(row.get("code")): row for row in source_a}
+    rows_b = {str(row.get("code")): row for row in source_b}
+    values_a = {code: float(row.get(field_for(period_a)) or 0) for code, row in rows_a.items()}
+    values_b = {code: float(row.get(field_for(period_b)) or 0) for code, row in rows_b.items()}
+    ordered_codes = list(dict.fromkeys([*rows_a.keys(), *rows_b.keys()]))
+    union_rows = [rows_a.get(code) or rows_b[code] for code in ordered_codes]
+    parent_codes = financial_parent_codes(union_rows)
     children_by_parent = {}
     for code, parent in parent_codes.items():
         if parent:
             children_by_parent.setdefault(parent, []).append(code)
-    all_values = {str(row.get("code")): float(row.get(field) or 0) for row in current_source_rows}
-
     def branch_has_value(code):
-        if abs(all_values.get(code, 0)) > 0.000001 or abs(comparison_values.get(code, 0)) > 0.000001:
+        if abs(values_a.get(code, 0)) > 0.000001 or abs(values_b.get(code, 0)) > 0.000001:
             return True
         return any(branch_has_value(child) for child in children_by_parent.get(code, []))
 
+    def value(values, code):
+        return round(float(values.get(code, 0)), 2)
+
+    def balance_totals(values):
+        assets, liabilities, equity = value(values, "1"), value(values, "2"), value(values, "3")
+        return {"assets": assets, "liabilities": liabilities, "equity": equity,
+                "financing": round(liabilities + equity, 2),
+                "balanceDifference": round(assets - liabilities - equity, 2)}
+
+    def income_totals(values):
+        revenue, costs, expenses, total_debits = value(values, "5"), value(values, "41"), value(values, "42"), value(values, "4")
+        gross_profit = round(revenue - costs, 2)
+        return {"revenue": revenue, "costs": costs, "grossProfit": gross_profit,
+                "operatingExpenses": expenses, "operatingProfit": round(gross_profit - expenses, 2),
+                "netProfit": round(revenue - total_debits, 2)}
+
+    totals_a = balance_totals(values_a) if report == "balance" else income_totals(values_a)
+    totals_b = balance_totals(values_b) if report == "balance" else income_totals(values_b)
+
+    def vertical_value(code, amount, totals):
+        if report == "income":
+            denominator = abs(totals.get("revenue", 0))
+        else:
+            denominator = abs(totals.get("assets", 0)) if code.startswith("1") else abs(totals.get("financing", 0))
+        return amount / denominator * 100 if denominator > 0.000001 else None
+
     rows = []
-    for row in current_source_rows:
-        code = str(row.get("code") or "")
+    for code in ordered_codes:
+        row_a, row_b = rows_a.get(code), rows_b.get(code)
+        row = row_a or row_b
         level = int(row.get("level") or 0)
-        current = float(row.get(field) or 0)
-        compared = comparison_values.get(code, 0.0)
+        amount_a, amount_b = values_a.get(code, 0.0), values_b.get(code, 0.0)
         if level > max_level or (not include_zero and not branch_has_value(code)):
             continue
-        variance = current - compared if comparison_period else 0.0
-        variance_percent = (variance / abs(compared) * 100) if comparison_period and abs(compared) > 0.000001 else None
+        variance = amount_a - amount_b
+        variance_percent = variance / abs(amount_b) * 100 if abs(amount_b) > 0.000001 else None
+        vertical_a = vertical_value(code, amount_a, totals_a)
+        vertical_b = vertical_value(code, amount_b, totals_b)
         rows.append({
             "code": code,
-            "name": text(row.get("name")),
+            "name": text((row_a or {}).get("name") or (row_b or {}).get("name")),
             "level": level,
             "parentCode": parent_codes.get(code, ""),
             "hasChildren": bool(children_by_parent.get(code)),
             "isAuxiliary": bool(row.get("isAuxiliary")),
-            "amount": round(current, 2),
-            "comparisonAmount": round(compared, 2) if comparison_period else None,
-            "variance": round(variance, 2) if comparison_period else None,
+            "existsInA": row_a is not None,
+            "existsInB": row_b is not None,
+            "amount": round(amount_a, 2),
+            "comparisonAmount": round(amount_b, 2),
+            "variance": round(variance, 2),
             "variancePercent": round(variance_percent, 2) if variance_percent is not None else None,
+            "variancePercentLabel": "Nuevo" if abs(amount_b) <= 0.000001 and abs(amount_a) > 0.000001 else ("—" if abs(amount_b) <= 0.000001 else ""),
+            "verticalA": round(vertical_a, 2) if vertical_a is not None else None,
+            "verticalB": round(vertical_b, 2) if vertical_b is not None else None,
+            "structuralChange": round(vertical_a - vertical_b, 2) if vertical_a is not None and vertical_b is not None else None,
+            "direction": "increase" if variance > 0.005 else ("decrease" if variance < -0.005 else "stable"),
         })
     returned_parents = {row["parentCode"] for row in rows if row.get("parentCode")}
     for row in rows:
         row["hasChildren"] = row["code"] in returned_parents
 
-    current_values = {str(row.get("code")): float(row.get(field) or 0) for row in current_source_rows}
-    compared_values = {str(row.get("code")): float(row.get(field) or 0) for row in comparison_source_rows}
-    def value(values, code):
-        return round(float(values.get(code, 0)), 2)
-
-    if report == "balance":
-        assets, liabilities, equity = value(current_values, "1"), value(current_values, "2"), value(current_values, "3")
-        totals = {
-            "assets": assets,
-            "liabilities": liabilities,
-            "equity": equity,
-            "balanceDifference": round(assets - liabilities - equity, 2),
-        }
-        compared_totals = {
-            "assets": value(compared_values, "1"),
-            "liabilities": value(compared_values, "2"),
-            "equity": value(compared_values, "3"),
-        } if comparison_period else None
-    else:
-        revenue = value(current_values, "5")
-        costs = value(current_values, "41")
-        expenses = value(current_values, "42")
-        total_debits = value(current_values, "4")
-        gross_profit = round(revenue - costs, 2)
-        operating_profit = round(gross_profit - expenses, 2)
-        net_profit = round(revenue - total_debits, 2)
-        totals = {
-            "revenue": revenue,
-            "costs": costs,
-            "grossProfit": gross_profit,
-            "operatingExpenses": expenses,
-            "operatingProfit": operating_profit,
-            "netProfit": net_profit,
-        }
-        compared_totals = None
-
-    monthly_breakdown = []
-    if monthly_detail:
-        year_months = [f"{year}-{month:02d}" for month in range(1, 13)]
-        by_month = {period: {str(row.get("code")): float((row.get("periodAmount") if report == "income" else row.get("amount")) or 0) for row in rows_for(period)} for period in year_months}
-        for row in rows:
-            values = [round(by_month[period].get(row["code"], 0), 2) for period in year_months]
-            monthly_breakdown.append({**row, "months": values, "annualAmount": row["amount"]})
+    analytic_rows = [row for row in rows if row["level"] > 0]
+    def pick(items, key, reverse=False):
+        valid = [row for row in items if row.get(key) is not None]
+        return (sorted(valid, key=lambda row: row[key], reverse=reverse) or [None])[0]
+    horizontal_summary = {
+        "largestIncrease": pick([row for row in analytic_rows if row["variance"] > 0], "variance", True),
+        "largestDecrease": pick([row for row in analytic_rows if row["variance"] < 0], "variance"),
+        "largestPercentIncrease": pick([row for row in analytic_rows if (row.get("variancePercent") or 0) > 0], "variancePercent", True),
+        "largestPercentDecrease": pick([row for row in analytic_rows if (row.get("variancePercent") or 0) < 0], "variancePercent"),
+    }
+    structure_changes = sorted([row for row in analytic_rows if row.get("structuralChange") is not None], key=lambda row: abs(row["structuralChange"]), reverse=True)[:6]
 
     return {
         "report": report,
-        "period": {"type": period_type, "year": int(year), "month": int(selected_period[5:]), "key": selected_period},
-        "comparison": {"type": comparison, "period": comparison_period or None},
+        "period": period_a,
+        "periodA": period_a,
+        "periodB": period_b,
+        "comparison": {"type": "custom", "period": period_b["key"]},
         "detail": detail,
         "includeZero": include_zero,
-        "monthlyDetail": monthly_detail,
         "currency": source.get("source", {}).get("currency", "USD"),
         "source": source.get("source", {}),
         "availablePeriods": periods,
         "availableYears": [int(item) for item in available_years],
-        "monthsByYear": {item: [int(period[5:]) for period in periods if period.startswith(item + "-")] for item in available_years},
+        "monthsByYear": months_by_year,
         "rows": rows,
-        "monthlyBreakdown": monthly_breakdown,
-        "totals": totals,
-        "comparisonTotals": compared_totals,
+        "totals": totals_a,
+        "totalsA": totals_a,
+        "totalsB": totals_b,
+        "horizontalSummary": horizontal_summary,
+        "structureChanges": structure_changes,
+        "emptyPeriods": [period["key"] for period, values in ((period_a, values_a), (period_b, values_b)) if not values],
+        "roundingTolerance": 0.05,
         "strategy": "Los totales se toman de cuentas consolidadas de nivel superior; nunca se suman simultáneamente cuentas padre e hijas.",
     }
 
