@@ -5979,6 +5979,16 @@ def bank_availability_report_payload(conn):
     }
 
 
+def seller_commission_rate(net_amount):
+    if net_amount <= 0:
+        return 0
+    if net_amount < 7500:
+        return 0.02
+    if net_amount < 15000:
+        return 0.03
+    return 0.04
+
+
 def bank_seller_income_report_payload(conn):
     rows = conn.execute("""
         SELECT provisions.id, provisions.record_id, provisions.account_id,
@@ -5998,47 +6008,59 @@ def bank_seller_income_report_payload(conn):
     for row in rows:
         seller = text(row["seller"]) or "Sin vendedor"
         gross = round(float(row["gross_amount"] or 0), 2)
-        net = round(float(row["net_amount"] or 0), 2)
-        commission_rate = float(row["commission_rate"] or 0)
-        commission = round(float(row["commission_amount"] or 0), 2)
+        net = round(gross / 1.1475, 2)
         bank_ids.add(row["account_id"])
         items.append({
             "id": row["id"], "recordId": row["record_id"], "accountId": row["account_id"],
             "bank": row["bank"], "account": row["account"], "date": row["record_date"],
             "customerName": row["customer_name"], "paymentType": row["payment_type"],
             "seller": seller, "gross": gross, "net": net,
-            "commissionRate": commission_rate, "commission": commission,
+            "commissionRate": 0, "commission": 0,
             "createdAt": row["created_at"],
         })
         summary = sellers.setdefault(seller, {
             "seller": seller, "deposits": 0, "bankIds": set(), "banks": set(),
-            "commissionRates": set(), "gross": 0, "net": 0, "commission": 0,
+            "gross": 0,
         })
         summary["deposits"] += 1
         summary["bankIds"].add(row["account_id"])
         summary["banks"].add(row["bank"])
-        summary["commissionRates"].add(commission_rate)
         summary["gross"] += gross
-        summary["net"] += net
-        summary["commission"] += commission
     seller_rows = []
     for summary in sellers.values():
+        gross = round(summary["gross"], 2)
+        net = round(gross / 1.1475, 2)
+        commission_rate = seller_commission_rate(net)
+        commission = round(net * commission_rate, 2)
         seller_rows.append({
             "seller": summary["seller"], "deposits": summary["deposits"],
             "bankCount": len(summary["bankIds"]), "banks": sorted(summary["banks"]),
-            "commissionRates": sorted(summary["commissionRates"]),
-            "gross": round(summary["gross"], 2), "net": round(summary["net"], 2),
-            "commission": round(summary["commission"], 2),
+            "commissionRates": [commission_rate],
+            "gross": gross, "net": net, "commission": commission,
         })
     seller_rows.sort(key=lambda item: (-item["gross"], item["seller"].casefold()))
+    seller_calculations = {item["seller"]: item for item in seller_rows}
+    for seller, calculation in seller_calculations.items():
+        seller_items = [item for item in items if item["seller"] == seller]
+        net_allocated = round(sum(item["net"] for item in seller_items), 2)
+        net_difference = round(calculation["net"] - net_allocated, 2)
+        if seller_items and net_difference:
+            seller_items[-1]["net"] = round(seller_items[-1]["net"] + net_difference, 2)
+        for item in seller_items:
+            item["commissionRate"] = calculation["commissionRates"][0]
+            item["commission"] = round(item["net"] * item["commissionRate"], 2)
+        allocated = round(sum(item["commission"] for item in seller_items), 2)
+        difference = round(calculation["commission"] - allocated, 2)
+        if seller_items and difference:
+            seller_items[-1]["commission"] = round(seller_items[-1]["commission"] + difference, 2)
     dates = [item["date"] for item in items if item["date"]]
     return {
         "sellers": seller_rows,
         "items": items,
         "totals": {
             "gross": round(sum(item["gross"] for item in items), 2),
-            "net": round(sum(item["net"] for item in items), 2),
-            "commission": round(sum(item["commission"] for item in items), 2),
+            "net": round(sum(item["net"] for item in seller_rows), 2),
+            "commission": round(sum(item["commission"] for item in seller_rows), 2),
             "deposits": len(items), "banks": len(bank_ids),
         },
         "period": {"from": min(dates) if dates else None, "to": max(dates) if dates else None},
