@@ -11948,11 +11948,34 @@ async function openBankMaintenance(accountId) {
       button.disabled = count === 0;
       button.querySelector("[data-bank-provision-count]").textContent = count;
     };
-    dialog.querySelectorAll("[data-bank-provision-select]").forEach((input) => input.addEventListener("change", () => {
-      if (input.checked) selectedProvisionIds.add(input.dataset.bankProvisionSelect);
-      else selectedProvisionIds.delete(input.dataset.bankProvisionSelect);
-      refreshProvisionSelection();
-    }));
+    dialog.querySelectorAll("[data-bank-provision-select]").forEach((input) => {
+      const switchControl = input.closest(".bank-row-switch");
+      const movementScroller = input.closest(".bank-movements-table");
+      if (!switchControl) return;
+      switchControl.tabIndex = input.disabled ? -1 : 0;
+      switchControl.setAttribute("role", "switch");
+      switchControl.setAttribute("aria-checked", input.checked ? "true" : "false");
+      const toggleSelection = () => {
+        if (input.disabled) return;
+        const tableTop = movementScroller?.scrollTop || 0;
+        const tableLeft = movementScroller?.scrollLeft || 0;
+        input.checked = !input.checked;
+        switchControl.setAttribute("aria-checked", input.checked ? "true" : "false");
+        if (input.checked) selectedProvisionIds.add(input.dataset.bankProvisionSelect);
+        else selectedProvisionIds.delete(input.dataset.bankProvisionSelect);
+        refreshProvisionSelection();
+        requestAnimationFrame(() => {
+          dialog.scrollTop = 0;
+          if (movementScroller) { movementScroller.scrollTop = tableTop; movementScroller.scrollLeft = tableLeft; }
+        });
+      };
+      switchControl.addEventListener("click", (event) => { event.preventDefault(); toggleSelection(); });
+      switchControl.addEventListener("keydown", (event) => {
+        if (event.key !== " " && event.key !== "Enter") return;
+        event.preventDefault();
+        toggleSelection();
+      });
+    });
     dialog.querySelector("[data-bank-provision]").addEventListener("click", () => {
       const chosen = records.filter((record) => selectedProvisionIds.has(record.id));
       const gross = chosen.reduce((sum, record) => sum + Math.max(Number(record.data[inflowField] || 0), Number(record.data[outflowField] || 0)), 0);
