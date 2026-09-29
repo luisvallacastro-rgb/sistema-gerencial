@@ -6000,6 +6000,10 @@ def odaliz_commission(net_amount):
     }
 
 
+def excluded_from_odaliz_commission(seller):
+    return text(seller).strip().casefold() == "amadeo alfaro"
+
+
 def bank_record_comment(values):
     for key, value in (values or {}).items():
         normalized_key = "".join(
@@ -6059,6 +6063,8 @@ def bank_seller_income_report_payload(conn):
             "bankCount": len(summary["bankIds"]), "banks": sorted(summary["banks"]),
             "commissionRates": [commission_rate],
             "gross": gross, "net": net, "commission": commission,
+            "odalizEligible": not excluded_from_odaliz_commission(summary["seller"]),
+            "odalizCommission": 0 if excluded_from_odaliz_commission(summary["seller"]) else round(net * 0.02, 2),
         })
     seller_rows.sort(key=lambda item: (-item["gross"], item["seller"].casefold()))
     seller_calculations = {item["seller"]: item for item in seller_rows}
@@ -6079,11 +6085,32 @@ def bank_seller_income_report_payload(conn):
     total_net = round(sum(item["net"] for item in seller_rows), 2)
     odaliz_base_net = round(sum(
         item["net"] for item in seller_rows
-        if item["seller"].strip().casefold() != "amadeo alfaro"
+        if not excluded_from_odaliz_commission(item["seller"])
     ), 2)
     seller_commission = round(sum(item["commission"] for item in seller_rows), 2)
     odaliz = odaliz_commission(odaliz_base_net)
     odaliz["excludedSellers"] = ["Amadeo Alfaro"]
+    eligible_odaliz_sellers = [item for item in seller_rows if item["odalizEligible"]]
+    odaliz_seller_allocated = round(sum(item["odalizCommission"] for item in eligible_odaliz_sellers), 2)
+    odaliz_seller_difference = round(odaliz["commission"] - odaliz_seller_allocated, 2)
+    if eligible_odaliz_sellers and odaliz_seller_difference:
+        eligible_odaliz_sellers[-1]["odalizCommission"] = round(
+            eligible_odaliz_sellers[-1]["odalizCommission"] + odaliz_seller_difference, 2
+        )
+    eligible_odaliz_items = []
+    for item in items:
+        eligible = not excluded_from_odaliz_commission(item["seller"])
+        item["odalizEligible"] = eligible
+        item["odalizCommissionRate"] = 0.02 if eligible else 0
+        item["odalizCommission"] = round(item["net"] * 0.02, 2) if eligible else 0
+        if eligible:
+            eligible_odaliz_items.append(item)
+    odaliz_allocated = round(sum(item["odalizCommission"] for item in eligible_odaliz_items), 2)
+    odaliz_difference = round(odaliz["commission"] - odaliz_allocated, 2)
+    if eligible_odaliz_items and odaliz_difference:
+        eligible_odaliz_items[-1]["odalizCommission"] = round(
+            eligible_odaliz_items[-1]["odalizCommission"] + odaliz_difference, 2
+        )
     return {
         "sellers": seller_rows,
         "items": items,
