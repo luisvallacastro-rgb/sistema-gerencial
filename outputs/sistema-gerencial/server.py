@@ -8316,14 +8316,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             record_ids = list(dict.fromkeys(text(item) for item in raw_record_ids if text(item))) if isinstance(raw_record_ids, list) else []
             if not record_ids or len(record_ids) > 100:
                 self.send_json({"error": "Selecciona entre 1 y 100 movimientos para provisionar"}, status=400); return
-            commission_rates = {
-                "Odaliz Valencia": 0.02, "Amadeo Alfaro": 0.09, "Marco Velado": 0.09,
-                "Erick Orantes": 0.04, "Yanira Merino": 0.04, "Gabriela Amador": 0.04,
-                "Marjorie Morales": 0.04,
+            allowed_sellers = {
+                "Odaliz Valencia", "Amadeo Alfaro", "Marco Velado", "Erick Orantes",
+                "Yanira Merino", "Gabriela Amador", "Marjorie Morales",
             }
             seller = text(data.get("seller"))
-            if seller not in commission_rates:
-                self.send_json({"error": "Selecciona un vendedor válido para calcular la comisión"}, status=400); return
+            if seller not in allowed_sellers:
+                self.send_json({"error": "Selecciona un vendedor válido para atribuir el ingreso"}, status=400); return
             customer_name = text(data.get("customerName"))
             if not customer_name:
                 self.send_json({"error": "Escribe el nombre del cliente"}, status=400); return
@@ -8331,7 +8330,9 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             allowed_payment_types = {"Anticipo", "Abono", "Cancelación de saldo"}
             if payment_type not in allowed_payment_types:
                 self.send_json({"error": "Selecciona si el depósito es anticipo, abono o cancelación de saldo"}, status=400); return
-            commission_rate = commission_rates[seller]
+            # La comisión no es una provisión por depósito. Se calcula únicamente
+            # en el reporte general con el ingreso neto acumulado de cada vendedor.
+            commission_rate = 0
             created, skipped = [], []
             with connect() as conn:
                 account = conn.execute("SELECT id FROM bank_accounts WHERE id = ? AND active = 1", (account_id,)).fetchone()
@@ -8354,7 +8355,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     # La provisión fiscal solicitada es exclusivamente el 13 % del valor neto.
                     income_tax = 0
                     labor = round(net * 0.07, 2)
-                    commission = round(net * commission_rate, 2)
+                    commission = 0
                     provision_id = str(uuid.uuid4())
                     conn.execute("""INSERT INTO bank_deposit_provisions
                         (id, record_id, account_id, gross_amount, net_amount, vat_amount, income_tax_amount,
