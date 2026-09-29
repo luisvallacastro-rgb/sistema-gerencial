@@ -6077,8 +6077,13 @@ def bank_seller_income_report_payload(conn):
             seller_items[-1]["commission"] = round(seller_items[-1]["commission"] + difference, 2)
     dates = [item["date"] for item in items if item["date"]]
     total_net = round(sum(item["net"] for item in seller_rows), 2)
+    odaliz_base_net = round(sum(
+        item["net"] for item in seller_rows
+        if item["seller"].strip().casefold() != "amadeo alfaro"
+    ), 2)
     seller_commission = round(sum(item["commission"] for item in seller_rows), 2)
-    odaliz = odaliz_commission(total_net)
+    odaliz = odaliz_commission(odaliz_base_net)
+    odaliz["excludedSellers"] = ["Amadeo Alfaro"]
     return {
         "sellers": seller_rows,
         "items": items,
