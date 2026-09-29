@@ -6139,34 +6139,48 @@ def bank_seller_income_report_payload(conn):
         marco_calculation["commissionAllocationSummary"] = sorted(marco_allocations.values(), key=lambda item: item["seller"].casefold())
     dates = [item["date"] for item in items if item["date"]]
     total_net = round(sum(item["net"] for item in seller_rows), 2)
-    odaliz_base_net = round(sum(
-        item["net"] for item in seller_rows
-        if not excluded_from_odaliz_commission(item["seller"])
-    ), 2)
     seller_commission = round(sum(item["commission"] for item in seller_rows), 2)
-    odaliz = odaliz_commission(odaliz_base_net)
-    odaliz["excludedSellers"] = ["Amadeo Alfaro"]
-    eligible_odaliz_sellers = [item for item in seller_rows if item["odalizEligible"]]
-    odaliz_seller_allocated = round(sum(item["odalizCommission"] for item in eligible_odaliz_sellers), 2)
-    odaliz_seller_difference = round(odaliz["commission"] - odaliz_seller_allocated, 2)
-    if eligible_odaliz_sellers and odaliz_seller_difference:
-        eligible_odaliz_sellers[-1]["odalizCommission"] = round(
-            eligible_odaliz_sellers[-1]["odalizCommission"] + odaliz_seller_difference, 2
-        )
     eligible_odaliz_items = []
     for item in items:
-        eligible = not excluded_from_odaliz_commission(item["seller"])
+        if excluded_from_odaliz_commission(item["seller"]):
+            eligible = False
+            commission_rate = 0
+            commission = 0
+        elif is_marco_velado(item["seller"]):
+            allocation = next((
+                allocation for allocation in item.get("commissionAllocationDetails", [])
+                if text(allocation.get("seller")).casefold() == "odaliz valencia"
+            ), None)
+            eligible = allocation is not None
+            commission_rate = float(allocation["percent"]) / 100 if allocation else 0
+            commission = round(float(allocation["amount"]), 2) if allocation else 0
+        else:
+            eligible = True
+            commission_rate = 0.02
+            commission = round(item["net"] * commission_rate, 2)
         item["odalizEligible"] = eligible
-        item["odalizCommissionRate"] = 0.02 if eligible else 0
-        item["odalizCommission"] = round(item["net"] * 0.02, 2) if eligible else 0
+        item["odalizCommissionRate"] = commission_rate
+        item["odalizCommission"] = commission
         if eligible:
             eligible_odaliz_items.append(item)
-    odaliz_allocated = round(sum(item["odalizCommission"] for item in eligible_odaliz_items), 2)
-    odaliz_difference = round(odaliz["commission"] - odaliz_allocated, 2)
-    if eligible_odaliz_items and odaliz_difference:
-        eligible_odaliz_items[-1]["odalizCommission"] = round(
-            eligible_odaliz_items[-1]["odalizCommission"] + odaliz_difference, 2
-        )
+    for calculation in seller_rows:
+        seller_items = [item for item in items if item["seller"] == calculation["seller"]]
+        eligible_seller_items = [item for item in seller_items if item["odalizEligible"]]
+        calculation["odalizEligible"] = bool(eligible_seller_items)
+        calculation["odalizCommission"] = round(sum(item["odalizCommission"] for item in eligible_seller_items), 2)
+        calculation["odalizCommissionRates"] = sorted({item["odalizCommissionRate"] for item in eligible_seller_items})
+    odaliz_base_net = round(sum(item["net"] for item in eligible_odaliz_items), 2)
+    odaliz_total = round(sum(item["odalizCommission"] for item in eligible_odaliz_items), 2)
+    odaliz = {
+        "seller": "Odaliz Valencia",
+        "commissionRate": 0.02,
+        "commissionRates": sorted({item["odalizCommissionRate"] for item in eligible_odaliz_items}),
+        "baseNet": odaliz_base_net,
+        "commission": odaliz_total,
+        "automatic": True,
+        "excludedSellers": ["Amadeo Alfaro"],
+        "marcoSource": "commissionAllocations",
+    }
     return {
         "sellers": seller_rows,
         "items": items,
