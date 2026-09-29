@@ -5989,6 +5989,39 @@ def seller_commission_rate(net_amount):
     return 0.04
 
 
+MARCO_COMMISSION_RATE = 0.09
+MARCO_COMMISSION_RECIPIENTS = {
+    "Odaliz Valencia", "Amadeo Alfaro", "Marco Velado", "Erick Orantes",
+    "Yanira Merino", "Gabriela Amador", "Marjorie Morales", "Elizabeth Merino",
+    "Ventas Online", "Credy Crece",
+}
+
+
+def is_marco_velado(seller):
+    return text(seller).strip().casefold() == "marco velado"
+
+
+def parse_commission_allocations(raw_value):
+    try:
+        values = json.loads(raw_value or "[]") if isinstance(raw_value, str) else raw_value
+    except (TypeError, json.JSONDecodeError):
+        values = []
+    if not isinstance(values, list):
+        return []
+    allocations = []
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        seller = text(value.get("seller"))
+        try:
+            percent = round(float(value.get("percent") or 0), 4)
+        except (TypeError, ValueError):
+            percent = 0
+        if seller in MARCO_COMMISSION_RECIPIENTS and 0 < percent <= 9:
+            allocations.append({"seller": seller, "percent": percent})
+    return allocations
+
+
 def odaliz_commission(net_amount):
     net = round(max(float(net_amount or 0), 0), 2)
     return {
@@ -6022,6 +6055,7 @@ def bank_seller_income_report_payload(conn):
                provisions.customer_name, provisions.payment_type, provisions.seller,
                provisions.gross_amount, provisions.net_amount,
                provisions.commission_rate, provisions.commission_amount,
+               provisions.commission_allocations,
                provisions.created_at
         FROM bank_deposit_provisions AS provisions
         JOIN bank_balance_records AS records ON records.id = provisions.record_id
@@ -6042,6 +6076,7 @@ def bank_seller_income_report_payload(conn):
             "customerName": row["customer_name"], "paymentType": row["payment_type"],
             "seller": seller, "gross": gross, "net": net,
             "commissionRate": 0, "commission": 0,
+            "commissionAllocations": parse_commission_allocations(row["commission_allocations"]),
             "createdAt": row["created_at"],
         })
         summary = sellers.setdefault(seller, {
@@ -6056,13 +6091,15 @@ def bank_seller_income_report_payload(conn):
     for summary in sellers.values():
         gross = round(summary["gross"], 2)
         net = round(gross / 1.1475, 2)
-        commission_rate = seller_commission_rate(net)
+        commission_rate = MARCO_COMMISSION_RATE if is_marco_velado(summary["seller"]) else seller_commission_rate(net)
         commission = round(net * commission_rate, 2)
         seller_rows.append({
             "seller": summary["seller"], "deposits": summary["deposits"],
             "bankCount": len(summary["bankIds"]), "banks": sorted(summary["banks"]),
             "commissionRates": [commission_rate],
             "gross": gross, "net": net, "commission": commission,
+            "commissionAllocated": 0, "commissionPending": commission,
+            "commissionAllocationSummary": [],
             "odalizEligible": not excluded_from_odaliz_commission(summary["seller"]),
             "odalizCommission": 0 if excluded_from_odaliz_commission(summary["seller"]) else round(net * 0.02, 2),
         })
@@ -6081,6 +6118,25 @@ def bank_seller_income_report_payload(conn):
         difference = round(calculation["commission"] - allocated, 2)
         if seller_items and difference:
             seller_items[-1]["commission"] = round(seller_items[-1]["commission"] + difference, 2)
+    marco_calculation = next((item for item in seller_rows if is_marco_velado(item["seller"])), None)
+    marco_allocations = {}
+    if marco_calculation:
+        marco_items = [item for item in items if is_marco_velado(item["seller"])]
+        for item in marco_items:
+            allocation_details = []
+            allocated = 0
+            for allocation in item["commissionAllocations"]:
+                amount = round(item["net"] * allocation["percent"] / 100, 2)
+                allocated = round(allocated + amount, 2)
+                allocation_details.append({**allocation, "amount": amount})
+                summary = marco_allocations.setdefault(allocation["seller"], {"seller": allocation["seller"], "amount": 0})
+                summary["amount"] = round(summary["amount"] + amount, 2)
+            item["commissionAllocationDetails"] = allocation_details
+            item["commissionAllocated"] = allocated
+            item["commissionPending"] = round(max(item["commission"] - allocated, 0), 2)
+        marco_calculation["commissionAllocated"] = round(sum(item["commissionAllocated"] for item in marco_items), 2)
+        marco_calculation["commissionPending"] = round(max(marco_calculation["commission"] - marco_calculation["commissionAllocated"], 0), 2)
+        marco_calculation["commissionAllocationSummary"] = sorted(marco_allocations.values(), key=lambda item: item["seller"].casefold())
     dates = [item["date"] for item in items if item["date"]]
     total_net = round(sum(item["net"] for item in seller_rows), 2)
     odaliz_base_net = round(sum(
@@ -6986,6 +7042,7 @@ def init_db():
                 labor_provision_amount REAL NOT NULL,
                 seller TEXT DEFAULT '', commission_rate REAL NOT NULL DEFAULT 0,
                 commission_amount REAL NOT NULL DEFAULT 0,
+                commission_allocations TEXT NOT NULL DEFAULT '[]',
                 customer_name TEXT DEFAULT '', payment_type TEXT DEFAULT '',
                 created_by TEXT DEFAULT 'Sistema Gerencial',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -6998,6 +7055,8 @@ def init_db():
             conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN commission_rate REAL NOT NULL DEFAULT 0")
         if "commission_amount" not in bank_provision_columns:
             conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN commission_amount REAL NOT NULL DEFAULT 0")
+        if "commission_allocations" not in bank_provision_columns:
+            conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN commission_allocations TEXT NOT NULL DEFAULT '[]'")
         if "customer_name" not in bank_provision_columns:
             conn.execute("ALTER TABLE bank_deposit_provisions ADD COLUMN customer_name TEXT DEFAULT ''")
         if "payment_type" not in bank_provision_columns:
@@ -8220,6 +8279,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 "taxProvision": row["vat_amount"], "labor": row["labor_provision_amount"],
                 "seller": row["seller"], "commissionRate": row["commission_rate"],
                 "commission": row["commission_amount"], "customerName": row["customer_name"],
+                "commissionAllocations": parse_commission_allocations(row["commission_allocations"]),
                 "paymentType": row["payment_type"], "createdBy": row["created_by"],
                 "createdAt": row["created_at"],
             } for row in rows])
@@ -8383,6 +8443,28 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             seller = text(data.get("seller"))
             if seller not in allowed_sellers:
                 self.send_json({"error": "Selecciona un vendedor válido para atribuir el ingreso"}, status=400); return
+            commission_allocations = []
+            if is_marco_velado(seller):
+                raw_allocations = data.get("commissionAllocations") or []
+                if not isinstance(raw_allocations, list):
+                    self.send_json({"error": "Las asignaciones de comisión de Marco no tienen un formato válido"}, status=400); return
+                seen_recipients = set()
+                for allocation in raw_allocations:
+                    recipient = text(allocation.get("seller")) if isinstance(allocation, dict) else ""
+                    try:
+                        percent = round(float(allocation.get("percent") or 0), 4) if isinstance(allocation, dict) else 0
+                    except (TypeError, ValueError):
+                        percent = 0
+                    if recipient not in MARCO_COMMISSION_RECIPIENTS:
+                        self.send_json({"error": "Selecciona un vendedor válido para compartir la comisión de Marco"}, status=400); return
+                    if recipient in seen_recipients:
+                        self.send_json({"error": f"{recipient} está repetido en la distribución de comisión"}, status=400); return
+                    if percent <= 0 or percent > 9:
+                        self.send_json({"error": "Cada porcentaje compartido debe ser mayor que 0 y no superar 9%"}, status=400); return
+                    seen_recipients.add(recipient)
+                    commission_allocations.append({"seller": recipient, "percent": percent})
+                if round(sum(item["percent"] for item in commission_allocations), 4) > 9:
+                    self.send_json({"error": "La distribución de Marco no puede superar su comisión total del 9%"}, status=400); return
             payment_type = text(data.get("paymentType"))
             allowed_payment_types = {"Anticipo", "Abono", "Cancelación de saldo"}
             if payment_type not in allowed_payment_types:
@@ -8418,12 +8500,12 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     conn.execute("""INSERT INTO bank_deposit_provisions
                         (id, record_id, account_id, gross_amount, net_amount, vat_amount, income_tax_amount,
                          labor_provision_amount, seller, commission_rate, commission_amount,
-                         customer_name, payment_type, created_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                         commission_allocations, customer_name, payment_type, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (provision_id, record_id, account_id, gross, net, vat, income_tax, labor, seller,
-                         commission_rate, commission, customer_name, payment_type,
+                         commission_rate, commission, json.dumps(commission_allocations, ensure_ascii=False), customer_name, payment_type,
                          text(data.get("createdBy"), "Sistema Gerencial")))
-                    created.append({"id": provision_id, "recordId": record_id, "gross": gross, "net": net, "vat": vat, "taxProvision": vat, "incomeTax": income_tax, "labor": labor, "seller": seller, "commissionRate": commission_rate, "commission": commission, "customerName": customer_name, "paymentType": payment_type})
+                    created.append({"id": provision_id, "recordId": record_id, "gross": gross, "net": net, "vat": vat, "taxProvision": vat, "incomeTax": income_tax, "labor": labor, "seller": seller, "commissionRate": commission_rate, "commission": commission, "commissionAllocations": commission_allocations, "customerName": customer_name, "paymentType": payment_type})
             self.send_json({"ok": True, "created": created, "skipped": skipped}, status=201)
             return
 
