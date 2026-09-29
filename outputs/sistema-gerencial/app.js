@@ -11806,18 +11806,59 @@ async function printBankProvisionReport(account) {
   popup.document.close();
 }
 
+function bankSellerReportEntries(report, scope) {
+  const odalizMode = scope === "__odaliz__";
+  if (odalizMode) {
+    return (report.items || []).filter((item) => item.odalizEligible !== false).map((item) => ({
+      ...item,
+      reportCommission:Number(item.odalizCommission || 0),
+      reportCommissionRate:Number(item.odalizCommissionRate || 0),
+      reportIndirect:normalizeKey(item.seller) === normalizeKey("Marco Velado"),
+    }));
+  }
+  const scopeKey = normalizeKey(scope);
+  return (report.items || []).flatMap((item) => {
+    const entries = [];
+    if (normalizeKey(item.seller) === scopeKey) {
+      entries.push({ ...item, reportCommission:Number(item.commission || 0), reportCommissionRate:Number(item.commissionRate || 0), reportRecipient:scope, reportIndirect:false });
+    }
+    if (normalizeKey(item.seller) !== scopeKey) {
+      const allocation = (item.commissionAllocationDetails || []).find((detail) => normalizeKey(detail.seller) === scopeKey);
+      if (allocation) entries.push({
+        ...item,
+        id:`${item.id}-allocation-${scopeKey}`,
+        reportCommission:Number(allocation.amount || 0),
+        reportCommissionRate:Number(allocation.percent || 0) / 100,
+        reportRecipient:scope,
+        reportIndirect:true,
+        reportSourceSeller:item.seller,
+      });
+    }
+    return entries;
+  });
+}
+
 function selectBankSellerReportScope(report) {
   return new Promise((resolve) => {
     const sellers = [...(report.sellers || [])].filter((item) => normalizeKey(item.seller) !== normalizeKey("Odaliz Valencia")).sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
     const odaliz = report.odalizCommission || { seller:"Odaliz Valencia", commissionRate:0.02, baseNet:0, commission:0 };
-    const odalizItems = (report.items || []).filter((item) => item.odalizEligible !== false);
+    const odalizItems = bankSellerReportEntries(report, "__odaliz__");
     const reportOptions = [{
       value:"__odaliz__", seller:odaliz.seller,
       deposits:odalizItems.length,
       bankCount:new Set(odalizItems.map((item) => item.accountId)).size,
       gross:odalizItems.reduce((sum, item) => sum + Number(item.gross || 0), 0),
       commission:odaliz.commission,
-    }, ...sellers.map((item) => ({ value:item.seller, ...item }))].sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
+    }, ...sellers.map((item) => {
+      const entries = bankSellerReportEntries(report, item.seller);
+      return {
+        value:item.seller, ...item,
+        deposits:entries.length,
+        bankCount:new Set(entries.map((entry) => entry.accountId)).size,
+        gross:entries.reduce((sum, entry) => sum + Number(entry.gross || 0), 0),
+        commission:entries.reduce((sum, entry) => sum + Number(entry.reportCommission || 0), 0),
+      };
+    })].sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
     const dialog = document.createElement("dialog");
     dialog.className = "bank-seller-report-dialog";
     dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones</h2><p>Selecciona un vendedor para generar su reporte.</p></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}"><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} depósitos · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Selecciona un vendedor</span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
@@ -11844,12 +11885,12 @@ async function printBankSellerIncomeReport() {
   if (!selectedScope) return;
   const odalizMode = selectedScope === "__odaliz__";
   const marcoMode = normalizeKey(selectedScope) === normalizeKey("Marco Velado");
-  const items = (report.items || []).filter((item) => odalizMode ? item.odalizEligible !== false : item.seller === selectedScope);
+  const items = bankSellerReportEntries(report, selectedScope);
   if (!items.length) return alert("No hay transacciones para el reporte seleccionado.");
   const popup = window.open("", "_blank", "width=900,height=1050");
   if (!popup) return alert("Permite las ventanas emergentes para imprimir el reporte.");
-  const commissionValue = (item) => Number(odalizMode ? item.odalizCommission : item.commission || 0);
-  const commissionRate = (item) => Number(odalizMode ? item.odalizCommissionRate : item.commissionRate || 0);
+  const commissionValue = (item) => Number(item.reportCommission ?? (odalizMode ? item.odalizCommission : item.commission) ?? 0);
+  const commissionRate = (item) => Number(item.reportCommissionRate ?? (odalizMode ? item.odalizCommissionRate : item.commissionRate) ?? 0);
   const rateLabel = (rate) => `${Math.round(Number(rate || 0) * 100)}%`;
   const roundCurrency = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
   const totals = { gross:items.reduce((sum, item) => sum + Number(item.gross || 0), 0), net:items.reduce((sum, item) => sum + Number(item.net || 0), 0), commission:items.reduce((sum, item) => sum + commissionValue(item), 0), deposits:items.length };
@@ -11887,8 +11928,10 @@ async function printBankSellerIncomeReport() {
       : `<td><strong>${escapeHtml(item.customerName || "—")}</strong><small>${escapeHtml(item.paymentType || "—")}</small></td>`;
     const commissionCells = marcoMode
       ? `<td>${formatMoney(marcoFinancial?.commission || 0)}</td><td class="rent">${formatMoney(marcoFinancial?.incomeTax || 0)}</td><td class="commission"><strong>${formatMoney(marcoFinancial?.net || 0)}</strong><small>Neto a provisionar</small></td>`
-      : `<td class="commission"><strong>${formatMoney(commissionValue(item))}</strong><small>${escapeHtml(rateLabel(commissionRate(item)))}${odalizMode ? " Odaliz" : ""}</small></td>`;
-    return `<tr><td>${escapeHtml(formatDate(item.date))}</td><td><strong>${escapeHtml(item.seller || "Sin vendedor")}</strong><small>${escapeHtml(item.bank || "—")} · ${escapeHtml(item.account || "")}</small></td>${conceptCell}<td>${formatMoney(item.gross)}</td><td>${formatMoney(item.net)}</td>${commissionCells}</tr>`;
+      : `<td class="commission"><strong>${formatMoney(commissionValue(item))}</strong><small>${escapeHtml(rateLabel(commissionRate(item)))}${item.reportIndirect ? " desde Marco" : odalizMode ? " Odaliz" : ""}</small></td>`;
+    const sellerLabel = item.reportRecipient || item.seller || "Sin vendedor";
+    const sellerDetail = item.reportIndirect ? `Asignada por ${item.reportSourceSeller || item.seller || "Marco Velado"} · ${item.bank || "—"}` : `${item.bank || "—"} · ${item.account || ""}`;
+    return `<tr><td>${escapeHtml(formatDate(item.date))}</td><td><strong>${escapeHtml(sellerLabel)}</strong><small>${escapeHtml(sellerDetail)}</small></td>${conceptCell}<td>${formatMoney(item.gross)}</td><td>${formatMoney(item.net)}</td>${commissionCells}</tr>`;
   }).join("");
   const marcoDistribution = marcoMode ? `<section class="distribution"><table><tbody><tr class="marco-net"><td><strong>Marco Velado</strong><small>Comisión neta después de renta · valor a provisionar</small></td><td>${formatMoney(reportCommissionTotal)}</td></tr><tr class="rent-row"><td><strong>Renta retenida</strong><small>10% sobre la comisión de Marco antes de renta</small></td><td>${formatMoney(marcoIncomeTax)}</td></tr>${marcoAllocations.map((allocation) => `<tr><td><strong>${escapeHtml(allocation.seller)}</strong><small>Comisión asignada desde el 9% de Marco</small></td><td>${formatMoney(allocation.amount)}</td></tr>`).join("")}</tbody><tfoot><tr><td>Total comisiones corrientes</td><td>${formatMoney(currentCommissionTotal)}</td></tr></tfoot></table></section>` : "";
   const scopeLabel = odalizMode ? "Odaliz Valencia" : selectedScope;
