@@ -5990,6 +5990,7 @@ def seller_commission_rate(net_amount):
 
 
 MARCO_COMMISSION_RATE = 0.09
+AMADEO_COMMISSION_RATE = 0.09
 MARCO_COMMISSION_RECIPIENTS = {
     "Odaliz Valencia", "Amadeo Alfaro", "Marco Velado", "Erick Orantes",
     "Yanira Merino", "Gabriela Amador", "Marjorie Morales", "Elizabeth Merino",
@@ -5999,6 +6000,10 @@ MARCO_COMMISSION_RECIPIENTS = {
 
 def is_marco_velado(seller):
     return text(seller).strip().casefold() == "marco velado"
+
+
+def is_amadeo_alfaro(seller):
+    return text(seller).strip().casefold() == "amadeo alfaro"
 
 
 def parse_commission_allocations(raw_value):
@@ -6091,7 +6096,12 @@ def bank_seller_income_report_payload(conn):
     for summary in sellers.values():
         gross = round(summary["gross"], 2)
         net = round(gross / 1.1475, 2)
-        commission_rate = MARCO_COMMISSION_RATE if is_marco_velado(summary["seller"]) else seller_commission_rate(net)
+        if is_marco_velado(summary["seller"]):
+            commission_rate = MARCO_COMMISSION_RATE
+        elif is_amadeo_alfaro(summary["seller"]):
+            commission_rate = AMADEO_COMMISSION_RATE
+        else:
+            commission_rate = seller_commission_rate(net)
         commission = round(net * commission_rate, 2)
         seller_rows.append({
             "seller": summary["seller"], "deposits": summary["deposits"],
