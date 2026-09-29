@@ -5989,6 +5989,17 @@ def seller_commission_rate(net_amount):
     return 0.04
 
 
+def odaliz_commission(net_amount):
+    net = round(max(float(net_amount or 0), 0), 2)
+    return {
+        "seller": "Odaliz Valencia",
+        "commissionRate": 0.02,
+        "baseNet": net,
+        "commission": round(net * 0.02, 2),
+        "automatic": True,
+    }
+
+
 def bank_record_comment(values):
     for key, value in (values or {}).items():
         normalized_key = "".join(
@@ -6065,13 +6076,19 @@ def bank_seller_income_report_payload(conn):
         if seller_items and difference:
             seller_items[-1]["commission"] = round(seller_items[-1]["commission"] + difference, 2)
     dates = [item["date"] for item in items if item["date"]]
+    total_net = round(sum(item["net"] for item in seller_rows), 2)
+    seller_commission = round(sum(item["commission"] for item in seller_rows), 2)
+    odaliz = odaliz_commission(total_net)
     return {
         "sellers": seller_rows,
         "items": items,
+        "odalizCommission": odaliz,
         "totals": {
             "gross": round(sum(item["gross"] for item in items), 2),
-            "net": round(sum(item["net"] for item in seller_rows), 2),
-            "commission": round(sum(item["commission"] for item in seller_rows), 2),
+            "net": total_net,
+            "sellerCommission": seller_commission,
+            "odalizCommission": odaliz["commission"],
+            "commission": round(seller_commission + odaliz["commission"], 2),
             "deposits": len(items), "banks": len(bank_ids),
         },
         "period": {"from": min(dates) if dates else None, "to": max(dates) if dates else None},
