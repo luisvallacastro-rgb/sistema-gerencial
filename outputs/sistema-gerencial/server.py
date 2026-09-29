@@ -5979,6 +5979,72 @@ def bank_availability_report_payload(conn):
     }
 
 
+def bank_seller_income_report_payload(conn):
+    rows = conn.execute("""
+        SELECT provisions.id, provisions.record_id, provisions.account_id,
+               accounts.bank, accounts.account, records.record_date,
+               provisions.customer_name, provisions.payment_type, provisions.seller,
+               provisions.gross_amount, provisions.net_amount,
+               provisions.commission_rate, provisions.commission_amount,
+               provisions.created_at
+        FROM bank_deposit_provisions AS provisions
+        JOIN bank_balance_records AS records ON records.id = provisions.record_id
+        JOIN bank_accounts AS accounts ON accounts.id = provisions.account_id
+        ORDER BY records.record_date DESC, datetime(provisions.created_at) DESC, provisions.rowid DESC
+    """).fetchall()
+    items = []
+    sellers = {}
+    bank_ids = set()
+    for row in rows:
+        seller = text(row["seller"]) or "Sin vendedor"
+        gross = round(float(row["gross_amount"] or 0), 2)
+        net = round(float(row["net_amount"] or 0), 2)
+        commission_rate = float(row["commission_rate"] or 0)
+        commission = round(float(row["commission_amount"] or 0), 2)
+        bank_ids.add(row["account_id"])
+        items.append({
+            "id": row["id"], "recordId": row["record_id"], "accountId": row["account_id"],
+            "bank": row["bank"], "account": row["account"], "date": row["record_date"],
+            "customerName": row["customer_name"], "paymentType": row["payment_type"],
+            "seller": seller, "gross": gross, "net": net,
+            "commissionRate": commission_rate, "commission": commission,
+            "createdAt": row["created_at"],
+        })
+        summary = sellers.setdefault(seller, {
+            "seller": seller, "deposits": 0, "bankIds": set(), "banks": set(),
+            "commissionRates": set(), "gross": 0, "net": 0, "commission": 0,
+        })
+        summary["deposits"] += 1
+        summary["bankIds"].add(row["account_id"])
+        summary["banks"].add(row["bank"])
+        summary["commissionRates"].add(commission_rate)
+        summary["gross"] += gross
+        summary["net"] += net
+        summary["commission"] += commission
+    seller_rows = []
+    for summary in sellers.values():
+        seller_rows.append({
+            "seller": summary["seller"], "deposits": summary["deposits"],
+            "bankCount": len(summary["bankIds"]), "banks": sorted(summary["banks"]),
+            "commissionRates": sorted(summary["commissionRates"]),
+            "gross": round(summary["gross"], 2), "net": round(summary["net"], 2),
+            "commission": round(summary["commission"], 2),
+        })
+    seller_rows.sort(key=lambda item: (-item["gross"], item["seller"].casefold()))
+    dates = [item["date"] for item in items if item["date"]]
+    return {
+        "sellers": seller_rows,
+        "items": items,
+        "totals": {
+            "gross": round(sum(item["gross"] for item in items), 2),
+            "net": round(sum(item["net"] for item in items), 2),
+            "commission": round(sum(item["commission"] for item in items), 2),
+            "deposits": len(items), "banks": len(bank_ids),
+        },
+        "period": {"from": min(dates) if dates else None, "to": max(dates) if dates else None},
+    }
+
+
 def bank_flow_fields(account_id):
     return {
         "bank-agricola": ("Abono", "Cargo"),
@@ -7953,6 +8019,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 return
             with connect() as conn:
                 self.send_json(bank_availability_report_payload(conn))
+            return
+
+        if self.path == "/api/bank-availability/provisions-report":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            with connect() as conn:
+                self.send_json(bank_seller_income_report_payload(conn))
             return
 
         if self.path == "/api/bank-availability/signatures":
