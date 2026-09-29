@@ -5993,7 +5993,7 @@ MARCO_COMMISSION_RATE = 0.09
 MARCO_COMMISSION_RECIPIENTS = {
     "Odaliz Valencia", "Amadeo Alfaro", "Marco Velado", "Erick Orantes",
     "Yanira Merino", "Gabriela Amador", "Marjorie Morales", "Elizabeth Merino",
-    "Ventas Online", "Credy Crece",
+    "Ventas Online", "Credy Crece", "Comisión Cancelada",
 }
 
 
@@ -6125,17 +6125,19 @@ def bank_seller_income_report_payload(conn):
         for item in marco_items:
             allocation_details = []
             allocated = 0
+            allocated_percent = 0
             for allocation in item["commissionAllocations"]:
                 amount = round(item["net"] * allocation["percent"] / 100, 2)
                 allocated = round(allocated + amount, 2)
+                allocated_percent = round(allocated_percent + allocation["percent"], 4)
                 allocation_details.append({**allocation, "amount": amount})
                 summary = marco_allocations.setdefault(allocation["seller"], {"seller": allocation["seller"], "amount": 0})
                 summary["amount"] = round(summary["amount"] + amount, 2)
             item["commissionAllocationDetails"] = allocation_details
             item["commissionAllocated"] = allocated
-            item["commissionPending"] = round(max(item["commission"] - allocated, 0), 2)
+            item["commissionPending"] = round(item["net"] * max(9 - allocated_percent, 0) / 100, 2)
         marco_calculation["commissionAllocated"] = round(sum(item["commissionAllocated"] for item in marco_items), 2)
-        marco_calculation["commissionPending"] = round(max(marco_calculation["commission"] - marco_calculation["commissionAllocated"], 0), 2)
+        marco_calculation["commissionPending"] = round(sum(item["commissionPending"] for item in marco_items), 2)
         marco_calculation["commissionAllocationSummary"] = sorted(marco_allocations.values(), key=lambda item: item["seller"].casefold())
     dates = [item["date"] for item in items if item["date"]]
     total_net = round(sum(item["net"] for item in seller_rows), 2)
