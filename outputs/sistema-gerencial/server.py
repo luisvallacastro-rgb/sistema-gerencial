@@ -6549,6 +6549,57 @@ def release_mira_provisions(conn):
     print("Se liberaron tres provisiones de Mira S,A de C.V; los movimientos bancarios permanecen intactos.")
 
 
+def release_marco_velado_provisions_for_rebuild_once(conn):
+    """Release Marco's verified provisions once so the new 9% flow can be rebuilt end to end."""
+    marker = "maintenance.release-marco-velado-provisions.2026-09-29.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker,)).fetchone():
+        return False
+    expected = sorted([
+        ("2026-09-25", 40937.70, "Banco Hipotecario"),
+        ("2026-09-17", 3500.82, "Liceo Castilla"),
+        ("2026-09-16", 465.49, "Comercializadora Dinex"),
+        ("2026-09-08", 1404.62, "Banco Hipotecario CCF 161"),
+    ])
+    rows = conn.execute("""
+        SELECT provisions.*, records.record_date
+        FROM bank_deposit_provisions AS provisions
+        JOIN bank_balance_records AS records ON records.id = provisions.record_id
+        WHERE lower(trim(provisions.seller)) = 'marco velado'
+        ORDER BY records.record_date DESC, provisions.created_at DESC
+    """).fetchall()
+    observed = sorted((row["record_date"], round(float(row["gross_amount"] or 0), 2), text(row["customer_name"])) for row in rows)
+    if observed != expected:
+        print("No se liberaron las provisiones de Marco Velado: los registros activos no coinciden con las cuatro filas verificadas.")
+        return False
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS bank_deposit_provision_releases (
+            provision_id TEXT PRIMARY KEY,
+            record_id TEXT NOT NULL,
+            account_id TEXT NOT NULL,
+            provision_snapshot TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            released_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    released_ids = []
+    for row in rows:
+        conn.execute("""
+            INSERT INTO bank_deposit_provision_releases
+                (provision_id, record_id, account_id, provision_snapshot, reason)
+            VALUES (?, ?, ?, ?, ?)
+        """, (row["id"], row["record_id"], row["account_id"],
+              json.dumps(dict(row), ensure_ascii=False),
+              "Reconstrucción del flujo especial de comisión de Marco Velado solicitada el 29/09/2026"))
+        conn.execute("DELETE FROM bank_deposit_provisions WHERE id = ? AND record_id = ?", (row["id"], row["record_id"]))
+        released_ids.append(row["id"])
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (marker, json.dumps({"released": released_ids, "count": len(released_ids)}, ensure_ascii=False)),
+    )
+    print("Se liberaron cuatro provisiones de Marco Velado para reconstruir el flujo; los movimientos bancarios permanecen intactos.")
+    return True
+
+
 def revert_fiaes_quotation_q0033_from_op_2026090028_once(conn):
     """Return one accidentally converted quotation to its editable state, preserving the OP history."""
     if os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}:
@@ -7116,6 +7167,7 @@ def init_db():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_customer_advance_audit_item ON customer_advance_audit(advance_id, created_at DESC)")
         release_mira_provisions(conn)
+        release_marco_velado_provisions_for_rebuild_once(conn)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS bank_daily_availability (
                 id TEXT PRIMARY KEY, snapshot_date TEXT NOT NULL UNIQUE, total REAL NOT NULL DEFAULT 0,
