@@ -6238,6 +6238,7 @@ def commission_liability_payload(conn, report=None):
             "rate": round(float(rate or 0), 6), "kind": kind,
             "sourceSeller": item["seller"], "bank": item["bank"], "account": item["account"],
             "customerName": item["customerName"], "paymentType": item["paymentType"],
+            "gross": item["gross"], "net": item["net"],
             "detail": detail, **(extra or {}),
         })
 
@@ -6322,7 +6323,9 @@ def automatic_commission_expenses(conn):
     return [{
         "id": f"commission::{item['key']}", "date": item["date"], "costCenter": "Comisiones",
         "detail": item["detail"], "amount": item["amount"], "automatic": True,
-        "commissionKey": item["key"], "seller": item["seller"], "source": item["kind"],
+        "commissionKey": item["key"], "provisionId": item["provisionId"],
+        "baseNet": item["net"], "gross": item["gross"],
+        "seller": item["seller"], "source": item["kind"],
     } for item in commission_liability_payload(conn)["pending"]]
 
 
@@ -6432,7 +6435,9 @@ def initialize_reserve_liability_start_once(conn):
 def automatic_reserve_expenses(conn):
     return [{"id": f"reserve::{item['key']}", "date": item["date"], "costCenter": item["reserve"],
              "detail": item["detail"], "amount": item["amount"], "automatic": True,
-             "reserveKey": item["key"], "seller": item["seller"], "source": item["kind"]}
+             "reserveKey": item["key"], "provisionId": item["provisionId"],
+             "baseNet": item["net"], "gross": item["gross"],
+             "seller": item["seller"], "source": item["kind"]}
             for item in reserve_liability_payload(conn)["pending"]]
 
 

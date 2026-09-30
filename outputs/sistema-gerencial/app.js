@@ -11654,7 +11654,7 @@ async function printBankAvailabilityReport(archivedReport = null, archivedDate =
 
 function pendingExpenseGroups() {
   const grouped = new Map();
-  state.pendingExpenses.forEach((item) => { if (!grouped.has(item.costCenter)) grouped.set(item.costCenter, []); grouped.get(item.costCenter).push([item.date, item.detail, Number(item.amount || 0)]); });
+  state.pendingExpenses.forEach((item) => { if (!grouped.has(item.costCenter)) grouped.set(item.costCenter, []); grouped.get(item.costCenter).push([item.date, item.detail, Number(item.amount || 0), item]); });
   return [...grouped].map(([name, details]) => ({ name, details, total:details.reduce((sum, row) => sum + row[2], 0) }));
 }
 
@@ -11685,7 +11685,13 @@ function toDateInputValue(value) {
 function pendingExpenseDetailMarkup(group) {
   if (!group) return `<div class="empty-state">No hay gastos pendientes registrados.</div>`;
   const rows = group.details.map(([date, detail, amount]) => `<tr><td>${escapeHtml(date)}</td><td>${escapeHtml(detail)}</td><td class="money">${formatMoney(amount)}</td></tr>`).join("");
-  return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong></header><div class="pending-expense-detail-table"><table><thead><tr><th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
+  const calculatedCenter = ["comisiones", "reserva fiscal", "reserva laboral"].includes(normalizeKey(group.name));
+  const remittances = new Map();
+  if (calculatedCenter) group.details.forEach(([, , , item]) => { if (item?.provisionId && !remittances.has(item.provisionId)) remittances.set(item.provisionId, Number(item.baseNet || 0)); });
+  const calculationBase = [...remittances.values()].reduce((sum, value) => sum + value, 0);
+  const rateLabel = normalizeKey(group.name) === "reserva fiscal" ? "13%" : normalizeKey(group.name) === "reserva laboral" ? "7%" : "según vendedor / asignación";
+  const calculationTag = calculatedCenter ? `<small class="pending-expense-calculation-base"><b>${remittances.size} ${remittances.size === 1 ? "remesa" : "remesas"}</b><span>Base neta para el cálculo: <strong>${formatMoney(calculationBase)}</strong></span><em>${escapeHtml(rateLabel)}</em></small>` : "";
+  return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong>${calculationTag}</header><div class="pending-expense-detail-table"><table><thead><tr><th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
 }
 
 function bankFieldType(field) {
