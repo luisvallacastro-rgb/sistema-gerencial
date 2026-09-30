@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-free-sample-status-v42"
+API_VERSION = "kmi-sample-status-list-v43"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -3464,7 +3464,7 @@ def save_sample_archive_item(conn, data, existing=None):
     size = text(data.get("size"), existing["size"] if existing else "")
     garment_description = text(data.get("garmentDescription"), existing["garment_description"] if existing else "")
     fabric_type = text(data.get("fabricType"), existing["fabric_type"] if existing else "")
-    sample_status = text(data.get("sampleStatus"), existing["sample_status"] if existing else "Ingresada")
+    sample_status = text(data.get("sampleStatus"), existing["sample_status"] if existing else "En Bodega")
     try:
         quantity = int(data.get("quantity", existing["quantity"] if existing else 1))
     except (TypeError, ValueError):
@@ -3473,6 +3473,8 @@ def save_sample_archive_item(conn, data, existing=None):
         raise ValueError("Cliente y fecha de ingreso son requeridos")
     if not garment_type or not garment_description or not fabric_type or not sample_status or quantity <= 0:
         raise ValueError("Tipo, cantidad, descripción de prenda, tela y estado son requeridos")
+    if sample_status not in {"En Bodega", "Prestada", "En Planta"}:
+        raise ValueError("Selecciona un estado válido para la muestra")
     crm = read_crm_data(conn)
     if not any(text(customer.get("id")) == customer_id and customer.get("active") is not False for customer in crm.get("customers", [])):
         raise ValueError("El cliente seleccionado ya no está activo en la base de clientes")
@@ -7891,7 +7893,7 @@ def init_db():
                 id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, entry_date TEXT NOT NULL,
                 garment_type TEXT NOT NULL, size TEXT NOT NULL DEFAULT '', quantity INTEGER NOT NULL DEFAULT 1,
                 garment_description TEXT NOT NULL DEFAULT '', fabric_type TEXT NOT NULL DEFAULT '',
-                sample_status TEXT NOT NULL DEFAULT 'Ingresada', created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                sample_status TEXT NOT NULL DEFAULT 'En Bodega', created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
                 updated_by TEXT NOT NULL DEFAULT 'Sistema Gerencial', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
