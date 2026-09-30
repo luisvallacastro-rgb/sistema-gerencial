@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-commission-history-v37"
+API_VERSION = "kmi-commission-review-v38"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -6282,22 +6282,29 @@ def commission_liability_payload(conn):
     settlements = []
     for row in conn.execute("""
         SELECT id, number, settlement_date, account_id, total_amount, reference,
-               description, status, created_by, created_at, paid_at
+               description, status, created_by, created_at, paid_at, reviewed_by, reviewed_at
         FROM commission_settlements ORDER BY datetime(created_at) DESC, rowid DESC
     """).fetchall():
-        settlement_items = [{
-            "seller": item["seller"], "amount": round(float(item["amount"] or 0), 2),
-            "source": item["source"], "detail": item["detail"],
-        } for item in conn.execute("""
-            SELECT seller, amount, source, detail
+        settlement_items = []
+        for item in conn.execute("""
+            SELECT seller, amount, source, detail, snapshot
             FROM commission_settlement_items
             WHERE settlement_id = ? ORDER BY seller, created_at, rowid
-        """, (row["id"],)).fetchall()]
+        """, (row["id"],)).fetchall():
+            try:
+                item_snapshot = json.loads(item["snapshot"] or "{}")
+            except (TypeError, json.JSONDecodeError):
+                item_snapshot = {}
+            settlement_items.append({
+                "seller": item["seller"], "amount": round(float(item["amount"] or 0), 2),
+                "source": item["source"], "detail": item["detail"], "date": text(item_snapshot.get("date")),
+            })
         settlements.append({
             "id": row["id"], "number": row["number"], "date": row["settlement_date"],
             "accountId": row["account_id"], "amount": round(float(row["total_amount"] or 0), 2),
             "reference": row["reference"], "description": row["description"], "status": row["status"],
             "createdBy": row["created_by"], "createdAt": row["created_at"], "paidAt": row["paid_at"],
+            "reviewedBy": row["reviewed_by"], "reviewedAt": row["reviewed_at"],
             "items": settlement_items,
         })
     return {
@@ -7285,9 +7292,16 @@ def init_db():
                 snapshot TEXT NOT NULL DEFAULT '{}',
                 created_by TEXT DEFAULT 'Sistema Gerencial',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                paid_at TEXT DEFAULT CURRENT_TIMESTAMP
+                paid_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                reviewed_by TEXT DEFAULT '',
+                reviewed_at TEXT DEFAULT ''
             )
         """)
+        commission_settlement_columns = {row["name"] for row in conn.execute("PRAGMA table_info(commission_settlements)").fetchall()}
+        if "reviewed_by" not in commission_settlement_columns:
+            conn.execute("ALTER TABLE commission_settlements ADD COLUMN reviewed_by TEXT DEFAULT ''")
+        if "reviewed_at" not in commission_settlement_columns:
+            conn.execute("ALTER TABLE commission_settlements ADD COLUMN reviewed_at TEXT DEFAULT ''")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS commission_settlement_items (
                 id TEXT PRIMARY KEY,
@@ -9164,11 +9178,15 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 return
             data = self.read_json()
             component_keys = list(dict.fromkeys(text(value) for value in (data.get("componentKeys") or []) if text(value)))
+            reviewed_by = text(data.get("reviewedBy"))
             record_date = text(data.get("date")) or datetime.now(ZoneInfo("America/El_Salvador")).date().isoformat()
-            if not component_keys or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", record_date):
-                self.send_json({"error": "Selecciona las comisiones que deseas liquidar"}, status=400); return
+            if not component_keys or not reviewed_by or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", record_date):
+                self.send_json({"error": "Debes revisar y firmar el informe antes de liquidar"}, status=400); return
             try:
                 with connect() as conn:
+                    reviewer_row = conn.execute("SELECT name FROM users WHERE id = ?", (text(self.headers.get("X-System-User-Id")),)).fetchone()
+                    if reviewer_row:
+                        reviewed_by = text(reviewer_row["name"], reviewed_by)
                     liability = commission_liability_payload(conn)
                     pending_by_key = {item["key"]: item for item in liability["pending"]}
                     selected = [pending_by_key[key] for key in component_keys if key in pending_by_key]
@@ -9187,13 +9205,16 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     description = text(data.get("description"), f"Liquidación de comisiones {number}")
                     reference = text(data.get("reference"), number)
                     created_by = text(data.get("createdBy"), "Sistema Gerencial")
-                    settlement_snapshot = {"number": number, "date": record_date, "items": selected}
+                    reviewed_at = datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")
+                    settlement_snapshot = {"number": number, "date": record_date, "items": selected,
+                                           "reviewedBy": reviewed_by, "reviewedAt": reviewed_at}
                     conn.execute("""INSERT INTO commission_settlements
                         (id, number, settlement_date, account_id, bank_record_id, total_amount,
-                         reference, description, status, snapshot, created_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pagada', ?, ?)""",
+                         reference, description, status, snapshot, created_by, reviewed_by, reviewed_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pagada', ?, ?, ?, ?)""",
                         (settlement_id, number, record_date, "", "", amount,
-                         reference, description, json.dumps(settlement_snapshot, ensure_ascii=False), created_by))
+                         reference, description, json.dumps(settlement_snapshot, ensure_ascii=False), created_by,
+                         reviewed_by, reviewed_at))
                     for item in selected:
                         conn.execute("""INSERT INTO commission_settlement_items
                             (id, settlement_id, component_key, provision_id, seller, amount, source, detail, snapshot)
