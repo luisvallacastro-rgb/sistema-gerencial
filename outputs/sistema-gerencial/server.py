@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-commission-review-v38"
+API_VERSION = "kmi-commission-pending-reports-v39"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -6212,9 +6212,9 @@ def bank_seller_income_report_payload(conn):
     }
 
 
-def commission_liability_payload(conn):
+def commission_liability_payload(conn, report=None):
     """Build the payable commission ledger from bank provisions and exclude paid components."""
-    report = bank_seller_income_report_payload(conn)
+    report = report or bank_seller_income_report_payload(conn)
     paid_keys = {row["component_key"] for row in conn.execute("""
         SELECT items.component_key
         FROM commission_settlement_items AS items
@@ -8424,7 +8424,12 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             if not self.require_permission("financiera:disponibilidad"):
                 return
             with connect() as conn:
-                self.send_json(bank_seller_income_report_payload(conn))
+                report = bank_seller_income_report_payload(conn)
+                liability = commission_liability_payload(conn, report)
+                report["pendingCommissionComponents"] = liability["pending"]
+                report["pendingCommissionSummary"] = liability["summary"]
+                report["pendingCommissionTotal"] = liability["pendingTotal"]
+                self.send_json(report)
             return
 
         if self.path == "/api/commission-settlements":

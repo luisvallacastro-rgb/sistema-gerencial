@@ -11807,61 +11807,45 @@ async function printBankProvisionReport(account) {
 }
 
 function bankSellerReportEntries(report, scope) {
-  const odalizMode = scope === "__odaliz__";
-  if (odalizMode) {
-    return (report.items || []).filter((item) => item.odalizEligible !== false).map((item) => ({
-      ...item,
-      reportCommission:Number(item.odalizCommission || 0),
-      reportCommissionRate:Number(item.odalizCommissionRate || 0),
-      reportIndirect:normalizeKey(item.seller) === normalizeKey("Marco Velado"),
+  const rawByProvision = new Map((report.items || []).map((item) => [item.id, item]));
+  return (report.pendingCommissionComponents || [])
+    .filter((component) => normalizeKey(component.seller) === normalizeKey(scope))
+    .map((component) => ({
+      ...(rawByProvision.get(component.provisionId) || {}),
+      id:component.key,
+      provisionId:component.provisionId,
+      date:component.date,
+      bank:component.bank,
+      account:component.account,
+      customerName:component.customerName,
+      paymentType:component.paymentType,
+      reportCommission:Number(component.amount || 0),
+      reportCommissionRate:Number(component.rate || 0),
+      reportRecipient:component.seller,
+      reportSourceSeller:component.sourceSeller,
+      reportIndirect:component.kind === "marco-allocation",
+      reportKind:component.kind,
+      reportDetail:component.detail,
+      grossCommission:Number(component.grossCommission || 0),
+      incomeTax:Number(component.incomeTax || 0),
     }));
-  }
-  const scopeKey = normalizeKey(scope);
-  return (report.items || []).flatMap((item) => {
-    const entries = [];
-    if (normalizeKey(item.seller) === scopeKey) {
-      entries.push({ ...item, reportCommission:Number(item.commission || 0), reportCommissionRate:Number(item.commissionRate || 0), reportRecipient:scope, reportIndirect:false });
-    }
-    if (normalizeKey(item.seller) !== scopeKey) {
-      const allocation = (item.commissionAllocationDetails || []).find((detail) => normalizeKey(detail.seller) === scopeKey);
-      if (allocation) entries.push({
-        ...item,
-        id:`${item.id}-allocation-${scopeKey}`,
-        reportCommission:Number(allocation.amount || 0),
-        reportCommissionRate:Number(allocation.percent || 0) / 100,
-        reportRecipient:scope,
-        reportIndirect:true,
-        reportSourceSeller:item.seller,
-      });
-    }
-    return entries;
-  });
 }
 
 function selectBankSellerReportScope(report) {
   return new Promise((resolve) => {
-    const sellers = [...(report.sellers || [])].filter((item) => normalizeKey(item.seller) !== normalizeKey("Odaliz Valencia")).sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
-    const odaliz = report.odalizCommission || { seller:"Odaliz Valencia", commissionRate:0.02, baseNet:0, commission:0 };
-    const odalizItems = bankSellerReportEntries(report, "__odaliz__");
-    const reportOptions = [{
-      value:"__odaliz__", seller:odaliz.seller,
-      deposits:odalizItems.length,
-      bankCount:new Set(odalizItems.map((item) => item.accountId)).size,
-      gross:odalizItems.reduce((sum, item) => sum + Number(item.gross || 0), 0),
-      commission:odaliz.commission,
-    }, ...sellers.map((item) => {
-      const entries = bankSellerReportEntries(report, item.seller);
+    const reportOptions = (report.pendingCommissionSummary || []).map((summary) => {
+      const entries = bankSellerReportEntries(report, summary.seller);
       return {
-        value:item.seller, ...item,
+        value:summary.seller, seller:summary.seller,
         deposits:entries.length,
         bankCount:new Set(entries.map((entry) => entry.accountId)).size,
         gross:entries.reduce((sum, entry) => sum + Number(entry.gross || 0), 0),
-        commission:entries.reduce((sum, entry) => sum + Number(entry.reportCommission || 0), 0),
+        commission:Number(summary.amount || 0),
       };
-    })].sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
+    }).sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
     const dialog = document.createElement("dialog");
     dialog.className = "bank-seller-report-dialog";
-    dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones</h2><p>Selecciona un vendedor para generar su reporte.</p></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}"><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} depósitos · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Selecciona un vendedor</span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
+    dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones pendientes</h2><p>Genera un reporte individual o el consolidado de todos los saldos no liquidados.</p></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section><label class="bank-seller-report-all"><input type="radio" name="reportSeller" value="__consolidated__"><i></i><span><strong>Reporte consolidado</strong><small>${reportOptions.length} beneficiarios · ${(report.pendingCommissionComponents || []).length} partidas pendientes</small></span><b>${formatMoney(report.pendingCommissionTotal || 0)}</b><em>Total pendiente</em></label>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}"><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} partidas · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Selecciona una opción</span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
     document.body.append(dialog);
     dialog.querySelectorAll("[data-seller-report-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close("cancel")));
     dialog.querySelector("form").addEventListener("submit", (event) => {
@@ -11878,12 +11862,27 @@ function selectBankSellerReportScope(report) {
   });
 }
 
+function printConsolidatedPendingCommissionReport(report) {
+  const summaries = report.pendingCommissionSummary || [];
+  const groups = summaries.map((summary) => ({ ...summary, items:bankSellerReportEntries(report, summary.seller) }));
+  const popup = window.open("", "_blank", "width=1000,height=1050");
+  if (!popup) return alert("Permite las ventanas emergentes para imprimir el reporte.");
+  const detail = groups.map((group) => {
+    const rows = [...group.items].sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(a.reportDetail).localeCompare(String(b.reportDetail), "es")).map((item) => `<tr><td>${escapeHtml(formatDate(item.date))}</td><td><strong>${escapeHtml(item.reportSourceSeller || item.reportRecipient || "—")}</strong><small>${escapeHtml(item.bank || "—")} · ${escapeHtml(item.account || "")}</small></td><td><strong>${escapeHtml(item.customerName || "—")}</strong><small>${escapeHtml(item.reportDetail || item.paymentType || "—")}</small></td><td>${formatMoney(item.net || 0)}</td><td class="commission">${formatMoney(item.reportCommission || 0)}</td></tr>`).join("");
+    return `<section class="seller-group"><h2>${escapeHtml(group.seller)} <span>${group.items.length} partidas · ${formatMoney(group.amount)}</span></h2><table><thead><tr><th>Fecha banco</th><th>Origen / Banco</th><th>Cliente / Concepto</th><th>Neto origen</th><th>Comisión pendiente</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="4">SUBTOTAL ${escapeHtml(group.seller).toUpperCase()}</td><td>${formatMoney(group.amount)}</td></tr></tfoot></table></section>`;
+  }).join("");
+  const summaryRows = groups.map((group) => `<tr><td>${escapeHtml(group.seller)}</td><td>${Number(group.components || group.items.length)}</td><td>${formatMoney(group.amount)}</td></tr>`).join("");
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Consolidado de comisiones pendientes</title><style>@page{size:letter portrait;margin:9mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;background:#eef2f7;color:#17233a;font:9px Arial,sans-serif}.sheet{max-width:900px;margin:10px auto;padding:16px;background:#fff}.title{display:flex;justify-content:space-between;align-items:end;border-bottom:3px solid #28a98c;padding-bottom:10px}.title p{margin:2px 0;color:#64748b}.title h1{margin:3px 0;font-size:22px}.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}.totals article{padding:9px;border:1px solid #cbd5e1;border-radius:6px;background:#f7fafc}.totals span,.totals strong{display:block}.totals span{color:#64748b;font-size:7px;font-weight:800;text-transform:uppercase}.totals strong{margin-top:2px;font-size:15px;color:#12836d}.seller-group{margin-top:13px;break-inside:avoid-page}.seller-group h2{display:flex;justify-content:space-between;margin:0;padding:7px 8px;background:#e8f5f1;font-size:11px}.seller-group h2 span{color:#12836d}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:5px 6px;border:1px solid #cbd5e1;text-align:right;vertical-align:top;overflow-wrap:anywhere}th{background:#172f51;color:#fff}th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}th:first-child{width:66px}th:nth-child(2){width:145px}th:nth-child(4),th:nth-child(5){width:90px}td small{display:block;margin-top:2px;color:#64748b;font-size:7px}tfoot td{background:#eef6f4;font-weight:800}.commission{color:#12836d;font-weight:800}.consolidated{margin-top:16px}.consolidated td:first-child{text-align:left}.consolidated tfoot td{background:#172f51;color:#fff}.actions{position:fixed;right:16px;bottom:16px;display:flex;gap:8px}.actions button{padding:10px 14px;border:0;border-radius:7px;background:#173b62;color:#fff;font-weight:800}.actions button:first-child{background:#16866d}@media print{body{background:#fff}.sheet{max-width:none;margin:0;padding:0}.actions{display:none}thead{display:table-header-group}}</style></head><body><main class="sheet"><header class="title"><div><p>FINANCIERA · COMISIONES PROVISIONADAS</p><h1>Consolidado de comisiones pendientes</h1><p>Incluye únicamente partidas no liquidadas.</p></div><p>Generado ${escapeHtml(new Date().toLocaleString("es-SV"))}</p></header><section class="totals"><article><span>Beneficiarios</span><strong>${groups.length}</strong></article><article><span>Partidas pendientes</span><strong>${(report.pendingCommissionComponents || []).length}</strong></article><article><span>Total pendiente</span><strong>${formatMoney(report.pendingCommissionTotal || 0)}</strong></article></section>${detail}<table class="consolidated"><thead><tr><th>Beneficiario / destino</th><th>Partidas</th><th>Saldo pendiente</th></tr></thead><tbody>${summaryRows}</tbody><tfoot><tr><td colspan="2">TOTAL CONSOLIDADO</td><td>${formatMoney(report.pendingCommissionTotal || 0)}</td></tr></tfoot></table></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  popup.document.close();
+}
+
 async function printBankSellerIncomeReport() {
   const report = await apiJson("/api/bank-availability/provisions-report");
-  if (!(report.items || []).length) return alert("Todavía no hay ingresos provisionados para generar este reporte.");
+  if (!(report.pendingCommissionComponents || []).length) return alert("No hay comisiones pendientes de liquidar.");
   const selectedScope = await selectBankSellerReportScope(report);
   if (!selectedScope) return;
-  const odalizMode = selectedScope === "__odaliz__";
+  if (selectedScope === "__consolidated__") return printConsolidatedPendingCommissionReport(report);
+  const odalizMode = normalizeKey(selectedScope) === normalizeKey("Odaliz Valencia");
   const marcoMode = normalizeKey(selectedScope) === normalizeKey("Marco Velado");
   const items = bankSellerReportEntries(report, selectedScope);
   if (!items.length) return alert("No hay transacciones para el reporte seleccionado.");
@@ -11894,29 +11893,27 @@ async function printBankSellerIncomeReport() {
   const rateLabel = (rate) => `${Math.round(Number(rate || 0) * 100)}%`;
   const roundCurrency = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
   const totals = { gross:items.reduce((sum, item) => sum + Number(item.gross || 0), 0), net:items.reduce((sum, item) => sum + Number(item.net || 0), 0), commission:items.reduce((sum, item) => sum + commissionValue(item), 0), deposits:items.length };
-  const sellerSummary = (report.sellers || []).find((item) => normalizeKey(item.seller) === normalizeKey(selectedScope));
   const marcoAllocationOrder = ["Credy Crece", "Amadeo Alfaro", "Odaliz Valencia"];
-  const allMarcoAllocations = [...(sellerSummary?.commissionAllocationSummary || [])].sort((a, b) => {
+  const marcoAllocationSummary = new Map();
+  (report.pendingCommissionComponents || []).filter((component) => component.kind === "marco-allocation").forEach((component) => {
+    const row = marcoAllocationSummary.get(component.seller) || { seller:component.seller, amount:0 };
+    row.amount = roundCurrency(row.amount + Number(component.amount || 0));
+    marcoAllocationSummary.set(component.seller, row);
+  });
+  const allMarcoAllocations = [...marcoAllocationSummary.values()].sort((a, b) => {
     const aIndex = marcoAllocationOrder.findIndex((name) => normalizeKey(name) === normalizeKey(a.seller));
     const bIndex = marcoAllocationOrder.findIndex((name) => normalizeKey(name) === normalizeKey(b.seller));
     return (aIndex < 0 ? 99 : aIndex) - (bIndex < 0 ? 99 : bIndex) || String(a.seller).localeCompare(String(b.seller), "es");
   });
   const marcoAllocations = allMarcoAllocations.filter((allocation) => normalizeKey(allocation.seller) !== normalizeKey("Comisión Cancelada"));
-  const marcoCommissionBeforeTax = marcoMode ? roundCurrency(items.reduce((sum, item) => sum + Number(item.commissionPending || 0), 0)) : 0;
-  const marcoIncomeTax = marcoMode ? roundCurrency(marcoCommissionBeforeTax * 0.10) : 0;
-  const reportCommissionTotal = marcoMode ? roundCurrency(marcoCommissionBeforeTax - marcoIncomeTax) : totals.commission;
-  const currentCommissionTotal = marcoMode ? roundCurrency(marcoCommissionBeforeTax + marcoAllocations.reduce((sum, allocation) => sum + Number(allocation.amount || 0), 0)) : totals.commission;
+  const marcoCommissionBeforeTax = marcoMode ? roundCurrency(items.reduce((sum, item) => sum + Number(item.grossCommission || 0), 0)) : 0;
+  const marcoIncomeTax = marcoMode ? roundCurrency(items.reduce((sum, item) => sum + Number(item.incomeTax || 0), 0)) : 0;
+  const marcoPendingIncomeTax = marcoMode ? roundCurrency((report.pendingCommissionComponents || []).filter((component) => component.kind === "marco-tax").reduce((sum, component) => sum + Number(component.amount || 0), 0)) : 0;
+  const reportCommissionTotal = totals.commission;
+  const currentCommissionTotal = marcoMode ? roundCurrency(reportCommissionTotal + marcoPendingIncomeTax + marcoAllocations.reduce((sum, allocation) => sum + Number(allocation.amount || 0), 0)) : totals.commission;
   const credyCreceAllocation = Number(marcoAllocations.find((allocation) => normalizeKey(allocation.seller) === normalizeKey("Credy Crece"))?.amount || 0);
-  const marcoHeaderSummary = marcoMode ? roundCurrency(reportCommissionTotal + marcoIncomeTax + credyCreceAllocation) : 0;
-  const marcoItemFinancials = items.map((item) => ({ id:item.id, commission:roundCurrency(item.commissionPending || 0), incomeTax:0, net:0 }));
-  if (marcoMode && marcoItemFinancials.length) {
-    const commissionDifference = roundCurrency(marcoCommissionBeforeTax - marcoItemFinancials.reduce((sum, item) => sum + item.commission, 0));
-    marcoItemFinancials[marcoItemFinancials.length - 1].commission = roundCurrency(marcoItemFinancials[marcoItemFinancials.length - 1].commission + commissionDifference);
-    marcoItemFinancials.forEach((item) => { item.incomeTax = roundCurrency(item.commission * 0.10); });
-    const taxDifference = roundCurrency(marcoIncomeTax - marcoItemFinancials.reduce((sum, item) => sum + item.incomeTax, 0));
-    marcoItemFinancials[marcoItemFinancials.length - 1].incomeTax = roundCurrency(marcoItemFinancials[marcoItemFinancials.length - 1].incomeTax + taxDifference);
-    marcoItemFinancials.forEach((item) => { item.net = roundCurrency(item.commission - item.incomeTax); });
-  }
+  const marcoHeaderSummary = marcoMode ? roundCurrency(reportCommissionTotal + marcoPendingIncomeTax + credyCreceAllocation) : 0;
+  const marcoItemFinancials = items.map((item) => ({ id:item.id, commission:roundCurrency(item.grossCommission || 0), incomeTax:roundCurrency(item.incomeTax || 0), net:roundCurrency(item.reportCommission || 0) }));
   const marcoFinancialById = new Map(marcoItemFinancials.map((item) => [item.id, item]));
   const dates = items.map((item) => item.date).filter(Boolean).sort();
   const periodLabel = dates.length ? `${formatDate(dates[0])} al ${formatDate(dates[dates.length - 1])}` : "Sin período";
@@ -11933,7 +11930,7 @@ async function printBankSellerIncomeReport() {
     const sellerDetail = item.reportIndirect ? `Asignada por ${item.reportSourceSeller || item.seller || "Marco Velado"} · ${item.bank || "—"}` : `${item.bank || "—"} · ${item.account || ""}`;
     return `<tr><td>${escapeHtml(formatDate(item.date))}</td><td><strong>${escapeHtml(sellerLabel)}</strong><small>${escapeHtml(sellerDetail)}</small></td>${conceptCell}<td>${formatMoney(item.gross)}</td><td>${formatMoney(item.net)}</td>${commissionCells}</tr>`;
   }).join("");
-  const marcoDistribution = marcoMode ? `<section class="distribution"><table><tbody><tr class="marco-net"><td><strong>Marco Velado</strong><small>Comisión neta después de renta · valor a provisionar</small></td><td>${formatMoney(reportCommissionTotal)}</td></tr><tr class="rent-row"><td><strong>Renta retenida</strong><small>10% sobre la comisión de Marco antes de renta</small></td><td>${formatMoney(marcoIncomeTax)}</td></tr>${marcoAllocations.map((allocation) => `<tr><td><strong>${escapeHtml(allocation.seller)}</strong><small>Comisión asignada desde el 9% de Marco</small></td><td>${formatMoney(allocation.amount)}</td></tr>`).join("")}</tbody><tfoot><tr><td>Total comisiones corrientes</td><td>${formatMoney(currentCommissionTotal)}</td></tr></tfoot></table></section>` : "";
+  const marcoDistribution = marcoMode ? `<section class="distribution"><table><tbody><tr class="marco-net"><td><strong>Marco Velado</strong><small>Comisión neta después de renta · pendiente de liquidar</small></td><td>${formatMoney(reportCommissionTotal)}</td></tr><tr class="rent-row"><td><strong>Renta retenida</strong><small>Saldo pendiente de la retención del 10%</small></td><td>${formatMoney(marcoPendingIncomeTax)}</td></tr>${marcoAllocations.map((allocation) => `<tr><td><strong>${escapeHtml(allocation.seller)}</strong><small>Comisión pendiente asignada desde el 9% de Marco</small></td><td>${formatMoney(allocation.amount)}</td></tr>`).join("")}</tbody><tfoot><tr><td>Total comisiones pendientes</td><td>${formatMoney(currentCommissionTotal)}</td></tr></tfoot></table></section>` : "";
   const scopeLabel = odalizMode ? "Odaliz Valencia" : selectedScope;
   popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Detalle de ingresos y comisiones</title><style>
     @page{size:letter portrait;margin:8mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;color:#17233a;font:9px Arial,sans-serif;background:#eef2f7}.sheet{width:100%;max-width:800px;margin:10px auto;padding:12px;background:#fff}.report-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 7px}.report-totals.is-marco{grid-template-columns:repeat(4,1fr)}.report-totals article{padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;background:#f7fafc}.report-totals span,.report-totals strong{display:block}.report-totals span{color:#64748b;font-size:7px;font-weight:800;text-transform:uppercase}.report-totals strong{margin-top:2px;font-size:14px}.report-totals article:nth-child(3) strong{color:#12836d}.report-totals .summary-alert{border-color:#e1a3aa;background:#fff1f2}.report-totals .summary-alert span,.report-totals .summary-alert strong{color:#c6283d!important}table{width:100%;border-collapse:collapse;table-layout:fixed}caption{padding:0 0 5px;text-align:left;color:#52657c;font-size:8px}caption strong{color:#17233a;font-size:10px}caption span{float:right}th,td{border:1px solid #cbd5e1;padding:5px 6px;text-align:right;vertical-align:top;overflow-wrap:anywhere}thead th{background:#172f51;color:#fff}th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}th:nth-child(1){width:60px}th:nth-child(2){width:126px}th:nth-child(4),th:nth-child(5),th:nth-child(6){width:70px}.detail.marco th:nth-child(2){width:115px}.detail.marco th:nth-child(3){width:230px}.detail.marco th:nth-child(n+4){width:67px}.detail tfoot td{background:#e8f5f1;font-weight:800}.detail small,.distribution small{display:block;margin-top:2px;color:#64748b;font-size:7px;font-weight:400}.commission{color:#12836d;font-weight:800}.detail.marco .commission{background:#e8f5f1}.detail.marco .commission strong{font-size:10px}.detail.marco .rent{background:#fff7df;color:#9a6110;font-weight:800}.distribution{margin-top:8px;border:1px solid #cbd5e1}.distribution header{display:flex;justify-content:space-between;padding:6px 7px;background:#eef6f4}.distribution header span{color:#52657c}.distribution td:first-child{text-align:left}.distribution .marco-net td{background:#dcf4ed;color:#0e6959}.distribution .rent-row td{background:#fff7df;color:#8a580d}.distribution tfoot td{background:#172f51;color:#fff;font-weight:800}.actions{position:fixed;right:14px;bottom:14px;display:flex;gap:7px}.actions button{padding:9px 12px;border:0;border-radius:7px;background:#173b62;color:#fff;font-weight:700;cursor:pointer}.actions button:first-child{background:#16866d}@media print{body{background:#fff}.sheet{max-width:none;margin:0;padding:0}.actions{display:none}.detail thead{display:table-header-group}.detail tr{break-inside:avoid}}
