@@ -39,13 +39,13 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-commission-pending-reports-v39"
+API_VERSION = "kmi-automatic-reserve-settlements-v40"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
 TRAINING_COOKIE_NAME = "konfi_training_access"
 TRAINING_FINANCIAL_API_PREFIXES = (
-    "/api/bank-availability", "/api/pending-expenses", "/api/pending-checks", "/api/commission-settlements",
+    "/api/bank-availability", "/api/pending-expenses", "/api/pending-checks", "/api/commission-settlements", "/api/reserve-settlements",
     "/api/financial-income", "/api/financial-statements", "/api/accounts-receivable", "/api/purchase-orders",
     "/api/customer-advances/allocate",
 )
@@ -5759,6 +5759,9 @@ def bank_availability_report_snapshot(conn, balances, total):
             continue
         grouped[key] = grouped.get(key, 0) + float(item.get("amount") or 0)
     grouped["comisiones"] = commission_liability_payload(conn)["pendingTotal"]
+    reserve_summary = {item["reserve"]: item["amount"] for item in reserve_liability_payload(conn)["summary"]}
+    grouped["reserva laboral"] = reserve_summary.get("Reserva Laboral", 0)
+    grouped["reserva fiscal"] = reserve_summary.get("Reserva Fiscal", 0)
     balance_for = lambda *ids: sum(float((balances.get(account_id) or {}).get("balance") or 0) for account_id in ids)
     checks_total = sum(float(item.get("amount") or 0) for item in checks if isinstance(item, dict)) if isinstance(checks, list) else 0
     pending_deposits = float(adjustments.get("pendingDeposits") or 0) if isinstance(adjustments, dict) else 0
@@ -6321,6 +6324,137 @@ def automatic_commission_expenses(conn):
         "detail": item["detail"], "amount": item["amount"], "automatic": True,
         "commissionKey": item["key"], "seller": item["seller"], "source": item["kind"],
     } for item in commission_liability_payload(conn)["pending"]]
+
+
+def reserve_liability_payload(conn):
+    """Build fiscal and labor reserve balances from provisioned bank deposits."""
+    paid_keys = {row["component_key"] for row in conn.execute("""
+        SELECT items.component_key
+        FROM reserve_settlement_items AS items
+        JOIN reserve_settlements AS settlements ON settlements.id = items.settlement_id
+        WHERE settlements.status = 'Pagada'
+    """).fetchall()}
+    components = []
+    start_row = conn.execute("SELECT value FROM app_state WHERE key = 'reserve_liability_start.2026-09-30.v1'").fetchone()
+    try:
+        start = json.loads(start_row["value"] or "{}") if start_row else {}
+    except (TypeError, json.JSONDecodeError):
+        start = {}
+    start_ids = [text(value) for value in start.get("includedProvisionIds", []) if text(value)] if isinstance(start, dict) else []
+    started_at = text(start.get("initializedAt")) if isinstance(start, dict) else ""
+    start_filter = ""
+    start_params = []
+    if started_at:
+        id_clause = f" OR provisions.id IN ({','.join('?' for _ in start_ids)})" if start_ids else ""
+        start_filter = f"WHERE (datetime(provisions.created_at) >= datetime(?) {id_clause})"
+        start_params = [started_at, *start_ids]
+    rows = conn.execute(f"""
+        SELECT provisions.id, provisions.record_id, records.record_date,
+               accounts.bank, accounts.account, provisions.seller,
+               provisions.customer_name, provisions.payment_type,
+               provisions.gross_amount, provisions.net_amount,
+               provisions.vat_amount, provisions.labor_provision_amount, provisions.created_at
+        FROM bank_deposit_provisions AS provisions
+        JOIN bank_balance_records AS records ON records.id = provisions.record_id
+        JOIN bank_accounts AS accounts ON accounts.id = provisions.account_id
+        {start_filter}
+        ORDER BY records.record_date DESC, datetime(provisions.created_at) DESC, provisions.rowid DESC
+    """, start_params).fetchall()
+    definitions = (
+        ("fiscal", "Reserva Fiscal", "vat_amount", "13% del valor neto"),
+        ("laboral", "Reserva Laboral", "labor_provision_amount", "7% del valor neto"),
+    )
+    for row in rows:
+        for kind, reserve, amount_field, rule in definitions:
+            amount = round(float(row[amount_field] or 0), 2)
+            if amount <= 0:
+                continue
+            component_key = f"reserve-{kind}:{row['id']}"
+            components.append({
+                "key": component_key, "provisionId": row["id"], "recordId": row["record_id"],
+                "date": row["record_date"], "reserve": reserve, "kind": kind, "amount": amount,
+                "seller": text(row["seller"], "Sin vendedor"), "bank": row["bank"], "account": row["account"],
+                "customerName": row["customer_name"], "paymentType": row["payment_type"],
+                "gross": round(float(row["gross_amount"] or 0), 2),
+                "net": round(float(row["net_amount"] or 0), 2),
+                "detail": f"{reserve} · {rule} · {text(row['customer_name'], 'Sin comentario')}",
+            })
+    pending = [item for item in components if item["key"] not in paid_keys]
+    pending.sort(key=lambda item: (item["date"], item["reserve"], item["key"]), reverse=True)
+    summary = []
+    for reserve in ("Reserva Fiscal", "Reserva Laboral"):
+        items = [item for item in pending if item["reserve"] == reserve]
+        summary.append({"reserve": reserve, "amount": round(sum(item["amount"] for item in items), 2), "components": len(items)})
+    settlements = []
+    for row in conn.execute("""
+        SELECT id, number, settlement_date, total_amount, status, created_by, created_at, paid_at
+        FROM reserve_settlements ORDER BY datetime(created_at) DESC, rowid DESC
+    """).fetchall():
+        items = []
+        for item in conn.execute("""
+            SELECT reserve_type, amount, detail, snapshot
+            FROM reserve_settlement_items WHERE settlement_id = ? ORDER BY reserve_type, created_at, rowid
+        """, (row["id"],)).fetchall():
+            try:
+                snapshot = json.loads(item["snapshot"] or "{}")
+            except (TypeError, json.JSONDecodeError):
+                snapshot = {}
+            items.append({"reserve": item["reserve_type"], "amount": round(float(item["amount"] or 0), 2),
+                          "detail": item["detail"], "date": text(snapshot.get("date")),
+                          "seller": text(snapshot.get("seller")), "bank": text(snapshot.get("bank")),
+                          "account": text(snapshot.get("account")), "customerName": text(snapshot.get("customerName")),
+                          "paymentType": text(snapshot.get("paymentType")),
+                          "gross": round(float(snapshot.get("gross") or 0), 2),
+                          "net": round(float(snapshot.get("net") or 0), 2)})
+        settlements.append({"id": row["id"], "number": row["number"], "date": row["settlement_date"],
+                            "amount": round(float(row["total_amount"] or 0), 2), "status": row["status"],
+                            "createdBy": row["created_by"], "createdAt": row["created_at"],
+                            "paidAt": row["paid_at"], "items": items})
+    return {"pending": pending, "summary": summary,
+            "pendingTotal": round(sum(item["amount"] for item in pending), 2), "settlements": settlements}
+
+
+def initialize_reserve_liability_start_once(conn):
+    marker = "reserve_liability_start.2026-09-30.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker,)).fetchone():
+        return False
+    pending_commissions = commission_liability_payload(conn)["pending"]
+    provision_ids = sorted({text(item.get("provisionId")) for item in pending_commissions if text(item.get("provisionId"))})
+    initialized_at = conn.execute("SELECT CURRENT_TIMESTAMP AS value").fetchone()["value"]
+    value = {"initializedAt": initialized_at, "includedProvisionIds": provision_ids,
+             "referenceCommissionTotal": round(sum(float(item.get("amount") or 0) for item in pending_commissions), 2)}
+    conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                 (marker, json.dumps(value, ensure_ascii=False)))
+    print(f"Reservas automáticas iniciadas con {len(provision_ids)} remesas pendientes de comisión.")
+    return True
+
+
+def automatic_reserve_expenses(conn):
+    return [{"id": f"reserve::{item['key']}", "date": item["date"], "costCenter": item["reserve"],
+             "detail": item["detail"], "amount": item["amount"], "automatic": True,
+             "reserveKey": item["key"], "seller": item["seller"], "source": item["kind"]}
+            for item in reserve_liability_payload(conn)["pending"]]
+
+
+def remove_manual_reserve_expenses_once(conn):
+    marker = "maintenance.replace-manual-reserve-expenses.2026-09-30.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker,)).fetchone():
+        return False
+    row = conn.execute("SELECT value FROM app_state WHERE key = 'pending_expenses'").fetchone()
+    try:
+        expenses = json.loads(row["value"] or "[]") if row else []
+    except (TypeError, json.JSONDecodeError):
+        expenses = []
+    reserve_keys = {"reserva fiscal", "reserva laboral"}
+    kept = [item for item in expenses if not isinstance(item, dict) or crm_identity_key(item.get("costCenter")) not in reserve_keys]
+    removed = [item for item in expenses if isinstance(item, dict) and crm_identity_key(item.get("costCenter")) in reserve_keys]
+    conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('pending_expenses', ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP""",
+                 (json.dumps(kept, ensure_ascii=False),))
+    conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                 (marker, json.dumps({"removed": removed, "count": len(removed)}, ensure_ascii=False)))
+    print(f"Se sustituyeron {len(removed)} reservas manuales por el acumulado automático.")
+    return True
 
 
 def remove_manual_commission_expenses_once(conn):
@@ -7318,7 +7452,27 @@ def init_db():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_commission_settlements_date ON commission_settlements(settlement_date DESC, created_at DESC)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_commission_settlement_items_settlement ON commission_settlement_items(settlement_id)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS reserve_settlements (
+                id TEXT PRIMARY KEY, number TEXT NOT NULL UNIQUE, settlement_date TEXT NOT NULL,
+                total_amount REAL NOT NULL, status TEXT NOT NULL DEFAULT 'Pagada',
+                snapshot TEXT NOT NULL DEFAULT '{}', created_by TEXT DEFAULT 'Sistema Gerencial',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP, paid_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS reserve_settlement_items (
+                id TEXT PRIMARY KEY, settlement_id TEXT NOT NULL REFERENCES reserve_settlements(id),
+                component_key TEXT NOT NULL UNIQUE, provision_id TEXT NOT NULL,
+                reserve_type TEXT NOT NULL, amount REAL NOT NULL, detail TEXT DEFAULT '',
+                snapshot TEXT NOT NULL DEFAULT '{}', created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_reserve_settlements_date ON reserve_settlements(settlement_date DESC, created_at DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_reserve_settlement_items_settlement ON reserve_settlement_items(settlement_id)")
         remove_manual_commission_expenses_once(conn)
+        initialize_reserve_liability_start_once(conn)
+        remove_manual_reserve_expenses_once(conn)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS customer_advances (
                 id TEXT PRIMARY KEY,
@@ -8439,6 +8593,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 self.send_json(commission_liability_payload(conn))
             return
 
+        if self.path == "/api/reserve-settlements":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            with connect() as conn:
+                self.send_json(reserve_liability_payload(conn))
+            return
+
         if self.path == "/api/bank-availability/signatures":
             if not self.require_permission("financiera:disponibilidad"):
                 return
@@ -8462,8 +8623,9 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     items = json.loads(row["value"] or "[]") if row else []
                 except json.JSONDecodeError:
                     items = []
-                manual = [item for item in items if isinstance(item, dict) and crm_identity_key(item.get("costCenter")) != "comisiones"] if isinstance(items, list) else []
-                combined = manual + automatic_commission_expenses(conn)
+                automatic_centers = {"comisiones", "reserva fiscal", "reserva laboral"}
+                manual = [item for item in items if isinstance(item, dict) and crm_identity_key(item.get("costCenter")) not in automatic_centers] if isinstance(items, list) else []
+                combined = manual + automatic_commission_expenses(conn) + automatic_reserve_expenses(conn)
             self.send_json(combined)
             return
 
@@ -9231,11 +9393,60 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     state_row = conn.execute("SELECT value FROM app_state WHERE key = 'pending_expenses'").fetchone()
                     try: manual_items = json.loads(state_row["value"] or "[]") if state_row else []
                     except json.JSONDecodeError: manual_items = []
-                    manual_items = [item for item in manual_items if isinstance(item, dict) and crm_identity_key(item.get("costCenter")) != "comisiones"] if isinstance(manual_items, list) else []
-                    response_items = manual_items + automatic_commission_expenses(conn)
+                    automatic_centers = {"comisiones", "reserva fiscal", "reserva laboral"}
+                    manual_items = [item for item in manual_items if isinstance(item, dict) and crm_identity_key(item.get("costCenter")) not in automatic_centers] if isinstance(manual_items, list) else []
+                    response_items = manual_items + automatic_commission_expenses(conn) + automatic_reserve_expenses(conn)
             except sqlite3.IntegrityError:
                 self.send_json({"error": "Una comisión seleccionada ya fue liquidada; actualiza el listado"}, status=409); return
             self.send_json({"ok": True, "number": number, "amount": amount, "commissions": updated_liability,
+                            "items": response_items}, status=201)
+            return
+
+        if self.path == "/api/reserve-settlements":
+            if not self.require_permission("financiera:disponibilidad"):
+                return
+            data = self.read_json()
+            component_keys = list(dict.fromkeys(text(value) for value in (data.get("componentKeys") or []) if text(value)))
+            record_date = text(data.get("date")) or datetime.now(ZoneInfo("America/El_Salvador")).date().isoformat()
+            if not component_keys or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", record_date):
+                self.send_json({"error": "Selecciona las reservas que deseas liquidar"}, status=400); return
+            try:
+                with connect() as conn:
+                    liability = reserve_liability_payload(conn)
+                    pending_by_key = {item["key"]: item for item in liability["pending"]}
+                    selected = [pending_by_key[key] for key in component_keys if key in pending_by_key]
+                    if len(selected) != len(component_keys):
+                        self.send_json({"error": "Una o más reservas ya fueron liquidadas; actualiza el listado"}, status=409); return
+                    amount = round(sum(item["amount"] for item in selected), 2)
+                    prefix = f"LR-{record_date.replace('-', '')}-"
+                    previous = [row["number"] for row in conn.execute(
+                        "SELECT number FROM reserve_settlements WHERE number LIKE ?", (f"{prefix}%",)).fetchall()]
+                    suffixes = [int(match.group(1)) for number in previous if (match := re.fullmatch(re.escape(prefix) + r"(\d+)", number))]
+                    number = f"{prefix}{max(suffixes, default=0) + 1:03d}"
+                    settlement_id = str(uuid.uuid4())
+                    created_by = text(data.get("createdBy"), "Sistema Gerencial")
+                    snapshot = {"number": number, "date": record_date, "items": selected}
+                    conn.execute("""INSERT INTO reserve_settlements
+                        (id, number, settlement_date, total_amount, status, snapshot, created_by)
+                        VALUES (?, ?, ?, ?, 'Pagada', ?, ?)""",
+                        (settlement_id, number, record_date, amount, json.dumps(snapshot, ensure_ascii=False), created_by))
+                    for item in selected:
+                        conn.execute("""INSERT INTO reserve_settlement_items
+                            (id, settlement_id, component_key, provision_id, reserve_type, amount, detail, snapshot)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                            (str(uuid.uuid4()), settlement_id, item["key"], item["provisionId"], item["reserve"],
+                             item["amount"], item["detail"], json.dumps(item, ensure_ascii=False)))
+                    clear_bank_availability_signatures(conn)
+                    updated = reserve_liability_payload(conn)
+                    state_row = conn.execute("SELECT value FROM app_state WHERE key = 'pending_expenses'").fetchone()
+                    try: manual_items = json.loads(state_row["value"] or "[]") if state_row else []
+                    except json.JSONDecodeError: manual_items = []
+                    automatic_centers = {"comisiones", "reserva fiscal", "reserva laboral"}
+                    manual_items = [item for item in manual_items if isinstance(item, dict) and crm_identity_key(item.get("costCenter")) not in automatic_centers] if isinstance(manual_items, list) else []
+                    response_items = manual_items + automatic_commission_expenses(conn) + automatic_reserve_expenses(conn)
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Una reserva seleccionada ya fue liquidada; actualiza el listado"}, status=409); return
+            self.send_json({"ok": True, "number": number, "amount": amount, "reserves": updated,
                             "items": response_items}, status=201)
             return
 
@@ -9469,7 +9680,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             for item in items:
                 if not isinstance(item, dict) or not text(item.get("costCenter")) or not text(item.get("date")):
                     continue
-                if item.get("automatic") or crm_identity_key(item.get("costCenter")) == "comisiones":
+                if item.get("automatic") or crm_identity_key(item.get("costCenter")) in {"comisiones", "reserva fiscal", "reserva laboral"}:
                     continue
                 try:
                     amount = float(item.get("amount") or 0)
@@ -9482,7 +9693,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             with connect() as conn:
                 conn.execute("""INSERT INTO app_state (key, value, updated_at) VALUES ('pending_expenses', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""", (json.dumps(clean, ensure_ascii=False),))
                 clear_bank_availability_signatures(conn)
-                combined = clean + automatic_commission_expenses(conn)
+                combined = clean + automatic_commission_expenses(conn) + automatic_reserve_expenses(conn)
             self.send_json({"ok": True, "items": combined})
             return
 
