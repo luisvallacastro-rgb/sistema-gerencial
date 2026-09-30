@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-automatic-reserve-settlements-v40"
+API_VERSION = "kmi-sample-archive-v41"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -69,7 +69,7 @@ AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi", "meta"],
     "financiera": ["disponibilidad", "ingresos", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
-    "operaciones": ["resultados-control-ventas", "produccion-semanal"],
+    "operaciones": ["resultados-control-ventas", "produccion-semanal", "archivo-muestras"],
     "rrhh": [],
 }
 VALID_ROLES = {"gerencias", "jefaturas", "vendedores", "operativos", "accionistas"}
@@ -3440,6 +3440,59 @@ def save_production_schedule(conn, data, existing=None):
     else:
         conn.execute("INSERT INTO production_schedule (production_date, production_end_date, production_line, status, notes, items, created_by, updated_by, created_at, updated_at, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (production_date, production_end_date, production_line, text(data.get("status"), "Programado"), text(data.get("notes")), json.dumps(clean_items, ensure_ascii=False), actor, actor, now, now, schedule_id))
     return production_schedule_payload(conn.execute("SELECT * FROM production_schedule WHERE id = ?", (schedule_id,)).fetchone())
+
+
+def sample_archive_item_payload(row):
+    return {"id": row["id"], "customerId": row["customer_id"], "entryDate": row["entry_date"],
+            "garmentType": row["garment_type"], "size": row["size"], "quantity": int(row["quantity"] or 0),
+            "garmentDescription": row["garment_description"], "fabricType": row["fabric_type"],
+            "sampleStatus": row["sample_status"], "createdBy": row["created_by"],
+            "updatedBy": row["updated_by"], "createdAt": row["created_at"], "updatedAt": row["updated_at"]}
+
+
+def sample_archive_payload(conn):
+    return [sample_archive_item_payload(row) for row in conn.execute("""
+        SELECT * FROM sample_archive
+        ORDER BY entry_date DESC, datetime(updated_at) DESC, rowid DESC
+    """).fetchall()]
+
+
+def save_sample_archive_item(conn, data, existing=None):
+    customer_id = text(data.get("customerId"), existing["customer_id"] if existing else "")
+    entry_date = text(data.get("entryDate"), existing["entry_date"] if existing else "")
+    garment_type = text(data.get("garmentType"), existing["garment_type"] if existing else "")
+    size = text(data.get("size"), existing["size"] if existing else "")
+    garment_description = text(data.get("garmentDescription"), existing["garment_description"] if existing else "")
+    fabric_type = text(data.get("fabricType"), existing["fabric_type"] if existing else "")
+    sample_status = text(data.get("sampleStatus"), existing["sample_status"] if existing else "Ingresada")
+    try:
+        quantity = int(data.get("quantity", existing["quantity"] if existing else 1))
+    except (TypeError, ValueError):
+        quantity = 0
+    if not customer_id or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", entry_date):
+        raise ValueError("Cliente y fecha de ingreso son requeridos")
+    if not garment_type or not garment_description or not fabric_type or quantity <= 0:
+        raise ValueError("Tipo, cantidad, descripción de prenda y tela son requeridos")
+    if sample_status not in {"Ingresada", "Asignada", "En revisión", "Devuelta", "Archivada"}:
+        raise ValueError("El estado de la muestra no es válido")
+    crm = read_crm_data(conn)
+    if not any(text(customer.get("id")) == customer_id and customer.get("active") is not False for customer in crm.get("customers", [])):
+        raise ValueError("El cliente seleccionado ya no está activo en la base de clientes")
+    actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
+    item_id = existing["id"] if existing else f"sample-{uuid.uuid4()}"
+    if existing:
+        conn.execute("""UPDATE sample_archive SET customer_id=?, entry_date=?, garment_type=?, size=?, quantity=?,
+                     garment_description=?, fabric_type=?, sample_status=?, updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+                     (customer_id, entry_date, garment_type, size, quantity, garment_description, fabric_type,
+                      sample_status, actor, item_id))
+    else:
+        conn.execute("""INSERT INTO sample_archive
+                     (id, customer_id, entry_date, garment_type, size, quantity, garment_description,
+                      fabric_type, sample_status, created_by, updated_by)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                     (item_id, customer_id, entry_date, garment_type, size, quantity, garment_description,
+                      fabric_type, sample_status, actor, actor))
+    return sample_archive_item_payload(conn.execute("SELECT * FROM sample_archive WHERE id = ?", (item_id,)).fetchone())
 
 
 def control_sales_order_payload(conn, row, include_audit=False):
@@ -7836,6 +7889,17 @@ def init_db():
         conn.execute("UPDATE production_schedule SET production_end_date = production_date WHERE production_end_date = ''")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_production_schedule_date ON production_schedule(production_date, production_line)")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS sample_archive (
+                id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, entry_date TEXT NOT NULL,
+                garment_type TEXT NOT NULL, size TEXT NOT NULL DEFAULT '', quantity INTEGER NOT NULL DEFAULT 1,
+                garment_description TEXT NOT NULL DEFAULT '', fabric_type TEXT NOT NULL DEFAULT '',
+                sample_status TEXT NOT NULL DEFAULT 'Ingresada', created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                updated_by TEXT NOT NULL DEFAULT 'Sistema Gerencial', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_sample_archive_customer ON sample_archive(customer_id, entry_date DESC, created_at DESC)")
+        conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
@@ -7881,9 +7945,10 @@ def init_db():
                 continue
             try: permissions = json.loads(row["permissions"] or "[]")
             except json.JSONDecodeError: permissions = []
-            permission = "operaciones:produccion-semanal"
-            if permission not in permissions:
-                permissions.append(permission)
+            required_permissions = ["operaciones:produccion-semanal", "operaciones:archivo-muestras"]
+            changed_permissions = [permission for permission in required_permissions if permission not in permissions]
+            if changed_permissions:
+                permissions.extend(changed_permissions)
                 conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions), row["id"]))
         purge_luis_valladares_test_flow_once(conn)
         purge_orphaned_test_orders_0293_0294_once(conn)
@@ -8785,6 +8850,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.send_json([production_schedule_payload(row) for row in rows])
             return
 
+        if self.path == "/api/sample-archive":
+            if not self.require_permission("operaciones:archivo-muestras"):
+                return
+            with connect() as conn:
+                self.send_json(sample_archive_payload(conn))
+            return
+
         if self.path.startswith("/api/control-sales/"):
             item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
             with connect() as conn:
@@ -9607,6 +9679,18 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
+        if self.path == "/api/sample-archive":
+            if not self.require_permission("operaciones:archivo-muestras"):
+                return
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    item = save_sample_archive_item(conn, data)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400); return
+            self.send_json({"ok": True, "item": item}, status=201)
+            return
+
         if self.path == "/api/control-sales/import":
             with connect() as conn:
                 seed_control_sales(conn)
@@ -9757,6 +9841,22 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             except ValueError as error:
                 self.send_json({"error": str(error)}, status=400)
                 return
+            self.send_json({"ok": True, "item": item})
+            return
+
+        if self.path.startswith("/api/sample-archive/"):
+            if not self.require_permission("operaciones:archivo-muestras"):
+                return
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    row = conn.execute("SELECT * FROM sample_archive WHERE id = ?", (item_id,)).fetchone()
+                    if not row:
+                        self.send_json({"error": "Muestra no encontrada"}, status=404); return
+                    item = save_sample_archive_item(conn, data, row)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400); return
             self.send_json({"ok": True, "item": item})
             return
 
@@ -10472,6 +10572,16 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             if not result.rowcount:
                 self.send_json({"error": "Grupo de producción no encontrado"}, status=404)
                 return
+            self.send_json({"ok": True})
+            return
+        if self.path.startswith("/api/sample-archive/"):
+            if not self.require_permission("operaciones:archivo-muestras"):
+                return
+            item_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            with connect() as conn:
+                result = conn.execute("DELETE FROM sample_archive WHERE id = ?", (item_id,))
+            if not result.rowcount:
+                self.send_json({"error": "Muestra no encontrada"}, status=404); return
             self.send_json({"ok": True})
             return
         opportunity_path = self.path.split("?", 1)[0].strip("/").split("/")

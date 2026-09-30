@@ -200,6 +200,7 @@ const areas = {
     submenus: [
       { key: "resultados-control-ventas", label: "Control de Ventas", status: "Órdenes, productos y auditoría", items: [] },
       { key: "produccion-semanal", label: "Producción y Pedidos de la Semana", status: "Agenda semanal de producción", items: [] },
+      { key: "archivo-muestras", label: "Archivo de Muestras", group: "Ingeniería", status: "Muestras asignadas por cliente", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
       { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
     ],
@@ -387,6 +388,10 @@ const state = {
   controlSalesPage: 1,
   productionSchedule: [],
   productionWeekStart: "",
+  sampleArchive: [],
+  sampleArchiveLoaded: false,
+  sampleArchiveLoading: false,
+  sampleArchiveQuery: "",
   commercialApprovalQuery: "",
   quotations: [],
   quotationModuleQuery: "",
@@ -896,9 +901,9 @@ async function loadCrmData() {
     syncLostCrmOpportunities();
     fillOpportunityOptions();
     if (state.activeArea === adminAreaKey && state.activeSubmenu === "vendedores") renderAdminPanel();
-    else if (state.activeArea === "comercializacion" && (
+    else if ((state.activeArea === "comercializacion" && (
       state.activeSubmenu?.startsWith("crm") || ["cotizaciones", "custodia-muestras"].includes(state.activeSubmenu)
-    )) renderDashboard();
+    )) || (state.activeArea === "operaciones" && state.activeSubmenu === "archivo-muestras")) renderDashboard();
     return data;
   } catch {
     state.crmData = null;
@@ -2682,9 +2687,12 @@ function renderNav() {
 function renderSubmenu(area, areaKey, items = visibleSubmenus(areaKey)) {
   const submenu = document.createElement("div");
   submenu.className = `submenu-list ${state.openMenus.has(areaKey) ? "open" : ""}`;
-  submenu.innerHTML = items.map((item) => (
-    `<button class="submenu-item ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">${item.label}</button>`
-  )).join("");
+  let previousGroup = "";
+  submenu.innerHTML = items.map((item) => {
+    const group = item.group && item.group !== previousGroup ? `<span class="submenu-group-label">${escapeHtml(item.group)}</span>` : "";
+    previousGroup = item.group || "";
+    return `${group}<button class="submenu-item ${item.group ? "is-grouped" : ""} ${state.activeArea === areaKey && state.activeSubmenu === item.key ? "active" : ""}" type="button" data-submenu="${item.key}">${item.label}</button>`;
+  }).join("");
   submenu.querySelectorAll("[data-submenu]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeArea = areaKey;
@@ -3166,6 +3174,72 @@ function loadProductionSchedule() {
     }
     if (state.activeArea === "operaciones" && state.activeSubmenu === "produccion-semanal") renderDashboard();
   }).catch((error) => console.error("No se pudo cargar la agenda de producción.", error));
+}
+
+function loadSampleArchive() {
+  if (!apiEnabled) return Promise.resolve();
+  if (state.sampleArchiveLoading) return Promise.resolve();
+  state.sampleArchiveLoading = true;
+  return apiJson("/api/sample-archive").then((items) => {
+    state.sampleArchive = Array.isArray(items) ? items : [];
+    state.sampleArchiveLoaded = true;
+    if (state.activeArea === "operaciones" && state.activeSubmenu === "archivo-muestras") renderDashboard();
+  }).catch((error) => {
+    state.sampleArchiveLoaded = false;
+    console.error("No se pudo cargar el archivo de muestras.", error);
+  }).finally(() => { state.sampleArchiveLoading = false; });
+}
+
+function sampleArchiveCustomers() {
+  return sortCustomersByClientNumber(crmMasterCustomers(true).filter((customer) => customer.active !== false));
+}
+
+function renderSampleArchive() {
+  const query = normalizeKey(state.sampleArchiveQuery);
+  const samplesByCustomer = new Map();
+  state.sampleArchive.forEach((item) => {
+    const rows = samplesByCustomer.get(item.customerId) || [];
+    rows.push(item); samplesByCustomer.set(item.customerId, rows);
+  });
+  const customers = sampleArchiveCustomers().filter((customer) => !query || [
+    customerDisplayNumber(customer), customer.commercialName, customer.legalName,
+    customer.contactName, customer.taxId
+  ].some((value) => normalizeKey(value).includes(query)));
+  const withSamples = customers.filter((customer) => samplesByCustomer.has(customer.id)).length;
+  const rows = customers.map((customer) => {
+    const samples = [...(samplesByCustomer.get(customer.id) || [])].sort((a,b) => String(b.entryDate).localeCompare(String(a.entryDate)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    const latest = samples[0];
+    return `<article class="sample-archive-row ${samples.length ? "has-samples" : "without-samples"}"><div class="sample-client-id"><span>ID CLIENTE</span><strong>${escapeHtml(customerDisplayNumber(customer) || "Pendiente")}</strong></div><div class="sample-client-name"><span>NOMBRE DE CLIENTE</span><strong>${escapeHtml(customer.commercialName || customer.legalName || "Cliente")}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Base de clientes")}</small></div><div class="sample-summary"><span>ARCHIVO DE MUESTRAS</span><strong>${samples.length ? `${samples.length} ${samples.length === 1 ? "muestra" : "muestras"}` : "Sin registros"}</strong><small>${latest ? `${formatDate(latest.entryDate)} · ${latest.sampleStatus}` : "Pendiente de asignación"}</small></div><div class="sample-actions"><button type="button" data-sample-customer="${escapeHtml(customer.id)}">Asignación de Muestra</button></div></article>`;
+  }).join("");
+  return `<section class="sample-archive-module"><header><div><span>Operaciones · Ingeniería</span><h2>Archivo de Muestras</h2><p>Control de muestras físicas vinculado directamente con la base maestra de clientes.</p></div><aside><article><small>Clientes con muestras</small><strong>${withSamples}</strong></article><article><small>Sin registros</small><strong>${Math.max(customers.length-withSamples,0)}</strong></article></aside></header><div class="sample-archive-toolbar"><label><span>⌕</span><input type="search" data-sample-search value="${escapeHtml(state.sampleArchiveQuery)}" placeholder="Buscar ID, cliente, contacto o NIT..."></label><div class="sample-legend"><span class="with">Con muestras</span><span class="without">Sin registros</span></div></div><div class="sample-archive-head"><span>ID Cliente</span><span>Nombre de cliente</span><span>Estado del archivo</span><span>Acción</span></div><div class="sample-archive-list">${rows || `<div class="empty-state">No hay clientes que coincidan con la búsqueda.</div>`}</div></section>`;
+}
+
+function wireSampleArchive() {
+  const search = document.querySelector("[data-sample-search]");
+  search?.addEventListener("input", (event) => {
+    state.sampleArchiveQuery = event.target.value;
+    renderCommercialSubmenu(areas.operaciones);
+    requestAnimationFrame(() => { const next=document.querySelector("[data-sample-search]"); next?.focus(); next?.setSelectionRange(next.value.length,next.value.length); });
+  });
+  document.querySelectorAll("[data-sample-customer]").forEach((button) => button.addEventListener("click", () => openSampleArchiveDialog(button.dataset.sampleCustomer)));
+}
+
+function openSampleArchiveDialog(customerId, editId="") {
+  const customer = sampleArchiveCustomers().find((item) => String(item.id) === String(customerId));
+  if (!customer) return alert("El cliente ya no está disponible en la base de clientes.");
+  const dialog = document.createElement("dialog"); dialog.className="sample-archive-dialog";
+  let editingId=editId;
+  const render=()=>{
+    const editing=state.sampleArchive.find((item)=>item.id===editingId && item.customerId===customerId);
+    const items=state.sampleArchive.filter((item)=>item.customerId===customerId).sort((a,b)=>String(b.entryDate).localeCompare(String(a.entryDate)) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    dialog.innerHTML=`<section class="sample-archive-crud"><header><div><span>Ingeniería · Archivo de Muestras</span><h2>${escapeHtml(customer.commercialName||customer.legalName)}</h2><p>ID Cliente ${escapeHtml(customerDisplayNumber(customer)||"Pendiente")} · ${items.length} ${items.length===1?"muestra registrada":"muestras registradas"}</p></div><button type="button" data-sample-close>×</button></header><form data-sample-form><input type="hidden" name="id" value="${escapeHtml(editing?.id||"")}"><label><span>Fecha de Ingreso</span><input name="entryDate" type="date" required value="${escapeHtml(editing?.entryDate||todayISO())}"></label><label><span>Tipo de Prenda</span><input name="garmentType" required value="${escapeHtml(editing?.garmentType||"")}" placeholder="Ej. Camisa, pantalón"></label><label><span>Talla</span><input name="size" value="${escapeHtml(editing?.size||"")}" placeholder="Ej. M, 34, 16"></label><label><span>Cantidad</span><input name="quantity" type="number" min="1" step="1" required value="${Number(editing?.quantity||1)}"></label><label class="wide"><span>Descripción de la Prenda</span><input name="garmentDescription" required value="${escapeHtml(editing?.garmentDescription||"")}" placeholder="Características, corte, color o referencia"></label><label><span>Tipo de tela</span><input name="fabricType" required value="${escapeHtml(editing?.fabricType||"")}" placeholder="Ej. Oxford, lino, dry fit"></label><label><span>Estado de Muestra</span><select name="sampleStatus"><option ${editing?.sampleStatus==="Ingresada"?"selected":""}>Ingresada</option><option ${editing?.sampleStatus==="Asignada"?"selected":""}>Asignada</option><option ${editing?.sampleStatus==="En revisión"?"selected":""}>En revisión</option><option ${editing?.sampleStatus==="Devuelta"?"selected":""}>Devuelta</option><option ${editing?.sampleStatus==="Archivada"?"selected":""}>Archivada</option></select></label><div class="actions"><button type="button" data-sample-cancel>${editing?"Cancelar edición":"Limpiar"}</button><button type="submit">${editing?"Guardar cambios":"Agregar muestra"}</button></div></form><div class="sample-crud-list"><table><thead><tr><th>Fecha</th><th>Tipo / Talla</th><th>Cantidad</th><th>Descripción</th><th>Tela</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${items.map((item)=>`<tr><td>${escapeHtml(formatDate(item.entryDate))}</td><td><strong>${escapeHtml(item.garmentType)}</strong><small>${escapeHtml(item.size||"Sin talla")}</small></td><td>${Number(item.quantity||0)}</td><td>${escapeHtml(item.garmentDescription)}</td><td>${escapeHtml(item.fabricType)}</td><td><span class="sample-status">${escapeHtml(item.sampleStatus)}</span></td><td><button type="button" data-sample-edit="${escapeHtml(item.id)}">Editar</button><button type="button" class="danger" data-sample-delete="${escapeHtml(item.id)}">Eliminar</button></td></tr>`).join("")||`<tr><td colspan="7" class="empty-state">Este cliente todavía no tiene muestras asignadas.</td></tr>`}</tbody></table></div><footer><span>${items.length} registros</span><button type="button" data-sample-close>Cerrar</button></footer></section>`;
+    dialog.querySelectorAll("[data-sample-close]").forEach((button)=>button.onclick=()=>dialog.close());
+    dialog.querySelector("[data-sample-cancel]").onclick=()=>{editingId="";render();};
+    dialog.querySelectorAll("[data-sample-edit]").forEach((button)=>button.onclick=()=>{editingId=button.dataset.sampleEdit;render();});
+    dialog.querySelectorAll("[data-sample-delete]").forEach((button)=>button.onclick=async()=>{if(!confirm("¿Eliminar esta muestra del archivo del cliente?"))return;try{await apiJson(`/api/sample-archive/${encodeURIComponent(button.dataset.sampleDelete)}`,{method:"DELETE"});state.sampleArchive=state.sampleArchive.filter((item)=>item.id!==button.dataset.sampleDelete);editingId="";render();renderCommercialSubmenu(areas.operaciones);}catch(error){alert(error.message||"No se pudo eliminar la muestra.");}});
+    dialog.querySelector("[data-sample-form]").onsubmit=async(event)=>{event.preventDefault();const form=event.currentTarget;const submit=form.querySelector("button[type=submit]");const values=Object.fromEntries(new FormData(form).entries());const id=values.id;submit.disabled=true;try{const response=await apiJson(id?`/api/sample-archive/${encodeURIComponent(id)}`:"/api/sample-archive",{method:id?"PUT":"POST",body:JSON.stringify({...values,customerId,quantity:Number(values.quantity),updatedBy:state.currentUser?.name||"Sistema Gerencial"})});const index=state.sampleArchive.findIndex((item)=>item.id===response.item.id);if(index>=0)state.sampleArchive[index]=response.item;else state.sampleArchive.unshift(response.item);editingId="";render();renderCommercialSubmenu(areas.operaciones);}catch(error){alert(error.message||"No se pudo guardar la muestra.");submit.disabled=false;}};
+  };
+  document.body.append(dialog);dialog.addEventListener("close",()=>{dialog.remove();renderCommercialSubmenu(areas.operaciones);},{once:true});render();dialog.showModal();
 }
 
 function ensureProductionDialog() {
@@ -14305,6 +14379,24 @@ function renderCommercialSubmenu(area) {
     return;
   }
 
+  if (state.activeArea === "operaciones" && submenu.key === "archivo-muestras") {
+    if (!state.sampleArchiveLoaded && !state.sampleArchiveLoading) loadSampleArchive();
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    const customers = sampleArchiveCustomers();
+    const customerIds = new Set(state.sampleArchive.map((item) => item.customerId));
+    commercialSubmenuStatus.textContent = state.sampleArchiveLoaded
+      ? `${customerIds.size} clientes con muestras · ${Math.max(customers.length-customerIds.size,0)} sin registros`
+      : "Cargando archivo de muestras...";
+    opportunityTable.innerHTML = renderSampleArchive();
+    wireSampleArchive();
+    return;
+  }
+
   if (state.activeArea !== "comercializacion" && !["riesgos", "solicitudes"].includes(submenu.key)) {
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
@@ -16755,7 +16847,8 @@ function renderDashboard() {
       "disponibilidad",
       "ingresos",
       "estados-financieros",
-      "produccion-semanal"
+      "produccion-semanal",
+      "archivo-muestras"
     ].includes(state.activeSubmenu)
     || state.activeSubmenu.startsWith("resultados")
   );
@@ -18835,6 +18928,7 @@ loadCustomerAdvances();
 loadPurchaseOrders();
 loadControlSales();
 loadProductionSchedule();
+loadSampleArchive();
 loadQuotations();
 loadOpportunities();
 loadStrategicRisks();
