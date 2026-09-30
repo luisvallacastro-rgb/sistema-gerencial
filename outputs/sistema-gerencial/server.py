@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-sample-archive-v41"
+API_VERSION = "kmi-free-sample-status-v42"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -3471,10 +3471,8 @@ def save_sample_archive_item(conn, data, existing=None):
         quantity = 0
     if not customer_id or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", entry_date):
         raise ValueError("Cliente y fecha de ingreso son requeridos")
-    if not garment_type or not garment_description or not fabric_type or quantity <= 0:
-        raise ValueError("Tipo, cantidad, descripción de prenda y tela son requeridos")
-    if sample_status not in {"Ingresada", "Asignada", "En revisión", "Devuelta", "Archivada"}:
-        raise ValueError("El estado de la muestra no es válido")
+    if not garment_type or not garment_description or not fabric_type or not sample_status or quantity <= 0:
+        raise ValueError("Tipo, cantidad, descripción de prenda, tela y estado son requeridos")
     crm = read_crm_data(conn)
     if not any(text(customer.get("id")) == customer_id and customer.get("active") is not False for customer in crm.get("customers", [])):
         raise ValueError("El cliente seleccionado ya no está activo en la base de clientes")
