@@ -3191,7 +3191,13 @@ function loadSampleArchive() {
 }
 
 function sampleArchiveCustomers() {
-  return sortCustomersByClientNumber(crmMasterCustomers(true).filter((customer) => customer.active !== false));
+  return [...crmMasterCustomers(true).filter((customer) => customer.active !== false)].sort((a, b) => {
+    const left = Number.parseInt(String(a.clientNumber || a.customerCode || "").replace(/\D/g, ""), 10);
+    const right = Number.parseInt(String(b.clientNumber || b.customerCode || "").replace(/\D/g, ""), 10);
+    if (Number.isFinite(left) && Number.isFinite(right) && left !== right) return right - left;
+    if (Number.isFinite(left) !== Number.isFinite(right)) return Number.isFinite(left) ? -1 : 1;
+    return String(a.commercialName || a.legalName).localeCompare(String(b.commercialName || b.legalName), "es");
+  });
 }
 
 function renderSampleArchive() {
