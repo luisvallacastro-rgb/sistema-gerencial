@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-commission-settlements-v36"
+API_VERSION = "kmi-commission-history-v37"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -6273,7 +6273,7 @@ def commission_liability_payload(conn):
                           item.get("odalizCommissionRate"), f"Odaliz Valencia · comisión automática · {item['customerName']}")
 
     pending = [item for item in components if item["key"] not in paid_keys]
-    pending.sort(key=lambda item: (item["seller"].casefold(), item["date"], item["key"]))
+    pending.sort(key=lambda item: (item["date"], item["seller"].casefold(), item["key"]), reverse=True)
     summary = {}
     for item in pending:
         row = summary.setdefault(item["seller"], {"seller": item["seller"], "amount": 0, "components": 0})
@@ -7276,8 +7276,8 @@ def init_db():
                 id TEXT PRIMARY KEY,
                 number TEXT NOT NULL UNIQUE,
                 settlement_date TEXT NOT NULL,
-                account_id TEXT NOT NULL REFERENCES bank_accounts(id),
-                bank_record_id TEXT NOT NULL REFERENCES bank_balance_records(id),
+                account_id TEXT DEFAULT '',
+                bank_record_id TEXT DEFAULT '',
                 total_amount REAL NOT NULL,
                 reference TEXT DEFAULT '',
                 description TEXT DEFAULT '',
@@ -9164,52 +9164,35 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 return
             data = self.read_json()
             component_keys = list(dict.fromkeys(text(value) for value in (data.get("componentKeys") or []) if text(value)))
-            account_id = text(data.get("accountId")); record_date = text(data.get("date"))
-            if not component_keys or not account_id or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", record_date):
-                self.send_json({"error": "Selecciona comisiones, cuenta bancaria y una fecha válida"}, status=400); return
+            record_date = text(data.get("date")) or datetime.now(ZoneInfo("America/El_Salvador")).date().isoformat()
+            if not component_keys or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", record_date):
+                self.send_json({"error": "Selecciona las comisiones que deseas liquidar"}, status=400); return
             try:
                 with connect() as conn:
-                    account = conn.execute("SELECT * FROM bank_accounts WHERE id = ? AND active = 1", (account_id,)).fetchone()
-                    if not account:
-                        self.send_json({"error": "Cuenta bancaria no encontrada"}, status=404); return
                     liability = commission_liability_payload(conn)
                     pending_by_key = {item["key"]: item for item in liability["pending"]}
                     selected = [pending_by_key[key] for key in component_keys if key in pending_by_key]
                     if len(selected) != len(component_keys):
                         self.send_json({"error": "Una o más comisiones ya fueron liquidadas; actualiza el listado"}, status=409); return
                     amount = round(sum(item["amount"] for item in selected), 2)
-                    latest = conn.execute("SELECT balance FROM bank_balance_records WHERE account_id = ? ORDER BY sequence DESC, created_at DESC LIMIT 1", (account_id,)).fetchone()
-                    available = float(latest["balance"] or 0) if latest else 0
-                    if amount <= 0 or amount > available:
-                        self.send_json({"error": "El saldo bancario no cubre la liquidación de comisiones"}, status=409); return
+                    if amount <= 0:
+                        self.send_json({"error": "La liquidación seleccionada no tiene saldo pendiente"}, status=409); return
                     prefix = f"LC-{record_date.replace('-', '')}-"
                     previous_numbers = [row["number"] for row in conn.execute(
                         "SELECT number FROM commission_settlements WHERE number LIKE ?", (f"{prefix}%",)
                     ).fetchall()]
                     suffixes = [int(match.group(1)) for number in previous_numbers if (match := re.fullmatch(re.escape(prefix) + r"(\d+)", number))]
                     number = f"{prefix}{max(suffixes, default=0) + 1:03d}"
-                    settlement_id = str(uuid.uuid4()); bank_record_id = str(uuid.uuid4())
+                    settlement_id = str(uuid.uuid4())
                     description = text(data.get("description"), f"Liquidación de comisiones {number}")
                     reference = text(data.get("reference"), number)
                     created_by = text(data.get("createdBy"), "Sistema Gerencial")
-                    inflow_field, outflow_field = bank_flow_fields(account_id)
-                    values = {
-                        inflow_field: 0, outflow_field: amount,
-                        "Descripción": description, "Transaccion": description, "Detalle": description,
-                        "Comentario": reference, "Referencia": reference,
-                        "Correlativo": next_bank_correlative(conn, account_id),
-                    }
-                    sequence = conn.execute("SELECT COALESCE(MAX(sequence), 0) + 1 AS next FROM bank_balance_records WHERE account_id = ?", (account_id,)).fetchone()["next"]
-                    conn.execute("""INSERT INTO bank_balance_records
-                        (id, account_id, record_date, sequence, balance, data, created_by)
-                        VALUES (?, ?, ?, ?, 0, ?, ?)""",
-                        (bank_record_id, account_id, record_date, sequence, json.dumps(values, ensure_ascii=False), created_by))
-                    settlement_snapshot = {"number": number, "date": record_date, "accountId": account_id, "items": selected}
+                    settlement_snapshot = {"number": number, "date": record_date, "items": selected}
                     conn.execute("""INSERT INTO commission_settlements
                         (id, number, settlement_date, account_id, bank_record_id, total_amount,
                          reference, description, status, snapshot, created_by)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pagada', ?, ?)""",
-                        (settlement_id, number, record_date, account_id, bank_record_id, amount,
+                        (settlement_id, number, record_date, "", "", amount,
                          reference, description, json.dumps(settlement_snapshot, ensure_ascii=False), created_by))
                     for item in selected:
                         conn.execute("""INSERT INTO commission_settlement_items
@@ -9217,8 +9200,6 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                             (str(uuid.uuid4()), settlement_id, item["key"], item["provisionId"], item["seller"],
                              item["amount"], item["kind"], item["detail"], json.dumps(item, ensure_ascii=False)))
-                    recalculate_bank_balances(conn, account_id, bank_opening_balance(conn, account_id))
-                    register_bank_daily_update(conn, account_id)
                     clear_bank_availability_signatures(conn)
                     updated_liability = commission_liability_payload(conn)
                     state_row = conn.execute("SELECT value FROM app_state WHERE key = 'pending_expenses'").fetchone()
@@ -9226,11 +9207,10 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     except json.JSONDecodeError: manual_items = []
                     manual_items = [item for item in manual_items if isinstance(item, dict) and crm_identity_key(item.get("costCenter")) != "comisiones"] if isinstance(manual_items, list) else []
                     response_items = manual_items + automatic_commission_expenses(conn)
-                    availability = bank_availability_payload(conn)
             except sqlite3.IntegrityError:
                 self.send_json({"error": "Una comisión seleccionada ya fue liquidada; actualiza el listado"}, status=409); return
             self.send_json({"ok": True, "number": number, "amount": amount, "commissions": updated_liability,
-                            "items": response_items, "availability": availability}, status=201)
+                            "items": response_items}, status=201)
             return
 
         if self.path == "/api/pending-expenses/settle":
