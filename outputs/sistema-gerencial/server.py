@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-sample-status-list-v43"
+API_VERSION = "kmi-order-approval-date-v44"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -2786,6 +2786,51 @@ def normalize_financial_order(data, existing=None):
         "createdAt": text(payload.get("createdAt"), current.get("createdAt") or now),
         "updatedAt": now,
     }
+
+
+def finance_approval_effective_date(value):
+    """Return Edgar's signature date in El Salvador for the accounting period."""
+    raw_value = text(value)
+    if not raw_value:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=ZoneInfo("America/El_Salvador"))
+        return parsed.astimezone(ZoneInfo("America/El_Salvador")).date().isoformat()
+    except ValueError:
+        try:
+            return datetime.strptime(raw_value[:10], "%Y-%m-%d").date().isoformat()
+        except ValueError:
+            return ""
+
+
+def reconcile_approved_order_effective_dates(conn):
+    """Make Edgar's final signature the canonical order/sale period."""
+    month_names = ("", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")
+    rows = conn.execute("""
+        SELECT id, financial_order_id, finance_approved_at
+        FROM control_sales_orders
+        WHERE archived = 0
+          AND finance_approval_status = 'Aprobada'
+          AND trim(finance_approved_at) <> ''
+    """).fetchall()
+    for row in rows:
+        effective_date = finance_approval_effective_date(row["finance_approved_at"])
+        if not effective_date:
+            continue
+        year, month_number = effective_date.split("-")[:2]
+        financial_order_id = text(row["financial_order_id"])
+        if financial_order_id:
+            conn.execute("""
+                UPDATE financial_orders
+                SET date = ?, month = ?, year = ?
+                WHERE id = ? AND deleted = 0
+            """, (effective_date, month_names[int(month_number)], year, financial_order_id))
+        conn.execute(
+            "UPDATE control_sales_orders SET order_date = ? WHERE id = ?",
+            (effective_date, row["id"]),
+        )
 
 
 def financial_order_payload(row):
@@ -7934,6 +7979,7 @@ def init_db():
         grant_financial_statements_permissions(conn)
         remove_seller_financial_permissions_once(conn)
         seed_control_sales(conn)
+        reconcile_approved_order_effective_dates(conn)
         normalize_control_sales_order_descriptions_once(conn)
         repair_document_customer_seals_once(conn)
         reconcile_order_2026090007_once(conn)
@@ -10348,8 +10394,10 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 self.send_json({"error": "Estado de autorización no válido"}, status=400)
                 return
             actor_id = text(self.headers.get("X-System-User-Id"))
-            now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            local_now = datetime.now(ZoneInfo("America/El_Salvador"))
+            now = local_now.isoformat(timespec="seconds")
             note = text(changes.get("note"))
+            audit_summary = note
             with connect() as conn:
                 actor_row = conn.execute(
                     "SELECT id, name, username, email, role, admin, permissions FROM users WHERE id = ? LIMIT 1", (actor_id,)
@@ -10431,14 +10479,29 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         }, status=409)
                         return
                     if financial_row:
+                        effective_date = local_now.date().isoformat()
+                        effective_year, effective_month_number = effective_date.split("-")[:2]
+                        effective_month = ("", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre")[int(effective_month_number)]
+                        conn.execute("""
+                            UPDATE financial_orders
+                            SET date=?, month=?, year=?, updated_by=?, updated_at=?
+                            WHERE id=? AND deleted=0
+                        """, (
+                            effective_date, effective_month, effective_year,
+                            actor, now, financial_order_id,
+                        ))
                         conn.execute("""
                             UPDATE control_sales_orders
                             SET order_date=?, seller=?, client=?, updated_by=?, updated_at=?
                             WHERE id=?
                         """, (
-                            text(financial_row["date"]), text(financial_row["seller"]),
+                            effective_date, text(financial_row["seller"]),
                             text(financial_row["client"]), actor, now, item_id,
                         ))
+                        audit_summary = " · ".join(filter(None, (
+                            note,
+                            f"Fecha efectiva del pedido y la venta: {effective_date}",
+                        )))
                 if stage == "commercial-approval":
                     if is_commercial_recovery:
                         conn.execute("""
@@ -10465,7 +10528,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     action = "aprobacion_financiera" if status == "Aprobada" else "observacion_financiera"
                 conn.execute(
                     "INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
-                    (item_id, action, actor, now, note),
+                    (item_id, action, actor, now, audit_summary),
                 )
                 updated = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (item_id,)).fetchone()
                 item = control_sales_order_payload(conn, updated, include_audit=True)

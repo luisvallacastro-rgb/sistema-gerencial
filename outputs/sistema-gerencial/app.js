@@ -3419,7 +3419,24 @@ function linkedFinancialOrderForControlSale(order) {
   }) || null;
 }
 
+function financeApprovalLocalDate(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) return rawValue;
+  const parsed = new Date(rawValue);
+  if (Number.isNaN(parsed.getTime())) return rawValue.slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/El_Salvador",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(parsed).reduce((result, part) => ({ ...result, [part.type]: part.value }), {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 function controlSalesEffectiveDate(order) {
+  const financeSigned = order?.financeApprovalStatus === "Aprobada" || Boolean(order?.financeApprovedAt);
+  if (financeSigned && order?.financeApprovedAt) return financeApprovalLocalDate(order.financeApprovedAt);
   return String(linkedFinancialOrderForControlSale(order)?.date || order?.date || "").slice(0, 10);
 }
 
@@ -6717,10 +6734,14 @@ function financialOrderLedgerRows() {
     const linkedOrder = linkedControlSalesByFinancialOrderId.get(String(order.id));
     const quotation = linkedQuotationForControlSalesOrder(linkedOrder);
     const currentTotalCents = Number(quotation?.totalCents ?? linkedOrder?.totalCents);
-    if (!Number.isFinite(currentTotalCents)) return order;
+    const effectiveDate = controlSalesEffectiveDate(linkedOrder) || order.date;
+    const [effectiveYear, effectiveMonthNumber] = String(effectiveDate || "").split("-").map(Number);
     return {
       ...order,
-      sale: currentTotalCents / 100,
+      date: effectiveDate,
+      year: Number.isFinite(effectiveYear) ? effectiveYear : order.year,
+      month: Number.isFinite(effectiveMonthNumber) ? monthLabel(effectiveMonthNumber) : order.month,
+      sale: Number.isFinite(currentTotalCents) ? currentTotalCents / 100 : order.sale,
       seller: quotation?.seller || linkedOrder?.seller || order.seller,
       client: quotation?.client || linkedOrder?.client || order.client
     };
