@@ -3503,8 +3503,8 @@ function ensureControlSalesDialogs() {
     <dialog id="controlSalesDialog" class="wide-dialog control-sales-dialog"><form id="controlSalesForm" method="dialog">
       <header><div><p class="eyebrow">Operaciones</p><h3 id="controlSalesDialogTitle">Nueva orden</h3></div><button type="button" data-control-sales-close>×</button></header>
       <input type="hidden" id="controlSalesId"><input type="hidden" id="controlSalesFinancialOrderId"><input type="hidden" id="controlSalesSourceOpportunityId"><input type="hidden" id="controlSalesSourceQuotationId"><input type="hidden" id="controlSalesCustomerId"><input type="hidden" id="controlSalesClientNumber">
-      <section class="control-sales-source-picker">
-        <div class="control-sales-source-heading"><div><span>Pedido de origen</span><strong>Selecciona por correlativo o cliente</strong></div><small>Pedidos pendientes y oportunidades ganadas sin cotización ni orden.</small></div>
+      <section id="controlSalesSourcePicker" class="control-sales-source-picker">
+        <div class="control-sales-source-heading"><div><span id="controlSalesSourceEyebrow">Pedido de origen</span><strong id="controlSalesSourceTitle">Selecciona por correlativo o cliente</strong></div><small id="controlSalesSourceHelp">Pedidos pendientes y oportunidades ganadas sin cotización ni orden.</small></div>
         <div id="controlSalesFinancialOrderSelected"></div>
         <details id="controlSalesFinancialOrderPicker" class="control-sales-source-dropdown">
           <summary><span><b>Elegir pedido u oportunidad ganada</b><small id="controlSalesFinancialOrderCount">0 orígenes</small></span><i aria-hidden="true">⌄</i></summary>
@@ -3630,6 +3630,7 @@ function ensureControlSalesDialogs() {
       selectControlSalesWonOpportunity(source.dataset.controlSalesOpportunityId);
     }
     if (event.target.matches("[data-control-sales-source-clear]")) {
+      if (document.querySelector("#controlSalesId").value) return;
       document.querySelector("#controlSalesSourceOpportunityId").value = "";
       document.querySelector("#controlSalesSourceQuotationId").value = "";
       document.querySelector("#controlSalesOpportunityReference").classList.add("hidden");
@@ -3639,6 +3640,11 @@ function ensureControlSalesDialogs() {
       document.querySelector("#controlSalesFinancialOrderPicker").open = true;
       search.focus();
       renderControlSalesFinancialOrderResults("");
+    }
+    if (event.target.matches("[data-control-sales-form-customer-correct]")) {
+      const order = state.controlSales.find((item) => String(item.id) === String(event.target.dataset.controlSalesFormCustomerCorrect));
+      formDialog.close();
+      if (order) openGeneratedOrderCustomerCorrection(order);
     }
   });
   formDialog.addEventListener("input", (event) => {
@@ -5435,14 +5441,25 @@ function setControlSalesFinancialOrderSelection(order) {
   const number = document.querySelector("#controlSalesNumber");
   const seller = document.querySelector("#controlSalesSeller");
   const client = document.querySelector("#controlSalesClient");
+  const existingOrderId = document.querySelector("#controlSalesId")?.value || "";
+  const existingOrder = state.controlSales.find((item) => String(item.id) === String(existingOrderId));
+  const picker = document.querySelector("#controlSalesFinancialOrderPicker");
   if (!hidden || !selected) return;
+  if (picker) picker.hidden = Boolean(existingOrderId);
   hidden.value = order?.id || "";
   [number, seller, client].forEach((input) => { input.readOnly = Boolean(order); });
   if (!order) {
-    number.value = "";
-    seller.value = "";
-    client.value = "";
-    selected.innerHTML = "";
+    if (existingOrder) {
+      const correctionButton = canCorrectGeneratedOrderCustomer(existingOrder)
+        ? `<button type="button" data-control-sales-form-customer-correct="${escapeHtml(existingOrder.id)}">Corregir cliente</button>`
+        : "";
+      selected.innerHTML = `<article class="control-sales-source-selected"><div><span>Cliente actual de la OP</span><strong>${escapeHtml(formatOrderCorrelative(existingOrder.number))} · ID cliente ${escapeHtml(existingOrder.proformaData?.clientNumber || existingOrder.proformaData?.customerCode || "—")} · ${escapeHtml(existingOrder.client || "Sin cliente")}</strong><small>Usa Corregir cliente para reemplazar únicamente el cliente equivocado desde el maestro de clientes.</small></div><em>Origen bloqueado</em>${correctionButton}</article>`;
+    } else {
+      number.value = "";
+      seller.value = "";
+      client.value = "";
+      selected.innerHTML = "";
+    }
     updateControlSalesReconciliation();
     return;
   }
@@ -5451,7 +5468,10 @@ function setControlSalesFinancialOrderSelection(order) {
   client.value = order.client || "";
   const commercialName = document.querySelector("#controlSalesCommercialName");
   if (commercialName && !commercialName.value.trim()) commercialName.value = order.client || "";
-  selected.innerHTML = `<article class="control-sales-source-selected"><div><span>OP vinculada</span><strong>${escapeHtml(controlSalesFinancialOrderLabel(order))}</strong><small>El consecutivo interno financiero se conserva únicamente para control técnico y no se muestra como número de pedido.</small></div><em>Listo para detalle</em><button type="button" data-control-sales-source-clear>Cambiar</button></article>`;
+  const correctionButton = existingOrder && canCorrectGeneratedOrderCustomer(existingOrder)
+    ? `<button type="button" data-control-sales-form-customer-correct="${escapeHtml(existingOrder.id)}">Corregir cliente</button>`
+    : !existingOrder ? `<button type="button" data-control-sales-source-clear>Cambiar origen</button>` : "";
+  selected.innerHTML = `<article class="control-sales-source-selected"><div><span>${existingOrder ? "Cliente actual de la OP" : "OP vinculada"}</span><strong>${escapeHtml(controlSalesFinancialOrderLabel(order))}</strong><small>${existingOrder ? "Usa Corregir cliente para reemplazar únicamente el cliente equivocado desde el maestro de clientes." : "El origen queda vinculado y protegido contra duplicados."}</small></div><em>${existingOrder ? "Origen bloqueado" : "Listo para detalle"}</em>${correctionButton}</article>`;
   document.querySelector("#controlSalesFinancialOrderResults").innerHTML = "";
   document.querySelector("#controlSalesFinancialOrderSearch").value = "";
   document.querySelector("#controlSalesFinancialOrderPicker").open = false;
@@ -5651,6 +5671,9 @@ function openControlSalesForm(order = null, sourceFinancialOrder = null, sourceW
   dialog.dataset.directOrderFlow = directOrderFlow ? "true" : "false";
   dialog.dataset.expectedUpdatedAt = order?.updatedAt || "";
   document.querySelector("#controlSalesDialogTitle").textContent = order ? `Editar pedido #${order.number}` : directOrderFlow ? "Nota de pedido directa" : "Nuevo pedido";
+  document.querySelector("#controlSalesSourceEyebrow").textContent = order ? "Cliente asignado a la OP" : "Pedido de origen";
+  document.querySelector("#controlSalesSourceTitle").textContent = order ? "Revisa o corrige el cliente del documento" : "Selecciona por correlativo o cliente";
+  document.querySelector("#controlSalesSourceHelp").textContent = order ? "El origen de la OP está bloqueado; la corrección busca únicamente en el maestro de clientes." : "Pedidos pendientes y oportunidades ganadas sin cotización ni orden.";
   const saveStatus = document.querySelector("#controlSalesSaveStatus");
   saveStatus.classList.add("hidden");
   saveStatus.textContent = "";
@@ -6051,7 +6074,7 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
         <section class="control-sales-audit"><h4>Historial del pedido</h4>${order.audit.map((entry) => `<article><strong>${escapeHtml(entry.action)}</strong><span>${escapeHtml(entry.userName)} · ${escapeHtml(entry.createdAt)}</span><small>${escapeHtml(entry.summary)}</small></article>`).join("") || `<p>Historial importado desde Excel.</p>`}</section>
       </div>
     </details>
-    <footer class="control-sales-review-footer"><button type="button" class="danger-btn" data-control-sales-detail-archive="${order.id}" title="Anular pedido">Anular</button>${canCorrectGeneratedOrderCustomer(order) ? `<button type="button" class="control-sales-customer-correction-btn" data-control-sales-customer-correct="${escapeHtml(order.id)}">Cambiar cliente</button>` : ""}<button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="control-sales-print-btn" data-control-sales-detail-print="${order.id}">Imprimir</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar</button></footer>`;
+    <footer class="control-sales-review-footer"><button type="button" class="danger-btn" data-control-sales-detail-archive="${order.id}" title="Anular pedido">Anular</button>${canCorrectGeneratedOrderCustomer(order) ? `<button type="button" class="control-sales-customer-correction-btn" data-control-sales-customer-correct="${escapeHtml(order.id)}">Corregir cliente</button>` : ""}<button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="control-sales-print-btn" data-control-sales-detail-print="${order.id}">Imprimir</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar</button></footer>`;
   if (!detailDialog.open) detailDialog.showModal();
 }
 
@@ -7061,7 +7084,7 @@ function renderFinancialOrderNotifications() {
               <div class="financial-order-notification-actions">
                 <button type="button" data-finance-order-view="${escapeHtml(order.id)}">Ver orden</button>
                 ${quotation ? `<button type="button" class="quotation" data-finance-order-quotation="${escapeHtml(quotation.id)}">Ver cotización</button>` : ""}
-                ${canCorrectGeneratedOrderCustomer(order) ? `<button type="button" class="secondary" data-finance-order-customer-correct="${escapeHtml(order.id)}">Cambiar cliente</button>` : ""}
+                ${canCorrectGeneratedOrderCustomer(order) ? `<button type="button" class="secondary" data-finance-order-customer-correct="${escapeHtml(order.id)}">Corregir cliente</button>` : ""}
                 <button type="button" class="secondary" data-finance-order-complete="${escapeHtml(order.id)}">${financialComplete ? "Revisar registro" : "Completar registro"}</button>
                 <button type="button" class="secondary observation" data-finance-order-observe="${escapeHtml(order.id)}" ${signerStage === "finance" ? "" : "disabled"}>Agregar observación</button>
                 ${customerDirectFlow ? "" : `<button type="button" class="signature commercial ${commercialSigned ? "is-signed" : ""}" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="commercial" ${financialComplete && signerStage === "commercial" && !commercialSigned ? "" : "disabled"}>${commercialSigned ? "✓ Odaliz firmó" : "Firma Odaliz Valencia"}</button>`}
@@ -11039,7 +11062,7 @@ function ensureGeneratedOrderCustomerCorrectionDialog() {
   dialog.id = "generatedOrderCustomerCorrectionDialog";
   dialog.className = "direct-order-customer-dialog generated-order-customer-correction-dialog";
   dialog.innerHTML = `<section class="direct-order-customer-card">
-    <header><div><span>CORRECCIÓN CONTROLADA DE OP</span><h3>Cambiar cliente</h3><p>La selección actualizará la cotización, la orden de pedido y el registro financiero vinculados.</p></div><button type="button" data-order-customer-correction-close aria-label="Cerrar">×</button></header>
+    <header><div><span>CORRECCIÓN CONTROLADA DE OP</span><h3>Corregir cliente</h3><p>Busca y selecciona el cliente correcto desde el maestro de clientes. No estás buscando otra OP.</p></div><button type="button" data-order-customer-correction-close aria-label="Cerrar">×</button></header>
     <div class="generated-order-customer-current" data-order-customer-correction-current></div>
     <label class="generated-order-customer-reason"><span>Motivo de la corrección</span><textarea rows="2" maxlength="240" data-order-customer-correction-reason required placeholder="Ej. Se seleccionó la razón social incorrecta al generar la OP"></textarea></label>
     <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-order-customer-correction-search placeholder="Buscar nombre, razón social, NIT o ID..."></label></div>

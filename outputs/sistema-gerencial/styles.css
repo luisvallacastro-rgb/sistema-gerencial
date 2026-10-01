@@ -15808,6 +15808,10 @@ dialog select:disabled {
   background: #172d49;
 }
 
+.control-sales-source-dropdown[hidden] {
+  display: none !important;
+}
+
 .control-sales-source-dropdown > summary {
   display: flex;
   align-items: center;
