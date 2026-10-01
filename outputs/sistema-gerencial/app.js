@@ -3555,7 +3555,7 @@ function ensureControlSalesDialogs() {
       <details class="control-sales-proforma-block control-sales-financial-annex" open>
         <summary><span><b>Registro financiero del pedido</b><small data-financial-annex-help>Anexo al formulario heredado · se conserva dentro del mismo pedido</small></span><i>⌄</i></summary>
         <div class="control-sales-proforma-grid">
-          <label>Número (automático)<input id="controlSalesFinancialNumber" readonly></label>
+          <label>Registro interno (automático)<input id="controlSalesFinancialNumber" readonly></label>
           <label>Mes<input id="controlSalesFinancialMonth" required></label>
           <label>Año<input id="controlSalesFinancialYear" type="number" required></label>
           <label>Fecha de ingreso<input id="controlSalesFinancialDate" type="date" required></label>
@@ -5369,7 +5369,17 @@ function isControlSalesEligibleFinancialOrder(order) {
 }
 
 function controlSalesFinancialOrderLabel(order) {
-  return `#${order.number || "—"} · ${order.client || "Sin cliente"} · ${order.seller || "Sin vendedor"}`;
+  const linkedOrder = state.controlSales.find((item) => String(item.financialOrderId || "") === String(order?.id || ""));
+  const officialOrderNumber = linkedOrder?.number || order?.orderNumber || "";
+  const customerNumber = linkedOrder?.proformaData?.clientNumber || linkedOrder?.proformaData?.customerCode || "";
+  const orderLabel = officialOrderNumber ? formatOrderCorrelative(officialOrderNumber) : "Origen financiero pendiente de OP";
+  const customerLabel = customerNumber ? ` · ID cliente ${String(customerNumber).padStart(4, "0")}` : "";
+  return `${orderLabel}${customerLabel} · ${order?.client || "Sin cliente"} · ${order?.seller || "Sin vendedor"}`;
+}
+
+function controlSalesFinancialOrderOfficialNumber(order) {
+  const linkedOrder = state.controlSales.find((item) => String(item.financialOrderId || "") === String(order?.id || ""));
+  return linkedOrder?.number || order?.orderNumber || "";
 }
 
 function controlSalesPendingWonOpportunitySources() {
@@ -5409,7 +5419,10 @@ function renderControlSalesFinancialOrderResults(query = "") {
   const count = document.querySelector("#controlSalesFinancialOrderCount");
   if (count) count.textContent = `${availableCount} ${availableCount === 1 ? "origen" : "orígenes"}`;
   container.innerHTML = availableCount
-    ? `${availableOrders.map((order) => `<button type="button" class="control-sales-source-option" data-control-sales-source-id="${escapeHtml(order.id)}"><time datetime="${escapeHtml(order.date || "")}">${formatDate(order.date) || "Sin fecha"}</time><b>#${escapeHtml(order.number || "—")}</b><span title="${escapeHtml(order.client || "Sin cliente")}">${escapeHtml(order.client || "Sin cliente")}</span><small title="${escapeHtml(order.seller || "Sin vendedor")}">${escapeHtml(order.seller || "Sin vendedor")}</small><strong>${formatMoney(order.sale || 0)}</strong><i>Seleccionar</i></button>`).join("")}${availableWins.map((item) => {
+    ? `${availableOrders.map((order) => {
+      const officialOrderNumber = controlSalesFinancialOrderOfficialNumber(order);
+      return `<button type="button" class="control-sales-source-option" data-control-sales-source-id="${escapeHtml(order.id)}"><time datetime="${escapeHtml(order.date || "")}">${formatDate(order.date) || "Sin fecha"}</time><b>${officialOrderNumber ? escapeHtml(formatOrderCorrelative(officialOrderNumber)) : "SIN OP"}</b><span title="${escapeHtml(order.client || "Sin cliente")}">${escapeHtml(order.client || "Sin cliente")}</span><small title="${escapeHtml(order.seller || "Sin vendedor")}">${escapeHtml(order.seller || "Sin vendedor")}</small><strong>${formatMoney(order.sale || 0)}</strong><i>Seleccionar</i></button>`;
+    }).join("")}${availableWins.map((item) => {
       const result = closureResult(item);
       return `<button type="button" class="control-sales-source-option is-won-opportunity" data-control-sales-opportunity-id="${escapeHtml(item.id)}"><time datetime="${escapeHtml(result?.date || item.date || "")}">${formatDate(result?.date || item.date) || "Sin fecha"}</time><b>GANADA</b><span title="${escapeHtml(item.company || "Sin cliente")}">${escapeHtml(item.company || "Sin cliente")}</span><small title="${escapeHtml(item.seller || "Sin vendedor")}">${escapeHtml(item.seller || "Sin vendedor")}</small><strong>${formatMoney(item.amount || 0)}</strong><i>Seleccionar</i></button>`;
     }).join("")}`
@@ -5433,12 +5446,12 @@ function setControlSalesFinancialOrderSelection(order) {
     updateControlSalesReconciliation();
     return;
   }
-  number.value = order.number || "";
+  number.value = controlSalesFinancialOrderOfficialNumber(order) || "";
   seller.value = controlSalesResponsibleSeller(order);
   client.value = order.client || "";
   const commercialName = document.querySelector("#controlSalesCommercialName");
   if (commercialName && !commercialName.value.trim()) commercialName.value = order.client || "";
-  selected.innerHTML = `<article class="control-sales-source-selected"><div><span>Pedido seleccionado</span><strong>${escapeHtml(controlSalesFinancialOrderLabel(order))}</strong><small>Los datos de origen quedan vinculados y protegidos contra duplicados.</small></div><em>Listo para detalle</em><button type="button" data-control-sales-source-clear>Cambiar</button></article>`;
+  selected.innerHTML = `<article class="control-sales-source-selected"><div><span>OP vinculada</span><strong>${escapeHtml(controlSalesFinancialOrderLabel(order))}</strong><small>El consecutivo interno financiero se conserva únicamente para control técnico y no se muestra como número de pedido.</small></div><em>Listo para detalle</em><button type="button" data-control-sales-source-clear>Cambiar</button></article>`;
   document.querySelector("#controlSalesFinancialOrderResults").innerHTML = "";
   document.querySelector("#controlSalesFinancialOrderSearch").value = "";
   document.querySelector("#controlSalesFinancialOrderPicker").open = false;
