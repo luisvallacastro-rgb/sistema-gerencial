@@ -7244,10 +7244,12 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
 .direct-order-customer-index {
   display: inline-grid;
   place-items: center;
-  width: 36px;
+  min-width: 48px;
+  width: auto;
   height: 36px;
+  padding: 0 7px;
   border: 1px solid rgba(107,235,203,.42);
-  border-radius: 50%;
+  border-radius: 999px;
   color: #78edcf;
   background: rgba(37,154,128,.14);
   font-style: normal;
@@ -7322,8 +7324,8 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .generated-order-customer-reason,
   .generated-order-customer-warning { margin-inline: 20px; }
   .order-conversion-delivery { margin: 0 20px 16px; }
-  .direct-order-customer-option { grid-template-columns: 36px minmax(0,1fr) auto; gap: 7px 10px; }
-  .direct-order-customer-index { grid-row: 1 / span 2; width: 32px; height: 32px; }
+  .direct-order-customer-option { grid-template-columns: 44px minmax(0,1fr) auto; gap: 7px 10px; }
+  .direct-order-customer-index { grid-row: 1 / span 2; min-width: 44px; width: auto; height: 32px; padding-inline: 5px; }
   .direct-order-customer-option em { grid-column: 2; }
   .direct-order-customer-option b { grid-column: 3; grid-row: 1 / span 2; }
 }
