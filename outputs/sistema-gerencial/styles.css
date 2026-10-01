@@ -7147,6 +7147,56 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   scrollbar-color: #5bdcbb rgba(13,35,55,.65);
 }
 .direct-order-customer-list[hidden] { display: none !important; }
+.generated-order-customer-correction-dialog .direct-order-customer-card {
+  grid-template-rows: auto auto auto auto minmax(180px, 1fr) auto;
+}
+.generated-order-customer-correction-dialog .direct-order-customer-list { max-height: 330px; }
+.generated-order-customer-current,
+.generated-order-customer-reason,
+.generated-order-customer-warning {
+  margin: 16px 30px 0;
+  border: 1px solid rgba(132, 201, 221, .2);
+  border-radius: 15px;
+  background: rgba(12, 42, 64, .42);
+}
+.generated-order-customer-current { display: grid; gap: 3px; padding: 13px 16px; }
+.generated-order-customer-current span,
+.generated-order-customer-reason > span {
+  color: #72edce;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.generated-order-customer-current strong { font-size: 17px; }
+.generated-order-customer-current small { color: rgba(220,235,246,.62); }
+.generated-order-customer-reason { display: grid; gap: 8px; padding: 12px 15px; }
+.generated-order-customer-reason textarea {
+  width: 100%;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  color: #f5fbff;
+  background: transparent;
+  font: inherit;
+}
+.generated-order-customer-reason textarea::placeholder { color: rgba(219,232,244,.42); }
+.generated-order-customer-warning {
+  display: flex;
+  gap: 10px;
+  margin-top: 0;
+  margin-bottom: 20px;
+  padding: 12px 15px;
+  border-color: rgba(255, 190, 95, .3);
+  color: #ffd18d;
+  font-size: 11px;
+}
+.generated-order-customer-warning span { color: rgba(235, 225, 203, .76); }
+.control-sales-customer-correction-btn {
+  border-color: rgba(255, 190, 95, .35) !important;
+  color: #ffd18d !important;
+  background: rgba(168, 107, 25, .14) !important;
+}
 .order-conversion-delivery {
   display: grid;
   gap: 7px;
@@ -7268,6 +7318,9 @@ html.macos-render-safe .app-shell .admin-permissions-shell .permission-matrix-us
   .direct-order-customer-toolbar { grid-template-columns: 1fr; padding: 16px 20px; }
   .direct-order-customer-toolbar > button { min-height: 48px; }
   .direct-order-customer-list { padding: 2px 20px 24px; }
+  .generated-order-customer-current,
+  .generated-order-customer-reason,
+  .generated-order-customer-warning { margin-inline: 20px; }
   .order-conversion-delivery { margin: 0 20px 16px; }
   .direct-order-customer-option { grid-template-columns: 36px minmax(0,1fr) auto; gap: 7px 10px; }
   .direct-order-customer-index { grid-row: 1 / span 2; width: 32px; height: 32px; }

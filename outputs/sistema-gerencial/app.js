@@ -3776,6 +3776,12 @@ function ensureControlSalesDialogs() {
       detailDialog.close();
       if (order) openControlSalesForm(order, null, null, formatOnly);
     }
+    if (event.target.matches("[data-control-sales-customer-correct]")) {
+      const order = detailDialog.controlSalesOrder
+        || state.controlSales.find((item) => item.id === event.target.dataset.controlSalesCustomerCorrect);
+      detailDialog.close();
+      if (order) openGeneratedOrderCustomerCorrection(order);
+    }
     if (event.target.matches("[data-control-sales-detail-archive]")) {
       const order = state.controlSales.find((item) => item.id === event.target.dataset.controlSalesDetailArchive);
       if (!order || !confirm(`¿Anular el pedido #${order.number}? El cierre ganado se conservará.`)) return;
@@ -4418,6 +4424,13 @@ function canRecoverCommercialOrderSignature(order = {}, user = state.currentUser
   const commercialSigned = order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt);
   const financeSigned = order.financeApprovalStatus === "Aprobada" || Boolean(order.financeApprovedAt);
   return !isDirectOrderFlow(order) && commercialSigned && !financeSigned && (isOdalizValenciaUser(user) || isLuis);
+}
+
+function canCorrectGeneratedOrderCustomer(order = {}, user = state.currentUser) {
+  if (!order?.id || order.archived || order.source === "importado") return false;
+  const identity = normalizeKey(`${user?.id || ""} ${user?.name || ""} ${user?.username || ""} ${user?.email || ""}`);
+  const isLuis = identity.includes("luisvallacastro") || ["luis", "valladares"].every((token) => identity.includes(token));
+  return isLuis || isOdalizValenciaUser(user);
 }
 
 function quotationSourceOpportunity(quotation = {}) {
@@ -6025,7 +6038,7 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
         <section class="control-sales-audit"><h4>Historial del pedido</h4>${order.audit.map((entry) => `<article><strong>${escapeHtml(entry.action)}</strong><span>${escapeHtml(entry.userName)} · ${escapeHtml(entry.createdAt)}</span><small>${escapeHtml(entry.summary)}</small></article>`).join("") || `<p>Historial importado desde Excel.</p>`}</section>
       </div>
     </details>
-    <footer class="control-sales-review-footer"><button type="button" class="danger-btn" data-control-sales-detail-archive="${order.id}" title="Anular pedido">Anular</button><button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="control-sales-print-btn" data-control-sales-detail-print="${order.id}">Imprimir</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar</button></footer>`;
+    <footer class="control-sales-review-footer"><button type="button" class="danger-btn" data-control-sales-detail-archive="${order.id}" title="Anular pedido">Anular</button>${canCorrectGeneratedOrderCustomer(order) ? `<button type="button" class="control-sales-customer-correction-btn" data-control-sales-customer-correct="${escapeHtml(order.id)}">Cambiar cliente</button>` : ""}<button type="button" data-control-sales-detail-close>Cerrar</button><button type="button" class="control-sales-print-btn" data-control-sales-detail-print="${order.id}">Imprimir</button><button type="button" class="primary-btn" data-control-sales-detail-edit="${order.id}">Editar</button></footer>`;
   if (!detailDialog.open) detailDialog.showModal();
 }
 
@@ -7035,6 +7048,7 @@ function renderFinancialOrderNotifications() {
               <div class="financial-order-notification-actions">
                 <button type="button" data-finance-order-view="${escapeHtml(order.id)}">Ver orden</button>
                 ${quotation ? `<button type="button" class="quotation" data-finance-order-quotation="${escapeHtml(quotation.id)}">Ver cotización</button>` : ""}
+                ${canCorrectGeneratedOrderCustomer(order) ? `<button type="button" class="secondary" data-finance-order-customer-correct="${escapeHtml(order.id)}">Cambiar cliente</button>` : ""}
                 <button type="button" class="secondary" data-finance-order-complete="${escapeHtml(order.id)}">${financialComplete ? "Revisar registro" : "Completar registro"}</button>
                 <button type="button" class="secondary observation" data-finance-order-observe="${escapeHtml(order.id)}" ${signerStage === "finance" ? "" : "disabled"}>Agregar observación</button>
                 ${customerDirectFlow ? "" : `<button type="button" class="signature commercial ${commercialSigned ? "is-signed" : ""}" data-order-sign="${escapeHtml(order.id)}" data-order-sign-stage="commercial" ${financialComplete && signerStage === "commercial" && !commercialSigned ? "" : "disabled"}>${commercialSigned ? "✓ Odaliz firmó" : "Firma Odaliz Valencia"}</button>`}
@@ -7556,6 +7570,10 @@ function wireFinancialOrders() {
   opportunityTable.querySelector("[data-financial-order-authorized-report]")?.addEventListener("click", printAuthorizedFinancialOrdersReport);
   opportunityTable.querySelectorAll("[data-finance-order-view]").forEach((button) => button.addEventListener("click", () => {
     openControlSalesDetail(button.dataset.financeOrderView);
+  }));
+  opportunityTable.querySelectorAll("[data-finance-order-customer-correct]").forEach((button) => button.addEventListener("click", () => {
+    const order = state.controlSales.find((item) => item.id === button.dataset.financeOrderCustomerCorrect);
+    if (order) openGeneratedOrderCustomerCorrection(order);
   }));
   opportunityTable.querySelectorAll("[data-finance-order-quotation]").forEach((button) => button.addEventListener("click", () => {
     const quotation = state.quotations.find((item) => String(item.id || "") === String(button.dataset.financeOrderQuotation || ""));
@@ -10999,6 +11017,83 @@ async function bindMasterCustomerForOrder(opportunity, quotation, customer, conf
     persistLocalQuotations();
   }
   return { opportunity, quotation:savedQuotation, customer };
+}
+
+function ensureGeneratedOrderCustomerCorrectionDialog() {
+  let dialog = document.querySelector("#generatedOrderCustomerCorrectionDialog");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "generatedOrderCustomerCorrectionDialog";
+  dialog.className = "direct-order-customer-dialog generated-order-customer-correction-dialog";
+  dialog.innerHTML = `<section class="direct-order-customer-card">
+    <header><div><span>CORRECCIÓN CONTROLADA DE OP</span><h3>Cambiar cliente</h3><p>La selección actualizará la cotización, la orden de pedido y el registro financiero vinculados.</p></div><button type="button" data-order-customer-correction-close aria-label="Cerrar">×</button></header>
+    <div class="generated-order-customer-current" data-order-customer-correction-current></div>
+    <label class="generated-order-customer-reason"><span>Motivo de la corrección</span><textarea rows="2" maxlength="240" data-order-customer-correction-reason required placeholder="Ej. Se seleccionó la razón social incorrecta al generar la OP"></textarea></label>
+    <div class="direct-order-customer-toolbar"><label><span>⌕</span><input type="search" autocomplete="off" data-order-customer-correction-search placeholder="Buscar nombre, razón social, NIT o ID..."></label></div>
+    <div class="direct-order-customer-list" data-order-customer-correction-list></div>
+    <aside class="generated-order-customer-warning"><strong>Control de autorización</strong><span>Por cambiar la contraparte legal, las firmas actuales se reiniciarán y la OP deberá autorizarse nuevamente.</span></aside>
+  </section>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.orderToCorrect = null; dialog.close(); };
+  dialog.querySelector("[data-order-customer-correction-close]").addEventListener("click", close);
+  dialog.querySelector("[data-order-customer-correction-search]").addEventListener("input", (event) => {
+    renderGeneratedOrderCustomerCorrectionOptions(event.target.value);
+  });
+  dialog.querySelector("[data-order-customer-correction-list]").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-order-customer-correction-select]");
+    const order = dialog.orderToCorrect;
+    if (!button || !order) return;
+    const reason = dialog.querySelector("[data-order-customer-correction-reason]").value.trim();
+    if (!reason) {
+      alert("Escribe el motivo de la corrección para dejarlo registrado en auditoría.");
+      dialog.querySelector("[data-order-customer-correction-reason]").focus();
+      return;
+    }
+    const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.orderCustomerCorrectionSelect));
+    if (!customer) return;
+    const newName = customer.commercialName || customer.legalName || "cliente seleccionado";
+    if (!confirm(`¿Cambiar el cliente de la OP ${formatOrderCorrelative(order.number)} de “${order.client}” a “${newName}”?\n\nLa cotización y la OP se actualizarán, y las firmas deberán realizarse nuevamente.`)) return;
+    button.disabled = true;
+    try {
+      await apiJson(`/api/control-sales/${encodeURIComponent(order.id)}/customer`, {
+        method: "PATCH",
+        body: JSON.stringify({ customerId:customer.id, reason })
+      });
+      await Promise.all([loadControlSales(), loadQuotations(), loadCrmData(), syncFinancialOrdersWithApi()]);
+      dialog.orderToCorrect = null;
+      dialog.close();
+      if (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos") refreshFinancialOrdersModule();
+      alert(`Cliente actualizado correctamente en la cotización y la OP ${formatOrderCorrelative(order.number)}.`);
+    } catch (error) {
+      button.disabled = false;
+      alert(error.message || "No fue posible cambiar el cliente de la OP.");
+    }
+  });
+  return dialog;
+}
+
+function renderGeneratedOrderCustomerCorrectionOptions(search = "") {
+  const dialog = ensureGeneratedOrderCustomerCorrectionDialog();
+  const currentCustomerId = String(dialog.orderToCorrect?.proformaData?.customerId || "");
+  const query = normalizeKey(search);
+  const customers = sortCustomersByClientNumber(crmMasterCustomers()
+    .filter(customerHasAssignedId)
+    .filter((customer) => String(customer.id || "") !== currentCustomerId)
+    .filter((customer) => !query || opportunityCustomerMatches(customer, query)));
+  dialog.querySelector("[data-order-customer-correction-list]").innerHTML = customers.map((customer, index) => `<button type="button" class="direct-order-customer-option" data-order-customer-correction-select="${escapeHtml(customer.id)}"><i class="direct-order-customer-index" aria-label="Resultado ${index + 1}">${String(index + 1).padStart(2, "0")}</i><span><strong>${escapeHtml(customer.commercialName || customer.legalName)}</strong><small>${escapeHtml(customer.legalName || customer.contactName || "Datos fiscales registrados")}</small></span><em>ID ${escapeHtml(customerDisplayNumber(customer))} · ${escapeHtml(customer.taxId || customer.customerCode || "Sin identificación")}</em><b>Seleccionar →</b></button>`).join("") || `<div class="direct-order-customer-empty">No encontramos otro cliente activo con ese criterio.</div>`;
+}
+
+function openGeneratedOrderCustomerCorrection(order) {
+  if (!canCorrectGeneratedOrderCustomer(order)) return alert("Solo Luis Valladares u Odaliz Valencia pueden cambiar el cliente de una OP generada.");
+  const dialog = ensureGeneratedOrderCustomerCorrectionDialog();
+  dialog.orderToCorrect = order;
+  dialog.querySelector("[data-order-customer-correction-current]").innerHTML = `<span>Cliente actual</span><strong>${escapeHtml(order.client || "Sin cliente")}</strong><small>OP ${escapeHtml(formatOrderCorrelative(order.number))} · ID ${escapeHtml(order.proformaData?.clientNumber || order.proformaData?.customerCode || "—")}</small>`;
+  dialog.querySelector("[data-order-customer-correction-reason]").value = "";
+  const search = dialog.querySelector("[data-order-customer-correction-search]");
+  search.value = "";
+  renderGeneratedOrderCustomerCorrectionOptions("");
+  dialog.showModal();
+  requestAnimationFrame(() => search.focus());
 }
 
 function ensureOrderCustomerDialog() {

@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-order-approval-date-v44"
+API_VERSION = "kmi-order-customer-correction-v45"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -3811,6 +3811,114 @@ def apply_master_customer_to_control_sales(item, customer):
             proforma[target] = value
     item["client"] = text(customer.get("commercialName") or customer.get("legalName"), item.get("client"))
     return item
+
+
+def corrected_customer_document_data(existing_data, customer):
+    """Replace the complete customer seal without changing transactional terms."""
+    corrected = dict(existing_data or {})
+    corrected["customerId"] = text(customer.get("id"))
+    client_number = text(customer.get("clientNumber") or customer.get("customerCode") or customer.get("code"))
+    corrected["clientNumber"] = client_number
+    corrected["customerCode"] = text(customer.get("customerCode") or customer.get("code") or client_number)
+    for target, sources in CONTROL_SALES_MASTER_CUSTOMER_FIELDS.items():
+        if target == "paymentTerms":
+            continue
+        corrected[target] = next((text(customer.get(source)) for source in sources if text(customer.get(source))), "")
+    return corrected
+
+
+def correct_generated_order_customer(conn, order_id, customer_id, actor_user, reason=""):
+    """Correct a generated OP and every linked customer snapshot atomically."""
+    if not is_standalone_quotation_delete_authorized(actor_user):
+        raise PermissionError("Solo Luis Valladares u Odaliz Valencia pueden cambiar el cliente de una OP generada")
+    order = conn.execute(
+        "SELECT * FROM control_sales_orders WHERE id = ? LIMIT 1", (order_id,)
+    ).fetchone()
+    if not order or bool(order["archived"]):
+        raise LookupError("La orden no existe o está anulada")
+    if text(order["source"]) == "importado":
+        raise ValueError("Las órdenes históricas importadas no admiten esta corrección")
+    customer = next((item for item in read_crm_data(conn).get("customers", []) if (
+        text(item.get("id")) == text(customer_id) and item.get("active") is not False
+    )), None)
+    if not customer or not master_customer_has_assigned_number(customer):
+        raise ValueError("Selecciona un cliente activo con ID definitivo")
+    try:
+        old_proforma = json.loads(order["proforma_data"] or "{}")
+        if not isinstance(old_proforma, dict):
+            old_proforma = {}
+    except (TypeError, json.JSONDecodeError):
+        old_proforma = {}
+    old_customer_id = text(old_proforma.get("customerId"))
+    old_customer_number = text(old_proforma.get("clientNumber") or old_proforma.get("customerCode") or old_customer_id)
+    if old_customer_id == text(customer_id):
+        raise ValueError("La OP ya está vinculada con ese cliente")
+    new_client = text(customer.get("commercialName") or customer.get("legalName"))
+    new_proforma = corrected_customer_document_data(old_proforma, customer)
+    actor = text((actor_user or {}).get("name"), "Sistema Gerencial")
+    now = datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")
+    direct_flow = (
+        text(new_proforma.get("workflow")) == "direct-final-only"
+        or text(order["source_opportunity_id"]).startswith(("direct-order:", "direct-quotation:"))
+    )
+    commercial_status = "Autorizada" if direct_flow else "Pendiente"
+    commercial_by = "Flujo directo de Clientes" if direct_flow else ""
+    commercial_at = now if direct_flow else ""
+    commercial_note = "Firma comercial omitida; requiere únicamente aprobación financiera de Edgar Menjívar." if direct_flow else ""
+    conn.execute("""
+        UPDATE control_sales_orders
+        SET client=?, proforma_data=?, commercial_approval_status=?, commercial_approved_by=?,
+            commercial_approved_at=?, commercial_approval_note=?, finance_approval_status='Pendiente',
+            finance_approved_by='', finance_approved_at='', finance_approval_note='',
+            updated_by=?, updated_at=?
+        WHERE id=?
+    """, (
+        new_client, json.dumps(new_proforma, ensure_ascii=False), commercial_status,
+        commercial_by, commercial_at, commercial_note, actor, now, order_id,
+    ))
+    financial_order_id = text(order["financial_order_id"])
+    if financial_order_id:
+        conn.execute("""
+            UPDATE financial_orders SET client=?, updated_by=?, updated_at=?
+            WHERE id=? AND deleted=0
+        """, (new_client, actor, now, financial_order_id))
+    quotation_id = text(order["source_quotation_id"])
+    if quotation_id:
+        quotation = conn.execute(
+            "SELECT opportunity_id, customer_data FROM quotations WHERE id = ? LIMIT 1",
+            (quotation_id,),
+        ).fetchone()
+        if quotation:
+            try:
+                quotation_customer = json.loads(quotation["customer_data"] or "{}")
+                if not isinstance(quotation_customer, dict):
+                    quotation_customer = {}
+            except (TypeError, json.JSONDecodeError):
+                quotation_customer = {}
+            corrected_quotation_customer = corrected_customer_document_data(quotation_customer, customer)
+            conn.execute("""
+                UPDATE quotations SET client=?, customer_data=?, updated_by=?, updated_at=? WHERE id=?
+            """, (
+                new_client, json.dumps(corrected_quotation_customer, ensure_ascii=False),
+                actor, now, quotation_id,
+            ))
+            sync_opportunity_name_from_quotation(
+                conn, quotation["opportunity_id"], new_client, corrected_quotation_customer
+            )
+    summary = (
+        f"Cliente corregido de {text(order['client'], 'Sin cliente')}"
+        f" (ID {old_customer_number or '—'}) a {new_client}"
+        f" (ID {text(customer.get('clientNumber') or customer.get('customerCode') or customer.get('id'))})"
+    )
+    if text(reason):
+        summary += f" · Motivo: {text(reason)}"
+    summary += " · Firmas reiniciadas por cambio de contraparte"
+    conn.execute("""
+        INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary)
+        VALUES (?, 'correccion_cliente', ?, ?, ?)
+    """, (order_id, actor, now, summary))
+    updated = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone()
+    return control_sales_order_payload(conn, updated, include_audit=True)
 
 
 def master_customer_has_assigned_number(customer):
@@ -10377,6 +10485,43 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.send_json({"ok": True, "user": user})
             return
         control_sales_parts = self.path.split("?", 1)[0].strip("/").split("/")
+        if (
+            len(control_sales_parts) == 4
+            and control_sales_parts[:2] == ["api", "control-sales"]
+            and control_sales_parts[3] == "customer"
+        ):
+            item_id = unquote(control_sales_parts[2])
+            changes = self.read_json()
+            customer_id = text(changes.get("customerId"))
+            reason = text(changes.get("reason"))
+            if not customer_id:
+                self.send_json({"error": "Selecciona el cliente correcto"}, status=400)
+                return
+            if not reason:
+                self.send_json({"error": "Escribe el motivo de la corrección"}, status=400)
+                return
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            with connect() as conn:
+                actor_row = conn.execute(
+                    "SELECT id, name, username, email, role, admin FROM users WHERE id = ? LIMIT 1",
+                    (actor_id,),
+                ).fetchone() if actor_id else None
+                actor_user = dict(actor_row) if actor_row else None
+                try:
+                    item = correct_generated_order_customer(
+                        conn, item_id, customer_id, actor_user, reason
+                    )
+                except PermissionError as error:
+                    self.send_json({"error": str(error)}, status=403)
+                    return
+                except LookupError as error:
+                    self.send_json({"error": str(error)}, status=404)
+                    return
+                except ValueError as error:
+                    self.send_json({"error": str(error)}, status=409)
+                    return
+            self.send_json({"ok": True, "item": item})
+            return
         if (
             len(control_sales_parts) == 4
             and control_sales_parts[:2] == ["api", "control-sales"]
