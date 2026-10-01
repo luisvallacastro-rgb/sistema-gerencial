@@ -14129,6 +14129,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("commercial-metrics-mode");
   commercialPanel.classList.remove("commercial-goals-mode");
   commercialPanel.classList.remove("commercial-agenda-mode");
+  commercialPanel.classList.remove("sample-archive-mode");
   opportunityCycleToolbarHost.replaceChildren();
   opportunityCycleToolbarHost.classList.add("hidden");
   opportunityTable.classList.remove("cycle-list-active");
@@ -14386,6 +14387,7 @@ function renderCommercialSubmenu(area) {
   }
 
   if (state.activeArea === "operaciones" && submenu.key === "archivo-muestras") {
+    commercialPanel.classList.add("sample-archive-mode");
     if (!state.sampleArchiveLoaded && !state.sampleArchiveLoading) loadSampleArchive();
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");

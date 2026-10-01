@@ -21758,3 +21758,51 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .commission-select-all{display:inline-flex!important;align-items:center;gap:10px;color:#b9c8d9;font-size:11px;font-weight:850;cursor:pointer}.commission-select-all>.expense-switch{flex:0 0 38px}.commission-select-all .expense-switch:has(input:disabled){cursor:not-allowed;opacity:.45}
 .commission-settlement.is-simple{display:flex;flex-direction:column}.commission-settlement [hidden]{display:none!important}.commission-settlement.is-simple .commission-settlement-body{flex:1}.commission-view-tabs{display:flex;gap:7px;padding:10px 20px 0}.commission-view-tabs button{height:37px;padding:0 15px;border:1px solid #496b8d;border-radius:9px 9px 0 0;background:#193957;color:#aebfd0;font-size:11px;font-weight:850;cursor:pointer}.commission-view-tabs button.active{border-color:#35ad95;background:#176b60;color:#effffa}.commission-view-tabs button b{display:inline-grid;min-width:20px;height:19px;margin-left:6px;place-items:center;border-radius:999px;background:rgba(255,255,255,.12);font-size:9px}.commission-liquidation-note{display:flex;align-items:center;gap:13px;margin-top:9px;padding:9px 12px;border:1px solid #3d6581;border-radius:10px;background:#173653;color:#b6c5d5}.commission-liquidation-note>span{color:#67e3cb;font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.commission-liquidation-note p{margin:0;font-size:10px}.commission-history-screen{flex:1;min-height:0;margin:12px 20px 18px;overflow:hidden;border:1px solid #405f7c;border-radius:13px;background:#153450}.commission-history-screen>header{padding:15px 17px;border-bottom:1px solid #405f7c;background:#1c3d5e}.commission-history-screen>header span{color:#68e3cb;font-size:9px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}.commission-history-screen>header h3{margin:4px 0 2px;font-size:18px}.commission-history-screen>header p{margin:0;color:#a9bacd;font-size:11px}.commission-history-screen>div{height:calc(100% - 76px);overflow:auto}.commission-history-screen details{border-bottom:1px solid rgba(91,119,151,.32)}.commission-history-screen details>summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 15px;cursor:pointer}.commission-history-screen summary span,.commission-history-screen summary small{display:block}.commission-history-screen summary small{margin-top:3px;color:#91d9ca;font-size:9px;font-weight:800}.commission-history-screen details>div{padding:0 15px 9px}.commission-history-screen details p{display:flex;justify-content:space-between;gap:12px;margin:0;padding:7px 0;border-top:1px solid rgba(91,119,151,.22);font-size:10px}.commission-history-actions{display:flex!important;align-items:center;gap:12px}.commission-history-actions>b{color:#68e4cb}.commission-history-actions>button{height:30px;padding:0 10px;border:1px solid #4eb9a2;border-radius:7px;background:#176e61;color:#fff;font-size:9px;font-weight:850;cursor:pointer}.commission-history-screen .empty-state{padding:36px;text-align:center;color:#9dafc2}
 .commission-review-dialog{width:min(1180px,96vw);max-width:none;height:min(900px,95vh);padding:0;border:1px solid #3b8e83;border-radius:20px;background:#102a46;color:#f4f8ff;overflow:hidden}.commission-review-dialog::backdrop{background:rgba(2,10,22,.86);backdrop-filter:blur(6px)}.commission-review{display:grid;height:100%;grid-template-rows:auto auto minmax(0,1fr) auto auto}.commission-review>header{display:flex;justify-content:space-between;gap:18px;padding:19px 22px;border-bottom:1px solid #365d73;background:linear-gradient(120deg,#273e64,#0d4848)}.commission-review>header span{color:#69e4cc;font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.commission-review>header h2{margin:4px 0 2px;font-size:25px}.commission-review>header p{margin:0;color:#aabace}.commission-review>header button{width:42px;height:42px;border:1px solid #58789d;border-radius:11px;background:#213f64;color:#fff;font-size:25px}.commission-review-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:12px 20px}.commission-review-summary article{padding:10px 12px;border:1px solid #416783;border-radius:10px;background:#173653}.commission-review-summary span{display:block;color:#aebed0;font-size:9px;font-weight:800;text-transform:uppercase}.commission-review-summary strong{display:block;margin-top:3px;color:#68e4cb;font-size:18px}.commission-review-detail{min-height:0;margin:0 20px;overflow:auto;border:1px solid #405f7c;border-radius:11px;background:#14324f}.commission-review-detail>section>header{display:flex;align-items:end;justify-content:space-between;padding:10px 12px;background:#1b4260}.commission-review-detail small{color:#68e4cb;font-size:8px;text-transform:uppercase}.commission-review-detail h3{margin:2px 0 0}.commission-review-detail>section>header>strong{color:#68e4cb;font-size:16px}.commission-review table{width:100%;border-collapse:collapse}.commission-review th,.commission-review td{padding:7px 9px;border:1px solid rgba(97,126,157,.36);text-align:left;font-size:10px}.commission-review thead th{background:#193654;color:#b8c7d8;font-size:8px;text-transform:uppercase}.commission-review th:first-child,.commission-review td:first-child{width:105px}.commission-review th:last-child,.commission-review td:last-child{width:115px;text-align:right}.commission-review tfoot th,.commission-review tfoot td{background:#1a4a54;color:#eafff9;font-weight:900}.commission-review-consolidated{margin:10px 20px 0;padding:10px 12px;border:1px solid #416783;border-radius:10px;background:#173653}.commission-review-consolidated h3{margin:0 0 6px;font-size:13px}.commission-review-consolidated p{display:flex;justify-content:space-between;margin:0;padding:5px 0;border-top:1px solid rgba(97,126,157,.25);font-size:10px}.commission-review-consolidated p.total{color:#68e4cb;font-size:12px;font-weight:900}.commission-review-signature{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 14px;margin:10px 20px 0;padding:10px 12px;border:1px solid #8a6830;border-radius:10px;background:rgba(157,111,32,.15)}.commission-review-signature span{color:#ffd27d;font-size:10px;font-weight:850}.commission-review-signature strong{grid-row:1/3;grid-column:2;color:#fff}.commission-review-signature small{color:#aebed0}.commission-review-signature.is-signed{border-color:#35ad95;background:rgba(23,121,102,.2)}.commission-review-signature.is-signed span{color:#68e4cb}.commission-review>footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px}.commission-review>footer button{height:40px;padding:0 14px;border:1px solid #527397;border-radius:9px;background:#264465;color:#fff;font-weight:850}.commission-review>footer button[data-review-sign]{border-color:#d0a242;background:#8b681d}.commission-review>footer button.liquidate{border-color:#35ad95;background:#16866d}.commission-review>footer button:disabled{cursor:not-allowed;opacity:.42}@media(max-width:700px){.commission-review-summary{grid-template-columns:1fr}.commission-review-dialog{height:98vh}.commission-review>footer{flex-wrap:wrap}}
+/* Archivo de Muestras: altura adaptable para portatiles y scroll hasta el ultimo cliente. */
+.app-shell .dashboard.opportunity-focus .commercial-panel.sample-archive-mode {
+  min-height: 0;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard.opportunity-focus .commercial-panel.sample-archive-mode > .opportunity-table {
+  display: flex !important;
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .commercial-panel.sample-archive-mode .sample-archive-module {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.app-shell .commercial-panel.sample-archive-mode .sample-archive-list {
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 7px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.app-shell .commercial-panel.sample-archive-mode .sample-archive-list::-webkit-scrollbar {
+  width: 9px;
+}
+
+.app-shell .commercial-panel.sample-archive-mode .sample-archive-list::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(7, 24, 43, .55);
+}
+
+.app-shell .commercial-panel.sample-archive-mode .sample-archive-list::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(7, 24, 43, .55);
+  border-radius: 999px;
+  background: #4fae9b;
+}
