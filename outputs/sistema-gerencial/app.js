@@ -69,6 +69,7 @@ const areas = {
     submenus: [
       { key: "disponibilidad", label: "Disponibilidad", status: "Saldos bancarios consolidados", items: [] },
       { key: "ingresos", label: "Ingresos", status: "Remesas provisionadas", items: [] },
+      { key: "inventario", label: "Inventario", status: "Kardex a costo promedio", items: [] },
       { key: "estados-financieros", label: "Estados financieros", status: "Balance y estado de resultados", items: [] },
       { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
       { key: "resultados-ordenes-de-pedido", label: "Órdenes de Pedido", status: "Control de producción y entregas", items: [] },
@@ -1208,6 +1209,7 @@ function defaultPermissionsForRole(role) {
       permissionKey("comercializacion", "resultados-pedidos"),
       permissionKey("financiera", "disponibilidad"),
       permissionKey("financiera", "ingresos"),
+      permissionKey("financiera", "inventario"),
       permissionKey("financiera", "estados-financieros"),
       permissionKey("financiera", "resultados-cuentas-por-cobrar"),
       permissionKey("financiera", "resultados-ordenes-de-pedido"),
@@ -1246,7 +1248,7 @@ function normalizePermissionList(value, role) {
       ? [permissionKey("comercializacion", "cotizaciones"), permissionKey("comercializacion", "anticipos")]
       : []),
     ...(["gerencias", "jefaturas"].includes(role)
-      ? [permissionKey("comercializacion", "custodia-muestras")]
+      ? [permissionKey("comercializacion", "custodia-muestras"), permissionKey("financiera", "inventario")]
       : []),
     ...(legacyRisks ? [permissionKey(adminAreaKey, "riesgos")] : []),
     ...(legacyRequests ? [permissionKey(adminAreaKey, "solicitudes")] : [])
@@ -14258,6 +14260,32 @@ function loadFinancialStatements() {
   apiJson(`/api/financial-statements?${financialStatementQuery()}`).then(payload=>{state.financialStatements=payload||{};state.financialStatementsLoaded=true;state.financialStatementYear=payload.periodA.year;state.financialStatementMonth=payload.periodA.month;state.financialStatementPeriodType=payload.periodA.type;state.financialStatementYearB=payload.periodB.year;state.financialStatementMonthB=payload.periodB.month;state.financialStatementPeriodBType=payload.periodB.type;syncFinancialStatementFilters()}).catch(error=>{state.financialStatementsError=error.message||"Error de lectura"}).finally(()=>{state.financialStatementsLoading=false;if(state.activeArea==="financiera"&&state.activeSubmenu==="estados-financieros")renderCommercialSubmenu(areas.financiera)})
 }
 
+function renderFinancialInventory() {
+  return `<section class="financial-inventory-module" aria-label="Inventario financiero">
+    <header class="financial-inventory-hero">
+      <div><span>Financiera</span><h2>Inventario</h2><p>Existencias y valoración de materias primas en un solo lugar.</p></div>
+      <aside><small>Método de valuación</small><strong>Costo promedio</strong><span>Configuración inicial</span></aside>
+    </header>
+    <section class="financial-inventory-summary">
+      <article class="total"><span>Valor del inventario</span><strong>${formatMoney(0)}</strong><small>Saldo valorizado actual</small></article>
+      <article><span>Materias primas</span><strong>0</strong><small>Productos con existencia</small></article>
+      <article><span>Unidades disponibles</span><strong>0</strong><small>Existencia total</small></article>
+      <article><span>Movimientos</span><strong>0</strong><small>Entradas y salidas</small></article>
+    </section>
+    <section class="financial-inventory-workspace">
+      <article class="financial-inventory-activity">
+        <header><div><span>Actividad</span><h3>Movimientos recientes</h3></div><b>0 registros</b></header>
+        <div class="financial-inventory-empty"><i aria-hidden="true">▦</i><strong>Aún no hay movimientos de inventario</strong><p>Cuando se habiliten las entradas y salidas, aquí aparecerá el historial ordenado de forma clara.</p><div><span>Entradas <b>0</b></span><span>Salidas <b>0</b></span><span>Ajustes <b>0</b></span></div></div>
+      </article>
+      <aside class="financial-inventory-guide">
+        <span>Lectura sencilla</span><h3>¿Cómo funcionará?</h3>
+        <ol><li><b>Entrada</b><small>Aumenta existencias y recalcula el costo promedio.</small></li><li><b>Salida</b><small>Descuenta unidades utilizando el promedio vigente.</small></li><li><b>Saldo</b><small>Muestra unidades y valor disponibles después de cada movimiento.</small></li></ol>
+      </aside>
+    </section>
+    <footer class="financial-inventory-safety"><strong>Vista inicial segura</strong><span>Este módulo es únicamente visual por el momento: no crea movimientos ni altera saldos existentes.</span></footer>
+  </section>`;
+}
+
 function renderCommercialSubmenu(area) {
   if (!Array.isArray(area.submenus)) {
     commercialPanel.classList.add("hidden");
@@ -14277,6 +14305,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("crm-cancelled-mode");
   commercialPanel.classList.remove("bank-availability-mode");
   commercialPanel.classList.remove("financial-income-mode");
+  commercialPanel.classList.remove("financial-inventory-mode");
   commercialPanel.classList.remove("financial-statements-mode");
   commercialPanel.classList.remove("commercial-metrics-mode");
   commercialPanel.classList.remove("commercial-goals-mode");
@@ -14407,6 +14436,19 @@ function renderCommercialSubmenu(area) {
         if (state.activeArea === "financiera" && state.activeSubmenu === "ingresos") renderCommercialSubmenu(areas.financiera);
       });
     }
+    return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "inventario") {
+    commercialPanel.classList.add("financial-inventory-mode");
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = "0 materias primas · 0 movimientos · $0.00";
+    opportunityTable.innerHTML = renderFinancialInventory();
     return;
   }
 
