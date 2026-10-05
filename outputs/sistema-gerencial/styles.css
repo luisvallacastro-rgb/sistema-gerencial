@@ -22274,16 +22274,51 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-op-field button { min-width: 90px; border: 1px solid #3e7794; border-radius: 10px; background: #205578; color: #fff; font-size: 10px; font-weight: 900; cursor: pointer; }
 .inventory-op-field button:last-child { border-color: #2f927e; background: #176b60; }
 .inventory-op-field button:disabled { opacity: .42; cursor: not-allowed; }
-.inventory-op-picker-dialog { width: min(760px, calc(100vw - 32px)); }
+.inventory-op-picker-dialog { width: min(1180px, calc(100vw - 32px)); }
 .inventory-op-picker { display: grid; gap: 12px; padding: 20px 24px 24px; }
 .inventory-op-picker > input { height: 48px; padding: 0 14px; border: 1px solid #4b708c; border-radius: 12px; outline: 0; background: #234463; color: #fff; font: inherit; }
-.inventory-op-picker [data-op-picker-results] { display: grid; max-height: 52vh; gap: 8px; overflow-y: auto; }
-.inventory-op-picker [data-op-picker-results] button { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px 14px; border: 1px solid #3c6682; border-radius: 12px; background: #173650; color: #fff; text-align: left; cursor: pointer; }
+.inventory-op-picker-workspace { display: grid; grid-template-columns: minmax(360px, .85fr) minmax(430px, 1.15fr); gap: 12px; min-height: 480px; }
+.inventory-op-picker [data-op-picker-results] { display: grid; max-height: 58vh; align-content: start; gap: 8px; overflow-y: auto; padding-right: 4px; }
+.inventory-op-picker [data-op-picker-results] button { display: grid; grid-template-columns: 115px minmax(0, 1fr) auto; align-items: center; gap: 5px 12px; padding: 13px 14px; border: 1px solid #3c6682; border-radius: 12px; background: #173650; color: #fff; text-align: left; cursor: pointer; }
 .inventory-op-picker [data-op-picker-results] button:hover { border-color: #50d5bb; background: #1b4a5e; }
+.inventory-op-picker [data-op-picker-results] button.selected { border-color: #50d5bb; background: rgba(24,141,121,.22); }
 .inventory-op-picker [data-op-picker-results] strong { color: #68e8cf; }
 .inventory-op-picker [data-op-picker-results] span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.inventory-op-picker [data-op-picker-results] small { color: #9fb2c1; }
+.inventory-op-picker [data-op-picker-results] em { color: #fff; font-size: 12px; font-style: normal; font-weight: 900; }
+.inventory-op-picker [data-op-picker-results] small { grid-column: 2 / 4; color: #9fb2c1; }
+.inventory-op-picker [data-op-picker-results] b { grid-column: 1; grid-row: 2; color: #6ee8cf; font-size: 9px; }
 .inventory-op-picker [data-op-picker-results] > p { padding: 34px; color: #a7bac8; text-align: center; }
+.inventory-op-picker [data-op-picker-preview] { overflow: hidden; border: 1px solid #3f657f; border-radius: 14px; background: #102d46; }
+.inventory-op-preview-empty { display: grid; height: 100%; place-content: center; gap: 5px; color: #9eb2c1; text-align: center; }
+.inventory-op-preview-empty strong { color: #fff; font-size: 19px; }
+.inventory-op-preview-head { position: relative; display: grid; gap: 3px; padding: 18px 20px; border-bottom: 1px solid #355a74; background: #1c4160; }
+.inventory-op-preview-head small { color: #69e8d0; font-size: 9px; font-weight: 900; letter-spacing: .1em; }
+.inventory-op-preview-head strong { font-size: 24px; }
+.inventory-op-preview-head span { position: absolute; top: 20px; right: 20px; padding: 6px 10px; border-radius: 999px; background: rgba(24,141,121,.22); color: #70ebd3; font-size: 9px; font-weight: 900; }
+.inventory-op-preview-kpis { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #31536b; }
+.inventory-op-preview-kpis span { display: grid; gap: 4px; padding: 13px 18px; }
+.inventory-op-preview-kpis span + span { border-left: 1px solid #31536b; }
+.inventory-op-preview-kpis small,
+.inventory-op-picker [data-op-picker-preview] dt { color: #8fa7b8; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+.inventory-op-preview-kpis strong { color: #68e8cf; font-size: 18px; }
+.inventory-op-picker [data-op-picker-preview] dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; padding: 14px 18px; }
+.inventory-op-picker [data-op-picker-preview] dl div { min-width: 0; }
+.inventory-op-picker [data-op-picker-preview] dd { overflow: hidden; margin: 4px 0 0; color: #fff; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-op-preview-details { margin: 0 18px; border: 1px solid #31536b; border-radius: 10px; }
+.inventory-op-preview-details > header { display: flex; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #31536b; }
+.inventory-op-preview-details > header span { color: #91a7b7; font-size: 9px; }
+.inventory-op-preview-details article { display: grid; grid-template-columns: minmax(0, 1fr) 55px 75px; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #27475e; }
+.inventory-op-preview-details article:last-child { border-bottom: 0; }
+.inventory-op-preview-details article div { display: grid; min-width: 0; }
+.inventory-op-preview-details article strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-op-preview-details article small { color: #8fa7b7; font-size: 8px; }
+.inventory-op-preview-details article b { color: #fff; text-align: right; }
+.inventory-op-preview-details article em { color: #68e8cf; font-size: 10px; font-style: normal; text-align: right; }
+.inventory-op-preview-details > p { padding: 24px; color: #93a8b7; text-align: center; }
+.inventory-op-picker [data-op-picker-preview] > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 15px 18px; }
+.inventory-op-picker [data-op-picker-preview] > footer button { min-height: 40px; padding: 0 14px; border: 1px solid #49708a; border-radius: 10px; background: #264863; color: #fff; font-weight: 900; cursor: pointer; }
+.inventory-op-picker [data-op-picker-preview] > footer button:last-child { border-color: #52dfc2; background: #188d79; }
+.inventory-op-picker [data-op-picker-preview] > footer button:disabled { opacity: .42; cursor: not-allowed; }
 .inventory-op-allocation-dialog { width: min(720px, calc(100vw - 32px)); }
 .inventory-allocation-placeholder { display: grid; gap: 10px; padding: 28px 24px; text-align: center; }
 .inventory-allocation-placeholder > strong { color: #68e8cf; font-size: 22px; }
@@ -22319,6 +22354,7 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
   .inventory-row { padding-inline: 12px; }
   .inventory-toolbar { grid-template-columns: minmax(230px, 1fr) auto auto; gap: 10px; }
   .inventory-stock-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inventory-op-picker-workspace { grid-template-columns: 1fr; }
 }
 
 /* Estados financieros: lectura simple y progresiva. */
