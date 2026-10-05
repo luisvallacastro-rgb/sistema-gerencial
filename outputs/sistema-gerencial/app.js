@@ -14421,10 +14421,10 @@ function openInventoryMovementDialog(item) {
       <label><span>Tipo de documento</span><select name="documentType"><option value="">Seleccionar</option><option>Factura</option><option>Crédito fiscal</option><option>Nota de remisión</option><option>Orden de producción</option><option>Ajuste de inventario</option><option>Otro</option></select></label>
       <label><span>No. documento</span><input name="reference" maxlength="120" placeholder="Factura, remisión o referencia"></label>
       <label><span>Proveedor</span><input name="supplier" maxlength="120" placeholder="Solo para entradas"></label>
-      <label><span>OP</span><input name="productionOrder" maxlength="80" placeholder="Solo para salidas a producción"></label>
+      <label><span>OP</span><div class="inventory-op-field"><input name="productionOrder" maxlength="80" readonly placeholder="Selecciona una OP existente"><button type="button" data-inventory-op-search>Buscar OP</button><button type="button" data-inventory-op-allocation disabled>Asignación MP</button></div></label>
       <label><span>Motivo</span><select name="reason" required><option value="Compra">Compra</option><option value="Orden de producción">Orden de producción</option><option value="Ajuste físico">Ajuste físico</option><option value="Devolución">Devolución</option><option value="Otro">Otro</option></select></label>
       <label class="wide"><span>Observaciones</span><textarea name="notes" maxlength="500" placeholder="Detalle adicional del movimiento"></textarea></label>
-      <div class="inventory-cost-summary wide"><span>Costo aplicado</span><strong data-inventory-applied-cost>${formatMoney(item.averageCost)}</strong></div>
+      <div class="inventory-cost-summary wide"><span>Cantidad del movimiento<strong data-inventory-summary-quantity>0 ${escapeHtml(item.unit)}</strong></span><span>Costo aplicado<strong data-inventory-applied-cost>${formatMoney(item.averageCost)}</strong></span><span>Valor del movimiento<strong data-inventory-total-value>${formatMoney(0)}</strong></span></div>
     </div>
     <footer><button type="button" data-inventory-close>Cancelar</button><button type="submit">Registrar movimiento</button></footer>
   </form>`;
@@ -14436,6 +14436,8 @@ function openInventoryMovementDialog(item) {
   const projection = dialog.querySelector("[data-inventory-projected]");
   const availableLabel = dialog.querySelector("[data-inventory-available]");
   const appliedCost = dialog.querySelector("[data-inventory-applied-cost]");
+  const summaryQuantity = dialog.querySelector("[data-inventory-summary-quantity]");
+  const totalValue = dialog.querySelector("[data-inventory-total-value]");
   const stockWarning = dialog.querySelector("[data-inventory-stock-warning]");
   const syncType = () => {
     const isEntry = type.value === "ENTRADA";
@@ -14451,6 +14453,7 @@ function openInventoryMovementDialog(item) {
     form.elements.productionOrder.closest("label").hidden = isEntry;
     appliedCost.textContent = isEntry ? "Según costo de entrada" : `${formatMoney(item.averageCost)} automático`;
     const quantity = Number(form.elements.quantity.value || 0);
+    const appliedUnitCost = isEntry ? Number(form.elements.unitCost.value || 0) : Number(item.averageCost || 0);
     const available = Math.max(0, Number(item.quantity || 0) - Number(item.minimumStock || 0));
     const projected = Number(item.quantity || 0) + (isEntry ? quantity : -quantity);
     projection.textContent = inventoryQuantityLabel(projected);
@@ -14460,9 +14463,39 @@ function openInventoryMovementDialog(item) {
     projection.closest("span").classList.toggle("danger", belowMinimum);
     stockWarning.textContent = belowMinimum ? `La salida máxima permitida es ${inventoryQuantityLabel(available)} ${item.unit}. Debes conservar ${inventoryQuantityLabel(item.minimumStock || 0)} ${item.unit} como stock mínimo.` : "";
     stockWarning.hidden = !belowMinimum;
+    summaryQuantity.textContent = `${inventoryQuantityLabel(quantity)} ${item.unit}`;
+    totalValue.textContent = formatMoney(quantity * appliedUnitCost);
   };
   type.addEventListener("change", syncType);
   form.elements.quantity.addEventListener("input", syncType);
+  form.elements.unitCost.addEventListener("input", syncType);
+  const availableOrders = () => {
+    const seen = new Set();
+    return [...(state.controlSales || []), ...(state.financialOrders || [])].filter((order) => {
+      if (order.archived) return false;
+      const number = String(order.orderNumber || order.number || order.id || "").trim();
+      if (!number || seen.has(number)) return false;
+      seen.add(number); return true;
+    }).map((order) => ({
+      number:String(order.orderNumber || order.number || order.id || ""),
+      client:String(order.customerName || order.client || order.company || "Sin cliente"),
+      seller:String(order.seller || order.createdBy || ""),
+      status:String(order.orderStatus || order.status || "Activa")
+    }));
+  };
+  const openOpAllocationPlaceholder = (order) => {
+    const allocation = document.createElement("dialog"); allocation.className = "inventory-dialog inventory-op-allocation-dialog";
+    allocation.innerHTML = `<section><header><div><small>INVENTARIO · ORDEN DE PRODUCCIÓN</small><h2>Asignación de materia prima</h2><p>OP ${escapeHtml(order.number)} · ${escapeHtml(order.client)}</p></div><button type="button" data-allocation-close>×</button></header><div class="inventory-allocation-placeholder"><strong>Ventana preparada</strong><p>Aquí se desarrollará la asignación completa de materias primas por OP. Por ahora no descuenta inventario ni crea movimientos.</p><dl><div><dt>OP</dt><dd>${escapeHtml(order.number)}</dd></div><div><dt>Cliente</dt><dd>${escapeHtml(order.client)}</dd></div><div><dt>Estado</dt><dd>${escapeHtml(order.status)}</dd></div></dl></div><footer><button type="button" data-allocation-close>Cerrar</button></footer></section>`;
+    allocation.querySelectorAll("[data-allocation-close]").forEach((button)=>button.onclick=()=>allocation.close()); document.body.append(allocation); allocation.addEventListener("close",()=>allocation.remove(),{once:true}); allocation.showModal();
+  };
+  dialog.querySelector("[data-inventory-op-search]").addEventListener("click", () => {
+    const orders = availableOrders(); const picker = document.createElement("dialog"); picker.className = "inventory-dialog inventory-op-picker-dialog";
+    picker.innerHTML = `<section><header><div><small>INVENTARIO · SALIDA</small><h2>Seleccionar OP</h2><p>Busca una orden existente para vincular el movimiento.</p></div><button type="button" data-op-picker-close>×</button></header><div class="inventory-op-picker"><input type="search" data-op-picker-query placeholder="Buscar número de OP, cliente, vendedor o estado..."><div data-op-picker-results></div></div></section>`;
+    const results = picker.querySelector("[data-op-picker-results]");
+    const renderOrders = () => { const query=picker.querySelector("[data-op-picker-query]").value.trim().toLowerCase(); const filtered=orders.filter((order)=>[order.number,order.client,order.seller,order.status].some((value)=>value.toLowerCase().includes(query))); results.innerHTML=filtered.map((order,index)=>`<button type="button" data-op-index="${index}"><strong>OP ${escapeHtml(order.number)}</strong><span>${escapeHtml(order.client)}</span><small>${escapeHtml(order.seller || "Sin vendedor")} · ${escapeHtml(order.status)}</small></button>`).join("")||`<p>No hay OP que coincidan con la búsqueda.</p>`; results.querySelectorAll("[data-op-index]").forEach((button)=>button.onclick=()=>{ const selected=filtered[Number(button.dataset.opIndex)]; form.elements.productionOrder.value=selected.number; dialog.selectedInventoryOrder=selected; dialog.querySelector("[data-inventory-op-allocation]").disabled=false; picker.close(); }); };
+    picker.querySelector("[data-op-picker-query]").addEventListener("input",renderOrders); picker.querySelector("[data-op-picker-close]").onclick=()=>picker.close(); document.body.append(picker); picker.addEventListener("close",()=>picker.remove(),{once:true}); renderOrders(); picker.showModal(); requestAnimationFrame(()=>picker.querySelector("[data-op-picker-query]").focus());
+  });
+  dialog.querySelector("[data-inventory-op-allocation]").addEventListener("click",()=>{ if(dialog.selectedInventoryOrder) openOpAllocationPlaceholder(dialog.selectedInventoryOrder); });
   dialog.querySelectorAll("[data-inventory-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
