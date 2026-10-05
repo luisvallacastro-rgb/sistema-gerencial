@@ -14421,7 +14421,7 @@ function openInventoryMovementDialog(item) {
       <label><span>Tipo de documento</span><select name="documentType"><option value="">Seleccionar</option><option>Factura</option><option>Crédito fiscal</option><option>Nota de remisión</option><option>Orden de producción</option><option>Ajuste de inventario</option><option>Otro</option></select></label>
       <label><span>No. documento</span><input name="reference" maxlength="120" placeholder="Factura, remisión o referencia"></label>
       <label><span>Proveedor</span><input name="supplier" maxlength="120" placeholder="Solo para entradas"></label>
-      <label class="inventory-op-linker"><span>OP vinculadas</span><input name="productionOrder" type="hidden"><div class="inventory-op-selection-summary" data-inventory-op-selection-summary><p>Ninguna OP vinculada todavía.</p></div><div class="inventory-op-field"><button type="button" data-inventory-op-search><b>＋</b> Agregar OP</button><button type="button" data-inventory-op-allocation disabled>Distribuir salida</button></div></label>
+      <label class="inventory-op-linker"><span>Órdenes de producción</span><input name="productionOrder" type="hidden"><div class="inventory-op-field"><div class="inventory-op-selection-summary" data-inventory-op-selection-summary><p>Sin OP vinculadas</p></div><button type="button" data-inventory-op-search><b>＋</b> Agregar OP</button><button type="button" data-inventory-op-allocation disabled hidden>Distribuir</button></div></label>
       <label><span>Motivo</span><select name="reason" required><option value="Compra">Compra</option><option value="Orden de producción">Orden de producción</option><option value="Ajuste físico">Ajuste físico</option><option value="Devolución">Devolución</option><option value="Otro">Otro</option></select></label>
       <label class="wide"><span>Observaciones</span><textarea name="notes" maxlength="500" placeholder="Detalle adicional del movimiento"></textarea></label>
       <div class="inventory-cost-summary wide"><span>Cantidad del movimiento<strong data-inventory-summary-quantity>0 ${escapeHtml(item.unit)}</strong></span><span>Costo aplicado<strong data-inventory-applied-cost>${formatMoney(item.averageCost)}</strong></span><span>Valor del movimiento<strong data-inventory-total-value>${formatMoney(0)}</strong></span></div>
@@ -14443,9 +14443,11 @@ function openInventoryMovementDialog(item) {
   const renderSelectedOrders = () => {
     const allocations = dialog.inventoryOpAllocations;
     form.elements.productionOrder.value = allocations.map((allocation) => allocation.order.number).join(", ");
-    dialog.querySelector("[data-inventory-op-allocation]").disabled = !allocations.length;
+    const distributeButton = dialog.querySelector("[data-inventory-op-allocation]");
+    distributeButton.disabled = !allocations.length;
+    distributeButton.hidden = !allocations.length;
     const summary = dialog.querySelector("[data-inventory-op-selection-summary]");
-    summary.innerHTML = allocations.length ? allocations.map((allocation,index) => `<article><span><strong>OP ${escapeHtml(allocation.order.number)}</strong><small>${escapeHtml(allocation.order.client)}</small></span><b>${allocation.quantity > 0 ? `${inventoryQuantityLabel(allocation.quantity)} ${escapeHtml(item.unit)}` : "Pendiente de distribuir"}</b><button type="button" data-remove-linked-op="${index}" aria-label="Quitar OP ${escapeHtml(allocation.order.number)}">×</button></article>`).join("") : `<p>Ninguna OP vinculada todavía.</p>`;
+    summary.innerHTML = allocations.length ? allocations.map((allocation,index) => `<article><span><strong>OP ${escapeHtml(allocation.order.number)}</strong><small>${escapeHtml(allocation.order.client)}</small></span><b>${allocation.quantity > 0 ? `${inventoryQuantityLabel(allocation.quantity)} ${escapeHtml(item.unit)}` : "Sin distribuir"}</b><button type="button" data-remove-linked-op="${index}" aria-label="Quitar OP ${escapeHtml(allocation.order.number)}">×</button></article>`).join("") : `<p>Sin OP vinculadas</p>`;
     summary.querySelectorAll("[data-remove-linked-op]").forEach((button)=>button.onclick=()=>{dialog.inventoryOpAllocations.splice(Number(button.dataset.removeLinkedOp),1);renderSelectedOrders();});
   };
   const syncType = () => {
@@ -14460,6 +14462,7 @@ function openInventoryMovementDialog(item) {
     if (!isEntry && ["Compra", "Devolución"].includes(reason.value)) reason.value = "Orden de producción";
     form.elements.supplier.closest("label").hidden = !isEntry;
     form.elements.productionOrder.closest("label").hidden = isEntry;
+    form.elements.productionOrder.closest("label").classList.toggle("wide", !isEntry);
     appliedCost.textContent = isEntry ? "Según costo de entrada" : `${formatMoney(item.averageCost)} automático`;
     const quantity = Number(form.elements.quantity.value || 0);
     const appliedUnitCost = isEntry ? Number(form.elements.unitCost.value || 0) : Number(item.averageCost || 0);
