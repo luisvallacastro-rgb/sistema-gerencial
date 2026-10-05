@@ -13792,7 +13792,7 @@ function hydrateFinancialStatementFilters() {
   const period = params.get("fsPeriod");
   const comparison = params.get("fsCompare");
   const detail = params.get("fsDetail");
-  if (["balance", "income"].includes(report)) state.financialStatementView = report;
+  if (["balance", "income", "ratios"].includes(report)) state.financialStatementView = report;
   if (["monthly", "annual"].includes(period)) state.financialStatementPeriodType = period;
   if (["none", "previous-month", "year-ago", "previous-year"].includes(comparison)) state.financialStatementComparison = comparison;
   if (["summary", "intermediate", "detailed"].includes(detail)) state.financialStatementDetail = detail;
@@ -14055,7 +14055,7 @@ function hydrateFinancialStatementFilters() {
   if (state.financialStatementFiltersHydrated) return;
   const params = new URLSearchParams(location.search);
   const report = params.get("fsReport");
-  if (["balance", "income"].includes(report)) state.financialStatementView = report;
+  if (["balance", "income", "ratios"].includes(report)) state.financialStatementView = report;
   state.financialStatementPeriodType = ["monthly", "annual"].includes(params.get("fsPeriodA")) ? params.get("fsPeriodA") : "monthly";
   state.financialStatementPeriodBType = ["monthly", "annual"].includes(params.get("fsPeriodB")) ? params.get("fsPeriodB") : state.financialStatementPeriodType;
   state.financialStatementYear = Number(params.get("fsYearA")) || 0;
@@ -14194,14 +14194,41 @@ function renderFinancialCharts(payload) {
   return `<details class="financial-composition"><summary>Composición del Balance <span>2 gráficos</span></summary><div><section><h3>Activo, Pasivo y Patrimonio</h3>${graph(top,max,item=>item.a,item=>item.b)}</section><section><h3>Principales rubros</h3>${graph(main,rubroMax,item=>item.amount,item=>item.comparisonAmount)}</section></div></details>`;
 }
 
+function financialStatementTabs(active) {
+  return `<div class="financial-statement-tabs"><button class="${active==="balance"?"active":""}" data-financial-view="balance">Balance general</button><button class="${active==="income"?"active":""}" data-financial-view="income">Estado de resultados</button><button class="${active==="ratios"?"active":""}" data-financial-view="ratios">Ratios financieros</button></div>`;
+}
+
+function financialRatioValue(ratio, value) {
+  if(value==null||!Number.isFinite(Number(value)))return "No disponible";
+  if(ratio.unit==="money")return formatFinancialMoney(value);
+  if(ratio.unit==="percent")return `${Number(value).toFixed(2)}%`;
+  return `${Number(value).toFixed(2)}x`;
+}
+
+function financialRatioChangeClass(ratio) {
+  if(ratio.change==null||Math.abs(Number(ratio.change))<0.0001)return "stable";
+  if(ratio.better==="neutral")return "stable";
+  const favorable=ratio.better==="lower"?Number(ratio.change)<0:Number(ratio.change)>0;
+  return favorable?"favorable":"unfavorable";
+}
+
+function renderFinancialRatios(payload) {
+  const a=financialStatementPeriodName(payload.periodA),b=financialStatementPeriodName(payload.periodB);
+  const statusLabels={healthy:"Favorable",warning:"Atención",risk:"Revisar",neutral:"Referencia",unavailable:"Sin datos"};
+  const total=(payload.categories||[]).reduce((sum,category)=>sum+(category.ratios?.length||0),0);
+  const sections=(payload.categories||[]).map(category=>`<section class="financial-ratio-category"><header><div><small>Análisis</small><h3>${escapeHtml(category.label)}</h3></div><p>${escapeHtml(category.description)}</p></header><div class="financial-ratio-grid">${(category.ratios||[]).map(ratio=>`<article class="financial-ratio-card status-${ratio.status} unit-${ratio.unit}"><header><h4>${escapeHtml(ratio.label)}</h4><span>${escapeHtml(statusLabels[ratio.status]||"Referencia")}</span></header><div class="financial-ratio-values"><p><small>${escapeHtml(a)}</small><strong>${financialRatioValue(ratio,ratio.valueA)}</strong></p><p><small>${escapeHtml(b)}</small><b>${financialRatioValue(ratio,ratio.valueB)}</b></p></div><div class="financial-ratio-change ${financialRatioChangeClass(ratio)}">${ratio.change==null?"Sin comparación":`${Number(ratio.change)>0?"↑":Number(ratio.change)<0?"↓":"→"} ${financialRatioValue(ratio,Math.abs(Number(ratio.change)))}`}</div><p class="financial-ratio-reading">${escapeHtml(ratio.explanation)}</p><footer><b>Fórmula:</b> ${escapeHtml(ratio.formula)}${ratio.caution?`<em>${escapeHtml(ratio.caution)}</em>`:""}</footer></article>`).join("")}</div></section>`).join("");
+  return `<section class="financial-statements-module simple-financial-statements financial-ratios-module ${state.financialStatementsLoading?"is-loading":""}"><header class="financial-statements-toolbar">${financialStatementTabs("ratios")}<div class="financial-statement-actions"><button title="Actualizar" data-financial-refresh>↻</button><button data-financial-excel>Excel</button><button class="primary" data-financial-print>Imprimir</button></div></header><section class="financial-comparison-head financial-ratios-head"><div class="financial-simple-title"><small>Análisis financiero</small><h2>${escapeHtml(a)} <span>comparado con</span> ${escapeHtml(b)}</h2><p>Ratios calculados desde Balance general y Estado de resultados.</p></div><div class="financial-period-selectors">${renderFinancialPeriodSelector("A",payload)}<button data-financial-swap title="Intercambiar períodos">⇄</button>${renderFinancialPeriodSelector("B",payload)}</div></section><div class="financial-ratio-summary"><p><small>INDICADORES CALCULADOS</small><strong>${total}</strong></p><p class="healthy"><small>FAVORABLES</small><strong>${payload.summary?.healthy||0}</strong></p><p class="warning"><small>EN ATENCIÓN</small><strong>${payload.summary?.warning||0}</strong></p><p class="risk"><small>POR REVISAR</small><strong>${payload.summary?.risk||0}</strong></p></div>${sections}<aside class="financial-ratio-note"><strong>Criterio de lectura</strong><span>${escapeHtml(payload.methodology||"")} ${escapeHtml(payload.thresholdNote||"")}</span></aside></section>`;
+}
+
 function renderFinancialStatements() {
   if(state.financialStatementsLoading&&!state.financialStatementsLoaded) return `<section class="financial-statements-loading"><span></span><strong>Calculando estados financieros…</strong></section>`;
   if(state.financialStatementsError) return `<section class="financial-statements-error"><strong>No fue posible cargar los estados financieros.</strong><p>${escapeHtml(state.financialStatementsError)}</p><button class="secondary-btn" data-financial-retry>Reintentar</button></section>`;
   const payload=state.financialStatements;if(!state.financialStatementsLoaded||!payload.availablePeriods?.length)return `<section class="financial-statements-loading"><span></span><strong>Preparando estados financieros…</strong></section>`;
+  if(payload.report==="ratios")return renderFinancialRatios(payload);
   const isBalance=payload.report==="balance", a=financialStatementPeriodName(payload.periodA), b=financialStatementPeriodName(payload.periodB);
   const cards=isBalance?[["Activo","assets",false],["Pasivo","liabilities",true],["Patrimonio","equity",true],["Diferencia","balanceDifference",false]]:[["Ingresos","revenue"],["Costos","costs"],["Utilidad bruta","grossProfit"],["Gastos operativos","operatingExpenses"],["Resultado neto","netProfit"]];
   const mode=state.financialStatementAnalysis, columnCount=mode==="balance"?5:mode==="horizontal"?6:7;
-  return `<section class="financial-statements-module simple-financial-statements ${state.financialStatementsLoading?"is-loading":""}"><header class="financial-statements-toolbar"><div class="financial-statement-tabs"><button class="${isBalance?"active":""}" data-financial-view="balance">Balance general</button><button class="${!isBalance?"active":""}" data-financial-view="income">Estado de resultados</button></div><div class="financial-statement-actions"><button title="Actualizar" data-financial-refresh>↻</button><button data-financial-excel>Excel</button><button class="primary" data-financial-print>Imprimir</button></div></header>
+  return `<section class="financial-statements-module simple-financial-statements ${state.financialStatementsLoading?"is-loading":""}"><header class="financial-statements-toolbar">${financialStatementTabs(payload.report)}<div class="financial-statement-actions"><button title="Actualizar" data-financial-refresh>↻</button><button data-financial-excel>Excel</button><button class="primary" data-financial-print>Imprimir</button></div></header>
   <section class="financial-comparison-head"><div class="financial-simple-title"><small>${isBalance?"Resumen del balance":"Resumen de resultados"}</small><h2>${escapeHtml(a)} <span>comparado con</span> ${escapeHtml(b)}</h2><p>Valores expresados en ${escapeHtml(payload.currency||"USD")}</p></div><div class="financial-period-selectors">${renderFinancialPeriodSelector("A",payload)}<button data-financial-swap title="Intercambiar períodos">⇄</button>${renderFinancialPeriodSelector("B",payload)}</div><div class="financial-simple-options"><label>Detalle<select data-financial-detail><option value="summary" ${state.financialStatementDetail==="summary"?"selected":""}>Resumen</option><option value="intermediate" ${state.financialStatementDetail==="intermediate"?"selected":""}>Intermedio</option><option value="detailed" ${state.financialStatementDetail==="detailed"?"selected":""}>Completo</option></select></label><label class="financial-check"><input type="checkbox" ${state.financialStatementIncludeZero?"checked":""} data-financial-zero> Incluir cuentas en cero</label></div></section>
   ${payload.emptyPeriods?.length?`<div class="financial-empty-warning">No existen datos para ${payload.emptyPeriods.map(financialStatementPeriodLabel).join(" y ")}. Se conserva visible el período que sí contiene información.</div>`:""}
   <div class="financial-simple-viewbar"><span>Mostrar</span><nav class="financial-analysis-tabs"><button class="${mode==="balance"?"active":""}" data-financial-analysis="balance">Resumen</button><button class="${mode==="horizontal"?"active":""}" data-financial-analysis="horizontal">Cambios</button><button class="${mode==="vertical"?"active":""}" data-financial-analysis="vertical">Composición</button></nav>${isBalance?`<b class="${Math.abs(Number(payload.totalsA?.balanceDifference||0))<=Number(payload.roundingTolerance||.05)?"ok":"alert"}">${Math.abs(Number(payload.totalsA?.balanceDifference||0))<=Number(payload.roundingTolerance||.05)?"✓ Balance cuadrado":"⚠ Revisar diferencia"}</b>`:""}</div>
@@ -14213,11 +14240,21 @@ function renderFinancialStatements() {
 function printFinancialStatementReport() {
   const payload=state.financialStatements, mode=state.financialStatementAnalysis, popup=window.open("","_blank","width=1300,height=850");
   if(!popup)return alert("Permita ventanas emergentes para generar el reporte.");
+  if(payload.report==="ratios"){
+    const rows=(payload.categories||[]).flatMap(category=>(category.ratios||[]).map(ratio=>`<tr><td>${escapeHtml(category.label)}</td><td><b>${escapeHtml(ratio.label)}</b><br><small>${escapeHtml(ratio.formula)}</small></td><td>${financialRatioValue(ratio,ratio.valueA)}</td><td>${financialRatioValue(ratio,ratio.valueB)}</td><td>${escapeHtml(ratio.explanation)}</td></tr>`)).join("");
+    popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ratios financieros</title><style>@page{size:A4 landscape;margin:9mm}body{font:10px Arial;color:#152238}header{display:flex;justify-content:space-between;border-bottom:3px solid #159b82;margin-bottom:12px}h1{margin:2px 0}table{width:100%;border-collapse:collapse}th,td{padding:7px;border:1px solid #cad5e1;text-align:left}th{background:#e8f0f6}small{color:#52657a}aside{margin-top:10px;padding:8px;background:#eef5f4}</style></head><body><header><div><strong>KONFI</strong><h1>RATIOS FINANCIEROS</h1><p>${financialStatementPeriodName(payload.periodA)} vs ${financialStatementPeriodName(payload.periodB)}</p></div><p>Generado ${new Date().toLocaleString("es-SV")}</p></header><table><thead><tr><th>Categoría</th><th>Indicador y fórmula</th><th>Período principal</th><th>Comparativo</th><th>Lectura</th></tr></thead><tbody>${rows}</tbody></table><aside>${escapeHtml(payload.thresholdNote||"")}</aside></body></html>`);popup.document.close();setTimeout(()=>{popup.focus();popup.print()},250);return;
+  }
   popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Balance general comparativo</title><style>@page{size:A4 landscape;margin:9mm}body{font:10px Arial;color:#152238}header{display:flex;justify-content:space-between;border-bottom:3px solid #159b82;margin-bottom:12px}h1{margin:2px 0}table{width:100%;border-collapse:collapse}th,td{padding:5px;border:1px solid #cad5e1}th{background:#e8f0f6}.money{text-align:right}.account-name{padding-left:calc(6px + var(--account-level)*9px)}button{all:unset}.financial-tree-spacer{display:none}.financial-movement{white-space:nowrap}</style></head><body><header><div><strong>KONFI</strong><h1>${payload.report==="balance"?"BALANCE GENERAL COMPARATIVO":"ESTADO DE RESULTADOS COMPARATIVO"}</h1><p>${financialStatementPeriodName(payload.periodA)} vs ${financialStatementPeriodName(payload.periodB)}</p></div><div><b>Moneda: ${escapeHtml(payload.currency||"USD")}</b><p>Generado ${new Date().toLocaleString("es-SV")}</p></div></header><table><thead><tr>${financialStatementTableHead(payload,mode)}</tr></thead><tbody>${renderFinancialStatementRows(payload,mode,true)}</tbody></table></body></html>`);popup.document.close();setTimeout(()=>{popup.focus();popup.print()},250);
 }
 
 function exportFinancialStatementExcel() {
   const payload=state.financialStatements;
+  if(payload.report==="ratios"){
+    const xmlEscape=value=>String(value??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+    const rows=(payload.categories||[]).flatMap(category=>(category.ratios||[]).map(ratio=>[category.label,ratio.label,ratio.formula,financialRatioValue(ratio,ratio.valueA),financialRatioValue(ratio,ratio.valueB),ratio.explanation,ratio.caution||""]));
+    const workbook=`<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Ratios financieros"><Table><Row><Cell><Data ss:Type="String">KONFI · Ratios financieros</Data></Cell></Row><Row><Cell><Data ss:Type="String">${xmlEscape(financialStatementPeriodName(payload.periodA))} vs ${xmlEscape(financialStatementPeriodName(payload.periodB))}</Data></Cell></Row><Row>${["Categoría","Indicador","Fórmula","Período principal","Comparativo","Lectura","Precaución"].map(value=>`<Cell><Data ss:Type="String">${value}</Data></Cell>`).join("")}</Row>${rows.map(row=>`<Row>${row.map(value=>`<Cell><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`).join("")}</Row>`).join("")}</Table></Worksheet></Workbook>`;
+    const url=URL.createObjectURL(new Blob([workbook],{type:"application/vnd.ms-excel"}));const link=Object.assign(document.createElement("a"),{href:url,download:`ratios-financieros-${payload.periodA.key}-vs-${payload.periodB.key}.xls`});link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return;
+  }
   const sheets=[["Balance Comparativo","balance"],["Análisis Horizontal","horizontal"],["Análisis Vertical","vertical"]];
   const columns={balance:["Código","Cuenta","Período A","Período B","Variación $","Variación %","Vertical A","Vertical B","Δ pp"],horizontal:["Código","Cuenta","Período A","Período B","Variación $","Variación %"],vertical:["Código","Cuenta","Saldo A","Vertical A","Saldo B","Vertical B","Δ pp"]};
   const xmlEscape=value=>String(value??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");

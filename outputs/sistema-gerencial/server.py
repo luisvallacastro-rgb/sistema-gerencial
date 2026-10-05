@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-inventory-items-v50"
+API_VERSION = "kmi-financial-ratios-v51"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -8473,6 +8473,116 @@ def build_financial_statement_report(query):
     }
 
 
+def build_financial_ratios_report(query):
+    """Calculate ratios from the same immutable balance and income snapshot."""
+    detailed_query = {key: list(value) for key, value in query.items()}
+    detailed_query.update({"detail": ["detailed"], "includeZero": ["1"]})
+    balance = build_financial_statement_report({**detailed_query, "report": ["balance"]})
+    income = build_financial_statement_report({**detailed_query, "report": ["income"]})
+    balance_a = {row["code"]: float(row["amount"]) for row in balance["rows"]}
+    balance_b = {row["code"]: float(row["comparisonAmount"]) for row in balance["rows"]}
+
+    def divide(numerator, denominator, multiplier=1):
+        return None if abs(float(denominator or 0)) <= 0.000001 else round(float(numerator or 0) / float(denominator) * multiplier, 4)
+
+    def status(value, healthy, warning, direction="higher"):
+        if value is None:
+            return "unavailable"
+        if direction == "lower":
+            return "healthy" if value <= healthy else ("warning" if value <= warning else "risk")
+        return "healthy" if value >= healthy else ("warning" if value >= warning else "risk")
+
+    def metric(key, label, formula, unit, value_a, value_b, explanation, source_accounts,
+               better="higher", healthy=None, warning=None, caution=""):
+        status_a = ("neutral" if value_a is not None else "unavailable") if healthy is None else status(value_a, healthy, warning, better)
+        change = None if value_a is None or value_b is None else round(value_a - value_b, 4)
+        return {
+            "key": key, "label": label, "formula": formula, "unit": unit,
+            "valueA": value_a, "valueB": value_b, "change": change,
+            "status": status_a, "better": better, "explanation": explanation,
+            "sourceAccounts": source_accounts, "caution": caution,
+        }
+
+    def period_values(balance_values, income_totals):
+        current_assets = balance_values.get("11", 0)
+        current_liabilities = balance_values.get("21", 0)
+        inventory = balance_values.get("1107", 0)
+        cash = balance_values.get("1101", 0)
+        assets = balance_values.get("1", 0)
+        liabilities = balance_values.get("2", 0)
+        equity = balance_values.get("3", 0)
+        revenue = income_totals.get("revenue", 0)
+        return {
+            "current_ratio": divide(current_assets, current_liabilities),
+            "quick_ratio": divide(current_assets - inventory, current_liabilities),
+            "cash_ratio": divide(cash, current_liabilities),
+            "working_capital": round(current_assets - current_liabilities, 2),
+            "debt_ratio": divide(liabilities, assets, 100),
+            "debt_to_equity": divide(liabilities, equity),
+            "equity_ratio": divide(equity, assets, 100),
+            "gross_margin": divide(income_totals.get("grossProfit", 0), revenue, 100),
+            "operating_margin": divide(income_totals.get("operatingProfit", 0), revenue, 100),
+            "net_margin": divide(income_totals.get("netProfit", 0), revenue, 100),
+            "roa": divide(income_totals.get("netProfit", 0), assets, 100),
+            "roe": divide(income_totals.get("netProfit", 0), equity, 100),
+            "asset_turnover": divide(revenue, assets),
+        }
+
+    values_a = period_values(balance_a, income["totalsA"])
+    values_b = period_values(balance_b, income["totalsB"])
+    pair = lambda key: (values_a[key], values_b[key])
+    categories = [
+        {"key": "liquidity", "label": "Liquidez", "description": "Capacidad para cubrir compromisos de corto plazo.", "ratios": [
+            metric("current_ratio", "Razón corriente", "Activo corriente / Pasivo corriente", "times", *pair("current_ratio"),
+                   "Dólares de activo corriente que respaldan cada dólar exigible a corto plazo.", ["11", "21"], healthy=1.5, warning=1.0),
+            metric("quick_ratio", "Prueba ácida", "(Activo corriente − Inventarios) / Pasivo corriente", "times", *pair("quick_ratio"),
+                   "Cobertura inmediata sin depender de vender inventarios.", ["11", "1107", "21"], healthy=1.0, warning=0.7),
+            metric("cash_ratio", "Liquidez inmediata", "Efectivo y equivalentes / Pasivo corriente", "times", *pair("cash_ratio"),
+                   "Obligaciones corrientes cubiertas únicamente con efectivo.", ["1101", "21"], healthy=0.5, warning=0.2),
+            metric("working_capital", "Capital de trabajo", "Activo corriente − Pasivo corriente", "money", *pair("working_capital"),
+                   "Recursos corrientes disponibles después de cubrir obligaciones de corto plazo.", ["11", "21"], healthy=0, warning=0),
+        ]},
+        {"key": "solvency", "label": "Endeudamiento", "description": "Estructura de financiamiento y exposición frente a terceros.", "ratios": [
+            metric("debt_ratio", "Endeudamiento total", "Pasivo total / Activo total", "percent", *pair("debt_ratio"),
+                   "Porcentaje de activos financiado por acreedores.", ["2", "1"], better="lower", healthy=50, warning=70),
+            metric("debt_to_equity", "Deuda a patrimonio", "Pasivo total / Patrimonio", "times", *pair("debt_to_equity"),
+                   "Recursos de acreedores por cada dólar de recursos propios.", ["2", "3"], better="lower", healthy=1, warning=2),
+            metric("equity_ratio", "Solidez patrimonial", "Patrimonio / Activo total", "percent", *pair("equity_ratio"),
+                   "Porcentaje de activos financiado con capital propio.", ["3", "1"], healthy=50, warning=30),
+        ]},
+        {"key": "profitability", "label": "Rentabilidad", "description": "Resultados generados por las ventas y los recursos invertidos.", "ratios": [
+            metric("gross_margin", "Margen bruto", "Utilidad bruta / Ingresos", "percent", *pair("gross_margin"),
+                   "Ingreso disponible después del costo directo.", ["5", "41"], healthy=25, warning=10),
+            metric("operating_margin", "Margen operativo", "Utilidad operativa / Ingresos", "percent", *pair("operating_margin"),
+                   "Rentabilidad de la operación antes de partidas no operativas.", ["5", "41", "42"], healthy=10, warning=0),
+            metric("net_margin", "Margen neto", "Resultado neto / Ingresos", "percent", *pair("net_margin"),
+                   "Resultado final obtenido por cada dólar de ingreso.", ["5", "4"], healthy=8, warning=0),
+            metric("roa", "ROA del período", "Resultado neto / Activo total al cierre", "percent", *pair("roa"),
+                   "Rendimiento del período sobre los activos al cierre.", ["5", "4", "1"], healthy=2, warning=0,
+                   caution="No anualizado; utiliza el activo al cierre, no el activo promedio."),
+            metric("roe", "ROE del período", "Resultado neto / Patrimonio al cierre", "percent", *pair("roe"),
+                   "Rendimiento del período sobre el patrimonio al cierre.", ["5", "4", "3"], healthy=3, warning=0,
+                   caution="No anualizado; utiliza el patrimonio al cierre, no el patrimonio promedio."),
+        ]},
+        {"key": "efficiency", "label": "Eficiencia", "description": "Uso de los recursos para generar ingresos.", "ratios": [
+            metric("asset_turnover", "Rotación de activos", "Ingresos / Activo total al cierre", "times", *pair("asset_turnover"),
+                   "Ingresos generados en el período por cada dólar invertido en activos.", ["5", "1"], healthy=None,
+                   caution="Debe compararse con períodos equivalentes y empresas del mismo sector."),
+        ]},
+    ]
+    all_ratios = [ratio for category in categories for ratio in category["ratios"]]
+    summary = {name: sum(1 for ratio in all_ratios if ratio["status"] == name)
+               for name in ("healthy", "warning", "risk", "neutral", "unavailable")}
+    return {
+        "report": "ratios", "period": balance["periodA"], "periodA": balance["periodA"], "periodB": balance["periodB"],
+        "currency": balance["currency"], "source": balance["source"], "availablePeriods": balance["availablePeriods"],
+        "availableYears": balance["availableYears"], "monthsByYear": balance["monthsByYear"],
+        "categories": categories, "summary": summary,
+        "methodology": "Los ratios se calculan con saldos consolidados del balance y resultados del período seleccionado.",
+        "thresholdNote": "Los semáforos son referencias de gestión, no normas contables; deben calibrarse con metas y datos del sector textil.",
+    }
+
+
 class AppHandler(BaseHTTPRequestHandler):
     def training_access_token(self, issued_at):
         signature = hmac.new(
@@ -9046,7 +9156,9 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             if not self.require_permission("financiera:estados-financieros"):
                 return
             try:
-                payload = build_financial_statement_report(parse_qs(urlparse(self.path).query))
+                query = parse_qs(urlparse(self.path).query)
+                requested_report = text((query.get("report") or ["balance"])[0]).lower()
+                payload = build_financial_ratios_report(query) if requested_report == "ratios" else build_financial_statement_report(query)
             except (OSError, ValueError, json.JSONDecodeError) as error:
                 self.send_json({"error": f"No se pudo generar el estado financiero: {error}"}, 500)
                 return

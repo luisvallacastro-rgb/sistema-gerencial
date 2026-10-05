@@ -22309,3 +22309,57 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
   .simple-financial-statements .financial-period-selectors { grid-column: 1; }
   .simple-financial-statements .financial-simple-options { grid-column: 2; }
 }
+
+/* Ratios financieros: lectura ejecutiva con fórmula y comparación visible. */
+.financial-ratios-module { overflow-y: auto; padding-bottom: 14px; }
+.financial-ratios-head { grid-template-columns: minmax(220px, .55fr) minmax(570px, 1fr) !important; }
+.financial-ratios-head .financial-simple-title h2 { white-space: normal; line-height: 1.15; }
+.financial-ratios-head .financial-simple-title p { display: block; margin: 3px 0 0; color: #94aabd; font-size: 9px; }
+.financial-ratio-summary { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 8px; }
+.financial-ratio-summary p { display: flex; align-items: center; justify-content: space-between; min-height: 48px; margin: 0; padding: 8px 13px; border: 1px solid #42637d; border-radius: 12px; background: #183a57; }
+.financial-ratio-summary small { color: #a8bac8; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+.financial-ratio-summary strong { color: #fff; font-size: 21px; }
+.financial-ratio-summary .healthy { border-color: #278c79; background: #164b46; }
+.financial-ratio-summary .healthy strong { color: #67e7cf; }
+.financial-ratio-summary .warning { border-color: #8b6d33; background: #443b24; }
+.financial-ratio-summary .warning strong { color: #ffd078; }
+.financial-ratio-summary .risk { border-color: #8c4e5c; background: #48303c; }
+.financial-ratio-summary .risk strong { color: #ffabb9; }
+.financial-ratio-category { display: grid; gap: 8px; padding: 11px; border: 1px solid #3d617c; border-radius: 15px; background: #102f4a; }
+.financial-ratio-category > header { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+.financial-ratio-category > header small { color: #64e4cc; font-size: 7px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.financial-ratio-category > header h3 { margin: 2px 0 0; color: #fff; font-size: 16px; }
+.financial-ratio-category > header p { margin: 0; color: #9db0bf; font-size: 9px; }
+.financial-ratio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+.financial-ratio-card { display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 7px; min-height: 185px; padding: 12px; border: 1px solid #466780; border-top: 3px solid #7390a5; border-radius: 13px; background: #1b3b58; }
+.financial-ratio-card.status-healthy { border-top-color: #53d8bd; }
+.financial-ratio-card.status-warning { border-top-color: #e7ad3f; }
+.financial-ratio-card.status-risk { border-top-color: #e17489; }
+.financial-ratio-card > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.financial-ratio-card h4 { margin: 0; color: #fff; font-size: 13px; }
+.financial-ratio-card > header span { padding: 4px 7px; border-radius: 999px; background: #314f68; color: #c1d0dc; font-size: 7px; font-weight: 900; text-transform: uppercase; }
+.financial-ratio-card.status-healthy > header span { background: #176457; color: #80f1da; }
+.financial-ratio-card.status-warning > header span { background: #66501f; color: #ffd27b; }
+.financial-ratio-card.status-risk > header span { background: #6a3444; color: #ffc0cb; }
+.financial-ratio-values { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.financial-ratio-values p { display: grid; gap: 2px; margin: 0; }
+.financial-ratio-values small { overflow: hidden; color: #93a8b9; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.financial-ratio-values strong { color: #62e5cc; font-size: 21px; white-space: nowrap; }
+.financial-ratio-values b { color: #d8e4ed; font-size: 15px; white-space: nowrap; }
+.financial-ratio-card.unit-money .financial-ratio-values strong { font-size: 16px; }
+.financial-ratio-card.unit-money .financial-ratio-values b { font-size: 12px; }
+.financial-ratio-change { width: max-content; padding: 3px 6px; border-radius: 6px; background: #29465f; color: #aabcca; font-size: 9px; font-weight: 900; }
+.financial-ratio-change.favorable { background: #175848; color: #6be5cc; }
+.financial-ratio-change.unfavorable { background: #553942; color: #ffadbc; }
+.financial-ratio-reading { margin: 0; color: #bdcad4; font-size: 9px; line-height: 1.35; }
+.financial-ratio-card footer { padding-top: 7px; border-top: 1px solid #35546c; color: #91a6b7; font-size: 8px; line-height: 1.35; }
+.financial-ratio-card footer b { color: #c9d6df; }
+.financial-ratio-card footer em { display: block; margin-top: 3px; color: #e6b75b; font-style: normal; }
+.financial-ratio-note { display: flex; gap: 9px; padding: 9px 12px; border: 1px solid #3f647c; border-radius: 11px; background: #173850; color: #aebfcc; font-size: 9px; }
+.financial-ratio-note strong { flex: 0 0 auto; color: #69e5cd; }
+
+@media (max-width: 1100px) {
+  .financial-ratios-head { grid-template-columns: 1fr !important; }
+  .financial-ratios-head .financial-period-selectors { grid-column: 1; }
+  .financial-ratio-grid { grid-template-columns: repeat(2, minmax(210px, 1fr)); }
+}
