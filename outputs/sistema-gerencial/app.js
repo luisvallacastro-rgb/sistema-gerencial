@@ -14417,7 +14417,8 @@ function openInventoryMovementDialog(item) {
       <label><span>OP</span><input name="productionOrder" maxlength="80" placeholder="Solo para salidas a producción"></label>
       <label><span>Motivo</span><select name="reason" required><option value="Compra">Compra</option><option value="Orden de producción">Orden de producción</option><option value="Ajuste físico">Ajuste físico</option><option value="Devolución">Devolución</option><option value="Otro">Otro</option></select></label>
       <label class="wide"><span>Observaciones</span><textarea name="notes" maxlength="500" placeholder="Detalle adicional del movimiento"></textarea></label>
-      <div class="inventory-stock-projection wide"><span>Stock antes<strong>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)}</strong></span><span>Stock proyectado<strong data-inventory-projected>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)}</strong></span><span>Costo aplicado<strong data-inventory-applied-cost>${formatMoney(item.averageCost)}</strong></span></div>
+      <div class="inventory-stock-projection wide"><span>Existencia actual<strong>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)}</strong></span><span>Stock mínimo<strong>${inventoryQuantityLabel(item.minimumStock || 0)} ${escapeHtml(item.unit)}</strong></span><span>Disponible para salida<strong data-inventory-available>${inventoryQuantityLabel(Math.max(0, Number(item.quantity || 0) - Number(item.minimumStock || 0)))} ${escapeHtml(item.unit)}</strong></span><span>Stock proyectado<strong data-inventory-projected>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)}</strong></span><span>Costo aplicado<strong data-inventory-applied-cost>${formatMoney(item.averageCost)}</strong></span></div>
+      <p class="inventory-stock-warning wide" data-inventory-stock-warning></p>
     </div>
     <footer><button type="button" data-inventory-close>Cancelar</button><button type="submit">Registrar movimiento</button></footer>
   </form>`;
@@ -14427,7 +14428,9 @@ function openInventoryMovementDialog(item) {
   const costLabelText = dialog.querySelector("[data-inventory-cost-label]");
   const reason = form.elements.reason;
   const projection = dialog.querySelector("[data-inventory-projected]");
+  const availableLabel = dialog.querySelector("[data-inventory-available]");
   const appliedCost = dialog.querySelector("[data-inventory-applied-cost]");
+  const stockWarning = dialog.querySelector("[data-inventory-stock-warning]");
   const syncType = () => {
     const isEntry = type.value === "ENTRADA";
     form.elements.unitCost.required = isEntry;
@@ -14442,8 +14445,15 @@ function openInventoryMovementDialog(item) {
     form.elements.productionOrder.closest("label").hidden = isEntry;
     appliedCost.textContent = isEntry ? "Según costo de entrada" : `${formatMoney(item.averageCost)} automático`;
     const quantity = Number(form.elements.quantity.value || 0);
+    const available = Math.max(0, Number(item.quantity || 0) - Number(item.minimumStock || 0));
     const projected = Number(item.quantity || 0) + (isEntry ? quantity : -quantity);
     projection.textContent = `${inventoryQuantityLabel(projected)} ${item.unit}`;
+    availableLabel.textContent = `${inventoryQuantityLabel(available)} ${item.unit}`;
+    form.elements.quantity.max = isEntry ? "" : String(available);
+    const belowMinimum = !isEntry && quantity > available;
+    projection.closest("span").classList.toggle("danger", belowMinimum);
+    stockWarning.textContent = belowMinimum ? `La salida máxima permitida es ${inventoryQuantityLabel(available)} ${item.unit}. Debes conservar ${inventoryQuantityLabel(item.minimumStock || 0)} ${item.unit} como stock mínimo.` : "";
+    stockWarning.hidden = !belowMinimum;
   };
   type.addEventListener("change", syncType);
   form.elements.quantity.addEventListener("input", syncType);

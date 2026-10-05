@@ -22254,9 +22254,12 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-form-grid input[readonly] { border-color: #38556d; background: #17334e; color: #9fb4c4; }
 .inventory-form-grid label.automatic > span { color: #68e8cf; }
 .inventory-form-grid label.automatic input { border-color: #2f8f7d; background: rgba(24, 141, 121, .12); color: #68e8cf; font-weight: 900; }
-.inventory-stock-projection { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.inventory-stock-projection { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .inventory-stock-projection span { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid #3d607a; border-radius: 11px; background: #173650; color: #9eb2c1; font-size: 9px; text-transform: uppercase; }
 .inventory-stock-projection strong { color: #68e8cf; font-size: 15px; text-transform: none; }
+.inventory-stock-projection span.danger { border-color: #d06a77; background: rgba(167, 49, 69, .18); }
+.inventory-stock-projection span.danger strong { color: #ff9aa5; }
+.inventory-stock-warning { margin: -5px 0 0; padding: 10px 12px; border: 1px solid #a84a5b; border-radius: 10px; background: rgba(151, 42, 62, .16); color: #ffb0b8; font-size: 11px; font-weight: 800; }
 .inventory-movement-dialog { width: min(900px, calc(100vw - 32px)); }
 .inventory-movement-dialog .inventory-form-grid { max-height: 62vh; overflow-y: auto; }
 .inventory-dialog footer { display: flex; justify-content: flex-end; gap: 10px; padding: 15px 24px 20px; }

@@ -3731,8 +3731,12 @@ def save_inventory_movement(conn, item_row, data):
     unit_cost_micros = int((unit_cost * 1000000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     current = inventory_item_payload(conn, item_row)
     current_millis = int((Decimal(str(current["quantity"])) * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    if movement_type == "SALIDA" and quantity_millis > current_millis:
-        raise ValueError(f"La salida excede la existencia disponible de {current['quantity']} {item_row['unit']}")
+    minimum_millis = int(item_row["minimum_stock_millis"] or 0) if "minimum_stock_millis" in item_row.keys() else 0
+    available_millis = max(0, current_millis - minimum_millis)
+    if movement_type == "SALIDA" and quantity_millis > available_millis:
+        available = Decimal(available_millis) / 1000
+        minimum = Decimal(minimum_millis) / 1000
+        raise ValueError(f"Solo puedes retirar {available} {item_row['unit']}; se debe conservar el stock mínimo de {minimum}")
     reason = text(data.get("reason"))
     reference = text(data.get("reference"))
     notes = text(data.get("notes"))
