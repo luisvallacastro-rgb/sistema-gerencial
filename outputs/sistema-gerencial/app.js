@@ -1254,7 +1254,7 @@ function normalizePermissionList(value, role) {
       ? [permissionKey("comercializacion", "cotizaciones"), permissionKey("comercializacion", "anticipos")]
       : []),
     ...(["gerencias", "jefaturas"].includes(role)
-      ? [permissionKey("comercializacion", "custodia-muestras"), permissionKey("financiera", "inventario")]
+      ? [permissionKey("comercializacion", "custodia-muestras")]
       : []),
     ...(legacyRisks ? [permissionKey(adminAreaKey, "riesgos")] : []),
     ...(legacyRequests ? [permissionKey(adminAreaKey, "solicitudes")] : [])
