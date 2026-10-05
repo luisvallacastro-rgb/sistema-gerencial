@@ -1,0 +1,31 @@
+{
+  "capturedAtUtc": "2026-10-05T12:41:58Z",
+  "source": "verified read-only production backup",
+  "integrityCheck": "ok",
+  "restoreTest": "ok",
+  "tables": 29,
+  "rowCounts": {
+    "users": 16,
+    "quotations": 51,
+    "financial_orders": 86,
+    "control_sales_orders": 39,
+    "control_sales_details": 383,
+    "control_sales_audit": 188,
+    "accounts_receivable": 554,
+    "customer_advances": 0,
+    "inventory_items": 0,
+    "inventory_movements": 0
+  },
+  "controlSums": {
+    "controlSalesTotalCents": 7789016,
+    "controlSalesDetailTotalCents": 7789016,
+    "accountsReceivableBalance": 45952.43,
+    "financialOrdersSale": 241859.04,
+    "quotationsTotalCents": 13845577
+  },
+  "preExistingForeignKeyCheck": [
+    ["commission_settlements", 1, "bank_balance_records", 0],
+    ["commission_settlements", 1, "bank_accounts", 1]
+  ],
+  "note": "The two foreign-key findings existed before the DTE migration and were not modified."
+}

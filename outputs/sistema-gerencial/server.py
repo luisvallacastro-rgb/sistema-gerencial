@@ -6,6 +6,7 @@ import hmac
 import mimetypes
 import os
 import re
+import secrets
 import shutil
 import sqlite3
 import tempfile
@@ -40,7 +41,7 @@ INVENTORY_SEED_PATH = ROOT / "inventory-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-financial-ratios-v51"
+API_VERSION = "kmi-dte-shadow-v52"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -70,7 +71,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi", "meta"],
-    "financiera": ["disponibilidad", "ingresos", "inventario", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
+    "financiera": ["disponibilidad", "ingresos", "inventario", "facturacion-electronica", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal", "archivo-muestras"],
     "rrhh": [],
 }
@@ -531,12 +532,37 @@ ALL_OPERATIONAL_PERMISSIONS = [
     for area in AREA_KEYS
     for section in AREA_SECTION_KEYS[area]
 ]
+FISCAL_PERMISSION_KEYS = [
+    "financiera:facturacion-electronica-consultar",
+    "financiera:facturacion-electronica-preparar",
+    "financiera:facturacion-electronica-conciliar",
+    "financiera:facturacion-electronica-autorizar",
+    "financiera:facturacion-electronica-eventos",
+    "financiera:facturacion-electronica-configurar",
+]
+FISCAL_MODULE_PERMISSION_KEY = "financiera:facturacion-electronica"
+FISCAL_ACCESS_PERMISSION_KEYS = [FISCAL_MODULE_PERMISSION_KEY, *FISCAL_PERMISSION_KEYS]
 ALL_PERMISSIONS = [
     *ALL_OPERATIONAL_PERMISSIONS,
+    *FISCAL_PERMISSION_KEYS,
     *ADMIN_MANAGEMENT_PERMISSION_KEYS,
     *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
     *ADMIN_MINUTE_PERMISSION_KEYS,
 ]
+
+
+def is_fiscal_owner_user(user):
+    """Keep the pre-Hacienda module private to Luis until he grants access."""
+    if not user:
+        return False
+    email = text(user.get("email")).strip().lower()
+    username = text(user.get("username")).strip().lower()
+    identity = crm_identity_key(" ".join(text(user.get(field)) for field in ("id", "name", "username", "email")))
+    return (
+        email == ADMIN_EMAIL
+        or username in {"luisvallacastro", ADMIN_EMAIL}
+        or ("luis" in identity and "valladares" in identity)
+    )
 
 DEFAULT_USERS = [
     {
@@ -634,6 +660,7 @@ def opportunity_stage_number(stage):
 def repair_all_opportunity_temperatures(conn, data):
     changed = False
     for opportunity in data.get("opportunities", []):
+        quantity = unit_price = None
         try:
             stage_id = max(1, min(8, int(opportunity.get("stageId") or 1)))
         except (TypeError, ValueError):
@@ -2473,11 +2500,12 @@ def default_permissions_for_role(role):
             "financiera:resultados-ordenes-de-pedido",
             *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
         ]
-    return list(
+    permissions = (
         ALL_PERMISSIONS
         if role == "gerencias"
         else [*ALL_OPERATIONAL_PERMISSIONS, *ADMIN_CONSOLIDATED_PERMISSION_KEYS]
     )
+    return [permission for permission in permissions if permission not in FISCAL_ACCESS_PERMISSION_KEYS]
 
 
 def normalize_permissions(value, role):
@@ -2503,6 +2531,8 @@ def normalize_permissions(value, role):
         item for item in value
         if isinstance(item, str) and (item in valid or dynamic_permission.fullmatch(item))
     ]
+    if FISCAL_MODULE_PERMISSION_KEY in permissions:
+        permissions.extend(permission for permission in FISCAL_PERMISSION_KEYS if permission not in permissions)
     return list(dict.fromkeys(permissions))
 
 
@@ -2515,8 +2545,13 @@ def normalize_user(data, index=0):
     role = migrated_role if migrated_role in VALID_ROLES else "gerencias"
     admin = bool(item.get("admin")) or email == ADMIN_EMAIL
     permissions_customized = bool(item.get("permissionsCustomized") or item.get("permissions_customized"))
+    explicit_permissions = normalize_permissions(item.get("permissions"), role)
     permissions = (
         list(ALL_PERMISSIONS)
+        if admin and is_fiscal_owner_user(item)
+        else [permission for permission in ALL_PERMISSIONS if permission not in FISCAL_ACCESS_PERMISSION_KEYS]
+        if admin and FISCAL_MODULE_PERMISSION_KEY not in explicit_permissions
+        else list(ALL_PERMISSIONS)
         if admin
         else normalize_permissions(item.get("permissions"), role)
         if permissions_customized
@@ -2550,7 +2585,14 @@ def user_payload(row):
     data["admin"] = bool(data.get("admin")) or data.get("email") == ADMIN_EMAIL
     if data["admin"]:
         data["role"] = "gerencias"
-        data["permissions"] = list(ALL_PERMISSIONS)
+        stored_permissions = normalize_permissions(row["permissions"], data["role"])
+        data["permissions"] = (
+            list(ALL_PERMISSIONS)
+            if is_fiscal_owner_user(data) or FISCAL_MODULE_PERMISSION_KEY in stored_permissions
+            else [permission for permission in ALL_PERMISSIONS if permission not in FISCAL_ACCESS_PERMISSION_KEYS]
+        )
+    # Passwords are authentication secrets and must never cross the API boundary.
+    data.pop("password", None)
     return data
 
 
@@ -7755,6 +7797,52 @@ def purge_commercial_training_data_20260923_once(conn):
     return True
 
 
+def migration_statements(sql):
+    """Split a migration with sqlite's parser so every file is one transaction."""
+    statements, buffer = [], ""
+    for line in sql.splitlines(keepends=True):
+        buffer += line
+        if sqlite3.complete_statement(buffer):
+            statement = buffer.strip()
+            if statement:
+                statements.append(statement)
+            buffer = ""
+    if buffer.strip():
+        raise RuntimeError("La migración contiene una sentencia SQL incompleta")
+    return statements
+
+
+def apply_versioned_migrations(conn):
+    migrations_dir = ROOT / "migrations"
+    conn.execute("""CREATE TABLE IF NOT EXISTS schema_migrations (
+        version TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TEXT NOT NULL
+    )""")
+    for path in sorted(migrations_dir.glob("*.sql")):
+        version = path.name
+        source = path.read_text(encoding="utf-8")
+        checksum = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        applied = conn.execute(
+            "SELECT checksum FROM schema_migrations WHERE version = ?", (version,)
+        ).fetchone()
+        if applied:
+            if not hmac.compare_digest(text(applied["checksum"]), checksum):
+                raise RuntimeError(f"La migración aplicada {version} cambió de contenido")
+            continue
+        conn.execute("SAVEPOINT versioned_migration")
+        try:
+            for statement in migration_statements(source):
+                conn.execute(statement)
+            conn.execute(
+                "INSERT INTO schema_migrations(version, checksum, applied_at) VALUES (?, ?, ?)",
+                (version, checksum, datetime.utcnow().isoformat(timespec="seconds") + "Z"),
+            )
+            conn.execute("RELEASE versioned_migration")
+        except Exception:
+            conn.execute("ROLLBACK TO versioned_migration")
+            conn.execute("RELEASE versioned_migration")
+            raise
+
+
 def init_db():
     with connect() as conn:
         conn.execute("""
@@ -8473,6 +8561,687 @@ def init_db():
                 user_permissions.append(agenda_permission)
                 conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(user_permissions), user_row["id"]))
         reset_order_flow_for_first_elizabeth_order_once(conn)
+        apply_versioned_migrations(conn)
+
+
+def utc_now_iso():
+    return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+
+
+def fiscal_reconciliation_payload(row):
+    if not row:
+        return {"status": "PENDING_RECONCILIATION", "externalDocumentType": "", "externalDocumentNumber": "", "notes": ""}
+    return {
+        "status": row["status"], "externalDocumentType": row["external_document_type"],
+        "externalDocumentNumber": row["external_document_number"], "notes": row["notes"],
+        "reviewedBy": row["reviewed_by_name"], "reviewedAt": row["reviewed_at"],
+    }
+
+
+def fiscal_order_rows(conn):
+    rows = conn.execute("""
+        SELECT * FROM control_sales_orders
+        WHERE archived = 0
+        ORDER BY order_date DESC, order_number DESC, created_at DESC
+    """).fetchall()
+    result = []
+    for row in rows:
+        item = control_sales_order_payload(conn, row)
+        reconciliation = conn.execute(
+            "SELECT * FROM billing_source_reviews WHERE source_type = 'ORDER' AND source_id = ?", (row["id"],)
+        ).fetchone()
+        documents = conn.execute("""
+            SELECT d.id, d.document_type, d.status, d.total_payable_cents, d.created_at,
+                   d.mh_reception_seal,
+                   (SELECT t.outcome FROM billing_test_runs t WHERE t.document_id = d.id
+                    ORDER BY t.created_at DESC, t.rowid DESC LIMIT 1) AS test_outcome
+            FROM billing_documents d
+            WHERE d.source_type = 'ORDER' AND d.source_id = ?
+            ORDER BY d.created_at DESC, d.rowid DESC
+        """, (row["id"],)).fetchall()
+        item["reconciliation"] = fiscal_reconciliation_payload(reconciliation)
+        item["fiscalDocuments"] = [{
+            "id": document["id"], "documentType": document["document_type"],
+            "status": document["status"], "totalCents": document["total_payable_cents"],
+            "createdAt": document["created_at"], "mhSeal": document["mh_reception_seal"] or "",
+            "testOutcome": document["test_outcome"] or "",
+        } for document in documents]
+        result.append(item)
+    return result
+
+
+def fiscal_validation(order, document_type):
+    errors = []
+    if document_type not in {"01", "03"}:
+        errors.append("El tipo de DTE debe ser 01 Factura o 03 Crédito Fiscal")
+    if not order.get("details"):
+        errors.append("La orden no contiene líneas facturables")
+    if int(order.get("totalCents") or 0) <= 0:
+        errors.append("El total de la orden debe ser mayor que cero")
+    customer = order.get("proformaData") if isinstance(order.get("proformaData"), dict) else {}
+    if not text(order.get("client")):
+        errors.append("Falta el nombre del cliente")
+    if document_type == "03":
+        lowered = {crm_key(key): value for key, value in customer.items()}
+        # Commercial snapshots use taxId/registrationNumber while older imports
+        # used NIT/NRC labels. Both are legitimate sources for the same fields.
+        nit = text(lowered.get("taxid") or lowered.get("nit") or lowered.get("nit-no") or lowered.get("nitno"))
+        nrc = text(lowered.get("registrationnumber") or lowered.get("registro") or lowered.get("nrc") or lowered.get("registro-no"))
+        if not nit:
+            errors.append("Crédito Fiscal requiere NIT del receptor")
+        if not nrc:
+            errors.append("Crédito Fiscal requiere NRC del receptor")
+    return errors
+
+
+def fiscal_receiver_catalog_values(source):
+    """Resolve only catalog values that are unambiguous in the saved snapshot.
+
+    This intentionally has no fuzzy fallback: an unknown activity or location
+    stays empty so local validation blocks the DTE instead of inventing fiscal
+    data. Explicit codes saved in the customer/order always take precedence.
+    """
+    activity_key = crm_key(source.get("businessActivity"))
+    activity_codes = {
+        # BCR CIIU class for general insurance plans. The customer snapshot
+        # carries this exact registered activity description.
+        "seguros-generales-de-todo-tipo": "65120",
+    }
+    department_key = crm_key(source.get("department"))
+    municipality_key = crm_key(source.get("municipality"))
+    department_codes = {"san-salvador": "06"}
+    municipality_codes = {("san-salvador", "san-salvador-centro"): "23"}
+    address_key = crm_key(source.get("address"))
+    district_code = ""
+    # Colonia Escalón belongs to Distrito de San Salvador. Restrict the
+    # inference to that explicit address so other districts in the same new
+    # municipality are never silently classified as San Salvador.
+    if municipality_key == "san-salvador-centro" and "escalon" in address_key:
+        district_code = "14"
+    return {
+        "economicActivityCode": activity_codes.get(activity_key, ""),
+        "departmentCode": department_codes.get(department_key, ""),
+        "municipalityCode": municipality_codes.get((department_key, municipality_key), ""),
+        "districtCode": district_code,
+    }
+
+
+def fiscal_issuer_validation(issuer):
+    errors = []
+    normalized = issuer if isinstance(issuer, dict) else {}
+    required = {
+        "nit": "NIT", "nrc": "NRC", "nombre": "nombre legal",
+        "codActividad": "código de actividad", "descActividad": "actividad económica",
+        "telefono": "teléfono", "correo": "correo electrónico",
+    }
+    for key, label in required.items():
+        if not text(normalized.get(key)):
+            errors.append(f"Falta {label} del emisor")
+    address = normalized.get("direccion") if isinstance(normalized.get("direccion"), dict) else {}
+    for key, label in (("departamento", "departamento"), ("municipio", "municipio"), ("complemento", "dirección")):
+        if not text(address.get(key)):
+            errors.append(f"Falta {label} del emisor")
+    return errors
+
+
+def fiscal_line_values(detail, document_type):
+    total = max(0, int(detail.get("lineTotalCents") or 0))
+    if document_type == "01":
+        # In Factura (01), ventaGravada keeps the VAT-inclusive selling price.
+        # ivaItem/totalIva disclose its tax component without adding it again.
+        taxable = total
+        net = int((Decimal(total) * Decimal(100) / Decimal(113)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        vat = total - net
+    else:
+        vat = max(0, int(detail.get("vatCents") or 0))
+        taxable = max(0, total - vat)
+    quantity_millis = int((Decimal(str(detail.get("quantity") or 0)) * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return {"total": total, "taxable": taxable, "vat": vat, "quantityMillis": quantity_millis}
+
+
+def fiscal_money(cents):
+    return float((Decimal(int(cents or 0)) / Decimal(100)).quantize(Decimal("0.01")))
+
+
+def fiscal_digits(value):
+    return re.sub(r"\D", "", text(value))
+
+
+def fiscal_amount_words(cents):
+    units = ["CERO", "UNO", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE",
+             "DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISÉIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"]
+    tens = ["", "", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"]
+    hundreds = ["", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS", "OCHOCIENTOS", "NOVECIENTOS"]
+    def below_thousand(number):
+        if number == 100: return "CIEN"
+        parts = []
+        if number >= 100:
+            parts.append(hundreds[number // 100]); number %= 100
+        if number < 20:
+            if number: parts.append(units[number])
+        elif number < 30:
+            parts.append("VEINTE" if number == 20 else "VEINTI" + units[number - 20].lower().upper())
+        else:
+            parts.append(tens[number // 10]); number %= 10
+            if number: parts.extend(["Y", units[number]])
+        return " ".join(parts)
+    def integer_words(number):
+        if number == 0: return "CERO"
+        parts = []
+        millions, remainder = divmod(number, 1_000_000)
+        thousands, remainder = divmod(remainder, 1000)
+        if millions:
+            parts.append("UN MILLÓN" if millions == 1 else f"{below_thousand(millions)} MILLONES")
+        if thousands:
+            parts.append("MIL" if thousands == 1 else f"{below_thousand(thousands)} MIL")
+        if remainder: parts.append(below_thousand(remainder))
+        return " ".join(parts)
+    whole, fraction = divmod(max(0, int(cents or 0)), 100)
+    currency = "DÓLAR" if whole == 1 else "DÓLARES"
+    return f"{integer_words(whole)} {currency} CON {integer_words(fraction)} CENTAVOS"
+
+
+def fiscal_receiver_snapshot(order, document_type):
+    source = order.get("proformaData") if isinstance(order.get("proformaData"), dict) else {}
+    catalog = fiscal_receiver_catalog_values(source)
+    address = {
+        "departamento": text(source.get("departmentCode") or catalog["departmentCode"]),
+        "municipio": text(source.get("municipalityCode") or catalog["municipalityCode"]),
+        "distrito": text(source.get("districtCode") or catalog["districtCode"]) or None,
+        "complemento": text(source.get("address")),
+    }
+    common = {
+        "nombre": text(source.get("legalName") or source.get("commercialName") or order.get("client")),
+        "codActividad": text(source.get("economicActivityCode") or catalog["economicActivityCode"]),
+        "descActividad": text(source.get("businessActivity")),
+        "direccion": address,
+        "telefono": fiscal_digits(source.get("phone")),
+        "correo": text(source.get("email")),
+    }
+    if document_type == "03":
+        return {"nit": fiscal_digits(source.get("taxId")), "nrc": fiscal_digits(source.get("registrationNumber")),
+                **common, "nombreComercial": text(source.get("commercialName")) or None}
+    document_number = fiscal_digits(source.get("taxId") or source.get("dui"))
+    return {"tipoDocumento": "36" if len(document_number) == 14 else ("13" if len(document_number) == 9 else None),
+            "numDocumento": document_number or None, "nrc": fiscal_digits(source.get("registrationNumber")) or None,
+            **common}
+
+
+def allocate_fiscal_identifiers(conn, document_type, settings, establishment):
+    environment = text(settings["environment"], "development")
+    environment_code = "01" if environment == "production" else "00"
+    establishment_code = text(establishment.get("controlEstablishmentCode")).upper()
+    point_code = text(establishment.get("controlPointOfSaleCode")).upper()
+    errors = []
+    if not re.fullmatch(r"[A-Z0-9]{4}", establishment_code): errors.append("Falta el código de establecimiento autorizado para el número de control")
+    if not re.fullmatch(r"[A-Z0-9]{4}", point_code): errors.append("Falta el código de punto de venta autorizado para el número de control")
+    if errors: return {"errors": errors, "environmentCode": environment_code, "generationCode": "", "controlNumber": ""}
+    conn.execute("""INSERT OR IGNORE INTO billing_control_sequences
+        (environment, document_type, establishment_code, point_of_sale_code, next_number)
+        VALUES (?, ?, ?, ?, 1)""", (environment, document_type, establishment_code, point_code))
+    row = conn.execute("""SELECT next_number FROM billing_control_sequences
+        WHERE environment=? AND document_type=? AND establishment_code=? AND point_of_sale_code=?""",
+        (environment, document_type, establishment_code, point_code)).fetchone()
+    sequence = int(row["next_number"])
+    conn.execute("""UPDATE billing_control_sequences SET next_number=?, updated_at=CURRENT_TIMESTAMP
+        WHERE environment=? AND document_type=? AND establishment_code=? AND point_of_sale_code=?""",
+        (sequence + 1, environment, document_type, establishment_code, point_code))
+    return {"errors": [], "environmentCode": environment_code, "generationCode": str(uuid.uuid4()).upper(),
+            "controlNumber": f"DTE-{document_type}-{establishment_code}{point_code}-{sequence:015d}"}
+
+
+def normalize_establishment_config(data):
+    config = {
+        "controlEstablishmentCode": text(data.get("controlEstablishmentCode")).upper(),
+        "controlPointOfSaleCode": text(data.get("controlPointOfSaleCode")).upper(),
+        "codEstable": text(data.get("codEstable")).upper(),
+        "codPuntoVenta": text(data.get("codPuntoVenta")).upper(),
+    }
+    errors = []
+    for key, label in (("controlEstablishmentCode", "código de establecimiento para control"),
+                       ("controlPointOfSaleCode", "código de punto de venta para control")):
+        if not re.fullmatch(r"[A-Z0-9]{4}", config[key]):
+            errors.append(f"El {label} debe contener exactamente 4 letras o números")
+    for key, label in (("codEstable", "código de establecimiento MH"), ("codPuntoVenta", "código de punto de venta MH")):
+        if config[key] and not re.fullmatch(r"[A-Z0-9]{1,10}", config[key]):
+            errors.append(f"El {label} tiene un formato inválido")
+    return config, errors
+
+
+def fiscal_payload_validation(document_type, issuer, receiver, establishment, line_payloads, total):
+    errors = fiscal_issuer_validation(issuer)
+    required_receiver = {"nombre": "nombre del receptor"}
+    if document_type == "03":
+        required_receiver.update({"nit": "NIT del receptor", "nrc": "NRC del receptor",
+                                  "codActividad": "código de actividad del receptor",
+                                  "descActividad": "actividad económica del receptor"})
+    for key, label in required_receiver.items():
+        if not text(receiver.get(key)): errors.append(f"Falta {label}")
+    address = receiver.get("direccion") if isinstance(receiver.get("direccion"), dict) else {}
+    if document_type == "03":
+        if not text(address.get("departamento")): errors.append("Falta código de departamento del receptor")
+        if not text(address.get("municipio")): errors.append("Falta código de municipio del receptor")
+        if not text(address.get("complemento")): errors.append("Falta dirección del receptor")
+    if not line_payloads: errors.append("El DTE no contiene líneas")
+    if total <= 0: errors.append("El total del DTE debe ser mayor que cero")
+    if not isinstance(establishment, dict):
+        errors.append("Falta configuración del establecimiento emisor")
+    else:
+        if not re.fullmatch(r"[A-Z0-9]{4}", text(establishment.get("controlEstablishmentCode")).upper()):
+            errors.append("Falta el código de establecimiento autorizado para el número de control")
+        if not re.fullmatch(r"[A-Z0-9]{4}", text(establishment.get("controlPointOfSaleCode")).upper()):
+            errors.append("Falta el código de punto de venta autorizado para el número de control")
+    return errors
+
+
+def fiscal_cents(value):
+    """Convert a JSON monetary value to cents without binary-float rounding."""
+    try:
+        return int((Decimal(str(value)) * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def fiscal_payload_profile_errors(payload):
+    """Validate the supported local DTE profile and its accounting identities.
+
+    This deliberately runs before a document is considered a valid local draft.
+    It is not a replacement for MH's signing/receiving validation; transmission
+    remains disabled in this development phase.
+    """
+    errors = []
+    identification = payload.get("identificacion") if isinstance(payload, dict) else None
+    issuer = payload.get("emisor") if isinstance(payload, dict) else None
+    receiver = payload.get("receptor") if isinstance(payload, dict) else None
+    lines = payload.get("cuerpoDocumento") if isinstance(payload, dict) else None
+    summary = payload.get("resumen") if isinstance(payload, dict) else None
+    if not isinstance(identification, dict):
+        return ["Falta el bloque identificacion"]
+    document_type = text(identification.get("tipoDte"))
+    expected_versions = {"01": 1, "03": 4}
+    if document_type not in expected_versions:
+        errors.append("El perfil local solo admite DTE 01 y 03")
+    elif identification.get("version") != expected_versions[document_type]:
+        errors.append(f"La versión configurada para DTE {document_type} debe ser {expected_versions[document_type]}")
+    if identification.get("ambiente") not in {"00", "01"}:
+        errors.append("El ambiente debe ser 00 o 01")
+    if not re.fullmatch(r"DTE-(01|03)-[A-Z0-9]{8}-\d{15}", text(identification.get("numeroControl"))):
+        errors.append("El número de control no cumple el formato DTE")
+    if not re.fullmatch(r"[0-9A-F]{8}-[0-9A-F]{4}-4[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}",
+                        text(identification.get("codigoGeneracion"))):
+        errors.append("El código de generación debe ser un UUID v4 en mayúsculas")
+    try:
+        datetime.strptime(text(identification.get("fecEmi")), "%Y-%m-%d")
+        datetime.strptime(text(identification.get("horEmi")), "%H:%M:%S")
+    except ValueError:
+        errors.append("La fecha u hora de emisión tiene formato inválido")
+    for block, label in ((issuer, "emisor"), (receiver, "receptor"), (summary, "resumen")):
+        if not isinstance(block, dict):
+            errors.append(f"Falta el bloque {label}")
+    if errors and not isinstance(summary, dict):
+        return errors
+    if isinstance(issuer, dict):
+        for key in ("nit", "nrc", "nombre", "codActividad", "descActividad", "direccion", "telefono", "correo"):
+            if not issuer.get(key): errors.append(f"Falta emisor.{key}")
+    if isinstance(receiver, dict):
+        required = ("nombre",) if document_type == "01" else ("nit", "nrc", "nombre", "codActividad", "descActividad", "direccion")
+        for key in required:
+            if not receiver.get(key): errors.append(f"Falta receptor.{key}")
+    if not isinstance(lines, list) or not lines:
+        errors.append("El cuerpoDocumento debe contener al menos una línea")
+        return errors
+    gravada_cents = vat_cents = 0
+    expected_number = 1
+    for line in lines:
+        if not isinstance(line, dict):
+            errors.append(f"La línea {expected_number} no es un objeto válido"); continue
+        number = line.get("numItem")
+        if number != expected_number: errors.append("Los numItem deben ser consecutivos desde 1")
+        expected_number += 1
+        if not text(line.get("descripcion")): errors.append(f"La línea {number} no tiene descripción")
+        try:
+            quantity = Decimal(str(line.get("cantidad")))
+            unit_price = Decimal(str(line.get("precioUni")))
+            if quantity <= 0: errors.append(f"La línea {number} tiene cantidad no positiva")
+            if unit_price < 0: errors.append(f"La línea {number} tiene precio negativo")
+        except (InvalidOperation, TypeError, ValueError):
+            errors.append(f"La línea {number} tiene cantidad o precio inválido")
+        line_gravada = fiscal_cents(line.get("ventaGravada"))
+        if line_gravada is None or line_gravada < 0:
+            errors.append(f"La línea {number} tiene ventaGravada inválida")
+        else:
+            gravada_cents += line_gravada
+            if quantity is not None and unit_price is not None:
+                calculated_line = int((quantity * unit_price * Decimal(100)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+                discount_cents = fiscal_cents(line.get("montoDescu")) or 0
+                if abs((calculated_line - discount_cents) - line_gravada) > 1:
+                    errors.append(f"La línea {number} no cuadra: cantidad × precio menos descuento")
+        if document_type == "01":
+            line_vat = fiscal_cents(line.get("ivaItem"))
+            if line_vat is None or line_vat < 0: errors.append(f"La línea {number} requiere ivaItem válido")
+            else: vat_cents += line_vat
+            if "tributos" in line: errors.append(f"La línea {number} de Factura no debe declarar tributos")
+        else:
+            taxes = line.get("tributos")
+            if line_gravada and (not isinstance(taxes, list) or "20" not in taxes):
+                errors.append(f"La línea {number} gravada de CCF debe declarar tributo 20")
+    if not isinstance(summary, dict): return errors
+    summary_gravada = fiscal_cents(summary.get("totalGravada"))
+    operation_total = fiscal_cents(summary.get("montoTotalOperacion"))
+    payable_total = fiscal_cents(summary.get("totalPagar"))
+    discounts = fiscal_cents(summary.get("totalDescu"))
+    vat_withheld = fiscal_cents(summary.get("ivaRete"))
+    income_withheld = fiscal_cents(summary.get("reteRenta"))
+    if any(value is None for value in (summary_gravada, operation_total, payable_total, discounts, vat_withheld, income_withheld)):
+        errors.append("El resumen contiene importes monetarios inválidos")
+        return errors
+    if any(value < 0 for value in (summary_gravada, operation_total, payable_total, discounts, vat_withheld, income_withheld)):
+        errors.append("Descuentos, retenciones y totales no pueden ser negativos")
+    if summary_gravada != gravada_cents:
+        errors.append("totalGravada no coincide con la suma de líneas")
+    if document_type == "01":
+        total_iva = fiscal_cents(summary.get("totalIva"))
+        if total_iva != vat_cents: errors.append("totalIva no coincide con el IVA de las líneas")
+        expected_operation = gravada_cents
+    else:
+        tax_rows = summary.get("tributos") if isinstance(summary.get("tributos"), list) else []
+        declared_vat = sum(fiscal_cents(row.get("valor")) or 0 for row in tax_rows if row.get("codigo") == "20")
+        expected_operation = gravada_cents + declared_vat
+    if operation_total != expected_operation:
+        errors.append("montoTotalOperacion no coincide con base e impuestos")
+    expected_payable = operation_total - vat_withheld - income_withheld
+    if payable_total != expected_payable:
+        errors.append("totalPagar no coincide con operación menos retenciones")
+    payments = summary.get("pagos")
+    if not isinstance(payments, list) or not payments:
+        errors.append("Debe existir al menos una forma de pago")
+    else:
+        payment_total = sum(fiscal_cents(payment.get("montoPago")) or 0 for payment in payments if isinstance(payment, dict))
+        if payment_total != payable_total: errors.append("La suma de pagos no coincide con totalPagar")
+    return errors
+
+
+def build_fiscal_payload(document_type, schema_version, identifiers, issuer, receiver, establishment,
+                         emission_date, emission_time, line_payloads, subtotal, vat, total,
+                         condition_operation=1, payment_code="01"):
+    issuer_payload = dict(issuer)
+    issuer_payload["codEstable"] = establishment.get("codEstable") or None
+    issuer_payload["codPuntoVenta"] = establishment.get("codPuntoVenta") or None
+    body = []
+    for detail, values in line_payloads:
+        quantity = Decimal(values["quantityMillis"]) / Decimal(1000)
+        unit_price = (Decimal(values["taxable"]) / Decimal(100) / quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        line = {"numItem": len(body) + 1, "tipoItem": 1,
+                     "numeroDocumento": None, "codigo": text(detail.get("productCode")) or None,
+                     "codTributo": None, "descripcion": text(detail.get("product"), "Sin descripción"),
+                     "cantidad": float(quantity), "uniMedida": 59,
+                     "precioUni": float(unit_price), "montoDescu": 0,
+                     "ventaNoSuj": 0, "ventaExenta": 0, "ventaGravada": fiscal_money(values["taxable"]),
+                     "psv": 0, "noGravado": 0}
+        if document_type == "01":
+            line["ivaItem"] = fiscal_money(values["vat"])
+        else:
+            line["tributos"] = ["20"] if values["vat"] else None
+        body.append(line)
+    summary = {"totalNoSuj": 0, "totalExenta": 0, "totalGravada": fiscal_money(subtotal),
+          "subTotalVentas": fiscal_money(subtotal), "descuNoSuj": 0, "descuExenta": 0,
+          "descuGravada": 0, "porcentajeDescuento": 0, "totalDescu": 0,
+          "tributos": None, "subTotal": fiscal_money(subtotal), "ivaRete": 0, "reteRenta": 0,
+          "montoTotalOperacion": fiscal_money(total), "totalNoGravado": 0,
+          "totalPagar": fiscal_money(total), "totalLetras": fiscal_amount_words(total), "saldoFavor": 0,
+          "condicionOperacion": int(condition_operation),
+          "pagos": [{"codigo": text(payment_code, "01"), "montoPago": fiscal_money(total),
+                     "plazo": None, "referencia": "", "periodo": None}], "numPagoElectronico": None}
+    if document_type == "01":
+        summary["totalIva"] = fiscal_money(vat)
+    else:
+        summary["tributos"] = ([{"codigo": "20", "descripcion": "Impuesto al Valor Agregado 13%", "valor": fiscal_money(vat)}] if vat else None)
+        summary["ivaPerci"] = 0
+        summary["observaciones"] = None
+    return {
+        "identificacion": {"version": schema_version, "ambiente": identifiers["environmentCode"],
+          "tipoDte": document_type, "numeroControl": identifiers["controlNumber"],
+          "codigoGeneracion": identifiers["generationCode"], "tipoModelo": 1, "tipoOperacion": 1,
+          "tipoContingencia": None, "motivoContin": None, "fecEmi": emission_date,
+          "horEmi": emission_time, "tipoMoneda": "USD"},
+        "documentoRelacionado": None, "emisor": issuer_payload, "receptor": receiver,
+        "otrosDocumentos": None, "ventaTercero": None, "cuerpoDocumento": body,
+        "resumen": summary,
+        "extension": None, "apendice": None,
+    }
+
+
+def create_fiscal_draft(conn, order_id, document_type, idempotency_key, actor, condition_operation=1, payment_code="01"):
+    existing = conn.execute(
+        "SELECT id FROM billing_documents WHERE idempotency_key = ?", (idempotency_key,)
+    ).fetchone()
+    if existing:
+        return fiscal_document_payload(conn, existing["id"]), False
+    order_row = conn.execute(
+        "SELECT * FROM control_sales_orders WHERE id = ? AND archived = 0", (order_id,)
+    ).fetchone()
+    if not order_row:
+        raise ValueError("La orden seleccionada no existe o está archivada")
+    reconciliation = conn.execute(
+        "SELECT * FROM billing_source_reviews WHERE source_type = 'ORDER' AND source_id = ?", (order_id,)
+    ).fetchone()
+    if not reconciliation or reconciliation["status"] != "CONFIRMED_UNBILLED":
+        raise ValueError("La orden debe conciliarse como no facturada antes de preparar el DTE")
+    settings = conn.execute("SELECT * FROM billing_settings WHERE id = 1").fetchone()
+    if settings and settings["allow_partial_invoicing"]:
+        raise ValueError("La facturación parcial todavía no está habilitada en esta fase")
+    blocking = conn.execute("""
+        SELECT id FROM billing_documents WHERE source_type = 'ORDER' AND source_id = ?
+        AND status NOT IN ('REJECTED', 'INVALIDATED', 'LOCAL_VALIDATION_FAILED') LIMIT 1
+    """, (order_id,)).fetchone()
+    if blocking:
+        raise ValueError("La orden ya tiene un borrador o documento fiscal activo")
+    order = control_sales_order_payload(conn, order_row)
+    issuer_snapshot = json.loads(settings["issuer_snapshot_json"] or "{}") if settings else {}
+    establishment_snapshot = json.loads(settings["establishment_snapshot_json"] or "{}") if settings else {}
+    _establishment, establishment_errors = normalize_establishment_config(establishment_snapshot)
+    if establishment_errors:
+        raise ValueError("Completa la Configuración fiscal antes de preparar el DTE: " + "; ".join(establishment_errors))
+    receiver_snapshot = fiscal_receiver_snapshot(order, document_type)
+    errors = fiscal_validation(order, document_type)
+    document_id = f"dte-{uuid.uuid4()}"
+    now_local = datetime.now(ZoneInfo("America/El_Salvador"))
+    now = utc_now_iso()
+    line_payloads = []
+    subtotal = vat = total = 0
+    for detail in order["details"]:
+        values = fiscal_line_values(detail, document_type)
+        if values["quantityMillis"] <= 0:
+            errors.append(f"La línea {detail.get('sequence')} tiene cantidad inválida")
+        subtotal += values["taxable"]
+        vat += values["vat"]
+        total += values["total"]
+        line_payloads.append((detail, values))
+    if total != int(order.get("totalCents") or 0):
+        errors.append("La suma de líneas no coincide con el total confirmado de la orden")
+    errors.extend(fiscal_payload_validation(document_type, issuer_snapshot, receiver_snapshot,
+                                            establishment_snapshot, line_payloads, total))
+    order_snapshot = {
+        "id": order["id"], "number": order["number"], "date": order["date"],
+        "seller": order["seller"], "documentType": order["documentType"],
+        "totalCents": order["totalCents"], "commercialApprovalStatus": order["commercialApprovalStatus"],
+        "financeApprovalStatus": order["financeApprovalStatus"], "details": order["details"],
+    }
+    schema_row = conn.execute("SELECT schema_version FROM billing_document_types WHERE code = ?", (document_type,)).fetchone()
+    if not schema_row:
+        raise ValueError("El tipo de DTE no está habilitado en el catálogo fiscal")
+    identifiers = {"environmentCode": "01" if settings and settings["environment"] == "production" else "00",
+                   "generationCode": "", "controlNumber": ""}
+    if not errors:
+        identifiers = allocate_fiscal_identifiers(conn, document_type, settings, establishment_snapshot)
+        errors.extend(identifiers["errors"])
+    payload = build_fiscal_payload(document_type, schema_row["schema_version"], identifiers,
+                                   issuer_snapshot, receiver_snapshot, establishment_snapshot,
+                                   now_local.date().isoformat(), now_local.strftime("%H:%M:%S"),
+                                   line_payloads, subtotal, vat, total, condition_operation, payment_code)
+    if not errors:
+        errors.extend(fiscal_payload_profile_errors(payload))
+    status = "LOCAL_VALIDATION_FAILED" if errors else "DRAFT"
+    payload_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    validation_json = json.dumps({"valid": not errors, "errors": errors}, ensure_ascii=False)
+    conn.execute("""INSERT INTO billing_documents
+        (id, idempotency_key, source_type, source_id, source_number, document_type,
+         schema_version, status, environment, emission_date, emission_time,
+         issuer_snapshot_json, receiver_snapshot_json, source_snapshot_json,
+         validation_json, unsigned_payload_json, taxable_cents, vat_cents, total_operation_cents,
+         total_payable_cents, generation_code, control_number,
+         created_by_id, created_by_name, created_at, updated_at)
+        VALUES (?, ?, 'ORDER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (document_id, idempotency_key, order_id, text(order.get("number")), document_type,
+         schema_row["schema_version"], status, settings["environment"] if settings else "development",
+         now_local.date().isoformat(), now_local.strftime("%H:%M:%S"),
+         json.dumps(issuer_snapshot, ensure_ascii=False), json.dumps(receiver_snapshot, ensure_ascii=False),
+         json.dumps(order_snapshot, ensure_ascii=False),
+         validation_json, payload_json, subtotal, vat, total, total,
+         identifiers["generationCode"] or None, identifiers["controlNumber"] or None,
+         actor["id"], actor["name"], now, now))
+    for detail, values in line_payloads:
+        conn.execute("""INSERT INTO billing_document_lines
+            (id, document_id, source_line_id, sequence, description, quantity_millis,
+             unit_price_cents, discount_cents, taxable_cents, exempt_cents, non_subject_cents,
+             vat_cents, total_cents, tax_codes_json, source_snapshot_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 0, 0, ?, ?, ?, ?)""",
+            (f"dtel-{uuid.uuid4()}", document_id, detail["id"], int(detail.get("sequence") or 0),
+             text(detail.get("product"), "Sin descripción"), values["quantityMillis"],
+             int(detail.get("unitPriceCents") or 0), values["taxable"], values["vat"], values["total"],
+             json.dumps(["20"] if values["vat"] else []),
+             json.dumps(detail, ensure_ascii=False)))
+    if vat:
+        conn.execute("""INSERT INTO billing_document_taxes
+            (id, document_id, code, description, amount_cents)
+            VALUES (?, ?, '20', 'Impuesto al Valor Agregado 13%', ?)""",
+            (f"dtet-{uuid.uuid4()}", document_id, vat))
+    conn.execute("""INSERT INTO billing_document_payments
+        (id, document_id, sequence, payment_code, amount_cents)
+        VALUES (?, ?, 1, ?, ?)""", (f"dtep-{uuid.uuid4()}", document_id, text(payment_code, "01"), total))
+    conn.execute("""INSERT INTO billing_schema_validations
+        (id, document_id, document_type, schema_version, valid, errors_json,
+         payload_sha256, validated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (f"dtev-{uuid.uuid4()}", document_id, document_type, schema_row["schema_version"],
+         0 if errors else 1, json.dumps(errors, ensure_ascii=False),
+         hashlib.sha256(payload_json.encode("utf-8")).hexdigest(), now))
+    conn.execute("""INSERT INTO billing_audit
+        (document_id, source_type, source_id, action, actor_id, actor_name, detail_json, created_at)
+        VALUES (?, 'ORDER', ?, 'DRAFT_CREATED', ?, ?, ?, ?)""",
+        (document_id, order_id, actor["id"], actor["name"],
+         json.dumps({"documentType": document_type, "validationErrors": errors}, ensure_ascii=False), now))
+    return fiscal_document_payload(conn, document_id), True
+
+
+def fiscal_document_payload(conn, document_id):
+    row = conn.execute("SELECT * FROM billing_documents WHERE id = ?", (document_id,)).fetchone()
+    if not row:
+        return None
+    lines = conn.execute("SELECT * FROM billing_document_lines WHERE document_id = ? ORDER BY sequence, id", (document_id,)).fetchall()
+    test_runs = conn.execute("""SELECT id, test_type, outcome, payload_sha256, result_json,
+        created_by_name, created_at FROM billing_test_runs
+        WHERE document_id = ? ORDER BY created_at DESC""", (document_id,)).fetchall()
+    return {
+        "id": row["id"], "orderId": row["source_id"], "sourceType": row["source_type"],
+        "documentType": row["document_type"], "status": row["status"],
+        "fiscalDate": row["emission_date"], "fiscalTime": row["emission_time"],
+        "issuerSnapshot": json.loads(row["issuer_snapshot_json"]),
+        "customerSnapshot": json.loads(row["receiver_snapshot_json"]),
+        "orderSnapshot": json.loads(row["source_snapshot_json"]),
+        "validation": json.loads(row["validation_json"]),
+        "schemaVersion": row["schema_version"],
+        "unsignedPayload": json.loads(row["unsigned_payload_json"] or "{}"),
+        "subtotalCents": row["taxable_cents"], "vatCents": row["vat_cents"],
+        "totalCents": row["total_payable_cents"], "generationCode": row["generation_code"] or "",
+        "controlNumber": row["control_number"] or "", "mhSeal": row["mh_reception_seal"] or "",
+        "createdBy": row["created_by_name"], "createdAt": row["created_at"],
+        "testRuns": [{"id": run["id"], "testType": run["test_type"],
+                      "outcome": run["outcome"], "payloadSha256": run["payload_sha256"],
+                      "result": json.loads(run["result_json"] or "{}"),
+                      "createdBy": run["created_by_name"], "createdAt": run["created_at"]}
+                     for run in test_runs],
+        "lines": [{"id": line["id"], "sequence": line["sequence"], "description": line["description"],
+                   "quantity": float(Decimal(line["quantity_millis"]) / 1000),
+                   "unitPriceCents": line["unit_price_cents"], "taxableCents": line["taxable_cents"],
+                   "vatCents": line["vat_cents"], "totalCents": line["total_cents"]} for line in lines],
+    }
+
+
+def fiscal_test_integration_status(settings=None):
+    """Report test readiness without returning credentials or secret values."""
+    mode = text(os.environ.get("KMI_DTE_TRANSPORT_MODE"), "disabled").lower()
+    allowed_modes = {"disabled", "mock", "mh-test"}
+    auth_url = text(os.environ.get("MH_DTE_TEST_AUTH_URL"))
+    reception_url = text(os.environ.get("MH_DTE_TEST_RECEPTION_URL"))
+    test_user = text(os.environ.get("MH_DTE_TEST_USER"))
+    test_password = text(os.environ.get("MH_DTE_TEST_PASSWORD"))
+    signer_url = text(os.environ.get("MH_DTE_TEST_SIGNER_URL"))
+    certificate_path = text(os.environ.get("MH_DTE_TEST_CERT_PATH"))
+    certificate_password = text(os.environ.get("MH_DTE_TEST_CERT_PASSWORD"))
+    certificate_ready = bool(certificate_path and certificate_password and Path(certificate_path).is_file())
+    signer_ready = bool(signer_url or certificate_ready)
+    missing = []
+    if not auth_url: missing.append("URL de autenticación de pruebas")
+    if not reception_url: missing.append("URL de recepción de pruebas")
+    if not test_user: missing.append("usuario/NIT de pruebas")
+    if not test_password: missing.append("contraseña de API de pruebas")
+    if not signer_ready: missing.append("firmador de pruebas o certificado local")
+    database_environment = text(settings["environment"], "development") if settings else "development"
+    production_locked = database_environment != "production" and mode != "production"
+    return {
+        "mode": mode if mode in allowed_modes else "invalid",
+        "localSimulationAvailable": production_locked,
+        "testConnectionReady": production_locked and mode == "mh-test" and not missing,
+        "productionLocked": production_locked,
+        "credentialsStoredInDatabase": False,
+        "signer": "service" if signer_url else ("certificate" if certificate_ready else "not-configured"),
+        "missing": missing,
+    }
+
+
+def simulate_fiscal_test_flow(conn, document_id, idempotency_key, actor):
+    """Exercise the local DTE pipeline without signing or contacting MH."""
+    existing = conn.execute("SELECT * FROM billing_test_runs WHERE idempotency_key = ?", (idempotency_key,)).fetchone()
+    if existing:
+        return {"id": existing["id"], "outcome": existing["outcome"],
+                "result": json.loads(existing["result_json"] or "{}"), "created": False}
+    row = conn.execute("SELECT * FROM billing_documents WHERE id = ?", (document_id,)).fetchone()
+    if not row:
+        raise ValueError("Documento fiscal no encontrado")
+    if row["environment"] == "production":
+        raise ValueError("La simulación está bloqueada para documentos de producción")
+    if row["status"] != "DRAFT":
+        raise ValueError("Solo puede simularse un borrador local válido")
+    payload = json.loads(row["unsigned_payload_json"] or "{}")
+    if payload.get("identificacion", {}).get("ambiente") != "00":
+        raise ValueError("La simulación exige ambiente 00")
+    errors = fiscal_payload_profile_errors(payload)
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    payload_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    result = {
+        "simulationOnly": True,
+        "contactedHacienda": False,
+        "signed": False,
+        "acceptedByHacienda": False,
+        "payloadValid": not errors,
+        "validationErrors": errors,
+        "message": "Recorrido local aprobado; no se firmó ni transmitió el DTE" if not errors else "La validación local encontró errores",
+    }
+    outcome = "PASSED" if not errors else "FAILED"
+    run_id, now = f"dte-test-{uuid.uuid4()}", utc_now_iso()
+    conn.execute("""INSERT INTO billing_test_runs
+        (id, document_id, idempotency_key, test_type, outcome, payload_sha256,
+         result_json, created_by_id, created_by_name, created_at)
+        VALUES (?, ?, ?, 'LOCAL_FLOW', ?, ?, ?, ?, ?, ?)""",
+        (run_id, document_id, idempotency_key, outcome, payload_hash,
+         json.dumps(result, ensure_ascii=False), actor["id"], actor["name"], now))
+    conn.execute("""INSERT INTO billing_audit
+        (document_id, source_type, source_id, action, actor_id, actor_name, detail_json, created_at)
+        VALUES (?, 'DOCUMENT', ?, 'LOCAL_FLOW_SIMULATED', ?, ?, ?, ?)""",
+        (document_id, document_id, actor["id"], actor["name"],
+         json.dumps({"testRunId": run_id, "outcome": outcome, "payloadSha256": payload_hash}, ensure_ascii=False), now))
+    return {"id": run_id, "outcome": outcome, "result": result, "created": True}
 
 
 def financial_statement_source():
@@ -8947,6 +9716,34 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
         self.send_json({"error": "Tu usuario no tiene permiso para consultar Disponibilidad"}, status=403)
         return False
 
+    def require_fiscal_session(self, permission):
+        """Fiscal routes never trust the legacy X-System-User-Id header."""
+        authorization = text(self.headers.get("Authorization"))
+        token = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
+        if not token:
+            self.send_json({"error": "La sesión verificada es obligatoria para Facturación electrónica"}, status=401)
+            return None
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        now = utc_now_iso()
+        with connect() as conn:
+            row = conn.execute("""
+                SELECT users.id, users.name, users.username, users.email, users.phone, users.role,
+                       users.password, users.permissions, users.permissions_customized, users.admin
+                FROM auth_sessions
+                JOIN users ON users.id = auth_sessions.user_id
+                WHERE auth_sessions.token_hash = ? AND auth_sessions.revoked_at IS NULL
+                  AND auth_sessions.expires_at > ? LIMIT 1
+            """, (token_hash, now)).fetchone()
+        if not row:
+            self.send_json({"error": "La sesión fiscal venció o no es válida"}, status=401)
+            return None
+        actor = user_payload(row)
+        stored_permissions = normalize_permissions(row["permissions"], row["role"])
+        if is_fiscal_owner_user(actor) or permission in stored_permissions:
+            return actor
+        self.send_json({"error": "Tu usuario no tiene el permiso fiscal requerido"}, status=403)
+        return None
+
     def require_any_permission(self, *permissions):
         if TRAINING_MODE and all(permission.startswith("financiera:") for permission in permissions):
             self.send_json({"error": "Financiera no está disponible en capacitación"}, status=403)
@@ -9048,6 +9845,54 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             return
         if self.path == "/api/health":
             self.send_json({"ok": True, "version": API_VERSION, "training": TRAINING_MODE})
+            return
+
+        path = urlparse(self.path).path
+        if path == "/api/fiscal/config":
+            actor = self.require_fiscal_session("financiera:facturacion-electronica-consultar")
+            if not actor: return
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM billing_settings WHERE id = 1").fetchone()
+                profiles = [dict(profile) for profile in conn.execute("""
+                    SELECT document_type, schema_version, profile_name, source_url,
+                           official_schema_embedded, active
+                    FROM billing_validation_profiles ORDER BY document_type
+                """).fetchall()]
+            issuer = json.loads(row["issuer_snapshot_json"] or "{}")
+            establishment = json.loads(row["establishment_snapshot_json"] or "{}")
+            self.send_json({
+                "environment": row["environment"], "transmissionEnabled": bool(row["transmission_enabled"]),
+                "allowPartialInvoicing": bool(row["allow_partial_invoicing"]),
+                "emitterConfigured": issuer != {}, "emitterName": text(issuer.get("nombre")),
+                "establishmentConfigured": establishment != {}, "establishment": establishment,
+                "officialSchemaImplemented": bool(profiles) and all(bool(profile["official_schema_embedded"]) for profile in profiles),
+                "validationProfiles": profiles,
+                "integration": fiscal_test_integration_status(row),
+            })
+            return
+        if path == "/api/fiscal/orders":
+            actor = self.require_fiscal_session("financiera:facturacion-electronica-consultar")
+            if not actor: return
+            with connect() as conn:
+                items = fiscal_order_rows(conn)
+            self.send_json({"items": items, "count": len(items)})
+            return
+        if path == "/api/fiscal/documents":
+            actor = self.require_fiscal_session("financiera:facturacion-electronica-consultar")
+            if not actor: return
+            with connect() as conn:
+                ids = [row["id"] for row in conn.execute("SELECT id FROM billing_documents ORDER BY created_at DESC").fetchall()]
+                items = [fiscal_document_payload(conn, item_id) for item_id in ids]
+            self.send_json({"items": items, "count": len(items)})
+            return
+        if path.startswith("/api/fiscal/documents/"):
+            actor = self.require_fiscal_session("financiera:facturacion-electronica-consultar")
+            if not actor: return
+            document_id = unquote(path.rsplit("/", 1)[-1])
+            with connect() as conn:
+                item = fiscal_document_payload(conn, document_id)
+            if not item: self.send_json({"error": "Documento fiscal no encontrado"}, status=404); return
+            self.send_json(item)
             return
 
         if self.path.startswith("/api/crm/"):
@@ -9535,6 +10380,133 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
         self.send_error(404)
 
     def handle_api_post(self):
+        if self.path == "/api/auth/session":
+            data = self.read_json()
+            credential = text(data.get("credential")).lower()
+            password = str(data.get("password") or "")
+            with connect() as conn:
+                row = conn.execute("""
+                    SELECT id, name, username, email, phone, role, password, permissions,
+                           permissions_customized, admin FROM users
+                    WHERE lower(username) = ? OR lower(email) = ? LIMIT 1
+                """, (credential, credential)).fetchone()
+                if not row or not hmac.compare_digest(str(row["password"] or ""), password):
+                    self.send_json({"error": "Usuario o contraseña incorrecta"}, status=401); return
+                token = secrets.token_urlsafe(48)
+                now = datetime.utcnow()
+                expires = now + timedelta(hours=8)
+                conn.execute("DELETE FROM auth_sessions WHERE expires_at <= ? OR revoked_at IS NOT NULL", (utc_now_iso(),))
+                conn.execute("""INSERT INTO auth_sessions
+                    (id, token_hash, user_id, created_at, expires_at, user_agent)
+                    VALUES (?, ?, ?, ?, ?, ?)""",
+                    (f"session-{uuid.uuid4()}", hashlib.sha256(token.encode("utf-8")).hexdigest(), row["id"],
+                     now.isoformat(timespec="seconds") + "Z", expires.isoformat(timespec="seconds") + "Z",
+                     text(self.headers.get("User-Agent"))))
+                user = user_payload(row)
+            self.send_json({"token": token, "expiresAt": expires.isoformat(timespec="seconds") + "Z", "user": user}, status=201)
+            return
+
+        path = urlparse(self.path).path
+        if path == "/api/fiscal/config":
+            actor = self.require_fiscal_session("financiera:facturacion-electronica-preparar")
+            if not actor: return
+            data = self.read_json()
+            establishment, errors = normalize_establishment_config(data.get("establishment") or {})
+            if errors:
+                self.send_json({"error": "Configuración fiscal inválida", "details": errors}, status=400); return
+            with connect() as conn:
+                conn.execute("""UPDATE billing_settings
+                    SET establishment_snapshot_json=?, updated_by_id=?, updated_by_name=?, updated_at=?
+                    WHERE id=1""",
+                    (json.dumps(establishment, ensure_ascii=False), actor["id"], actor["name"], utc_now_iso()))
+                conn.execute("""INSERT INTO billing_audit
+                    (source_type, source_id, action, actor_id, actor_name, detail_json, created_at)
+                    VALUES ('CONFIG', 'ESTABLISHMENT', 'CONFIG_UPDATED', ?, ?, ?, ?)""",
+                    (actor["id"], actor["name"], json.dumps(establishment, ensure_ascii=False), utc_now_iso()))
+            self.send_json({"ok": True, "establishment": establishment})
+            return
+        if path.startswith("/api/fiscal/orders/") and path.endswith("/reconciliation"):
+            actor = self.require_fiscal_session("financiera:facturacion-electronica-conciliar")
+            if not actor: return
+            order_id = unquote(path[len("/api/fiscal/orders/"):-len("/reconciliation")].strip("/"))
+            data = self.read_json(); status_value = text(data.get("status")).upper()
+            if status_value not in {"PENDING_RECONCILIATION", "CONFIRMED_UNBILLED", "EXTERNAL_BILLED"}:
+                self.send_json({"error": "Estado de conciliación no válido"}, status=400); return
+            external_number = text(data.get("externalDocumentNumber"))
+            if status_value == "EXTERNAL_BILLED" and not external_number:
+                self.send_json({"error": "Indica el número del documento emitido externamente"}, status=400); return
+            with connect() as conn:
+                if not conn.execute("SELECT id FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone():
+                    self.send_json({"error": "Orden no encontrada"}, status=404); return
+                order_row = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (order_id,)).fetchone()
+                source_snapshot = json.dumps({
+                    "id": order_row["id"], "number": order_row["order_number"],
+                    "date": order_row["order_date"], "client": order_row["client"],
+                    "seller": order_row["seller"], "documentType": order_row["document_type"],
+                    "totalCents": order_row["total_cents"],
+                }, ensure_ascii=False)
+                conn.execute("""INSERT INTO billing_source_reviews
+                    (source_type, source_id, source_number, status, external_document_type,
+                     external_document_number, notes, source_snapshot_json, reviewed_by_id,
+                     reviewed_by_name, reviewed_at, updated_at)
+                    VALUES ('ORDER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(source_type, source_id) DO UPDATE SET status=excluded.status,
+                      source_number=excluded.source_number,
+                      external_document_type=excluded.external_document_type,
+                      external_document_number=excluded.external_document_number, notes=excluded.notes,
+                      source_snapshot_json=excluded.source_snapshot_json,
+                      reviewed_by_id=excluded.reviewed_by_id,
+                      reviewed_by_name=excluded.reviewed_by_name, reviewed_at=excluded.reviewed_at,
+                      updated_at=excluded.updated_at""",
+                    (order_id, order_row["order_number"], status_value,
+                     text(data.get("externalDocumentType")), external_number,
+                     text(data.get("notes")), source_snapshot, actor["id"], actor["name"],
+                     utc_now_iso(), utc_now_iso()))
+                row = conn.execute("SELECT * FROM billing_source_reviews WHERE source_type = 'ORDER' AND source_id = ?", (order_id,)).fetchone()
+                conn.execute("""INSERT INTO billing_audit
+                    (source_type, source_id, action, actor_id, actor_name, detail_json, created_at)
+                    VALUES ('ORDER', ?, 'ORDER_RECONCILED', ?, ?, ?, ?)""",
+                    (order_id, actor["id"], actor["name"], json.dumps(fiscal_reconciliation_payload(row), ensure_ascii=False), utc_now_iso()))
+            self.send_json(fiscal_reconciliation_payload(row))
+            return
+        if path == "/api/fiscal/drafts":
+            actor = self.require_fiscal_session("financiera:facturacion-electronica-preparar")
+            if not actor: return
+            data = self.read_json(); idempotency_key = text(self.headers.get("Idempotency-Key") or data.get("idempotencyKey"))
+            if not idempotency_key or len(idempotency_key) > 160:
+                self.send_json({"error": "Idempotency-Key es obligatorio"}, status=400); return
+            try:
+                with connect() as conn:
+                    item, created = create_fiscal_draft(
+                        conn, text(data.get("orderId")), text(data.get("documentType")),
+                        idempotency_key, actor, int(data.get("conditionOperation") or 1),
+                        text(data.get("paymentCode"), "01")
+                    )
+                self.send_json(item, status=201 if created else 200)
+            except (ValueError, sqlite3.IntegrityError) as error:
+                self.send_json({"error": str(error)}, status=409)
+            return
+        if path.startswith("/api/fiscal/documents/") and path.endswith("/simulate"):
+            actor = self.require_fiscal_session("financiera:facturacion-electronica-autorizar")
+            if not actor: return
+            document_id = unquote(path[len("/api/fiscal/documents/"):-len("/simulate")].strip("/"))
+            data = self.read_json()
+            idempotency_key = text(self.headers.get("Idempotency-Key") or data.get("idempotencyKey"))
+            if not idempotency_key or len(idempotency_key) > 160:
+                self.send_json({"error": "Idempotency-Key es obligatorio"}, status=400); return
+            try:
+                with connect() as conn:
+                    result = simulate_fiscal_test_flow(conn, document_id, idempotency_key, actor)
+                self.send_json(result, status=201 if result["created"] else 200)
+            except (ValueError, sqlite3.IntegrityError) as error:
+                self.send_json({"error": str(error)}, status=409)
+            return
+        if path.startswith("/api/fiscal/") and path.endswith("/transmit"):
+            actor = self.require_fiscal_session("financiera:facturacion-electronica-autorizar")
+            if not actor: return
+            self.send_json({"error": "La transmisión real a MH está desactivada en desarrollo"}, status=503)
+            return
+
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
             return
@@ -10382,7 +11354,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         merged = dict(item)
                         merged["password"] = saved_passwords.get(str(item.get("id") or ""), "admin123")
                         users.append(upsert_user(conn, merged))
-                self.send_json(users)
+                self.send_json([{key: value for key, value in user.items() if key != "password"} for user in users])
                 return
 
             required = ["id", "name", "username", "email", "role", "password"]
@@ -10395,7 +11367,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             except sqlite3.IntegrityError:
                 self.send_json({"error": "Usuario existente"}, status=409)
                 return
-            self.send_json({"ok": True, "user": user}, status=201)
+            self.send_json({"ok": True, "user": {key: value for key, value in user.items() if key != "password"}}, status=201)
             return
 
         self.send_error(404)

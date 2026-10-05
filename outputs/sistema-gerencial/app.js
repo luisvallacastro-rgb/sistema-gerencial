@@ -70,6 +70,7 @@ const areas = {
       { key: "disponibilidad", label: "Disponibilidad", status: "Saldos bancarios consolidados", items: [] },
       { key: "ingresos", label: "Ingresos", status: "Remesas provisionadas", items: [] },
       { key: "inventario", label: "Inventario", status: "Kardex a costo promedio", items: [] },
+      { key: "facturacion-electronica", label: "Facturación electrónica", status: "Preparación y control de DTE", items: [] },
       { key: "estados-financieros", label: "Estados financieros", status: "Balance y estado de resultados", items: [] },
       { key: "resultados-cuentas-por-cobrar", label: "Cuentas por cobrar", status: "Cartera, saldos y antigüedad", items: [] },
       { key: "resultados-ordenes-de-pedido", label: "Órdenes de Pedido", status: "Control de producción y entregas", items: [] },
@@ -321,6 +322,13 @@ const state = {
   inventoryLoaded: false,
   inventoryLoading: false,
   inventoryQuery: "",
+  fiscalOrders: [],
+  fiscalConfig: null,
+  fiscalLoaded: false,
+  fiscalLoading: false,
+  fiscalError: "",
+  fiscalQuery: "",
+  fiscalDocumentCache: new Map(),
   financialStatements: { rows: [], totals: {}, availablePeriods: [], availableYears: [], monthsByYear: {} },
   financialStatementsLoaded: false,
   financialStatementsLoading: false,
@@ -817,6 +825,7 @@ const historicalClosedSales = (window.historicalClosedSalesCsv || "")
 const opportunitiesStorageKey = "sistemaGerencial.oportunidades.v6";
 const usersStorageKey = "sistemaGerencial.usuarios.v2";
 const sessionStorageKey = "sistemaGerencial.sesion.v1";
+const authSessionStorageKey = "sistemaGerencial.authSession.v1";
 const adminValidationSessionKey = "sistemaGerencial.validacionUsuario.v1";
 const navigationSessionKey = "sistemaGerencial.navigation.v1";
 const minutesStorageKey = "sistemaGerencial.actas.v1";
@@ -886,6 +895,7 @@ async function apiJson(path, options = {}) {
     headers: {
       "Content-Type": "application/json",
       "X-System-User-Id": state.currentUser?.id || "",
+      ...(sessionStorage.getItem(authSessionStorageKey) ? { "Authorization": `Bearer ${sessionStorage.getItem(authSessionStorageKey)}` } : {}),
       ...optionHeaders
     }
   });
@@ -1193,7 +1203,17 @@ function allPermissionKeys() {
       .map((section) => permissionKey(areaKey, section.key))),
     ...adminManagementPermissionSections.map((section) => permissionKey(adminAreaKey, section.key)),
     ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key)),
-    ...adminMinutePermissionSections.map((section) => permissionKey(adminAreaKey, section.key))
+    ...adminMinutePermissionSections.map((section) => permissionKey(adminAreaKey, section.key)),
+    ...["consultar","preparar","conciliar","autorizar","eventos","configurar"]
+      .map((action) => permissionKey("financiera", `facturacion-electronica-${action}`))
+  ];
+}
+
+function fiscalAccessPermissionKeys() {
+  return [
+    permissionKey("financiera", "facturacion-electronica"),
+    ...["consultar","preparar","conciliar","autorizar","eventos","configurar"]
+      .map((action) => permissionKey("financiera", `facturacion-electronica-${action}`))
   ];
 }
 
@@ -1223,7 +1243,7 @@ function defaultPermissionsForRole(role) {
     ];
   }
   return role === "gerencias"
-    ? allPermissionKeys()
+    ? allPermissionKeys().filter((permission) => !fiscalAccessPermissionKeys().includes(permission))
     : [...operationalPermissionKeys(), ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))];
 }
 
@@ -1260,11 +1280,24 @@ function normalizePermissionList(value, role) {
     ...(legacyRequests ? [permissionKey(adminAreaKey, "solicitudes")] : [])
   ];
   const next = migrated.filter((item) => valid.has(item));
+  if (next.includes(permissionKey("financiera", "facturacion-electronica"))) {
+    fiscalAccessPermissionKeys().forEach((permission) => {
+      if (!next.includes(permission)) next.push(permission);
+    });
+  }
   return [...new Set(next)];
 }
 
 function isAdminUser(user = state.currentUser) {
   return Boolean(user?.admin) || normalizeKey(user?.email) === adminEmail;
+}
+
+function isFiscalOwnerUser(user = state.currentUser) {
+  const identity = normalizeKey([user?.id, user?.name, user?.username, user?.email].filter(Boolean).join(" "))
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return normalizeKey(user?.email) === adminEmail
+    || normalizeKey(user?.username) === "luisvallacastro"
+    || (identity.includes("luis") && identity.includes("valladares"));
 }
 
 function adminValidationSession() {
@@ -1333,7 +1366,7 @@ function canViewAdminMinuteHistory(user = state.currentUser) {
 
 function userPermissions(user = state.currentUser) {
   if (!user) return new Set();
-  const permissions = isAdminUser(user)
+  const permissions = isFiscalOwnerUser(user)
     ? allPermissionKeys()
     : normalizePermissionList(user.permissions, user.role);
   return new Set(trainingMode
@@ -14561,6 +14594,233 @@ function wireFinancialInventory() {
   opportunityTable.querySelectorAll("[data-inventory-archive]").forEach((button) => button.addEventListener("click", async () => { const item=state.inventoryItems.find((row)=>String(row.id)===button.dataset.inventoryArchive); if(!item||!confirm(`¿Archivar ${item.code}? El historial se conservará.`))return; try{await apiJson(`/api/inventory-items/${item.id}`,{method:"DELETE"});state.inventoryLoaded=false;await loadInventoryItems();}catch(error){alert(error.message||"No se pudo archivar el ítem.");} }));
 }
 
+function fiscalStatusLabel(value) {
+  return ({PENDING_RECONCILIATION:"Pendiente de revisión",CONFIRMED_UNBILLED:"Lista para preparar DTE",EXTERNAL_BILLED:"Registrada como facturada",DRAFT:"Borrador de prueba · no enviado",LOCAL_VALIDATION_FAILED:"Requiere correcciones · no enviado",LOCALLY_VALIDATED:"Validado en prueba · no enviado",SIGNING:"En proceso de firma",SIGNED:"Firmado · pendiente de envío",SENDING:"Enviando a Hacienda",ACCEPTED:"Aceptado por Hacienda",REJECTED:"Rechazado por Hacienda"})[value] || value || "Pendiente";
+}
+
+function fiscalDocumentTypeName(value) {
+  return value === "03" ? "COMPROBANTE DE CRÉDITO FISCAL" : "FACTURA DE CONSUMIDOR FINAL";
+}
+
+const fiscalDocumentRequests = new Map();
+
+function loadFiscalDocument(documentId, { force = false } = {}) {
+  if (!force && state.fiscalDocumentCache.has(documentId)) {
+    return Promise.resolve(state.fiscalDocumentCache.get(documentId));
+  }
+  if (!force && fiscalDocumentRequests.has(documentId)) {
+    return fiscalDocumentRequests.get(documentId);
+  }
+  const request = apiJson(`/api/fiscal/documents/${encodeURIComponent(documentId)}`)
+    .then((documentData) => {
+      state.fiscalDocumentCache.set(documentId, documentData);
+      return documentData;
+    })
+    .finally(() => fiscalDocumentRequests.delete(documentId));
+  fiscalDocumentRequests.set(documentId, request);
+  return request;
+}
+
+function prefetchFiscalDocument(documentId) {
+  if (!documentId || state.fiscalDocumentCache.has(documentId) || fiscalDocumentRequests.has(documentId)) return;
+  loadFiscalDocument(documentId).catch(() => {});
+}
+
+function downloadFiscalTestJson(documentData) {
+  const payload = documentData?.unsignedPayload || {};
+  const control = String(documentData?.controlNumber || documentData?.id || "dte-prueba").replace(/[^a-z0-9_-]+/gi, "-");
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${control}-BORRADOR-NO-TRANSMITIDO.json`;
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+async function openFiscalDocumentPreview(documentId) {
+  const previewDialog = document.createElement("dialog");
+  previewDialog.className = "fiscal-preview-dialog";
+  previewDialog.innerHTML = `<section><header><div><small>REPRESENTACIÓN LOCAL DE PRUEBA</small><h2>Vista previa del DTE</h2></div><div><button type="button" data-fiscal-preview-download disabled>Descargar JSON</button><button type="button" data-fiscal-preview-print disabled>Imprimir / Guardar PDF</button><button type="button" data-fiscal-preview-close aria-label="Cerrar">×</button></div></header><iframe title="Vista previa del documento tributario electrónico"></iframe></section>`;
+  document.body.append(previewDialog);
+  const previewFrame = previewDialog.querySelector("iframe");
+  const preview = previewFrame.contentWindow;
+  const closePreview = () => previewDialog.close();
+  previewDialog.querySelector("[data-fiscal-preview-close]").addEventListener("click", closePreview);
+  previewDialog.querySelector("[data-fiscal-preview-print]").addEventListener("click", () => previewFrame.contentWindow?.print());
+  let loadedDocument = null;
+  previewDialog.querySelector("[data-fiscal-preview-download]").addEventListener("click", () => loadedDocument && downloadFiscalTestJson(loadedDocument));
+  previewDialog.addEventListener("close", () => previewDialog.remove(), { once:true });
+  previewDialog.showModal();
+  preview.document.write("<!doctype html><html lang=\"es\"><head><title>Cargando representación DTE</title></head><body style=\"font-family:Arial;padding:32px\">Preparando vista previa de prueba…</body></html>");
+  try {
+    const documentData = await loadFiscalDocument(documentId);
+    loadedDocument = documentData;
+    const payload = documentData.unsignedPayload || {};
+    const identification = payload.identificacion || {};
+    const issuer = documentData.issuerSnapshot || {};
+    const receiver = documentData.customerSnapshot || {};
+    const summary = payload.resumen || {};
+    const issuerAddress = issuer.direccion || {};
+    const receiverAddress = receiver.direccion || {};
+    const accepted = documentData.status === "ACCEPTED" && Boolean(documentData.mhSeal);
+    const value = (input) => escapeHtml(input ?? "");
+    const money = (cents) => formatMoney(Number(cents || 0) / 100);
+    const addressText = (address) => [address.complemento, address.municipio, address.departamento].filter(Boolean).join(" · ");
+    const condition = ({1:"Contado",2:"Crédito",3:"Otro"})[Number(summary.condicionOperacion)] || "No definida";
+    const rows = (documentData.lines || []).map((line, index) => `<tr><td>${index + 1}</td><td class="number">${value(Number(line.quantity || 0).toLocaleString("es-SV", {maximumFractionDigits:4}))}</td><td>${value(line.description || "")}</td><td class="money">${money(line.unitPriceCents)}</td><td class="money">$0.00</td><td class="money">$0.00</td><td class="money">${money(line.taxableCents)}</td></tr>`).join("");
+    const statusCopy = accepted ? "ACEPTADO POR HACIENDA" : "BORRADOR LOCAL · NO TRANSMITIDO";
+    const statusDetail = accepted ? `Sello de recepción: ${value(documentData.mhSeal)}` : "Sin firma electrónica, sin sello de recepción y sin validez fiscal";
+    const controlNumber = documentData.controlNumber || "Pendiente de configuración";
+    const generationCode = documentData.generationCode || "Pendiente de validación";
+    const validationErrors = documentData.validation?.valid ? "" : `<section class="validation"><strong>Validación pendiente</strong><ul>${(documentData.validation?.errors || []).map((error) => `<li>${value(error)}</li>`).join("")}</ul></section>`;
+    preview.document.open();
+    preview.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${value(fiscalDocumentTypeName(documentData.documentType))} · ${value(controlNumber)}</title><style>
+      @page{size:Letter;margin:9mm}*{box-sizing:border-box}html{background:#e8edf3}body{margin:0;color:#111827;font:11px Arial,Helvetica,sans-serif}.sheet{position:relative;width:216mm;min-height:279mm;margin:12px auto;background:#fff;padding:9mm;box-shadow:0 12px 35px #15233d33}.watermark{position:absolute;inset:47% auto auto 50%;transform:translate(-50%,-50%) rotate(-24deg);font-size:34px;font-weight:900;letter-spacing:.08em;color:#be123c17;white-space:nowrap;pointer-events:none}.top{display:grid;grid-template-columns:1fr 1.2fr;gap:9mm;align-items:start}.brand img{width:67mm;max-height:24mm;object-fit:contain;object-position:left center}.brand h2{margin:5mm 0 1mm;font-size:17px}.brand p{margin:1mm 0;line-height:1.3}.identity{border:2px solid #111}.identity h1{margin:0;padding:3mm;background:#50b5df;text-align:center;font-size:17px}.identity dl{display:grid;grid-template-columns:38mm 1fr;gap:1.5mm 2mm;margin:0;padding:3mm}.identity dt{font-weight:700}.identity dd{margin:0;overflow-wrap:anywhere}.status{margin:5mm 0 3mm;padding:2.5mm 4mm;border:2px solid ${accepted ? "#15803d" : "#be123c"};color:${accepted ? "#166534" : "#9f1239"};text-align:center}.status strong{display:block;font-size:15px}.status span{display:block;margin-top:1mm}.party{border-top:3px solid #f59e0b;padding:3mm 0 4mm}.party h3{margin:0 0 2mm;font-size:12px}.party-grid{display:grid;grid-template-columns:1fr 1fr;gap:1mm 7mm}.party p{margin:0;line-height:1.4}.detail{width:100%;border-collapse:collapse;table-layout:fixed}.detail th,.detail td{border:1px solid #111;padding:2mm;vertical-align:top}.detail th{background:#50b5df;text-align:center}.detail th:nth-child(1){width:8mm}.detail th:nth-child(2){width:17mm}.detail th:nth-child(4),.detail th:nth-child(5),.detail th:nth-child(6),.detail th:nth-child(7){width:22mm}.number{text-align:center}.money{text-align:right;white-space:nowrap}.bottom{display:grid;grid-template-columns:1.05fr .95fr;margin-top:0}.notes,.totals{border:1px solid #111;padding:3mm}.notes p{margin:0 0 3mm}.totals table{width:100%;border-collapse:collapse}.totals td{padding:1.3mm 1mm;border-bottom:1px solid #d1d5db}.totals td:last-child{text-align:right;font-weight:700}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:8mm;border:1px solid #111;border-top:0;padding:4mm;min-height:27mm}.signature{padding-top:12mm;border-bottom:1px solid #111}.validation{margin-top:4mm;padding:3mm;border:1px solid #f59e0b;background:#fffbeb;color:#92400e}.validation ul{margin:2mm 0 0;padding-left:5mm}.qr-placeholder{display:grid;place-items:center;min-height:25mm;margin-top:3mm;border:1px dashed #94a3b8;color:#64748b;text-align:center}.footer{margin-top:3mm;text-align:center;color:#64748b;font-size:9px}.actions{position:fixed;z-index:5;top:14px;right:14px;display:flex;gap:8px;padding:8px;border-radius:12px;background:#172b4d;box-shadow:0 10px 30px #0003}.actions button{border:0;border-radius:8px;padding:10px 13px;background:#15967f;color:#fff;font-weight:800;cursor:pointer}.actions button:last-child{background:#fff;color:#172b4d}@media print{html,body{background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{margin:0;width:auto;min-height:0;padding:0;box-shadow:none}.actions{display:none}.detail thead{display:table-header-group}.detail tr,.bottom,.signatures{break-inside:avoid}.watermark{position:fixed}}
+    </style></head><body><main class="sheet">${accepted ? "" : `<div class="watermark">BORRADOR · NO VÁLIDO</div>`}<section class="top"><div class="brand"><img src="${value(new URL("assets/konfi-logo.png", window.location.href).href)}" alt="KONFI"><h2>${value(issuer.nombreComercial || "ARTE Y COLOR")}</h2><p><strong>${value(issuer.nombre || "KONFI INVERSIONES S.A. DE C.V.")}</strong></p><p>Actividad: ${value(issuer.descActividad || "")}</p><p>NIT: ${value(issuer.nit || "—")} · NRC: ${value(issuer.nrc || "—")}</p><p>${value(addressText(issuerAddress))}</p><p>${value(issuer.telefono || "")} · ${value(issuer.correo || "")}</p></div><div><section class="identity"><h1>DOCUMENTO TRIBUTARIO ELECTRÓNICO<br>${value(fiscalDocumentTypeName(documentData.documentType))}</h1><dl><dt>Código de generación</dt><dd>${value(generationCode)}</dd><dt>Número de control</dt><dd>${value(controlNumber)}</dd><dt>Modelo de facturación</dt><dd>Previo</dd><dt>Fecha y hora</dt><dd>${value(documentData.fiscalDate)} ${value(documentData.fiscalTime)}</dd><dt>Tipo de transmisión</dt><dd>Normal</dd><dt>Versión JSON</dt><dd>${value(documentData.schemaVersion)}</dd></dl></section><div class="qr-placeholder">${accepted ? "Código QR de consulta MH pendiente de integrar" : "El QR se habilitará únicamente después de la aceptación de Hacienda"}</div></div></section><div class="status"><strong>${statusCopy}</strong><span>${statusDetail}</span></div><section class="party"><h3>Información del receptor</h3><div class="party-grid"><p><b>Nombre:</b> ${value(receiver.nombre || "—")}</p><p><b>NIT / documento:</b> ${value(receiver.nit || receiver.numDocumento || "—")}</p><p><b>NRC:</b> ${value(receiver.nrc || "—")}</p><p><b>Teléfono:</b> ${value(receiver.telefono || "—")}</p><p><b>Dirección:</b> ${value(addressText(receiverAddress) || "—")}</p><p><b>Correo:</b> ${value(receiver.correo || "—")}</p><p><b>Actividad:</b> ${value(receiver.descActividad || "—")}</p></div></section><table class="detail"><thead><tr><th>No.</th><th>Cant.</th><th>Descripción</th><th>Precio unitario</th><th>No sujetas</th><th>Exentas</th><th>Gravadas</th></tr></thead><tbody>${rows || `<tr><td colspan="7">Sin líneas</td></tr>`}</tbody></table><section class="bottom"><div class="notes"><p><b>Valor en letras:</b> ${value(summary.totalLetras || "")}</p><p><b>Observaciones:</b> ${value(summary.observaciones || "Sin observaciones")}</p><p><b>Condición de la operación:</b> ${value(condition)}</p></div><div class="totals"><table><tr><td>Suma de ventas</td><td>${money(documentData.subtotalCents)}</td></tr><tr><td>IVA 13%</td><td>${money(documentData.vatCents)}</td></tr><tr><td>Monto total de la operación</td><td>${money(documentData.totalCents)}</td></tr><tr><td>IVA retenido</td><td>${formatMoney(Number(summary.ivaRete || 0))}</td></tr><tr><td>Retención renta</td><td>${formatMoney(Number(summary.reteRenta || 0))}</td></tr><tr><td>Total a pagar</td><td>${money(documentData.totalCents)}</td></tr></table></div></section><section class="signatures"><div><b>Entregado por:</b><div class="signature"></div></div><div><b>Recibido por:</b><div class="signature"></div></div></section>${validationErrors}<p class="footer">Representación generada en el modo de prueba controlado de KMI. No acredita transmisión ni recepción por el Ministerio de Hacienda.</p></main></body></html>`);
+    preview.document.close();
+    previewDialog.querySelector("[data-fiscal-preview-print]").disabled = false;
+    previewDialog.querySelector("[data-fiscal-preview-download]").disabled = false;
+  } catch (error) {
+    preview.document.open();
+    preview.document.write(`<main style="font-family:Arial;padding:32px"><h1>No se pudo abrir la representación</h1><p>${escapeHtml(error.message || "Error inesperado")}</p><button onclick="window.close()">Cerrar</button></main>`);
+    preview.document.close();
+  }
+}
+
+function filteredFiscalOrders() {
+  const query = state.fiscalQuery.trim().toLocaleLowerCase("es");
+  if (!query) return state.fiscalOrders;
+  return state.fiscalOrders.filter((item) => [item.number,item.client,item.seller,item.documentType]
+    .some((value) => String(value || "").toLocaleLowerCase("es").includes(query)));
+}
+
+function renderFiscalModule() {
+  const orders = filteredFiscalOrders();
+  const pending = state.fiscalOrders.filter((item) => item.reconciliation?.status === "PENDING_RECONCILIATION").length;
+  const prepared = state.fiscalOrders.filter((item)=>(item.fiscalDocuments?.length||0)>0).length;
+  const rows = orders.map((item) => {
+    const reconciliation = item.reconciliation || {};
+    const latest = item.fiscalDocuments?.[0];
+    const rowTone = latest?.status === "ACCEPTED" ? "accepted" : reconciliation.status === "PENDING_RECONCILIATION" ? "pending" : reconciliation.status === "EXTERNAL_BILLED" ? "external" : latest ? "prepared" : "ready";
+    return `<article class="fiscal-row ${rowTone}">
+      <div><small>ORDEN DE PEDIDO</small><strong>OP-${escapeHtml(item.number || "—")}</strong><span>${formatDate(item.date)}</span></div>
+      <div><small>CLIENTE</small><strong>${escapeHtml(item.client || "Sin cliente")}</strong><span>${escapeHtml(item.seller || "")}</span></div>
+      <div><small>DOCUMENTO COMERCIAL</small><strong>${escapeHtml(item.documentType || "Por definir")}</strong><span>${item.details?.length || 0} líneas</span></div>
+      <div><small>TOTAL CONFIRMADO</small><strong>${formatMoney(Number(item.totalCents || 0)/100)}</strong></div>
+      <div><small>CONTROL FISCAL</small><b class="fiscal-status status-${escapeHtml(reconciliation.status || "PENDING_RECONCILIATION")}">${escapeHtml(fiscalStatusLabel(reconciliation.status))}</b>${latest ? `<span>${escapeHtml(fiscalStatusLabel(latest.status))}</span>${latest.testOutcome === "PASSED" ? `<span class="fiscal-test-passed">✓ Prueba controlada aprobada</span>` : latest.testOutcome === "FAILED" ? `<span class="fiscal-test-failed">Prueba controlada con errores</span>` : ""}` : ""}</div>
+      <button type="button" data-fiscal-order="${escapeHtml(item.id)}">Revisar</button>
+    </article>`;
+  }).join("");
+  const disabled = state.fiscalConfig?.transmissionEnabled !== true;
+  const integration = state.fiscalConfig?.integration || {};
+  const integrationLabel = integration.testConnectionReady ? "Pruebas MH configuradas" : integration.localSimulationAvailable ? "Simulación controlada disponible" : "Integración bloqueada";
+  return `<section class="fiscal-module">
+    <div class="fiscal-notice"><div><small>FINANCIERA · MODO DE PRUEBA CONTROLADO</small><h2>Facturación electrónica</h2><p>Emisor de las ventas: ${escapeHtml(state.fiscalConfig?.emitterName || "KONFI INVERSIONES S.A. DE C.V.")}. El cliente de cada OP será el receptor. Ningún documento se firma ni se transmite a Hacienda en esta fase.</p><p><b>${escapeHtml(integrationLabel)}</b>${integration.missing?.length ? ` · Faltan: ${escapeHtml(integration.missing.join(", "))}` : ""}</p></div><aside class="fiscal-notice-actions"><b>${disabled ? "Transmisión desactivada" : "Transmisión habilitada"}</b><button type="button" data-fiscal-settings>${state.fiscalConfig?.establishmentConfigured ? "Configuración fiscal" : "Configurar establecimiento"}</button></aside></div>
+    <div class="fiscal-toolbar"><label><span>⌕</span><input type="search" data-fiscal-search value="${escapeHtml(state.fiscalQuery)}" placeholder="Buscar OP, cliente o vendedor..."></label><div><small>PENDIENTES</small><strong>${pending}</strong></div><div><small>BORRADORES</small><strong>${prepared}</strong></div></div>
+    <div class="fiscal-head"><span>ORDEN</span><span>CLIENTE</span><span>TIPO</span><span>TOTAL</span><span>ESTADO</span><span>ACCIÓN</span></div>
+    <div class="fiscal-list">${state.fiscalLoading && !state.fiscalLoaded ? `<div class="inventory-empty">Cargando órdenes...</div>` : state.fiscalError ? `<div class="inventory-empty">${escapeHtml(state.fiscalError)}<br>Vuelve a iniciar sesión para obtener una sesión verificada.</div>` : rows || `<div class="inventory-empty">No hay órdenes que coincidan con la búsqueda.</div>`}</div>
+  </section>`;
+}
+
+async function loadFiscalModule() {
+  if (state.fiscalLoading) return;
+  state.fiscalLoading = true;
+  state.fiscalError = "";
+  try {
+    const [config, payload] = await Promise.all([apiJson("/api/fiscal/config"), apiJson("/api/fiscal/orders")]);
+    state.fiscalConfig = config; state.fiscalOrders = payload.items || []; state.fiscalLoaded = true;
+  } catch (error) {
+    state.fiscalLoaded = true;
+    state.fiscalError = error.message || "No se pudo cargar Facturación electrónica";
+  } finally {
+    state.fiscalLoading = false;
+    if (state.activeArea === "financiera" && state.activeSubmenu === "facturacion-electronica") renderCommercialSubmenu(areas.financiera);
+  }
+}
+
+function openFiscalSettingsDialog() {
+  const current = state.fiscalConfig?.establishment || {};
+  const integration = state.fiscalConfig?.integration || {};
+  const missing = integration.missing || [];
+  const dialog = document.createElement("dialog");
+  dialog.className = "fiscal-dialog fiscal-settings-dialog";
+  dialog.innerHTML = `<section><header><div><small>CONFIGURACIÓN DE PRUEBA</small><h2>Establecimiento y punto de venta</h2><p>Ingresa exclusivamente los códigos asignados o autorizados para pruebas por Hacienda.</p></div><button type="button" data-fiscal-close>×</button></header>
+    <div class="fiscal-integration-check"><div><small>SEGURIDAD</small><b>✓ Producción bloqueada</b><span>Las simulaciones exigen ambiente 00.</span></div><div><small>SIMULACIÓN</small><b>${integration.localSimulationAvailable ? "✓ Disponible" : "Bloqueada"}</b><span>No firma ni transmite documentos.</span></div><div><small>CONEXIÓN MH DE PRUEBAS</small><b>${integration.testConnectionReady ? "✓ Configurada" : "Pendiente"}</b><span>${missing.length ? escapeHtml(missing.join(" · ")) : "Lista para prueba de conectividad"}</span></div><p>Las credenciales se cargarán mediante variables protegidas del servidor y nunca se guardarán en esta base de datos.</p></div>
+    <form data-fiscal-settings-form class="fiscal-settings-form">
+      <label>Código de establecimiento para número de control<input name="controlEstablishmentCode" maxlength="4" required value="${escapeHtml(current.controlEstablishmentCode || "")}" placeholder="Ej. M001"></label>
+      <label>Código de punto de venta para número de control<input name="controlPointOfSaleCode" maxlength="4" required value="${escapeHtml(current.controlPointOfSaleCode || "")}" placeholder="Ej. P001"></label>
+      <label>Código de establecimiento MH<input name="codEstable" maxlength="10" value="${escapeHtml(current.codEstable || "")}" placeholder="Según autorización"></label>
+      <label>Código de punto de venta MH<input name="codPuntoVenta" maxlength="10" value="${escapeHtml(current.codPuntoVenta || "")}" placeholder="Según autorización"></label>
+      <p data-fiscal-settings-error class="hidden"></p>
+      <button type="submit">Guardar configuración de prueba</button>
+    </form></section>`;
+  dialog.querySelector("[data-fiscal-close]").onclick=()=>dialog.close();
+  dialog.querySelector("[data-fiscal-settings-form]").onsubmit=async(event)=>{
+    event.preventDefault(); const form=event.currentTarget; const submit=event.submitter; const errorBox=form.querySelector("[data-fiscal-settings-error]");
+    submit.disabled=true; errorBox.classList.add("hidden");
+    try {
+      const values=Object.fromEntries(new FormData(form));
+      await apiJson("/api/fiscal/config",{method:"POST",body:JSON.stringify({establishment:values})});
+      dialog.close(); state.fiscalLoaded=false; await loadFiscalModule();
+    } catch(error) {
+      errorBox.textContent=error.message||"No se pudo guardar la configuración."; errorBox.classList.remove("hidden"); submit.disabled=false;
+    }
+  };
+  document.body.append(dialog); dialog.addEventListener("close",()=>dialog.remove(),{once:true}); dialog.showModal();
+}
+
+function openFiscalOrderDialog(order) {
+  const reconciliation = order.reconciliation || {status:"PENDING_RECONCILIATION"};
+  const dialog = document.createElement("dialog"); dialog.className="fiscal-dialog wide-dialog";
+  const details = (order.details||[]).map((line)=>`<tr><td>${line.sequence}</td><td>${escapeHtml(line.product||"")}</td><td>${inventoryQuantityLabel(line.quantity)}</td><td>${formatMoney(Number(line.unitPriceCents||0)/100)}</td><td>${formatMoney(Number(line.lineTotalCents||0)/100)}</td></tr>`).join("");
+  const documentHistory = order.fiscalDocuments || [];
+  const currentDocument = documentHistory[0] || null;
+  const previousAttempts = Math.max(0, documentHistory.length - 1);
+  const documents = currentDocument ? `<li><span><b>${currentDocument.documentType === "01" ? "Factura consumidor final" : "Comprobante de crédito fiscal"}</b><em>${escapeHtml(fiscalStatusLabel(currentDocument.status))} · ${formatMoney(Number(currentDocument.totalCents||0)/100)}</em></span><button type="button" data-fiscal-preview="${escapeHtml(currentDocument.id)}">Vista previa</button>${currentDocument.status === "DRAFT" ? `<button type="button" data-fiscal-simulate="${escapeHtml(currentDocument.id)}">Probar flujo controlado</button>` : ""}</li>` : "";
+  const ready = reconciliation.status === "CONFIRMED_UNBILLED";
+  const establishmentReady = state.fiscalConfig?.establishmentConfigured === true;
+  const canPrepare = ready && establishmentReady;
+  const preparationNotice = !establishmentReady ? `<p class="fiscal-preparation-warning">Antes de preparar el DTE, completa los códigos de establecimiento y punto de venta en <b>Configuración fiscal</b>.</p>` : "";
+  dialog.innerHTML=`<section><header><div><small>CONTROL FISCAL DE ORDEN</small><h2>OP-${escapeHtml(order.number||"")}</h2><p>${escapeHtml(order.client||"")} · ${formatMoney(Number(order.totalCents||0)/100)}</p></div><button type="button" data-fiscal-close>×</button></header>
+    <div class="fiscal-dialog-state"><span><small>REVISIÓN PREVIA</small><b>${escapeHtml(fiscalStatusLabel(reconciliation.status))}</b></span><span><small>ENVÍO A HACIENDA</small><b>Bloqueado en esta fase</b></span></div>
+    <div class="fiscal-dialog-actions"><button type="button" data-fiscal-unbilled>Confirmar que aún no fue facturada</button><button type="button" data-fiscal-external>Marcar como facturada fuera del sistema</button></div>
+    <div class="inventory-history-table"><table><thead><tr><th>#</th><th>Detalle</th><th>Cantidad</th><th>Precio</th><th>Total</th></tr></thead><tbody>${details}</tbody></table></div>
+    ${preparationNotice}<form data-fiscal-draft><label>Tipo de documento<select name="documentType"><option value="01">01 · Factura consumidor final</option><option value="03">03 · Comprobante de crédito fiscal</option></select></label><label>Condición<select name="conditionOperation"><option value="1">Contado</option><option value="2">Crédito</option><option value="3">Otro</option></select></label><label>Forma de pago<select name="paymentCode"><option value="01">Efectivo</option><option value="02">Tarjeta</option><option value="03">Cheque</option><option value="05">Transferencia</option><option value="99">Otro</option></select></label><button type="submit" ${canPrepare ? "" : "disabled"}>${establishmentReady ? "Preparar DTE de prueba" : "Configura establecimiento primero"}</button></form>
+    ${documents ? `<div class="fiscal-documents"><small>DOCUMENTO LOCAL ACTUAL</small><ul>${documents}</ul>${previousAttempts ? `<p class="fiscal-attempt-history">${previousAttempts} intento${previousAttempts === 1 ? "" : "s"} anterior${previousAttempts === 1 ? "" : "es"} fallido${previousAttempts === 1 ? "" : "s"} se conserva${previousAttempts === 1 ? "" : "n"} únicamente en el historial técnico. No ${previousAttempts === 1 ? "es una factura emitida" : "son facturas emitidas"}.</p>` : ""}</div>` : ""}
+    <footer><p>Preparar crea una fotografía fiscal independiente; cambios posteriores en la OP no alteran el borrador.</p></footer></section>`;
+  dialog.querySelector("[data-fiscal-close]").onclick=()=>dialog.close();
+  const reconcile=async(status, extra={})=>{try{await apiJson(`/api/fiscal/orders/${encodeURIComponent(order.id)}/reconciliation`,{method:"POST",body:JSON.stringify({status,...extra})});dialog.close();state.fiscalLoaded=false;await loadFiscalModule();}catch(error){alert(error.message||"No se pudo conciliar la orden.");}};
+  dialog.querySelector("[data-fiscal-unbilled]").onclick=()=>{if(confirm("¿Confirmas que esta orden no tiene un documento fiscal previo?"))reconcile("CONFIRMED_UNBILLED",{notes:"Verificada para preparación en modo de prueba"});};
+  dialog.querySelector("[data-fiscal-external]").onclick=()=>{const number=prompt("Número del documento emitido externamente:",reconciliation.externalDocumentNumber||"");if(number?.trim())reconcile("EXTERNAL_BILLED",{externalDocumentNumber:number.trim(),externalDocumentType:"EXTERNAL",notes:"Documento histórico conciliado; no reemitir"});};
+  dialog.querySelectorAll("[data-fiscal-preview]").forEach((button)=>{
+    const documentId=button.dataset.fiscalPreview;
+    button.addEventListener("click",()=>openFiscalDocumentPreview(documentId));
+    button.addEventListener("pointerenter",()=>prefetchFiscalDocument(documentId),{once:true});
+    button.addEventListener("focus",()=>prefetchFiscalDocument(documentId),{once:true});
+    prefetchFiscalDocument(documentId);
+  });
+  dialog.querySelectorAll("[data-fiscal-simulate]").forEach((button)=>button.addEventListener("click",async()=>{
+    button.disabled=true;
+    let run = null;
+    try {
+      run=await apiJson(`/api/fiscal/documents/${encodeURIComponent(button.dataset.fiscalSimulate)}/simulate`,{method:"POST",headers:{"Idempotency-Key":crypto.randomUUID()},body:"{}"});
+      const result=run.result||{};
+      alert(result.payloadValid ? "Prueba controlada aprobada.\nNo se firmó ni se transmitió nada a Hacienda." : `La prueba encontró errores:\n${(result.validationErrors||[]).join("\n")}`);
+    } catch(error) { alert(error.message||"No se pudo ejecutar la prueba controlada."); }
+    finally { button.disabled=false; }
+    if (run?.result?.payloadValid) { dialog.close(); state.fiscalLoaded=false; await loadFiscalModule(); }
+  }));
+  dialog.querySelector("[data-fiscal-draft]").onsubmit=async(event)=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const values=Object.fromEntries(new FormData(event.currentTarget));const draft=await apiJson("/api/fiscal/drafts",{method:"POST",headers:{"Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({orderId:order.id,documentType:values.documentType,conditionOperation:Number(values.conditionOperation),paymentCode:values.paymentCode})});if(draft?.id)state.fiscalDocumentCache.set(draft.id,draft);alert(draft.validation?.valid?`DTE preparado y validado en modo de prueba.\n${draft.controlNumber}\nAún no fue firmado ni transmitido.`:`Documento guardado sin enviar. Debes corregir:\n${(draft.validation?.errors||[]).join("\n")}`);dialog.close();state.fiscalLoaded=false;await loadFiscalModule();}catch(error){alert(error.message||"No se pudo preparar el documento de prueba.");button.disabled=false;}};
+  document.body.append(dialog);dialog.addEventListener("close",()=>dialog.remove(),{once:true});dialog.showModal();
+}
+
+function wireFiscalModule() {
+  const search=opportunityTable.querySelector("[data-fiscal-search]");
+  search?.addEventListener("input",(event)=>{state.fiscalQuery=event.target.value;renderCommercialSubmenu(areas.financiera);requestAnimationFrame(()=>{const next=opportunityTable.querySelector("[data-fiscal-search]");next?.focus();next?.setSelectionRange(next.value.length,next.value.length);});});
+  opportunityTable.querySelector("[data-fiscal-settings]")?.addEventListener("click",openFiscalSettingsDialog);
+  opportunityTable.querySelectorAll("[data-fiscal-order]").forEach((button)=>button.addEventListener("click",()=>{const order=state.fiscalOrders.find((item)=>item.id===button.dataset.fiscalOrder);if(order)openFiscalOrderDialog(order);}));
+}
+
 function renderCommercialSubmenu(area) {
   if (!Array.isArray(area.submenus)) {
     commercialPanel.classList.add("hidden");
@@ -14581,6 +14841,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("bank-availability-mode");
   commercialPanel.classList.remove("financial-income-mode");
   commercialPanel.classList.remove("financial-inventory-mode");
+  commercialPanel.classList.remove("fiscal-module-mode");
   commercialPanel.classList.remove("financial-statements-mode");
   commercialPanel.classList.remove("commercial-metrics-mode");
   commercialPanel.classList.remove("commercial-goals-mode");
@@ -14726,6 +14987,16 @@ function renderCommercialSubmenu(area) {
     opportunityTable.innerHTML = renderFinancialInventory();
     wireFinancialInventory();
     if (!state.inventoryLoaded && !state.inventoryLoading) loadInventoryItems();
+    return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "facturacion-electronica") {
+    commercialPanel.classList.add("fiscal-module-mode");
+    newOpportunityBtn.classList.add("hidden"); newRiskBtn.classList.add("hidden"); newManagementRequestBtn.classList.add("hidden"); goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = state.fiscalLoaded ? `${state.fiscalOrders.length} órdenes disponibles` : "Modo de prueba · transmisión desactivada";
+    opportunityTable.innerHTML = renderFiscalModule(); wireFiscalModule();
+    if (!state.fiscalLoaded && !state.fiscalLoading) loadFiscalModule();
     return;
   }
 
@@ -17326,6 +17597,7 @@ function renderDashboard() {
       "disponibilidad",
       "ingresos",
       "inventario",
+      "facturacion-electronica",
       "estados-financieros",
       "produccion-semanal",
       "archivo-muestras"
@@ -17738,6 +18010,7 @@ function clearSession() {
   stopPresence();
   closeInternalChat();
   localStorage.removeItem(sessionStorageKey);
+  sessionStorage.removeItem(authSessionStorageKey);
   sessionStorage.removeItem(adminValidationSessionKey);
   document.querySelector(".admin-validation-banner")?.remove();
   sessionRestored = false;
@@ -17763,6 +18036,11 @@ function defaultAreaForRole(role, user = state.currentUser) {
 function restoreSession() {
   if (sessionRestored || !loginView || !appShell) return false;
   try {
+    if (apiEnabled && !sessionStorage.getItem(authSessionStorageKey)) {
+      // A legacy localStorage identity is not a server-verified session.
+      localStorage.removeItem(sessionStorageKey);
+      return false;
+    }
     const saved = JSON.parse(localStorage.getItem(sessionStorageKey) || "null");
     if (!saved) return false;
     const signedInUser = systemUsers.find((item) =>
@@ -17969,15 +18247,25 @@ closeAccountPasswordDialog?.addEventListener("click", () => accountPasswordDialo
 cancelAccountPassword?.addEventListener("click", () => accountPasswordDialog.close());
 accountPasswordForm?.addEventListener("submit", changeCurrentUserPassword);
 
-loginForm.addEventListener("submit", (event) => {
+loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const user = findUserByCredential(loginUserSelect.value);
-  if (!user || user.password !== loginPassword.value) {
-    alert("Usuario o contrasena incorrecta.");
-    return;
+  try {
+    if (apiEnabled) {
+      const response = await apiJson("/api/auth/session", { method: "POST", body: JSON.stringify({ credential: loginUserSelect.value, password: loginPassword.value }) });
+      sessionStorage.setItem(authSessionStorageKey, response.token);
+      const user = normalizeUsers([response.user])[0];
+      systemUsers = systemUsers.map((item) => item.id === user.id ? user : item);
+      loginPassword.value = "";
+      openApp(user);
+      return;
+    }
+    const user = findUserByCredential(loginUserSelect.value);
+    if (!user || user.password !== loginPassword.value) throw new Error("Usuario o contraseña incorrecta.");
+    loginPassword.value = "";
+    openApp(user);
+  } catch (error) {
+    alert(error.message || "Usuario o contraseña incorrecta.");
   }
-  loginPassword.value = "";
-  openApp(user);
 });
 
 registerForm.addEventListener("submit", (event) => {
@@ -19404,11 +19692,9 @@ loadControlSalesPeriod();
 loadFinancialOrders();
 syncFinancialOrdersWithApi();
 loadAccountsReceivable();
-loadCustomerAdvances();
 loadPurchaseOrders();
 loadControlSales();
 loadProductionSchedule();
-loadSampleArchive();
 loadQuotations();
 loadOpportunities();
 loadStrategicRisks();
