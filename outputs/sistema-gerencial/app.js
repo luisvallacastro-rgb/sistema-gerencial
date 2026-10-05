@@ -1512,7 +1512,7 @@ function varianceLabel(value) {
 
 function formatDate(value) {
   if (!value) return "";
-  const [year, month, day] = value.split("-");
+  const [year, month, day] = String(value).slice(0, 10).split("-");
   return `${day}/${month}/${year}`;
 }
 
@@ -14393,8 +14393,8 @@ async function openInventoryHistoryDialog(itemId) {
   try {
     const item = await apiJson(`/api/inventory-items/${itemId}/movements`);
     const dialog = document.createElement("dialog"); dialog.className = "inventory-dialog inventory-history-dialog";
-    const rows = (item.movements || []).map((movement) => `<tr><td>${formatDate(movement.date)}</td><td><b class="${movement.type === "ENTRADA" ? "in" : "out"}">${escapeHtml(movement.type)}</b></td><td>${inventoryQuantityLabel(movement.quantity)}</td><td>${formatMoney(movement.unitCost)}</td><td>${inventoryQuantityLabel(movement.balanceQuantity)}</td><td>${formatMoney(movement.averageCost)}</td><td>${formatMoney(movement.balanceValue)}</td><td>${escapeHtml(movement.reference || "—")}</td><td>${escapeHtml(movement.notes || "—")}</td></tr>`).join("");
-    dialog.innerHTML = `<section><header><div><small>${escapeHtml(item.internalId)} · ${escapeHtml(item.code)}</small><h2>${escapeHtml(item.description)}</h2><p>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)} · ${formatMoney(item.totalValue)}</p></div><button type="button" data-inventory-close aria-label="Cerrar">×</button></header><div class="inventory-history-table"><table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Cantidad</th><th>C/U aplicado</th><th>Saldo</th><th>Costo promedio</th><th>Valor</th><th>Referencia</th><th>Motivo / observación</th></tr></thead><tbody>${rows || `<tr><td colspan="9" class="empty">Este ítem todavía no tiene movimientos de entrada o salida.</td></tr>`}</tbody></table></div></section>`;
+    const rows = (item.movements || []).map((movement,index) => `<tr class="${index===0?"latest":""}"><td>${formatDate(movement.date)}</td><td><b class="${movement.type === "ENTRADA" ? "in" : "out"}">${escapeHtml(movement.type)}</b>${index===0?`<small class="inventory-latest-badge">Más reciente</small>`:""}</td><td>${inventoryQuantityLabel(movement.quantity)}</td><td>${formatMoney(movement.unitCost)}</td><td>${inventoryQuantityLabel(movement.balanceQuantity)}</td><td>${formatMoney(movement.averageCost)}</td><td>${formatMoney(movement.balanceValue)}</td><td>${escapeHtml(movement.reference || "—")}</td><td>${escapeHtml(movement.notes || "—")}</td></tr>`).join("");
+    dialog.innerHTML = `<section><header><div><small>${escapeHtml(item.internalId)}</small><h2>${escapeHtml(item.description)}</h2><div class="inventory-history-summary"><span><small>Existencia actual</small><strong>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)}</strong></span><span><small>Costo promedio ponderado</small><strong>${formatMoney(item.averageCost)}</strong></span><span><small>Saldo valorizado</small><strong>${formatMoney(item.totalValue)}</strong></span></div></div><button type="button" data-inventory-close aria-label="Cerrar">×</button></header><div class="inventory-history-table"><table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Cantidad</th><th>C/U aplicado</th><th>Saldo</th><th>Costo promedio</th><th>Valor</th><th>Referencia</th><th>Motivo / observación</th></tr></thead><tbody>${rows || `<tr><td colspan="9" class="empty">Este ítem todavía no tiene movimientos de entrada o salida.</td></tr>`}</tbody></table></div></section>`;
     dialog.querySelector("[data-inventory-close]").onclick = () => dialog.close(); document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), {once:true}); dialog.showModal();
   } catch (error) { alert(error.message || "No se pudo abrir el historial."); }
 }

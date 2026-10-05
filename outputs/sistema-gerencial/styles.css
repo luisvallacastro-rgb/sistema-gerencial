@@ -22384,14 +22384,23 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-dialog footer { display: flex; justify-content: flex-end; gap: 10px; padding: 15px 24px 20px; }
 .inventory-dialog footer button { min-width: 120px; min-height: 42px; border: 1px solid #55728a; border-radius: 11px; background: #264463; color: #fff; font-weight: 800; cursor: pointer; }
 .inventory-dialog footer button[type="submit"] { border-color: #52dfc2; background: #188d79; }
-.inventory-history-dialog { width: min(1250px, calc(100vw - 32px)); }
-.inventory-history-table { max-height: 58vh; overflow: auto; padding: 18px 22px 24px; }
+.inventory-history-dialog { width: min(1250px, calc(100vw - 32px)); height: min(720px, calc(100vh - 48px)); }
+.inventory-history-dialog > section { display: flex; height: 100%; flex-direction: column; overflow: hidden; }
+.inventory-history-dialog > section > header { flex: 0 0 auto; }
+.inventory-history-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.inventory-history-summary > span { display: grid; min-width: 145px; gap: 2px; padding: 7px 10px; border: 1px solid rgba(83,132,160,.45); border-radius: 9px; background: rgba(13,48,73,.38); }
+.inventory-history-summary small { color: #91a8b8; font-size: 7px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.inventory-history-summary strong { color: #68e8cf; font-size: 12px; }
+.inventory-history-table { min-height: 0; flex: 1 1 auto; overflow: auto; padding: 18px 22px 24px; }
 .inventory-history-table table { width: 100%; border-collapse: collapse; }
-.inventory-history-table th { padding: 11px 9px; border-bottom: 1px solid #52708a; color: #aebfcd; font-size: 9px; text-align: left; }
+.inventory-history-table th { position: sticky; z-index: 1; top: 0; padding: 11px 9px; border-bottom: 1px solid #52708a; background: #16344f; color: #aebfcd; font-size: 9px; text-align: left; }
 .inventory-history-table td { padding: 12px 9px; border-bottom: 1px solid #284861; color: #e6f0f8; font-size: 11px; }
+.inventory-history-table tr.latest td { border-block: 1px solid rgba(104,232,207,.5); background: rgba(24,141,121,.16); }
+.inventory-history-table tr.latest td:first-child { box-shadow: inset 4px 0 #68e8cf; }
+.inventory-latest-badge { display: inline-flex; margin-left: 7px; padding: 3px 6px; border-radius: 999px; background: rgba(104,232,207,.14); color: #8ff4df; font-size: 7px; font-weight: 900; text-transform: uppercase; white-space: nowrap; }
 .inventory-history-table b.in { color: #63e4ca; }
 .inventory-history-table b.out { color: #f0bc57; }
-.inventory-history-table td.empty { height: 120px; color: #9cafbf; text-align: center; }
+.inventory-history-table td.empty { height: 360px; color: #9cafbf; text-align: center; }
 
 @media (max-width: 1100px) {
   .inventory-head,
