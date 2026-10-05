@@ -22274,6 +22274,10 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-op-field button { min-width: 90px; border: 1px solid #3e7794; border-radius: 10px; background: #205578; color: #fff; font-size: 10px; font-weight: 900; cursor: pointer; }
 .inventory-op-field button:last-child { border-color: #2f927e; background: #176b60; }
 .inventory-op-field button:disabled { opacity: .42; cursor: not-allowed; }
+.inventory-op-selection-summary { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.inventory-op-selection-summary:empty { display: none; }
+.inventory-op-selection-summary span { display: inline-flex; align-items: center; gap: 8px; padding: 6px 9px; border: 1px solid rgba(104,232,207,.42); border-radius: 999px; background: rgba(24,141,121,.16); color: #dffbf5; font-size: 9px; font-weight: 900; }
+.inventory-op-selection-summary b { color: #68e8cf; }
 .inventory-op-picker-dialog { width: min(1180px, calc(100vw - 32px)); }
 .inventory-op-picker { display: grid; gap: 12px; padding: 20px 24px 24px; }
 .inventory-op-picker > input { height: 48px; padding: 0 14px; border: 1px solid #4b708c; border-radius: 12px; outline: 0; background: #234463; color: #fff; font: inherit; }
@@ -22282,6 +22286,7 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-op-picker [data-op-picker-results] button { display: grid; grid-template-columns: 120px minmax(0, 1fr) 96px; min-height: 88px; align-items: center; gap: 5px 12px; padding: 13px 14px; border: 1px solid #3c6682; border-radius: 12px; background: #173650; color: #fff; text-align: left; cursor: pointer; }
 .inventory-op-picker [data-op-picker-results] button:hover { border-color: #50d5bb; background: #1b4a5e; }
 .inventory-op-picker [data-op-picker-results] button.selected { border-color: #50d5bb; background: rgba(24,141,121,.22); }
+.inventory-op-picker [data-op-picker-results] button.chosen { box-shadow: inset 4px 0 #68e8cf; }
 .inventory-op-picker [data-op-picker-results] strong { color: #68e8cf; }
 .inventory-op-picker [data-op-picker-results] span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inventory-op-picker [data-op-picker-results] em { color: #fff; font-size: 12px; font-style: normal; font-weight: 900; text-align: right; }
@@ -22323,7 +22328,12 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-op-picker [data-op-picker-preview] > footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: auto; padding: 15px 18px; }
 .inventory-op-picker [data-op-picker-preview] > footer button { min-height: 40px; padding: 0 14px; border: 1px solid #49708a; border-radius: 10px; background: #264863; color: #fff; font-weight: 900; cursor: pointer; }
 .inventory-op-picker [data-op-picker-preview] > footer button:last-child { border-color: #52dfc2; background: #188d79; }
+.inventory-op-picker [data-op-picker-preview] > footer button:last-child.selected { border-color: #d79a58; background: #7b5032; }
 .inventory-op-picker [data-op-picker-preview] > footer button:disabled { opacity: .42; cursor: not-allowed; }
+.inventory-op-picker-selection { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border: 1px solid #3f657f; border-radius: 12px; background: #102d46; }
+.inventory-op-picker-selection strong { color: #68e8cf; }
+.inventory-op-picker-selection button { min-height: 40px; padding: 0 16px; border: 1px solid #52dfc2; border-radius: 10px; background: #188d79; color: #fff; font-weight: 900; cursor: pointer; }
+.inventory-op-picker-selection button:disabled { opacity: .42; cursor: not-allowed; }
 .inventory-op-allocation-dialog { width: min(720px, calc(100vw - 32px)); }
 .inventory-allocation-placeholder { display: grid; gap: 10px; padding: 28px 24px; text-align: center; }
 .inventory-allocation-placeholder > strong { color: #68e8cf; font-size: 22px; }
@@ -22332,6 +22342,19 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-allocation-placeholder dl div { padding: 12px; border: 1px solid #3c5f78; border-radius: 10px; background: #173650; }
 .inventory-allocation-placeholder dt { color: #91a8b8; font-size: 9px; text-transform: uppercase; }
 .inventory-allocation-placeholder dd { margin: 4px 0 0; color: #fff; font-weight: 800; }
+.inventory-allocation-grid { display: grid; gap: 8px; padding: 18px 24px 8px; }
+.inventory-allocation-head,
+.inventory-allocation-grid label { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 16px; align-items: center; }
+.inventory-allocation-head { padding: 0 12px 5px; color: #8fa7b8; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.inventory-allocation-head span:last-child { text-align: right; }
+.inventory-allocation-grid label { padding: 11px 12px; border: 1px solid #385f79; border-radius: 11px; background: #173650; }
+.inventory-allocation-grid label > span { display: grid; gap: 3px; }
+.inventory-allocation-grid label small { overflow: hidden; color: #9db0bf; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-allocation-grid input { height: 42px; padding: 0 12px; border: 1px solid #4b708c; border-radius: 9px; outline: 0; background: #234463; color: #fff; font: inherit; text-align: right; }
+.inventory-allocation-total { display: flex; justify-content: space-between; gap: 12px; padding: 13px 14px; border-top: 1px solid #31536b; color: #a8bbc9; }
+.inventory-allocation-total strong { color: #f1bf65; }
+.inventory-allocation-total strong.valid { color: #68e8cf; }
+.inventory-allocation-grid > p { min-height: 16px; margin: 0; color: #f1bf65; font-size: 10px; text-align: right; }
 .inventory-stock-projection { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .inventory-stock-projection span { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid #3d607a; border-radius: 11px; background: #173650; color: #9eb2c1; font-size: 9px; text-transform: uppercase; }
 .inventory-stock-projection strong { color: #68e8cf; font-size: 15px; text-transform: none; }
