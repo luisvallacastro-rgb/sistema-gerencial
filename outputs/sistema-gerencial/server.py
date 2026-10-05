@@ -36,6 +36,7 @@ PURCHASE_ORDERS_SEED_PATH = ROOT / "purchase-orders-seed.json"
 CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
 BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
+INVENTORY_SEED_PATH = ROOT / "inventory-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
@@ -3617,6 +3618,53 @@ def inventory_items_payload(conn):
             "movements": sum(item["movementCount"] for item in items),
         },
     }
+
+
+def seed_inventory_if_empty(conn):
+    existing = conn.execute("SELECT COUNT(*) AS total FROM inventory_items").fetchone()["total"]
+    if existing or not INVENTORY_SEED_PATH.exists():
+        return False
+    payload = json.loads(INVENTORY_SEED_PATH.read_text(encoding="utf-8"))
+    if payload.get("schemaVersion") != 1:
+        raise ValueError("La semilla de inventario no tiene una versión compatible")
+    items = payload.get("items") or []
+    movements = payload.get("movements") or []
+    codes = [text(item.get("code")).upper() for item in items]
+    if not codes or len(codes) != len(set(codes)):
+        raise ValueError("La semilla de inventario tiene códigos vacíos o duplicados")
+    item_ids = {}
+    for item, code in zip(items, codes):
+        cursor = conn.execute("""INSERT INTO inventory_items
+            (code, description, unit, notes, active, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, 'Importación Excel', 'Importación Excel')""",
+            (code, text(item.get("description")), text(item.get("unit"), "Unidad"),
+             text(item.get("notes")), int(item.get("active", True))))
+        item_ids[code] = cursor.lastrowid
+    movement_rows = []
+    for movement in movements:
+        code = text(movement.get("code")).upper()
+        movement_type = text(movement.get("type")).upper()
+        quantity_millis = int(movement.get("quantityMillis") or 0)
+        if code not in item_ids or movement_type not in {"ENTRADA", "SALIDA"} or quantity_millis <= 0:
+            raise ValueError("La semilla de inventario contiene un movimiento inválido")
+        source_id = int(movement.get("sourceId") or 0)
+        notes = text(movement.get("notes"))
+        movement_rows.append((
+            item_ids[code], text(movement.get("date")), movement_type, quantity_millis,
+            int(movement.get("unitCostMicros") or 0), text(movement.get("reference")),
+            f"Excel #{source_id}" + (f" · {notes}" if notes else ""),
+            text(movement.get("createdBy"), "Importación Excel"), text(movement.get("date")),
+        ))
+    conn.executemany("""INSERT INTO inventory_movements
+        (item_id, movement_date, movement_type, quantity_millis, unit_cost_micros,
+         reference, notes, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", movement_rows)
+    conn.execute("""INSERT INTO app_state (key, value, updated_at)
+        VALUES ('inventory_excel_import', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP""",
+        (json.dumps({"items": len(items), "movements": len(movements), "source": payload.get("source", {})}, ensure_ascii=False),))
+    print(f"Inventario importado automáticamente: {len(items)} ítems y {len(movements)} movimientos.")
+    return True
 
 
 def save_inventory_item(conn, data, existing=None):
@@ -8239,6 +8287,7 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_movements_item_date ON inventory_movements(item_id, movement_date, id)")
+        seed_inventory_if_empty(conn)
         conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
