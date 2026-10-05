@@ -315,6 +315,11 @@ const state = {
   financialIncome: [],
   financialIncomeLoaded: false,
   financialIncomeLoading: false,
+  inventoryItems: [],
+  inventorySummary: { items: 0, quantity: 0, value: 0, movements: 0 },
+  inventoryLoaded: false,
+  inventoryLoading: false,
+  inventoryQuery: "",
   financialStatements: { rows: [], totals: {}, availablePeriods: [], availableYears: [], monthsByYear: {} },
   financialStatementsLoaded: false,
   financialStatementsLoading: false,
@@ -14260,30 +14265,99 @@ function loadFinancialStatements() {
   apiJson(`/api/financial-statements?${financialStatementQuery()}`).then(payload=>{state.financialStatements=payload||{};state.financialStatementsLoaded=true;state.financialStatementYear=payload.periodA.year;state.financialStatementMonth=payload.periodA.month;state.financialStatementPeriodType=payload.periodA.type;state.financialStatementYearB=payload.periodB.year;state.financialStatementMonthB=payload.periodB.month;state.financialStatementPeriodBType=payload.periodB.type;syncFinancialStatementFilters()}).catch(error=>{state.financialStatementsError=error.message||"Error de lectura"}).finally(()=>{state.financialStatementsLoading=false;if(state.activeArea==="financiera"&&state.activeSubmenu==="estados-financieros")renderCommercialSubmenu(areas.financiera)})
 }
 
+function inventoryQuantityLabel(value) {
+  return new Intl.NumberFormat("es-SV", { maximumFractionDigits: 3 }).format(Number(value || 0));
+}
+
+function inventoryFilteredItems() {
+  const query = state.inventoryQuery.trim().toLocaleLowerCase("es");
+  if (!query) return state.inventoryItems;
+  return state.inventoryItems.filter((item) => [item.internalId, item.code, item.description, item.unit]
+    .some((value) => String(value || "").toLocaleLowerCase("es").includes(query)));
+}
+
 function renderFinancialInventory() {
-  return `<section class="financial-inventory-module" aria-label="Inventario financiero">
-    <header class="financial-inventory-hero">
-      <div><span>Financiera</span><h2>Inventario</h2><p>Existencias y valoración de materias primas en un solo lugar.</p></div>
-      <aside><small>Método de valuación</small><strong>Costo promedio</strong><span>Configuración inicial</span></aside>
-    </header>
-    <section class="financial-inventory-summary">
-      <article class="total"><span>Valor del inventario</span><strong>${formatMoney(0)}</strong><small>Saldo valorizado actual</small></article>
-      <article><span>Materias primas</span><strong>0</strong><small>Productos con existencia</small></article>
-      <article><span>Unidades disponibles</span><strong>0</strong><small>Existencia total</small></article>
-      <article><span>Movimientos</span><strong>0</strong><small>Entradas y salidas</small></article>
-    </section>
-    <section class="financial-inventory-workspace">
-      <article class="financial-inventory-activity">
-        <header><div><span>Actividad</span><h3>Movimientos recientes</h3></div><b>0 registros</b></header>
-        <div class="financial-inventory-empty"><i aria-hidden="true">▦</i><strong>Aún no hay movimientos de inventario</strong><p>Cuando se habiliten las entradas y salidas, aquí aparecerá el historial ordenado de forma clara.</p><div><span>Entradas <b>0</b></span><span>Salidas <b>0</b></span><span>Ajustes <b>0</b></span></div></div>
-      </article>
-      <aside class="financial-inventory-guide">
-        <span>Lectura sencilla</span><h3>¿Cómo funcionará?</h3>
-        <ol><li><b>Entrada</b><small>Aumenta existencias y recalcula el costo promedio.</small></li><li><b>Salida</b><small>Descuenta unidades utilizando el promedio vigente.</small></li><li><b>Saldo</b><small>Muestra unidades y valor disponibles después de cada movimiento.</small></li></ol>
-      </aside>
-    </section>
-    <footer class="financial-inventory-safety"><strong>Vista inicial segura</strong><span>Este módulo es únicamente visual por el momento: no crea movimientos ni altera saldos existentes.</span></footer>
+  const items = inventoryFilteredItems();
+  const rows = items.map((item) => `<article class="inventory-row">
+    <div class="inventory-id"><small>ID INTERNO</small><strong>${escapeHtml(item.internalId)}</strong></div>
+    <div class="inventory-item"><small>CÓDIGO / ÍTEM</small><strong>${escapeHtml(item.code)}</strong><span>${escapeHtml(item.description)}</span></div>
+    <div><small>EXISTENCIA</small><strong>${inventoryQuantityLabel(item.quantity)}</strong><span>${escapeHtml(item.unit)}</span></div>
+    <div><small>COSTO PROMEDIO</small><strong>${formatMoney(item.averageCost)}</strong></div>
+    <div><small>VALOR</small><strong>${formatMoney(item.totalValue)}</strong><span>${item.movementCount} ${item.movementCount === 1 ? "movimiento" : "movimientos"}</span></div>
+    <div class="inventory-actions"><button type="button" data-inventory-history="${item.id}" title="Ver movimientos" aria-label="Ver movimientos de ${escapeHtml(item.code)}">◉</button><button type="button" data-inventory-edit="${item.id}" title="Editar ítem" aria-label="Editar ${escapeHtml(item.code)}">✎</button><button type="button" class="archive" data-inventory-archive="${item.id}" title="Archivar ítem" aria-label="Archivar ${escapeHtml(item.code)}">⌫</button></div>
+  </article>`).join("");
+  const loading = state.inventoryLoading && !state.inventoryLoaded;
+  return `<section class="inventory-module" aria-label="Inventario">
+    <div class="inventory-toolbar">
+      <label class="inventory-search"><span>⌕</span><input type="search" value="${escapeHtml(state.inventoryQuery)}" placeholder="Buscar ID, código o descripción..." data-inventory-search></label>
+      <div class="inventory-total"><small>VALOR TOTAL</small><strong>${formatMoney(state.inventorySummary.value)}</strong></div>
+      <button type="button" class="inventory-new" data-inventory-new><span>＋</span> Nuevo ítem</button>
+    </div>
+    <div class="inventory-head"><span>ID INTERNO</span><span>CÓDIGO / ÍTEM</span><span>EXISTENCIA</span><span>COSTO PROMEDIO</span><span>VALOR</span><span>ACCIONES</span></div>
+    <div class="inventory-list">${loading ? `<div class="inventory-empty">Cargando inventario...</div>` : rows || `<div class="inventory-empty">${state.inventoryQuery ? "No hay ítems que coincidan con la búsqueda." : "Aún no hay ítems de inventario. Usa “Nuevo ítem” para crear el primero."}</div>`}</div>
   </section>`;
+}
+
+async function loadInventoryItems() {
+  if (state.inventoryLoading) return;
+  state.inventoryLoading = true;
+  try {
+    const payload = await apiJson("/api/inventory-items");
+    state.inventoryItems = Array.isArray(payload.items) ? payload.items : [];
+    state.inventorySummary = payload.summary || { items:0, quantity:0, value:0, movements:0 };
+    state.inventoryLoaded = true;
+  } catch (error) {
+    alert(error.message || "No se pudo cargar el inventario.");
+  } finally {
+    state.inventoryLoading = false;
+    if (state.activeArea === "financiera" && state.activeSubmenu === "inventario") renderCommercialSubmenu(areas.financiera);
+  }
+}
+
+function openInventoryItemDialog(item = null) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "inventory-dialog";
+  dialog.innerHTML = `<form method="dialog" data-inventory-form>
+    <header><div><small>FINANCIERA · INVENTARIO</small><h2>${item ? "Editar ítem" : "Nuevo ítem"}</h2><p>${item ? escapeHtml(item.internalId) : "El ID interno se asignará automáticamente al guardar."}</p></div><button type="button" data-inventory-close aria-label="Cerrar">×</button></header>
+    <div class="inventory-form-grid">
+      <label><span>Código</span><input name="code" required maxlength="40" value="${escapeHtml(item?.code || "")}" placeholder="Ej. MP-002"></label>
+      <label><span>Unidad de medida</span><input name="unit" required maxlength="30" value="${escapeHtml(item?.unit || "Unidad")}" placeholder="Ej. Yardas"></label>
+      <label class="wide"><span>Descripción del ítem</span><input name="description" required maxlength="180" value="${escapeHtml(item?.description || "")}" placeholder="Nombre claro de la materia prima"></label>
+      <label class="wide"><span>Notas</span><textarea name="notes" maxlength="500" placeholder="Información adicional (opcional)">${escapeHtml(item?.notes || "")}</textarea></label>
+    </div>
+    <footer><button type="button" data-inventory-close>Cancelar</button><button type="submit">Guardar ítem</button></footer>
+  </form>`;
+  dialog.querySelectorAll("[data-inventory-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelector("[data-inventory-form]").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submit = event.currentTarget.querySelector("button[type=submit]");
+    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    submit.disabled = true;
+    try {
+      await apiJson(item ? `/api/inventory-items/${item.id}` : "/api/inventory-items", { method:item ? "PUT" : "POST", body:JSON.stringify({...values, updatedBy:state.currentUser?.name || "Sistema Gerencial"}) });
+      dialog.close(); state.inventoryLoaded = false; await loadInventoryItems();
+    } catch (error) { alert(error.message || "No se pudo guardar el ítem."); submit.disabled = false; }
+  });
+  document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once:true }); dialog.showModal();
+  requestAnimationFrame(() => dialog.querySelector("input[name=code]")?.focus());
+}
+
+async function openInventoryHistoryDialog(itemId) {
+  try {
+    const item = await apiJson(`/api/inventory-items/${itemId}/movements`);
+    const dialog = document.createElement("dialog"); dialog.className = "inventory-dialog inventory-history-dialog";
+    const rows = (item.movements || []).map((movement) => `<tr><td>${formatDate(movement.date)}</td><td><b class="${movement.type === "ENTRADA" ? "in" : "out"}">${escapeHtml(movement.type)}</b></td><td>${inventoryQuantityLabel(movement.quantity)}</td><td>${formatMoney(movement.unitCost)}</td><td>${inventoryQuantityLabel(movement.balanceQuantity)}</td><td>${formatMoney(movement.averageCost)}</td><td>${formatMoney(movement.balanceValue)}</td></tr>`).join("");
+    dialog.innerHTML = `<section><header><div><small>${escapeHtml(item.internalId)} · ${escapeHtml(item.code)}</small><h2>${escapeHtml(item.description)}</h2><p>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)} · ${formatMoney(item.totalValue)}</p></div><button type="button" data-inventory-close aria-label="Cerrar">×</button></header><div class="inventory-history-table"><table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Cantidad</th><th>C/U aplicado</th><th>Saldo</th><th>Costo promedio</th><th>Valor</th></tr></thead><tbody>${rows || `<tr><td colspan="7" class="empty">Este ítem todavía no tiene movimientos de entrada o salida.</td></tr>`}</tbody></table></div></section>`;
+    dialog.querySelector("[data-inventory-close]").onclick = () => dialog.close(); document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), {once:true}); dialog.showModal();
+  } catch (error) { alert(error.message || "No se pudo abrir el historial."); }
+}
+
+function wireFinancialInventory() {
+  opportunityTable.querySelector("[data-inventory-search]")?.addEventListener("input", (event) => { state.inventoryQuery = event.target.value; renderCommercialSubmenu(areas.financiera); requestAnimationFrame(() => { const input=opportunityTable.querySelector("[data-inventory-search]"); input?.focus(); input?.setSelectionRange(input.value.length,input.value.length); }); });
+  opportunityTable.querySelector("[data-inventory-new]")?.addEventListener("click", () => openInventoryItemDialog());
+  opportunityTable.querySelectorAll("[data-inventory-edit]").forEach((button) => button.addEventListener("click", () => openInventoryItemDialog(state.inventoryItems.find((item) => String(item.id) === button.dataset.inventoryEdit))));
+  opportunityTable.querySelectorAll("[data-inventory-history]").forEach((button) => button.addEventListener("click", () => openInventoryHistoryDialog(button.dataset.inventoryHistory)));
+  opportunityTable.querySelectorAll("[data-inventory-archive]").forEach((button) => button.addEventListener("click", async () => { const item=state.inventoryItems.find((row)=>String(row.id)===button.dataset.inventoryArchive); if(!item||!confirm(`¿Archivar ${item.code}? El historial se conservará.`))return; try{await apiJson(`/api/inventory-items/${item.id}`,{method:"DELETE"});state.inventoryLoaded=false;await loadInventoryItems();}catch(error){alert(error.message||"No se pudo archivar el ítem.");} }));
 }
 
 function renderCommercialSubmenu(area) {
@@ -14447,8 +14521,10 @@ function renderCommercialSubmenu(area) {
     goalsMatrixBtn.classList.add("hidden");
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
-    commercialSubmenuStatus.textContent = "0 materias primas · 0 movimientos · $0.00";
+    commercialSubmenuStatus.textContent = `${state.inventorySummary.items || 0} ítems · ${formatMoney(state.inventorySummary.value || 0)}`;
     opportunityTable.innerHTML = renderFinancialInventory();
+    wireFinancialInventory();
+    if (!state.inventoryLoaded && !state.inventoryLoading) loadInventoryItems();
     return;
   }
 
@@ -17048,6 +17124,7 @@ function renderDashboard() {
       "custodia-muestras",
       "disponibilidad",
       "ingresos",
+      "inventario",
       "estados-financieros",
       "produccion-semanal",
       "archivo-muestras"

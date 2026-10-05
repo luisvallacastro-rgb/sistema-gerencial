@@ -39,7 +39,7 @@ FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-financial-inventory-shell-v49"
+API_VERSION = "kmi-inventory-items-v50"
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -47,6 +47,7 @@ TRAINING_COOKIE_NAME = "konfi_training_access"
 TRAINING_FINANCIAL_API_PREFIXES = (
     "/api/bank-availability", "/api/pending-expenses", "/api/pending-checks", "/api/commission-settlements", "/api/reserve-settlements",
     "/api/financial-income", "/api/financial-statements", "/api/accounts-receivable", "/api/purchase-orders",
+    "/api/inventory-items",
     "/api/customer-advances/allocate",
 )
 CRM_DATA_LOCK = threading.RLock()
@@ -68,7 +69,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "resultados-dashboard", "kpi", "meta"],
-    "financiera": ["disponibilidad", "ingresos", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
+    "financiera": ["disponibilidad", "ingresos", "inventario", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal", "archivo-muestras"],
     "rrhh": [],
 }
@@ -2465,6 +2466,7 @@ def default_permissions_for_role(role):
             "comercializacion:resultados-pedidos",
             "financiera:disponibilidad",
             "financiera:ingresos",
+            "financiera:inventario",
             "financiera:estados-financieros",
             "financiera:resultados-cuentas-por-cobrar",
             "financiera:resultados-ordenes-de-pedido",
@@ -3538,6 +3540,104 @@ def save_sample_archive_item(conn, data, existing=None):
                      (item_id, customer_id, entry_date, garment_type, size, quantity, garment_description,
                       fabric_type, sample_status, actor, actor))
     return sample_archive_item_payload(conn.execute("SELECT * FROM sample_archive WHERE id = ?", (item_id,)).fetchone())
+
+
+def inventory_decimal(value, field_name):
+    try:
+        number = Decimal(str(value if value not in (None, "") else 0))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError(f"{field_name} no es válido")
+    if not number.is_finite():
+        raise ValueError(f"{field_name} no es válido")
+    return number
+
+
+def inventory_movements_payload(conn, item_id):
+    rows = conn.execute("""
+        SELECT * FROM inventory_movements
+        WHERE item_id = ?
+        ORDER BY movement_date, id
+    """, (item_id,)).fetchall()
+    quantity_millis = 0
+    value_micros = 0
+    payload = []
+    for row in rows:
+        movement_quantity = int(row["quantity_millis"] or 0)
+        movement_type = text(row["movement_type"]).upper()
+        average_before = int((Decimal(value_micros) * 1000 / quantity_millis).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) if quantity_millis else 0
+        if movement_type == "ENTRADA":
+            applied_cost = int(row["unit_cost_micros"] or 0)
+            quantity_millis += movement_quantity
+            value_micros += int((Decimal(movement_quantity) * applied_cost / 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        else:
+            applied_cost = average_before
+            quantity_millis = max(0, quantity_millis - movement_quantity)
+            value_micros = max(0, value_micros - int((Decimal(movement_quantity) * applied_cost / 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP)))
+            if quantity_millis == 0:
+                value_micros = 0
+        average_after = int((Decimal(value_micros) * 1000 / quantity_millis).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) if quantity_millis else 0
+        payload.append({
+            "id": row["id"], "date": row["movement_date"], "type": movement_type,
+            "quantity": float(Decimal(movement_quantity) / 1000),
+            "unitCost": float(Decimal(applied_cost) / 1000000),
+            "balanceQuantity": float(Decimal(quantity_millis) / 1000),
+            "averageCost": float(Decimal(average_after) / 1000000),
+            "balanceValue": float(Decimal(value_micros) / 1000000),
+            "reference": row["reference"], "notes": row["notes"],
+            "createdBy": row["created_by"], "createdAt": row["created_at"],
+        })
+    return payload
+
+
+def inventory_item_payload(conn, row, include_movements=False):
+    movements = inventory_movements_payload(conn, row["id"])
+    latest = movements[-1] if movements else {}
+    item = {
+        "id": row["id"], "internalId": f"INV-{int(row['id']):06d}",
+        "code": row["code"], "description": row["description"], "unit": row["unit"],
+        "notes": row["notes"], "quantity": latest.get("balanceQuantity", 0),
+        "averageCost": latest.get("averageCost", 0), "totalValue": latest.get("balanceValue", 0),
+        "movementCount": len(movements), "createdBy": row["created_by"], "updatedBy": row["updated_by"],
+        "createdAt": row["created_at"], "updatedAt": row["updated_at"],
+    }
+    if include_movements:
+        item["movements"] = list(reversed(movements))
+    return item
+
+
+def inventory_items_payload(conn):
+    rows = conn.execute("SELECT * FROM inventory_items WHERE active = 1 ORDER BY id DESC").fetchall()
+    items = [inventory_item_payload(conn, row) for row in rows]
+    return {
+        "items": items,
+        "summary": {
+            "items": len(items),
+            "quantity": float(sum(Decimal(str(item["quantity"])) for item in items)),
+            "value": float(sum(Decimal(str(item["totalValue"])) for item in items)),
+            "movements": sum(item["movementCount"] for item in items),
+        },
+    }
+
+
+def save_inventory_item(conn, data, existing=None):
+    code = text(data.get("code"), existing["code"] if existing else "").upper()
+    description = text(data.get("description"), existing["description"] if existing else "")
+    unit = text(data.get("unit"), existing["unit"] if existing else "Unidad")
+    notes = text(data.get("notes"), existing["notes"] if existing else "")
+    if not code or not description or not unit:
+        raise ValueError("Código, descripción y unidad son requeridos")
+    actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
+    if existing:
+        conn.execute("""UPDATE inventory_items SET code=?, description=?, unit=?, notes=?, updated_by=?,
+                      updated_at=CURRENT_TIMESTAMP WHERE id=? AND active=1""",
+                     (code, description, unit, notes, actor, existing["id"]))
+        item_id = existing["id"]
+    else:
+        cursor = conn.execute("""INSERT INTO inventory_items
+            (code, description, unit, notes, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?)""",
+            (code, description, unit, notes, actor, actor))
+        item_id = cursor.lastrowid
+    return inventory_item_payload(conn, conn.execute("SELECT * FROM inventory_items WHERE id = ?", (item_id,)).fetchone())
 
 
 def control_sales_order_payload(conn, row, include_audit=False):
@@ -5049,6 +5149,21 @@ def grant_financial_statements_permissions(conn):
                 "UPDATE users SET permissions = ? WHERE id = ?",
                 (json.dumps(permissions, ensure_ascii=True), row["id"]),
             )
+
+
+def grant_inventory_permissions(conn):
+    """Expose Inventario to existing management users without broadening seller access."""
+    permission = "financiera:inventario"
+    for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
+        if row["role"] not in {"gerencias", "jefaturas"}:
+            continue
+        try:
+            permissions = json.loads(row["permissions"] or "[]")
+        except json.JSONDecodeError:
+            permissions = []
+        if permission not in permissions:
+            permissions.append(permission)
+            conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions), row["id"]))
 
 
 def remove_seller_financial_permissions_once(conn):
@@ -8053,6 +8168,35 @@ def init_db():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_sample_archive_customer ON sample_archive(customer_id, entry_date DESC, created_at DESC)")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS inventory_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                description TEXT NOT NULL,
+                unit TEXT NOT NULL DEFAULT 'Unidad',
+                notes TEXT NOT NULL DEFAULT '',
+                active INTEGER NOT NULL DEFAULT 1,
+                created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                updated_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS inventory_movements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_id INTEGER NOT NULL REFERENCES inventory_items(id),
+                movement_date TEXT NOT NULL,
+                movement_type TEXT NOT NULL CHECK (movement_type IN ('ENTRADA', 'SALIDA')),
+                quantity_millis INTEGER NOT NULL CHECK (quantity_millis > 0),
+                unit_cost_micros INTEGER NOT NULL DEFAULT 0 CHECK (unit_cost_micros >= 0),
+                reference TEXT NOT NULL DEFAULT '',
+                notes TEXT NOT NULL DEFAULT '',
+                created_by TEXT NOT NULL DEFAULT 'Sistema Gerencial',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_movements_item_date ON inventory_movements(item_id, movement_date, id)")
+        conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
             VALUES ('opportunities', '[]')
         """)
@@ -8085,6 +8229,7 @@ def init_db():
         grant_purchase_order_permissions(conn)
         grant_financial_income_permissions(conn)
         grant_financial_statements_permissions(conn)
+        grant_inventory_permissions(conn)
         remove_seller_financial_permissions_once(conn)
         seed_control_sales(conn)
         reconcile_approved_order_effective_dates(conn)
@@ -9004,6 +9149,29 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.send_json([production_schedule_payload(row) for row in rows])
             return
 
+        if self.path == "/api/inventory-items":
+            if not self.require_permission("financiera:inventario"):
+                return
+            with connect() as conn:
+                self.send_json(inventory_items_payload(conn))
+            return
+
+        inventory_parts = self.path.split("?", 1)[0].strip("/").split("/")
+        if len(inventory_parts) == 4 and inventory_parts[:2] == ["api", "inventory-items"] and inventory_parts[3] == "movements":
+            if not self.require_permission("financiera:inventario"):
+                return
+            try:
+                item_id = int(inventory_parts[2])
+            except ValueError:
+                self.send_json({"error": "Ítem de inventario no válido"}, status=400); return
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM inventory_items WHERE id = ? AND active = 1", (item_id,)).fetchone()
+                item = inventory_item_payload(conn, row, include_movements=True) if row else None
+            if not item:
+                self.send_json({"error": "Ítem de inventario no encontrado"}, status=404); return
+            self.send_json(item)
+            return
+
         if self.path == "/api/sample-archive":
             if not self.require_permission("operaciones:archivo-muestras"):
                 return
@@ -9833,6 +10001,20 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.send_json({"ok": True, "item": item}, status=201)
             return
 
+        if self.path == "/api/inventory-items":
+            if not self.require_permission("financiera:inventario"):
+                return
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    item = save_inventory_item(conn, data)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400); return
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Ya existe un ítem con ese código"}, status=409); return
+            self.send_json({"ok": True, "item": item}, status=201)
+            return
+
         if self.path == "/api/sample-archive":
             if not self.require_permission("operaciones:archivo-muestras"):
                 return
@@ -9995,6 +10177,27 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             except ValueError as error:
                 self.send_json({"error": str(error)}, status=400)
                 return
+            self.send_json({"ok": True, "item": item})
+            return
+
+        if self.path.startswith("/api/inventory-items/"):
+            if not self.require_permission("financiera:inventario"):
+                return
+            try:
+                item_id = int(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            except ValueError:
+                self.send_json({"error": "Ítem de inventario no válido"}, status=400); return
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    row = conn.execute("SELECT * FROM inventory_items WHERE id = ? AND active = 1", (item_id,)).fetchone()
+                    if not row:
+                        self.send_json({"error": "Ítem de inventario no encontrado"}, status=404); return
+                    item = save_inventory_item(conn, data, row)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400); return
+            except sqlite3.IntegrityError:
+                self.send_json({"error": "Ya existe un ítem con ese código"}, status=409); return
             self.send_json({"ok": True, "item": item})
             return
 
@@ -10780,6 +10983,19 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             if not result.rowcount:
                 self.send_json({"error": "Grupo de producción no encontrado"}, status=404)
                 return
+            self.send_json({"ok": True})
+            return
+        if self.path.startswith("/api/inventory-items/"):
+            if not self.require_permission("financiera:inventario"):
+                return
+            try:
+                item_id = int(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
+            except ValueError:
+                self.send_json({"error": "Ítem de inventario no válido"}, status=400); return
+            with connect() as conn:
+                result = conn.execute("UPDATE inventory_items SET active=0, updated_at=CURRENT_TIMESTAMP WHERE id=? AND active=1", (item_id,))
+            if not result.rowcount:
+                self.send_json({"error": "Ítem de inventario no encontrado"}, status=404); return
             self.send_json({"ok": True})
             return
         if self.path.startswith("/api/sample-archive/"):
