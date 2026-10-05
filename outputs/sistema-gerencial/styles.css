@@ -22363,6 +22363,7 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-allocation-total strong { color: #f1bf65; }
 .inventory-allocation-total strong.valid { color: #68e8cf; }
 .inventory-allocation-grid > p { min-height: 16px; margin: 0; color: #f1bf65; font-size: 10px; text-align: right; }
+.inventory-op-allocation-dialog footer .inventory-add-allocation-op { border-color: #3f9bb5; background: #205b78; color: #e9fbff; }
 .inventory-stock-projection { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .inventory-stock-projection span { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid #3d607a; border-radius: 11px; background: #173650; color: #9eb2c1; font-size: 9px; text-transform: uppercase; }
 .inventory-stock-projection strong { color: #68e8cf; font-size: 15px; text-transform: none; }
