@@ -22215,7 +22215,7 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 
 .inventory-new span { margin-right: 6px; font-size: 18px; }
 .inventory-head,
-.inventory-row { display: grid; grid-template-columns: 110px minmax(220px, 1fr) 105px 120px 110px 148px; align-items: center; }
+.inventory-row { display: grid; grid-template-columns: 132px minmax(220px, 1fr) 105px 120px 110px 148px; align-items: center; }
 .inventory-head { min-height: 50px; padding: 0 18px; border: 1px solid #436482; border-radius: 15px; background: #102d50; color: #dbe8f4; font-size: 10px; font-weight: 900; letter-spacing: .04em; }
 .inventory-list { display: grid; min-height: 0; gap: 9px; overflow-y: auto; padding-right: 5px; scrollbar-gutter: stable; }
 .inventory-row { min-height: 78px; padding: 10px 18px; border: 1px solid #2e9f89; border-left: 6px solid #54d8be; border-radius: 18px; background: linear-gradient(100deg, rgba(37,121,104,.27), rgba(17,48,72,.96)); }
@@ -22223,7 +22223,8 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-row small { color: #96aabd; font-size: 8px; font-weight: 900; letter-spacing: .05em; }
 .inventory-row strong { overflow: hidden; color: #fff; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .inventory-row span { overflow: hidden; color: #b3c3d0; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.inventory-id strong { color: #67ead0; letter-spacing: .08em; }
+.inventory-id { padding-right: 8px !important; }
+.inventory-id strong { overflow: visible; color: #67ead0; font-size: 13px; font-variant-numeric: tabular-nums; letter-spacing: .045em; text-overflow: clip; }
 .inventory-actions { display: flex !important; justify-content: flex-end; gap: 7px !important; padding: 0 !important; }
 .inventory-actions button { width: 36px; height: 36px; border: 1px solid #39759d; border-radius: 11px; background: #205788; color: #fff; font-size: 15px; cursor: pointer; }
 .inventory-actions button.movement { border-color: #39cbb0; background: #188d79; font-size: 20px; }
@@ -22393,7 +22394,7 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 
 @media (max-width: 1100px) {
   .inventory-head,
-  .inventory-row { grid-template-columns: 92px minmax(190px, 1.4fr) 88px 106px 96px 148px; }
+  .inventory-row { grid-template-columns: 122px minmax(160px, 1.4fr) 88px 106px 96px 148px; }
   .inventory-head { padding-inline: 12px; font-size: 8px; }
   .inventory-row { padding-inline: 12px; }
   .inventory-toolbar { grid-template-columns: minmax(230px, 1fr) auto auto; gap: 10px; }
