@@ -22298,7 +22298,8 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-op-picker [data-op-picker-results] strong { color: #68e8cf; }
 .inventory-op-picker [data-op-picker-results] span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inventory-op-picker [data-op-picker-results] em { color: #fff; font-size: 12px; font-style: normal; font-weight: 900; text-align: right; }
-.inventory-op-picker [data-op-picker-results] small { grid-column: 2 / 4; color: #9fb2c1; }
+.inventory-op-picker [data-op-picker-results] small { display: flex; grid-column: 2 / 4; align-items: center; flex-wrap: wrap; gap: 5px 9px; color: #9fb2c1; }
+.inventory-op-mp-badge { display: inline-flex; align-items: center; padding: 4px 7px; border: 1px solid rgba(104,232,207,.38); border-radius: 999px; background: rgba(24,141,121,.18); color: #68e8cf; font-size: 8px; font-style: normal; font-weight: 900; white-space: nowrap; }
 .inventory-op-picker [data-op-picker-results] b { grid-column: 1; grid-row: 2; color: #6ee8cf; font-size: 9px; }
 .inventory-op-picker [data-op-picker-results] > p { padding: 34px; color: #a7bac8; text-align: center; }
 .inventory-op-picker [data-op-picker-preview] { display: flex; min-height: 540px; max-height: 58vh; flex-direction: column; overflow: hidden; border: 1px solid #3f657f; border-radius: 14px; background: #102d46; }
@@ -22332,14 +22333,6 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-op-preview-details article small { color: #8fa7b7; font-size: 8px; }
 .inventory-op-preview-details article b { color: #fff; text-align: right; }
 .inventory-op-preview-details article em { color: #68e8cf; font-size: 10px; font-style: normal; text-align: right; }
-.inventory-op-preview-details.selectable article { cursor: default; }
-.inventory-line-switch { display: inline-flex; justify-self: end; cursor: pointer; }
-.inventory-line-switch input { position: absolute; opacity: 0; pointer-events: none; }
-.inventory-line-switch span { position: relative; width: 36px; height: 20px; border: 1px solid #54758c; border-radius: 999px; background: #24415c; transition: .18s ease; }
-.inventory-line-switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #91a8b8; transition: .18s ease; }
-.inventory-line-switch input:checked + span { border-color: #52dfc2; background: #176b60; }
-.inventory-line-switch input:checked + span::after { left: 18px; background: #8ff4df; }
-.inventory-line-switch input:focus-visible + span { outline: 2px solid #73bfff; outline-offset: 2px; }
 .inventory-op-preview-details > p { padding: 24px; color: #93a8b7; text-align: center; }
 .inventory-op-picker [data-op-picker-preview] > footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: auto; padding: 15px 18px; }
 .inventory-op-picker [data-op-picker-preview] > footer button { min-height: 40px; padding: 0 14px; border: 1px solid #49708a; border-radius: 10px; background: #264863; color: #fff; font-weight: 900; cursor: pointer; }
