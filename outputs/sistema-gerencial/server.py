@@ -5318,10 +5318,10 @@ def grant_financial_statements_permissions(conn):
 
 
 def grant_inventory_permissions(conn):
-    """Expose Inventario to existing management users without broadening seller access."""
+    """Legacy grant: never override a user's customized access matrix."""
     permission = "financiera:inventario"
-    for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
-        if row["role"] not in {"gerencias", "jefaturas"}:
+    for row in conn.execute("SELECT id, role, permissions, permissions_customized FROM users").fetchall():
+        if row["role"] not in {"gerencias", "jefaturas"} or bool(row["permissions_customized"]):
             continue
         try:
             permissions = json.loads(row["permissions"] or "[]")
@@ -8427,7 +8427,6 @@ def init_db():
         grant_purchase_order_permissions(conn)
         grant_financial_income_permissions(conn)
         grant_financial_statements_permissions(conn)
-        grant_inventory_permissions(conn)
         remove_seller_financial_permissions_once(conn)
         seed_control_sales(conn)
         reconcile_approved_order_effective_dates(conn)
