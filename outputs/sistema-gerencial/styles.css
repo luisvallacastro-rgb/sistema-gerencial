@@ -22343,6 +22343,7 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-op-picker-selection button { min-height: 40px; padding: 0 16px; border: 1px solid #52dfc2; border-radius: 10px; background: #188d79; color: #fff; font-weight: 900; cursor: pointer; }
 .inventory-op-picker-selection button:disabled { opacity: .42; cursor: not-allowed; }
 .inventory-op-allocation-dialog { width: min(720px, calc(100vw - 32px)); }
+.inventory-op-allocation-dialog header h2 { color: #dceaf4; }
 .inventory-allocation-placeholder { display: grid; gap: 10px; padding: 28px 24px; text-align: center; }
 .inventory-allocation-placeholder > strong { color: #68e8cf; font-size: 22px; }
 .inventory-allocation-placeholder > p { max-width: 560px; margin: 0 auto; color: #a8bac8; line-height: 1.5; }
@@ -22357,13 +22358,18 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-allocation-head span:last-child { text-align: right; }
 .inventory-allocation-grid label { padding: 11px 12px; border: 1px solid #385f79; border-radius: 11px; background: #173650; }
 .inventory-allocation-grid label > span { display: grid; gap: 3px; }
+.inventory-allocation-grid label strong { color: #68e8cf; font-size: 14px; letter-spacing: .02em; }
 .inventory-allocation-grid label small { overflow: hidden; color: #9db0bf; text-overflow: ellipsis; white-space: nowrap; }
-.inventory-allocation-grid input { height: 42px; padding: 0 12px; border: 1px solid #4b708c; border-radius: 9px; outline: 0; background: #234463; color: #fff; font: inherit; text-align: right; }
+.inventory-allocation-grid input { height: 42px; padding: 0 12px; border: 1px solid #4f8297; border-radius: 9px; outline: 0; background: #234463; color: #8ff4df; font: inherit; font-weight: 900; text-align: right; }
+.inventory-allocation-grid input:focus { border-color: #68e8cf; box-shadow: 0 0 0 2px rgba(104,232,207,.12); }
 .inventory-allocation-total { display: flex; justify-content: space-between; gap: 12px; padding: 13px 14px; border-top: 1px solid #31536b; color: #a8bbc9; }
 .inventory-allocation-total strong { color: #f1bf65; }
 .inventory-allocation-total strong.valid { color: #68e8cf; }
 .inventory-allocation-grid > p { min-height: 16px; margin: 0; color: #f1bf65; font-size: 10px; text-align: right; }
+.inventory-allocation-grid > p.valid { color: #68e8cf; }
 .inventory-op-allocation-dialog footer .inventory-add-allocation-op { border-color: #3f9bb5; background: #205b78; color: #e9fbff; }
+.inventory-op-allocation-dialog footer button { color: #dceaf4; }
+.inventory-op-allocation-dialog footer button[type="submit"] { color: #e6fff9; }
 .inventory-stock-projection { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .inventory-stock-projection span { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid #3d607a; border-radius: 11px; background: #173650; color: #9eb2c1; font-size: 9px; text-transform: uppercase; }
 .inventory-stock-projection strong { color: #68e8cf; font-size: 15px; text-transform: none; }
