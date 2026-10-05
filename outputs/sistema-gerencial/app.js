@@ -14403,6 +14403,13 @@ function openInventoryMovementDialog(item) {
   dialog.className = "inventory-dialog inventory-movement-dialog";
   dialog.innerHTML = `<form method="dialog" data-inventory-movement-form>
     <header><div><small>${escapeHtml(item.internalId)} · ${escapeHtml(item.code)}</small><h2>Registrar movimiento</h2><p>Existencia actual: ${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)} · Costo promedio ${formatMoney(item.averageCost)}</p></div><button type="button" data-inventory-close aria-label="Cerrar">×</button></header>
+    <div class="inventory-stock-overview">
+      <span class="current"><small>Existencia actual</small><strong>${inventoryQuantityLabel(item.quantity)}</strong><b>${escapeHtml(item.unit)}</b></span>
+      <span class="minimum"><small>Stock mínimo protegido</small><strong>${inventoryQuantityLabel(item.minimumStock || 0)}</strong><b>${escapeHtml(item.unit)}</b></span>
+      <span class="available"><small>Disponible para salida</small><strong data-inventory-available>${inventoryQuantityLabel(Math.max(0, Number(item.quantity || 0) - Number(item.minimumStock || 0)))}</strong><b>${escapeHtml(item.unit)}</b></span>
+      <span class="projected"><small>Saldo proyectado</small><strong data-inventory-projected>${inventoryQuantityLabel(item.quantity)}</strong><b>${escapeHtml(item.unit)}</b></span>
+    </div>
+    <p class="inventory-stock-warning" data-inventory-stock-warning></p>
     <div class="inventory-form-grid">
       <label><span>Movimiento</span><select name="type" required><option value="ENTRADA">Entrada</option><option value="SALIDA">Salida</option></select></label>
       <label><span>Fecha</span><input name="date" type="date" required value="${todayISO()}"></label>
@@ -14417,8 +14424,7 @@ function openInventoryMovementDialog(item) {
       <label><span>OP</span><input name="productionOrder" maxlength="80" placeholder="Solo para salidas a producción"></label>
       <label><span>Motivo</span><select name="reason" required><option value="Compra">Compra</option><option value="Orden de producción">Orden de producción</option><option value="Ajuste físico">Ajuste físico</option><option value="Devolución">Devolución</option><option value="Otro">Otro</option></select></label>
       <label class="wide"><span>Observaciones</span><textarea name="notes" maxlength="500" placeholder="Detalle adicional del movimiento"></textarea></label>
-      <div class="inventory-stock-projection wide"><span>Existencia actual<strong>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)}</strong></span><span>Stock mínimo<strong>${inventoryQuantityLabel(item.minimumStock || 0)} ${escapeHtml(item.unit)}</strong></span><span>Disponible para salida<strong data-inventory-available>${inventoryQuantityLabel(Math.max(0, Number(item.quantity || 0) - Number(item.minimumStock || 0)))} ${escapeHtml(item.unit)}</strong></span><span>Stock proyectado<strong data-inventory-projected>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)}</strong></span><span>Costo aplicado<strong data-inventory-applied-cost>${formatMoney(item.averageCost)}</strong></span></div>
-      <p class="inventory-stock-warning wide" data-inventory-stock-warning></p>
+      <div class="inventory-cost-summary wide"><span>Costo aplicado</span><strong data-inventory-applied-cost>${formatMoney(item.averageCost)}</strong></div>
     </div>
     <footer><button type="button" data-inventory-close>Cancelar</button><button type="submit">Registrar movimiento</button></footer>
   </form>`;
@@ -14447,8 +14453,8 @@ function openInventoryMovementDialog(item) {
     const quantity = Number(form.elements.quantity.value || 0);
     const available = Math.max(0, Number(item.quantity || 0) - Number(item.minimumStock || 0));
     const projected = Number(item.quantity || 0) + (isEntry ? quantity : -quantity);
-    projection.textContent = `${inventoryQuantityLabel(projected)} ${item.unit}`;
-    availableLabel.textContent = `${inventoryQuantityLabel(available)} ${item.unit}`;
+    projection.textContent = inventoryQuantityLabel(projected);
+    availableLabel.textContent = inventoryQuantityLabel(available);
     form.elements.quantity.max = isEntry ? "" : String(available);
     const belowMinimum = !isEntry && quantity > available;
     projection.closest("span").classList.toggle("danger", belowMinimum);

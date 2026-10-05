@@ -22254,12 +22254,26 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-form-grid input[readonly] { border-color: #38556d; background: #17334e; color: #9fb4c4; }
 .inventory-form-grid label.automatic > span { color: #68e8cf; }
 .inventory-form-grid label.automatic input { border-color: #2f8f7d; background: rgba(24, 141, 121, .12); color: #68e8cf; font-weight: 900; }
+.inventory-stock-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 16px 24px 0; }
+.inventory-stock-overview > span { position: relative; display: grid; min-height: 82px; align-content: center; padding: 12px 15px; border: 1px solid #41657f; border-radius: 14px; background: linear-gradient(145deg, #173a58, #132f49); }
+.inventory-stock-overview small { color: #a9bccb; font-size: 9px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.inventory-stock-overview strong { margin-top: 3px; color: #fff; font-size: 29px; line-height: 1; }
+.inventory-stock-overview b { position: absolute; right: 14px; bottom: 13px; color: #8fa8ba; font-size: 9px; }
+.inventory-stock-overview .current { border-color: #36b89f; background: linear-gradient(145deg, rgba(24,141,121,.32), #14374e); }
+.inventory-stock-overview .current strong,
+.inventory-stock-overview .available strong { color: #68e8cf; }
+.inventory-stock-overview .minimum strong { color: #f1bf65; }
+.inventory-stock-overview .projected { border-width: 2px; }
+.inventory-stock-overview .projected.danger { border-color: #d05b6d; background: rgba(151,42,62,.2); }
+.inventory-stock-overview .projected.danger strong { color: #ff9eaa; }
+.inventory-cost-summary { display: flex; align-items: center; justify-content: space-between; padding: 10px 13px; border: 1px solid #2f786b; border-radius: 11px; background: rgba(24,141,121,.1); color: #9fb8c7; font-size: 10px; }
+.inventory-cost-summary strong { color: #68e8cf; font-size: 15px; }
 .inventory-stock-projection { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
 .inventory-stock-projection span { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid #3d607a; border-radius: 11px; background: #173650; color: #9eb2c1; font-size: 9px; text-transform: uppercase; }
 .inventory-stock-projection strong { color: #68e8cf; font-size: 15px; text-transform: none; }
 .inventory-stock-projection span.danger { border-color: #d06a77; background: rgba(167, 49, 69, .18); }
 .inventory-stock-projection span.danger strong { color: #ff9aa5; }
-.inventory-stock-warning { margin: -5px 0 0; padding: 10px 12px; border: 1px solid #a84a5b; border-radius: 10px; background: rgba(151, 42, 62, .16); color: #ffb0b8; font-size: 11px; font-weight: 800; }
+.inventory-stock-warning { margin: 10px 24px 0; padding: 10px 12px; border: 1px solid #a84a5b; border-radius: 10px; background: rgba(151, 42, 62, .16); color: #ffb0b8; font-size: 11px; font-weight: 800; }
 .inventory-movement-dialog { width: min(900px, calc(100vw - 32px)); }
 .inventory-movement-dialog .inventory-form-grid { max-height: 62vh; overflow-y: auto; }
 .inventory-dialog footer { display: flex; justify-content: flex-end; gap: 10px; padding: 15px 24px 20px; }
@@ -22280,6 +22294,7 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
   .inventory-head { padding-inline: 12px; font-size: 8px; }
   .inventory-row { padding-inline: 12px; }
   .inventory-toolbar { grid-template-columns: minmax(230px, 1fr) auto auto; gap: 10px; }
+  .inventory-stock-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Estados financieros: lectura simple y progresiva. */
