@@ -22225,6 +22225,7 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-row span { overflow: hidden; color: #b3c3d0; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .inventory-id { padding-right: 8px !important; }
 .inventory-id strong { overflow: visible; color: #67ead0; font-size: 13px; font-variant-numeric: tabular-nums; letter-spacing: .045em; text-overflow: clip; }
+.inventory-item strong { color: #edf6ff; font-size: 14px; }
 .inventory-actions { display: flex !important; justify-content: flex-end; gap: 7px !important; padding: 0 !important; }
 .inventory-actions button { width: 36px; height: 36px; border: 1px solid #39759d; border-radius: 11px; background: #205788; color: #fff; font-size: 15px; cursor: pointer; }
 .inventory-actions button.movement { border-color: #39cbb0; background: #188d79; font-size: 20px; }

@@ -14320,8 +14320,8 @@ function inventoryFilteredItems() {
 function renderFinancialInventory() {
   const items = inventoryFilteredItems();
   const rows = items.map((item) => `<article class="inventory-row">
-    <div class="inventory-id"><small>ID INTERNO</small><strong>${escapeHtml(item.internalId)}</strong></div>
-    <div class="inventory-item"><small>CÓDIGO / ÍTEM</small><strong>${escapeHtml(item.code)}</strong><span>${escapeHtml(item.description)}</span></div>
+    <div class="inventory-id"><small>ID KMI</small><strong>${escapeHtml(item.internalId)}</strong></div>
+    <div class="inventory-item"><small>ÍTEM DE INVENTARIO</small><strong>${escapeHtml(item.description)}</strong></div>
     <div><small>EXISTENCIA</small><strong>${inventoryQuantityLabel(item.quantity)}</strong><span>${escapeHtml(item.unit)}</span></div>
     <div><small>COSTO PROMEDIO</small><strong>${formatMoney(item.averageCost)}</strong></div>
     <div><small>VALOR</small><strong>${formatMoney(item.totalValue)}</strong><span>${item.movementCount} ${item.movementCount === 1 ? "movimiento" : "movimientos"}</span></div>
@@ -14330,11 +14330,11 @@ function renderFinancialInventory() {
   const loading = state.inventoryLoading && !state.inventoryLoaded;
   return `<section class="inventory-module" aria-label="Inventario">
     <div class="inventory-toolbar">
-      <label class="inventory-search"><span>⌕</span><input type="search" value="${escapeHtml(state.inventoryQuery)}" placeholder="Buscar ID, código o descripción..." data-inventory-search></label>
+      <label class="inventory-search"><span>⌕</span><input type="search" value="${escapeHtml(state.inventoryQuery)}" placeholder="Buscar ID, nombre o referencia..." data-inventory-search></label>
       <div class="inventory-total"><small>VALOR TOTAL</small><strong>${formatMoney(state.inventorySummary.value)}</strong></div>
       <button type="button" class="inventory-new" data-inventory-new><span>＋</span> Nuevo ítem</button>
     </div>
-    <div class="inventory-head"><span>ID INTERNO</span><span>CÓDIGO / ÍTEM</span><span>EXISTENCIA</span><span>COSTO PROMEDIO</span><span>VALOR</span><span>ACCIONES</span></div>
+    <div class="inventory-head"><span>ID KMI</span><span>ÍTEM DE INVENTARIO</span><span>EXISTENCIA</span><span>COSTO PROMEDIO</span><span>VALOR</span><span>ACCIONES</span></div>
     <div class="inventory-list">${loading ? `<div class="inventory-empty">Cargando inventario...</div>` : rows || `<div class="inventory-empty">${state.inventoryQuery ? "No hay ítems que coincidan con la búsqueda." : "Aún no hay ítems de inventario. Usa “Nuevo ítem” para crear el primero."}</div>`}</div>
   </section>`;
 }
