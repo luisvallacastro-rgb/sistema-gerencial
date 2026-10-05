@@ -3640,6 +3640,49 @@ def save_inventory_item(conn, data, existing=None):
     return inventory_item_payload(conn, conn.execute("SELECT * FROM inventory_items WHERE id = ?", (item_id,)).fetchone())
 
 
+def save_inventory_movement(conn, item_row, data):
+    movement_type = text(data.get("type")).upper()
+    movement_date = text(data.get("date"))
+    if movement_type not in {"ENTRADA", "SALIDA"}:
+        raise ValueError("Selecciona entrada o salida")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", movement_date):
+        raise ValueError("La fecha del movimiento es requerida")
+    try:
+        datetime.strptime(movement_date, "%Y-%m-%d")
+    except ValueError as error:
+        raise ValueError("La fecha del movimiento no es válida") from error
+    quantity = inventory_decimal(data.get("quantity"), "La cantidad")
+    if quantity <= 0:
+        raise ValueError("La cantidad debe ser mayor que cero")
+    quantity_millis = int((quantity * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    if quantity_millis <= 0:
+        raise ValueError("La cantidad mínima es 0.001")
+    unit_cost = inventory_decimal(data.get("unitCost"), "El costo unitario") if movement_type == "ENTRADA" else Decimal(0)
+    if unit_cost < 0:
+        raise ValueError("El costo unitario no puede ser negativo")
+    unit_cost_micros = int((unit_cost * 1000000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    current = inventory_item_payload(conn, item_row)
+    current_millis = int((Decimal(str(current["quantity"])) * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    if movement_type == "SALIDA" and quantity_millis > current_millis:
+        raise ValueError(f"La salida excede la existencia disponible de {current['quantity']} {item_row['unit']}")
+    reason = text(data.get("reason"))
+    reference = text(data.get("reference"))
+    notes = text(data.get("notes"))
+    if not reason:
+        raise ValueError("Selecciona el motivo del movimiento")
+    if reason in {"Orden de producción", "Compra", "Devolución"} and not reference:
+        raise ValueError("La referencia es requerida para este movimiento")
+    actor = text(data.get("createdBy"), "Sistema Gerencial")
+    full_notes = reason + (f" · {notes}" if notes else "")
+    cursor = conn.execute("""INSERT INTO inventory_movements
+        (item_id, movement_date, movement_type, quantity_millis, unit_cost_micros,
+         reference, notes, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (item_row["id"], movement_date, movement_type, quantity_millis, unit_cost_micros,
+         reference, full_notes, actor))
+    return inventory_item_payload(conn, item_row, include_movements=True), cursor.lastrowid
+
+
 def control_sales_order_payload(conn, row, include_audit=False):
     detail_rows = conn.execute("""
         SELECT * FROM control_sales_details
@@ -9849,6 +9892,27 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 self.send_json({"error": str(error)}, status=400)
                 return
             self.send_json({"ok": True, "item": item}, status=201)
+            return
+
+        inventory_parts = self.path.split("?", 1)[0].strip("/").split("/")
+        if len(inventory_parts) == 4 and inventory_parts[:2] == ["api", "inventory-items"] and inventory_parts[3] == "movements":
+            if not self.require_permission("financiera:inventario"):
+                return
+            try:
+                item_id = int(inventory_parts[2])
+            except ValueError:
+                self.send_json({"error": "Ítem de inventario no válido"}, status=400); return
+            data = self.read_json()
+            try:
+                with connect() as conn:
+                    conn.execute("BEGIN IMMEDIATE")
+                    row = conn.execute("SELECT * FROM inventory_items WHERE id = ? AND active = 1", (item_id,)).fetchone()
+                    if not row:
+                        self.send_json({"error": "Ítem de inventario no encontrado"}, status=404); return
+                    item, movement_id = save_inventory_movement(conn, row, data)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400); return
+            self.send_json({"ok": True, "movementId": movement_id, "item": item}, status=201)
             return
 
         if self.path == "/api/commission-settlements":

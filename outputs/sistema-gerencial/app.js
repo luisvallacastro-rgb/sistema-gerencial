@@ -14324,7 +14324,7 @@ function renderFinancialInventory() {
     <div><small>EXISTENCIA</small><strong>${inventoryQuantityLabel(item.quantity)}</strong><span>${escapeHtml(item.unit)}</span></div>
     <div><small>COSTO PROMEDIO</small><strong>${formatMoney(item.averageCost)}</strong></div>
     <div><small>VALOR</small><strong>${formatMoney(item.totalValue)}</strong><span>${item.movementCount} ${item.movementCount === 1 ? "movimiento" : "movimientos"}</span></div>
-    <div class="inventory-actions"><button type="button" data-inventory-history="${item.id}" title="Ver movimientos" aria-label="Ver movimientos de ${escapeHtml(item.code)}">◉</button><button type="button" data-inventory-edit="${item.id}" title="Editar ítem" aria-label="Editar ${escapeHtml(item.code)}">✎</button><button type="button" class="archive" data-inventory-archive="${item.id}" title="Archivar ítem" aria-label="Archivar ${escapeHtml(item.code)}">⌫</button></div>
+    <div class="inventory-actions"><button type="button" class="movement" data-inventory-movement="${item.id}" title="Registrar entrada o salida" aria-label="Registrar movimiento de ${escapeHtml(item.code)}">＋</button><button type="button" data-inventory-history="${item.id}" title="Ver movimientos" aria-label="Ver movimientos de ${escapeHtml(item.code)}">◉</button><button type="button" data-inventory-edit="${item.id}" title="Editar ítem" aria-label="Editar ${escapeHtml(item.code)}">✎</button><button type="button" class="archive" data-inventory-archive="${item.id}" title="Archivar ítem" aria-label="Archivar ${escapeHtml(item.code)}">⌫</button></div>
   </article>`).join("");
   const loading = state.inventoryLoading && !state.inventoryLoaded;
   return `<section class="inventory-module" aria-label="Inventario">
@@ -14386,15 +14386,63 @@ async function openInventoryHistoryDialog(itemId) {
   try {
     const item = await apiJson(`/api/inventory-items/${itemId}/movements`);
     const dialog = document.createElement("dialog"); dialog.className = "inventory-dialog inventory-history-dialog";
-    const rows = (item.movements || []).map((movement) => `<tr><td>${formatDate(movement.date)}</td><td><b class="${movement.type === "ENTRADA" ? "in" : "out"}">${escapeHtml(movement.type)}</b></td><td>${inventoryQuantityLabel(movement.quantity)}</td><td>${formatMoney(movement.unitCost)}</td><td>${inventoryQuantityLabel(movement.balanceQuantity)}</td><td>${formatMoney(movement.averageCost)}</td><td>${formatMoney(movement.balanceValue)}</td></tr>`).join("");
-    dialog.innerHTML = `<section><header><div><small>${escapeHtml(item.internalId)} · ${escapeHtml(item.code)}</small><h2>${escapeHtml(item.description)}</h2><p>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)} · ${formatMoney(item.totalValue)}</p></div><button type="button" data-inventory-close aria-label="Cerrar">×</button></header><div class="inventory-history-table"><table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Cantidad</th><th>C/U aplicado</th><th>Saldo</th><th>Costo promedio</th><th>Valor</th></tr></thead><tbody>${rows || `<tr><td colspan="7" class="empty">Este ítem todavía no tiene movimientos de entrada o salida.</td></tr>`}</tbody></table></div></section>`;
+    const rows = (item.movements || []).map((movement) => `<tr><td>${formatDate(movement.date)}</td><td><b class="${movement.type === "ENTRADA" ? "in" : "out"}">${escapeHtml(movement.type)}</b></td><td>${inventoryQuantityLabel(movement.quantity)}</td><td>${formatMoney(movement.unitCost)}</td><td>${inventoryQuantityLabel(movement.balanceQuantity)}</td><td>${formatMoney(movement.averageCost)}</td><td>${formatMoney(movement.balanceValue)}</td><td>${escapeHtml(movement.reference || "—")}</td><td>${escapeHtml(movement.notes || "—")}</td></tr>`).join("");
+    dialog.innerHTML = `<section><header><div><small>${escapeHtml(item.internalId)} · ${escapeHtml(item.code)}</small><h2>${escapeHtml(item.description)}</h2><p>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)} · ${formatMoney(item.totalValue)}</p></div><button type="button" data-inventory-close aria-label="Cerrar">×</button></header><div class="inventory-history-table"><table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Cantidad</th><th>C/U aplicado</th><th>Saldo</th><th>Costo promedio</th><th>Valor</th><th>Referencia</th><th>Motivo / observación</th></tr></thead><tbody>${rows || `<tr><td colspan="9" class="empty">Este ítem todavía no tiene movimientos de entrada o salida.</td></tr>`}</tbody></table></div></section>`;
     dialog.querySelector("[data-inventory-close]").onclick = () => dialog.close(); document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), {once:true}); dialog.showModal();
   } catch (error) { alert(error.message || "No se pudo abrir el historial."); }
+}
+
+function openInventoryMovementDialog(item) {
+  if (!item) return;
+  const dialog = document.createElement("dialog");
+  dialog.className = "inventory-dialog inventory-movement-dialog";
+  dialog.innerHTML = `<form method="dialog" data-inventory-movement-form>
+    <header><div><small>${escapeHtml(item.internalId)} · ${escapeHtml(item.code)}</small><h2>Registrar movimiento</h2><p>Existencia actual: ${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)} · Costo promedio ${formatMoney(item.averageCost)}</p></div><button type="button" data-inventory-close aria-label="Cerrar">×</button></header>
+    <div class="inventory-form-grid">
+      <label><span>Movimiento</span><select name="type" required><option value="ENTRADA">Entrada</option><option value="SALIDA">Salida</option></select></label>
+      <label><span>Fecha</span><input name="date" type="date" required value="${todayISO()}"></label>
+      <label><span>Cantidad (${escapeHtml(item.unit)})</span><input name="quantity" type="number" min="0.001" step="0.001" required placeholder="0.000"></label>
+      <label data-inventory-unit-cost><span>Costo unitario</span><input name="unitCost" type="number" min="0" step="0.000001" required placeholder="0.000000"></label>
+      <label><span>Motivo</span><select name="reason" required><option value="Compra">Compra</option><option value="Orden de producción">Orden de producción</option><option value="Ajuste físico">Ajuste físico</option><option value="Devolución">Devolución</option><option value="Otro">Otro</option></select></label>
+      <label><span>Referencia</span><input name="reference" maxlength="120" placeholder="Factura, OP o documento"></label>
+      <label class="wide"><span>Observaciones</span><textarea name="notes" maxlength="500" placeholder="Detalle adicional del movimiento"></textarea></label>
+    </div>
+    <footer><button type="button" data-inventory-close>Cancelar</button><button type="submit">Registrar movimiento</button></footer>
+  </form>`;
+  const form = dialog.querySelector("[data-inventory-movement-form]");
+  const type = form.elements.type;
+  const costLabel = dialog.querySelector("[data-inventory-unit-cost]");
+  const reason = form.elements.reason;
+  const syncType = () => {
+    const isEntry = type.value === "ENTRADA";
+    costLabel.hidden = !isEntry;
+    form.elements.unitCost.required = isEntry;
+    if (!isEntry) form.elements.unitCost.value = "";
+    if (isEntry && reason.value === "Orden de producción") reason.value = "Compra";
+    if (!isEntry && ["Compra", "Devolución"].includes(reason.value)) reason.value = "Orden de producción";
+  };
+  type.addEventListener("change", syncType);
+  dialog.querySelectorAll("[data-inventory-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submit = form.querySelector("button[type=submit]");
+    const values = Object.fromEntries(new FormData(form).entries());
+    const action = values.type === "ENTRADA" ? "entrada" : "salida";
+    if (!confirm(`¿Registrar ${action} de ${values.quantity} ${item.unit} para ${item.code}?`)) return;
+    submit.disabled = true;
+    try {
+      await apiJson(`/api/inventory-items/${item.id}/movements`, { method:"POST", body:JSON.stringify({...values, createdBy:state.currentUser?.name || "Sistema Gerencial"}) });
+      dialog.close(); state.inventoryLoaded = false; await loadInventoryItems();
+    } catch (error) { alert(error.message || "No se pudo registrar el movimiento."); submit.disabled = false; }
+  });
+  document.body.append(dialog); dialog.addEventListener("close", () => dialog.remove(), { once:true }); dialog.showModal();
+  syncType(); requestAnimationFrame(() => form.elements.quantity?.focus());
 }
 
 function wireFinancialInventory() {
   opportunityTable.querySelector("[data-inventory-search]")?.addEventListener("input", (event) => { state.inventoryQuery = event.target.value; renderCommercialSubmenu(areas.financiera); requestAnimationFrame(() => { const input=opportunityTable.querySelector("[data-inventory-search]"); input?.focus(); input?.setSelectionRange(input.value.length,input.value.length); }); });
   opportunityTable.querySelector("[data-inventory-new]")?.addEventListener("click", () => openInventoryItemDialog());
+  opportunityTable.querySelectorAll("[data-inventory-movement]").forEach((button) => button.addEventListener("click", () => openInventoryMovementDialog(state.inventoryItems.find((item) => String(item.id) === button.dataset.inventoryMovement))));
   opportunityTable.querySelectorAll("[data-inventory-edit]").forEach((button) => button.addEventListener("click", () => openInventoryItemDialog(state.inventoryItems.find((item) => String(item.id) === button.dataset.inventoryEdit))));
   opportunityTable.querySelectorAll("[data-inventory-history]").forEach((button) => button.addEventListener("click", () => openInventoryHistoryDialog(button.dataset.inventoryHistory)));
   opportunityTable.querySelectorAll("[data-inventory-archive]").forEach((button) => button.addEventListener("click", async () => { const item=state.inventoryItems.find((row)=>String(row.id)===button.dataset.inventoryArchive); if(!item||!confirm(`¿Archivar ${item.code}? El historial se conservará.`))return; try{await apiJson(`/api/inventory-items/${item.id}`,{method:"DELETE"});state.inventoryLoaded=false;await loadInventoryItems();}catch(error){alert(error.message||"No se pudo archivar el ítem.");} }));
