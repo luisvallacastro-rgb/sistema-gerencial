@@ -14361,8 +14361,12 @@ function openInventoryItemDialog(item = null) {
     <header><div><small>FINANCIERA · INVENTARIO</small><h2>${item ? "Editar ítem" : "Nuevo ítem"}</h2><p>${item ? escapeHtml(item.internalId) : "El ID interno se asignará automáticamente al guardar."}</p></div><button type="button" data-inventory-close aria-label="Cerrar">×</button></header>
     <div class="inventory-form-grid">
       <label><span>Código</span><input name="code" required maxlength="40" value="${escapeHtml(item?.code || "")}" placeholder="Ej. MP-002"></label>
-      <label><span>Unidad de medida</span><input name="unit" required maxlength="30" value="${escapeHtml(item?.unit || "Unidad")}" placeholder="Ej. Yardas"></label>
+      <label><span>Categoría</span><select name="category" required>${["TELAS","HILOS","OTROS","CINTA REFLECTIVA","PELUM","CAJAS"].map((value)=>`<option ${item?.category===value?"selected":""}>${value}</option>`).join("")}</select></label>
+      <label><span>Unidad de medida</span><select name="unit" required>${["YARDAS","PIEZAS","CONOS","KILOS","UNIDADES"].map((value)=>`<option ${String(item?.unit||"YARDAS").toUpperCase()===value?"selected":""}>${value}</option>`).join("")}</select></label>
+      <label><span>Color</span><input name="color" maxlength="80" value="${escapeHtml(item?.color || "")}" placeholder="Color o referencia"></label>
       <label class="wide"><span>Descripción del ítem</span><input name="description" required maxlength="180" value="${escapeHtml(item?.description || "")}" placeholder="Nombre claro de la materia prima"></label>
+      <label><span>Stock mínimo</span><input name="minimumStock" type="number" min="0" step="0.001" value="${Number(item?.minimumStock || 0)}"></label>
+      <label class="inventory-active-field"><span>Estado</span><span><input name="active" type="checkbox" ${item?.active===false?"":"checked"}> Ítem activo</span></label>
       <label class="wide"><span>Notas</span><textarea name="notes" maxlength="500" placeholder="Información adicional (opcional)">${escapeHtml(item?.notes || "")}</textarea></label>
     </div>
     <footer><button type="button" data-inventory-close>Cancelar</button><button type="submit">Guardar ítem</button></footer>
@@ -14372,6 +14376,7 @@ function openInventoryItemDialog(item = null) {
     event.preventDefault();
     const submit = event.currentTarget.querySelector("button[type=submit]");
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    values.active = event.currentTarget.elements.active.checked;
     submit.disabled = true;
     try {
       await apiJson(item ? `/api/inventory-items/${item.id}` : "/api/inventory-items", { method:item ? "PUT" : "POST", body:JSON.stringify({...values, updatedBy:state.currentUser?.name || "Sistema Gerencial"}) });
@@ -14401,11 +14406,18 @@ function openInventoryMovementDialog(item) {
     <div class="inventory-form-grid">
       <label><span>Movimiento</span><select name="type" required><option value="ENTRADA">Entrada</option><option value="SALIDA">Salida</option></select></label>
       <label><span>Fecha</span><input name="date" type="date" required value="${todayISO()}"></label>
+      <label><span>Código MP</span><input value="${escapeHtml(item.code)}" readonly></label>
+      <label><span>Categoría</span><input value="${escapeHtml(item.category || "—")}" readonly></label>
+      <label class="wide"><span>Descripción</span><input value="${escapeHtml(item.description)}" readonly></label>
       <label><span>Cantidad (${escapeHtml(item.unit)})</span><input name="quantity" type="number" min="0.001" step="0.001" required placeholder="0.000"></label>
       <label data-inventory-unit-cost><span>Costo unitario</span><input name="unitCost" type="number" min="0" step="0.000001" required placeholder="0.000000"></label>
+      <label><span>Tipo de documento</span><select name="documentType"><option value="">Seleccionar</option><option>Factura</option><option>Crédito fiscal</option><option>Nota de remisión</option><option>Orden de producción</option><option>Ajuste de inventario</option><option>Otro</option></select></label>
+      <label><span>No. documento</span><input name="reference" maxlength="120" placeholder="Factura, remisión o referencia"></label>
+      <label><span>Proveedor</span><input name="supplier" maxlength="120" placeholder="Solo para entradas"></label>
+      <label><span>OP</span><input name="productionOrder" maxlength="80" placeholder="Solo para salidas a producción"></label>
       <label><span>Motivo</span><select name="reason" required><option value="Compra">Compra</option><option value="Orden de producción">Orden de producción</option><option value="Ajuste físico">Ajuste físico</option><option value="Devolución">Devolución</option><option value="Otro">Otro</option></select></label>
-      <label><span>Referencia</span><input name="reference" maxlength="120" placeholder="Factura, OP o documento"></label>
       <label class="wide"><span>Observaciones</span><textarea name="notes" maxlength="500" placeholder="Detalle adicional del movimiento"></textarea></label>
+      <div class="inventory-stock-projection wide"><span>Stock antes<strong>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)}</strong></span><span>Stock proyectado<strong data-inventory-projected>${inventoryQuantityLabel(item.quantity)} ${escapeHtml(item.unit)}</strong></span><span>Costo aplicado<strong data-inventory-applied-cost>${formatMoney(item.averageCost)}</strong></span></div>
     </div>
     <footer><button type="button" data-inventory-close>Cancelar</button><button type="submit">Registrar movimiento</button></footer>
   </form>`;
@@ -14413,6 +14425,8 @@ function openInventoryMovementDialog(item) {
   const type = form.elements.type;
   const costLabel = dialog.querySelector("[data-inventory-unit-cost]");
   const reason = form.elements.reason;
+  const projection = dialog.querySelector("[data-inventory-projected]");
+  const appliedCost = dialog.querySelector("[data-inventory-applied-cost]");
   const syncType = () => {
     const isEntry = type.value === "ENTRADA";
     costLabel.hidden = !isEntry;
@@ -14420,8 +14434,15 @@ function openInventoryMovementDialog(item) {
     if (!isEntry) form.elements.unitCost.value = "";
     if (isEntry && reason.value === "Orden de producción") reason.value = "Compra";
     if (!isEntry && ["Compra", "Devolución"].includes(reason.value)) reason.value = "Orden de producción";
+    form.elements.supplier.closest("label").hidden = !isEntry;
+    form.elements.productionOrder.closest("label").hidden = isEntry;
+    appliedCost.textContent = isEntry ? "Según costo de entrada" : `${formatMoney(item.averageCost)} automático`;
+    const quantity = Number(form.elements.quantity.value || 0);
+    const projected = Number(item.quantity || 0) + (isEntry ? quantity : -quantity);
+    projection.textContent = `${inventoryQuantityLabel(projected)} ${item.unit}`;
   };
   type.addEventListener("change", syncType);
+  form.elements.quantity.addEventListener("input", syncType);
   dialog.querySelectorAll("[data-inventory-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   form.addEventListener("submit", async (event) => {
     event.preventDefault();

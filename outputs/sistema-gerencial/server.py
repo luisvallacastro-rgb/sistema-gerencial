@@ -3596,7 +3596,10 @@ def inventory_item_payload(conn, row, include_movements=False):
     item = {
         "id": row["id"], "internalId": f"INV-{int(row['id']):06d}",
         "code": row["code"], "description": row["description"], "unit": row["unit"],
-        "notes": row["notes"], "quantity": latest.get("balanceQuantity", 0),
+        "category": row["category"] if "category" in row.keys() else "",
+        "color": row["color"] if "color" in row.keys() else "",
+        "minimumStock": float(Decimal(row["minimum_stock_millis"] or 0) / 1000) if "minimum_stock_millis" in row.keys() else 0,
+        "notes": row["notes"], "active": bool(row["active"]), "quantity": latest.get("balanceQuantity", 0),
         "averageCost": latest.get("averageCost", 0), "totalValue": latest.get("balanceValue", 0),
         "movementCount": len(movements), "createdBy": row["created_by"], "updatedBy": row["updated_by"],
         "createdAt": row["created_at"], "updatedAt": row["updated_at"],
@@ -3634,11 +3637,20 @@ def seed_inventory_if_empty(conn):
         raise ValueError("La semilla de inventario tiene códigos vacíos o duplicados")
     item_ids = {}
     for item, code in zip(items, codes):
+        item_notes = text(item.get("notes"))
+        note_values = {}
+        for part in [value.strip() for value in item_notes.split(".") if value.strip()]:
+            if ":" in part:
+                key, value = part.split(":", 1)
+                note_values[key.strip().lower()] = value.strip()
+        minimum = inventory_decimal(note_values.get("stock minimo", 0), "El stock mínimo importado")
         cursor = conn.execute("""INSERT INTO inventory_items
-            (code, description, unit, notes, active, created_by, updated_by)
-            VALUES (?, ?, ?, ?, ?, 'Importación Excel', 'Importación Excel')""",
+            (code, description, unit, category, color, minimum_stock_millis, notes, active, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Importación Excel', 'Importación Excel')""",
             (code, text(item.get("description")), text(item.get("unit"), "Unidad"),
-             text(item.get("notes")), int(item.get("active", True))))
+             note_values.get("categoria", ""), note_values.get("color", ""),
+             int((minimum * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP)),
+             item_notes, int(item.get("active", True))))
         item_ids[code] = cursor.lastrowid
     movement_rows = []
     for movement in movements:
@@ -3671,19 +3683,27 @@ def save_inventory_item(conn, data, existing=None):
     code = text(data.get("code"), existing["code"] if existing else "").upper()
     description = text(data.get("description"), existing["description"] if existing else "")
     unit = text(data.get("unit"), existing["unit"] if existing else "Unidad")
+    category = text(data.get("category"), existing["category"] if existing and "category" in existing.keys() else "")
+    color = text(data.get("color"), existing["color"] if existing and "color" in existing.keys() else "")
     notes = text(data.get("notes"), existing["notes"] if existing else "")
-    if not code or not description or not unit:
-        raise ValueError("Código, descripción y unidad son requeridos")
+    minimum_stock = inventory_decimal(data.get("minimumStock", Decimal(existing["minimum_stock_millis"] or 0) / 1000 if existing and "minimum_stock_millis" in existing.keys() else 0), "El stock mínimo")
+    if minimum_stock < 0:
+        raise ValueError("El stock mínimo no puede ser negativo")
+    minimum_stock_millis = int((minimum_stock * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    active = 1 if str(data.get("active", existing["active"] if existing else True)).lower() not in {"false", "0", "no", "off"} else 0
+    if not code or not description or not unit or not category:
+        raise ValueError("Código, categoría, descripción y unidad son requeridos")
     actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
     if existing:
-        conn.execute("""UPDATE inventory_items SET code=?, description=?, unit=?, notes=?, updated_by=?,
+        conn.execute("""UPDATE inventory_items SET code=?, description=?, unit=?, category=?, color=?, minimum_stock_millis=?, notes=?, active=?, updated_by=?,
                       updated_at=CURRENT_TIMESTAMP WHERE id=? AND active=1""",
-                     (code, description, unit, notes, actor, existing["id"]))
+                     (code, description, unit, category, color, minimum_stock_millis, notes, active, actor, existing["id"]))
         item_id = existing["id"]
     else:
         cursor = conn.execute("""INSERT INTO inventory_items
-            (code, description, unit, notes, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?)""",
-            (code, description, unit, notes, actor, actor))
+            (code, description, unit, category, color, minimum_stock_millis, notes, active, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (code, description, unit, category, color, minimum_stock_millis, notes, active, actor, actor))
         item_id = cursor.lastrowid
     return inventory_item_payload(conn, conn.execute("SELECT * FROM inventory_items WHERE id = ?", (item_id,)).fetchone())
 
@@ -3716,12 +3736,26 @@ def save_inventory_movement(conn, item_row, data):
     reason = text(data.get("reason"))
     reference = text(data.get("reference"))
     notes = text(data.get("notes"))
+    document_type = text(data.get("documentType"))
+    supplier = text(data.get("supplier"))
+    production_order = text(data.get("productionOrder"))
     if not reason:
         raise ValueError("Selecciona el motivo del movimiento")
-    if reason in {"Orden de producción", "Compra", "Devolución"} and not reference:
-        raise ValueError("La referencia es requerida para este movimiento")
+    if reason in {"Compra", "Devolución"} and not reference:
+        raise ValueError("El número de documento es requerido para este movimiento")
+    if reason == "Orden de producción" and not (production_order or reference):
+        raise ValueError("La OP es requerida para una salida a producción")
     actor = text(data.get("createdBy"), "Sistema Gerencial")
-    full_notes = reason + (f" · {notes}" if notes else "")
+    detail = [reason]
+    if document_type:
+        detail.append(f"Documento: {document_type}")
+    if supplier:
+        detail.append(f"Proveedor: {supplier}")
+    if production_order:
+        detail.append(f"OP: {production_order}")
+    if notes:
+        detail.append(notes)
+    full_notes = " · ".join(detail)
     cursor = conn.execute("""INSERT INTO inventory_movements
         (item_id, movement_date, movement_type, quantity_millis, unit_cost_micros,
          reference, notes, created_by)
@@ -8272,6 +8306,27 @@ def init_db():
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        inventory_item_columns = {row["name"] for row in conn.execute("PRAGMA table_info(inventory_items)").fetchall()}
+        for column, definition in {
+            "category": "TEXT NOT NULL DEFAULT ''",
+            "color": "TEXT NOT NULL DEFAULT ''",
+            "minimum_stock_millis": "INTEGER NOT NULL DEFAULT 0",
+        }.items():
+            if column not in inventory_item_columns:
+                conn.execute(f"ALTER TABLE inventory_items ADD COLUMN {column} {definition}")
+        for row in conn.execute("SELECT id, notes, category, color, minimum_stock_millis FROM inventory_items").fetchall():
+            if row["category"] or not row["notes"]:
+                continue
+            parts = [part.strip() for part in row["notes"].split(".") if part.strip()]
+            values = {}
+            for part in parts:
+                if ":" in part:
+                    key, value = part.split(":", 1)
+                    values[key.strip().lower()] = value.strip()
+            minimum = inventory_decimal(values.get("stock minimo", 0), "El stock mínimo importado")
+            conn.execute("UPDATE inventory_items SET category=?, color=?, minimum_stock_millis=? WHERE id=?",
+                         (values.get("categoria", ""), values.get("color", ""),
+                          int((minimum * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP)), row["id"]))
         conn.execute("""
             CREATE TABLE IF NOT EXISTS inventory_movements (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
