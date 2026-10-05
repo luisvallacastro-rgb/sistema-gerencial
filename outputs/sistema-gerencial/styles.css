@@ -22252,6 +22252,8 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .inventory-form-grid select { height: 44px; padding: 0 13px; }
 .inventory-form-grid textarea { min-height: 92px; padding: 12px 13px; resize: vertical; }
 .inventory-form-grid input[readonly] { border-color: #38556d; background: #17334e; color: #9fb4c4; }
+.inventory-form-grid label.automatic > span { color: #68e8cf; }
+.inventory-form-grid label.automatic input { border-color: #2f8f7d; background: rgba(24, 141, 121, .12); color: #68e8cf; font-weight: 900; }
 .inventory-stock-projection { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .inventory-stock-projection span { display: grid; gap: 5px; padding: 12px 14px; border: 1px solid #3d607a; border-radius: 11px; background: #173650; color: #9eb2c1; font-size: 9px; text-transform: uppercase; }
 .inventory-stock-projection strong { color: #68e8cf; font-size: 15px; text-transform: none; }

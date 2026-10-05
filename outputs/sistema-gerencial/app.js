@@ -14410,7 +14410,7 @@ function openInventoryMovementDialog(item) {
       <label><span>Categoría</span><input value="${escapeHtml(item.category || "—")}" readonly></label>
       <label class="wide"><span>Descripción</span><input value="${escapeHtml(item.description)}" readonly></label>
       <label><span>Cantidad (${escapeHtml(item.unit)})</span><input name="quantity" type="number" min="0.001" step="0.001" required placeholder="0.000"></label>
-      <label data-inventory-unit-cost><span>Costo unitario</span><input name="unitCost" type="number" min="0" step="0.000001" required placeholder="0.000000"></label>
+      <label data-inventory-unit-cost><span data-inventory-cost-label>Costo unitario de entrada</span><input name="unitCost" type="number" min="0" step="0.000001" required placeholder="0.000000"></label>
       <label><span>Tipo de documento</span><select name="documentType"><option value="">Seleccionar</option><option>Factura</option><option>Crédito fiscal</option><option>Nota de remisión</option><option>Orden de producción</option><option>Ajuste de inventario</option><option>Otro</option></select></label>
       <label><span>No. documento</span><input name="reference" maxlength="120" placeholder="Factura, remisión o referencia"></label>
       <label><span>Proveedor</span><input name="supplier" maxlength="120" placeholder="Solo para entradas"></label>
@@ -14424,14 +14424,18 @@ function openInventoryMovementDialog(item) {
   const form = dialog.querySelector("[data-inventory-movement-form]");
   const type = form.elements.type;
   const costLabel = dialog.querySelector("[data-inventory-unit-cost]");
+  const costLabelText = dialog.querySelector("[data-inventory-cost-label]");
   const reason = form.elements.reason;
   const projection = dialog.querySelector("[data-inventory-projected]");
   const appliedCost = dialog.querySelector("[data-inventory-applied-cost]");
   const syncType = () => {
     const isEntry = type.value === "ENTRADA";
-    costLabel.hidden = !isEntry;
     form.elements.unitCost.required = isEntry;
-    if (!isEntry) form.elements.unitCost.value = "";
+    form.elements.unitCost.readOnly = !isEntry;
+    costLabel.classList.toggle("automatic", !isEntry);
+    costLabelText.textContent = isEntry ? "Costo unitario de entrada" : "Costo promedio automático";
+    if (!isEntry) form.elements.unitCost.value = Number(item.averageCost || 0).toFixed(6);
+    else if (form.elements.unitCost.readOnly || Number(form.elements.unitCost.value) === Number(item.averageCost || 0)) form.elements.unitCost.value = "";
     if (isEntry && reason.value === "Orden de producción") reason.value = "Compra";
     if (!isEntry && ["Compra", "Devolución"].includes(reason.value)) reason.value = "Orden de producción";
     form.elements.supplier.closest("label").hidden = !isEntry;
