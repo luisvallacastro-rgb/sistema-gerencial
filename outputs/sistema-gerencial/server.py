@@ -3564,7 +3564,7 @@ def inventory_movements_payload(conn, item_id):
     payload = []
     for row in rows:
         allocation_rows = conn.execute("""
-            SELECT production_order, quantity_millis FROM inventory_movement_allocations
+            SELECT id, production_order, quantity_millis FROM inventory_movement_allocations
             WHERE movement_id = ? ORDER BY id
         """, (row["id"],)).fetchall()
         movement_quantity = int(row["quantity_millis"] or 0)
@@ -3590,7 +3590,10 @@ def inventory_movements_payload(conn, item_id):
             "balanceValue": float(Decimal(value_micros) / 1000000),
             "reference": row["reference"], "notes": row["notes"],
             "opAllocations": [{"productionOrder": allocation["production_order"],
-                               "quantity": float(Decimal(allocation["quantity_millis"]) / 1000)}
+                               "quantity": float(Decimal(allocation["quantity_millis"]) / 1000),
+                               "lines": [{"lineKey": line["line_key"], "description": line["description"],
+                                          "quantity": float(Decimal(line["quantity_millis"]) / 1000)}
+                                         for line in conn.execute("SELECT line_key, description, quantity_millis FROM inventory_movement_allocation_lines WHERE allocation_id = ? ORDER BY id", (allocation["id"],)).fetchall()]}
                               for allocation in allocation_rows],
             "createdBy": row["created_by"], "createdAt": row["created_at"],
         })
@@ -3756,20 +3759,33 @@ def save_inventory_movement(conn, item_row, data):
         if not isinstance(raw, dict):
             continue
         order_number = text(raw.get("productionOrder"))
-        allocation_quantity = inventory_decimal(raw.get("quantity"), "La cantidad asignada a la OP")
+        raw_lines = raw.get("lines") if isinstance(raw.get("lines"), list) else []
+        lines = []
+        seen_lines = set()
+        for raw_line in raw_lines:
+            if not isinstance(raw_line, dict):
+                continue
+            line_key = text(raw_line.get("lineKey"))
+            description = text(raw_line.get("description"), "Línea sin descripción")
+            line_quantity = inventory_decimal(raw_line.get("quantity"), "La cantidad asignada a la línea")
+            if not line_key or line_key in seen_lines or line_quantity <= 0:
+                raise ValueError("Cada línea seleccionada debe ser única y tener una cantidad mayor que cero")
+            seen_lines.add(line_key)
+            lines.append((line_key, description, int((line_quantity * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))))
+        allocation_quantity = sum(line[2] for line in lines)
         if not order_number or allocation_quantity <= 0 or order_number in seen_orders:
-            raise ValueError("Cada OP debe aparecer una sola vez y tener una cantidad mayor que cero")
+            raise ValueError("Cada OP debe aparecer una sola vez y contener al menos una línea distribuida")
         seen_orders.add(order_number)
-        allocations.append((order_number, int((allocation_quantity * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))))
-    production_order = ", ".join(order for order, _ in allocations) or text(data.get("productionOrder"))
+        allocations.append((order_number, allocation_quantity, lines))
+    production_order = ", ".join(order for order, _, _ in allocations) or text(data.get("productionOrder"))
     if not reason:
         raise ValueError("Selecciona el motivo del movimiento")
     if reason in {"Compra", "Devolución"} and not reference:
         raise ValueError("El número de documento es requerido para este movimiento")
     if reason == "Orden de producción" and not (production_order or reference):
         raise ValueError("La OP es requerida para una salida a producción")
-    if movement_type == "SALIDA" and allocations and sum(value for _, value in allocations) != quantity_millis:
-        raise ValueError("La suma distribuida entre las OP debe coincidir con la cantidad total de salida")
+    if movement_type == "SALIDA" and allocations and sum(value for _, value, _ in allocations) != quantity_millis:
+        raise ValueError("La suma distribuida entre las líneas de OP debe coincidir con la cantidad total de salida")
     actor = text(data.get("createdBy"), "Sistema Gerencial")
     detail = [reason]
     if document_type:
@@ -3787,10 +3803,14 @@ def save_inventory_movement(conn, item_row, data):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (item_row["id"], movement_date, movement_type, quantity_millis, unit_cost_micros,
          reference, full_notes, actor))
-    if allocations:
-        conn.executemany("""INSERT INTO inventory_movement_allocations
+    for order, allocation_quantity, lines in allocations:
+        allocation_cursor = conn.execute("""INSERT INTO inventory_movement_allocations
             (movement_id, production_order, quantity_millis) VALUES (?, ?, ?)""",
-            [(cursor.lastrowid, order, allocation_quantity) for order, allocation_quantity in allocations])
+            (cursor.lastrowid, order, allocation_quantity))
+        conn.executemany("""INSERT INTO inventory_movement_allocation_lines
+            (allocation_id, line_key, description, quantity_millis) VALUES (?, ?, ?, ?)""",
+            [(allocation_cursor.lastrowid, line_key, description, line_quantity)
+             for line_key, description, line_quantity in lines])
     return inventory_item_payload(conn, item_row, include_movements=True), cursor.lastrowid
 
 
@@ -8381,6 +8401,17 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_allocations_movement ON inventory_movement_allocations(movement_id, id)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS inventory_movement_allocation_lines (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                allocation_id INTEGER NOT NULL REFERENCES inventory_movement_allocations(id) ON DELETE CASCADE,
+                line_key TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                quantity_millis INTEGER NOT NULL CHECK (quantity_millis > 0),
+                UNIQUE (allocation_id, line_key)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_allocation_lines_parent ON inventory_movement_allocation_lines(allocation_id, id)")
         seed_inventory_if_empty(conn)
         conn.execute("""
             INSERT OR IGNORE INTO app_state (key, value)
