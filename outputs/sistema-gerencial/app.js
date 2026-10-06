@@ -4391,7 +4391,8 @@ function renderQuotationsModule() {
       return queryTokens.every((token) => searchIndex.includes(token));
     })
     .sort((a, b) => (
-      String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || ""))
+      String(b.date || "").localeCompare(String(a.date || ""))
+      || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
       || String(b.number || "").localeCompare(String(a.number || ""), "es", { numeric: true })
     ));
   const hasAvailableOpportunities = availableQuotationOpportunities().length > 0;
