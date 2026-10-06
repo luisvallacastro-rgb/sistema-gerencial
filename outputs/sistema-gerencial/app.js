@@ -826,6 +826,7 @@ const opportunitiesStorageKey = "sistemaGerencial.oportunidades.v6";
 const usersStorageKey = "sistemaGerencial.usuarios.v2";
 const sessionStorageKey = "sistemaGerencial.sesion.v1";
 const authSessionStorageKey = "sistemaGerencial.authSession.v1";
+const authSessionExpiryStorageKey = "sistemaGerencial.authSessionExpires.v1";
 const adminValidationSessionKey = "sistemaGerencial.validacionUsuario.v1";
 const navigationSessionKey = "sistemaGerencial.navigation.v1";
 const minutesStorageKey = "sistemaGerencial.actas.v1";
@@ -838,6 +839,35 @@ const financialOrdersDeletedSeedKeysKey = "sistemaGerencial.pedidosFinancieros.d
 const financialOrdersFiltersStorageKey = "sistemaGerencial.pedidosFinancieros.filters.v1";
 const controlSalesPeriodStorageKey = "sistemaGerencial.controlVentas.periodo.v1";
 const productionWeekStorageKey = "sistemaGerencial.produccion.semana.v1";
+
+function storedAuthSessionToken() {
+  let token = localStorage.getItem(authSessionStorageKey) || "";
+  const legacyToken = sessionStorage.getItem(authSessionStorageKey) || "";
+  if (!token && legacyToken) {
+    token = legacyToken;
+    localStorage.setItem(authSessionStorageKey, token);
+  }
+  const expiresAt = localStorage.getItem(authSessionExpiryStorageKey) || "";
+  if (token && expiresAt && Date.parse(expiresAt) <= Date.now()) {
+    localStorage.removeItem(authSessionStorageKey);
+    localStorage.removeItem(authSessionExpiryStorageKey);
+    sessionStorage.removeItem(authSessionStorageKey);
+    return "";
+  }
+  return token;
+}
+
+function persistVerifiedAuthSession(token, expiresAt) {
+  localStorage.setItem(authSessionStorageKey, token);
+  if (expiresAt) localStorage.setItem(authSessionExpiryStorageKey, expiresAt);
+  sessionStorage.removeItem(authSessionStorageKey);
+}
+
+function clearVerifiedAuthSession() {
+  localStorage.removeItem(authSessionStorageKey);
+  localStorage.removeItem(authSessionExpiryStorageKey);
+  sessionStorage.removeItem(authSessionStorageKey);
+}
 const financialOrdersSeedVersion = "base-pedidos-20260720-v3";
 const financialOrdersSeedExpectedCount = 2596;
 const legacyStrategicRisksStorageKey = "sistemaGerencial.riesgos.v1";
@@ -895,7 +925,7 @@ async function apiJson(path, options = {}) {
     headers: {
       "Content-Type": "application/json",
       "X-System-User-Id": state.currentUser?.id || "",
-      ...(sessionStorage.getItem(authSessionStorageKey) ? { "Authorization": `Bearer ${sessionStorage.getItem(authSessionStorageKey)}` } : {}),
+      ...(storedAuthSessionToken() ? { "Authorization": `Bearer ${storedAuthSessionToken()}` } : {}),
       ...optionHeaders
     }
   });
@@ -18010,7 +18040,7 @@ function clearSession() {
   stopPresence();
   closeInternalChat();
   localStorage.removeItem(sessionStorageKey);
-  sessionStorage.removeItem(authSessionStorageKey);
+  clearVerifiedAuthSession();
   sessionStorage.removeItem(adminValidationSessionKey);
   document.querySelector(".admin-validation-banner")?.remove();
   sessionRestored = false;
@@ -18036,7 +18066,7 @@ function defaultAreaForRole(role, user = state.currentUser) {
 function restoreSession() {
   if (sessionRestored || !loginView || !appShell) return false;
   try {
-    if (apiEnabled && !sessionStorage.getItem(authSessionStorageKey)) {
+    if (apiEnabled && !storedAuthSessionToken()) {
       // A legacy localStorage identity is not a server-verified session.
       localStorage.removeItem(sessionStorageKey);
       return false;
@@ -18252,7 +18282,7 @@ loginForm.addEventListener("submit", async (event) => {
   try {
     if (apiEnabled) {
       const response = await apiJson("/api/auth/session", { method: "POST", body: JSON.stringify({ credential: loginUserSelect.value, password: loginPassword.value }) });
-      sessionStorage.setItem(authSessionStorageKey, response.token);
+      persistVerifiedAuthSession(response.token, response.expiresAt);
       const user = normalizeUsers([response.user])[0];
       systemUsers = systemUsers.map((item) => item.id === user.id ? user : item);
       loginPassword.value = "";

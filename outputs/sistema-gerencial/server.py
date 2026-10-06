@@ -41,7 +41,8 @@ INVENTORY_SEED_PATH = ROOT / "inventory-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-dte-shadow-v52"
+API_VERSION = "kmi-dte-shadow-v53"
+AUTH_SESSION_SECONDS = 7 * 24 * 60 * 60
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
@@ -10420,7 +10421,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     self.send_json({"error": "Usuario o contraseña incorrecta"}, status=401); return
                 token = secrets.token_urlsafe(48)
                 now = datetime.utcnow()
-                expires = now + timedelta(hours=8)
+                expires = now + timedelta(seconds=AUTH_SESSION_SECONDS)
                 conn.execute("DELETE FROM auth_sessions WHERE expires_at <= ? OR revoked_at IS NOT NULL", (utc_now_iso(),))
                 conn.execute("""INSERT INTO auth_sessions
                     (id, token_hash, user_id, created_at, expires_at, user_agent)
