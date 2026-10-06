@@ -14763,7 +14763,6 @@ async function loadFiscalModule() {
   } catch (error) {
     state.fiscalLoaded = true;
     state.fiscalError = error.message || "No se pudo cargar Facturación electrónica";
-    if (error.status === 401) clearVerifiedAuthSession();
   } finally {
     state.fiscalLoading = false;
     if (state.activeArea === "financiera" && state.activeSubmenu === "facturacion-electronica") renderCommercialSubmenu(areas.financiera);
