@@ -5999,6 +5999,32 @@ dialog[open]::backdrop { animation: system-backdrop-in 300ms ease both; backdrop
   background: linear-gradient(135deg, #2f9b79, #236f66);
 }
 
+.permission-audit-dialog {
+  width: min(1180px, 94vw);
+  max-height: 84vh;
+  padding: 0;
+  border: 1px solid #47728c;
+  border-radius: 24px;
+  color: #e7f0fa;
+  background: #12314d;
+  box-shadow: 0 30px 90px #020b16cc;
+}
+.permission-audit-dialog::backdrop { background: #020b16cc; }
+.permission-audit-dialog > section { padding: 26px; }
+.permission-audit-dialog header { display: flex; justify-content: space-between; gap: 20px; align-items: start; margin-bottom: 20px; }
+.permission-audit-dialog header span { color: #61e5cc; text-transform: uppercase; letter-spacing: .16em; font-weight: 800; }
+.permission-audit-dialog header h2 { margin: 5px 0; font-size: 30px; }
+.permission-audit-dialog header p { margin: 0; color: #aebfd0; }
+.permission-audit-dialog header button { width: 48px; height: 48px; border: 1px solid #557993; border-radius: 14px; color: #fff; background: #173b5a; font-size: 28px; }
+.permission-audit-table { max-height: 58vh; overflow: auto; border: 1px solid #385c76; border-radius: 16px; }
+.permission-audit-table table { width: 100%; border-collapse: collapse; }
+.permission-audit-table th, .permission-audit-table td { padding: 13px 15px; border-bottom: 1px solid #2d516d; text-align: left; }
+.permission-audit-table th { position: sticky; top: 0; z-index: 1; background: #173b5a; color: #aebfd0; }
+.permission-audit-table td { color: #cfdae6; }
+.permission-audit-table .granted, .permission-audit-table .revoked { display: inline-block; padding: 5px 10px; border-radius: 999px; font-weight: 800; }
+.permission-audit-table .granted { color: #65ead1; background: #0e6658; }
+.permission-audit-table .revoked { color: #ffb6c8; background: #713148; }
+
 .app-shell .admin-permissions-shell .permission-matrix-shell {
   position: relative;
   width: 100%;

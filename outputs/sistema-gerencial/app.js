@@ -896,6 +896,8 @@ const legacyAccessRoleMap = {
   rrhh: "gerencias"
 };
 let systemUsers = [];
+let usersSaveQueue = Promise.resolve();
+let usersSaveErrorShown = false;
 let sessionRestored = false;
 let presenceTimer = null;
 let internalChatTimer = null;
@@ -16646,6 +16648,27 @@ function grantAllOperationalPermissionsToUsers() {
   renderAdminPanel();
 }
 
+async function openPermissionAuditDialog() {
+  try {
+    const entries = await apiJson("/api/permission-audit?limit=300");
+    const dialog = document.createElement("dialog");
+    dialog.className = "permission-audit-dialog";
+    dialog.innerHTML = `<section>
+      <header><div><span>Control de accesos</span><h2>Auditoría de permisos</h2><p>Historial inalterable de permisos otorgados y retirados.</p></div><button type="button" data-permission-audit-close>×</button></header>
+      <div class="permission-audit-table"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Permiso</th><th>Cambio</th><th>Realizado por</th></tr></thead><tbody>
+      ${entries.length ? entries.map((entry) => `<tr><td>${escapeHtml(String(entry.created_at || "").replace("T", " "))}</td><td><strong>${escapeHtml(entry.target_user_name || entry.target_user_id)}</strong></td><td>${escapeHtml(entry.permission_key)}</td><td><span class="${entry.new_enabled ? "granted" : "revoked"}">${entry.new_enabled ? "Otorgado" : "Retirado"}</span></td><td>${escapeHtml(entry.actor_user_name || "Sistema Gerencial")}</td></tr>`).join("") : `<tr><td colspan="5">Todavía no hay cambios registrados desde la activación de la auditoría.</td></tr>`}
+      </tbody></table></div></section>`;
+    document.body.appendChild(dialog);
+    const close = () => dialog.close();
+    dialog.querySelector("[data-permission-audit-close]").addEventListener("click", close);
+    dialog.addEventListener("click", (event) => { if (event.target === dialog) close(); });
+    dialog.addEventListener("close", () => dialog.remove(), { once: true });
+    dialog.showModal();
+  } catch (error) {
+    alert(error.message || "No se pudo consultar la auditoría de permisos.");
+  }
+}
+
 function renderAdminPermissionsPanel() {
   if (!adminPanel) return;
   adminPanel.classList.remove("hidden");
@@ -16681,6 +16704,7 @@ function renderAdminPermissionsPanel() {
         </label>
         <div class="admin-permissions-actions">
           <span class="admin-toolbar-pill"><i aria-hidden="true"></i>${filteredUsers.length} de ${users.length} usuarios</span>
+          <button class="admin-permission-audit" type="button" data-admin-action="permission-audit"><span>≡</span> Auditoría</button>
           <button class="admin-grant-all" type="button" data-admin-action="grant-all-users"><span>✓</span> Dar acceso total</button>
           <button class="admin-new-user" type="button" data-admin-action="new"><span aria-hidden="true">+</span> Nuevo usuario</button>
         </div>
@@ -16752,6 +16776,7 @@ function wireAdminPermissionsPanel() {
     renderAdminPanel();
   });
   adminPanel.querySelector("[data-admin-action='new']")?.addEventListener("click", () => openAdminUserDialog());
+  adminPanel.querySelector("[data-admin-action='permission-audit']")?.addEventListener("click", openPermissionAuditDialog);
   adminPanel.querySelector("[data-admin-action='grant-all-users']")?.addEventListener("click", () => {
     if (confirm("Asignar todas las vistas operativas a todos los usuarios registrados?")) grantAllOperationalPermissionsToUsers();
   });
@@ -17801,12 +17826,23 @@ function saveUsers(options = {}) {
   syncCurrentUserFromSystem();
   localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
   if (apiEnabled && options.sync !== false) {
-    apiJson("/api/users", {
+    const users = systemUsers.map(({ password, ...user }) => ({ ...user, permissions: [...(user.permissions || [])] }));
+    usersSaveQueue = usersSaveQueue.then(() => apiJson("/api/users", {
       method: "POST",
-      body: JSON.stringify({
-        users: systemUsers.map(({ password, ...user }) => user)
-      })
-    }).catch(() => {});
+      body: JSON.stringify({ users })
+    })).then(() => {
+      usersSaveErrorShown = false;
+    }).catch(async (error) => {
+      if (!usersSaveErrorShown) {
+        usersSaveErrorShown = true;
+        alert(`No se guardaron los permisos: ${error.message || "error de conexión"}. La matriz se recargará desde el servidor.`);
+      }
+      try {
+        systemUsers = normalizeUsers(await apiJson("/api/users"));
+        localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
+        renderAdminPanel();
+      } catch {}
+    });
   }
 }
 

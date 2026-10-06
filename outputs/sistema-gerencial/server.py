@@ -2645,6 +2645,29 @@ def patch_user(conn, user_id, changes):
     return upsert_user(conn, merged)
 
 
+def stored_user_permissions(row):
+    if not row:
+        return set()
+    return set(normalize_permissions(row["permissions"], row["role"]))
+
+
+def audit_permission_changes(conn, before_row, after_user, actor, source="matriz-permisos"):
+    before = stored_user_permissions(before_row)
+    after = set(normalize_permissions(after_user.get("permissions"), after_user.get("role")))
+    target_id = text(after_user.get("id"), before_row["id"] if before_row else "")
+    target_name = text(after_user.get("name"), before_row["name"] if before_row else target_id)
+    actor_id = text((actor or {}).get("id"))
+    actor_name = text((actor or {}).get("name"), "Sistema Gerencial")
+    now = datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")
+    for permission in sorted(before ^ after):
+        conn.execute("""INSERT INTO permission_audit
+            (target_user_id, target_user_name, actor_user_id, actor_user_name,
+             permission_key, previous_enabled, new_enabled, source, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (target_id, target_name, actor_id, actor_name, permission,
+             1 if permission in before else 0, 1 if permission in after else 0, source, now))
+
+
 def connect():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -5288,7 +5311,9 @@ def reconcile_order_2026090017_vat_once(conn):
 
 def grant_control_sales_permissions(conn):
     permissions_to_grant = ["operaciones:resultados-control-ventas", "comercializacion:autorizacion-pedidos", "comercializacion:resultados-pedidos"]
-    for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
+    for row in conn.execute("SELECT id, role, permissions, permissions_customized FROM users").fetchall():
+        if bool(row["permissions_customized"]):
+            continue
         try:
             permissions = json.loads(row["permissions"] or "[]")
         except json.JSONDecodeError:
@@ -5321,7 +5346,9 @@ def grant_purchase_order_permissions(conn):
 def grant_financial_income_permissions(conn):
     """Expose Ingresos to users who already have access to Financiera."""
     permission = "financiera:ingresos"
-    for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
+    for row in conn.execute("SELECT id, role, permissions, permissions_customized FROM users").fetchall():
+        if bool(row["permissions_customized"]):
+            continue
         try:
             permissions = json.loads(row["permissions"] or "[]")
         except json.JSONDecodeError:
@@ -5342,7 +5369,9 @@ def grant_financial_income_permissions(conn):
 def grant_financial_statements_permissions(conn):
     """Expose Estados financieros to users who already have access to Financiera."""
     permission = "financiera:estados-financieros"
-    for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
+    for row in conn.execute("SELECT id, role, permissions, permissions_customized FROM users").fetchall():
+        if bool(row["permissions_customized"]):
+            continue
         try:
             permissions = json.loads(row["permissions"] or "[]")
         except json.JSONDecodeError:
@@ -5494,7 +5523,9 @@ def grant_johanna_minutes_permissions(conn):
 
 def grant_availability_signer_permissions(conn):
     signer_names = {"guadalupe herrera", "claudia merino", "luis valladares"}
-    for row in conn.execute("SELECT id, name, role, permissions FROM users").fetchall():
+    for row in conn.execute("SELECT id, name, role, permissions, permissions_customized FROM users").fetchall():
+        if bool(row["permissions_customized"]):
+            continue
         if text(row["name"]).lower() not in signer_names:
             continue
         permissions = normalize_permissions(row["permissions"], row["role"])
@@ -7988,6 +8019,22 @@ def init_db():
         if "permissions_customized" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN permissions_customized INTEGER DEFAULT 0")
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS permission_audit (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target_user_id TEXT NOT NULL,
+                target_user_name TEXT NOT NULL,
+                actor_user_id TEXT NOT NULL DEFAULT '',
+                actor_user_name TEXT NOT NULL,
+                permission_key TEXT NOT NULL,
+                previous_enabled INTEGER NOT NULL,
+                new_enabled INTEGER NOT NULL,
+                source TEXT NOT NULL DEFAULT 'matriz-permisos',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_permission_audit_created ON permission_audit(created_at DESC, id DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_permission_audit_target ON permission_audit(target_user_id, created_at DESC)")
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS app_state (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
@@ -8645,16 +8692,6 @@ def init_db():
         reconcile_order_2026090017_vat_once(conn)
         grant_control_sales_permissions(conn)
         correct_marjorie_account_email_once(conn)
-        for row in conn.execute("SELECT id, role, permissions FROM users").fetchall():
-            if row["role"] not in {"gerencias", "jefaturas"}:
-                continue
-            try: permissions = json.loads(row["permissions"] or "[]")
-            except json.JSONDecodeError: permissions = []
-            required_permissions = ["operaciones:produccion-semanal", "operaciones:archivo-muestras"]
-            changed_permissions = [permission for permission in required_permissions if permission not in permissions]
-            if changed_permissions:
-                permissions.extend(changed_permissions)
-                conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions), row["id"]))
         purge_luis_valladares_test_flow_once(conn)
         purge_orphaned_test_orders_0293_0294_once(conn)
         restore_asa_order_0296_once(conn)
@@ -8674,7 +8711,9 @@ def init_db():
         if repaired_amadeo_emails:
             print(f"Correos de cotizaciones de Amadeo actualizados: {repaired_amadeo_emails}")
         agenda_permission = "comercializacion:agenda-comercial"
-        for user_row in conn.execute("SELECT id, role, admin, permissions FROM users WHERE role IN ('vendedores','gerencias') OR admin = 1").fetchall():
+        for user_row in conn.execute("SELECT id, role, admin, permissions, permissions_customized FROM users WHERE role IN ('vendedores','gerencias') OR admin = 1").fetchall():
+            if bool(user_row["permissions_customized"]):
+                continue
             try:
                 user_permissions = json.loads(user_row["permissions"] or "[]")
             except (TypeError, json.JSONDecodeError):
@@ -10029,6 +10068,22 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     ORDER BY created_at, username
                 """).fetchall()
             self.send_json([user_payload(row) for row in rows])
+            return
+
+        if path == "/api/permission-audit":
+            if not self.require_permission("administracion:permisos"):
+                return
+            query = parse_qs(urlparse(self.path).query)
+            try:
+                limit = max(1, min(500, int((query.get("limit") or [200])[0])))
+            except (TypeError, ValueError):
+                limit = 200
+            with connect() as conn:
+                rows = conn.execute("""SELECT id, target_user_id, target_user_name,
+                    actor_user_id, actor_user_name, permission_key, previous_enabled,
+                    new_enabled, source, created_at
+                    FROM permission_audit ORDER BY id DESC LIMIT ?""", (limit,)).fetchall()
+            self.send_json([dict(row) for row in rows])
             return
 
         if self.path == "/api/presence":
@@ -11463,19 +11518,24 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             return
 
         if self.path == "/api/users":
+            if not self.require_permission("administracion:permisos"):
+                return
             data = self.read_json()
             if isinstance(data.get("users"), list):
                 with connect() as conn:
-                    saved_passwords = {
-                        row["id"]: row["password"]
-                        for row in conn.execute("SELECT id, password FROM users").fetchall()
-                    }
-                    conn.execute("DELETE FROM users")
+                    actor_id = text(self.headers.get("X-System-User-Id"))
+                    actor_row = conn.execute("SELECT id, name FROM users WHERE id = ?", (actor_id,)).fetchone()
+                    actor = dict(actor_row) if actor_row else {"id": actor_id, "name": "Sistema Gerencial"}
                     users = []
                     for item in data["users"]:
+                        user_id = text(item.get("id"))
+                        before = conn.execute("""SELECT id, name, role, password, permissions
+                            FROM users WHERE id = ? LIMIT 1""", (user_id,)).fetchone() if user_id else None
                         merged = dict(item)
-                        merged["password"] = saved_passwords.get(str(item.get("id") or ""), "admin123")
-                        users.append(upsert_user(conn, merged))
+                        merged["password"] = before["password"] if before else "admin123"
+                        saved = upsert_user(conn, merged)
+                        audit_permission_changes(conn, before, saved, actor)
+                        users.append(saved)
                 self.send_json([{key: value for key, value in user.items() if key != "password"} for user in users])
                 return
 
@@ -11485,7 +11545,10 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 return
             try:
                 with connect() as conn:
+                    actor_id = text(self.headers.get("X-System-User-Id"))
+                    actor_row = conn.execute("SELECT id, name FROM users WHERE id = ?", (actor_id,)).fetchone()
                     user = upsert_user(conn, data)
+                    audit_permission_changes(conn, None, user, dict(actor_row) if actor_row else None, source="creacion-usuario")
             except sqlite3.IntegrityError:
                 self.send_json({"error": "Usuario existente"}, status=409)
                 return
@@ -12098,9 +12161,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.send_json({"ok": True, "user": user})
             return
         if self.path.startswith("/api/users/"):
+            if not self.require_permission("administracion:permisos"):
+                return
             user_id = unquote(self.path.split("?", 1)[0].rsplit("/", 1)[-1])
             changes = self.read_json()
             with connect() as conn:
+                before = conn.execute("""SELECT id, name, role, password, permissions
+                    FROM users WHERE id = ? LIMIT 1""", (user_id,)).fetchone()
                 try:
                     user = patch_user(conn, user_id, changes)
                 except sqlite3.IntegrityError:
@@ -12109,6 +12176,9 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 if not user:
                     self.send_json({"error": "Usuario no encontrado"}, status=404)
                     return
+                actor_id = text(self.headers.get("X-System-User-Id"))
+                actor_row = conn.execute("SELECT id, name FROM users WHERE id = ?", (actor_id,)).fetchone()
+                audit_permission_changes(conn, before, user, dict(actor_row) if actor_row else None, source="edicion-usuario")
             self.send_json({"ok": True, "user": user})
             return
         control_sales_parts = self.path.split("?", 1)[0].strip("/").split("/")
