@@ -167,6 +167,20 @@ class DteModuleTests(unittest.TestCase):
         self.assertEqual(payload["resumen"]["tributos"][0]["codigo"], "20")
         self.assertEqual(payload["resumen"]["montoTotalOperacion"], 113.0)
 
+    def test_credit_fiscal_keeps_type_and_accepts_explicit_missing_activity_for_test_snapshot(self):
+        self.insert_order(document_type="Crédito fiscal", total=11300, vat=1300)
+        source = json.loads(self.conn.execute("SELECT proforma_data FROM control_sales_orders WHERE id='o1'").fetchone()[0])
+        source.pop("economicActivityCode", None)
+        self.conn.execute("UPDATE control_sales_orders SET proforma_data=? WHERE id='o1'", (json.dumps(source),))
+        draft, created = SERVER.create_fiscal_draft(
+            self.conn, "o1", "03", "ccf-with-explicit-activity", {"id":"u1","name":"Luis"},
+            receiver_override={"economicActivityCode":"85211"}
+        )
+        self.assertTrue(created)
+        self.assertEqual(draft["documentType"], "03")
+        self.assertEqual(draft["customerSnapshot"]["codActividad"], "85211")
+        self.assertTrue(draft["validation"]["valid"])
+
     def test_credit_fiscal_accepts_commercial_tax_aliases_and_exact_catalog_match(self):
         self.insert_order(document_type="Crédito fiscal", total=11300, vat=1300)
         source = {

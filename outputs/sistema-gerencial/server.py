@@ -9038,7 +9038,7 @@ def build_fiscal_payload(document_type, schema_version, identifiers, issuer, rec
     }
 
 
-def create_fiscal_draft(conn, order_id, document_type, idempotency_key, actor, condition_operation=1, payment_code="01"):
+def create_fiscal_draft(conn, order_id, document_type, idempotency_key, actor, condition_operation=1, payment_code="01", receiver_override=None):
     existing = conn.execute(
         "SELECT id FROM billing_documents WHERE idempotency_key = ?", (idempotency_key,)
     ).fetchone()
@@ -9065,6 +9065,10 @@ def create_fiscal_draft(conn, order_id, document_type, idempotency_key, actor, c
     if establishment_errors:
         raise ValueError("Completa la Configuración fiscal antes de preparar el DTE: " + "; ".join(establishment_errors))
     receiver_snapshot = fiscal_receiver_snapshot(order, document_type)
+    if document_type == "03" and isinstance(receiver_override, dict):
+        activity_code = fiscal_digits(receiver_override.get("economicActivityCode"))
+        if activity_code:
+            receiver_snapshot["codActividad"] = activity_code
     errors = fiscal_validation(order, document_type)
     document_id = f"dte-{uuid.uuid4()}"
     now_local = datetime.now(ZoneInfo("America/El_Salvador"))
@@ -10502,7 +10506,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     item, created = create_fiscal_draft(
                         conn, text(data.get("orderId")), text(data.get("documentType")),
                         idempotency_key, actor, int(data.get("conditionOperation") or 1),
-                        text(data.get("paymentCode"), "01")
+                        text(data.get("paymentCode"), "01"), data.get("receiverOverride")
                     )
                 self.send_json(item, status=201 if created else 200)
             except (ValueError, sqlite3.IntegrityError) as error:
