@@ -240,10 +240,18 @@ class DteModuleTests(unittest.TestCase):
         self.assertTrue(any("totalPagar" in error for error in errors))
         self.assertTrue(any("suma de pagos" in error for error in errors))
 
-    def test_historical_order_without_reconciliation_is_blocked(self):
+    def test_test_draft_does_not_require_reconciliation(self):
         self.insert_order(); self.conn.execute("DELETE FROM billing_source_reviews")
-        with self.assertRaisesRegex(ValueError,"conciliarse"):
-            SERVER.create_fiscal_draft(self.conn,"o1","01","blocked",{"id":"u1","name":"Luis"})
+        draft, created = SERVER.create_fiscal_draft(
+            self.conn,"o1","01","simulation-without-reconciliation",{"id":"u1","name":"Luis"}
+        )
+        self.assertTrue(created)
+        self.assertEqual(draft["status"], "DRAFT")
+        stored = self.conn.execute("SELECT environment, signed_payload, mh_reception_seal FROM billing_documents WHERE id=?", (draft["id"],)).fetchone()
+        self.assertEqual(stored["environment"], "development")
+        self.assertFalse(stored["signed_payload"])
+        self.assertFalse(stored["mh_reception_seal"])
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM billing_transmission_attempts").fetchone()[0], 0)
 
     def test_public_user_payload_never_contains_password(self):
         row=self.conn.execute("SELECT * FROM users WHERE id='u1'").fetchone()

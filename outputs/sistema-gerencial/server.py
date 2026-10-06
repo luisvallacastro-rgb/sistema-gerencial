@@ -9049,11 +9049,6 @@ def create_fiscal_draft(conn, order_id, document_type, idempotency_key, actor, c
     ).fetchone()
     if not order_row:
         raise ValueError("La orden seleccionada no existe o está archivada")
-    reconciliation = conn.execute(
-        "SELECT * FROM billing_source_reviews WHERE source_type = 'ORDER' AND source_id = ?", (order_id,)
-    ).fetchone()
-    if not reconciliation or reconciliation["status"] != "CONFIRMED_UNBILLED":
-        raise ValueError("La orden debe conciliarse como no facturada antes de preparar el DTE")
     settings = conn.execute("SELECT * FROM billing_settings WHERE id = 1").fetchone()
     if settings and settings["allow_partial_invoicing"]:
         raise ValueError("La facturación parcial todavía no está habilitada en esta fase")
