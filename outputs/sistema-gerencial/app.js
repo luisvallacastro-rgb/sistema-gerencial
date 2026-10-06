@@ -14773,8 +14773,9 @@ function openFiscalOrderDialog(order) {
   const dialog = document.createElement("dialog"); dialog.className="fiscal-dialog wide-dialog";
   const details = (order.details||[]).map((line)=>`<tr><td>${line.sequence}</td><td>${escapeHtml(line.product||"")}</td><td>${inventoryQuantityLabel(line.quantity)}</td><td>${formatMoney(Number(line.unitPriceCents||0)/100)}</td><td>${formatMoney(Number(line.lineTotalCents||0)/100)}</td></tr>`).join("");
   const documentHistory = order.fiscalDocuments || [];
-  const currentDocument = documentHistory[0] || null;
-  const previousAttempts = Math.max(0, documentHistory.length - 1);
+  const inactiveStatuses = new Set(["LOCAL_VALIDATION_FAILED", "REJECTED", "INVALIDATED"]);
+  const currentDocument = documentHistory.find((document)=>!inactiveStatuses.has(document.status)) || null;
+  const previousAttempts = documentHistory.filter((document)=>inactiveStatuses.has(document.status)).length;
   const documents = currentDocument ? `<li><span><b>${currentDocument.documentType === "01" ? "Factura consumidor final" : "Comprobante de crédito fiscal"}</b><em>${escapeHtml(fiscalStatusLabel(currentDocument.status))} · ${formatMoney(Number(currentDocument.totalCents||0)/100)}</em></span><div class="fiscal-document-actions"><button type="button" data-fiscal-preview="${escapeHtml(currentDocument.id)}">Ver e imprimir DTE de prueba</button>${currentDocument.status === "DRAFT" ? `<button type="button" class="secondary" data-fiscal-simulate="${escapeHtml(currentDocument.id)}">Validar estructura</button>` : ""}</div></li>` : "";
   const suggestedDocumentType = String(order.documentType || "").toUpperCase() === "CCF" ? "03" : "01";
   const suggestedDocumentLabel = suggestedDocumentType === "03" ? "Comprobante de crédito fiscal" : "Factura consumidor final";
