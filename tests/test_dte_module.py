@@ -89,6 +89,26 @@ class DteModuleTests(unittest.TestCase):
         self.assertIn(module, luis["permissions"])
         self.assertNotIn(module, tester["permissions"])
 
+    def test_initial_owner_lock_removes_other_fiscal_access_only_once(self):
+        module = "financiera:facturacion-electronica"
+        self.conn.execute("CREATE TABLE app_state(key TEXT PRIMARY KEY,value TEXT,updated_at TEXT)")
+        self.conn.execute(
+            "UPDATE users SET name='Luis Valladares', username='luisvallacastro', email=? WHERE id='u1'",
+            (SERVER.ADMIN_EMAIL,),
+        )
+        self.conn.execute(
+            "INSERT INTO users VALUES ('u2','Amadeo Alfaro','amadeo','amadeo@example.test','','gerencias','secret',?,1,0)",
+            (json.dumps([module, "financiera:facturacion-electronica-consultar"]),),
+        )
+        self.assertTrue(SERVER.enforce_initial_fiscal_owner_access_once(self.conn))
+        luis_permissions = json.loads(self.conn.execute("SELECT permissions FROM users WHERE id='u1'").fetchone()[0])
+        other_permissions = json.loads(self.conn.execute("SELECT permissions FROM users WHERE id='u2'").fetchone()[0])
+        self.assertIn(module, luis_permissions)
+        self.assertFalse(set(other_permissions) & set(SERVER.FISCAL_ACCESS_PERMISSION_KEYS))
+        self.conn.execute("UPDATE users SET permissions=? WHERE id='u2'", (json.dumps([module]),))
+        self.assertFalse(SERVER.enforce_initial_fiscal_owner_access_once(self.conn))
+        self.assertEqual(json.loads(self.conn.execute("SELECT permissions FROM users WHERE id='u2'").fetchone()[0]), [module])
+
     def test_billing_tables_have_no_operational_foreign_keys(self):
         tables = [row[0] for row in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'billing_%'")]
         forbidden = {"control_sales_orders", "control_sales_details", "production_orders", "dispatches", "deliveries", "clients", "users"}

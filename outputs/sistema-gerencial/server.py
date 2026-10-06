@@ -5374,6 +5374,32 @@ def grant_inventory_permissions(conn):
             conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(permissions), row["id"]))
 
 
+def enforce_initial_fiscal_owner_access_once(conn):
+    """Start the shadow module with Luis only; later grants remain user-managed."""
+    migration_key = "maintenance.fiscal-owner-only.2026-10-05.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return False
+    for row in conn.execute("SELECT id, name, username, email, role, permissions FROM users").fetchall():
+        try:
+            permissions = json.loads(row["permissions"] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            permissions = []
+        permissions = permissions if isinstance(permissions, list) else []
+        if is_fiscal_owner_user(dict(row)):
+            permissions.extend(permission for permission in FISCAL_ACCESS_PERMISSION_KEYS if permission not in permissions)
+        else:
+            permissions = [permission for permission in permissions if permission not in FISCAL_ACCESS_PERMISSION_KEYS]
+        conn.execute(
+            "UPDATE users SET permissions = ? WHERE id = ?",
+            (json.dumps(permissions, ensure_ascii=False), row["id"]),
+        )
+    conn.execute(
+        "INSERT INTO app_state(key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (migration_key, json.dumps({"owner": ADMIN_EMAIL, "mode": "owner-only"})),
+    )
+    return True
+
+
 def remove_seller_financial_permissions_once(conn):
     """Remove legacy Financiera grants from seller accounts without touching Comercialización."""
     migration_key = "maintenance.remove-seller-financial-permissions.2026-09-23.v1"
@@ -8562,6 +8588,7 @@ def init_db():
                 conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(user_permissions), user_row["id"]))
         reset_order_flow_for_first_elizabeth_order_once(conn)
         apply_versioned_migrations(conn)
+        enforce_initial_fiscal_owner_access_once(conn)
 
 
 def utc_now_iso():
