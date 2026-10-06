@@ -28,12 +28,6 @@ class DteModuleTests(unittest.TestCase):
         """)
         self.conn.execute("INSERT INTO users VALUES ('u1','Luis','luis','luis@example.test','','gerencias','secret','[]',0,1)")
         SERVER.apply_versioned_migrations(self.conn)
-        self.conn.execute("UPDATE billing_settings SET issuer_snapshot_json = ? WHERE id = 1", (json.dumps({
-          "nit":"06142008211044","nrc":"3067154","nombre":"KONFI INVERSIONES S.A. DE C.V.",
-          "codActividad":"14109","descActividad":"Fabricación de prendas y accesorios de vestir n.c.p.",
-          "direccion":{"departamento":"06","municipio":"23","complemento":"San Salvador"},
-          "telefono":"78180844","correo":"konfifacturas@gmail.com"
-        }),))
         self.conn.execute("UPDATE billing_settings SET establishment_snapshot_json = ? WHERE id = 1", (json.dumps({
           "controlEstablishmentCode":"M001","controlPointOfSaleCode":"P001",
           "codEstable":"M001","codPuntoVenta":"P001"
@@ -61,7 +55,7 @@ class DteModuleTests(unittest.TestCase):
 
     def test_migration_is_idempotent_and_integrity_is_ok(self):
         SERVER.apply_versioned_migrations(self.conn)
-        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 6)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 7)
         self.assertEqual(self.conn.execute("PRAGMA integrity_check").fetchone()[0], "ok")
         profile = self.conn.execute("""SELECT schema_version, official_schema_embedded
           FROM billing_validation_profiles WHERE document_type='03'""").fetchone()
