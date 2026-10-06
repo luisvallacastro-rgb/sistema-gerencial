@@ -1305,9 +1305,6 @@ function normalizePermissionList(value, role) {
     ].includes(item))
       ? [permissionKey("comercializacion", "cotizaciones"), permissionKey("comercializacion", "anticipos")]
       : []),
-    ...(["gerencias", "jefaturas"].includes(role)
-      ? [permissionKey("comercializacion", "custodia-muestras")]
-      : []),
     ...(legacyRisks ? [permissionKey(adminAreaKey, "riesgos")] : []),
     ...(legacyRequests ? [permissionKey(adminAreaKey, "solicitudes")] : [])
   ];
@@ -1426,17 +1423,12 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
   const permissions = userPermissions(user);
   return area.submenus.filter((item) => (
     permissions.has(permissionKey(areaKey, item.key))
-    || (areaKey === "comercializacion" && item.key === "custodia-muestras" && canAdministerSampleCustody(user))
   ));
 }
 
 function canAdministerSampleCustody(user = state.currentUser) {
   if (!user) return false;
-  const identity = normalizeKey([user.name, user.username, user.email].filter(Boolean).join(" "))
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return isAdminUser(user)
-    || ["gerencias", "jefaturas"].includes(user.role)
-    || identity.includes("odaliz")
     || userPermissions(user).has(permissionKey("comercializacion", "custodia-muestras"));
 }
 
