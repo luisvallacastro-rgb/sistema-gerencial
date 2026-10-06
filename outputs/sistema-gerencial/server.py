@@ -7531,6 +7531,96 @@ def revert_fiaes_quotation_q0033_from_op_2026090028_once(conn):
     return True
 
 
+def revert_los_molinos_op_2026100042_to_quotation_once(conn):
+    """Undo the accidental conversion after both approvals, unless later activity exists."""
+    if os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    marker = "maintenance.revert-los-molinos-op2026100042.2026-10-06.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (marker,)).fetchone():
+        return False
+    order = conn.execute("""
+        SELECT * FROM control_sales_orders
+        WHERE replace(upper(trim(order_number)), 'OP-', '') = '2026100042'
+          AND archived = 0
+    """).fetchone()
+    if not order:
+        print("Reversión LOS MOLINOS omitida: no se encontró la OP-2026100042 activa")
+        return False
+    quote_id = text(order["source_quotation_id"])
+    financial_id = text(order["financial_order_id"])
+    quote = conn.execute("SELECT * FROM quotations WHERE id = ?", (quote_id,)).fetchone() if quote_id else None
+    financial = conn.execute("SELECT * FROM financial_orders WHERE id = ?", (financial_id,)).fetchone() if financial_id else None
+    expected = (
+        quote is not None
+        and financial is not None
+        and text(order["client"]).casefold() == "los molinos"
+        and int(order["total_cents"] or 0) == 93338
+        and text(order["commercial_approval_status"]) == "Autorizada"
+        and text(order["finance_approval_status"]) == "Aprobada"
+        and quote["status"] == "Convertida"
+        and text(quote["converted_order_id"]) == text(order["id"])
+        and text(quote["client"]).casefold() == "los molinos"
+        and int(quote["total_cents"] or 0) == 93338
+        and text(financial["order_number"]).replace("OP-", "") == "2026100042"
+        and financial["deleted"] == 0
+        and not text(financial["invoice"])
+    )
+    if not expected:
+        print("Reversión LOS MOLINOS detenida: cambió la identidad, monto, firmas o vínculo de la OP-2026100042")
+        return False
+    order_number = text(order["order_number"])
+    normalized_order_number = order_number.upper().replace("OP", "").replace("-", "").replace(" ", "")
+    has_later_activity = (
+        conn.execute("""SELECT 1 FROM customer_advances
+                        WHERE control_sales_order_id = ? OR order_number = ? OR opportunity_id = ?
+                        LIMIT 1""", (order["id"], order_number, order["source_opportunity_id"])).fetchone()
+        or conn.execute("SELECT 1 FROM production_schedule WHERE items LIKE ? OR items LIKE ? LIMIT 1",
+                        (f"%{order['id']}%", f"%{order_number}%")).fetchone()
+        or conn.execute("""SELECT 1 FROM accounts_receivable
+                            WHERE reference_number LIKE ? OR description LIKE ? OR project_id = ?
+                            LIMIT 1""", (f"%{order_number}%", f"%{order_number}%", order["id"])).fetchone()
+        or conn.execute("SELECT 1 FROM purchase_orders WHERE order_number LIKE ? LIMIT 1",
+                        (f"%{order_number}%",)).fetchone()
+        or conn.execute("""SELECT 1 FROM inventory_movement_allocations
+                            WHERE replace(replace(replace(upper(production_order), 'OP', ''), '-', ''), ' ', '') = ?
+                            LIMIT 1""", (normalized_order_number,)).fetchone()
+    )
+    if has_later_activity:
+        print("Reversión LOS MOLINOS detenida: la OP-2026100042 ya tiene movimientos posteriores")
+        return False
+    results = read_result_opportunities(conn)
+    linked = [item for item in results if text(item.get("quotationId")) == quote_id]
+    if len(linked) != 1:
+        print("Reversión LOS MOLINOS detenida: el resultado comercial vinculado es ambiguo")
+        return False
+    now = datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")
+    actor = "Reversión controlada OP-2026100042"
+    conn.execute("""UPDATE control_sales_orders
+        SET archived = 1, status = 'Archivada', source_quotation_id = '', source_opportunity_id = '',
+            updated_by = ?, updated_at = ? WHERE id = ?""", (actor, now, order["id"]))
+    conn.execute("UPDATE financial_orders SET deleted = 1, updated_by = ?, updated_at = ? WHERE id = ?",
+                 (actor, now, financial_id))
+    conn.execute("""UPDATE quotations
+        SET status = 'Aprobada', converted_order_id = '', converted_at = '',
+            updated_by = ?, updated_at = ? WHERE id = ?""", (actor, now, quote_id))
+    result = linked[0]
+    result["quotationStatus"] = "Aprobada"
+    previous_handoff = result.pop("orderHandoff", None)
+    if isinstance(result.get("quotationData"), dict):
+        result["quotationData"].update({"status": "Aprobada", "convertedOrderId": "", "convertedAt": ""})
+    write_result_opportunities(conn, results)
+    conn.execute("""INSERT INTO control_sales_audit
+        (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)""",
+        (order["id"], "reversion_cotizacion", actor, now,
+         "LOS MOLINOS vuelve a cotización Aprobada; OP-2026100042 archivada y desvinculada"))
+    conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                 (marker, json.dumps({"quotationId": quote_id, "orderId": order["id"],
+                                      "financialOrderId": financial_id, "previousOrderHandoff": previous_handoff,
+                                      "appliedAt": now}, ensure_ascii=False)))
+    print("Cotización de LOS MOLINOS regresó a Aprobada; OP-2026100042 archivada")
+    return True
+
+
 def correct_fiaes_op_2026090029_financial_reference_once(conn):
     """Fix the stale financial reference without renumbering or reviving any OP."""
     if os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}:
@@ -8566,6 +8656,7 @@ def init_db():
         restore_asa_order_0296_once(conn)
         restore_asa_quotation_0296_once(conn)
         revert_fiaes_quotation_q0033_from_op_2026090028_once(conn)
+        revert_los_molinos_op_2026100042_to_quotation_once(conn)
         correct_fiaes_op_2026090029_financial_reference_once(conn)
         purge_commercial_training_data_20260923_once(conn)
         removed_duplicate_quotations = deduplicate_identical_quotations(conn)
