@@ -7540,7 +7540,7 @@ def revert_los_molinos_op_2026100042_to_quotation_once(conn):
         return False
     order = conn.execute("""
         SELECT * FROM control_sales_orders
-        WHERE replace(upper(trim(order_number)), 'OP-', '') = '2026100042'
+        WHERE replace(replace(replace(upper(order_number), 'OP', ''), '-', ''), ' ', '') = '2026100042'
           AND archived = 0
     """).fetchone()
     if not order:
@@ -7571,14 +7571,13 @@ def revert_los_molinos_op_2026100042_to_quotation_once(conn):
     order_number = text(order["order_number"])
     normalized_order_number = order_number.upper().replace("OP", "").replace("-", "").replace(" ", "")
     has_later_activity = (
-        conn.execute("""SELECT 1 FROM customer_advances
-                        WHERE control_sales_order_id = ? OR order_number = ? OR opportunity_id = ?
-                        LIMIT 1""", (order["id"], order_number, order["source_opportunity_id"])).fetchone()
-        or conn.execute("SELECT 1 FROM production_schedule WHERE items LIKE ? OR items LIKE ? LIMIT 1",
+        conn.execute("SELECT 1 FROM production_schedule WHERE items LIKE ? OR items LIKE ? LIMIT 1",
                         (f"%{order['id']}%", f"%{order_number}%")).fetchone()
         or conn.execute("""SELECT 1 FROM accounts_receivable
-                            WHERE reference_number LIKE ? OR description LIKE ? OR project_id = ?
-                            LIMIT 1""", (f"%{order_number}%", f"%{order_number}%", order["id"])).fetchone()
+                            WHERE (reference_number LIKE ? OR description LIKE ? OR project_id = ?)
+                              AND NOT (id = ? AND source = 'customer-advances')
+                            LIMIT 1""", (f"%{order_number}%", f"%{order_number}%", order["id"],
+                                          f"advance-order:{order['id']}")).fetchone()
         or conn.execute("SELECT 1 FROM purchase_orders WHERE order_number LIKE ? LIMIT 1",
                         (f"%{order_number}%",)).fetchone()
         or conn.execute("""SELECT 1 FROM inventory_movement_allocations
@@ -7590,9 +7589,6 @@ def revert_los_molinos_op_2026100042_to_quotation_once(conn):
         return False
     results = read_result_opportunities(conn)
     linked = [item for item in results if text(item.get("quotationId")) == quote_id]
-    if len(linked) != 1:
-        print("Reversión LOS MOLINOS detenida: el resultado comercial vinculado es ambiguo")
-        return False
     now = datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")
     actor = "Reversión controlada OP-2026100042"
     conn.execute("""UPDATE control_sales_orders
@@ -7600,14 +7596,22 @@ def revert_los_molinos_op_2026100042_to_quotation_once(conn):
             updated_by = ?, updated_at = ? WHERE id = ?""", (actor, now, order["id"]))
     conn.execute("UPDATE financial_orders SET deleted = 1, updated_by = ?, updated_at = ? WHERE id = ?",
                  (actor, now, financial_id))
+    conn.execute("""UPDATE customer_advances
+        SET control_sales_order_id = '', order_number = '', order_total_cents = 0, updated_at = ?
+        WHERE control_sales_order_id = ?""", (now, order["id"]))
+    conn.execute("""DELETE FROM accounts_receivable
+        WHERE id = ? AND source = 'customer-advances'""", (f"advance-order:{order['id']}",))
     conn.execute("""UPDATE quotations
         SET status = 'Aprobada', converted_order_id = '', converted_at = '',
             updated_by = ?, updated_at = ? WHERE id = ?""", (actor, now, quote_id))
-    result = linked[0]
-    result["quotationStatus"] = "Aprobada"
-    previous_handoff = result.pop("orderHandoff", None)
-    if isinstance(result.get("quotationData"), dict):
-        result["quotationData"].update({"status": "Aprobada", "convertedOrderId": "", "convertedAt": ""})
+    previous_handoffs = []
+    for result in linked:
+        result["quotationStatus"] = "Aprobada"
+        previous_handoff = result.pop("orderHandoff", None)
+        if previous_handoff:
+            previous_handoffs.append(previous_handoff)
+        if isinstance(result.get("quotationData"), dict):
+            result["quotationData"].update({"status": "Aprobada", "convertedOrderId": "", "convertedAt": ""})
     write_result_opportunities(conn, results)
     conn.execute("""INSERT INTO control_sales_audit
         (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)""",
@@ -7615,7 +7619,7 @@ def revert_los_molinos_op_2026100042_to_quotation_once(conn):
          "LOS MOLINOS vuelve a cotización Aprobada; OP-2026100042 archivada y desvinculada"))
     conn.execute("INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
                  (marker, json.dumps({"quotationId": quote_id, "orderId": order["id"],
-                                      "financialOrderId": financial_id, "previousOrderHandoff": previous_handoff,
+                                      "financialOrderId": financial_id, "previousOrderHandoffs": previous_handoffs,
                                       "appliedAt": now}, ensure_ascii=False)))
     print("Cotización de LOS MOLINOS regresó a Aprobada; OP-2026100042 archivada")
     return True
