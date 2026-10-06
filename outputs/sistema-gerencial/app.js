@@ -931,13 +931,19 @@ async function apiJson(path, options = {}) {
       ...optionHeaders
     }
   });
+  const refreshedExpiry = response.headers.get("X-Auth-Session-Expires");
+  if (response.ok && refreshedExpiry && storedAuthSessionToken()) {
+    localStorage.setItem(authSessionExpiryStorageKey, refreshedExpiry);
+  }
   if (!response.ok) {
     let message = `API ${response.status}`;
     try {
       const payload = await response.json();
       message = payload?.error || message;
     } catch {}
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
   return response.json();
 }
@@ -14743,7 +14749,7 @@ function renderFiscalModule() {
     <div class="fiscal-notice"><div><small>FINANCIERA · MODO DE PRUEBA CONTROLADO</small><h2>Facturación electrónica</h2><p>Emisor de las ventas: ${escapeHtml(state.fiscalConfig?.emitterName || "KONFI INVERSIONES S.A. DE C.V.")}. El cliente de cada OP será el receptor. Ningún documento se firma ni se transmite a Hacienda en esta fase.</p><p><b>${escapeHtml(integrationLabel)}</b>${integration.missing?.length ? ` · Faltan: ${escapeHtml(integration.missing.join(", "))}` : ""}</p></div><aside class="fiscal-notice-actions"><b>${disabled ? "Transmisión desactivada" : "Transmisión habilitada"}</b><button type="button" data-fiscal-settings>${state.fiscalConfig?.establishmentConfigured ? "Configuración fiscal" : "Configurar establecimiento"}</button></aside></div>
     <div class="fiscal-toolbar"><label><span>⌕</span><input type="search" data-fiscal-search value="${escapeHtml(state.fiscalQuery)}" placeholder="Buscar OP, cliente o vendedor..."></label><div><small>PENDIENTES</small><strong>${pending}</strong></div><div><small>BORRADORES</small><strong>${prepared}</strong></div></div>
     <div class="fiscal-head"><span>ORDEN</span><span>CLIENTE</span><span>TIPO</span><span>TOTAL</span><span>ESTADO</span><span>ACCIÓN</span></div>
-    <div class="fiscal-list">${state.fiscalLoading && !state.fiscalLoaded ? `<div class="inventory-empty">Cargando órdenes...</div>` : state.fiscalError ? `<div class="inventory-empty">${escapeHtml(state.fiscalError)}<br>Vuelve a iniciar sesión para obtener una sesión verificada.</div>` : rows || `<div class="inventory-empty">No hay órdenes que coincidan con la búsqueda.</div>`}</div>
+    <div class="fiscal-list">${state.fiscalLoading && !state.fiscalLoaded ? `<div class="inventory-empty">Cargando órdenes...</div>` : state.fiscalError ? `<div class="inventory-empty">${escapeHtml(state.fiscalError)}<br><button type="button" data-fiscal-reauth>Revalidar sesión fiscal</button></div>` : rows || `<div class="inventory-empty">No hay órdenes que coincidan con la búsqueda.</div>`}</div>
   </section>`;
 }
 
@@ -14757,10 +14763,56 @@ async function loadFiscalModule() {
   } catch (error) {
     state.fiscalLoaded = true;
     state.fiscalError = error.message || "No se pudo cargar Facturación electrónica";
+    if (error.status === 401) clearVerifiedAuthSession();
   } finally {
     state.fiscalLoading = false;
     if (state.activeArea === "financiera" && state.activeSubmenu === "facturacion-electronica") renderCommercialSubmenu(areas.financiera);
   }
+}
+
+function openFiscalReauthDialog() {
+  const dialog = document.createElement("dialog");
+  dialog.className = "fiscal-dialog";
+  const credential = state.currentUser?.username || state.currentUser?.email || "";
+  dialog.innerHTML = `<section><header><div><small>SEGURIDAD FISCAL</small><h2>Revalidar sesión</h2><p>Confirma tu contraseña para renovar la sesión protegida de Facturación electrónica.</p></div><button type="button" data-fiscal-close>×</button></header>
+    <form data-fiscal-reauth-form class="fiscal-settings-form">
+      <label>Usuario<input value="${escapeHtml(state.currentUser?.name || credential)}" disabled></label>
+      <label>Contraseña<input name="password" type="password" autocomplete="current-password" required autofocus></label>
+      <p data-fiscal-reauth-error class="hidden"></p>
+      <button type="submit">Verificar y continuar</button>
+    </form></section>`;
+  dialog.querySelector("[data-fiscal-close]").onclick = () => dialog.close();
+  dialog.querySelector("[data-fiscal-reauth-form]").onsubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submit = event.submitter;
+    const errorBox = form.querySelector("[data-fiscal-reauth-error]");
+    submit.disabled = true;
+    errorBox.classList.add("hidden");
+    try {
+      const response = await apiJson("/api/auth/session", {
+        method: "POST",
+        body: JSON.stringify({ credential, password: new FormData(form).get("password") })
+      });
+      persistVerifiedAuthSession(response.token, response.expiresAt);
+      if (response.user) {
+        const user = normalizeUsers([response.user])[0];
+        state.currentUser = user;
+        systemUsers = systemUsers.map((item) => item.id === user.id ? user : item);
+      }
+      dialog.close();
+      state.fiscalLoaded = false;
+      state.fiscalError = "";
+      await loadFiscalModule();
+    } catch (error) {
+      errorBox.textContent = error.message || "No se pudo verificar la sesión.";
+      errorBox.classList.remove("hidden");
+      submit.disabled = false;
+    }
+  };
+  document.body.append(dialog);
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.showModal();
 }
 
 function openFiscalSettingsDialog() {
@@ -14843,6 +14895,7 @@ function wireFiscalModule() {
   const search=opportunityTable.querySelector("[data-fiscal-search]");
   search?.addEventListener("input",(event)=>{state.fiscalQuery=event.target.value;renderCommercialSubmenu(areas.financiera);requestAnimationFrame(()=>{const next=opportunityTable.querySelector("[data-fiscal-search]");next?.focus();next?.setSelectionRange(next.value.length,next.value.length);});});
   opportunityTable.querySelector("[data-fiscal-settings]")?.addEventListener("click",openFiscalSettingsDialog);
+  opportunityTable.querySelector("[data-fiscal-reauth]")?.addEventListener("click",openFiscalReauthDialog);
   opportunityTable.querySelectorAll("[data-fiscal-order]").forEach((button)=>button.addEventListener("click",()=>{const order=state.fiscalOrders.find((item)=>item.id===button.dataset.fiscalOrder);if(order)openFiscalOrderDialog(order);}));
 }
 

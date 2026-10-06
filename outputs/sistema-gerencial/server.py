@@ -41,7 +41,7 @@ INVENTORY_SEED_PATH = ROOT / "inventory-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-dte-shadow-v53"
+API_VERSION = "kmi-dte-shadow-v54"
 AUTH_SESSION_SECONDS = 7 * 24 * 60 * 60
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
@@ -9886,6 +9886,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             return None
         token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
         now = utc_now_iso()
+        refreshed_expires = (datetime.utcnow() + timedelta(seconds=AUTH_SESSION_SECONDS)).isoformat(timespec="seconds") + "Z"
         with connect() as conn:
             row = conn.execute("""
                 SELECT users.id, users.name, users.username, users.email, users.phone, users.role,
@@ -9895,9 +9896,17 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 WHERE auth_sessions.token_hash = ? AND auth_sessions.revoked_at IS NULL
                   AND auth_sessions.expires_at > ? LIMIT 1
             """, (token_hash, now)).fetchone()
+            if row:
+                # Keep an actively used fiscal session alive. Inactivity still expires
+                # after AUTH_SESSION_SECONDS and always requires the password again.
+                conn.execute(
+                    "UPDATE auth_sessions SET expires_at = ? WHERE token_hash = ?",
+                    (refreshed_expires, token_hash),
+                )
         if not row:
             self.send_json({"error": "La sesión fiscal venció o no es válida"}, status=401)
             return None
+        self.auth_session_expires_at = refreshed_expires
         actor = user_payload(row)
         stored_permissions = normalize_permissions(row["permissions"], row["role"])
         if is_fiscal_owner_user(actor) or permission in stored_permissions:
@@ -13725,6 +13734,9 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
+        auth_expires = getattr(self, "auth_session_expires_at", "")
+        if auth_expires:
+            self.send_header("X-Auth-Session-Expires", auth_expires)
         self.send_cors_headers()
         self.end_headers()
         self.wfile.write(raw)
