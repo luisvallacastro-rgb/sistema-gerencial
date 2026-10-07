@@ -6665,6 +6665,12 @@ def bank_record_comment(values):
 
 
 def bank_seller_income_report_payload(conn):
+    paid_commission_keys = {row["component_key"] for row in conn.execute("""
+        SELECT items.component_key
+        FROM commission_settlement_items AS items
+        JOIN commission_settlements AS settlements ON settlements.id = items.settlement_id
+        WHERE settlements.status = 'Pagada'
+    """).fetchall()}
     rows = conn.execute("""
         SELECT provisions.id, provisions.record_id, provisions.account_id,
                accounts.bank, accounts.account, records.record_date,
@@ -6693,6 +6699,9 @@ def bank_seller_income_report_payload(conn):
             "seller": seller, "gross": gross, "net": net,
             "commissionRate": 0, "commission": 0,
             "commissionAllocations": parse_commission_allocations(row["commission_allocations"]),
+            "directCommissionPending": (
+                f"seller-direct:{row['id']}:{crm_identity_key(seller)}" not in paid_commission_keys
+            ),
             "createdAt": row["created_at"],
         })
         summary = sellers.setdefault(seller, {
@@ -6712,7 +6721,13 @@ def bank_seller_income_report_payload(conn):
         elif is_amadeo_alfaro(summary["seller"]):
             commission_rate = AMADEO_COMMISSION_RATE
         else:
-            commission_rate = seller_commission_rate(net)
+            # El tramo se reinicia después de cada corte: únicamente las
+            # partidas directas todavía no liquidadas forman la base vigente.
+            pending_gross = round(sum(
+                item["gross"] for item in items
+                if item["seller"] == summary["seller"] and item["directCommissionPending"]
+            ), 2)
+            commission_rate = seller_commission_rate(round(pending_gross / 1.1475, 2))
         commission = round(net * commission_rate, 2)
         seller_rows.append({
             "seller": summary["seller"], "deposits": summary["deposits"],
