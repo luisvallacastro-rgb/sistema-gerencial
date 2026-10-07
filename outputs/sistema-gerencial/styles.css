@@ -19057,7 +19057,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .purchase-history-row > button,.purchase-history-order header button { min-height:40px; padding:0 14px; border:1px solid #4edac0; border-radius:12px; background:#168d78; color:white; font:inherit; font-size:.78rem; font-weight:900; cursor:pointer; }
 .purchase-history-dialog { width:min(1280px,94vw); height:min(820px,90vh); padding:0; border:1px solid #397294; border-radius:28px; background:#12334f; color:#eef5fc; box-shadow:0 25px 90px rgba(0,0,0,.62); }
 .purchase-history-dialog::backdrop { background:rgba(2,12,24,.82); backdrop-filter:blur(5px); }
-.purchase-history-dialog > section { display:grid; grid-template-rows:auto auto minmax(0,1fr); height:100%; }
+.purchase-history-dialog > section { display:grid; grid-template-rows:auto auto minmax(0,1fr); height:100%; min-height:0; }
 .purchase-history-dialog-head { display:flex; justify-content:space-between; align-items:flex-start; padding:28px 32px 22px; border-bottom:1px solid rgba(83,139,177,.38); background:#203f60; }
 .purchase-history-dialog-head span { color:#69e4cc; font-size:.68rem; font-weight:950; letter-spacing:.13em; }
 .purchase-history-dialog-head h2 { margin:5px 0 3px; font-size:1.8rem; }
@@ -19067,10 +19067,16 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .purchase-history-summary > div { display:grid; gap:4px; padding:12px 15px; border:1px solid rgba(77,142,177,.38); border-radius:14px; background:#173b5a; }
 .purchase-history-summary small { color:#91a6bc; font-size:.66rem; font-weight:900; text-transform:uppercase; }
 .purchase-history-summary strong { color:#65e1c7; font-size:1.08rem; }
-.purchase-history-orders { display:grid; gap:14px; min-height:0; padding:0 32px 28px; overflow:auto; scrollbar-width:thin; scrollbar-color:#54bfae rgba(5,25,43,.55); }
+.purchase-history-orders { display:grid; grid-auto-rows:84px; align-content:start; gap:12px; min-height:0; padding:0 32px 28px; overflow-y:auto; overflow-x:hidden; scroll-padding-top:2px; scrollbar-width:thin; scrollbar-color:#54bfae rgba(5,25,43,.55); }
 .purchase-history-order-head,.purchase-history-order-link { display:grid; grid-template-columns:1.05fr .72fr 1.15fr .65fr .72fr 112px; gap:14px; align-items:center; }
-.purchase-history-order-head { margin:18px 32px 10px; padding:0 18px; color:#91a7bd; font-size:.65rem; font-weight:900; text-transform:uppercase; }
-.purchase-history-order-link { min-height:84px; padding:13px 18px; border:1px solid rgba(72,141,176,.44); border-radius:18px; background:linear-gradient(100deg,rgba(31,75,104,.94),rgba(19,50,75,.96)); }
+.purchase-history-order-controls { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:center; margin:16px 32px 10px; }
+.purchase-history-order-head { padding:0 18px; color:#91a7bd; font-size:.65rem; font-weight:900; text-transform:uppercase; }
+.purchase-history-order-controls nav { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+.purchase-history-order-controls nav button { min-height:34px; padding:0 11px; border:1px solid rgba(82,171,168,.48); border-radius:10px; background:#1b4b67; color:#eaf5fb; font:inherit; font-size:.7rem; font-weight:850; cursor:pointer; }
+.purchase-history-order-controls nav button:disabled { opacity:.36; cursor:not-allowed; }
+.purchase-history-order-controls nav strong { min-width:48px; color:#73e2cd; font-size:.76rem; text-align:center; }
+.purchase-history-order-link { height:84px; min-height:84px; max-height:84px; padding:13px 18px; overflow:hidden; border:1px solid rgba(72,141,176,.44); border-radius:18px; background:linear-gradient(100deg,rgba(31,75,104,.94),rgba(19,50,75,.96)); transition:border-color .18s ease,background .18s ease; }
+.purchase-history-order-link.is-current { border-color:rgba(91,224,196,.75); background:linear-gradient(100deg,rgba(33,98,101,.96),rgba(20,57,80,.98)); box-shadow:inset 4px 0 0 #59ddc1; }
 .purchase-history-order-link > div { display:grid; gap:4px; min-width:0; }
 .purchase-history-order-link small { color:#8fa8bf; font-size:.62rem; font-weight:900; letter-spacing:.06em; }
 .purchase-history-order-link strong { overflow:hidden; color:#eef5fc; text-overflow:ellipsis; white-space:nowrap; }
@@ -19092,7 +19098,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .purchase-history-lines span:first-child strong { color:#edf4fb; }
 .purchase-history-lines span:first-child small { color:#8fa4ba; }
 .purchase-history-lines > p { margin:0; padding:18px; color:#9eb0c2; }
-@media(max-width:1050px){.purchase-history-toolbar{grid-template-columns:1fr 1fr}.purchase-history-toolbar label{grid-column:1/-1}.purchase-history-head,.purchase-history-order-head{display:none}.purchase-history-row{grid-template-columns:1.5fr 1fr 1fr}.purchase-history-row>button{grid-column:3}.purchase-history-dialog{width:96vw}.purchase-history-summary{grid-template-columns:1fr 1fr}.purchase-history-order-link{grid-template-columns:1fr 1fr 1fr}.purchase-history-order-link>button{grid-column:3}.purchase-history-lines>div{grid-template-columns:minmax(180px,1fr) 75px 105px 105px}}
+@media(max-width:1050px){.purchase-history-toolbar{grid-template-columns:1fr 1fr}.purchase-history-toolbar label{grid-column:1/-1}.purchase-history-head,.purchase-history-order-head{display:none}.purchase-history-row{grid-template-columns:1.5fr 1fr 1fr}.purchase-history-row>button{grid-column:3}.purchase-history-dialog{width:96vw}.purchase-history-summary{grid-template-columns:1fr 1fr}.purchase-history-order-controls{grid-template-columns:1fr;justify-items:end}.purchase-history-order-link{grid-template-columns:1fr 1fr 1fr}.purchase-history-order-link>button{grid-column:3}.purchase-history-lines>div{grid-template-columns:minmax(180px,1fr) 75px 105px 105px}}
 
 .quotation-record__actions .quotation-action.print { background: linear-gradient(145deg, #25625f, #174947); }
 .quotation-record__actions .quotation-action.view-detail { background: linear-gradient(145deg, #2a5f94, #1c416c); }
