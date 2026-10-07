@@ -4677,11 +4677,15 @@ function openPurchaseHistoryDialog(groupKey) {
   if (!group) return;
   const dialog = document.createElement("dialog");
   dialog.className = "purchase-history-dialog";
-  const orders = group.orders.map((order) => `<article class="purchase-history-order">
-    <header><div><small>ORDEN DE PEDIDO</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><span>${escapeHtml(formatDate(order.date))} · ${escapeHtml(order.seller || "Sin vendedor")}</span></div><div><small>TOTAL</small><strong>${formatControlSalesMoney(order.totalCents)}</strong><button type="button" data-purchase-history-order="${escapeHtml(order.id)}">Ver OP</button></div></header>
-    <div class="purchase-history-lines"><div class="head"><span>Producto / especificación</span><span>Cantidad</span><span>Precio unitario</span><span>Total</span></div>${(order.details || []).map((line) => `<div><span><strong>${escapeHtml(line.product || "Producto sin descripción")}</strong><small>${escapeHtml([line.size ? `Talla ${line.size}` : "", line.notes || ""].filter(Boolean).join(" · ") || "Sin especificación adicional")}</small></span><span>${escapeHtml(line.quantity)}</span><span>${line.unitPriceCents == null ? "—" : formatControlSalesMoney(line.unitPriceCents)}</span><strong>${formatControlSalesMoney(line.lineTotalCents)}</strong></div>`).join("") || `<p>Esta OP no contiene líneas disponibles.</p>`}</div>
+  const orders = group.orders.map((order) => `<article class="purchase-history-order purchase-history-order-link">
+    <div><small>ORDEN DE PEDIDO</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong></div>
+    <div><small>FECHA</small><strong>${escapeHtml(formatDate(order.date) || "—")}</strong></div>
+    <div><small>VENDEDOR</small><strong>${escapeHtml(order.seller || "Sin vendedor")}</strong></div>
+    <div><small>DETALLE</small><strong>${(order.details || []).length} ${(order.details || []).length === 1 ? "línea" : "líneas"}</strong></div>
+    <div><small>TOTAL</small><strong>${formatControlSalesMoney(order.totalCents)}</strong></div>
+    <button type="button" data-purchase-history-order="${escapeHtml(order.id)}">Ver detalle</button>
   </article>`).join("");
-  dialog.innerHTML = `<section><header class="purchase-history-dialog-head"><div><span>COMERCIALIZACIÓN · HISTORIAL DE COMPRA</span><h2>${escapeHtml(group.name)}</h2><p>${group.orders.length} ${group.orders.length === 1 ? "orden de pedido" : "órdenes de pedido"} · ${group.lines} líneas compradas</p></div><button type="button" data-purchase-history-close aria-label="Cerrar">×</button></header><div class="purchase-history-summary"><div><small>Primera compra</small><strong>${escapeHtml(formatDate(group.orders[group.orders.length - 1]?.date) || "—")}</strong></div><div><small>Última compra</small><strong>${escapeHtml(formatDate(group.latestDate) || "—")}</strong></div><div><small>Unidades registradas</small><strong>${new Intl.NumberFormat("es-SV").format(group.units)}</strong></div><div><small>Total comprado</small><strong>${formatControlSalesMoney(group.totalCents)}</strong></div></div><div class="purchase-history-orders">${orders}</div></section>`;
+  dialog.innerHTML = `<section><header class="purchase-history-dialog-head"><div><span>COMERCIALIZACIÓN · HISTORIAL DE COMPRA</span><h2>${escapeHtml(group.name)}</h2><p>Órdenes de pedido vinculadas a este cliente</p></div><button type="button" data-purchase-history-close aria-label="Cerrar">×</button></header><div class="purchase-history-order-head"><span>OP</span><span>Fecha</span><span>Vendedor</span><span>Detalle</span><span>Total</span><span>Acción</span></div><div class="purchase-history-orders">${orders}</div></section>`;
   document.body.append(dialog);
   dialog.querySelectorAll("[data-purchase-history-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   dialog.querySelectorAll("[data-purchase-history-order]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.purchaseHistoryOrder, true)));
@@ -17842,6 +17846,7 @@ function renderDashboard() {
       "meta",
       "anticipos",
       "custodia-muestras",
+      "historial-compra",
       "disponibilidad",
       "ingresos",
       "inventario",
