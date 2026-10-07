@@ -41,7 +41,7 @@ INVENTORY_SEED_PATH = ROOT / "inventory-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8097"))
-API_VERSION = "kmi-dte-shadow-v54"
+API_VERSION = "kmi-dte-shadow-v55"
 AUTH_SESSION_SECONDS = 7 * 24 * 60 * 60
 TRAINING_MODE = os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}
 TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRAINING_MODE else ""
@@ -4453,6 +4453,16 @@ def save_control_sales_order(conn, data, existing_row=None):
                 WHERE id = ? AND deleted = 0
             """, (item["number"], actor, now, financial_order_id))
     for detail in item["details"]:
+        detail_id = detail["id"]
+        detail_owner = conn.execute(
+            "SELECT order_id FROM control_sales_details WHERE id = ? LIMIT 1",
+            (detail_id,),
+        ).fetchone()
+        if detail_owner and text(detail_owner["order_id"]) != order_id:
+            # Re-converting a quotation must create a new immutable OP detail.
+            # Reusing the quotation line id would otherwise update the archived
+            # OP's row and leave the new OP without billable lines.
+            detail_id = f"cvd-{uuid.uuid4()}"
         conn.execute("""
             INSERT INTO control_sales_details (
                 id, order_id, sequence, product, size, quantity, unit_price_cents, vat_cents,
@@ -4462,7 +4472,7 @@ def save_control_sales_order(conn, data, existing_row=None):
                 size=excluded.size, quantity=excluded.quantity, unit_price_cents=excluded.unit_price_cents,
                 vat_cents=excluded.vat_cents, line_total_cents=excluded.line_total_cents,
                 notes=excluded.notes, active=1, updated_at=excluded.updated_at
-        """, (detail["id"], order_id, detail["sequence"], detail["product"], detail["size"], detail["quantity"], detail["unitPriceCents"], detail["vatCents"], detail["lineTotalCents"], detail["notes"], now, now))
+        """, (detail_id, order_id, detail["sequence"], detail["product"], detail["size"], detail["quantity"], detail["unitPriceCents"], detail["vatCents"], detail["lineTotalCents"], detail["notes"], now, now))
     reconciliation_summary = (
         f" · Pedido ${expected_total_cents / 100:,.2f}"
         f" · Detalle ${item['totalCents'] / 100:,.2f}"
@@ -7656,6 +7666,78 @@ def revert_los_molinos_op_2026100042_to_quotation_once(conn):
     return True
 
 
+def repair_reconverted_orders_missing_details(conn):
+    """Recover active OP details when quotation line ids belonged to an archived OP."""
+    rows = conn.execute("""
+        SELECT orders.*, quotations.lines AS quotation_lines
+        FROM control_sales_orders AS orders
+        JOIN quotations ON quotations.id = orders.source_quotation_id
+        WHERE orders.archived = 0
+          AND orders.source = 'manual'
+          AND NOT EXISTS (
+              SELECT 1 FROM control_sales_details details
+              WHERE details.order_id = orders.id AND details.active = 1
+          )
+        ORDER BY orders.created_at, orders.id
+    """).fetchall()
+    repaired = []
+    for order in rows:
+        try:
+            raw_lines = json.loads(order["quotation_lines"] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            continue
+        product_lines = [
+            line for line in raw_lines
+            if isinstance(line, dict) and text(line.get("type")).lower() != "title"
+        ]
+        if not product_lines:
+            continue
+        bases = []
+        normalized = []
+        try:
+            for sequence, line in enumerate(product_lines, start=1):
+                product = text(line.get("description") or line.get("product"))
+                quantity_text = control_sales_quantity(line.get("quantity"))
+                unit_price_cents = int(line.get("unitPriceCents") or 0)
+                if not product or unit_price_cents < 0:
+                    raise ValueError("invalid quotation detail")
+                base_cents = int((Decimal(quantity_text) * Decimal(unit_price_cents)).quantize(
+                    Decimal("1"), rounding=ROUND_HALF_UP
+                ))
+                bases.append(base_cents)
+                normalized.append((sequence, line, product, quantity_text, unit_price_cents))
+        except (ValueError, TypeError, InvalidOperation):
+            continue
+        vat_values = allocate_control_sales_vat(bases, text(order["document_type"]).upper() == "CCF")
+        calculated_total = sum(base + vat for base, vat in zip(bases, vat_values))
+        if calculated_total != int(order["total_cents"] or 0):
+            continue
+        now = datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")
+        for (sequence, line, product, quantity_text, unit_price_cents), base_cents, vat_cents in zip(normalized, bases, vat_values):
+            conn.execute("""
+                INSERT INTO control_sales_details (
+                    id, order_id, sequence, product, size, quantity, unit_price_cents,
+                    vat_cents, line_total_cents, notes, active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+            """, (
+                f"cvd-{uuid.uuid4()}", order["id"], sequence, product,
+                text(line.get("size")), quantity_text, unit_price_cents, vat_cents,
+                base_cents + vat_cents, text(line.get("notes")), now, now,
+            ))
+        conn.execute("""
+            INSERT INTO control_sales_audit
+                (order_id, action, user_name, created_at, summary)
+            VALUES (?, 'reparacion_detalle_cotizacion', 'Sistema Gerencial', ?, ?)
+        """, (
+            order["id"], now,
+            f"Se recuperaron {len(normalized)} líneas desde la cotización vinculada; total verificado ${calculated_total / 100:,.2f}",
+        ))
+        repaired.append(text(order["order_number"]))
+    if repaired:
+        print(f"Órdenes reconvertidas reparadas desde cotización: {', '.join(repaired)}")
+    return repaired
+
+
 def correct_fiaes_op_2026090029_financial_reference_once(conn):
     """Fix the stale financial reference without renumbering or reviving any OP."""
     if os.environ.get("TRAINING_MODE", "").strip().lower() in {"1", "true", "yes"}:
@@ -8698,6 +8780,7 @@ def init_db():
         restore_asa_quotation_0296_once(conn)
         revert_fiaes_quotation_q0033_from_op_2026090028_once(conn)
         revert_los_molinos_op_2026100042_to_quotation_once(conn)
+        repair_reconverted_orders_missing_details(conn)
         correct_fiaes_op_2026090029_financial_reference_once(conn)
         purge_commercial_training_data_20260923_once(conn)
         removed_duplicate_quotations = deduplicate_identical_quotations(conn)
@@ -12281,6 +12364,21 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 if row["archived"]:
                     self.send_json({"error": "Una orden archivada no puede autorizarse"}, status=409)
                     return
+                if status in {"Autorizada", "Aprobada"}:
+                    detail_summary = conn.execute("""
+                        SELECT COUNT(*) AS line_count, COALESCE(SUM(line_total_cents), 0) AS detail_total
+                        FROM control_sales_details
+                        WHERE order_id = ? AND active = 1
+                    """, (item_id,)).fetchone()
+                    if (
+                        not detail_summary
+                        or int(detail_summary["line_count"] or 0) < 1
+                        or int(detail_summary["detail_total"] or 0) != int(row["total_cents"] or 0)
+                    ):
+                        self.send_json({
+                            "error": "La OP no puede firmarse: su detalle está vacío o no coincide con el total. Corrige la cotización vinculada antes de continuar."
+                        }, status=409)
+                        return
                 actor = text(actor_row["name"], "Sistema Gerencial")
                 try:
                     approval_proforma = json.loads(row["proforma_data"] or "{}")
