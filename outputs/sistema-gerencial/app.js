@@ -3262,7 +3262,9 @@ function loadSampleArchive() {
 }
 
 function sampleArchiveCustomers() {
-  return [...crmMasterCustomers(true).filter((customer) => customer.active !== false)].sort((a, b) => {
+  return [...crmMasterCustomers(true).filter((customer) => (
+    customer.active !== false && customerHasAssignedId(customer)
+  ))].sort((a, b) => {
     const left = Number.parseInt(String(a.clientNumber || a.customerCode || "").replace(/\D/g, ""), 10);
     const right = Number.parseInt(String(b.clientNumber || b.customerCode || "").replace(/\D/g, ""), 10);
     if (Number.isFinite(left) && Number.isFinite(right) && left !== right) return right - left;
@@ -15215,7 +15217,10 @@ function renderCommercialSubmenu(area) {
     opportunityTable.classList.remove("hidden");
     opportunityDashboard.classList.add("hidden");
     const customers = sampleArchiveCustomers();
-    const customerIds = new Set(state.sampleArchive.map((item) => item.customerId));
+    const definitiveCustomerIds = new Set(customers.map((customer) => String(customer.id)));
+    const customerIds = new Set(state.sampleArchive
+      .map((item) => String(item.customerId))
+      .filter((customerId) => definitiveCustomerIds.has(customerId)));
     commercialSubmenuStatus.textContent = state.sampleArchiveLoaded
       ? `${customerIds.size} clientes con muestras · ${Math.max(customers.length-customerIds.size,0)} sin registros`
       : "Cargando archivo de muestras...";

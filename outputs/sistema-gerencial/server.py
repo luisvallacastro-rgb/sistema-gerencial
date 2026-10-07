@@ -3590,8 +3590,16 @@ def save_sample_archive_item(conn, data, existing=None):
     if sample_status not in {"En Bodega", "Prestada", "En Planta"}:
         raise ValueError("Selecciona un estado válido para la muestra")
     crm = read_crm_data(conn)
-    if not any(text(customer.get("id")) == customer_id and customer.get("active") is not False for customer in crm.get("customers", [])):
+    customer = next((customer for customer in crm.get("customers", []) if (
+        text(customer.get("id")) == customer_id and customer.get("active") is not False
+    )), None)
+    if not customer:
         raise ValueError("El cliente seleccionado ya no está activo en la base de clientes")
+    assigned_number = text(
+        customer.get("clientNumber") or customer.get("customerCode") or customer.get("code")
+    )
+    if not re.fullmatch(r"\d+", assigned_number) or int(assigned_number) <= 0:
+        raise ValueError("El cliente debe estar firmado y tener un ID definitivo antes de registrar muestras")
     actor = text(data.get("updatedBy") or data.get("createdBy"), "Sistema Gerencial")
     item_id = existing["id"] if existing else f"sample-{uuid.uuid4()}"
     if existing:
