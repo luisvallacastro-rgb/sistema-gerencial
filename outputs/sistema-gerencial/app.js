@@ -131,6 +131,7 @@ const areas = {
         items: []
       },
       { key: "resultados-pedidos", label: "Pedidos", status: "Registro comercial de pedidos", items: [] },
+      { key: "historial-compra", label: "Historial de compra", status: "Compras y OP por cliente", items: [] },
       {
         key: "crm-seguimiento",
         label: "Seguimiento",
@@ -411,6 +412,7 @@ const state = {
   quotations: [],
   quotationModuleQuery: "",
   quotationModulePage: 1,
+  purchaseHistoryQuery: "",
   sampleCustodyQuery: "",
   crmData: null,
   crmSellerId: "",
@@ -3213,7 +3215,7 @@ function loadControlSales() {
       state.controlSalesCounts = payload.counts || { orders: state.controlSales.length, details: 0 };
       if (
         (state.activeArea === "operaciones" && state.activeSubmenu === "resultados-control-ventas")
-        || (state.activeArea === "comercializacion" && state.activeSubmenu === "resultados-pedidos")
+        || (state.activeArea === "comercializacion" && ["resultados-pedidos", "historial-compra"].includes(state.activeSubmenu))
         || (state.activeArea === "comercializacion" && state.activeSubmenu === "autorizacion-pedidos")
         || (state.activeArea === "comercializacion" && ["meta", "custodia-muestras"].includes(state.activeSubmenu))
       ) renderDashboard();
@@ -4620,6 +4622,82 @@ function wireQuotationsModule() {
       renderCommercialSubmenu(areas.comercializacion);
     } catch (error) { alert(error.message || "No se pudo eliminar la cotización."); }
   }));
+}
+
+function purchaseHistoryCustomers() {
+  const groups = new Map();
+  state.controlSales.filter((order) => !order.archived).forEach((order) => {
+    const customer = liveCustomerForControlSalesOrder(order);
+    const stored = order.proformaData || {};
+    const customerId = String(customer?.id || order.customerId || stored.customerId || "").trim();
+    const taxId = String(customer?.taxId || stored.taxId || "").trim();
+    const name = customer?.commercialName || customer?.legalName || order.client || stored.commercialName || "Cliente sin nombre";
+    const key = customerId ? `id:${customerId}` : taxId ? `tax:${normalizeKey(taxId)}` : `name:${normalizeKey(name)}`;
+    if (!groups.has(key)) groups.set(key, { key, customer, customerId, taxId, name, orders:[] });
+    groups.get(key).orders.push(order);
+  });
+  return [...groups.values()].map((group) => {
+    group.orders.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || String(b.number || "").localeCompare(String(a.number || ""), "es", { numeric:true }));
+    group.totalCents = group.orders.reduce((sum, order) => sum + Number(order.totalCents || 0), 0);
+    group.units = group.orders.reduce((sum, order) => sum + (order.details || []).reduce((lineSum, line) => lineSum + Number(line.quantity || 0), 0), 0);
+    group.lines = group.orders.reduce((sum, order) => sum + (order.details || []).length, 0);
+    group.latestDate = group.orders[0]?.date || "";
+    return group;
+  }).sort((a, b) => String(b.latestDate).localeCompare(String(a.latestDate)) || a.name.localeCompare(b.name, "es"));
+}
+
+function renderPurchaseHistoryModule() {
+  const tokens = normalizeKey(state.purchaseHistoryQuery).split(/\s+/).filter(Boolean);
+  const customers = purchaseHistoryCustomers().filter((group) => {
+    const productText = group.orders.flatMap((order) => (order.details || []).map((line) => line.product || "")).join(" ");
+    const index = normalizeKey(`${group.name} ${group.taxId} ${group.customerId} ${group.orders.map((order) => order.number).join(" ")} ${productText}`);
+    return tokens.every((token) => index.includes(token));
+  });
+  const totalCents = customers.reduce((sum, group) => sum + group.totalCents, 0);
+  return `<section class="purchase-history-module">
+    <header class="purchase-history-toolbar">
+      <label><span aria-hidden="true">⌕</span><input type="search" data-purchase-history-search value="${escapeHtml(state.purchaseHistoryQuery)}" placeholder="Buscar cliente, ID, NIT, OP o producto..."></label>
+      <div><small>CLIENTES CON OP</small><strong>${customers.length}</strong></div>
+      <div><small>COMPRA ACUMULADA</small><strong>${formatControlSalesMoney(totalCents)}</strong></div>
+    </header>
+    <div class="purchase-history-head"><strong>Cliente</strong><strong>Última compra</strong><strong>Órdenes</strong><strong>Productos</strong><strong>Total comprado</strong><strong>Acción</strong></div>
+    <div class="purchase-history-list">${customers.map((group) => `<article class="purchase-history-row">
+      <div class="purchase-history-client"><small>${group.customerId ? `ID CLIENTE ${escapeHtml(customerDisplayNumber(group.customer) || group.customerId)}` : "CLIENTE HISTÓRICO"}</small><strong>${escapeHtml(group.name)}</strong><span>${escapeHtml(group.customer?.legalName || group.taxId || "Vinculado por nombre de la OP")}</span></div>
+      <span>${escapeHtml(formatDate(group.latestDate) || "—")}</span>
+      <strong>${group.orders.length} ${group.orders.length === 1 ? "OP" : "OP"}</strong>
+      <span>${group.lines} ${group.lines === 1 ? "línea" : "líneas"}</span>
+      <strong class="purchase-history-amount">${formatControlSalesMoney(group.totalCents)}</strong>
+      <button type="button" data-purchase-history-customer="${escapeHtml(group.key)}">Ver historial</button>
+    </article>`).join("") || `<div class="empty-state">No hay clientes con OP que coincidan con la búsqueda.</div>`}</div>
+  </section>`;
+}
+
+function openPurchaseHistoryDialog(groupKey) {
+  const group = purchaseHistoryCustomers().find((item) => item.key === groupKey);
+  if (!group) return;
+  const dialog = document.createElement("dialog");
+  dialog.className = "purchase-history-dialog";
+  const orders = group.orders.map((order) => `<article class="purchase-history-order">
+    <header><div><small>ORDEN DE PEDIDO</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong><span>${escapeHtml(formatDate(order.date))} · ${escapeHtml(order.seller || "Sin vendedor")}</span></div><div><small>TOTAL</small><strong>${formatControlSalesMoney(order.totalCents)}</strong><button type="button" data-purchase-history-order="${escapeHtml(order.id)}">Ver OP</button></div></header>
+    <div class="purchase-history-lines"><div class="head"><span>Producto / especificación</span><span>Cantidad</span><span>Precio unitario</span><span>Total</span></div>${(order.details || []).map((line) => `<div><span><strong>${escapeHtml(line.product || "Producto sin descripción")}</strong><small>${escapeHtml([line.size ? `Talla ${line.size}` : "", line.notes || ""].filter(Boolean).join(" · ") || "Sin especificación adicional")}</small></span><span>${escapeHtml(line.quantity)}</span><span>${line.unitPriceCents == null ? "—" : formatControlSalesMoney(line.unitPriceCents)}</span><strong>${formatControlSalesMoney(line.lineTotalCents)}</strong></div>`).join("") || `<p>Esta OP no contiene líneas disponibles.</p>`}</div>
+  </article>`).join("");
+  dialog.innerHTML = `<section><header class="purchase-history-dialog-head"><div><span>COMERCIALIZACIÓN · HISTORIAL DE COMPRA</span><h2>${escapeHtml(group.name)}</h2><p>${group.orders.length} ${group.orders.length === 1 ? "orden de pedido" : "órdenes de pedido"} · ${group.lines} líneas compradas</p></div><button type="button" data-purchase-history-close aria-label="Cerrar">×</button></header><div class="purchase-history-summary"><div><small>Primera compra</small><strong>${escapeHtml(formatDate(group.orders[group.orders.length - 1]?.date) || "—")}</strong></div><div><small>Última compra</small><strong>${escapeHtml(formatDate(group.latestDate) || "—")}</strong></div><div><small>Unidades registradas</small><strong>${new Intl.NumberFormat("es-SV").format(group.units)}</strong></div><div><small>Total comprado</small><strong>${formatControlSalesMoney(group.totalCents)}</strong></div></div><div class="purchase-history-orders">${orders}</div></section>`;
+  document.body.append(dialog);
+  dialog.querySelectorAll("[data-purchase-history-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  dialog.querySelectorAll("[data-purchase-history-order]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.purchaseHistoryOrder, true)));
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener("close", () => dialog.remove(), { once:true });
+  dialog.showModal();
+}
+
+function wirePurchaseHistoryModule() {
+  opportunityTable.querySelector("[data-purchase-history-search]")?.addEventListener("input", (event) => {
+    state.purchaseHistoryQuery = event.target.value;
+    renderCommercialSubmenu(areas.comercializacion);
+    const input = opportunityTable.querySelector("[data-purchase-history-search]");
+    input?.focus(); input?.setSelectionRange(input.value.length, input.value.length);
+  });
+  opportunityTable.querySelectorAll("[data-purchase-history-customer]").forEach((button) => button.addEventListener("click", () => openPurchaseHistoryDialog(button.dataset.purchaseHistoryCustomer)));
 }
 
 function formatOrderCorrelative(number) {
@@ -15068,6 +15146,20 @@ function renderCommercialSubmenu(area) {
     commercialSubmenuStatus.textContent = `${state.quotations.length} ${state.quotations.length === 1 ? "cotización" : "cotizaciones"}`;
     opportunityTable.innerHTML = renderQuotationsModule();
     wireQuotationsModule();
+    return;
+  }
+
+  if (state.activeArea === "comercializacion" && submenu.key === "historial-compra") {
+    newOpportunityBtn.classList.add("hidden");
+    newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden");
+    goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden");
+    opportunityDashboard.classList.add("hidden");
+    const customers = purchaseHistoryCustomers();
+    commercialSubmenuStatus.textContent = `${customers.length} clientes con OP · ${customers.reduce((sum, group) => sum + group.orders.length, 0)} órdenes`;
+    opportunityTable.innerHTML = renderPurchaseHistoryModule();
+    wirePurchaseHistoryModule();
     return;
   }
 
