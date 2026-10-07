@@ -14866,7 +14866,7 @@ function openFiscalOrderDialog(order) {
     ${flowSteps}
     <div class="fiscal-dialog-state"><span><small>PROPÓSITO</small><b>Simulación e impresión de prueba</b></span><span><small>ENVÍO A HACIENDA</small><b>Bloqueado en esta fase</b></span></div>
     <div class="inventory-history-table"><table><thead><tr><th>#</th><th>Detalle</th><th>Cantidad</th><th>Precio</th><th>Total</th></tr></thead><tbody>${details}</tbody></table></div>
-    ${currentDocument ? "" : `<div class="fiscal-one-click"><span><small>DEMOSTRACIÓN AUTOMÁTICA</small><b>${escapeHtml(suggestedDocumentLabel)}</b><em>Se respetará exactamente el tipo de documento indicado por la OP. No se firma ni se envía.</em>${receiverActivityField}</span><button type="button" data-fiscal-generate-one-click>Generar e imprimir DTE de prueba</button></div>`}
+    ${currentDocument ? "" : `<div class="fiscal-one-click"><span><small>DEMOSTRACIÓN AUTOMÁTICA</small><b>${escapeHtml(suggestedDocumentLabel)}</b><em>Se respetará exactamente el tipo de documento indicado por la OP. No se firma ni se envía.</em>${receiverActivityField}</span><button type="button" data-fiscal-generate-one-click>Generar, validar e imprimir DTE de prueba</button></div>`}
     ${documents ? `<div class="fiscal-documents"><small>DTE DE PRUEBA GENERADO</small><ul>${documents}</ul>${previousAttempts ? `<p class="fiscal-attempt-history">${previousAttempts} intento${previousAttempts === 1 ? "" : "s"} anterior${previousAttempts === 1 ? "" : "es"} fallido${previousAttempts === 1 ? "" : "s"} se conserva${previousAttempts === 1 ? "" : "n"} únicamente en el historial técnico. No ${previousAttempts === 1 ? "es una factura emitida" : "son facturas emitidas"}.</p>` : ""}</div>` : ""}
     <footer><p>El DTE de prueba es una fotografía independiente de la OP. Se identifica como borrador, no tiene validez fiscal y no se transmite.</p></footer></section>`;
   dialog.querySelector("[data-fiscal-close]").onclick=()=>dialog.close();
@@ -14888,7 +14888,58 @@ function openFiscalOrderDialog(order) {
     finally { button.disabled=false; }
     if (run?.result?.payloadValid) { dialog.close(); state.fiscalLoaded=false; await loadFiscalModule(); }
   }));
-  dialog.querySelector("[data-fiscal-generate-one-click]")?.addEventListener("click",async(event)=>{const button=event.currentTarget;const activityInput=dialog.querySelector("[data-fiscal-receiver-activity]");const activityCode=activityInput?.value.trim()||"";if(activityInput&&!/^\d{5,6}$/.test(activityCode)){activityInput.focus();activityInput.setCustomValidity("Ingresa el código real de actividad económica registrado por el receptor.");activityInput.reportValidity();return;}if(activityInput)activityInput.setCustomValidity("");button.disabled=true;button.textContent="Generando DTE de prueba...";try{if(state.fiscalConfig?.establishmentConfigured!==true){await apiJson("/api/fiscal/config",{method:"POST",body:JSON.stringify({establishment:{controlEstablishmentCode:"M001",controlPointOfSaleCode:"P001",codEstable:"M001",codPuntoVenta:"P001"}})});}const draft=await apiJson("/api/fiscal/drafts",{method:"POST",headers:{"Idempotency-Key":crypto.randomUUID()},body:JSON.stringify({orderId:order.id,documentType:suggestedDocumentType,conditionOperation:1,paymentCode:"01",receiverOverride:activityCode?{economicActivityCode:activityCode}:{}})});if(draft?.id)state.fiscalDocumentCache.set(draft.id,draft);if(!draft.validation?.valid){alert(`La demostración encontró datos por corregir:\n${(draft.validation?.errors||[]).join("\n")}`);button.disabled=false;button.textContent="Generar e imprimir DTE de prueba";return;}dialog.close();state.fiscalLoaded=false;await loadFiscalModule();openFiscalDocumentPreview(draft.id);}catch(error){alert(error.message||"No se pudo generar el DTE de prueba.");button.disabled=false;button.textContent="Generar e imprimir DTE de prueba";}});
+  dialog.querySelector("[data-fiscal-generate-one-click]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const activityInput = dialog.querySelector("[data-fiscal-receiver-activity]");
+    const activityCode = activityInput?.value.trim() || "";
+    if (activityInput && !/^\d{5,6}$/.test(activityCode)) {
+      activityInput.focus();
+      activityInput.setCustomValidity("Ingresa el código real de actividad económica registrado por el receptor.");
+      activityInput.reportValidity();
+      return;
+    }
+    if (activityInput) activityInput.setCustomValidity("");
+    button.disabled = true;
+    button.textContent = "Generando y validando DTE...";
+    try {
+      if (state.fiscalConfig?.establishmentConfigured !== true) {
+        await apiJson("/api/fiscal/config", { method:"POST", body:JSON.stringify({ establishment:{ controlEstablishmentCode:"M001", controlPointOfSaleCode:"P001", codEstable:"M001", codPuntoVenta:"P001" } }) });
+      }
+      const draft = await apiJson("/api/fiscal/drafts", {
+        method:"POST",
+        headers:{ "Idempotency-Key":crypto.randomUUID() },
+        body:JSON.stringify({ orderId:order.id, documentType:suggestedDocumentType, conditionOperation:1, paymentCode:"01", receiverOverride:activityCode ? { economicActivityCode:activityCode } : {} })
+      });
+      if (draft?.id) state.fiscalDocumentCache.set(draft.id, draft);
+      if (!draft.validation?.valid) {
+        alert(`La demostración encontró datos por corregir:\n${(draft.validation?.errors || []).join("\n")}`);
+        button.disabled = false;
+        button.textContent = "Generar, validar e imprimir DTE de prueba";
+        return;
+      }
+      const run = await apiJson(`/api/fiscal/documents/${encodeURIComponent(draft.id)}/simulate`, {
+        method:"POST",
+        headers:{ "Idempotency-Key":crypto.randomUUID() },
+        body:"{}"
+      });
+      const result = run.result || {};
+      if (!result.payloadValid) {
+        alert(`La prueba controlada encontró errores:\n${(result.validationErrors || []).join("\n")}`);
+        dialog.close();
+        state.fiscalLoaded = false;
+        await loadFiscalModule();
+        return;
+      }
+      dialog.close();
+      state.fiscalLoaded = false;
+      await loadFiscalModule();
+      openFiscalDocumentPreview(draft.id);
+    } catch (error) {
+      alert(error.message || "No se pudo generar y validar el DTE de prueba.");
+      button.disabled = false;
+      button.textContent = "Generar, validar e imprimir DTE de prueba";
+    }
+  });
   document.body.append(dialog);dialog.addEventListener("close",()=>dialog.remove(),{once:true});dialog.showModal();
 }
 
