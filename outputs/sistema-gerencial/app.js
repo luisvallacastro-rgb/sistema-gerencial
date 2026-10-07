@@ -4677,7 +4677,7 @@ function openPurchaseHistoryDialog(groupKey) {
   if (!group) return;
   const dialog = document.createElement("dialog");
   dialog.className = "purchase-history-dialog";
-  const orders = group.orders.map((order, index) => `<article class="purchase-history-order purchase-history-order-link" data-purchase-history-order-row="${index}">
+  const orders = group.orders.map((order, index) => `<article class="purchase-history-order purchase-history-order-link" data-purchase-history-order-row="${index}" style="height:84px;min-height:84px;max-height:84px">
     <div><small>ORDEN DE PEDIDO</small><strong>${escapeHtml(formatOrderCorrelative(order.number))}</strong></div>
     <div><small>FECHA</small><strong>${escapeHtml(formatDate(order.date) || "—")}</strong></div>
     <div><small>VENDEDOR</small><strong>${escapeHtml(order.seller || "Sin vendedor")}</strong></div>
@@ -4685,7 +4685,7 @@ function openPurchaseHistoryDialog(groupKey) {
     <div><small>TOTAL</small><strong>${formatControlSalesMoney(order.totalCents)}</strong></div>
     <button type="button" data-purchase-history-order="${escapeHtml(order.id)}">Ver detalle</button>
   </article>`).join("");
-  dialog.innerHTML = `<section><header class="purchase-history-dialog-head"><div><span>COMERCIALIZACIÓN · HISTORIAL DE COMPRA</span><h2>${escapeHtml(group.name)}</h2><p>Órdenes de pedido vinculadas a este cliente</p></div><button type="button" data-purchase-history-close aria-label="Cerrar">×</button></header><div class="purchase-history-order-controls"><div class="purchase-history-order-head"><span>OP</span><span>Fecha</span><span>Vendedor</span><span>Detalle</span><span>Total</span><span>Acción</span></div><nav aria-label="Navegación entre órdenes"><button type="button" data-purchase-history-previous disabled>‹ Anterior</button><strong><span data-purchase-history-position>1</span> / ${group.orders.length}</strong><button type="button" data-purchase-history-next ${group.orders.length <= 1 ? "disabled" : ""}>Siguiente ›</button></nav></div><div class="purchase-history-orders">${orders}</div></section>`;
+  dialog.innerHTML = `<section><header class="purchase-history-dialog-head"><div><span>COMERCIALIZACIÓN · HISTORIAL DE COMPRA</span><h2>${escapeHtml(group.name)}</h2><p>Órdenes de pedido vinculadas a este cliente</p></div><button type="button" data-purchase-history-close aria-label="Cerrar">×</button></header><div class="purchase-history-order-controls"><div class="purchase-history-order-head"><span>OP</span><span>Fecha</span><span>Vendedor</span><span>Detalle</span><span>Total</span><span>Acción</span></div><nav aria-label="Navegación entre órdenes"><button type="button" data-purchase-history-previous disabled>‹ Anterior</button><strong><span data-purchase-history-position>1</span> / ${group.orders.length}</strong><button type="button" data-purchase-history-next ${group.orders.length <= 1 ? "disabled" : ""}>Siguiente ›</button></nav></div><div class="purchase-history-orders" style="grid-auto-rows:84px;align-content:start;overflow-y:auto">${orders}</div></section>`;
   document.body.append(dialog);
   dialog.querySelectorAll("[data-purchase-history-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
   dialog.querySelectorAll("[data-purchase-history-order]").forEach((button) => button.addEventListener("click", () => openControlSalesDetail(button.dataset.purchaseHistoryOrder, true)));
