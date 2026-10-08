@@ -77,7 +77,7 @@ function renderProforma(order) {
   const detailedVat = order.documentType === "CCF";
   const taxPrintLegend = detailedVat ? "IVA detallado" : order.documentType === "CE" ? "Comprobante de envio, CE" : "Precio final · IVA no detallado";
   const printedTotals = detailedVat
-    ? `<tr><th>SUMAS</th><td>${printMoney(subtotalCents)}</td></tr><tr><th>13% IVA</th><td>${printMoney(vatCents)}</td></tr>${perceptionCents ? `<tr><th>RETENCIÓN 1% (-)</th><td>${printMoney(perceptionCents)}</td></tr>` : ""}<tr><th>${perceptionCents ? "TOTAL GRAVADO" : "TOTAL"}</th><td>${printMoney(order.totalCents)}</td></tr>`
+    ? `<tr><th>SUMAS</th><td>${printMoney(subtotalCents)}</td></tr><tr><th>13% IVA</th><td>${printMoney(vatCents)}</td></tr>${perceptionCents ? `<tr><th>RETENCIÓN 1% (INFORMATIVA)</th><td>${printMoney(perceptionCents)}</td></tr>` : ""}<tr><th>TOTAL GRAVADO + IVA</th><td>${printMoney(order.totalCents)}</td></tr>`
     : `<tr><th>TOTAL</th><td>${printMoney(order.totalCents)}</td></tr>`;
   const commercialSignature = hasDirectCustomerSignature ? `
     <section class="electronic-signature">

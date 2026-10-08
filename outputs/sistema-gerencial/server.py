@@ -3906,7 +3906,7 @@ def control_sales_order_payload(conn, row, include_audit=False):
         ))
         if retention_enabled else 0
     )
-    payable_total_cents = subtotal_cents + vat_total_cents - perception_cents
+    payable_total_cents = subtotal_cents + vat_total_cents
     item = {
         "id": row["id"], "externalId": row["external_id"], "source": row["source"],
         "financialOrderId": row["financial_order_id"] if "financial_order_id" in row.keys() else "",
@@ -4059,7 +4059,7 @@ def control_sales_validate(data, existing=None):
         ))
         if proforma_data["perceptionEnabled"] else 0
     )
-    total_cents = subtotal_cents + vat_total_cents - perception_cents
+    total_cents = subtotal_cents + vat_total_cents
     return {
         "number": number, "seller": seller, "date": order_date, "client": client,
         "status": text(data.get("status"), current.get("status") or "Activa"),
@@ -4402,11 +4402,11 @@ def save_control_sales_order(conn, data, existing_row=None):
             raise ValueError("Este pedido ya fue ingresado en Control de Ventas")
         item["seller"] = text(financial_order["seller"])
         item["client"] = text(financial_order["client"])
-        if existing_row or item["proformaData"].get("perceptionEnabled"):
+        if existing_row:
             # Once an operational order is edited, its validated line detail is
-            # the canonical amount. Retention also changes the payable amount
-            # at creation, so keep the financial ledger synchronized in the
-            # same transaction and avoid a false reconciliation difference.
+            # the canonical amount. Keep the financial ledger synchronized in
+            # this same transaction so a partial two-request save cannot leave
+            # a false reconciliation difference behind.
             canonical_sale = Decimal(item["totalCents"]) / Decimal("100")
             conn.execute("""
                 UPDATE financial_orders

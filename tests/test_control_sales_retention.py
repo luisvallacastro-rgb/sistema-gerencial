@@ -13,7 +13,7 @@ SPEC.loader.exec_module(SERVER)
 
 
 class ControlSalesRetentionTests(unittest.TestCase):
-    def test_one_percent_retention_is_subtracted_from_taxed_total(self):
+    def test_one_percent_retention_is_informative_and_does_not_change_total(self):
         order = SERVER.control_sales_validate({
             "number": "2026100047",
             "seller": "Marco Velado",
@@ -31,7 +31,7 @@ class ControlSalesRetentionTests(unittest.TestCase):
         self.assertEqual(order["subtotalCents"], 48252)
         self.assertEqual(order["vatTotalCents"], 6273)
         self.assertEqual(order["perceptionCents"], 483)
-        self.assertEqual(order["totalCents"], 54042)
+        self.assertEqual(order["totalCents"], 54525)
 
 
 if __name__ == "__main__":
