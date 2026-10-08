@@ -379,6 +379,8 @@ const state = {
   commercialAgendaReportSeller: "all",
   commercialAgendaReportStart: "",
   commercialAgendaReportEnd: "",
+  commercialAgendaActivityReportMonth: Number(todayISO().slice(5, 7)),
+  commercialAgendaActivityReportYear: Number(todayISO().slice(0, 4)),
   commercialAgendaDailySeller: "all",
   commercialAgendaValidationStart: `${todayISO().slice(0, 8)}01`,
   commercialAgendaValidationEnd: todayISO(),
@@ -13229,6 +13231,77 @@ function printCommercialAgendaReport() {
   popup.document.write(commercialAgendaReportHtml(start, end, seller));
   popup.document.close();
 }
+function commercialAgendaMonthlyActivityRows(year = state.commercialAgendaActivityReportYear, month = state.commercialAgendaActivityReportMonth) {
+  const period = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+  const grouped = new Map(commercialAgendaSellerNames().map((seller) => [normalizeKey(seller), {
+    seller, effective: 0, pending: 0, ineffective: 0, total: 0, activities: new Map()
+  }]));
+  state.commercialAgenda
+    .filter((item) => commercialAgendaVisibleSeller(item.seller))
+    .flatMap((item) => commercialAgendaItemEvents(item).map((event) => ({ item, event })))
+    .filter(({ event }) => String(event.date || "").slice(0, 7) === period)
+    .forEach(({ item, event }) => {
+      const key = normalizeKey(item.seller || "Sin vendedor");
+      if (!grouped.has(key)) grouped.set(key, { seller: item.seller || "Sin vendedor", effective: 0, pending: 0, ineffective: 0, total: 0, activities: new Map() });
+      const row = grouped.get(key);
+      row.total += 1;
+      if (!event.validation?.validatedAt) row.pending += 1;
+      else if (event.validation?.effective === true) {
+        row.effective += 1;
+        const activity = event.activity || "Sin clasificación";
+        row.activities.set(activity, (row.activities.get(activity) || 0) + 1);
+      } else row.ineffective += 1;
+    });
+  return [...grouped.values()].sort((a, b) => b.effective - a.effective || a.seller.localeCompare(b.seller, "es"));
+}
+function commercialAgendaActivityReportMarkup(year, month, { printable = false } = {}) {
+  const rows = commercialAgendaMonthlyActivityRows(year, month);
+  const totals = rows.reduce((sum, row) => ({
+    effective: sum.effective + row.effective,
+    pending: sum.pending + row.pending,
+    ineffective: sum.ineffective + row.ineffective,
+    total: sum.total + row.total
+  }), { effective: 0, pending: 0, ineffective: 0, total: 0 });
+  const monthName = monthLabel(Number(month));
+  const detail = rows.map((row) => {
+    const breakdown = [...row.activities].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
+    return `<tr><th scope="row">${escapeHtml(row.seller)}</th><td class="activity-report-number">${row.effective}</td><td>${breakdown.map(([activity, count]) => `<span class="activity-report-chip">${escapeHtml(activity)} <b>${count}</b></span>`).join("") || `<span class="activity-report-empty">Sin actividades efectivas</span>`}</td><td>${row.pending}</td><td>${row.ineffective}</td><td>${row.total}</td></tr>`;
+  }).join("");
+  return `<section class="commercial-agenda-activity-report${printable ? " is-printable" : ""}"><div class="activity-report-summary"><article><span>Realizadas</span><strong>${totals.effective}</strong><small>Validadas como efectivas</small></article><article><span>Pendientes</span><strong>${totals.pending}</strong><small>Aún no cuentan</small></article><article><span>No efectivas</span><strong>${totals.ineffective}</strong><small>Excluidas del resultado</small></article><article><span>Registradas</span><strong>${totals.total}</strong><small>Total del período</small></article></div><div class="activity-report-table"><table><thead><tr><th>Vendedor</th><th>Realizadas</th><th>Detalle de actividades realizadas</th><th>Pendientes</th><th>No efectivas</th><th>Registradas</th></tr></thead><tbody>${detail || `<tr><td colspan="6">No hay vendedores ni actividades en este período.</td></tr>`}</tbody><tfoot><tr><th>Total ${escapeHtml(monthName)} ${year}</th><td>${totals.effective}</td><td></td><td>${totals.pending}</td><td>${totals.ineffective}</td><td>${totals.total}</td></tr></tfoot></table></div><p class="activity-report-rule">“Realizadas” incluye solamente actividades con validación gerencial efectiva. Las pendientes y no efectivas no se suman.</p></section>`;
+}
+function printCommercialAgendaMonthlyActivityReport() {
+  const year = Number(state.commercialAgendaActivityReportYear);
+  const month = Number(state.commercialAgendaActivityReportMonth);
+  const popup = window.open("", "_blank", "width=1200,height=850");
+  if (!popup) return alert("El navegador bloqueó la ventana del reporte.");
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Actividades realizadas · ${escapeHtml(monthLabel(month))} ${year}</title><style>@page{size:A4 landscape;margin:11mm}*{box-sizing:border-box}body{margin:0;background:#e8eef3;color:#172b43;font:12px Arial,sans-serif}.page{max-width:1200px;margin:18px auto;padding:22px;background:#fff}.head{display:flex;justify-content:space-between;align-items:end;padding-bottom:13px;border-bottom:3px solid #178b75}.head small{color:#178b75;font-weight:900;letter-spacing:.08em}.head h1{margin:4px 0 0;font-size:25px}.head strong{font-size:18px;color:#087763}.activity-report-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.activity-report-summary article{padding:12px;border:1px solid #cbd7e1;border-radius:9px}.activity-report-summary span,.activity-report-summary small{display:block;color:#607589}.activity-report-summary strong{display:block;margin:3px 0;color:#087763;font-size:23px}.activity-report-table table{width:100%;border-collapse:collapse}.activity-report-table th,.activity-report-table td{padding:9px;border-bottom:1px solid #d5dfe7;text-align:left;vertical-align:top}.activity-report-table thead th{background:#173b61;color:#fff;font-size:10px;text-transform:uppercase}.activity-report-table tbody th{width:185px}.activity-report-number{color:#087763;font-size:18px;font-weight:900}.activity-report-chip{display:inline-block;margin:0 5px 5px 0;padding:4px 7px;border-radius:999px;background:#e0f2ed;color:#176d5e;font-size:10px}.activity-report-chip b{margin-left:3px}.activity-report-empty{color:#7a8996}.activity-report-table tfoot{background:#e1f1ed;font-weight:900}.activity-report-rule{color:#607589;font-size:10px}.actions{position:fixed;right:18px;bottom:18px}.actions button{padding:11px 16px;border:0;border-radius:8px;background:#168872;color:#fff;font-weight:900}@media print{body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{max-width:none;margin:0;padding:0}.actions{display:none}}</style></head><body><main class="page"><header class="head"><div><small>COMERCIALIZACIÓN · AGENDA</small><h1>Actividades realizadas por vendedor</h1></div><strong>${escapeHtml(monthLabel(month))} ${year}</strong></header>${commercialAgendaActivityReportMarkup(year, month, { printable: true })}</main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button></nav></body></html>`);
+  popup.document.close();
+}
+function openCommercialAgendaMonthlyActivityReport() {
+  let dialog = document.querySelector("#commercialAgendaActivityReportDialog");
+  if (!dialog) {
+    dialog = document.createElement("dialog");
+    dialog.id = "commercialAgendaActivityReportDialog";
+    dialog.className = "commercial-agenda-activity-dialog";
+    document.body.append(dialog);
+  }
+  const availableYears = new Set([Number(todayISO().slice(0, 4))]);
+  state.commercialAgenda.forEach((item) => commercialAgendaItemEvents(item).forEach((event) => {
+    const year = Number(String(event.date || "").slice(0, 4));
+    if (year) availableYears.add(year);
+  }));
+  const render = () => {
+    const year = Number(state.commercialAgendaActivityReportYear);
+    const month = Number(state.commercialAgendaActivityReportMonth);
+    dialog.innerHTML = `<form method="dialog"><header><div><span>COMERCIALIZACIÓN · AGENDA</span><h2>Actividades realizadas por vendedor</h2><p>Reporte mensual basado en la validación gerencial.</p></div><button type="button" data-activity-report-close aria-label="Cerrar">×</button></header><section class="activity-report-filters"><label>Mes<select data-activity-report-month>${Array.from({ length: 12 }, (_, index) => index + 1).map((value) => `<option value="${value}" ${value === month ? "selected" : ""}>${escapeHtml(monthLabel(value))}</option>`).join("")}</select></label><label>Año<select data-activity-report-year>${[...availableYears].sort((a, b) => b - a).map((value) => `<option value="${value}" ${value === year ? "selected" : ""}>${value}</option>`).join("")}</select></label><button type="button" data-activity-report-print><span aria-hidden="true">▥</span> Imprimir reporte</button></section>${commercialAgendaActivityReportMarkup(year, month)}</form>`;
+    dialog.querySelector("[data-activity-report-close]").onclick = () => dialog.close();
+    dialog.querySelector("[data-activity-report-month]").onchange = (event) => { state.commercialAgendaActivityReportMonth = Number(event.target.value); render(); };
+    dialog.querySelector("[data-activity-report-year]").onchange = (event) => { state.commercialAgendaActivityReportYear = Number(event.target.value); render(); };
+    dialog.querySelector("[data-activity-report-print]").onclick = printCommercialAgendaMonthlyActivityReport;
+  };
+  render();
+  dialog.showModal();
+}
 function commercialAgendaDailyEvents(date, sellerFilter = "all") {
   return state.commercialAgenda.filter((item) => commercialAgendaVisibleSeller(item.seller)).flatMap((item) => commercialAgendaItemEvents(item)
     .filter((event) => event.date === date && normalizeKey(item.seller) !== "ventas online" && (sellerFilter === "all" || item.seller === sellerFilter))
@@ -13313,7 +13386,7 @@ function renderCommercialAgenda() {
   const reportSellers = commercialAgendaReportSellerOptions();
   const viewTabs = `<div class="commercial-agenda-view-tabs" role="tablist"><button type="button" role="tab" aria-selected="${state.commercialAgendaView === "list"}" class="${state.commercialAgendaView === "list" ? "active" : ""}" data-agenda-view="list">Agenda</button>${managementAccess ? `<button type="button" role="tab" aria-selected="${state.commercialAgendaView === "management"}" class="${state.commercialAgendaView === "management" ? "active" : ""}" data-agenda-view="management">Diario</button>` : ""}</div>`;
   const newActivityControl = canEditAgenda ? `<button type="button" class="commercial-agenda-new-activity" data-commercial-agenda-new title="Crear una actividad"><span aria-hidden="true">+</span><strong>Nueva actividad</strong></button>` : `<small class="commercial-agenda-readonly">Vista completa · Solo lectura</small>`;
-  const reportControls = `<section class="commercial-agenda-report-controls" aria-label="Filtros del reporte de agenda"><label><span>Vendedor</span><select data-agenda-report-seller><option value="all">Todos</option>${reportSellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.commercialAgendaReportSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label><label><span>Desde</span><input type="date" data-agenda-report-start value="${escapeHtml(state.commercialAgendaReportStart || state.commercialAgendaDate || todayISO())}"></label><label><span>Hasta</span><input type="date" data-agenda-report-end value="${escapeHtml(state.commercialAgendaReportEnd || state.commercialAgendaDate || todayISO())}"></label><button type="button" data-agenda-report-generate title="Generar reporte"><span aria-hidden="true">▤</span><strong>Reporte</strong></button></section>`;
+  const reportControls = `<section class="commercial-agenda-report-controls" aria-label="Filtros del reporte de agenda"><label><span>Vendedor</span><select data-agenda-report-seller><option value="all">Todos</option>${reportSellers.map((seller) => `<option value="${escapeHtml(seller)}" ${state.commercialAgendaReportSeller === seller ? "selected" : ""}>${escapeHtml(seller)}</option>`).join("")}</select></label><label><span>Desde</span><input type="date" data-agenda-report-start value="${escapeHtml(state.commercialAgendaReportStart || state.commercialAgendaDate || todayISO())}"></label><label><span>Hasta</span><input type="date" data-agenda-report-end value="${escapeHtml(state.commercialAgendaReportEnd || state.commercialAgendaDate || todayISO())}"></label><button type="button" data-agenda-report-generate title="Generar reporte"><span aria-hidden="true">▤</span><strong>Reporte</strong></button><button type="button" class="commercial-agenda-activity-report-launch" data-agenda-activity-report title="Actividades realizadas por vendedor" aria-label="Reporte mensual de actividades realizadas por vendedor"><span aria-hidden="true">▥</span><strong>Realizadas</strong></button></section>`;
   const agendaView = `<div class="commercial-agenda-commandbar">${viewTabs}${reportControls}${newActivityControl}</div>${renderCommercialAgendaManagement({ includeAllSellers: canViewAllSellers, sellerFilter: canViewAllSellers ? "all" : ownSellerName, interactive: canEditAgenda })}<details class="commercial-agenda-details" ${state.commercialAgendaDetailsOpen ? "open" : ""}><summary>Detalle de actividades</summary><label class="commercial-agenda-search"><span aria-hidden="true">⌕</span><input type="search" data-agenda-search value="${escapeHtml(state.commercialAgendaQuery)}" placeholder="Buscar fecha, vendedor, cliente, actividad, descripción o comentario..." autocomplete="off"></label>${listView}</details>`;
   const dailyControls = `<section class="commercial-agenda-daily-controls"><strong>Reporte del vendedor seleccionado</strong><nav class="commercial-agenda-daily-date" aria-label="Desplazar fecha"><button type="button" data-agenda-date-step="-1" aria-label="Día anterior" title="Día anterior">‹</button><input type="date" data-agenda-management-date value="${escapeHtml(state.commercialAgendaDate || todayISO())}" aria-label="Fecha del diario y del reporte"><button type="button" data-agenda-date-step="1" aria-label="Día siguiente" title="Día siguiente">›</button></nav><button type="button" data-agenda-daily-report-generate>Generar reporte</button></section>`;
   const dailyView = `<div class="commercial-agenda-commandbar commercial-agenda-commandbar-daily">${viewTabs}${dailyControls}${newActivityControl}</div>${renderCommercialAgendaDaily()}`;
@@ -13530,6 +13603,7 @@ function wireCommercialAgenda(){
   opportunityTable.querySelector("[data-agenda-report-start]")?.addEventListener("change",(event)=>{state.commercialAgendaReportStart=event.target.value;});
   opportunityTable.querySelector("[data-agenda-report-end]")?.addEventListener("change",(event)=>{state.commercialAgendaReportEnd=event.target.value;});
   opportunityTable.querySelector("[data-agenda-report-generate]")?.addEventListener("click",printCommercialAgendaReport);
+  opportunityTable.querySelector("[data-agenda-activity-report]")?.addEventListener("click",openCommercialAgendaMonthlyActivityReport);
   opportunityTable.querySelectorAll("[data-agenda-daily-tab]").forEach((button)=>button.addEventListener("click",()=>{state.commercialAgendaDailySeller=button.dataset.agendaDailyTab;renderCommercialSubmenu(areas.comercializacion);}));
   opportunityTable.querySelector("[data-agenda-daily-report-generate]")?.addEventListener("click",printCommercialAgendaDailyReport);
   opportunityTable.querySelectorAll("[data-agenda-view]").forEach((button)=>button.addEventListener("click",()=>{state.commercialAgendaView=button.dataset.agendaView;renderCommercialSubmenu(areas.comercializacion);}));
