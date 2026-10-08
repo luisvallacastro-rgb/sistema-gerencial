@@ -74,7 +74,7 @@ AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "historial-compra", "resultados-dashboard", "kpi", "meta"],
     "financiera": ["disponibilidad", "ingresos", "inventario", "facturacion-electronica", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal", "archivo-muestras"],
-    "rrhh": ["panel", "expedientes", "expedientes-editar", "salarios", "auditoria", "ausencias", "ausencias-editar", "acciones-personal", "activos", "documentos"],
+    "rrhh": ["panel", "expedientes", "expedientes-editar", "salarios", "auditoria", "ausencias", "ausencias-editar", "acciones-personal", "acciones-personal-editar", "activos", "documentos"],
 }
 VALID_ROLES = {"gerencias", "jefaturas", "vendedores", "operativos", "accionistas"}
 ADMIN_MANAGEMENT_PERMISSION_KEYS = [
@@ -9956,6 +9956,99 @@ def record_hr_entity_audit(conn, entity_type, entity_id, action, actor, before=N
         json.dumps(before or {}, ensure_ascii=False), json.dumps(after or {}, ensure_ascii=False)))
 
 
+HR_PERSONNEL_ACTION_TYPES = {
+    "Contratación", "Cambio de cargo", "Cambio salarial", "Traslado",
+    "Suspensión", "Terminación",
+}
+
+
+def hr_personnel_action_row(conn, action_id):
+    return conn.execute("""SELECT a.*, e.employee_number, e.full_name AS employee_name,
+        pd.name AS previous_department, nd.name AS new_department,
+        pp.name AS previous_position, np.name AS new_position
+        FROM hr_personnel_actions a
+        JOIN hr_employees e ON e.id = a.employee_id
+        LEFT JOIN hr_departments pd ON pd.id = a.previous_department_id
+        LEFT JOIN hr_departments nd ON nd.id = a.new_department_id
+        LEFT JOIN hr_positions pp ON pp.id = a.previous_position_id
+        LEFT JOIN hr_positions np ON np.id = a.new_position_id
+        WHERE a.id = ?""", (action_id,)).fetchone()
+
+
+def hr_personnel_action_payload(row, can_view_salary=False):
+    item = dict(row)
+    payload = {
+        "id": item["id"], "employeeId": item["employee_id"], "employeeNumber": item["employee_number"],
+        "employeeName": item["employee_name"], "type": item["action_type"],
+        "effectiveDate": item["effective_date"], "status": item["status"],
+        "previousDepartmentId": item["previous_department_id"] or "", "previousDepartment": item["previous_department"] or "",
+        "newDepartmentId": item["new_department_id"] or "", "newDepartment": item["new_department"] or "",
+        "previousPositionId": item["previous_position_id"] or "", "previousPosition": item["previous_position"] or "",
+        "newPositionId": item["new_position_id"] or "", "newPosition": item["new_position"] or "",
+        "reason": item["reason"], "notes": item["notes"], "appliedAt": item["applied_at"],
+        "appliedBy": item["applied_by_name"], "createdBy": item["created_by_name"],
+        "createdAt": item["created_at"], "updatedAt": item["updated_at"], "salaryVisible": bool(can_view_salary),
+    }
+    if can_view_salary:
+        payload.update(previousSalaryCents=int(item["previous_salary_cents"] or 0), newSalaryCents=int(item["new_salary_cents"] or 0))
+    return payload
+
+
+def normalize_hr_personnel_action(data):
+    item = dict(data or {})
+    normalized = {
+        "employee_id": text(item.get("employeeId")).strip(), "action_type": text(item.get("type")).strip(),
+        "effective_date": text(item.get("effectiveDate")).strip(), "status": text(item.get("status"), "Registrada").strip().title(),
+        "new_department_name": text(item.get("newDepartment")).strip(),
+        "new_position_name": text(item.get("newPosition")).strip(),
+        "reason": text(item.get("reason")).strip(), "notes": text(item.get("notes")).strip(),
+    }
+    try: normalized["new_salary_cents"] = max(0, int(item.get("newSalaryCents") or 0))
+    except (TypeError, ValueError): normalized["new_salary_cents"] = -1
+    errors = []
+    if not normalized["employee_id"]: errors.append("Selecciona un empleado")
+    if normalized["action_type"] not in HR_PERSONNEL_ACTION_TYPES: errors.append("El tipo de acción no es válido")
+    try: datetime.strptime(normalized["effective_date"], "%Y-%m-%d")
+    except ValueError: errors.append("La fecha efectiva es obligatoria")
+    if normalized["status"] not in {"Registrada", "Aplicada", "Anulada"}: errors.append("El estado no es válido")
+    if not normalized["reason"]: errors.append("El motivo es obligatorio")
+    if normalized["new_salary_cents"] < 0: errors.append("El salario no es válido")
+    if normalized["action_type"] == "Cambio salarial" and normalized["new_salary_cents"] <= 0:
+        errors.append("El nuevo salario debe ser mayor que cero")
+    return normalized, errors
+
+
+def ensure_hr_action_catalogs(conn, department_name, position_name, current_department_id):
+    department_id = current_department_id
+    if department_name:
+        row = conn.execute("SELECT id FROM hr_departments WHERE lower(name)=lower(?)", (department_name,)).fetchone()
+        department_id = row["id"] if row else f"hr-dept-{uuid.uuid4()}"
+        if not row: conn.execute("INSERT INTO hr_departments(id,name) VALUES (?,?)", (department_id, department_name))
+    position_id = None
+    if position_name:
+        row = conn.execute("SELECT id FROM hr_positions WHERE department_id IS ? AND lower(name)=lower(?)", (department_id, position_name)).fetchone()
+        position_id = row["id"] if row else f"hr-position-{uuid.uuid4()}"
+        if not row: conn.execute("INSERT INTO hr_positions(id,department_id,name) VALUES (?,?,?)", (position_id, department_id, position_name))
+    return department_id, position_id
+
+
+def apply_hr_personnel_action(conn, row, actor):
+    if row["status"] == "Aplicada":
+        raise ValueError("La acción ya fue aplicada")
+    employee = conn.execute("SELECT * FROM hr_employees WHERE id = ?", (row["employee_id"],)).fetchone()
+    if not employee: raise ValueError("El empleado ya no existe")
+    department_id = row["new_department_id"] or employee["department_id"]
+    position_id = row["new_position_id"] or employee["position_id"]
+    salary_cents = row["new_salary_cents"] if row["action_type"] == "Cambio salarial" else employee["salary_cents"]
+    status = "Inactivo" if row["action_type"] == "Terminación" else "Activo" if row["action_type"] == "Contratación" else employee["status"]
+    conn.execute("""UPDATE hr_employees SET department_id=?, position_id=?, salary_cents=?, status=?,
+        updated_by_id=?, updated_by_name=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+        (department_id, position_id, salary_cents, status, actor["id"], actor["name"], row["employee_id"]))
+    conn.execute("""UPDATE hr_personnel_actions SET status='Aplicada', applied_at=CURRENT_TIMESTAMP,
+        applied_by_id=?, applied_by_name=?, updated_by_id=?, updated_by_name=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+        (actor["id"], actor["name"], actor["id"], actor["name"], row["id"]))
+
+
 class AppHandler(BaseHTTPRequestHandler):
     def training_access_token(self, issued_at):
         signature = hmac.new(
@@ -10362,6 +10455,16 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.send_json({"items": [hr_absence_payload(row) for row in rows], "count": len(rows)})
             return
 
+        if path == "/api/hr/personnel-actions":
+            if not self.require_permission("rrhh:acciones-personal"): return
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                can_view_salary = bool(actor and (actor.get("admin") or "rrhh:salarios" in actor.get("permissions", [])))
+                ids = [row["id"] for row in conn.execute("SELECT id FROM hr_personnel_actions ORDER BY effective_date DESC, id DESC")]
+                items = [hr_personnel_action_payload(hr_personnel_action_row(conn, action_id), can_view_salary) for action_id in ids]
+            self.send_json({"items": items, "count": len(items), "salaryVisible": can_view_salary})
+            return
+
         if path == "/api/hr/audit":
             if not self.require_permission("rrhh:auditoria"): return
             with connect() as conn:
@@ -10375,7 +10478,8 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 before = json.loads(row["before_json"] or "{}")
                 after = json.loads(row["after_json"] or "{}")
                 if not can_view_salary:
-                    before.pop("salaryCents", None); after.pop("salaryCents", None)
+                    for key in ("salaryCents", "previousSalaryCents", "newSalaryCents"):
+                        before.pop(key, None); after.pop(key, None)
                 entries.append({**dict(row), "before": before, "after": after})
             self.send_json(entries)
             return
@@ -10946,6 +11050,57 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     [absence_id, *[normalized[field] for field in fields], actor["id"], actor["name"], actor["id"], actor["name"]])
                 item = hr_absence_payload(hr_absence_row(conn, absence_id))
                 record_hr_entity_audit(conn, "absence", absence_id, "creada", actor, after=item)
+            self.send_json({"item": item}, status=201)
+            return
+
+        if path.startswith("/api/hr/personnel-actions/") and path.endswith("/apply"):
+            if not self.require_permission("rrhh:acciones-personal-editar"): return
+            action_id = unquote(path[len("/api/hr/personnel-actions/"):-len("/apply")].strip("/"))
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                row = hr_personnel_action_row(conn, action_id)
+                if not row: self.send_json({"error": "Acción de personal no encontrada"}, status=404); return
+                can_manage_salary = bool(actor and (actor.get("admin") or "rrhh:salarios" in actor.get("permissions", [])))
+                if row["action_type"] == "Cambio salarial" and not can_manage_salary:
+                    self.send_json({"error": "No tienes permiso para aplicar cambios salariales"}, status=403); return
+                before = hr_personnel_action_payload(row, can_manage_salary)
+                try: apply_hr_personnel_action(conn, row, actor)
+                except ValueError as error: self.send_json({"error": str(error)}, status=409); return
+                item = hr_personnel_action_payload(hr_personnel_action_row(conn, action_id), can_manage_salary)
+                record_hr_entity_audit(conn, "personnel_action", action_id, "aplicada", actor, before, item)
+            self.send_json({"item": item})
+            return
+
+        if path == "/api/hr/personnel-actions":
+            if not self.require_permission("rrhh:acciones-personal-editar"): return
+            normalized, errors = normalize_hr_personnel_action(self.read_json())
+            if errors: self.send_json({"error": errors[0], "details": errors}, status=400); return
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                employee = conn.execute("SELECT * FROM hr_employees WHERE id = ?", (normalized["employee_id"],)).fetchone()
+                if not employee: self.send_json({"error": "El empleado no existe"}, status=400); return
+                can_manage_salary = bool(actor and (actor.get("admin") or "rrhh:salarios" in actor.get("permissions", [])))
+                if normalized["action_type"] == "Cambio salarial" and not can_manage_salary:
+                    self.send_json({"error": "No tienes permiso para registrar cambios salariales"}, status=403); return
+                department_name = normalized.pop("new_department_name", "")
+                position_name = normalized.pop("new_position_name", "")
+                new_department_id, new_position_id = ensure_hr_action_catalogs(conn, department_name, position_name, employee["department_id"])
+                if not department_name: new_department_id = None
+                if not position_name: new_position_id = None
+                action_id = f"hr-action-{uuid.uuid4()}"
+                conn.execute("""INSERT INTO hr_personnel_actions
+                    (id, employee_id, action_type, effective_date, status,
+                     previous_department_id, new_department_id, previous_position_id, new_position_id,
+                     previous_salary_cents, new_salary_cents, reason, notes,
+                     created_by_id, created_by_name, updated_by_id, updated_by_name)
+                    VALUES (?,?,?,?, 'Registrada', ?,?,?,?,?,?,?,?, ?,?,?,?)""", (
+                    action_id, employee["id"], normalized["action_type"], normalized["effective_date"],
+                    employee["department_id"], new_department_id, employee["position_id"], new_position_id,
+                    employee["salary_cents"], normalized["new_salary_cents"], normalized["reason"], normalized["notes"],
+                    actor["id"], actor["name"], actor["id"], actor["name"],
+                ))
+                item = hr_personnel_action_payload(hr_personnel_action_row(conn, action_id), can_manage_salary)
+                record_hr_entity_audit(conn, "personnel_action", action_id, "registrada", actor, after=item)
             self.send_json({"item": item}, status=201)
             return
 

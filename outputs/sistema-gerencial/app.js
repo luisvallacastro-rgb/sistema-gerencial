@@ -243,6 +243,7 @@ const areas = {
       { key: "ausencias", label: "Ausencias e incapacidades", status: "Siguiente etapa" },
       { key: "ausencias-editar", label: "Editar ausencias", accessOnly: true },
       { key: "acciones-personal", label: "Acciones de personal", status: "Siguiente etapa" },
+      { key: "acciones-personal-editar", label: "Editar acciones de personal", accessOnly: true },
       { key: "activos", label: "Activos asignados", status: "Siguiente etapa" },
       { key: "documentos", label: "Documentos legales", status: "Siguiente etapa" },
       { key: "auditoria", label: "Auditoría RR. HH.", status: "Trazabilidad" }
@@ -341,6 +342,9 @@ const state = {
   hrAbsences: [],
   hrAbsencesLoaded: false,
   hrAbsencesLoading: false,
+  hrPersonnelActions: [],
+  hrPersonnelActionsLoaded: false,
+  hrPersonnelActionsLoading: false,
   fiscalOrders: [],
   fiscalConfig: null,
   fiscalLoaded: false,
@@ -15143,6 +15147,14 @@ function openHrAbsenceDialog(absence = null) {
 
 function wireHrAbsences(){opportunityTable.querySelector("[data-hr-absence-new]")?.addEventListener("click",()=>openHrAbsenceDialog());opportunityTable.querySelectorAll("[data-hr-absence-edit]").forEach(button=>button.addEventListener("click",()=>openHrAbsenceDialog(state.hrAbsences.find(item=>item.id===button.dataset.hrAbsenceEdit))));}
 
+function loadHrPersonnelActions(force=false){if(state.hrPersonnelActionsLoading||(state.hrPersonnelActionsLoaded&&!force))return Promise.resolve();state.hrPersonnelActionsLoading=true;return Promise.all([apiJson("/api/hr/personnel-actions"),state.hrEmployeesLoaded?Promise.resolve(null):apiJson("/api/hr/employees")]).then(([payload,employees])=>{state.hrPersonnelActions=payload.items||[];if(employees){state.hrEmployees=employees.items||[];state.hrEmployeesLoaded=true;}state.hrPersonnelActionsLoaded=true;}).catch(error=>alert(error.message||"No se pudieron cargar las acciones de personal.")).finally(()=>{state.hrPersonnelActionsLoading=false;if(state.activeSubmenu==="acciones-personal")renderCommercialSubmenu(areas.rrhh);});}
+
+function renderHrPersonnelActions(){const pending=state.hrPersonnelActions.filter(item=>item.status==="Registrada").length;return `<section class="hr-module"><header><div><span>RR. HH. · MOVIMIENTOS</span><h2>Acciones de personal</h2><p>Historial de decisiones laborales sin sobrescribir sus antecedentes.</p></div>${canHr("acciones-personal-editar")?`<button type="button" data-hr-action-new>+ Nueva acción</button>`:""}</header><div class="hr-summary"><article><small>Acciones</small><strong>${state.hrPersonnelActions.length}</strong></article><article><small>Pendientes</small><strong>${pending}</strong></article><article><small>Aplicadas</small><strong>${state.hrPersonnelActions.filter(item=>item.status==="Aplicada").length}</strong></article><article><small>Trazabilidad</small><strong>Activa</strong></article></div><div class="hr-action-list">${state.hrPersonnelActions.map(item=>`<article><div><span>${escapeHtml(item.type)}</span><strong>${escapeHtml(item.employeeName)}</strong><small>${escapeHtml(item.employeeNumber)} · efectiva ${formatDate(item.effectiveDate)}</small></div><div><b>${escapeHtml(item.reason)}</b><small>${escapeHtml([item.newDepartment,item.newPosition].filter(Boolean).join(" · ")||"Sin cambio organizativo")}</small></div><em class="${item.status.toLowerCase()}">${escapeHtml(item.status)}</em>${item.status==="Registrada"&&canHr("acciones-personal-editar")?`<button type="button" data-hr-action-apply="${escapeHtml(item.id)}">Aplicar</button>`:`<span>${escapeHtml(item.appliedBy||item.createdBy)}</span>`}</article>`).join("")||`<div class="empty-state">${state.hrPersonnelActionsLoading?"Cargando acciones...":"No hay acciones de personal registradas."}</div>`}</div></section>`;}
+
+function openHrPersonnelActionDialog(){const salary=canHr("salarios");let dialog=document.querySelector("#hrPersonnelActionDialog");if(!dialog){dialog=document.createElement("dialog");dialog.id="hrPersonnelActionDialog";dialog.className="hr-employee-dialog";document.body.append(dialog);}dialog.innerHTML=`<form><header><div><span>RR. HH. · ACCIÓN DE PERSONAL</span><h2>Nueva acción</h2></div><button type="button" data-hr-action-close>×</button></header><div class="hr-form-grid"><label>Empleado<select name="employeeId" required><option value="">Seleccionar…</option>${state.hrEmployees.map(item=>`<option value="${escapeHtml(item.id)}">${escapeHtml(item.employeeNumber)} · ${escapeHtml(item.fullName)}</option>`).join("")}</select></label><label>Tipo de acción<select name="type">${["Contratación","Cambio de cargo","Cambio salarial","Traslado","Suspensión","Terminación"].map(type=>`<option>${type}</option>`).join("")}</select></label><label>Fecha efectiva<input name="effectiveDate" type="date" required value="${todayISO()}"></label><label>Nuevo departamento<input name="newDepartment" placeholder="Solo si cambia"></label><label>Nuevo cargo<input name="newPosition" placeholder="Solo si cambia"></label>${salary?`<label>Nuevo salario<input name="newSalary" type="number" min="0" step="0.01" value="0.00"></label>`:""}<label class="wide">Motivo<input name="reason" required placeholder="Fundamento de la acción"></label><label class="wide">Observaciones<textarea name="notes"></textarea></label></div><footer><button type="button" data-hr-action-close>Cancelar</button><button type="submit">Registrar acción</button></footer></form>`;dialog.querySelectorAll("[data-hr-action-close]").forEach(button=>button.onclick=()=>dialog.close());dialog.querySelector("form").onsubmit=async event=>{event.preventDefault();const submit=event.submitter;submit.disabled=true;const values=Object.fromEntries(new FormData(event.currentTarget));const payload={...values,newSalaryCents:salary?Math.round(Number(values.newSalary||0)*100):undefined};delete payload.newSalary;try{await apiJson("/api/hr/personnel-actions",{method:"POST",body:JSON.stringify(payload)});dialog.close();state.hrAuditLoaded=false;await loadHrPersonnelActions(true);}catch(error){alert(error.message||"No se pudo registrar la acción.");submit.disabled=false;}};dialog.showModal();}
+
+function wireHrPersonnelActions(){opportunityTable.querySelector("[data-hr-action-new]")?.addEventListener("click",openHrPersonnelActionDialog);opportunityTable.querySelectorAll("[data-hr-action-apply]").forEach(button=>button.addEventListener("click",async()=>{const action=state.hrPersonnelActions.find(item=>item.id===button.dataset.hrActionApply);if(!action||!confirm(`¿Aplicar ${action.type} a ${action.employeeName}? Esta operación actualizará el expediente.`))return;try{await apiJson(`/api/hr/personnel-actions/${encodeURIComponent(action.id)}/apply`,{method:"POST",body:"{}"});state.hrAuditLoaded=false;state.hrEmployeesLoaded=false;await loadHrPersonnelActions(true);}catch(error){alert(error.message||"No se pudo aplicar la acción.");}}));}
+
 function loadHrAudit() {
   return apiJson("/api/hr/audit").then((items) => { state.hrAudit = items || []; state.hrAuditLoaded = true; }).finally(() => { if (state.activeSubmenu === "auditoria") renderCommercialSubmenu(areas.rrhh); });
 }
@@ -15212,6 +15224,10 @@ function renderCommercialSubmenu(area) {
       commercialSubmenuStatus.textContent = `${state.hrAbsences.length} registros`;
       opportunityTable.innerHTML = renderHrAbsences(); wireHrAbsences();
       if (!state.hrAbsencesLoaded) loadHrAbsences();
+    } else if (submenu.key === "acciones-personal") {
+      commercialSubmenuStatus.textContent = `${state.hrPersonnelActions.length} acciones`;
+      opportunityTable.innerHTML = renderHrPersonnelActions(); wireHrPersonnelActions();
+      if (!state.hrPersonnelActionsLoaded) loadHrPersonnelActions();
     } else if (submenu.key === "auditoria") {
       commercialSubmenuStatus.textContent = `${state.hrAudit.length} movimientos`;
       opportunityTable.innerHTML = renderHrAudit();

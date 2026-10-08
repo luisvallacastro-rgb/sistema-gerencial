@@ -18,7 +18,7 @@ class HrModuleTests(unittest.TestCase):
         self.db_path = Path(self.temp_dir.name) / "hr.db"
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
-        for migration in ("008_hr_core.sql", "009_hr_absences.sql"):
+        for migration in ("008_hr_core.sql", "009_hr_absences.sql", "010_hr_personnel_actions.sql"):
             source = (SERVER_PATH.parent / "migrations" / migration).read_text(encoding="utf-8")
             for statement in server.migration_statements(source):
                 self.conn.execute(statement)
@@ -61,6 +61,23 @@ class HrModuleTests(unittest.TestCase):
             "startDate": "2026-10-10", "endDate": "2026-10-08",
         })
         self.assertIn("La fecha final no puede ser anterior a la inicial", errors)
+
+    def test_personnel_action_requires_reason_and_valid_type(self):
+        _item, errors = server.normalize_hr_personnel_action({
+            "employeeId": "hr-1", "type": "Movimiento desconocido", "effectiveDate": "2026-10-08",
+        })
+        self.assertIn("El tipo de acción no es válido", errors)
+        self.assertIn("El motivo es obligatorio", errors)
+
+    def test_termination_action_updates_employee_without_deleting_history(self):
+        self.conn.execute("INSERT INTO hr_employees(id, employee_number, full_name) VALUES ('hr-1','0001','Empleado Uno')")
+        self.conn.execute("""INSERT INTO hr_personnel_actions
+            (id,employee_id,action_type,effective_date,reason,created_by_id,created_by_name,updated_by_id,updated_by_name)
+            VALUES ('action-1','hr-1','Terminación','2026-10-08','Fin de contrato','admin','Admin','admin','Admin')""")
+        row = self.conn.execute("SELECT * FROM hr_personnel_actions WHERE id='action-1'").fetchone()
+        server.apply_hr_personnel_action(self.conn, row, {"id": "admin", "name": "Admin"})
+        self.assertEqual(self.conn.execute("SELECT status FROM hr_employees WHERE id='hr-1'").fetchone()[0], "Inactivo")
+        self.assertEqual(self.conn.execute("SELECT status FROM hr_personnel_actions WHERE id='action-1'").fetchone()[0], "Aplicada")
 
 
 if __name__ == "__main__":

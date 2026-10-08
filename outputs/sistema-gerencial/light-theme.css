@@ -2586,3 +2586,8 @@ html body.theme-light-active .hr-table article,
 html body.theme-light-active .hr-table article b,
 html body.theme-light-active .hr-table article strong{color:#f3f8fc!important}
 html body.theme-light-active .hr-table article>strong{color:#68eed4!important}
+html body.theme-light-active .hr-action-list>article,
+html body.theme-light-active .hr-action-list article strong,
+html body.theme-light-active .hr-action-list article b{color:#f3f8fc!important}
+html body.theme-light-active .hr-action-list article small{color:#a9bdce!important}
+html body.theme-light-active .hr-action-list article div>span{color:#68eed4!important}
