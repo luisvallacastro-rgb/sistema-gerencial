@@ -17585,6 +17585,12 @@ html.macos-render-safe .app-shell .permission-access-user {
 .control-sales-review-more__content { display: grid; gap: 14px; padding: 0 15px 15px; border-top: 1px solid rgba(142, 178, 216, .12); }
 .control-sales-review-more__content .control-sales-detail-proforma { margin: 14px 0 0; }
 .control-sales-review-more__content .control-sales-audit h4 { margin-bottom: 2px; }
+.control-sales-detail-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.control-sales-detail-totals article { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid rgba(142, 178, 216, .2); border-radius: 12px; background: #1b3552; }
+.control-sales-detail-totals small { color: #91a7bb; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.control-sales-detail-totals strong { color: #eaf5ff; font-size: 18px; }
+.control-sales-detail-totals .total { border-color: rgba(81, 219, 186, .55); background: #194b4c; }
+.control-sales-detail-totals .total strong { color: #72f5d1; }
 
 .control-sales-review-footer { align-items: center; }
 .control-sales-review-footer .danger-btn { margin-right: auto; padding-inline: 12px !important; opacity: .72; }
@@ -17596,6 +17602,7 @@ html.macos-render-safe .app-shell .permission-access-user {
   .control-sales-review-signatures { grid-template-columns: 1fr; }
   .control-sales-review-products > header,
   .control-sales-review-products > article { grid-template-columns: minmax(0, 1fr) 62px 92px; }
+  .control-sales-detail-totals { grid-template-columns: 1fr 1fr; }
   .control-sales-review-footer { flex-wrap: wrap; }
   .control-sales-review-footer .danger-btn { margin-right: 0; }
 }

@@ -3633,7 +3633,7 @@ function ensureControlSalesDialogs() {
           <label>Condición de pago<select id="controlSalesPaymentTerms"><option>50% anticipo, 50% previo a la entrega del pedido</option><option>50% anticipo, 50% crédito a 15 días</option><option>50% anticipo, 50% crédito a 30 días</option><option>35% anticipo, 35% contra entrega y 30% crédito a 30 días</option><option>Crédito de 100% a 15 días</option><option>Crédito de 100% a 30 días</option><option>100% previo a la entrega del pedido</option></select></label>
           <label class="control-sales-strategy-field">Tipo de estrategia<select id="controlSalesStrategy"><option value="">Seleccionar estrategia</option><option>Retención</option><option>Expansión</option><option>Atracción</option><option>Recuperación</option></select></label>
           <label>Código de cliente<input id="controlSalesCustomerCode"></label>
-          <label class="control-sales-perception-toggle"><input id="controlSalesPerceptionEnabled" type="checkbox"><span><b>Percepción 1%</b><small>Aplicar sobre el subtotal</small></span></label>
+          <label class="control-sales-perception-toggle"><input id="controlSalesPerceptionEnabled" type="checkbox"><span><b>Retención 1%</b><small>Aplicar sobre el subtotal</small></span></label>
           <label class="span-4">Observaciones generales<textarea id="controlSalesGeneralNotes" rows="3"></textarea></label>
         </div>
       </details>
@@ -3643,7 +3643,7 @@ function ensureControlSalesDialogs() {
       <section class="control-sales-proforma-totals">
         <article><span>Subtotal</span><strong id="controlSalesSubtotal">$0.00</strong></article>
         <article><span>IVA 13%</span><strong id="controlSalesVatTotal">$0.00</strong></article>
-        <article><span>Percepción 1%</span><strong id="controlSalesPerceptionTotal">$0.00</strong></article>
+        <article><span>Retención 1%</span><strong id="controlSalesPerceptionTotal">$0.00</strong></article>
         <article><span>Total proforma</span><strong id="controlSalesProformaTotal">$0.00</strong></article>
       </section>
       <section id="controlSalesReconciliation" class="control-sales-reconciliation" data-state="empty">
@@ -6074,7 +6074,13 @@ function orderWithCurrentQuotationData(order = {}) {
   const vatTotalCents = documentType === "CCF"
     ? preserveManualBreakdown ? Number(order.vatTotalCents ?? detailVatCents) : Number(quotation.vatCents ?? Math.round(subtotalCents * 0.13))
     : 0;
-  const totalCents = preserveManualBreakdown ? Number(order.totalCents ?? subtotalCents + vatTotalCents) : Number(quotation.totalCents ?? subtotalCents + vatTotalCents);
+  const retentionEnabled = Boolean(order.proformaData?.perceptionEnabled);
+  const retentionCents = retentionEnabled
+    ? Number(order.perceptionCents ?? Math.round(subtotalCents * 0.01))
+    : 0;
+  const totalCents = preserveManualBreakdown
+    ? Number(order.totalCents ?? subtotalCents + vatTotalCents + retentionCents)
+    : subtotalCents + vatTotalCents + retentionCents;
   const confirmedDelivery = String(order.proformaData?.deliveryDate || "").trim();
   const quotationDelivery = String(quotation.deliveryTerms || quotation.customerData?.deliveryDate || "").trim();
   return {
@@ -6085,7 +6091,7 @@ function orderWithCurrentQuotationData(order = {}) {
     details,
     subtotalCents,
     vatTotalCents,
-    perceptionCents: 0,
+    perceptionCents: retentionCents,
     totalCents,
     proformaData: {
       ...(order.proformaData || {}),
@@ -6123,7 +6129,7 @@ function printControlSalesProformaInline(order, options = {}) {
   const detailedVat = order.documentType === "CCF";
   const taxPrintLegend = detailedVat ? "IVA detallado" : order.documentType === "CE" ? "Comprobante de envio, CE" : "Precio final · IVA no detallado";
   const printedTotals = detailedVat
-    ? `<tr><th>SUMAS</th><td>${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>1% PERCEPCION</th><td>${formatControlSalesMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${formatControlSalesMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`
+    ? `<tr><th>SUMAS</th><td>${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>RETENCIÓN 1%</th><td>${formatControlSalesMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${formatControlSalesMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`
     : `<tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`;
   const strategies = [
     ["RETENCION", "Retención"],
@@ -6249,6 +6255,9 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
   detailDialog.dataset.orderFormatOnly = formatOnly ? "true" : "false";
   const warnings = [...(order.anomalies || []), ...order.details.flatMap((detail) => detail.reviewRequired ? [{ description: `Precio faltante en ${detail.product}; requiere revisión.` }] : (detail.anomalies || []))];
   const isBalanced = Number(order.varianceCents || 0) === 0;
+  const subtotalCents = Number(order.subtotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0), 0));
+  const vatCents = Number(order.vatTotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.vatCents || 0), 0));
+  const retentionCents = Number(order.perceptionCents ?? Math.max(0, Number(order.totalCents || 0) - subtotalCents - vatCents));
   const approvalLabel = controlSalesOrderHasAuthorizedSignatures(order) ? "Aprobado · 2 firmas" : (order.commercialApprovalStatus === "Autorizada" || order.commercialApprovedAt) ? "Autorización comercial" : "Pendiente de autorización";
   document.querySelector("#controlSalesDetailContent").innerHTML = `<header class="control-sales-review-header"><div><p class="eyebrow">Orden ${escapeHtml(formatOrderCorrelative(order.number))}</p><h3>${escapeHtml(order.client)}</h3><span>${escapeHtml(controlSalesResponsibleSeller(order))}</span></div><div class="control-sales-review-header__aside"><em>${escapeHtml(approvalLabel)}</em><button type="button" data-control-sales-detail-close aria-label="Cerrar">×</button></div></header>
     <section class="control-sales-review-hero">
@@ -6266,6 +6275,7 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
         ${warnings.length ? `<aside class="control-sales-warnings"><strong>⚠ Advertencias históricas</strong>${warnings.map((warning) => `<p>${escapeHtml(warning.description || warning.type || "Dato por revisar")}</p>`).join("")}</aside>` : ""}
         <section class="control-sales-detail-proforma"><h4>Datos de proforma</h4><div><article><small>Nombre comercial</small><strong>${escapeHtml(order.proformaData?.commercialName || order.client || "—")}</strong></article><article><small>Razón social</small><strong>${escapeHtml(order.proformaData?.legalName || "—")}</strong></article><article><small>Encargado</small><strong>${escapeHtml(order.proformaData?.contactName || "—")}</strong></article><article><small>Entrega</small><strong>${escapeHtml(formatControlSalesDelivery(order.proformaData?.deliveryDate) || "—")}</strong></article><article><small>Condición de pago</small><strong>${escapeHtml(order.proformaData?.paymentTerms || "—")}</strong></article><article><small>Estrategia</small><strong>${escapeHtml(order.proformaData?.strategy || "—")}</strong></article></div></section>
         <div class="control-sales-detail-lines"><div class="control-sales-detail-row head"><span>#</span><span>Producto</span><span>Talla</span><span>Cantidad</span><span>Precio</span><span>IVA</span><span>Total</span></div>${order.details.map((detail, index) => `<article class="control-sales-detail-row"><span>${index + 1}</span><strong>${escapeHtml(detail.product)}</strong><span>${escapeHtml(detail.size || "—")}</span><span>${escapeHtml(detail.quantity)}</span><span>${detail.unitPriceCents == null ? "Revisar" : formatControlSalesMoney(detail.unitPriceCents)}</span><span>${formatControlSalesMoney(detail.vatCents)}</span><strong>${formatControlSalesMoney(detail.lineTotalCents)}</strong></article>`).join("")}</div>
+        <section class="control-sales-detail-totals" aria-label="Desglose total de la orden"><article><small>Subtotal</small><strong>${formatControlSalesMoney(subtotalCents)}</strong></article><article><small>IVA 13%</small><strong>${formatControlSalesMoney(vatCents)}</strong></article><article><small>Retención 1%</small><strong>${formatControlSalesMoney(retentionCents)}</strong></article><article class="total"><small>Total de la OP</small><strong>${formatControlSalesMoney(order.totalCents || 0)}</strong></article></section>
         <section class="control-sales-audit"><h4>Historial del pedido</h4>${order.audit.map((entry) => `<article><strong>${escapeHtml(entry.action)}</strong><span>${escapeHtml(entry.userName)} · ${escapeHtml(entry.createdAt)}</span><small>${escapeHtml(entry.summary)}</small></article>`).join("") || `<p>Historial importado desde Excel.</p>`}</section>
       </div>
     </details>
