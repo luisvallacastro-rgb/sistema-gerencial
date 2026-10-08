@@ -74,7 +74,7 @@ AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "historial-compra", "resultados-dashboard", "kpi", "meta"],
     "financiera": ["disponibilidad", "ingresos", "inventario", "facturacion-electronica", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal", "archivo-muestras"],
-    "rrhh": [],
+    "rrhh": ["panel", "expedientes", "expedientes-editar", "salarios", "auditoria", "ausencias", "acciones-personal", "activos", "documentos"],
 }
 VALID_ROLES = {"gerencias", "jefaturas", "vendedores", "operativos", "accionistas"}
 ADMIN_MANAGEMENT_PERMISSION_KEYS = [
@@ -2502,7 +2502,7 @@ def default_permissions_for_role(role):
             *ADMIN_CONSOLIDATED_PERMISSION_KEYS,
         ]
     permissions = (
-        ALL_PERMISSIONS
+        [permission for permission in ALL_PERMISSIONS if not permission.startswith("rrhh:")]
         if role == "gerencias"
         else [*ALL_OPERATIONAL_PERMISSIONS, *ADMIN_CONSOLIDATED_PERMISSION_KEYS]
     )
@@ -9816,6 +9816,101 @@ def build_financial_ratios_report(query):
     }
 
 
+HR_EMPLOYEE_FIELDS = (
+    "employee_number", "full_name", "department_id", "position_id", "status",
+    "hire_date", "birth_date", "personal_id", "tax_id", "social_security_number",
+    "email", "phone", "address", "salary_cents", "notes",
+)
+
+
+def hr_actor(conn, handler):
+    actor_id = text(handler.headers.get("X-System-User-Id"))
+    if not actor_id:
+        return None
+    row = conn.execute("""SELECT id, name, username, email, role, password, permissions,
+        permissions_customized, admin FROM users WHERE id = ? LIMIT 1""", (actor_id,)).fetchone()
+    return user_payload(row) if row else None
+
+
+def hr_employee_payload(conn, row, can_view_salary=False):
+    if not row:
+        return None
+    item = dict(row)
+    department = conn.execute("SELECT name FROM hr_departments WHERE id = ?", (item.get("department_id"),)).fetchone()
+    position = conn.execute("SELECT name FROM hr_positions WHERE id = ?", (item.get("position_id"),)).fetchone()
+    payload = {
+        "id": item["id"], "employeeNumber": item["employee_number"], "fullName": item["full_name"],
+        "departmentId": item["department_id"] or "", "department": department["name"] if department else "",
+        "positionId": item["position_id"] or "", "position": position["name"] if position else "",
+        "status": item["status"], "hireDate": item["hire_date"], "birthDate": item["birth_date"],
+        "personalId": item["personal_id"], "taxId": item["tax_id"],
+        "socialSecurityNumber": item["social_security_number"], "email": item["email"],
+        "phone": item["phone"], "address": item["address"], "notes": item["notes"],
+        "createdAt": item["created_at"], "updatedAt": item["updated_at"],
+        "updatedBy": item["updated_by_name"], "salaryVisible": bool(can_view_salary),
+    }
+    if can_view_salary:
+        payload["salaryCents"] = int(item["salary_cents"] or 0)
+    return payload
+
+
+def normalize_hr_employee(data):
+    item = dict(data or {})
+    normalized = {
+        "employee_number": text(item.get("employeeNumber")).strip(),
+        "full_name": text(item.get("fullName")).strip(),
+        "department_id": text(item.get("departmentId")).strip() or None,
+        "position_id": text(item.get("positionId")).strip() or None,
+        "status": text(item.get("status"), "Activo").strip().title(),
+        "hire_date": text(item.get("hireDate")).strip(), "birth_date": text(item.get("birthDate")).strip(),
+        "personal_id": text(item.get("personalId")).strip(), "tax_id": text(item.get("taxId")).strip(),
+        "social_security_number": text(item.get("socialSecurityNumber")).strip(),
+        "email": text(item.get("email")).strip(), "phone": text(item.get("phone")).strip(),
+        "address": text(item.get("address")).strip(), "notes": text(item.get("notes")).strip(),
+    }
+    normalized["department_name"] = text(item.get("department")).strip()
+    normalized["position_name"] = text(item.get("position")).strip()
+    try:
+        normalized["salary_cents"] = max(0, int(item.get("salaryCents") or 0))
+    except (TypeError, ValueError):
+        normalized["salary_cents"] = -1
+    errors = []
+    if not normalized["employee_number"]: errors.append("El correlativo del empleado es obligatorio")
+    if not normalized["full_name"]: errors.append("El nombre completo es obligatorio")
+    if normalized["status"] not in {"Activo", "Inactivo"}: errors.append("El estado no es válido")
+    if normalized["salary_cents"] < 0: errors.append("El salario no es válido")
+    return normalized, errors
+
+
+def resolve_hr_catalogs(conn, normalized):
+    department_name = normalized.pop("department_name", "")
+    position_name = normalized.pop("position_name", "")
+    if department_name:
+        row = conn.execute("SELECT id FROM hr_departments WHERE lower(name) = lower(?)", (department_name,)).fetchone()
+        department_id = row["id"] if row else f"hr-dept-{uuid.uuid4()}"
+        if not row:
+            conn.execute("INSERT INTO hr_departments(id, name) VALUES (?, ?)", (department_id, department_name))
+        normalized["department_id"] = department_id
+    if position_name:
+        row = conn.execute("SELECT id FROM hr_positions WHERE department_id IS ? AND lower(name) = lower(?)",
+                           (normalized.get("department_id"), position_name)).fetchone()
+        position_id = row["id"] if row else f"hr-position-{uuid.uuid4()}"
+        if not row:
+            conn.execute("INSERT INTO hr_positions(id, department_id, name) VALUES (?, ?, ?)",
+                         (position_id, normalized.get("department_id"), position_name))
+        normalized["position_id"] = position_id
+    return normalized
+
+
+def record_hr_audit(conn, entity_id, action, actor, before=None, after=None):
+    conn.execute("""INSERT INTO hr_audit
+        (entity_type, entity_id, action, actor_user_id, actor_user_name, before_json, after_json)
+        VALUES ('employee', ?, ?, ?, ?, ?, ?)""", (
+        entity_id, action, text(actor.get("id")), text(actor.get("name")),
+        json.dumps(before or {}, ensure_ascii=False), json.dumps(after or {}, ensure_ascii=False),
+    ))
+
+
 class AppHandler(BaseHTTPRequestHandler):
     def training_access_token(self, issued_at):
         signature = hmac.new(
@@ -10173,6 +10268,62 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
 
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+
+        if path == "/api/hr/employees":
+            if not self.require_permission("rrhh:expedientes"): return
+            query = parse_qs(urlparse(self.path).query)
+            search = text((query.get("q") or [""])[0]).strip()
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                can_view_salary = bool(actor and (actor.get("admin") or "rrhh:salarios" in actor.get("permissions", [])))
+                params = []
+                where = ""
+                if search:
+                    where = "WHERE employee_number LIKE ? OR full_name LIKE ? OR email LIKE ?"
+                    term = f"%{search}%"
+                    params = [term, term, term]
+                rows = conn.execute(f"SELECT * FROM hr_employees {where} ORDER BY status, full_name", params).fetchall()
+                items = [hr_employee_payload(conn, row, can_view_salary) for row in rows]
+            self.send_json({"items": items, "count": len(items), "salaryVisible": can_view_salary})
+            return
+
+        if path.startswith("/api/hr/employees/"):
+            if not self.require_permission("rrhh:expedientes"): return
+            employee_id = unquote(path.rsplit("/", 1)[-1])
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                row = conn.execute("SELECT * FROM hr_employees WHERE id = ?", (employee_id,)).fetchone()
+                can_view_salary = bool(actor and (actor.get("admin") or "rrhh:salarios" in actor.get("permissions", [])))
+                item = hr_employee_payload(conn, row, can_view_salary)
+            if not item: self.send_json({"error": "Expediente no encontrado"}, status=404); return
+            self.send_json(item)
+            return
+
+        if path == "/api/hr/catalogs":
+            if not self.require_permission("rrhh:expedientes"): return
+            with connect() as conn:
+                departments = [dict(row) for row in conn.execute("SELECT id, name FROM hr_departments WHERE active = 1 ORDER BY name")]
+                positions = [dict(row) for row in conn.execute("SELECT id, department_id AS departmentId, name FROM hr_positions WHERE active = 1 ORDER BY name")]
+            self.send_json({"departments": departments, "positions": positions})
+            return
+
+        if path == "/api/hr/audit":
+            if not self.require_permission("rrhh:auditoria"): return
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                can_view_salary = bool(actor and (actor.get("admin") or "rrhh:salarios" in actor.get("permissions", [])))
+                rows = conn.execute("""SELECT id, entity_type AS entityType, entity_id AS entityId,
+                    action, actor_user_id AS actorUserId, actor_user_name AS actorUserName,
+                    before_json, after_json, created_at AS createdAt FROM hr_audit ORDER BY id DESC LIMIT 300""").fetchall()
+            entries = []
+            for row in rows:
+                before = json.loads(row["before_json"] or "{}")
+                after = json.loads(row["after_json"] or "{}")
+                if not can_view_salary:
+                    before.pop("salaryCents", None); after.pop("salaryCents", None)
+                entries.append({**dict(row), "before": before, "after": after})
+            self.send_json(entries)
             return
 
         if self.path == "/api/users":
@@ -10699,6 +10850,32 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             return
 
         path = urlparse(self.path).path
+        if path == "/api/hr/employees":
+            if not self.require_permission("rrhh:expedientes-editar"): return
+            data = self.read_json()
+            normalized, errors = normalize_hr_employee(data)
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                normalized = resolve_hr_catalogs(conn, normalized)
+                can_manage_salary = bool(actor and (actor.get("admin") or "rrhh:salarios" in actor.get("permissions", [])))
+                if not can_manage_salary and data.get("salaryCents") not in (None, "", 0, "0"):
+                    self.send_json({"error": "No tienes permiso para registrar salarios"}, status=403); return
+                if errors: self.send_json({"error": errors[0], "details": errors}, status=400); return
+                employee_id = f"hr-{uuid.uuid4()}"
+                values = [normalized[field] for field in HR_EMPLOYEE_FIELDS]
+                try:
+                    conn.execute(f"""INSERT INTO hr_employees
+                        (id, {', '.join(HR_EMPLOYEE_FIELDS)}, created_by_id, created_by_name, updated_by_id, updated_by_name)
+                        VALUES ({', '.join(['?'] * (len(HR_EMPLOYEE_FIELDS) + 5))})""",
+                        [employee_id, *values, actor["id"], actor["name"], actor["id"], actor["name"]])
+                except sqlite3.IntegrityError:
+                    self.send_json({"error": "El correlativo ya pertenece a otro empleado"}, status=409); return
+                row = conn.execute("SELECT * FROM hr_employees WHERE id = ?", (employee_id,)).fetchone()
+                after = hr_employee_payload(conn, row, can_manage_salary)
+                record_hr_audit(conn, employee_id, "creado", actor, after=after)
+            self.send_json({"item": after}, status=201)
+            return
+
         if path == "/api/fiscal/config":
             actor = self.require_fiscal_session("financiera:facturacion-electronica-preparar")
             if not actor: return
@@ -11677,6 +11854,35 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.handle_crm_api()
             return
 
+        path = urlparse(self.path).path
+        if path.startswith("/api/hr/employees/"):
+            if not self.require_permission("rrhh:expedientes-editar"): return
+            employee_id = unquote(path.rsplit("/", 1)[-1])
+            data = self.read_json()
+            normalized, errors = normalize_hr_employee(data)
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                row = conn.execute("SELECT * FROM hr_employees WHERE id = ?", (employee_id,)).fetchone()
+                if not row: self.send_json({"error": "Expediente no encontrado"}, status=404); return
+                can_manage_salary = bool(actor and (actor.get("admin") or "rrhh:salarios" in actor.get("permissions", [])))
+                if not can_manage_salary:
+                    normalized["salary_cents"] = row["salary_cents"]
+                normalized = resolve_hr_catalogs(conn, normalized)
+                if errors: self.send_json({"error": errors[0], "details": errors}, status=400); return
+                before = hr_employee_payload(conn, row, can_manage_salary)
+                assignments = ", ".join(f"{field} = ?" for field in HR_EMPLOYEE_FIELDS)
+                try:
+                    conn.execute(f"""UPDATE hr_employees SET {assignments}, updated_by_id = ?,
+                        updated_by_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?""",
+                        [*[normalized[field] for field in HR_EMPLOYEE_FIELDS], actor["id"], actor["name"], employee_id])
+                except sqlite3.IntegrityError:
+                    self.send_json({"error": "El correlativo ya pertenece a otro empleado"}, status=409); return
+                updated = conn.execute("SELECT * FROM hr_employees WHERE id = ?", (employee_id,)).fetchone()
+                after = hr_employee_payload(conn, updated, can_manage_salary)
+                record_hr_audit(conn, employee_id, "actualizado", actor, before, after)
+            self.send_json({"item": after})
+            return
+
         if self.path.startswith("/api/accounts-receivable/"):
             item_id = unquote(self.path.rsplit("/", 1)[-1])
             data = self.read_json()
@@ -12548,6 +12754,25 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
         self.send_error(404)
 
     def handle_api_delete(self):
+        path = urlparse(self.path).path
+        if path.startswith("/api/hr/employees/"):
+            if not self.require_permission("rrhh:expedientes-editar"): return
+            employee_id = unquote(path.rsplit("/", 1)[-1])
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                row = conn.execute("SELECT * FROM hr_employees WHERE id = ?", (employee_id,)).fetchone()
+                if not row: self.send_json({"error": "Expediente no encontrado"}, status=404); return
+                can_view_salary = bool(actor and (actor.get("admin") or "rrhh:salarios" in actor.get("permissions", [])))
+                before = hr_employee_payload(conn, row, can_view_salary)
+                conn.execute("""UPDATE hr_employees SET status = 'Inactivo', updated_by_id = ?,
+                    updated_by_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?""",
+                    (actor["id"], actor["name"], employee_id))
+                updated = conn.execute("SELECT * FROM hr_employees WHERE id = ?", (employee_id,)).fetchone()
+                after = hr_employee_payload(conn, updated, can_view_salary)
+                record_hr_audit(conn, employee_id, "inactivado", actor, before, after)
+            self.send_json({"ok": True, "item": after})
+            return
+
         bank_parts = self.path.split("?", 1)[0].strip("/").split("/")
         if len(bank_parts) == 4 and bank_parts[:3] == ["api", "bank-availability", "records"]:
             if not self.require_permission("financiera:disponibilidad"):

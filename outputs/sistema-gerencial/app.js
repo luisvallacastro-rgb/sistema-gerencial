@@ -236,8 +236,15 @@ const areas = {
     nav: "Recursos humanos",
     status: "Controlado",
     submenus: [
-      { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
-      { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
+      { key: "panel", label: "Panel de RR. HH.", status: "Control local" },
+      { key: "expedientes", label: "Expedientes", status: "Registro maestro" },
+      { key: "expedientes-editar", label: "Editar expedientes", accessOnly: true },
+      { key: "salarios", label: "Consultar salarios", accessOnly: true },
+      { key: "ausencias", label: "Ausencias e incapacidades", status: "Siguiente etapa" },
+      { key: "acciones-personal", label: "Acciones de personal", status: "Siguiente etapa" },
+      { key: "activos", label: "Activos asignados", status: "Siguiente etapa" },
+      { key: "documentos", label: "Documentos legales", status: "Siguiente etapa" },
+      { key: "auditoria", label: "Auditoría RR. HH.", status: "Trazabilidad" }
     ],
     summary: [
       ["Rotacion", "3.8%", "Dentro de rango"],
@@ -323,6 +330,13 @@ const state = {
   inventoryLoaded: false,
   inventoryLoading: false,
   inventoryQuery: "",
+  hrEmployees: [],
+  hrEmployeesLoaded: false,
+  hrEmployeesLoading: false,
+  hrEmployeeQuery: "",
+  hrCatalogs: { departments: [], positions: [] },
+  hrAudit: [],
+  hrAuditLoaded: false,
   fiscalOrders: [],
   fiscalConfig: null,
   fiscalLoaded: false,
@@ -1283,7 +1297,7 @@ function defaultPermissionsForRole(role) {
     ];
   }
   return role === "gerencias"
-    ? allPermissionKeys().filter((permission) => !fiscalAccessPermissionKeys().includes(permission))
+    ? allPermissionKeys().filter((permission) => !permission.startsWith("rrhh:") && !fiscalAccessPermissionKeys().includes(permission))
     : [...operationalPermissionKeys(), ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))];
 }
 
@@ -1429,7 +1443,7 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
     });
   }
   const permissions = userPermissions(user);
-  return area.submenus.filter((item) => (
+  return area.submenus.filter((item) => !item.accessOnly && (
     permissions.has(permissionKey(areaKey, item.key))
   ));
 }
@@ -15048,6 +15062,69 @@ function wireFiscalModule() {
   opportunityTable.querySelectorAll("[data-fiscal-order]").forEach((button)=>button.addEventListener("click",()=>{const order=state.fiscalOrders.find((item)=>item.id===button.dataset.fiscalOrder);if(order)openFiscalOrderDialog(order);}));
 }
 
+function canHr(permission) {
+  return userPermissions().has(`rrhh:${permission}`) || isAdminUser();
+}
+
+function loadHrEmployees(force = false) {
+  if (state.hrEmployeesLoading || (state.hrEmployeesLoaded && !force)) return Promise.resolve();
+  state.hrEmployeesLoading = true;
+  return Promise.all([apiJson("/api/hr/employees"), apiJson("/api/hr/catalogs")])
+    .then(([payload, catalogs]) => {
+      state.hrEmployees = payload.items || [];
+      state.hrCatalogs = catalogs || { departments: [], positions: [] };
+      state.hrEmployeesLoaded = true;
+    }).catch((error) => {
+      state.hrEmployees = [];
+      alert(error.message || "No se pudieron cargar los expedientes.");
+    }).finally(() => {
+      state.hrEmployeesLoading = false;
+      if (state.activeArea === "rrhh") renderCommercialSubmenu(areas.rrhh);
+    });
+}
+
+function renderHrPanel() {
+  const active = state.hrEmployees.filter((item) => item.status === "Activo").length;
+  const departments = new Set(state.hrEmployees.map((item) => item.department).filter(Boolean)).size;
+  return `<section class="hr-module"><header><div><span>RECURSOS HUMANOS · ENTORNO LOCAL</span><h2>Control de personal</h2><p>Base nativa de KMI con permisos independientes y trazabilidad de cambios.</p></div><b>Fase 1</b></header><div class="hr-summary"><article><small>Expedientes</small><strong>${state.hrEmployees.length}</strong></article><article><small>Personal activo</small><strong>${active}</strong></article><article><small>Departamentos</small><strong>${departments}</strong></article><article><small>Auditoría</small><strong>Activa</strong></article></div><div class="hr-foundation"><h3>Fundación instalada</h3><p>Expedientes, salarios protegidos por permiso específico y bitácora inalterable. Ausencias, acciones de personal, activos y documentos se incorporarán sobre esta misma base.</p></div></section>`;
+}
+
+function renderHrEmployees() {
+  const query = normalizeKey(state.hrEmployeeQuery);
+  const rows = state.hrEmployees.filter((item) => !query || normalizeKey(`${item.employeeNumber} ${item.fullName} ${item.department} ${item.position}`).includes(query));
+  return `<section class="hr-module"><header><div><span>RR. HH. · EXPEDIENTES</span><h2>Registro maestro de empleados</h2><p>El salario únicamente se muestra a usuarios con permiso explícito.</p></div>${canHr("expedientes-editar") ? `<button type="button" data-hr-new>+ Nuevo empleado</button>` : ""}</header><label class="hr-search"><span>⌕</span><input type="search" data-hr-search value="${escapeHtml(state.hrEmployeeQuery)}" placeholder="Buscar correlativo, empleado, área o cargo..."></label><div class="hr-table"><div class="hr-table-head"><span>Correlativo</span><span>Empleado</span><span>Área / cargo</span><span>Ingreso</span><span>Estado</span><span>Acción</span></div>${rows.map((item) => `<article><strong>${escapeHtml(item.employeeNumber)}</strong><div><b>${escapeHtml(item.fullName)}</b><small>${escapeHtml(item.email || item.phone || "Sin contacto registrado")}</small></div><div><b>${escapeHtml(item.department || "Sin área")}</b><small>${escapeHtml(item.position || "Sin cargo")}</small></div><span>${item.hireDate ? formatDate(item.hireDate) : "—"}</span><em class="${item.status === "Activo" ? "active" : ""}">${escapeHtml(item.status)}</em><button type="button" data-hr-edit="${escapeHtml(item.id)}">${canHr("expedientes-editar") ? "Editar" : "Ver"}</button></article>`).join("") || `<div class="empty-state">${state.hrEmployeesLoading ? "Cargando expedientes..." : "No hay expedientes registrados."}</div>`}</div></section>`;
+}
+
+function openHrEmployeeDialog(employee = null) {
+  const editable = canHr("expedientes-editar");
+  const salary = canHr("salarios");
+  let dialog = document.querySelector("#hrEmployeeDialog");
+  if (!dialog) { dialog = document.createElement("dialog"); dialog.id = "hrEmployeeDialog"; dialog.className = "hr-employee-dialog"; document.body.append(dialog); }
+  const value = (key) => escapeHtml(employee?.[key] || "");
+  dialog.innerHTML = `<form><header><div><span>RR. HH. · EXPEDIENTE</span><h2>${employee ? escapeHtml(employee.fullName) : "Nuevo empleado"}</h2></div><button type="button" data-hr-close>×</button></header><div class="hr-form-grid"><label>Correlativo<input name="employeeNumber" required ${editable ? "" : "disabled"} value="${value("employeeNumber")}"></label><label>Nombre completo<input name="fullName" required ${editable ? "" : "disabled"} value="${value("fullName")}"></label><label>Departamento<input name="department" ${editable ? "" : "disabled"} value="${value("department")}"></label><label>Cargo<input name="position" ${editable ? "" : "disabled"} value="${value("position")}"></label><label>Fecha de ingreso<input name="hireDate" type="date" ${editable ? "" : "disabled"} value="${value("hireDate")}"></label><label>Estado<select name="status" ${editable ? "" : "disabled"}><option ${employee?.status !== "Inactivo" ? "selected" : ""}>Activo</option><option ${employee?.status === "Inactivo" ? "selected" : ""}>Inactivo</option></select></label><label>DUI<input name="personalId" ${editable ? "" : "disabled"} value="${value("personalId")}"></label><label>NIT<input name="taxId" ${editable ? "" : "disabled"} value="${value("taxId")}"></label><label>ISSS<input name="socialSecurityNumber" ${editable ? "" : "disabled"} value="${value("socialSecurityNumber")}"></label><label>Correo<input name="email" type="email" ${editable ? "" : "disabled"} value="${value("email")}"></label><label>Teléfono<input name="phone" ${editable ? "" : "disabled"} value="${value("phone")}"></label>${salary ? `<label>Salario mensual<input name="salary" type="number" min="0" step="0.01" ${editable ? "" : "disabled"} value="${((employee?.salaryCents || 0) / 100).toFixed(2)}"></label>` : ""}<label class="wide">Dirección<input name="address" ${editable ? "" : "disabled"} value="${value("address")}"></label><label class="wide">Observaciones<textarea name="notes" ${editable ? "" : "disabled"}>${value("notes")}</textarea></label></div><footer><button type="button" data-hr-close>Cerrar</button>${editable ? `<button type="submit">Guardar expediente</button>` : ""}</footer></form>`;
+  dialog.querySelectorAll("[data-hr-close]").forEach((button) => button.onclick = () => dialog.close());
+  if (editable) dialog.querySelector("form").onsubmit = async (event) => { event.preventDefault(); const submit = event.submitter; submit.disabled = true; const values = Object.fromEntries(new FormData(event.currentTarget)); const payload = { ...employee, ...values, salaryCents: salary ? Math.round(Number(values.salary || 0) * 100) : undefined }; delete payload.salary; try { await apiJson(employee ? `/api/hr/employees/${encodeURIComponent(employee.id)}` : "/api/hr/employees", { method: employee ? "PUT" : "POST", body: JSON.stringify(payload) }); dialog.close(); await loadHrEmployees(true); } catch (error) { alert(error.message || "No se pudo guardar el expediente."); submit.disabled = false; } };
+  dialog.showModal();
+}
+
+function wireHrEmployees() {
+  opportunityTable.querySelector("[data-hr-new]")?.addEventListener("click", () => openHrEmployeeDialog());
+  opportunityTable.querySelectorAll("[data-hr-edit]").forEach((button) => button.addEventListener("click", () => openHrEmployeeDialog(state.hrEmployees.find((item) => item.id === button.dataset.hrEdit))));
+  opportunityTable.querySelector("[data-hr-search]")?.addEventListener("input", (event) => { state.hrEmployeeQuery = event.target.value; renderCommercialSubmenu(areas.rrhh); requestAnimationFrame(() => opportunityTable.querySelector("[data-hr-search]")?.focus()); });
+}
+
+function loadHrAudit() {
+  return apiJson("/api/hr/audit").then((items) => { state.hrAudit = items || []; state.hrAuditLoaded = true; }).finally(() => { if (state.activeSubmenu === "auditoria") renderCommercialSubmenu(areas.rrhh); });
+}
+
+function renderHrAudit() {
+  return `<section class="hr-module"><header><div><span>RR. HH. · SEGURIDAD</span><h2>Auditoría de expedientes</h2><p>Registro cronológico de altas, ediciones e inactivaciones.</p></div></header><div class="hr-audit-list">${state.hrAudit.map((entry) => `<article><time>${escapeHtml(entry.createdAt)}</time><div><strong>${escapeHtml(entry.action)}</strong><small>${escapeHtml(entry.after?.fullName || entry.before?.fullName || entry.entityId)}</small></div><span>${escapeHtml(entry.actorUserName)}</span></article>`).join("") || `<div class="empty-state">${state.hrAuditLoaded ? "Todavía no hay cambios registrados." : "Cargando auditoría..."}</div>`}</div></section>`;
+}
+
+function renderHrPlaceholder(submenu) {
+  return `<section class="hr-module"><header><div><span>RR. HH. · DESARROLLO LOCAL</span><h2>${escapeHtml(submenu.label)}</h2><p>La navegación y el permiso ya están separados. Esta función se incorporará después de depurar expedientes y auditoría.</p></div><b>Siguiente etapa</b></header></section>`;
+}
+
 function renderCommercialSubmenu(area) {
   if (!Array.isArray(area.submenus)) {
     commercialPanel.classList.add("hidden");
@@ -15088,6 +15165,29 @@ function renderCommercialSubmenu(area) {
   opportunitySearchField.classList.add("hidden");
   commercialSubmenuTitle.textContent = submenu.label;
   commercialSubmenuStatus.textContent = submenu.status;
+
+  if (state.activeArea === "rrhh") {
+    newOpportunityBtn.classList.add("hidden"); newRiskBtn.classList.add("hidden");
+    newManagementRequestBtn.classList.add("hidden"); goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden");
+    if (submenu.key === "panel") {
+      commercialSubmenuStatus.textContent = "Entorno local · Fase 1";
+      opportunityTable.innerHTML = renderHrPanel();
+      if (!state.hrEmployeesLoaded) loadHrEmployees();
+    } else if (submenu.key === "expedientes") {
+      commercialSubmenuStatus.textContent = `${state.hrEmployees.length} expedientes`;
+      opportunityTable.innerHTML = renderHrEmployees(); wireHrEmployees();
+      if (!state.hrEmployeesLoaded) loadHrEmployees();
+    } else if (submenu.key === "auditoria") {
+      commercialSubmenuStatus.textContent = `${state.hrAudit.length} movimientos`;
+      opportunityTable.innerHTML = renderHrAudit();
+      if (!state.hrAuditLoaded) loadHrAudit();
+    } else {
+      commercialSubmenuStatus.textContent = "Siguiente etapa";
+      opportunityTable.innerHTML = renderHrPlaceholder(submenu);
+    }
+    return;
+  }
 
   if (state.activeArea === "comercializacion" && submenu.key === "metricas") {
     commercialPanel.classList.add("commercial-metrics-mode");
@@ -17845,6 +17945,8 @@ function renderDashboard() {
   }
   const activeSubmenu = hasSubmenus ? visibleItems.find((item) => item.key === state.activeSubmenu) : null;
   const isExclusiveWorkspace = hasSubmenus && (
+    state.activeArea === "rrhh"
+    ||
     [
       "kpi",
       "crm",
