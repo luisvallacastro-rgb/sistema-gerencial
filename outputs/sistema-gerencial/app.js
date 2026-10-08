@@ -241,6 +241,7 @@ const areas = {
       { key: "expedientes-editar", label: "Editar expedientes", accessOnly: true },
       { key: "salarios", label: "Consultar salarios", accessOnly: true },
       { key: "ausencias", label: "Ausencias e incapacidades", status: "Siguiente etapa" },
+      { key: "ausencias-editar", label: "Editar ausencias", accessOnly: true },
       { key: "acciones-personal", label: "Acciones de personal", status: "Siguiente etapa" },
       { key: "activos", label: "Activos asignados", status: "Siguiente etapa" },
       { key: "documentos", label: "Documentos legales", status: "Siguiente etapa" },
@@ -337,6 +338,9 @@ const state = {
   hrCatalogs: { departments: [], positions: [] },
   hrAudit: [],
   hrAuditLoaded: false,
+  hrAbsences: [],
+  hrAbsencesLoaded: false,
+  hrAbsencesLoading: false,
   fiscalOrders: [],
   fiscalConfig: null,
   fiscalLoaded: false,
@@ -15113,12 +15117,38 @@ function wireHrEmployees() {
   opportunityTable.querySelector("[data-hr-search]")?.addEventListener("input", (event) => { state.hrEmployeeQuery = event.target.value; renderCommercialSubmenu(areas.rrhh); requestAnimationFrame(() => opportunityTable.querySelector("[data-hr-search]")?.focus()); });
 }
 
+function loadHrAbsences(force = false) {
+  if (state.hrAbsencesLoading || (state.hrAbsencesLoaded && !force)) return Promise.resolve();
+  state.hrAbsencesLoading = true;
+  return Promise.all([apiJson("/api/hr/absences"), state.hrEmployeesLoaded ? Promise.resolve(null) : apiJson("/api/hr/employees")])
+    .then(([payload, employees]) => { state.hrAbsences = payload.items || []; if (employees) { state.hrEmployees = employees.items || []; state.hrEmployeesLoaded = true; } state.hrAbsencesLoaded = true; })
+    .catch((error) => alert(error.message || "No se pudieron cargar las ausencias."))
+    .finally(() => { state.hrAbsencesLoading = false; if (state.activeSubmenu === "ausencias") renderCommercialSubmenu(areas.rrhh); });
+}
+
+function renderHrAbsences() {
+  const pending = state.hrAbsences.filter((item) => item.status === "Registrada").length;
+  return `<section class="hr-module"><header><div><span>RR. HH. · CONTROL DE TIEMPO</span><h2>Ausencias e incapacidades</h2><p>Registro por empleado con cálculo automático de días y trazabilidad.</p></div>${canHr("ausencias-editar") ? `<button type="button" data-hr-absence-new>+ Registrar ausencia</button>` : ""}</header><div class="hr-summary"><article><small>Registros</small><strong>${state.hrAbsences.length}</strong></article><article><small>Pendientes</small><strong>${pending}</strong></article><article><small>Días registrados</small><strong>${state.hrAbsences.reduce((sum,item)=>sum+Number(item.days||0),0)}</strong></article><article><small>Control</small><strong>Local</strong></article></div><div class="hr-table hr-absence-table"><div class="hr-table-head"><span>Empleado</span><span>Tipo</span><span>Período</span><span>Días</span><span>Estado</span><span>Acción</span></div>${state.hrAbsences.map((item)=>`<article><div><b>${escapeHtml(item.employeeName)}</b><small>${escapeHtml(item.employeeNumber)}</small></div><strong>${escapeHtml(item.type)}</strong><span>${formatDate(item.startDate)} – ${formatDate(item.endDate)}</span><b>${Number(item.days||0)}</b><em class="${item.status === "Aprobada" ? "active" : ""}">${escapeHtml(item.status)}</em><button type="button" data-hr-absence-edit="${escapeHtml(item.id)}">${canHr("ausencias-editar") ? "Editar" : "Ver"}</button></article>`).join("")||`<div class="empty-state">${state.hrAbsencesLoading?"Cargando registros...":"No hay ausencias registradas."}</div>`}</div></section>`;
+}
+
+function openHrAbsenceDialog(absence = null) {
+  const editable = canHr("ausencias-editar");
+  let dialog = document.querySelector("#hrAbsenceDialog");
+  if (!dialog) { dialog=document.createElement("dialog"); dialog.id="hrAbsenceDialog"; dialog.className="hr-employee-dialog"; document.body.append(dialog); }
+  dialog.innerHTML=`<form><header><div><span>RR. HH. · AUSENCIA</span><h2>${absence?"Editar registro":"Nueva ausencia"}</h2></div><button type="button" data-hr-absence-close>×</button></header><div class="hr-form-grid"><label>Empleado<select name="employeeId" required ${editable?"":"disabled"}><option value="">Seleccionar…</option>${state.hrEmployees.filter(item=>item.status==="Activo"||item.id===absence?.employeeId).map(item=>`<option value="${escapeHtml(item.id)}" ${item.id===absence?.employeeId?"selected":""}>${escapeHtml(item.employeeNumber)} · ${escapeHtml(item.fullName)}</option>`).join("")}</select></label><label>Tipo<select name="type" ${editable?"":"disabled"}>${["Incapacidad ISSS","Permiso con goce","Permiso sin goce","Vacación","Ausencia injustificada","Otro"].map(type=>`<option ${type===absence?.type?"selected":""}>${type}</option>`).join("")}</select></label><label>Estado<select name="status" ${editable?"":"disabled"}>${["Registrada","Aprobada","Rechazada","Anulada"].map(status=>`<option ${status===(absence?.status||"Registrada")?"selected":""}>${status}</option>`).join("")}</select></label><label>Desde<input name="startDate" type="date" required ${editable?"":"disabled"} value="${escapeHtml(absence?.startDate||todayISO())}"></label><label>Hasta<input name="endDate" type="date" required ${editable?"":"disabled"} value="${escapeHtml(absence?.endDate||todayISO())}"></label><label>Referencia<input name="reference" ${editable?"":"disabled"} value="${escapeHtml(absence?.reference||"")}" placeholder="Constancia, boleta o referencia"></label><label class="wide">Observaciones<textarea name="notes" ${editable?"":"disabled"}>${escapeHtml(absence?.notes||"")}</textarea></label></div><footer><button type="button" data-hr-absence-close>Cerrar</button>${editable?`<button type="submit">Guardar registro</button>`:""}</footer></form>`;
+  dialog.querySelectorAll("[data-hr-absence-close]").forEach(button=>button.onclick=()=>dialog.close());
+  if(editable)dialog.querySelector("form").onsubmit=async(event)=>{event.preventDefault();const submit=event.submitter;submit.disabled=true;const payload=Object.fromEntries(new FormData(event.currentTarget));try{await apiJson(absence?`/api/hr/absences/${encodeURIComponent(absence.id)}`:"/api/hr/absences",{method:absence?"PUT":"POST",body:JSON.stringify(payload)});dialog.close();state.hrAuditLoaded=false;await loadHrAbsences(true);}catch(error){alert(error.message||"No se pudo guardar la ausencia.");submit.disabled=false;}};
+  dialog.showModal();
+}
+
+function wireHrAbsences(){opportunityTable.querySelector("[data-hr-absence-new]")?.addEventListener("click",()=>openHrAbsenceDialog());opportunityTable.querySelectorAll("[data-hr-absence-edit]").forEach(button=>button.addEventListener("click",()=>openHrAbsenceDialog(state.hrAbsences.find(item=>item.id===button.dataset.hrAbsenceEdit))));}
+
 function loadHrAudit() {
   return apiJson("/api/hr/audit").then((items) => { state.hrAudit = items || []; state.hrAuditLoaded = true; }).finally(() => { if (state.activeSubmenu === "auditoria") renderCommercialSubmenu(areas.rrhh); });
 }
 
 function renderHrAudit() {
-  return `<section class="hr-module"><header><div><span>RR. HH. · SEGURIDAD</span><h2>Auditoría de expedientes</h2><p>Registro cronológico de altas, ediciones e inactivaciones.</p></div></header><div class="hr-audit-list">${state.hrAudit.map((entry) => `<article><time>${escapeHtml(entry.createdAt)}</time><div><strong>${escapeHtml(entry.action)}</strong><small>${escapeHtml(entry.after?.fullName || entry.before?.fullName || entry.entityId)}</small></div><span>${escapeHtml(entry.actorUserName)}</span></article>`).join("") || `<div class="empty-state">${state.hrAuditLoaded ? "Todavía no hay cambios registrados." : "Cargando auditoría..."}</div>`}</div></section>`;
+  return `<section class="hr-module"><header><div><span>RR. HH. · SEGURIDAD</span><h2>Auditoría de expedientes</h2><p>Registro cronológico de altas, ediciones, ausencias e inactivaciones.</p></div></header><div class="hr-audit-list">${state.hrAudit.map((entry) => `<article><time>${escapeHtml(entry.createdAt)}</time><div><strong>${escapeHtml(entry.action)}</strong><small>${escapeHtml(entry.after?.fullName || entry.after?.employeeName || entry.before?.fullName || entry.before?.employeeName || entry.entityId)}</small></div><span>${escapeHtml(entry.actorUserName)}</span></article>`).join("") || `<div class="empty-state">${state.hrAuditLoaded ? "Todavía no hay cambios registrados." : "Cargando auditoría..."}</div>`}</div></section>`;
 }
 
 function renderHrPlaceholder(submenu) {
@@ -15178,6 +15208,10 @@ function renderCommercialSubmenu(area) {
       commercialSubmenuStatus.textContent = `${state.hrEmployees.length} expedientes`;
       opportunityTable.innerHTML = renderHrEmployees(); wireHrEmployees();
       if (!state.hrEmployeesLoaded) loadHrEmployees();
+    } else if (submenu.key === "ausencias") {
+      commercialSubmenuStatus.textContent = `${state.hrAbsences.length} registros`;
+      opportunityTable.innerHTML = renderHrAbsences(); wireHrAbsences();
+      if (!state.hrAbsencesLoaded) loadHrAbsences();
     } else if (submenu.key === "auditoria") {
       commercialSubmenuStatus.textContent = `${state.hrAudit.length} movimientos`;
       opportunityTable.innerHTML = renderHrAudit();

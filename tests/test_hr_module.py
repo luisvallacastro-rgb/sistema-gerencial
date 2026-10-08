@@ -18,9 +18,10 @@ class HrModuleTests(unittest.TestCase):
         self.db_path = Path(self.temp_dir.name) / "hr.db"
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
-        source = (SERVER_PATH.parent / "migrations" / "008_hr_core.sql").read_text(encoding="utf-8")
-        for statement in server.migration_statements(source):
-            self.conn.execute(statement)
+        for migration in ("008_hr_core.sql", "009_hr_absences.sql"):
+            source = (SERVER_PATH.parent / "migrations" / migration).read_text(encoding="utf-8")
+            for statement in server.migration_statements(source):
+                self.conn.execute(statement)
 
     def tearDown(self):
         self.conn.close()
@@ -45,6 +46,21 @@ class HrModuleTests(unittest.TestCase):
     def test_normalization_requires_identity(self):
         _item, errors = server.normalize_hr_employee({"employeeNumber": "", "fullName": ""})
         self.assertEqual(len(errors), 2)
+
+    def test_absence_days_are_calculated_inclusively(self):
+        item, errors = server.normalize_hr_absence({
+            "employeeId": "hr-1", "type": "Incapacidad ISSS",
+            "startDate": "2026-10-08", "endDate": "2026-10-10", "status": "Registrada",
+        })
+        self.assertEqual(errors, [])
+        self.assertEqual(item["days"], 3)
+
+    def test_absence_rejects_reversed_dates(self):
+        _item, errors = server.normalize_hr_absence({
+            "employeeId": "hr-1", "type": "Permiso",
+            "startDate": "2026-10-10", "endDate": "2026-10-08",
+        })
+        self.assertIn("La fecha final no puede ser anterior a la inicial", errors)
 
 
 if __name__ == "__main__":

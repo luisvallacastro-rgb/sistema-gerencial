@@ -74,7 +74,7 @@ AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "historial-compra", "resultados-dashboard", "kpi", "meta"],
     "financiera": ["disponibilidad", "ingresos", "inventario", "facturacion-electronica", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal", "archivo-muestras"],
-    "rrhh": ["panel", "expedientes", "expedientes-editar", "salarios", "auditoria", "ausencias", "acciones-personal", "activos", "documentos"],
+    "rrhh": ["panel", "expedientes", "expedientes-editar", "salarios", "auditoria", "ausencias", "ausencias-editar", "acciones-personal", "activos", "documentos"],
 }
 VALID_ROLES = {"gerencias", "jefaturas", "vendedores", "operativos", "accionistas"}
 ADMIN_MANAGEMENT_PERMISSION_KEYS = [
@@ -9911,6 +9911,51 @@ def record_hr_audit(conn, entity_id, action, actor, before=None, after=None):
     ))
 
 
+def hr_absence_payload(row):
+    item = dict(row)
+    return {
+        "id": item["id"], "employeeId": item["employee_id"], "employeeNumber": item["employee_number"],
+        "employeeName": item["employee_name"], "type": item["absence_type"],
+        "startDate": item["start_date"], "endDate": item["end_date"], "days": item["days"],
+        "status": item["status"], "reference": item["reference"], "notes": item["notes"],
+        "updatedBy": item["updated_by_name"], "createdAt": item["created_at"], "updatedAt": item["updated_at"],
+    }
+
+
+def hr_absence_row(conn, absence_id):
+    return conn.execute("""SELECT a.*, e.employee_number, e.full_name AS employee_name
+        FROM hr_absences a JOIN hr_employees e ON e.id = a.employee_id WHERE a.id = ?""", (absence_id,)).fetchone()
+
+
+def normalize_hr_absence(data):
+    item = dict(data or {})
+    normalized = {
+        "employee_id": text(item.get("employeeId")).strip(), "absence_type": text(item.get("type")).strip(),
+        "start_date": text(item.get("startDate")).strip(), "end_date": text(item.get("endDate")).strip(),
+        "status": text(item.get("status"), "Registrada").strip().title(),
+        "reference": text(item.get("reference")).strip(), "notes": text(item.get("notes")).strip(),
+    }
+    errors = []
+    try:
+        start = datetime.strptime(normalized["start_date"], "%Y-%m-%d").date()
+        end = datetime.strptime(normalized["end_date"], "%Y-%m-%d").date()
+        if end < start: errors.append("La fecha final no puede ser anterior a la inicial")
+        normalized["days"] = max(0, (end - start).days + 1)
+    except ValueError:
+        normalized["days"] = 0; errors.append("Las fechas de la ausencia son obligatorias")
+    if not normalized["employee_id"]: errors.append("Selecciona un empleado")
+    if not normalized["absence_type"]: errors.append("Selecciona el tipo de ausencia")
+    if normalized["status"] not in {"Registrada", "Aprobada", "Rechazada", "Anulada"}: errors.append("El estado no es válido")
+    return normalized, errors
+
+
+def record_hr_entity_audit(conn, entity_type, entity_id, action, actor, before=None, after=None):
+    conn.execute("""INSERT INTO hr_audit
+        (entity_type, entity_id, action, actor_user_id, actor_user_name, before_json, after_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?)""", (entity_type, entity_id, action, actor["id"], actor["name"],
+        json.dumps(before or {}, ensure_ascii=False), json.dumps(after or {}, ensure_ascii=False)))
+
+
 class AppHandler(BaseHTTPRequestHandler):
     def training_access_token(self, issued_at):
         signature = hmac.new(
@@ -10306,6 +10351,15 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 departments = [dict(row) for row in conn.execute("SELECT id, name FROM hr_departments WHERE active = 1 ORDER BY name")]
                 positions = [dict(row) for row in conn.execute("SELECT id, department_id AS departmentId, name FROM hr_positions WHERE active = 1 ORDER BY name")]
             self.send_json({"departments": departments, "positions": positions})
+            return
+
+        if path == "/api/hr/absences":
+            if not self.require_permission("rrhh:ausencias"): return
+            with connect() as conn:
+                rows = conn.execute("""SELECT a.*, e.employee_number, e.full_name AS employee_name
+                    FROM hr_absences a JOIN hr_employees e ON e.id = a.employee_id
+                    ORDER BY a.start_date DESC, a.id DESC""").fetchall()
+            self.send_json({"items": [hr_absence_payload(row) for row in rows], "count": len(rows)})
             return
 
         if path == "/api/hr/audit":
@@ -10874,6 +10928,25 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 after = hr_employee_payload(conn, row, can_manage_salary)
                 record_hr_audit(conn, employee_id, "creado", actor, after=after)
             self.send_json({"item": after}, status=201)
+            return
+
+        if path == "/api/hr/absences":
+            if not self.require_permission("rrhh:ausencias-editar"): return
+            normalized, errors = normalize_hr_absence(self.read_json())
+            if errors: self.send_json({"error": errors[0], "details": errors}, status=400); return
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                if not conn.execute("SELECT 1 FROM hr_employees WHERE id = ? AND status = 'Activo'", (normalized["employee_id"],)).fetchone():
+                    self.send_json({"error": "El empleado no existe o está inactivo"}, status=400); return
+                absence_id = f"hr-absence-{uuid.uuid4()}"
+                fields = ["employee_id", "absence_type", "start_date", "end_date", "days", "status", "reference", "notes"]
+                conn.execute(f"""INSERT INTO hr_absences
+                    (id, {', '.join(fields)}, created_by_id, created_by_name, updated_by_id, updated_by_name)
+                    VALUES ({', '.join(['?'] * (len(fields) + 5))})""",
+                    [absence_id, *[normalized[field] for field in fields], actor["id"], actor["name"], actor["id"], actor["name"]])
+                item = hr_absence_payload(hr_absence_row(conn, absence_id))
+                record_hr_entity_audit(conn, "absence", absence_id, "creada", actor, after=item)
+            self.send_json({"item": item}, status=201)
             return
 
         if path == "/api/fiscal/config":
@@ -11881,6 +11954,25 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 after = hr_employee_payload(conn, updated, can_manage_salary)
                 record_hr_audit(conn, employee_id, "actualizado", actor, before, after)
             self.send_json({"item": after})
+            return
+
+        if path.startswith("/api/hr/absences/"):
+            if not self.require_permission("rrhh:ausencias-editar"): return
+            absence_id = unquote(path.rsplit("/", 1)[-1])
+            normalized, errors = normalize_hr_absence(self.read_json())
+            if errors: self.send_json({"error": errors[0], "details": errors}, status=400); return
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                existing = hr_absence_row(conn, absence_id)
+                if not existing: self.send_json({"error": "Ausencia no encontrada"}, status=404); return
+                before = hr_absence_payload(existing)
+                fields = ["employee_id", "absence_type", "start_date", "end_date", "days", "status", "reference", "notes"]
+                conn.execute(f"""UPDATE hr_absences SET {', '.join(f'{field} = ?' for field in fields)},
+                    updated_by_id = ?, updated_by_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?""",
+                    [*[normalized[field] for field in fields], actor["id"], actor["name"], absence_id])
+                item = hr_absence_payload(hr_absence_row(conn, absence_id))
+                record_hr_entity_audit(conn, "absence", absence_id, "actualizada", actor, before, item)
+            self.send_json({"item": item})
             return
 
         if self.path.startswith("/api/accounts-receivable/"):

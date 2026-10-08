@@ -2568,3 +2568,21 @@ html body #opportunityDialog .panel-head{border-bottom:2px solid transparent!imp
 /* El chat claro conserva el acento neon del producto. */
 html body.theme-light-active .internal-chat-window{border:1.5px solid #48bfa9!important;box-shadow:0 0 0 2px rgba(0,169,130,.08),0 24px 60px rgba(31,49,73,.22)!important}
 html body.theme-light-active .internal-chat-window>header{background:linear-gradient(125deg,#d8f8ef,#dff3f7 55%,#e9e6ff)!important}
+html:not(.dark-theme) .hr-module>header h2,
+html:not(.dark-theme) .hr-module>header p,
+html:not(.dark-theme) .hr-summary article strong,
+html:not(.dark-theme) .hr-summary article small{color:#f4f8fc}
+html:not(.dark-theme) .hr-module>header p,
+html:not(.dark-theme) .hr-summary article small{color:#b8c9d8}
+html:not(.dark-theme) .hr-table article,
+html:not(.dark-theme) .hr-table article b,
+html:not(.dark-theme) .hr-table article strong{color:#f3f8fc}
+html:not(.dark-theme) .hr-table article>strong{color:#68eed4}
+html body.theme-light-active .hr-module>header h2{color:#f4f8fc!important}
+html body.theme-light-active .hr-module>header p{color:#b8c9d8!important}
+html body.theme-light-active .hr-summary article strong{color:#66edd4!important}
+html body.theme-light-active .hr-summary article small{color:#b8c9d8!important}
+html body.theme-light-active .hr-table article,
+html body.theme-light-active .hr-table article b,
+html body.theme-light-active .hr-table article strong{color:#f3f8fc!important}
+html body.theme-light-active .hr-table article>strong{color:#68eed4!important}
