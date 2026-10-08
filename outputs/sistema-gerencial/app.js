@@ -5530,9 +5530,13 @@ function printQuotation(quote) {
   const quotationDocumentType = ["CF","CCF","CE"].includes(rawQuotationDocumentType) ? rawQuotationDocumentType : "CF";
   const quotationSubtotalCents = Number(quote.subtotalCents ?? quote.lines?.reduce((sum, line) => sum + Number(line.lineTotalCents || 0), 0) ?? 0);
   const quotationVatCents = quotationDocumentType === "CCF" ? Math.round(quotationSubtotalCents * 0.13) : 0;
-  const quotationTotalCents = quotationSubtotalCents + quotationVatCents;
+  const linkedOrder = quotationLinkedOrder(quote);
+  const quotationRetentionCents = linkedOrder?.proformaData?.perceptionEnabled
+    ? Number(linkedOrder.perceptionCents ?? Math.round(quotationSubtotalCents * 0.01))
+    : Number(quote.retentionCents || 0);
+  const quotationTotalCents = quotationSubtotalCents + quotationVatCents - quotationRetentionCents;
   const quotationTotalsRows = quotationDocumentType === "CCF"
-    ? `<tr><td class="total-label">SUBTOTAL</td><td class="money">${formatControlSalesMoney(quotationSubtotalCents)}</td></tr><tr><td class="total-label">IVA 13%</td><td class="money">${formatControlSalesMoney(quotationVatCents)}</td></tr><tr><td class="total-label">TOTAL</td><td class="money">${formatControlSalesMoney(quotationTotalCents)}</td></tr>`
+    ? `<tr><td class="total-label">SUBTOTAL</td><td class="money">${formatControlSalesMoney(quotationSubtotalCents)}</td></tr><tr><td class="total-label">IVA 13%</td><td class="money">${formatControlSalesMoney(quotationVatCents)}</td></tr>${quotationRetentionCents ? `<tr><td class="total-label">RETENCIÓN 1% (-)</td><td class="money">${formatControlSalesMoney(quotationRetentionCents)}</td></tr>` : ""}<tr><td class="total-label">${quotationRetentionCents ? "TOTAL GRAVADO" : "TOTAL"}</td><td class="money">${formatControlSalesMoney(quotationTotalCents)}</td></tr>`
     : `<tr><td class="total-label">TOTAL</td><td class="money">${formatControlSalesMoney(quotationTotalCents)}</td></tr>`;
   const quotationCommercialLegend = quotationDocumentType === "CCF" ? "Precios unitarios no incluyen IVA" : "Los precios unitarios ya incluyen IVA";
   popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cotización</title><style>
@@ -5792,7 +5796,7 @@ function updateControlSalesFormTotal() {
   const perceptionCents = document.querySelector("#controlSalesPerceptionEnabled")?.checked
     ? Math.round(subtotalCents * 0.01)
     : 0;
-  const cents = subtotalCents + vatCents + perceptionCents;
+  const cents = subtotalCents + vatCents - perceptionCents;
   document.querySelector("#controlSalesSubtotal").textContent = formatControlSalesMoney(subtotalCents);
   document.querySelector("#controlSalesVatTotal").textContent = formatControlSalesMoney(vatCents);
   document.querySelector("#controlSalesPerceptionTotal").textContent = formatControlSalesMoney(perceptionCents);
@@ -5840,7 +5844,7 @@ function controlSalesDraftFromForm() {
     subtotalCents,
     vatTotalCents,
     perceptionCents,
-    totalCents: subtotalCents + vatTotalCents + perceptionCents,
+    totalCents: subtotalCents + vatTotalCents - perceptionCents,
     details
   };
 }
@@ -6078,9 +6082,7 @@ function orderWithCurrentQuotationData(order = {}) {
   const retentionCents = retentionEnabled
     ? Number(order.perceptionCents ?? Math.round(subtotalCents * 0.01))
     : 0;
-  const totalCents = preserveManualBreakdown
-    ? Number(order.totalCents ?? subtotalCents + vatTotalCents + retentionCents)
-    : subtotalCents + vatTotalCents + retentionCents;
+  const totalCents = subtotalCents + vatTotalCents - retentionCents;
   const confirmedDelivery = String(order.proformaData?.deliveryDate || "").trim();
   const quotationDelivery = String(quotation.deliveryTerms || quotation.customerData?.deliveryDate || "").trim();
   return {
@@ -6129,7 +6131,7 @@ function printControlSalesProformaInline(order, options = {}) {
   const detailedVat = order.documentType === "CCF";
   const taxPrintLegend = detailedVat ? "IVA detallado" : order.documentType === "CE" ? "Comprobante de envio, CE" : "Precio final · IVA no detallado";
   const printedTotals = detailedVat
-    ? `<tr><th>SUMAS</th><td>${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>RETENCIÓN 1%</th><td>${formatControlSalesMoney(perceptionCents)}</td></tr><tr><th>13% IVA</th><td>${formatControlSalesMoney(vatCents)}</td></tr><tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`
+    ? `<tr><th>SUMAS</th><td>${formatControlSalesMoney(subtotalCents)}</td></tr><tr><th>13% IVA</th><td>${formatControlSalesMoney(vatCents)}</td></tr>${perceptionCents ? `<tr><th>RETENCIÓN 1% (-)</th><td>${formatControlSalesMoney(perceptionCents)}</td></tr>` : ""}<tr><th>${perceptionCents ? "TOTAL GRAVADO" : "TOTAL"}</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`
     : `<tr><th>TOTAL</th><td>${formatControlSalesMoney(order.totalCents || 0)}</td></tr>`;
   const strategies = [
     ["RETENCION", "Retención"],

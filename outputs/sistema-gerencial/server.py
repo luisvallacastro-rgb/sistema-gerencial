@@ -3899,9 +3899,14 @@ def control_sales_order_payload(conn, row, include_audit=False):
         for detail in detail_rows
     )
     vat_total_cents = sum(int(detail["vat_cents"] or 0) for detail in detail_rows)
-    perception_cents = max(
-        0, int(row["total_cents"] or 0) - subtotal_cents - vat_total_cents
+    retention_enabled = bool(proforma_data.get("perceptionEnabled", False))
+    perception_cents = (
+        int((Decimal(subtotal_cents) * Decimal("0.01")).quantize(
+            Decimal("1"), rounding=ROUND_HALF_UP
+        ))
+        if retention_enabled else 0
     )
+    payable_total_cents = subtotal_cents + vat_total_cents - perception_cents
     item = {
         "id": row["id"], "externalId": row["external_id"], "source": row["source"],
         "financialOrderId": row["financial_order_id"] if "financial_order_id" in row.keys() else "",
@@ -3911,7 +3916,7 @@ def control_sales_order_payload(conn, row, include_audit=False):
         "varianceCents": row["variance_cents"] if "variance_cents" in row.keys() else 0,
         "number": row["order_number"], "date": row["order_date"], "seller": row["seller"],
         "client": row["client"], "status": row["status"], "documentType": row["document_type"],
-        "totalCents": row["total_cents"], "subtotalCents": subtotal_cents,
+        "totalCents": payable_total_cents, "subtotalCents": subtotal_cents,
         "vatTotalCents": vat_total_cents, "perceptionCents": perception_cents,
         "proformaData": proforma_data,
         "declaredTotalCents": row["declared_total_cents"], "archived": bool(row["archived"]),
@@ -4054,7 +4059,7 @@ def control_sales_validate(data, existing=None):
         ))
         if proforma_data["perceptionEnabled"] else 0
     )
-    total_cents = subtotal_cents + vat_total_cents + perception_cents
+    total_cents = subtotal_cents + vat_total_cents - perception_cents
     return {
         "number": number, "seller": seller, "date": order_date, "client": client,
         "status": text(data.get("status"), current.get("status") or "Activa"),
@@ -4397,11 +4402,11 @@ def save_control_sales_order(conn, data, existing_row=None):
             raise ValueError("Este pedido ya fue ingresado en Control de Ventas")
         item["seller"] = text(financial_order["seller"])
         item["client"] = text(financial_order["client"])
-        if existing_row:
+        if existing_row or item["proformaData"].get("perceptionEnabled"):
             # Once an operational order is edited, its validated line detail is
-            # the canonical amount. Keep the financial ledger synchronized in
-            # this same transaction so a partial two-request save cannot leave
-            # a false reconciliation difference behind.
+            # the canonical amount. Retention also changes the payable amount
+            # at creation, so keep the financial ledger synchronized in the
+            # same transaction and avoid a false reconciliation difference.
             canonical_sale = Decimal(item["totalCents"]) / Decimal("100")
             conn.execute("""
                 UPDATE financial_orders
