@@ -68,6 +68,7 @@ const areas = {
     status: "Controlado",
     submenus: [
       { key: "disponibilidad", label: "Disponibilidad", status: "Saldos bancarios consolidados", items: [] },
+      { key: "reserva-laboral", label: "Reserva Laboral", status: "Cobertura de compromisos laborales", items: [], accessOnly: true },
       { key: "ingresos", label: "Ingresos", status: "Remesas provisionadas", items: [] },
       { key: "inventario", label: "Inventario", status: "Kardex a costo promedio", items: [] },
       { key: "facturacion-electronica", label: "Facturación electrónica", status: "Preparación y control de DTE", items: [] },
@@ -323,6 +324,9 @@ const state = {
   bankAvailabilityHistory: [],
   bankPendingDeposits: 0,
   bankAvailabilitySignatures: {},
+  laborReserve: null,
+  laborReserveLoaded: false,
+  laborReserveLoading: false,
   financialIncome: [],
   financialIncomeLoaded: false,
   financialIncomeLoading: false,
@@ -1453,9 +1457,10 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
     });
   }
   const permissions = userPermissions(user);
-  return area.submenus.filter((item) => !item.accessOnly && (
-    permissions.has(permissionKey(areaKey, item.key))
-  ));
+  return area.submenus.filter((item) => {
+    if (areaKey === "financiera" && item.key === "reserva-laboral") return isFiscalOwnerUser(user);
+    return !item.accessOnly && permissions.has(permissionKey(areaKey, item.key));
+  });
 }
 
 function canAdministerSampleCustody(user = state.currentUser) {
@@ -12064,6 +12069,36 @@ function renderBankAvailability() {
   return `<section class="bank-availability-module"><div class="bank-report-toolbar"><div><span>Conciliación bancaria</span><small>Saldo anterior, movimientos y saldo actualizado por cuenta</small></div>${dailyStatus}<button class="archive" type="button" data-bank-availability-archive ${expensesReady ? "" : "disabled"}>Archivar disponibilidad</button><button type="button" data-bank-seller-income-report>▤ Comisión Odaliz</button><button type="button" data-bank-availability-report>▤ Reporte de disponibilidad</button></div><div class="availability-dashboard-grid"><div class="bank-simple-table"><table><thead><tr><th>Banco</th><th>Última fecha</th><th>Último saldo</th><th>%</th><th>Ver</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th>Total</th><th></th><th class="money">${formatMoney(total)}</th><th>100.00%</th><th></th></tr></tfoot></table></div><aside class="availability-summary-panel"><header><h2>Resumen de disponibilidad</h2></header><div>${summaryMarkup}</div><footer><span>Total</span><strong>${formatMoney(total)}</strong></footer></aside></div><section class="pending-expenses-panel"><header><div><span>Gastos pendientes</span><h2>Cuadro por centro de costo</h2></div><div class="pending-expenses-head-actions"><strong>${expensesReady ? formatMoney(pendingExpensesTotal) : "—"}</strong><button type="button" data-pending-expenses-manage ${expensesReady ? "" : "disabled"}>Administrar gastos</button></div></header>${expenseNotice}<div class="pending-expenses-grid"><div class="pending-expenses-table"><table><thead><tr><th>Centro / Costo</th><th>Montos a Pagar</th></tr></thead><tbody>${pendingExpensesMarkup}</tbody><tfoot><tr><th>Total</th><th class="money">${expensesReady ? formatMoney(pendingExpensesTotal) : "—"}</th></tr></tfoot></table></div><aside class="pending-expense-detail" data-pending-expense-detail>${pendingExpenseDetailMarkup(groups[0])}</aside></div></section><section class="pending-checks-panel"><header><div><span>Documentos por realizar</span><h2>Cheques pendientes de cobro</h2></div><div class="pending-expenses-head-actions"><strong>${formatMoney(checksTotal)}</strong><button type="button" data-pending-checks-manage>Administrar cheques</button></div></header><div class="pending-checks-table"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Número de cheque</th><th>Banco</th><th>Monto</th></tr></thead><tbody>${checksMarkup}</tbody><tfoot><tr><th colspan="4">Total</th><th class="money">${formatMoney(checksTotal)}</th></tr></tfoot></table></div></section></section>`;
 }
 
+function loadLaborReserve() {
+  if (state.laborReserveLoading || state.laborReserveLoaded || !apiEnabled) return;
+  state.laborReserveLoading = true;
+  apiJson("/api/labor-reserve").then((payload) => {
+    state.laborReserve = payload;
+    state.laborReserveLoaded = true;
+  }).catch((error) => {
+    state.laborReserve = { error: error.message || "No se pudo cargar la reserva laboral." };
+  }).finally(() => {
+    state.laborReserveLoading = false;
+    if (state.activeArea === "financiera" && state.activeSubmenu === "reserva-laboral") renderCommercialSubmenu(areas.financiera);
+  });
+}
+
+function renderLaborReserve() {
+  const data = state.laborReserve;
+  if (!data) return `<section class="labor-reserve-panel"><p class="labor-reserve-state">Cargando reserva laboral...</p></section>`;
+  if (data.error) return `<section class="labor-reserve-panel"><p class="labor-reserve-state">${escapeHtml(data.error)}</p></section>`;
+  const row = (label, value) => `<tr><th>${escapeHtml(label)}</th><td>${formatMoney(value)}</td></tr>`;
+  return `<section class="labor-reserve-panel"><header><span>Financiera</span><h2>Reserva Laboral</h2></header><table><tbody>
+    ${row("Aguinaldo", data.commitments?.bonus)}${row("Indemnización", data.commitments?.severance)}${row("Vacación proporcional", data.commitments?.proportionalVacation)}
+    <tr class="subtotal"><th>Compromisos laborales</th><td>${formatMoney(data.laborCommitments)}</td></tr>
+    ${row("Gastos diciembre", data.commitments?.decemberExpenses)}${row("Quincena 25", data.commitments?.payroll25)}
+    <tr class="subtotal"><th>Compromisos de diciembre</th><td>${formatMoney(data.decemberCommitments)}</td></tr>
+    <tr class="total"><th>Total compromisos</th><td>${formatMoney(data.totalCommitments)}</td></tr>
+    <tr class="reserve"><th>Reserva Azul Laboral</th><td>${formatMoney(data.laborReserveBalance)}</td></tr>
+    <tr class="need"><th>Necesidad de reserva</th><td>${formatMoney(data.reserveNeed)}</td></tr>
+  </tbody></table></section>`;
+}
+
 async function printBankAvailabilityReport(archivedReport = null, archivedDate = "") {
   const report = archivedReport || await apiJson("/api/bank-availability/report");
   const accounts = report.accounts || [];
@@ -15267,6 +15302,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("crm-opportunity-tabs");
   commercialPanel.classList.remove("crm-cancelled-mode");
   commercialPanel.classList.remove("bank-availability-mode");
+  commercialPanel.classList.remove("labor-reserve-mode");
   commercialPanel.classList.remove("financial-income-mode");
   commercialPanel.classList.remove("financial-inventory-mode");
   commercialPanel.classList.remove("fiscal-module-mode");
@@ -15420,6 +15456,16 @@ function renderCommercialSubmenu(area) {
     opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden");
     commercialSubmenuStatus.textContent = `${state.bankAvailability.accounts?.length || 0} cuentas · ${formatMoney(state.bankAvailability.total || 0)}`;
     opportunityTable.innerHTML = renderBankAvailability(); wireBankAvailability(); return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "reserva-laboral") {
+    commercialPanel.classList.add("labor-reserve-mode");
+    newOpportunityBtn.classList.add("hidden"); newRiskBtn.classList.add("hidden"); newManagementRequestBtn.classList.add("hidden"); goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = "Actualización automática";
+    opportunityTable.innerHTML = renderLaborReserve();
+    if (!state.laborReserveLoaded && !state.laborReserveLoading) loadLaborReserve();
+    return;
   }
 
   if (state.activeArea === "financiera" && submenu.key === "ingresos") {
@@ -18097,6 +18143,7 @@ function renderDashboard() {
       "custodia-muestras",
       "historial-compra",
       "disponibilidad",
+      "reserva-laboral",
       "ingresos",
       "inventario",
       "facturacion-electronica",

@@ -48,7 +48,7 @@ TRAINING_ACCESS_PASSWORD = os.environ.get("TRAINING_ACCESS_PASSWORD", "") if TRA
 TRAINING_SESSION_SECONDS = 8 * 60 * 60
 TRAINING_COOKIE_NAME = "konfi_training_access"
 TRAINING_FINANCIAL_API_PREFIXES = (
-    "/api/bank-availability", "/api/pending-expenses", "/api/pending-checks", "/api/commission-settlements", "/api/reserve-settlements",
+    "/api/bank-availability", "/api/labor-reserve", "/api/pending-expenses", "/api/pending-checks", "/api/commission-settlements", "/api/reserve-settlements",
     "/api/financial-income", "/api/financial-statements", "/api/accounts-receivable", "/api/purchase-orders",
     "/api/inventory-items",
     "/api/customer-advances/allocate",
@@ -6454,6 +6454,25 @@ def bank_availability_payload(conn, include_daily=True):
     return payload
 
 
+def labor_reserve_payload(conn):
+    commitments = {"bonus": 15508.38, "severance": 27180.00, "proportionalVacation": 8670.86,
+                   "decemberExpenses": 4000.00, "payroll25": 15000.00}
+    labor_commitments = round(commitments["bonus"] + commitments["severance"] + commitments["proportionalVacation"], 2)
+    december_commitments = round(commitments["decemberExpenses"] + commitments["payroll25"], 2)
+    total_commitments = round(labor_commitments + december_commitments, 2)
+    latest = conn.execute(
+        """SELECT balance, record_date FROM bank_balance_records
+           WHERE account_id = 'bank-azul-laboral'
+           ORDER BY sequence DESC, created_at DESC LIMIT 1"""
+    ).fetchone()
+    reserve_balance = round(float(latest["balance"] or 0), 2) if latest else 0.0
+    return {"commitments": commitments, "laborCommitments": labor_commitments,
+            "decemberCommitments": december_commitments, "totalCommitments": total_commitments,
+            "laborReserveBalance": reserve_balance,
+            "reserveNeed": round(max(total_commitments - reserve_balance, 0), 2),
+            "bankBalanceDate": latest["record_date"] if latest else ""}
+
+
 def archive_bank_availability(conn):
     availability = bank_availability_payload(conn, include_daily=False)
     update_report = bank_availability_report_payload(conn)
@@ -10277,6 +10296,21 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
         self.send_json({"error": "Tu usuario no tiene permiso para consultar Anticipos"}, status=403)
         return False
 
+    def require_labor_reserve_owner(self):
+        actor_id = text(self.headers.get("X-System-User-Id"))
+        with connect() as conn:
+            row = conn.execute(
+                "SELECT id, name, username, email, role, password, permissions, permissions_customized, admin FROM users WHERE id = ? LIMIT 1",
+                (actor_id,),
+            ).fetchone() if actor_id else None
+        if not row:
+            self.send_json({"error": "Debes iniciar sesión para consultar este módulo"}, status=401)
+            return False
+        if not is_fiscal_owner_user(user_payload(row)):
+            self.send_json({"error": "Reserva Laboral es un módulo privado"}, status=403)
+            return False
+        return True
+
     def send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
@@ -10692,6 +10726,13 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 return
             with connect() as conn:
                 self.send_json(bank_availability_payload(conn))
+            return
+
+        if self.path == "/api/labor-reserve":
+            if not self.require_labor_reserve_owner():
+                return
+            with connect() as conn:
+                self.send_json(labor_reserve_payload(conn))
             return
 
         if self.path == "/api/bank-availability/report":
