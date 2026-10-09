@@ -14382,6 +14382,8 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
+        if file_path.name == "index.html":
+            self.send_header("Clear-Site-Data", '"cache"')
         self.end_headers()
         if send_body:
             with file_path.open("rb") as handle:
