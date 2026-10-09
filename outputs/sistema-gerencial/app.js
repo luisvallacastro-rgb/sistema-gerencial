@@ -13289,7 +13289,7 @@ function printCommercialAgendaReport() {
 function commercialAgendaMonthlyActivityRows(year = state.commercialAgendaActivityReportYear, month = state.commercialAgendaActivityReportMonth) {
   const period = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
   const grouped = new Map(commercialAgendaSellerNames().map((seller) => [normalizeKey(seller), {
-    seller, effective: 0, pending: 0, ineffective: 0, total: 0, activities: new Map()
+    seller, total: 0, activities: new Map()
   }]));
   state.commercialAgenda
     .filter((item) => commercialAgendaVisibleSeller(item.seller))
@@ -13297,32 +13297,23 @@ function commercialAgendaMonthlyActivityRows(year = state.commercialAgendaActivi
     .filter(({ event }) => String(event.date || "").slice(0, 7) === period)
     .forEach(({ item, event }) => {
       const key = normalizeKey(item.seller || "Sin vendedor");
-      if (!grouped.has(key)) grouped.set(key, { seller: item.seller || "Sin vendedor", effective: 0, pending: 0, ineffective: 0, total: 0, activities: new Map() });
+      if (!grouped.has(key)) grouped.set(key, { seller: item.seller || "Sin vendedor", total: 0, activities: new Map() });
       const row = grouped.get(key);
       row.total += 1;
-      if (!event.validation?.validatedAt) row.pending += 1;
-      else if (event.validation?.effective === true) {
-        row.effective += 1;
-        const activity = event.activity || "Sin clasificación";
-        row.activities.set(activity, (row.activities.get(activity) || 0) + 1);
-      } else row.ineffective += 1;
+      const activity = event.activity || "Sin clasificación";
+      row.activities.set(activity, (row.activities.get(activity) || 0) + 1);
     });
-  return [...grouped.values()].sort((a, b) => b.effective - a.effective || a.seller.localeCompare(b.seller, "es"));
+  return [...grouped.values()].sort((a, b) => b.total - a.total || a.seller.localeCompare(b.seller, "es"));
 }
 function commercialAgendaActivityReportMarkup(year, month, { printable = false } = {}) {
   const rows = commercialAgendaMonthlyActivityRows(year, month);
-  const totals = rows.reduce((sum, row) => ({
-    effective: sum.effective + row.effective,
-    pending: sum.pending + row.pending,
-    ineffective: sum.ineffective + row.ineffective,
-    total: sum.total + row.total
-  }), { effective: 0, pending: 0, ineffective: 0, total: 0 });
+  const total = rows.reduce((sum, row) => sum + row.total, 0);
   const monthName = monthLabel(Number(month));
   const detail = rows.map((row) => {
     const breakdown = [...row.activities].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
-    return `<tr><th scope="row">${escapeHtml(row.seller)}</th><td class="activity-report-number">${row.effective}</td><td>${breakdown.map(([activity, count]) => `<span class="activity-report-chip">${escapeHtml(activity)} <b>${count}</b></span>`).join("") || `<span class="activity-report-empty">Sin actividades efectivas</span>`}</td><td>${row.pending}</td><td>${row.ineffective}</td><td>${row.total}</td></tr>`;
+    return `<tr><th scope="row">${escapeHtml(row.seller)}</th><td class="activity-report-number">${row.total}</td><td>${breakdown.map(([activity, count]) => `<span class="activity-report-chip">${escapeHtml(activity)} <b>${count}</b></span>`).join("") || `<span class="activity-report-empty">Sin actividades registradas</span>`}</td></tr>`;
   }).join("");
-  return `<section class="commercial-agenda-activity-report${printable ? " is-printable" : ""}"><div class="activity-report-summary"><article><span>Realizadas</span><strong>${totals.effective}</strong><small>Validadas como efectivas</small></article><article><span>Pendientes</span><strong>${totals.pending}</strong><small>Aún no cuentan</small></article><article><span>No efectivas</span><strong>${totals.ineffective}</strong><small>Excluidas del resultado</small></article><article><span>Registradas</span><strong>${totals.total}</strong><small>Total del período</small></article></div><div class="activity-report-table"><table><thead><tr><th>Vendedor</th><th>Realizadas</th><th>Detalle de actividades realizadas</th><th>Pendientes</th><th>No efectivas</th><th>Registradas</th></tr></thead><tbody>${detail || `<tr><td colspan="6">No hay vendedores ni actividades en este período.</td></tr>`}</tbody><tfoot><tr><th>Total ${escapeHtml(monthName)} ${year}</th><td>${totals.effective}</td><td></td><td>${totals.pending}</td><td>${totals.ineffective}</td><td>${totals.total}</td></tr></tfoot></table></div><p class="activity-report-rule">“Realizadas” incluye solamente actividades con validación gerencial efectiva. Las pendientes y no efectivas no se suman.</p></section>`;
+  return `<section class="commercial-agenda-activity-report${printable ? " is-printable" : ""}"><div class="activity-report-summary"><article><span>Actividades del mes</span><strong>${total}</strong><small>Total registrado en agenda</small></article></div><div class="activity-report-table"><table><thead><tr><th>Vendedor</th><th>Actividades</th><th>Detalle de actividades</th></tr></thead><tbody>${detail || `<tr><td colspan="3">No hay vendedores ni actividades en este período.</td></tr>`}</tbody><tfoot><tr><th>Total ${escapeHtml(monthName)} ${year}</th><td>${total}</td><td></td></tr></tfoot></table></div></section>`;
 }
 function printCommercialAgendaMonthlyActivityReport() {
   const year = Number(state.commercialAgendaActivityReportYear);
@@ -13348,7 +13339,7 @@ function openCommercialAgendaMonthlyActivityReport() {
   const render = () => {
     const year = Number(state.commercialAgendaActivityReportYear);
     const month = Number(state.commercialAgendaActivityReportMonth);
-    dialog.innerHTML = `<form method="dialog"><header><div><span>COMERCIALIZACIÓN · AGENDA</span><h2>Actividades realizadas por vendedor</h2><p>Reporte mensual basado en la validación gerencial.</p></div><button type="button" data-activity-report-close aria-label="Cerrar">×</button></header><section class="activity-report-filters"><label>Mes<select data-activity-report-month>${Array.from({ length: 12 }, (_, index) => index + 1).map((value) => `<option value="${value}" ${value === month ? "selected" : ""}>${escapeHtml(monthLabel(value))}</option>`).join("")}</select></label><label>Año<select data-activity-report-year>${[...availableYears].sort((a, b) => b - a).map((value) => `<option value="${value}" ${value === year ? "selected" : ""}>${value}</option>`).join("")}</select></label><button type="button" data-activity-report-print><span aria-hidden="true">▥</span> Imprimir reporte</button></section>${commercialAgendaActivityReportMarkup(year, month)}</form>`;
+    dialog.innerHTML = `<form method="dialog"><header><div><span>COMERCIALIZACIÓN · AGENDA</span><h2>Actividades realizadas por vendedor</h2><p>Reporte mensual de todas las actividades registradas.</p></div><button type="button" data-activity-report-close aria-label="Cerrar">×</button></header><section class="activity-report-filters"><label>Mes<select data-activity-report-month>${Array.from({ length: 12 }, (_, index) => index + 1).map((value) => `<option value="${value}" ${value === month ? "selected" : ""}>${escapeHtml(monthLabel(value))}</option>`).join("")}</select></label><label>Año<select data-activity-report-year>${[...availableYears].sort((a, b) => b - a).map((value) => `<option value="${value}" ${value === year ? "selected" : ""}>${value}</option>`).join("")}</select></label><button type="button" data-activity-report-print><span aria-hidden="true">▥</span> Imprimir reporte</button></section>${commercialAgendaActivityReportMarkup(year, month)}</form>`;
     dialog.querySelector("[data-activity-report-close]").onclick = () => dialog.close();
     dialog.querySelector("[data-activity-report-month]").onchange = (event) => { state.commercialAgendaActivityReportMonth = Number(event.target.value); render(); };
     dialog.querySelector("[data-activity-report-year]").onchange = (event) => { state.commercialAgendaActivityReportYear = Number(event.target.value); render(); };
