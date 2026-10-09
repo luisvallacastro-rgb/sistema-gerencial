@@ -12103,6 +12103,8 @@ function renderLaborReserve() {
       <tr class="total"><th><strong>Total compromisos</strong><small>${formatMoney(data.laborCommitments)} + ${formatMoney(data.decemberCommitments)}</small></th><td>${formatMoney(data.totalCommitments)}</td></tr>
       <tr class="reserve"><th>Reserva Azul Laboral</th><td>${formatMoney(data.laborReserveBalance)}</td></tr>
       <tr class="need"><th><strong>Necesidad de reserva</strong><small>${formatMoney(data.totalCommitments)} − ${formatMoney(data.laborReserveBalance)}</small></th><td>${formatMoney(data.reserveNeed)}</td></tr>
+      <tr class="receivables-provision"><th><strong>Provisión de cuentas por cobrar</strong><small>${formatMoney(data.receivablesBalance)} ÷ 1.1475 × 7%</small></th><td>− ${formatMoney(data.receivablesReserve)}</td></tr>
+      <tr class="projected-need"><th><strong>Necesidad proyectada</strong><small>${formatMoney(data.reserveNeed)} − ${formatMoney(data.receivablesReserve)}</small></th><td>${formatMoney(data.projectedReserveNeed)}</td></tr>
     </tbody></table>
   </section>`;
 }

@@ -21,6 +21,7 @@ class LaborReserveTests(unittest.TestCase):
             id TEXT PRIMARY KEY, account_id TEXT, record_date TEXT,
             sequence INTEGER, balance REAL, created_at TEXT
         )""")
+        conn.execute("CREATE TABLE accounts_receivable(id TEXT PRIMARY KEY, balance REAL)")
         conn.executemany(
             "INSERT INTO bank_balance_records VALUES (?, 'bank-azul-laboral', ?, ?, ?, ?)",
             [
@@ -28,6 +29,7 @@ class LaborReserveTests(unittest.TestCase):
                 ("latest", "2026-10-09", 2, 39217.37, "2026-10-09 08:00:00"),
             ],
         )
+        conn.execute("INSERT INTO accounts_receivable VALUES ('cx-1', 48162.41)")
 
         payload = SERVER.labor_reserve_payload(conn)
 
@@ -36,6 +38,9 @@ class LaborReserveTests(unittest.TestCase):
         self.assertEqual(payload["totalCommitments"], 70359.24)
         self.assertEqual(payload["laborReserveBalance"], 39217.37)
         self.assertEqual(payload["reserveNeed"], 31141.87)
+        self.assertEqual(payload["receivablesBalance"], 48162.41)
+        self.assertEqual(payload["receivablesReserve"], 2938.01)
+        self.assertEqual(payload["projectedReserveNeed"], 28203.86)
         self.assertEqual(payload["bankBalanceDate"], "2026-10-09")
 
 

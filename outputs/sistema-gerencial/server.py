@@ -6466,10 +6466,18 @@ def labor_reserve_payload(conn):
            ORDER BY sequence DESC, created_at DESC LIMIT 1"""
     ).fetchone()
     reserve_balance = round(float(latest["balance"] or 0), 2) if latest else 0.0
+    receivables = conn.execute(
+        "SELECT COALESCE(SUM(CASE WHEN balance > 0 THEN balance ELSE 0 END), 0) AS total FROM accounts_receivable"
+    ).fetchone()
+    receivables_balance = round(float(receivables["total"] or 0), 2)
+    receivables_reserve = round((receivables_balance / 1.1475) * 0.07, 2)
+    reserve_need = round(max(total_commitments - reserve_balance, 0), 2)
     return {"commitments": commitments, "laborCommitments": labor_commitments,
             "decemberCommitments": december_commitments, "totalCommitments": total_commitments,
             "laborReserveBalance": reserve_balance,
-            "reserveNeed": round(max(total_commitments - reserve_balance, 0), 2),
+            "reserveNeed": reserve_need, "receivablesBalance": receivables_balance,
+            "receivablesReserve": receivables_reserve,
+            "projectedReserveNeed": round(max(reserve_need - receivables_reserve, 0), 2),
             "bankBalanceDate": latest["record_date"] if latest else ""}
 
 
