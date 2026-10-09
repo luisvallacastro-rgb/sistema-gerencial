@@ -1458,7 +1458,9 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
   }
   const permissions = userPermissions(user);
   return area.submenus.filter((item) => {
-    if (areaKey === "financiera" && item.key === "reserva-laboral") return isFiscalOwnerUser(user);
+    if (areaKey === "financiera" && item.key === "reserva-laboral") {
+      return isFiscalOwnerUser(user) || permissions.has(permissionKey(areaKey, item.key));
+    }
     return !item.accessOnly && permissions.has(permissionKey(areaKey, item.key));
   });
 }

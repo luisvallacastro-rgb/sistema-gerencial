@@ -72,7 +72,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "historial-compra", "resultados-dashboard", "kpi", "meta"],
-    "financiera": ["disponibilidad", "ingresos", "inventario", "facturacion-electronica", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
+    "financiera": ["disponibilidad", "reserva-laboral", "ingresos", "inventario", "facturacion-electronica", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal", "archivo-muestras"],
     "rrhh": ["panel", "expedientes", "expedientes-editar", "salarios", "auditoria", "ausencias", "ausencias-editar", "acciones-personal", "acciones-personal-editar", "activos", "documentos"],
 }
@@ -5557,6 +5557,39 @@ def grant_availability_signer_permissions(conn):
             conn.execute("UPDATE users SET permissions = ?, permissions_customized = 1 WHERE id = ?", (json.dumps(permissions), row["id"]))
 
 
+def restore_amadeo_labor_reserve_permission_once(conn):
+    """Preserve the Labor Reserve grant made before the permission entered the server catalog."""
+    migration_key = "migration_amadeo_labor_reserve_permission_v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    permission = "financiera:reserva-laboral"
+    updated = []
+    rows = conn.execute("""
+        SELECT id, name, username, email, role, permissions
+        FROM users
+    """).fetchall()
+    for row in rows:
+        identity = " ".join([
+            crm_identity_key(row["name"]),
+            crm_identity_key(row["username"]),
+            crm_identity_key(row["email"]),
+        ])
+        if "amadeo" not in identity or "alfaro" not in identity:
+            continue
+        permissions = normalize_permissions(row["permissions"], row["role"])
+        if permission not in permissions:
+            permissions.append(permission)
+        conn.execute(
+            "UPDATE users SET permissions = ?, permissions_customized = 1 WHERE id = ?",
+            (json.dumps(permissions, ensure_ascii=True), row["id"]),
+        )
+        updated.append(text(row["name"]))
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (migration_key, json.dumps({"updated": updated}, ensure_ascii=False)),
+    )
+
+
 def correct_marjorie_account_email_once(conn):
     """Correct Marjorie's login email without changing access or CRM ownership."""
     migration_key = "maintenance.correct-marjorie-email.2026-08-25.v1"
@@ -8809,6 +8842,7 @@ def init_db():
         migrate_consolidated_permissions(conn)
         grant_johanna_minutes_permissions(conn)
         grant_availability_signer_permissions(conn)
+        restore_amadeo_labor_reserve_permission_once(conn)
         seed_accounts_receivable(conn)
         repair_receivable_due_dates(conn)
         zero_2024_accounts_receivable_balances_once(conn)
@@ -10304,21 +10338,6 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
         self.send_json({"error": "Tu usuario no tiene permiso para consultar Anticipos"}, status=403)
         return False
 
-    def require_labor_reserve_owner(self):
-        actor_id = text(self.headers.get("X-System-User-Id"))
-        with connect() as conn:
-            row = conn.execute(
-                "SELECT id, name, username, email, role, password, permissions, permissions_customized, admin FROM users WHERE id = ? LIMIT 1",
-                (actor_id,),
-            ).fetchone() if actor_id else None
-        if not row:
-            self.send_json({"error": "Debes iniciar sesión para consultar este módulo"}, status=401)
-            return False
-        if not is_fiscal_owner_user(user_payload(row)):
-            self.send_json({"error": "Reserva Laboral es un módulo privado"}, status=403)
-            return False
-        return True
-
     def send_cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
@@ -10737,7 +10756,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             return
 
         if self.path == "/api/labor-reserve":
-            if not self.require_labor_reserve_owner():
+            if not self.require_permission("financiera:reserva-laboral"):
                 return
             with connect() as conn:
                 self.send_json(labor_reserve_payload(conn))
