@@ -12555,6 +12555,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 return
             payload = self.read_json()
             items = payload.get("items") if isinstance(payload, dict) else None
+            changed_agenda_id = text(payload.get("changedAgendaId")) if isinstance(payload, dict) else ""
             if not isinstance(items, list):
                 self.send_json({"error": "El listado de agenda es requerido"}, status=400)
                 return
@@ -12652,7 +12653,8 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         and text(stored_event.get("activity")) == activity
                         and all(text(stored_event.get(field)) == text(clean_event.get(field)) for field in follow_up_fields)
                     )
-                    if unchanged_follow_up:
+                    is_changed_agenda = not changed_agenda_id or text(item.get("id")) == changed_agenda_id
+                    if not is_changed_agenda or unchanged_follow_up:
                         stage_error, stage_changed = None, False
                     else:
                         stage_error, stage_changed = apply_commercial_agenda_opportunity_stage(

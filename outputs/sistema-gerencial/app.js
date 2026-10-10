@@ -13605,7 +13605,7 @@ async function openCommercialAgendaEditor(item = {}) {
     const record={id:item.id||crypto.randomUUID(),...values,events:agendaEvents}; const nextAgenda=[...state.commercialAgenda]; const index=nextAgenda.findIndex((row)=>row.id===record.id); if(index>=0) nextAgenda[index]=record; else nextAgenda.unshift(record);
     const submit=event.currentTarget.querySelector('[type="submit"]'); submit.disabled=true;
     try {
-      const response=await apiJson("/api/commercial-agenda",{method:"PUT",body:JSON.stringify({items:nextAgenda})});
+      const response=await apiJson("/api/commercial-agenda",{method:"PUT",body:JSON.stringify({items:nextAgenda,changedAgendaId:record.id})});
       state.commercialAgenda=response.items||[];
       if(Array.isArray(response.opportunities)){
         getOpportunitySubmenu().items=sanitizeTestOpportunities(normalizeOpportunities(response.opportunities));
