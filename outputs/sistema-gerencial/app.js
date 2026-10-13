@@ -6046,9 +6046,10 @@ function controlSalesPrintSnapshot(order = {}) {
 
 function orderWithCurrentQuotationData(order = {}) {
   const quotation = linkedQuotationForControlSalesOrder(order);
-  const lines = Array.isArray(quotation?.lines)
-    ? quotationLinesInPrintOrder(quotation.lines).filter((line) => String(line.type || "").toLowerCase() !== "title")
+  const orderedQuotationLines = Array.isArray(quotation?.lines)
+    ? quotationLinesInPrintOrder(quotation.lines)
     : [];
+  const lines = orderedQuotationLines.filter((line) => String(line.type || "").toLowerCase() !== "title");
   if (!quotation || !lines.length) return order;
   const documentType = ["CF","CCF","CE"].includes(quotation.documentType) ? quotation.documentType : "CF";
   const quotationBases = lines.map((line) => {
@@ -6075,6 +6076,22 @@ function orderWithCurrentQuotationData(order = {}) {
   const storedDetails = Array.isArray(order.details) ? order.details : [];
   const preserveManualBreakdown = storedDetails.length > 1 && quotationDetails.length === 1;
   const details = preserveManualBreakdown ? storedDetails : quotationDetails;
+  let productIndex = 0;
+  const printLines = preserveManualBreakdown
+    ? [
+        ...orderedQuotationLines
+          .filter((line) => String(line.type || "").toLowerCase() === "title")
+          .map((line) => ({ type:"title", title:String(line.title || line.description || "").trim() })),
+        ...details.map((detail) => ({ type:"product", detail }))
+      ]
+    : orderedQuotationLines.map((line) => {
+        if (String(line.type || "").toLowerCase() === "title") {
+          return { type:"title", title:String(line.title || line.description || "").trim() };
+        }
+        const detail = quotationDetails[productIndex];
+        productIndex += 1;
+        return { type:"product", detail };
+      }).filter((line) => line.type === "title" ? line.title : line.detail);
   const detailSubtotalCents = details.reduce((sum, detail) => sum + Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0), 0);
   const detailVatCents = details.reduce((sum, detail) => sum + Number(detail.vatCents || 0), 0);
   const subtotalCents = preserveManualBreakdown ? Number(order.subtotalCents ?? detailSubtotalCents) : Number(quotation.subtotalCents ?? detailSubtotalCents);
@@ -6094,6 +6111,7 @@ function orderWithCurrentQuotationData(order = {}) {
     seller: quotationResponsibleSeller(quotation) || quotation.seller || order.seller || "",
     documentType,
     details,
+    printLines,
     subtotalCents,
     vatTotalCents,
     perceptionCents: retentionCents,
@@ -6142,20 +6160,27 @@ function printControlSalesProformaInline(order, options = {}) {
     ["ATRACCION", "Atracción"],
     ["RECUPERACION", "Recuperación"]
   ];
-  const lineRows = order.details.map((detail) => {
+  const printableLines = Array.isArray(order.printLines) && order.printLines.length
+    ? order.printLines
+    : order.details.map((detail) => ({ type:"product", detail }));
+  const lineRows = printableLines.map((line) => {
+    if (line.type === "title") {
+      return `<tr class="order-title-row"><td colspan="4">${value(line.title)}</td></tr>`;
+    }
+    const detail = line.detail || {};
     const baseCents = Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0);
     const description = printableControlSalesDescription(detail);
     return `<tr><td class="qty">${value(detail.quantity)}</td><td>${value(description)}</td><td class="money">${formatControlSalesMoney(detail.unitPriceCents || 0)}</td><td class="money">${formatControlSalesMoney(baseCents)}</td></tr>`;
   }).join("");
   const blankRows = Array.from(
-    { length: Math.max(0, 12 - order.details.length) },
+    { length: Math.max(0, 12 - printableLines.length) },
     () => `<tr class="blank"><td>&nbsp;</td><td></td><td></td><td></td></tr>`
   ).join("");
   popup.document.open();
   popup.document.write(`<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>Orden de pedido ${value(printableOrderNumber)}</title>
 <style>
-    @page{size:Letter portrait;margin:8mm 11mm 9mm}*{box-sizing:border-box}html,body{margin:0;background:#fff;color:#202b43;font-family:Arial,Helvetica,sans-serif;font-size:11px}.sheet{width:100%;min-height:250mm}.screen-actions{position:fixed;z-index:10;top:16px;right:18px;display:flex;gap:8px;padding:8px;border-radius:12px;background:rgba(25,38,60,.92);box-shadow:0 8px 24px rgba(0,0,0,.24)}.screen-actions button{border:0;border-radius:8px;padding:9px 14px;background:#2aa879;color:#fff;font-weight:800;cursor:pointer}.screen-actions button:last-child{background:#fff;color:#27344b}.top{display:grid;grid-template-columns:56% 44%;align-items:start;min-height:32mm}.brand-panel img{display:block;width:100%;max-width:360px;height:auto}.brand-panel time{display:block;margin:7px 0 0 10px;font-size:13px;font-weight:800}.order-panel{text-align:center;padding-top:2px}.order-panel h1{margin:0;font-size:19px;letter-spacing:.02em}.order-panel .order-number{display:block;margin:11px 0 17px;color:#b7271d;font-size:25px;font-weight:900}.order-panel p{margin:0;font-size:13px}.order-panel .ce-document-label{color:#c52222;font-weight:900}.fields{margin-top:4px}.field{display:grid;grid-template-columns:178px 1fr;align-items:end;min-height:22px}.field label{padding:0 8px 3px 0;font-size:12px;font-weight:800}.field strong{min-height:20px;padding:0 0 3px;border-bottom:1px solid #202b43;font-size:12px;font-weight:800}.legal-name-with-id{display:flex;align-items:end;justify-content:space-between;gap:12px}.legal-name-with-id em{flex:0 0 auto;color:#c52222;font-style:normal;font-weight:900;white-space:nowrap}.items{width:100%;margin-top:9px;border-collapse:collapse;table-layout:fixed;color:#18202c}.items th{height:42px;border:1px solid #202b43;padding:5px 8px;color:#39455a;font-size:10px;text-align:center}.items td{height:22px;border:1px solid #9ba6b7;padding:3px 6px;font-size:10px}.items .qty{width:13%;text-align:center}.items th:nth-child(1){width:13%}.items th:nth-child(2){width:52%}.items th:nth-child(3){width:15.5%}.items th:nth-child(4){width:19.5%}.items .money{text-align:right;white-space:nowrap}.items tr.blank td{height:22px}.closing{display:grid;grid-template-columns:65.5% 34.5%;margin-top:7px}.notes{min-height:73px;border:1px solid #202b43;padding:12px;font-size:13px;font-weight:800}.notes span{display:block;margin-top:6px;font-size:10px;font-weight:500;white-space:pre-wrap}.totals{width:100%;border-collapse:collapse;color:#263148}.totals th,.totals td{height:18px;border:1px solid #a9b2c0;padding:3px 7px;font-size:10px}.totals th{text-align:left;text-transform:uppercase}.totals td{text-align:right;font-weight:800}.totals tr:last-child th,.totals tr:last-child td{font-size:13px;font-weight:900}.strategy-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px;color:#465166;font-size:11px;font-weight:800}.strategy-item{display:grid;gap:5px}.check{display:inline-flex;width:13px;height:13px;align-items:center;justify-content:center;margin-left:3px;border:1px solid #202b43;color:#202b43;font-size:9px;font-style:normal}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:28mm;margin:24mm 8mm 0;text-align:center;font-size:11px;font-weight:800}.signature{border-top:1px solid #202b43;padding-top:7px}@media print{html,body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{min-height:0}.screen-actions{display:none}}
+    @page{size:Letter portrait;margin:8mm 11mm 9mm}*{box-sizing:border-box}html,body{margin:0;background:#fff;color:#202b43;font-family:Arial,Helvetica,sans-serif;font-size:11px}.sheet{width:100%;min-height:250mm}.screen-actions{position:fixed;z-index:10;top:16px;right:18px;display:flex;gap:8px;padding:8px;border-radius:12px;background:rgba(25,38,60,.92);box-shadow:0 8px 24px rgba(0,0,0,.24)}.screen-actions button{border:0;border-radius:8px;padding:9px 14px;background:#2aa879;color:#fff;font-weight:800;cursor:pointer}.screen-actions button:last-child{background:#fff;color:#27344b}.top{display:grid;grid-template-columns:56% 44%;align-items:start;min-height:32mm}.brand-panel img{display:block;width:100%;max-width:360px;height:auto}.brand-panel time{display:block;margin:7px 0 0 10px;font-size:13px;font-weight:800}.order-panel{text-align:center;padding-top:2px}.order-panel h1{margin:0;font-size:19px;letter-spacing:.02em}.order-panel .order-number{display:block;margin:11px 0 17px;color:#b7271d;font-size:25px;font-weight:900}.order-panel p{margin:0;font-size:13px}.order-panel .ce-document-label{color:#c52222;font-weight:900}.fields{margin-top:4px}.field{display:grid;grid-template-columns:178px 1fr;align-items:end;min-height:22px}.field label{padding:0 8px 3px 0;font-size:12px;font-weight:800}.field strong{min-height:20px;padding:0 0 3px;border-bottom:1px solid #202b43;font-size:12px;font-weight:800}.legal-name-with-id{display:flex;align-items:end;justify-content:space-between;gap:12px}.legal-name-with-id em{flex:0 0 auto;color:#c52222;font-style:normal;font-weight:900;white-space:nowrap}.items{width:100%;margin-top:9px;border-collapse:collapse;table-layout:fixed;color:#18202c}.items th{height:42px;border:1px solid #202b43;padding:5px 8px;color:#39455a;font-size:10px;text-align:center}.items td{height:22px;border:1px solid #9ba6b7;padding:3px 6px;font-size:10px}.items .qty{width:13%;text-align:center}.items th:nth-child(1){width:13%}.items th:nth-child(2){width:52%}.items th:nth-child(3){width:15.5%}.items th:nth-child(4){width:19.5%}.items .money{text-align:right;white-space:nowrap}.items tr.blank td{height:22px}.items .order-title-row td{height:27px;padding:5px 8px;background:#d9dde3;color:#111;font-weight:900;text-transform:uppercase;letter-spacing:.04em;print-color-adjust:exact;-webkit-print-color-adjust:exact}.closing{display:grid;grid-template-columns:65.5% 34.5%;margin-top:7px}.notes{min-height:73px;border:1px solid #202b43;padding:12px;font-size:13px;font-weight:800}.notes span{display:block;margin-top:6px;font-size:10px;font-weight:500;white-space:pre-wrap}.totals{width:100%;border-collapse:collapse;color:#263148}.totals th,.totals td{height:18px;border:1px solid #a9b2c0;padding:3px 7px;font-size:10px}.totals th{text-align:left;text-transform:uppercase}.totals td{text-align:right;font-weight:800}.totals tr:last-child th,.totals tr:last-child td{font-size:13px;font-weight:900}.strategy-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px;color:#465166;font-size:11px;font-weight:800}.strategy-item{display:grid;gap:5px}.check{display:inline-flex;width:13px;height:13px;align-items:center;justify-content:center;margin-left:3px;border:1px solid #202b43;color:#202b43;font-size:9px;font-style:normal}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:28mm;margin:24mm 8mm 0;text-align:center;font-size:11px;font-weight:800}.signature{border-top:1px solid #202b43;padding-top:7px}@media print{html,body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{min-height:0}.screen-actions{display:none}}
 </style></head><body><main class="sheet">
   <header class="top">
     <div class="brand-panel"><div style="display:flex;width:360px;height:61px;align-items:center;gap:8px;overflow:hidden"><span style="position:relative;display:block;flex:0 0 179px;height:61px;overflow:hidden"><img src="${konfiBrandUrl}" alt="KONFI" style="display:block;width:179px;max-width:none;height:auto;image-rendering:auto"></span><span style="position:relative;display:block;flex:0 0 173px;height:61px;overflow:hidden"><img src="${brandUrl}" alt="Arte y Color Uniformes" style="display:block;width:173px;max-width:none;height:auto;transform:translateY(-27px);image-rendering:auto"></span></div><time>${value(formatDate(order.date))}</time></div>

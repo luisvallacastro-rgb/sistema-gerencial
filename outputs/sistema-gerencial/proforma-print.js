@@ -97,7 +97,14 @@ function renderProforma(order) {
       <code>${printValue(printFinanceApprovalFolio(order, printableOrderNumber))}</code>
     </section>` : "";
   const strategies = [["RETENCION", "Retención"], ["EXPANSION", "Expansión"], ["ATRACCION", "Atracción"], ["RECUPERACION", "Recuperación"]];
-  const lineRows = details.map((detail) => {
+  const printableLines = Array.isArray(order.printLines) && order.printLines.length
+    ? order.printLines
+    : details.map((detail) => ({ type:"product", detail }));
+  const lineRows = printableLines.map((line) => {
+    if (line.type === "title") {
+      return `<tr class="order-title-row"><td colspan="4">${printValue(line.title)}</td></tr>`;
+    }
+    const detail = line.detail || {};
     const baseCents = Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0);
     let product = String(detail.product || "").trim();
     const notes = String(detail.notes || "").trim();
@@ -113,7 +120,7 @@ function renderProforma(order) {
   // Solo se divide cuando el pedido realmente necesita una página adicional.
   const MAX_SINGLE_PAGE_ROWS = 16;
   const MAX_ROWS_PER_PAGE = 24;
-  const pageCount = details.length <= MAX_SINGLE_PAGE_ROWS ? 1 : Math.max(2, Math.ceil(details.length / MAX_ROWS_PER_PAGE));
+  const pageCount = printableLines.length <= MAX_SINGLE_PAGE_ROWS ? 1 : Math.max(2, Math.ceil(printableLines.length / MAX_ROWS_PER_PAGE));
   const baseRows = Math.floor(lineRows.length / pageCount);
   const extraRows = lineRows.length % pageCount;
   const pages = [];

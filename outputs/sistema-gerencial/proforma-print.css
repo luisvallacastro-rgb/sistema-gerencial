@@ -235,6 +235,18 @@ body {
   height: 25px;
 }
 
+.items .order-title-row td {
+  height: 29px;
+  padding: 6px 8px;
+  background: #d9dde3;
+  color: #111;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
 .closing {
   display: grid;
   grid-template-columns: 65.5% 34.5%;
