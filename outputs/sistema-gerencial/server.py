@@ -6755,13 +6755,15 @@ def bank_seller_income_report_payload(conn):
     for row in rows:
         seller = text(row["seller"]) or "Sin vendedor"
         gross = round(float(row["gross_amount"] or 0), 2)
-        net = round(gross / 1.1475, 2)
+        raw_net = gross / 1.1475
+        net = round(raw_net, 2)
         bank_ids.add(row["account_id"])
         items.append({
             "id": row["id"], "recordId": row["record_id"], "accountId": row["account_id"],
             "bank": row["bank"], "account": row["account"], "date": row["record_date"],
             "customerName": row["customer_name"], "paymentType": row["payment_type"],
             "seller": seller, "gross": gross, "net": net,
+            "commissionNetBase": raw_net,
             "commissionRate": 0, "commission": 0,
             "commissionAllocations": parse_commission_allocations(row["commission_allocations"]),
             "directCommissionPending": (
@@ -6841,7 +6843,9 @@ def bank_seller_income_report_payload(conn):
                 allocated_percent = round(allocated_percent + allocation["percent"], 4)
             item["commissionAllocationDetails"] = allocation_details
             item["commissionAllocated"] = allocated
-            item["commissionPending"] = round(item["net"] * max(9 - allocated_percent, 0) / 100, 2)
+            own_percent = max(9 - allocated_percent, 0)
+            item["commissionPendingRaw"] = item["commissionNetBase"] * own_percent / 100
+            item["commissionPending"] = round(item["commissionPendingRaw"], 2)
         marco_calculation["commissionAllocated"] = round(sum(item["commissionAllocated"] for item in marco_items), 2)
         marco_calculation["commissionPending"] = round(sum(item["commissionPending"] for item in marco_items), 2)
         marco_calculation["commissionAllocationSummary"] = sorted(marco_allocations.values(), key=lambda item: item["seller"].casefold())
@@ -6933,18 +6937,15 @@ def commission_liability_payload(conn, report=None):
         })
 
     marco_items = [item for item in report["items"] if is_marco_velado(item["seller"])]
-    marco_tax_total = round(sum(item.get("commissionPending", 0) for item in marco_items) * 0.10, 2)
-    marco_taxes = [round(item.get("commissionPending", 0) * 0.10, 2) for item in marco_items]
-    if marco_taxes:
-        marco_taxes[-1] = round(marco_taxes[-1] + marco_tax_total - sum(marco_taxes), 2)
-    marco_tax_by_id = {item["id"]: marco_taxes[index] for index, item in enumerate(marco_items)}
-
     for item in report["items"]:
         seller = item["seller"]
         if is_marco_velado(seller):
-            gross_commission = round(float(item.get("commissionPending") or 0), 2)
-            income_tax = marco_tax_by_id.get(item["id"], 0)
-            net_commission = round(gross_commission - income_tax, 2)
+            raw_commission = float(item.get("commissionPendingRaw") or item.get("commissionPending") or 0)
+            gross_commission = round(raw_commission, 2)
+            income_tax = round(raw_commission * 0.10, 2)
+            # El neto se redondea una sola vez desde el valor completo. No se
+            # resta entre importes previamente redondeados.
+            net_commission = round(raw_commission * 0.90, 2)
             add_component(item, "marco-net", "Marco Velado", net_commission, 0,
                           f"Marco Velado · neto después de renta 10% · {item['customerName']}",
                           {"grossCommission": gross_commission, "incomeTax": income_tax})

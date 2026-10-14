@@ -98,11 +98,25 @@ class CommissionCycleTests(unittest.TestCase):
         marco_tax = next(item for item in liability["pending"] if item["kind"] == "marco-tax")
         self.assertEqual(marco_net["grossCommission"], 13.66)
         self.assertEqual(marco_tax["amount"], 1.37)
-        self.assertEqual(marco_net["amount"], 12.29)
+        self.assertEqual(marco_net["amount"], 12.30)
         self.assertFalse(any(
             item["kind"] == "marco-allocation" and item["seller"] == "Marco Velado"
             for item in liability["pending"]
         ))
+
+    def test_marco_net_is_rounded_once_from_full_precision(self):
+        self.add_provision(
+            "marco-union", "record-current", "Marco Velado", 1671.04,
+            '[{"seller":"Credy Crece","percent":2},{"seller":"Marco Velado","percent":7}]',
+        )
+
+        liability = SERVER.commission_liability_payload(self.conn)
+        marco_net = next(item for item in liability["pending"] if item["kind"] == "marco-net")
+        marco_tax = next(item for item in liability["pending"] if item["kind"] == "marco-tax")
+
+        self.assertEqual(marco_net["grossCommission"], 101.94)
+        self.assertEqual(marco_tax["amount"], 10.19)
+        self.assertEqual(marco_net["amount"], 91.74)
 
 
 if __name__ == "__main__":
