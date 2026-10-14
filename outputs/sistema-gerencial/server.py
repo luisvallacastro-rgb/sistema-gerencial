@@ -6829,11 +6829,16 @@ def bank_seller_income_report_payload(conn):
             allocated_percent = 0
             for allocation in item["commissionAllocations"]:
                 amount = round(item["net"] * allocation["percent"] / 100, 2)
-                allocated = round(allocated + amount, 2)
-                allocated_percent = round(allocated_percent + allocation["percent"], 4)
                 allocation_details.append({**allocation, "amount": amount})
                 summary = marco_allocations.setdefault(allocation["seller"], {"seller": allocation["seller"], "amount": 0})
                 summary["amount"] = round(summary["amount"] + amount, 2)
+                # Una asignación cuyo destinatario vuelve a ser Marco sigue
+                # siendo comisión propia: debe formar parte de su bruto,
+                # causar renta y llegar como neto después de la retención.
+                if is_marco_velado(allocation["seller"]):
+                    continue
+                allocated = round(allocated + amount, 2)
+                allocated_percent = round(allocated_percent + allocation["percent"], 4)
             item["commissionAllocationDetails"] = allocation_details
             item["commissionAllocated"] = allocated
             item["commissionPending"] = round(item["net"] * max(9 - allocated_percent, 0) / 100, 2)
@@ -6948,7 +6953,7 @@ def commission_liability_payload(conn, report=None):
                           {"grossCommission": gross_commission})
             for allocation in item.get("commissionAllocationDetails", []):
                 recipient = text(allocation.get("seller"))
-                if recipient == "Comisión Cancelada":
+                if recipient == "Comisión Cancelada" or is_marco_velado(recipient):
                     continue
                 add_component(item, "marco-allocation", recipient, allocation.get("amount"),
                               float(allocation.get("percent") or 0) / 100,

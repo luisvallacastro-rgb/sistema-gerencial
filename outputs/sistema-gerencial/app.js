@@ -12428,14 +12428,23 @@ async function printBankSellerIncomeReport() {
   const marcoHeaderSummary = marcoMode ? roundCurrency(reportCommissionTotal + marcoPendingIncomeTax + credyCreceAllocation) : 0;
   const marcoItemFinancials = items.map((item) => ({ id:item.id, commission:roundCurrency(item.grossCommission || 0), incomeTax:roundCurrency(item.incomeTax || 0), net:roundCurrency(item.reportCommission || 0) }));
   const marcoFinancialById = new Map(marcoItemFinancials.map((item) => [item.id, item]));
+  const marcoDistributionDetail = (item) => {
+    const allocations = Array.isArray(item.commissionAllocationDetails) ? item.commissionAllocationDetails : [];
+    const parts = allocations.map((allocation) => `${allocation.seller} ${Number(allocation.percent || 0).toLocaleString("es-SV", { maximumFractionDigits:2 })}%`);
+    const allocatedPercent = allocations.reduce((sum, allocation) => sum + Number(allocation.percent || 0), 0);
+    const remainingPercent = Math.max(0, Math.round((9 - allocatedPercent) * 100) / 100);
+    if (remainingPercent > 0) parts.push(`Marco Velado ${remainingPercent.toLocaleString("es-SV", { maximumFractionDigits:2 })}% restante`);
+    return parts.join(" · ") || "Marco Velado 9%";
+  };
   const dates = items.map((item) => item.date).filter(Boolean).sort();
   const periodLabel = dates.length ? `${formatDate(dates[0])} al ${formatDate(dates[dates.length - 1])}` : "Sin período";
   const transactionRows = [...items].sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es") || String(b.date).localeCompare(String(a.date)) || String(b.createdAt).localeCompare(String(a.createdAt))).map((item) => {
     const marcoFinancial = marcoFinancialById.get(item.id);
     const cancelledAllocation = marcoMode ? (item.commissionAllocationDetails || []).find((allocation) => normalizeKey(allocation.seller) === normalizeKey("Comisión Cancelada")) : null;
+    const distributionDetail = marcoMode ? `<small><b>Distribución 9%:</b> ${escapeHtml(marcoDistributionDetail(item))}</small>` : "";
     const conceptCell = cancelledAllocation
-      ? `<td><strong>Comisión Cancelada + ${escapeHtml(item.customerName || "Sin comentario")} + ${formatMoney(cancelledAllocation.amount)}</strong><small>${escapeHtml(item.paymentType || "—")}</small></td>`
-      : `<td><strong>${escapeHtml(item.customerName || "—")}</strong><small>${escapeHtml(item.paymentType || "—")}</small></td>`;
+      ? `<td><strong>Comisión Cancelada + ${escapeHtml(item.customerName || "Sin comentario")} + ${formatMoney(cancelledAllocation.amount)}</strong><small>${escapeHtml(item.paymentType || "—")}</small>${distributionDetail}</td>`
+      : `<td><strong>${escapeHtml(item.customerName || "—")}</strong><small>${escapeHtml(item.paymentType || "—")}</small>${distributionDetail}</td>`;
     const commissionCells = marcoMode
       ? `<td>${formatMoney(marcoFinancial?.commission || 0)}</td><td class="rent">${formatMoney(marcoFinancial?.incomeTax || 0)}</td><td class="commission"><strong>${formatMoney(marcoFinancial?.net || 0)}</strong><small>Neto a provisionar</small></td>`
       : `<td class="commission"><strong>${formatMoney(commissionValue(item))}</strong><small>${escapeHtml(rateLabel(commissionRate(item)))}${item.reportIndirect ? " desde Marco" : odalizMode ? " Odaliz" : ""}</small></td>`;

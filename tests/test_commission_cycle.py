@@ -43,11 +43,11 @@ class CommissionCycleTests(unittest.TestCase):
     def tearDown(self):
         self.conn.close()
 
-    def add_provision(self, provision_id, record_id, seller, gross):
+    def add_provision(self, provision_id, record_id, seller, gross, allocations="[]"):
         self.conn.execute("""
             INSERT INTO bank_deposit_provisions VALUES (?, ?, 'account-1', 'Cliente',
-                'Cancelación de saldo', ?, ?, 0, 0, 0, '[]', '2026-10-01T10:00:00')
-        """, (provision_id, record_id, seller, gross))
+                'Cancelación de saldo', ?, ?, 0, 0, 0, ?, '2026-10-01T10:00:00')
+        """, (provision_id, record_id, seller, gross, allocations))
 
     def settle_direct_commission(self, provision_id, seller):
         self.conn.execute("INSERT OR IGNORE INTO commission_settlements(id, status) VALUES ('cut-1', 'Pagada')")
@@ -81,6 +81,28 @@ class CommissionCycleTests(unittest.TestCase):
 
         self.assertEqual(len(direct), 2)
         self.assertEqual({item["rate"] for item in direct}, {0.03})
+
+    def test_percentage_assigned_back_to_marco_is_taxed_as_his_commission(self):
+        self.add_provision(
+            "marco-self", "record-current", "Marco Velado", 224,
+            '[{"seller":"Credy Crece","percent":2},{"seller":"Marco Velado","percent":7}]',
+        )
+
+        report = SERVER.bank_seller_income_report_payload(self.conn)
+        item = report["items"][0]
+        self.assertEqual(item["commissionPending"], 13.66)
+        self.assertEqual(item["commissionAllocated"], 3.90)
+
+        liability = SERVER.commission_liability_payload(self.conn, report)
+        marco_net = next(item for item in liability["pending"] if item["kind"] == "marco-net")
+        marco_tax = next(item for item in liability["pending"] if item["kind"] == "marco-tax")
+        self.assertEqual(marco_net["grossCommission"], 13.66)
+        self.assertEqual(marco_tax["amount"], 1.37)
+        self.assertEqual(marco_net["amount"], 12.29)
+        self.assertFalse(any(
+            item["kind"] == "marco-allocation" and item["seller"] == "Marco Velado"
+            for item in liability["pending"]
+        ))
 
 
 if __name__ == "__main__":
