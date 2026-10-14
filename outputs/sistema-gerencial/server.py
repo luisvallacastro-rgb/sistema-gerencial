@@ -6956,7 +6956,20 @@ def commission_liability_payload(conn, report=None):
                 recipient = text(allocation.get("seller"))
                 if recipient == "Comisión Cancelada" or is_marco_velado(recipient):
                     continue
-                add_component(item, "marco-allocation", recipient, allocation.get("amount"),
+                allocation_amount = round(float(allocation.get("amount") or 0), 2)
+                if recipient.casefold() == "credy crece":
+                    allocation_tax = round(allocation_amount * 0.10, 2)
+                    allocation_net = round(allocation_amount - allocation_tax, 2)
+                    add_component(item, "marco-credy-tax", "Renta retenida", allocation_tax, 0.10,
+                                  f"Renta retenida 10% de descuento Credy Crece · {item['customerName']}",
+                                  {"grossAllocation": allocation_amount, "allocationRecipient": recipient})
+                    add_component(item, "marco-allocation", recipient, allocation_net,
+                                  float(allocation.get("percent") or 0) / 100,
+                                  f"{recipient} · neto después de renta 10% · {item['customerName']}",
+                                  {"grossAllocation": allocation_amount, "incomeTax": allocation_tax,
+                                   "netAllocation": allocation_net})
+                    continue
+                add_component(item, "marco-allocation", recipient, allocation_amount,
                               float(allocation.get("percent") or 0) / 100,
                               f"{recipient} · asignada por Marco Velado · {item['customerName']}")
             continue

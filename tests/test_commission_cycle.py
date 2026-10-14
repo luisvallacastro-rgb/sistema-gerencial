@@ -96,9 +96,15 @@ class CommissionCycleTests(unittest.TestCase):
         liability = SERVER.commission_liability_payload(self.conn, report)
         marco_net = next(item for item in liability["pending"] if item["kind"] == "marco-net")
         marco_tax = next(item for item in liability["pending"] if item["kind"] == "marco-tax")
+        credy_tax = next(item for item in liability["pending"] if item["kind"] == "marco-credy-tax")
+        credy_net = next(item for item in liability["pending"] if item["kind"] == "marco-allocation")
         self.assertEqual(marco_net["grossCommission"], 13.66)
         self.assertEqual(marco_tax["amount"], 1.37)
         self.assertEqual(marco_net["amount"], 12.30)
+        self.assertEqual(credy_tax["amount"], 0.39)
+        self.assertEqual(credy_net["grossAllocation"], 3.90)
+        self.assertEqual(credy_net["incomeTax"], 0.39)
+        self.assertEqual(credy_net["amount"], 3.51)
         self.assertFalse(any(
             item["kind"] == "marco-allocation" and item["seller"] == "Marco Velado"
             for item in liability["pending"]
