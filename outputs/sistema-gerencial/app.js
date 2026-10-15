@@ -3910,13 +3910,23 @@ function ensureControlSalesDialogs() {
         submit.textContent = "Registro financiero guardado";
         return;
       }
-      const payload = { expectedUpdatedAt:formDialog.dataset.expectedUpdatedAt || "", financialOrderId:linkedFinancialOrder.id, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
+      // Guardar el registro financiero sincroniza la OP y cambia updatedAt. Lee
+      // esa versión recién sincronizada antes de aplicar la edición para que el
+      // formulario no choque contra su propia actualización previa.
+      let expectedUpdatedAt = formDialog.dataset.expectedUpdatedAt || "";
+      if (id && apiEnabled) {
+        const latestOrder = await apiJson(`/api/control-sales/${encodeURIComponent(id)}`);
+        expectedUpdatedAt = latestOrder.updatedAt || expectedUpdatedAt;
+        formDialog.dataset.expectedUpdatedAt = expectedUpdatedAt;
+      }
+      const payload = { expectedUpdatedAt, preserveSignatures:state.temporarySignedOrderEditEnabled, financialOrderId:linkedFinancialOrder.id, sourceOpportunityId:document.querySelector("#controlSalesSourceOpportunityId").value, sourceQuotationId:document.querySelector("#controlSalesSourceQuotationId").value, number:document.querySelector("#controlSalesNumber").value.trim(), date:document.querySelector("#controlSalesDate").value, seller:document.querySelector("#controlSalesSeller").value.trim(), client:document.querySelector("#controlSalesClient").value.trim(), status:document.querySelector("#controlSalesOrderStatus").value, documentType:form.querySelector('input[name="controlSalesDocumentType"]:checked')?.value || "CF", proformaData:collectControlSalesProformaData(), details, updatedBy:state.currentUser?.name || "Sistema Gerencial" };
       const response = await apiJson(id ? `/api/control-sales/${encodeURIComponent(id)}` : "/api/control-sales", { method:id ? "PUT" : "POST", body:JSON.stringify(payload) });
       const savedOrder = response.item;
       const completedDirectFlow = formDialog.dataset.directOrderFlow === "true";
       document.querySelector("#controlSalesId").value = savedOrder.id;
       document.querySelector("#controlSalesNumber").value = savedOrder.number;
       document.querySelector("#controlSalesDialogTitle").textContent = `Editar pedido #${savedOrder.number}`;
+      formDialog.dataset.expectedUpdatedAt = savedOrder.updatedAt || "";
       submit.textContent = "Guardar cambios";
       await loadControlSales();
       await loadQuotations();
