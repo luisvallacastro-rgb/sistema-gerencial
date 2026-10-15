@@ -7,9 +7,10 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>KMI</title>
-    <link rel="stylesheet" href="styles.css?v=20261009-agenda-activities-v7">
+    <link rel="stylesheet" href="styles.css?v=20261015-panoramic-navigation-v1">
     <link id="lightThemeStylesheet" rel="stylesheet" href="light-theme.css?v=20260924-neon-light-v55" disabled>
     <link rel="stylesheet" href="light-modern.css?v=20260929-balance-comparativo-v5">
+    <link rel="stylesheet" href="navigation-shell.css?v=20261015-panoramic-v1">
   </head>
   <body>
     <main class="login-view" id="loginView">
@@ -88,15 +89,12 @@
     </main>
 
     <div class="app-shell hidden" id="appShell">
-      <aside class="sidebar">
+      <aside class="sidebar legacy-navigation-shell" aria-hidden="true">
         <div class="sidebar-head">
           <div class="brand-row compact">
             <div class="sidebar-brand-profile">
               <div class="sidebar-brand-line">
                 <strong class="product-wordmark sidebar-wordmark" aria-label="KONFI"><span class="kmi-logo-mark" aria-hidden="true"></span></strong>
-                <button class="system-theme-switch" id="systemThemeSwitch" type="button" role="switch" aria-checked="false" aria-label="Cambiar a tema claro" title="Cambiar tema">
-                  <span class="theme-switch-track" aria-hidden="true"><i class="theme-switch-sun">☀</i><i class="theme-switch-moon">☾</i><b></b></span>
-                </button>
               </div>
               <small id="activeRoleLabel">Gerencia general</small>
               <span class="online-pill" id="activeUserStatus"><i></i>Conectado</span>
@@ -107,20 +105,23 @@
           </button>
         </div>
         <nav class="nav-list" id="navList" aria-label="Gerencias"></nav>
-        <details class="presence-panel" aria-label="Usuarios conectados">
-          <summary class="presence-head" aria-label="Usuarios conectados" title="Ver usuarios conectados">
-            <i aria-hidden="true"></i>
-            <span id="onlineCount">0</span>
-            <b class="presence-chat-summary" id="chatUnreadIndicator" aria-label="Mensajes pendientes" title="Mensajes pendientes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg><em id="chatUnreadTotal">0</em></b>
-          </summary>
-          <div class="presence-list" id="presenceList">
-            <span class="presence-empty">Sin usuarios activos</span>
-          </div>
-        </details>
-        <button class="ghost-btn logout" id="logoutBtn" type="button">Cerrar sesion</button>
       </aside>
 
       <main class="dashboard">
+        <header class="global-navigation" aria-label="Navegación principal">
+          <strong class="product-wordmark global-wordmark" aria-label="KONFI"><span class="kmi-logo-mark" aria-hidden="true"></span></strong>
+          <nav class="macro-nav" id="macroNav" aria-label="Áreas del sistema"></nav>
+          <div class="global-navigation-actions">
+            <span class="global-user" id="globalUserName">Usuario</span>
+            <button class="system-theme-switch" id="systemThemeSwitch" type="button" role="switch" aria-checked="false" aria-label="Cambiar a tema claro" title="Cambiar tema">
+              <span class="theme-switch-track" aria-hidden="true"><i class="theme-switch-sun">☀</i><i class="theme-switch-moon">☾</i><b></b></span>
+            </button>
+            <button class="global-logout" id="logoutBtn" type="button" aria-label="Cerrar sesión" data-tooltip="Cerrar sesión">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4M14 8l4 4-4 4M18 12H9"/></svg>
+            </button>
+          </div>
+        </header>
+        <div class="dashboard-workspace">
         <button class="sidebar-restore hidden" id="sidebarRestoreBtn" type="button" aria-label="Mostrar menu">
           ☰
         </button>
@@ -263,7 +264,23 @@
             <div class="request-table" id="requestTable"></div>
           </article>
         </section>
+        </div>
       </main>
+      <footer class="system-footer-rail" aria-label="Navegación y comunicación">
+        <details class="presence-panel footer-presence" aria-label="Usuarios conectados">
+          <summary class="presence-head" aria-label="Usuarios conectados" title="Ver usuarios conectados">
+            <svg class="presence-users-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <i aria-hidden="true"></i>
+            <strong>Conectados</strong>
+            <span id="onlineCount">0</span>
+            <b class="presence-chat-summary" id="chatUnreadIndicator" aria-label="Mensajes pendientes" title="Mensajes pendientes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg><em id="chatUnreadTotal">0</em></b>
+          </summary>
+          <div class="presence-list" id="presenceList">
+            <span class="presence-empty">Sin usuarios activos</span>
+          </div>
+        </details>
+        <nav class="submenu-dock hidden" id="submenuDock" aria-label="Submódulos del área activa"></nav>
+      </footer>
     </div>
 
     <dialog id="requestDialog">
@@ -821,7 +838,7 @@
     <script src="financial-orders-seed.js?v=20260712-base-pedidos-v2"></script>
     <script src="financial-orders-additions.js?v=20260720-pedidos-270-275-v1"></script>
     <script src="financial-department-locations.js?v=20260808-v1"></script>
-    <script src="app.js?v=20261010-agenda-save-v8"></script>
+    <script src="app.js?v=20261015-panoramic-navigation-v1"></script>
     <script src="labor-reserve-projection.js?v=20261009-v1"></script>
   <script src="quotation-print-guard.js?v=2"></script>
   <script src="quotation-print-layout-fix.js?v=2"></script>

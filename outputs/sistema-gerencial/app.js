@@ -1030,6 +1030,9 @@ const sidebarToggleBtn = document.querySelector("#sidebarToggleBtn");
 const sidebarRestoreBtn = document.querySelector("#sidebarRestoreBtn");
 const systemThemeSwitch = document.querySelector("#systemThemeSwitch");
 const navList = document.querySelector("#navList");
+const macroNav = document.querySelector("#macroNav");
+const submenuDock = document.querySelector("#submenuDock");
+const globalUserName = document.querySelector("#globalUserName");
 const dashboard = document.querySelector(".dashboard");
 const explicitIPadLayout = /iPad/i.test(navigator.userAgent)
   || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -2756,35 +2759,99 @@ function ensureSelectOption(select, value, label = value) {
   select.value = value;
 }
 
+const navigationIconPaths = {
+  home: '<path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  finance: '<path d="M3 20h18M5 20V9m4 11V9m6 11V9m4 11V9M3 9l9-5 9 5z"/>',
+  sales: '<path d="M4 20V10m6 10V4m6 16v-7m5 7H2"/>',
+  operations: '<path d="M4 7h16M4 17h16M7 4v6m10 4v6M12 10v4"/>',
+  people: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  admin: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.15.37.37.7.66.98.28.27.66.42 1.04.42h.1v4h-.1A1.7 1.7 0 0 0 19.4 15z"/>',
+  bank: '<path d="M3 10h18M5 10V7l7-4 7 4v3M6 10v8m4-8v8m4-8v8m4-8v8M3 21h18"/>',
+  income: '<path d="M12 3v18m5-14.5c-1-1-2.2-1.5-4-1.5-2.5 0-4 1.2-4 3s1.5 2.5 4 3 4 1.3 4 3.5-1.8 3.5-4.5 3.5c-2 0-3.5-.6-4.5-1.7"/>',
+  inventory: '<path d="m4 7 8-4 8 4-8 4zM4 7v10l8 4 8-4V7M12 11v10"/>',
+  accounting: '<path d="M4 5h16v14H4zM8 9h8M8 13h3m3 0h2M8 17h2m3 0h3"/>',
+  document: '<path d="M6 2h8l4 4v16H6zM14 2v5h5M9 12h6m-6 4h6"/>',
+  report: '<path d="M4 20V10m5 10V4m5 16v-7m5 7V7"/>',
+  receivable: '<circle cx="12" cy="12" r="9"/><path d="M12 7v10m3-8.5c-.8-.7-1.7-1-3-1-1.7 0-2.8.8-2.8 2s1 1.7 2.8 2 3 .9 3 2.3-1.2 2.3-3.2 2.3c-1.4 0-2.5-.4-3.2-1.1"/>',
+  orders: '<path d="M6 3h12v18H6zM9 7h6m-6 4h6m-6 4h4"/>',
+  customer: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  approval: '<path d="m5 12 4 4L19 6"/><circle cx="12" cy="12" r="10"/>',
+  followup: '<path d="M4 18V6m0 12h16M7 14l4-4 3 3 5-6"/>',
+  calendar: '<path d="M4 5h16v16H4zM8 3v4m8-4v4M4 9h16"/>',
+  samples: '<path d="M9 3h6v4l3 5v7a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-7l3-5zM8 13h8"/>',
+  metrics: '<path d="M5 20V9m7 11V4m7 16v-7"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  risk: '<path d="M12 3 2 21h20zM12 9v5m0 3h.01"/>',
+  request: '<path d="M4 4h16v13H8l-4 4zM8 8h8m-8 4h5"/>',
+  production: '<path d="M3 21V9l6 4V9l6 4V5h6v16z"/>',
+  password: '<rect x="3" y="10" width="18" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'
+};
+
+const areaNavigationIcons = {
+  general: "home", financiera: "finance", comercializacion: "sales",
+  operaciones: "operations", rrhh: "people", administracion: "admin"
+};
+
+const submenuNavigationIcons = {
+  disponibilidad: "bank", ingresos: "income", inventario: "inventory", contabilidad: "accounting",
+  "reserva-laboral": "target", "facturacion-electronica": "document", "estados-financieros": "report",
+  "resultados-cuentas-por-cobrar": "receivable", "resultados-ordenes-de-pedido": "orders",
+  crm: "sales", cotizaciones: "document", "crm-clientes": "customer", "autorizacion-pedidos": "approval",
+  "resultados-pedidos": "orders", "crm-seguimiento": "followup", "agenda-comercial": "calendar",
+  anticipos: "income", "custodia-muestras": "samples", "resultados-oportunidades": "sales",
+  metricas: "metrics", meta: "target", riesgos: "risk", solicitudes: "request",
+  "resultados-control-ventas": "orders", "produccion-semanal": "production", "archivo-muestras": "samples",
+  permisos: "approval", vendedores: "people", actas: "document", "cambiar-contrasena": "password"
+};
+
+function navigationIcon(name) {
+  const paths = navigationIconPaths[name] || navigationIconPaths.document;
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
+}
+
 function renderNav() {
   navList.innerHTML = "";
-  allowedAreas().forEach((key) => {
+  macroNav.innerHTML = "";
+  const availableAreas = allowedAreas();
+  availableAreas.forEach((key) => {
     const area = areas[key];
     const submenus = visibleSubmenus(key);
-    const hasSubmenus = submenus.length > 0;
-    const isOpen = hasSubmenus && state.openMenus.has(key);
     const button = document.createElement("button");
-    button.className = `nav-item ${state.activeArea === key ? "active" : ""}`;
+    button.className = `macro-nav-button ${state.activeArea === key ? "active" : ""}`;
     button.type = "button";
-    button.setAttribute("aria-expanded", hasSubmenus ? String(isOpen) : "false");
-    button.innerHTML = `<span class="nav-item-label">${hasSubmenus ? `<span class="nav-caret" title="${isOpen ? "Ocultar" : "Ver"}">${isOpen ? "−" : "+"}</span>` : ""}<span>${area.nav}</span></span>`;
+    button.setAttribute("aria-label", area.nav);
+    button.setAttribute("aria-current", state.activeArea === key ? "page" : "false");
+    button.dataset.tooltip = area.nav;
+    button.innerHTML = navigationIcon(areaNavigationIcons[key]);
     button.addEventListener("click", () => {
       state.activeArea = key;
-      if (hasSubmenus) {
-        if (state.openMenus.has(key)) {
-          state.openMenus.delete(key);
-        } else {
-          state.openMenus.add(key);
-          if (!submenus.some((item) => item.key === state.activeSubmenu)) {
-            state.activeSubmenu = submenus[0].key;
-          }
-        }
+      state.openMenus.add(key);
+      if (submenus.length && !submenus.some((item) => item.key === state.activeSubmenu)) {
+        state.activeSubmenu = submenus[0].key;
       }
       persistNavigationState();
       renderDashboard();
     });
-    navList.appendChild(button);
-    if (hasSubmenus) renderSubmenu(area, key, submenus);
+    macroNav.appendChild(button);
+  });
+
+  const activeSubmenus = visibleSubmenus(state.activeArea);
+  submenuDock.innerHTML = "";
+  submenuDock.classList.toggle("hidden", activeSubmenus.length === 0);
+  activeSubmenus.forEach((item) => {
+    const button = document.createElement("button");
+    button.className = `submenu-dock-button ${state.activeSubmenu === item.key ? "active" : ""}`;
+    button.type = "button";
+    button.setAttribute("aria-label", item.label);
+    button.setAttribute("aria-current", state.activeSubmenu === item.key ? "page" : "false");
+    button.dataset.tooltip = item.label;
+    button.innerHTML = navigationIcon(submenuNavigationIcons[item.key]);
+    button.addEventListener("click", () => {
+      state.activeSubmenu = item.key;
+      persistNavigationState();
+      renderDashboard();
+    });
+    submenuDock.appendChild(button);
   });
 }
 
@@ -18798,6 +18865,7 @@ function openApp(userOrRole, options = {}) {
   ) || normalizeUsers([rawUser])[0];
 
   state.currentUser = user;
+  if (globalUserName) globalUserName.textContent = user.name || user.username || "Usuario";
   state.role = user.role;
   state.crmSellerId = "";
   const available = allowedAreas(user);
