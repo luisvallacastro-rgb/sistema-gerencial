@@ -1395,11 +1395,7 @@ function renderAdminValidationBanner() {
     sessionStorage.removeItem(adminValidationSessionKey);
     openApp(validation.administrator);
   });
-  const pageHeader = document.querySelector(".dashboard-workspace > .topbar");
-  const host = pageHeader && getComputedStyle(pageHeader).display !== "none"
-    ? pageHeader
-    : dashboardWorkspace;
-  host.append(banner);
+  dashboardWorkspace.append(banner);
 }
 
 async function startAdminUserValidation(userId) {
