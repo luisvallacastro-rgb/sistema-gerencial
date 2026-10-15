@@ -288,15 +288,12 @@
    control band leave the available height to the actionable order list. */
 .app-shell .dashboard-workspace:has(.commercial-approval) {
   display: grid !important;
-  grid-template-rows: auto minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
   overflow: hidden !important;
 }
 
 .app-shell .dashboard-workspace:has(.commercial-approval) > .topbar {
-  min-height: 54px !important;
-  margin-bottom: 8px !important;
-  padding: 9px 14px !important;
-  border-radius: 18px !important;
+  display: none !important;
 }
 
 .app-shell .dashboard-workspace:has(.commercial-approval) > .topbar #pageTitle {
@@ -328,7 +325,9 @@
 }
 
 .app-shell .commercial-approval__hero,
-.app-shell .commercial-approval__notice {
+.app-shell .commercial-approval__notice,
+.app-shell .commercial-panel:has(.commercial-approval) .commercial-approval__hero,
+.app-shell .commercial-panel:has(.commercial-approval) .commercial-approval__notice {
   display: none !important;
 }
 
