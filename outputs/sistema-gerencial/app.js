@@ -1050,6 +1050,7 @@ const minutesTopbarTabs = document.querySelector("#minutesTopbarTabs");
 const financialOrdersTopbarFilters = document.querySelector("#financialOrdersTopbarFilters");
 const financialOrderYearFilter = document.querySelector("#financialOrderYearFilter");
 const financialOrderMonthFilter = document.querySelector("#financialOrderMonthFilter");
+const financialOrdersFilterHome = financialOrdersTopbarFilters?.parentElement;
 const summaryGrid = document.querySelector("#summaryGrid");
 const resultsChart = document.querySelector("#resultsChart");
 const kpiList = document.querySelector("#kpiList");
@@ -7231,8 +7232,16 @@ function printAuthorizedFinancialOrdersReport() {
 }
 
 function renderFinancialOrderTopbarFilters(isVisible) {
+  const panelTitleRow = commercialSubmenuTitle?.closest(".commercial-panel-title-row");
+  if (financialOrdersTopbarFilters) {
+    if (isVisible && panelTitleRow && financialOrdersTopbarFilters.parentElement !== panelTitleRow) {
+      panelTitleRow.append(financialOrdersTopbarFilters);
+    } else if (!isVisible && financialOrdersFilterHome && financialOrdersTopbarFilters.parentElement !== financialOrdersFilterHome) {
+      financialOrdersFilterHome.insertBefore(financialOrdersTopbarFilters, topbarActions);
+    }
+  }
   financialOrdersTopbarFilters?.classList.toggle("hidden", !isVisible);
-  financialOrdersTopbarFilters?.closest(".topbar")?.classList.toggle("financial-orders-filter-mode", isVisible);
+  pageTitle.closest(".topbar")?.classList.remove("financial-orders-filter-mode");
   if (!isVisible || !financialOrderYearFilter || !financialOrderMonthFilter) return;
   const years = [...new Set(financialOrderLedgerRows().map((order) => String(order.year)).filter(Boolean))].sort((a, b) => Number(b) - Number(a));
   financialOrderYearFilter.innerHTML = `<option value="all">Todos</option>${years.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join("")}`;
