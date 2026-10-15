@@ -609,6 +609,85 @@
   scroll-snap-align: none !important;
 }
 
+/* Seguimiento already identifies itself inside its summary. Remove both
+   redundant title bars and keep a single, stable scroller for opportunities. */
+.app-shell .dashboard-workspace:has(.crm-tracking-overview) {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace:has(.crm-tracking-overview) > .topbar {
+  display: none !important;
+}
+
+.app-shell .commercial-panel:has(.crm-tracking-overview) {
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 10px 14px 12px !important;
+  overflow: hidden !important;
+  border-radius: 20px !important;
+}
+
+.app-shell .commercial-panel:has(.crm-tracking-overview) > .panel-head {
+  display: none !important;
+}
+
+.app-shell .commercial-panel:has(.crm-tracking-overview) > .opportunity-table,
+.app-shell .crm-original-module:has(.crm-tracking-overview) {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .crm-original-module:has(.crm-tracking-overview) {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-tracking-layout-refined {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: hidden !important;
+}
+
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-tracking-sidebar,
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-tracking-main {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-seller-chip-list,
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-tracking-grid,
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-won-history-list {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scroll-behavior: auto !important;
+  scroll-snap-type: none !important;
+  overflow-anchor: none;
+}
+
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-tracking-grid,
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-won-history-list {
+  padding-bottom: 12px !important;
+}
+
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-tracking-card,
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-won-history-row {
+  animation: none !important;
+  scroll-snap-align: none !important;
+  transform: none !important;
+}
+
+.app-shell .crm-original-module:has(.crm-tracking-overview) .crm-tracking-card:hover {
+  transform: none !important;
+}
+
 @media (max-width: 980px) {
   .app-shell .commercial-approval__hero > div:first-child {
     display: grid !important;
