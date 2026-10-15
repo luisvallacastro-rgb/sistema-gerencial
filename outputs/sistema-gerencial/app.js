@@ -7498,6 +7498,7 @@ function renderCommercialMetrics() {
   const selectedOrder = state.commercialMetricsOrder;
   const detailRows = orderRows.filter((order) => selectedOrder === "all" || orderKey(order) === selectedOrder);
   const detailSales = detailRows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
+  const sellerFilteredSales = sellerFilteredRows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   const sellerCount = new Set(rows.map((order) => normalizeKey(controlSalesResponsibleSeller(order))).filter(Boolean)).size;
   const period = selectedMonth === "all"
     ? (state.commercialMetricsYear === "all" ? "Todos los períodos" : `Año ${state.commercialMetricsYear}`)
@@ -7526,7 +7527,7 @@ function renderCommercialMetrics() {
             <div class="commercial-metrics-filter-row month table-head" role="row"><span>Mes</span><span>Ped.</span><span>Venta</span><span>%</span></div>
             ${monthlyRows.map((row) => {
               const percentage = totalSales ? row.sales / totalSales * 100 : 0;
-              return `<button type="button" class="commercial-metrics-filter-row month ${selectedMonth === row.month ? "active" : ""}" data-commercial-metrics-month="${escapeHtml(row.month)}" role="row"><strong>${escapeHtml(row.month)}</strong><span>${row.orders.toLocaleString("es-SV")}</span><span class="money">${formatMoney(row.sales)}</span><span>${percentage.toFixed(1)}%</span></button>`;
+              return `<button type="button" class="commercial-metrics-filter-row month ${selectedMonth === row.month ? "active" : ""}" data-commercial-metrics-month="${escapeHtml(row.month)}" role="row" aria-pressed="${selectedMonth === row.month}" style="--metric-share:${percentage.toFixed(2)}%"><strong>${escapeHtml(row.month)}</strong><span>${row.orders.toLocaleString("es-SV")}</span><span class="money">${formatMoney(row.sales)}</span><span>${percentage.toFixed(1)}%</span></button>`;
             }).join("") || `<div class="commercial-metrics-empty">No hay pedidos en el período seleccionado.</div>`}
             ${rows.length ? `<button type="button" class="commercial-metrics-filter-row month total ${selectedMonth === "all" ? "active" : ""}" data-commercial-metrics-month="all" role="row"><strong>Total anual</strong><span>${rows.length}</span><span class="money">${formatMoney(totalSales)}</span><span>100%</span></button>` : ""}
           </div>
@@ -7535,7 +7536,7 @@ function renderCommercialMetrics() {
           <header><div><span>Filtro 2</span><h3>Vendedor</h3></div><small>${sellerRows.length} disponibles</small></header>
           <div class="commercial-metrics-filter-list" role="table" aria-label="Pedidos por vendedor">
             <div class="commercial-metrics-filter-row seller table-head" role="row"><span>Vendedor</span><span>Ped.</span><span>Venta</span></div>
-            ${sellerRows.map((row) => `<button type="button" class="commercial-metrics-filter-row seller ${selectedSeller === row.key ? "active" : ""}" data-commercial-metrics-seller="${escapeHtml(row.key)}" role="row"><strong title="${escapeHtml(row.seller)}">${escapeHtml(row.seller)}</strong><span>${row.orders}</span><span class="money">${formatMoney(row.sales)}</span></button>`).join("") || `<div class="commercial-metrics-empty">No hay vendedores.</div>`}
+            ${sellerRows.map((row) => `<button type="button" class="commercial-metrics-filter-row seller ${selectedSeller === row.key ? "active" : ""}" data-commercial-metrics-seller="${escapeHtml(row.key)}" role="row" aria-pressed="${selectedSeller === row.key}" style="--metric-share:${monthRows.length ? (row.orders / monthRows.length * 100).toFixed(2) : 0}%"><strong title="${escapeHtml(row.seller)}">${escapeHtml(row.seller)}</strong><span>${row.orders}</span><span class="money">${formatMoney(row.sales)}</span></button>`).join("") || `<div class="commercial-metrics-empty">No hay vendedores.</div>`}
             ${monthRows.length ? `<button type="button" class="commercial-metrics-filter-row seller total ${selectedSeller === "all" ? "active" : ""}" data-commercial-metrics-seller="all" role="row"><strong>Todos</strong><span>${monthRows.length}</span><span class="money">${formatMoney(monthRows.reduce((sum, order) => sum + Number(order.sale || 0), 0))}</span></button>` : ""}
           </div>
         </section>
@@ -7543,7 +7544,7 @@ function renderCommercialMetrics() {
           <header><div><span>Filtro 3</span><h3>OP y cliente</h3></div><small>${orderRows.length} disponibles</small></header>
           <div class="commercial-metrics-filter-list" role="table" aria-label="Órdenes de pedido y clientes">
             <div class="commercial-metrics-filter-row order table-head" role="row"><span>OP</span><span>Cliente</span></div>
-            ${orderRows.map((order) => `<button type="button" class="commercial-metrics-filter-row order ${selectedOrder === orderKey(order) ? "active" : ""}" data-commercial-metrics-order="${escapeHtml(orderKey(order))}" role="row"><strong>${escapeHtml(financialOrderRealNumber(order))}</strong><span title="${escapeHtml(order.client || "Sin cliente")}">${escapeHtml(order.client || "Sin cliente")}</span></button>`).join("") || `<div class="commercial-metrics-empty">No hay órdenes.</div>`}
+            ${orderRows.map((order) => `<button type="button" class="commercial-metrics-filter-row order ${selectedOrder === orderKey(order) ? "active" : ""}" data-commercial-metrics-order="${escapeHtml(orderKey(order))}" role="row" aria-pressed="${selectedOrder === orderKey(order)}" style="--metric-share:${sellerFilteredSales ? (Number(order.sale || 0) / sellerFilteredSales * 100).toFixed(2) : 0}%"><strong>${escapeHtml(financialOrderRealNumber(order))}</strong><span title="${escapeHtml(order.client || "Sin cliente")}">${escapeHtml(order.client || "Sin cliente")}</span></button>`).join("") || `<div class="commercial-metrics-empty">No hay órdenes.</div>`}
             ${sellerFilteredRows.length ? `<button type="button" class="commercial-metrics-filter-row order total ${selectedOrder === "all" ? "active" : ""}" data-commercial-metrics-order="all" role="row"><strong>Todas</strong><span>${sellerFilteredRows.length} órdenes</span></button>` : ""}
           </div>
         </section>
