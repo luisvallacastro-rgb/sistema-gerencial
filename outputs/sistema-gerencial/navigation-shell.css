@@ -284,6 +284,132 @@
   min-height: 42px !important;
 }
 
+/* Compact order authorization: one page title and a shallow operational
+   control band leave the available height to the actionable order list. */
+.app-shell .dashboard-workspace:has(.commercial-approval) {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace:has(.commercial-approval) > .topbar {
+  min-height: 54px !important;
+  margin-bottom: 8px !important;
+  padding: 9px 14px !important;
+  border-radius: 18px !important;
+}
+
+.app-shell .dashboard-workspace:has(.commercial-approval) > .topbar #pageTitle {
+  font-size: clamp(25px, 2vw, 32px) !important;
+}
+
+.app-shell .commercial-panel:has(.commercial-approval) {
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 10px 14px 12px !important;
+  overflow: hidden !important;
+  border-radius: 20px !important;
+}
+
+.app-shell .commercial-panel:has(.commercial-approval) > .panel-head {
+  display: none !important;
+}
+
+.app-shell .commercial-panel:has(.commercial-approval) > .opportunity-table {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .commercial-approval {
+  grid-template-rows: auto auto auto minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+.app-shell .commercial-approval__hero {
+  min-height: 66px !important;
+  gap: 14px !important;
+  padding: 9px 14px !important;
+  border-radius: 16px !important;
+}
+
+.app-shell .commercial-approval__hero > div:first-child {
+  grid-template-columns: auto auto minmax(0, 1fr) !important;
+  align-items: baseline !important;
+  gap: 8px 13px !important;
+}
+
+.app-shell .commercial-approval__hero > div:first-child > span {
+  grid-column: 1 !important;
+}
+
+.app-shell .commercial-approval__hero h3 {
+  grid-column: 2 !important;
+  font-size: clamp(18px, 1.6vw, 23px) !important;
+  white-space: nowrap !important;
+}
+
+.app-shell .commercial-approval__hero p {
+  grid-column: 3 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.app-shell .commercial-approval__metrics {
+  grid-template-columns: repeat(2, minmax(94px, 112px)) !important;
+  gap: 7px !important;
+}
+
+.app-shell .commercial-approval__metrics article {
+  grid-template-columns: 1fr auto !important;
+  align-items: center !important;
+  min-width: 94px !important;
+  min-height: 46px !important;
+  padding: 6px 10px !important;
+  border-radius: 12px !important;
+}
+
+.app-shell .commercial-approval__metrics strong {
+  font-size: 20px !important;
+}
+
+.app-shell .commercial-approval__search {
+  min-height: 40px !important;
+  padding-inline: 12px !important;
+  border-radius: 12px !important;
+}
+
+.app-shell .commercial-approval__notice {
+  min-height: 34px !important;
+  padding: 6px 12px !important;
+  border-radius: 10px !important;
+}
+
+.app-shell .commercial-approval__list {
+  gap: 7px !important;
+  overscroll-behavior: contain;
+  scroll-behavior: auto !important;
+  overflow-anchor: none;
+}
+
+.app-shell .commercial-approval__row {
+  min-height: 66px !important;
+  padding: 9px 12px !important;
+  border-radius: 14px !important;
+}
+
+@media (max-width: 980px) {
+  .app-shell .commercial-approval__hero > div:first-child {
+    display: grid !important;
+    grid-template-columns: auto 1fr !important;
+  }
+  .app-shell .commercial-approval__hero p {
+    grid-column: 1 / -1 !important;
+  }
+}
+
 /* Disponibilidad participates in the workspace scroll; no nested wheel traps. */
 .app-shell .commercial-panel.bank-availability-mode,
 .app-shell .dashboard.opportunity-focus .commercial-panel.bank-availability-mode {
