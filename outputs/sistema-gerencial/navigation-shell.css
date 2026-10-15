@@ -1583,6 +1583,50 @@
   backdrop-filter: blur(14px) !important;
 }
 
+/* Reserva laboral conserva un solo título y un lienzo estable. */
+.app-shell .dashboard-workspace:has(> .commercial-panel.labor-reserve-mode) {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  align-content: stretch !important;
+  padding-top: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace:has(> .commercial-panel.labor-reserve-mode) > .topbar,
+.app-shell .dashboard-workspace > .commercial-panel.labor-reserve-mode > .panel-head {
+  display: none !important;
+}
+
+.app-shell .dashboard-workspace > .commercial-panel.labor-reserve-mode {
+  display: flex !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 12px !important;
+  overflow: hidden !important;
+}
+
+.app-shell .commercial-panel.labor-reserve-mode > .opportunity-table {
+  display: grid !important;
+  place-items: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: 0 4px 16px 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  overflow-anchor: none !important;
+  scroll-behavior: auto !important;
+  scrollbar-gutter: stable !important;
+}
+
+.app-shell .commercial-panel.labor-reserve-mode .labor-reserve-panel {
+  margin: auto !important;
+}
+
 /* Operational opportunity actions always stay in one visible horizontal lane. */
 .app-shell .commercial-panel.opportunity-mode .opportunity-header,
 .app-shell .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row,
