@@ -1534,6 +1534,10 @@
   overflow: hidden !important;
 }
 
+.app-shell .dashboard-workspace:has(> .commercial-panel.bank-availability-mode) > .topbar {
+  display: none !important;
+}
+
 .app-shell .dashboard-workspace > .commercial-panel.bank-availability-mode,
 .app-shell .dashboard.opportunity-focus .commercial-panel.bank-availability-mode {
   height: 100% !important;
