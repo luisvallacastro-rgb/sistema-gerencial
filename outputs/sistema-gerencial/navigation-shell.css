@@ -1686,6 +1686,30 @@ body:has(> .app-shell:not(.hidden)) {
 }
 
 /* Operational opportunity actions always stay in one visible horizontal lane. */
+.app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs #crmOpportunitiesViewTabs [data-crm-opportunities-view="list"] {
+  background: rgba(47, 190, 151, .1) !important;
+  color: #83efd4 !important;
+  box-shadow: inset 0 0 0 1px rgba(91, 226, 196, .2) !important;
+}
+
+.app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs #crmOpportunitiesViewTabs [data-crm-opportunities-view="list"].active {
+  background: linear-gradient(135deg, rgba(31, 151, 124, .48), rgba(31, 92, 104, .42)) !important;
+  color: #d9fff5 !important;
+  box-shadow: inset 0 0 0 1px rgba(112, 245, 209, .62), 0 0 18px rgba(65, 224, 188, .2) !important;
+}
+
+.app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs #crmOpportunitiesViewTabs [data-crm-opportunities-view="expired"] {
+  background: rgba(218, 153, 47, .1) !important;
+  color: #f2c66f !important;
+  box-shadow: inset 0 0 0 1px rgba(229, 170, 75, .22) !important;
+}
+
+.app-shell .commercial-panel.opportunity-mode.crm-opportunity-tabs #crmOpportunitiesViewTabs [data-crm-opportunities-view="expired"].active {
+  background: linear-gradient(135deg, rgba(184, 116, 29, .58), rgba(113, 76, 34, .48)) !important;
+  color: #fff0c9 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 199, 105, .68), 0 0 18px rgba(238, 164, 55, .2) !important;
+}
+
 .app-shell .commercial-panel.opportunity-mode .opportunity-header,
 .app-shell .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row,
 .app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-header,
