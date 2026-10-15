@@ -1627,6 +1627,55 @@
   margin: auto !important;
 }
 
+/* Historial de actas: encabezado estable y tabla como único scroll vertical. */
+.app-shell .dashboard-workspace:has(> .admin-panel.minutes-panel-active .minutes-history-mode) {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  align-content: stretch !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace > .admin-panel.minutes-panel-active:has(.minutes-history-mode) {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 12px !important;
+  overflow: hidden !important;
+}
+
+.app-shell .admin-panel.minutes-panel-active .minutes-shell.minutes-history-mode,
+.app-shell .admin-panel.minutes-panel-active .minutes-history-card {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .admin-panel.minutes-panel-active .minutes-shell.minutes-history-mode {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+
+.app-shell .admin-panel.minutes-panel-active .minutes-history-card {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+
+.app-shell .admin-panel.minutes-panel-active .minutes-history-table-wrap {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding-bottom: 16px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  overflow-anchor: none !important;
+  scroll-behavior: auto !important;
+  scrollbar-gutter: stable !important;
+}
+
 /* Operational opportunity actions always stay in one visible horizontal lane. */
 .app-shell .commercial-panel.opportunity-mode .opportunity-header,
 .app-shell .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row,
