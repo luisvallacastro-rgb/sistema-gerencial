@@ -456,6 +456,7 @@ const state = {
   crmWonDateTo: "",
   crmOpportunityPage: 1,
   crmOpportunitiesView: "list",
+  temporarySignedOrderEditEnabled: false,
   period: currentElSalvadorPeriod()
 };
 
@@ -487,6 +488,7 @@ areas[adminAreaKey] = {
     { key: "actas", label: "Actas" },
     { key: "riesgos", label: "Riesgos", status: "Consolidado de todas las gerencias" },
     { key: "solicitudes", label: "Solicitudes", status: "Consolidado de todas las gerencias" },
+    { key: "apariencia", label: "Configuración" },
     { key: "cambiar-contrasena", label: "Cambiar contraseña" }
   ],
   summary: [],
@@ -4171,8 +4173,12 @@ const QUOTATIONS_STORAGE_KEY = "sistemaGerencial.cotizaciones.v1";
 async function loadQuotations() {
   if (apiEnabled) {
     try {
-      const items = await apiJson("/api/quotations");
+      const [items, temporaryAccess] = await Promise.all([
+        apiJson("/api/quotations"),
+        apiJson("/api/admin/temporary-order-edit").catch(() => ({ enabled: false }))
+      ]);
       state.quotations = Array.isArray(items) ? items : [];
+      state.temporarySignedOrderEditEnabled = Boolean(temporaryAccess?.enabled);
       if (state.activeArea === "comercializacion" && ["meta", "custodia-muestras"].includes(state.activeSubmenu)) renderDashboard();
       return state.quotations;
     } catch (error) { console.warn("No fue posible cargar las cotizaciones", error); }
@@ -4610,8 +4616,9 @@ function canReviseConvertedDirectQuotation(quotation = {}) {
     || String(linkedOrder?.proformaData?.workflow || "") === "direct-final-only";
   if (!linkedOrder) return true;
   const financeSigned = linkedOrder.financeApprovalStatus === "Aprobada" || Boolean(linkedOrder.financeApprovedAt);
+  const commercialSigned = linkedOrder.commercialApprovalStatus === "Autorizada" || Boolean(linkedOrder.commercialApprovedAt);
+  if (state.temporarySignedOrderEditEnabled && (commercialSigned || financeSigned)) return true;
   if (!isDirect) {
-    const commercialSigned = linkedOrder.commercialApprovalStatus === "Autorizada" || Boolean(linkedOrder.commercialApprovedAt);
     return !commercialSigned && !financeSigned;
   }
   if (financeSigned) return false;
@@ -18138,6 +18145,10 @@ function renderAdminAppearancePanel() {
           <i class="appearance-check" aria-hidden="true">✓</i>
         </button>
       </div>
+      <section class="temporary-access-card" data-enabled="${state.temporarySignedOrderEditEnabled}">
+        <div><span class="eyebrow">Acceso temporal</span><h4>Editar OP ya firmadas</h4><p>Al habilitarlo aparecerá el lápiz en Cotizaciones / OP. Los cambios conservarán ambas firmas y quedarán registrados en el historial de la orden.</p></div>
+        <button type="button" data-temporary-order-edit-toggle aria-pressed="${state.temporarySignedOrderEditEnabled}"><i aria-hidden="true"></i><span>${state.temporarySignedOrderEditEnabled ? "Habilitado" : "Deshabilitado"}</span></button>
+      </section>
       <aside class="appearance-note"><strong>Colores funcionales preservados</strong><span>Los estados Tibio, Caliente, Frío, riesgos, alertas y resultados mantienen sus colores en ambos temas.</span></aside>
     </section>`;
 }
@@ -18148,6 +18159,23 @@ function wireAdminAppearancePanel() {
       applySystemTheme(button.dataset.systemTheme);
       renderAdminPanel();
     });
+  });
+  adminPanel?.querySelector("[data-temporary-order-edit-toggle]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const enabled = !state.temporarySignedOrderEditEnabled;
+    if (!confirm(`${enabled ? "Habilitar" : "Deshabilitar"} temporalmente la edición de OP firmadas?`)) return;
+    button.disabled = true;
+    try {
+      const response = await apiJson("/api/admin/temporary-order-edit", {
+        method: "PATCH",
+        body: JSON.stringify({ enabled })
+      });
+      state.temporarySignedOrderEditEnabled = Boolean(response.enabled);
+      renderAdminPanel();
+    } catch (error) {
+      button.disabled = false;
+      alert(error.message || "No se pudo cambiar el acceso temporal.");
+    }
   });
 }
 

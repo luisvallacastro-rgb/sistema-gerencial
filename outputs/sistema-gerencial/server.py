@@ -482,6 +482,20 @@ def is_direct_quotation_revision_authorized(user):
     return is_judith or is_luis
 
 
+TEMPORARY_SIGNED_ORDER_EDIT_KEY = "feature.temporary-signed-order-edit"
+
+
+def temporary_signed_order_edit_enabled(conn):
+    row = conn.execute("SELECT value FROM app_state WHERE key = ?", (TEMPORARY_SIGNED_ORDER_EDIT_KEY,)).fetchone()
+    if not row:
+        return False
+    try:
+        value = json.loads(row["value"] or "false")
+    except (TypeError, json.JSONDecodeError):
+        value = False
+    return value is True or (isinstance(value, dict) and value.get("enabled") is True)
+
+
 def is_odaliz_valencia_user(user):
     if not user:
         return False
@@ -4439,15 +4453,32 @@ def save_control_sales_order(conn, data, existing_row=None):
     commercial_approved_by = "Flujo directo de Clientes" if direct_order_flow else ""
     commercial_approved_at = now if direct_order_flow else ""
     commercial_approval_note = "Firma comercial omitida; requiere únicamente aprobación financiera de Edgar Menjívar." if direct_order_flow else ""
+    preserve_signatures = bool(
+        existing_row
+        and data.get("preserveSignatures") is True
+        and temporary_signed_order_edit_enabled(conn)
+        and (
+            text(existing.get("commercialApprovalStatus")) == "Autorizada"
+            or bool(text(existing.get("commercialApprovedAt")))
+            or text(existing.get("financeApprovalStatus")) == "Aprobada"
+            or bool(text(existing.get("financeApprovedAt")))
+        )
+    )
     if existing_row:
-        conn.execute("""
-            UPDATE control_sales_orders SET financial_order_id=?, source_opportunity_id=?, source_quotation_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
-                document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
-                proforma_data=?, commercial_approval_status=?, commercial_approved_by=?, commercial_approved_at=?, commercial_approval_note=?,
-                finance_approval_status='Pendiente', finance_approved_by='', finance_approved_at='', finance_approval_note='', updated_by=?, updated_at=? WHERE id=?
-        """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, commercial_status, commercial_approved_by, commercial_approved_at, commercial_approval_note, actor, now, order_id))
+        if preserve_signatures:
+            conn.execute("""
+                UPDATE control_sales_orders SET financial_order_id=?, source_opportunity_id=?, source_quotation_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
+                    document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?, proforma_data=?, updated_by=?, updated_at=? WHERE id=?
+            """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, actor, now, order_id))
+        else:
+            conn.execute("""
+                UPDATE control_sales_orders SET financial_order_id=?, source_opportunity_id=?, source_quotation_id=?, order_number=?, order_date=?, seller=?, client=?, status=?,
+                    document_type=?, total_cents=?, expected_total_cents=?, variance_cents=?,
+                    proforma_data=?, commercial_approval_status=?, commercial_approved_by=?, commercial_approved_at=?, commercial_approval_note=?,
+                    finance_approval_status='Pendiente', finance_approved_by='', finance_approved_at='', finance_approval_note='', updated_by=?, updated_at=? WHERE id=?
+            """, (financial_order_id, source_opportunity_id, source_quotation_id, item["number"], item["date"], item["seller"], item["client"], item["status"], item["documentType"], item["totalCents"], expected_total_cents, variance_cents, proforma_json, commercial_status, commercial_approved_by, commercial_approved_at, commercial_approval_note, actor, now, order_id))
         conn.execute("UPDATE control_sales_details SET active = 0, updated_at = ? WHERE order_id = ?", (now, order_id))
-        action = "edicion"
+        action = "edicion_op_firmada" if preserve_signatures else "edicion"
     else:
         conn.execute("""
             INSERT INTO control_sales_orders (
@@ -4493,7 +4524,7 @@ def save_control_sales_order(conn, data, existing_row=None):
         if financial_order_id else ""
     )
     conn.execute("INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
-                 (order_id, action, actor, now, f"Orden {item['number']} · {len(item['details'])} lineas{reconciliation_summary}"))
+                 (order_id, action, actor, now, f"Orden {item['number']} · {len(item['details'])} lineas{reconciliation_summary}{' · Firmas conservadas mediante acceso temporal' if preserve_signatures else ''}"))
     if source_quotation_id:
         conn.execute("""
             UPDATE quotations
@@ -5076,6 +5107,7 @@ def save_quotation(conn, data, existing_row=None):
                 "proformaData": linked_proforma,
                 "details": linked_details,
                 "updatedBy": actor,
+                "preserveSignatures": temporary_signed_order_edit_enabled(conn),
             }, linked_order_row)
     if existing and (text(existing.get("client")) != item["client"] or previous_customer_id != selected_customer_id):
         sync_opportunity_name_from_quotation(conn, item["opportunityId"], item["client"], item["customerData"])
@@ -10441,6 +10473,17 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.send_json({"ok": True, "version": API_VERSION, "training": TRAINING_MODE})
             return
 
+        if urlparse(self.path).path == "/api/admin/temporary-order-edit":
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            with connect() as conn:
+                actor = conn.execute("SELECT id FROM users WHERE id = ? LIMIT 1", (actor_id,)).fetchone() if actor_id else None
+                if not actor:
+                    self.send_json({"error": "Debes iniciar sesión"}, status=401)
+                    return
+                enabled = temporary_signed_order_edit_enabled(conn)
+            self.send_json({"enabled": enabled})
+            return
+
         path = urlparse(self.path).path
         if path == "/api/fiscal/config":
             actor = self.require_fiscal_session("financiera:facturacion-electronica-consultar")
@@ -12441,7 +12484,8 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                             text(linked_order["finance_approval_status"]) == "Aprobada"
                             or bool(text(linked_order["finance_approved_at"]))
                         )
-                        if finance_signed:
+                        temporary_edit = temporary_signed_order_edit_enabled(conn)
+                        if finance_signed and not temporary_edit:
                             self.send_json({"error": "La cotizacion no puede modificarse porque Edgar Menjivar ya firmó la OP"}, status=409)
                             return
                         actor_id = text(self.headers.get("X-System-User-Id"))
@@ -12461,10 +12505,11 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                             text(linked_order["commercial_approval_status"]) == "Autorizada"
                             or bool(text(linked_order["commercial_approved_at"]))
                         )
-                        if finance_signed:
+                        temporary_edit = temporary_signed_order_edit_enabled(conn)
+                        if finance_signed and not temporary_edit:
                             self.send_json({"error": "La cotizacion no puede modificarse porque Edgar Menjivar ya firmó la OP"}, status=409)
                             return
-                        if commercial_signed:
+                        if commercial_signed and not temporary_edit:
                             self.send_json({"error": "Retira primero la firma de Odaliz para modificar la cotizacion y actualizar la OP"}, status=409)
                             return
                     item = save_quotation(conn, data, row)
@@ -12764,6 +12809,31 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
     def handle_api_patch(self):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+        if self.path == "/api/admin/temporary-order-edit":
+            changes = self.read_json()
+            if not isinstance(changes.get("enabled"), bool):
+                self.send_json({"error": "El estado habilitado es requerido"}, status=400)
+                return
+            actor_id = text(self.headers.get("X-System-User-Id"))
+            with connect() as conn:
+                actor = conn.execute(
+                    "SELECT id, name, admin FROM users WHERE id = ? LIMIT 1",
+                    (actor_id,),
+                ).fetchone() if actor_id else None
+                if not actor or not bool(actor["admin"]):
+                    self.send_json({"error": "Solo el administrador puede cambiar este acceso temporal"}, status=403)
+                    return
+                value = {
+                    "enabled": changes["enabled"],
+                    "updatedBy": text(actor["name"], "Administrador"),
+                    "updatedAt": datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds"),
+                }
+                conn.execute("""
+                    INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP
+                """, (TEMPORARY_SIGNED_ORDER_EDIT_KEY, json.dumps(value, ensure_ascii=False)))
+            self.send_json({"ok": True, "enabled": changes["enabled"]})
             return
         if self.path == "/api/commercial-agenda/validation":
             actor_id = text(self.headers.get("X-System-User-Id"))
