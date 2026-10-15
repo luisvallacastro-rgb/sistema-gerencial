@@ -1478,8 +1478,14 @@ function fallbackAreaForRole(role) {
   return "comercializacion";
 }
 
+// Modules that are still under local development must never be exposed by the
+// production navigation, even when an older permission set includes them.
+const productionHiddenAreaKeys = new Set(["rrhh"]);
+
 function allowedAreas(user = state.currentUser) {
-  const visible = areaKeys.filter((areaKey) => visibleSubmenus(areaKey, user).length);
+  const visible = areaKeys.filter((areaKey) =>
+    !productionHiddenAreaKeys.has(areaKey) && visibleSubmenus(areaKey, user).length
+  );
   if (visibleSubmenus(adminAreaKey, user).length) visible.push(adminAreaKey);
   return visible.length ? visible : [fallbackAreaForRole(user?.role || state.role)];
 }

@@ -60,12 +60,12 @@
 }
 
 .app-shell .dashboard-workspace > .topbar {
-  position: relative !important;
-  top: auto !important;
-  z-index: 1 !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 115 !important;
   margin-bottom: 12px !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
+  box-shadow: 0 14px 34px rgba(3, 10, 22, .24) !important;
+  backdrop-filter: blur(24px) saturate(1.18) !important;
 }
 
 /* Disponibilidad participates in the workspace scroll; no nested wheel traps. */
