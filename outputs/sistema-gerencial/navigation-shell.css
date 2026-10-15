@@ -72,6 +72,114 @@
   animation: none !important;
 }
 
+/* Opportunity workspaces have one scroll owner: the record list itself. */
+.app-shell .dashboard-workspace:has(> .commercial-panel.opportunity-mode) {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  align-content: stretch !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace > .commercial-panel.opportunity-mode {
+  height: 100% !important;
+  min-height: 0 !important;
+  margin-bottom: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace > .commercial-panel.opportunity-mode > .opportunity-table {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace > .commercial-panel.opportunity-mode .opportunity-table-body {
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scroll-behavior: auto !important;
+  scroll-snap-type: y proximity;
+}
+
+.app-shell .dashboard-workspace > .commercial-panel.opportunity-mode .opportunity-table-body > .opportunity-row {
+  scroll-snap-align: start;
+}
+
+/* Quotations follow the same single-scroll contract as opportunities. */
+.app-shell .dashboard-workspace:has(> .commercial-panel .quotations-module) {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  align-content: stretch !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace:has(> .commercial-panel .quotations-module) > .commercial-panel,
+.app-shell .dashboard-workspace:has(> .commercial-panel .quotations-module) > .commercial-panel > .opportunity-table {
+  height: 100% !important;
+  min-height: 0 !important;
+  margin-bottom: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace .quotations-module {
+  grid-template-rows: auto auto minmax(0, 1fr) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace .quotations-module > .quotation-table-body {
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  scroll-behavior: auto !important;
+  scroll-snap-type: y proximity;
+}
+
+.app-shell .dashboard-workspace .quotations-module > .quotation-table-body > .quotation-table-row {
+  scroll-snap-align: start;
+}
+
+/* Customer master, requests and customer documents use the same stable frame. */
+.app-shell .dashboard-workspace:has(> .commercial-panel .crm-customers-module) {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  align-content: stretch !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace:has(> .commercial-panel .crm-customers-module) > .commercial-panel,
+.app-shell .dashboard-workspace:has(> .commercial-panel .crm-customers-module) > .commercial-panel > .opportunity-table {
+  height: 100% !important;
+  min-height: 0 !important;
+  margin-bottom: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace .crm-customers-module {
+  grid-template-rows: auto auto minmax(0, 1fr) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace .crm-customers-module > .crm-customer-table-wrap,
+.app-shell .dashboard-workspace .crm-customers-module > .crm-customer-document-list {
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  scroll-behavior: auto !important;
+  scroll-snap-type: y proximity;
+}
+
+.app-shell .dashboard-workspace .crm-customer-table > .crm-customer-row:not(.crm-customer-head),
+.app-shell .dashboard-workspace .crm-customer-document-list > .crm-customer-document-row {
+  scroll-snap-align: start;
+}
+
 /* Disponibilidad participates in the workspace scroll; no nested wheel traps. */
 .app-shell .commercial-panel.bank-availability-mode,
 .app-shell .dashboard.opportunity-focus .commercial-panel.bank-availability-mode {
