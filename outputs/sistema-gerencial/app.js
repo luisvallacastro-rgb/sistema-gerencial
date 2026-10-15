@@ -1395,14 +1395,27 @@ function renderAdminValidationBanner() {
     sessionStorage.removeItem(adminValidationSessionKey);
     openApp(validation.administrator);
   });
-  document.body.append(banner);
+  const pageHeader = document.querySelector(".dashboard-workspace > .topbar");
+  const host = pageHeader && getComputedStyle(pageHeader).display !== "none"
+    ? pageHeader
+    : dashboardWorkspace;
+  host.append(banner);
 }
 
-function startAdminUserValidation(userId) {
+async function startAdminUserValidation(userId) {
   if (!isAdminUser()) return;
+  const administrator = state.currentUser;
+  await usersSaveQueue.catch(() => {});
+  if (apiEnabled) {
+    try {
+      systemUsers = normalizeUsers(await apiJson("/api/users"));
+      localStorage.setItem(usersStorageKey, JSON.stringify(systemUsers));
+    } catch {
+      // La validación puede continuar con la última copia local confirmada.
+    }
+  }
   const target = systemUsers.find((user) => user.id === userId);
   if (!target || isAdminUser(target)) return;
-  const administrator = state.currentUser;
   sessionStorage.setItem(adminValidationSessionKey, JSON.stringify({
     administratorId: administrator.id,
     targetId: target.id,
