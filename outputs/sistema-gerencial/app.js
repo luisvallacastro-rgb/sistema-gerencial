@@ -1709,6 +1709,11 @@ function opportunityAgeInDays(createdDate) {
   return Math.max(0, Math.floor(elapsed / 86400000));
 }
 
+function isCrmOpportunityExpired(opportunity = {}) {
+  const ageDays = opportunityAgeInDays(opportunityCreatedDate(opportunity));
+  return ageDays !== null && ageDays > 30;
+}
+
 function opportunityDateCell(opportunity, isOpen = true) {
   const createdDate = opportunityCreatedDate(opportunity);
   const ageDays = opportunityAgeInDays(createdDate);
@@ -10016,9 +10021,13 @@ async function handleCrmCancelledAction(button) {
 }
 
 function renderCrmDashboard() {
-  if (!["list", "seller-kpi", "cancelled"].includes(state.crmOpportunitiesView)) state.crmOpportunitiesView = "list";
+  if (!["list", "seller-kpi", "expired", "cancelled"].includes(state.crmOpportunitiesView)) state.crmOpportunitiesView = "list";
   if (state.crmOpportunitiesView === "cancelled") return renderCrmCancelled();
-  const rows = filteredCrmDashboardOpportunities();
+  const filteredRows = filteredCrmDashboardOpportunities();
+  const isExpiredView = state.crmOpportunitiesView === "expired";
+  const rows = filteredRows.filter((opportunity) => isExpiredView
+    ? isCrmOpportunityExpired(opportunity)
+    : !isCrmOpportunityExpired(opportunity));
   opportunityTotalAmount.querySelector("strong").textContent = formatMoney(
     rows.reduce((sum, opportunity) => sum + Number(opportunity.estimatedAmount || 0), 0)
   );
@@ -10052,7 +10061,7 @@ function renderCrmDashboard() {
             </span>
           </div>
         `;
-      }).join("") : `<div class="empty-state">No hay oportunidades vigentes para este filtro.</div>`}
+      }).join("") : `<div class="empty-state">${isExpiredView ? "No hay oportunidades vencidas para este filtro." : "No hay oportunidades vigentes para este filtro."}</div>`}
     </div>
   `;
 }
