@@ -1,4 +1,13 @@
 /* KMI production navigation shell. Loaded last to isolate the panoramic layout from legacy rules. */
+html:has(body > .app-shell:not(.hidden)),
+body:has(> .app-shell:not(.hidden)) {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
 .app-shell.hidden {
   display: none !important;
 }
