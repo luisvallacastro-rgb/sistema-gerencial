@@ -235,6 +235,101 @@
   z-index: 2 !important;
 }
 
+/* Custodia: remove the redundant rounded page heading and keep the compact
+   panel heading. Only the operational ledger scrolls. */
+.app-shell .dashboard-workspace:has(> .commercial-panel.sample-custody-mode) {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  align-content: stretch !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace:has(> .commercial-panel.sample-custody-mode) > .topbar {
+  display: none !important;
+}
+
+.app-shell .dashboard-workspace > .commercial-panel.sample-custody-mode {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 9px 13px 11px !important;
+  overflow: hidden !important;
+  border-radius: 18px !important;
+}
+
+.app-shell .commercial-panel.sample-custody-mode > .panel-head {
+  min-height: 42px !important;
+  margin: 0 0 7px !important;
+  padding: 4px 5px !important;
+}
+
+.app-shell .commercial-panel.sample-custody-mode > .panel-head h3 {
+  margin: 0 !important;
+  font-size: clamp(17px, 1.45vw, 22px) !important;
+  line-height: 1 !important;
+}
+
+.app-shell .commercial-panel.sample-custody-mode > .opportunity-table {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .sample-custody-module.sample-custody-matrix {
+  display: grid !important;
+  grid-template-rows: auto auto minmax(0, 1fr) !important;
+  gap: 7px !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .sample-custody-matrix-toolbar {
+  grid-template-columns: minmax(260px, 1fr) auto auto 44px !important;
+  gap: 9px !important;
+  padding: 0 !important;
+}
+
+.app-shell .sample-custody-matrix .sample-custody-search,
+.app-shell .sample-custody-report,
+.app-shell .sample-custody-new {
+  height: 42px !important;
+}
+
+.app-shell .sample-custody-new {
+  width: 44px !important;
+}
+
+.app-shell .sample-custody-matrix-head {
+  padding: 10px 14px !important;
+  border-radius: 11px !important;
+}
+
+.app-shell .sample-custody-matrix-body {
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  padding: 3px 6px 14px 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  overflow-anchor: none;
+  scroll-behavior: auto !important;
+  scroll-snap-type: none !important;
+  scrollbar-gutter: stable both-edges;
+  scroll-padding-bottom: 18px;
+}
+
+.app-shell .sample-custody-matrix-body .sample-custody-ledger-row {
+  min-height: 62px !important;
+  padding-block: 7px !important;
+}
+
 /* Preserve the authentication boundary after every navigation override. */
 .app-shell.hidden,
 .app-shell.hidden.sidebar-collapsed,
