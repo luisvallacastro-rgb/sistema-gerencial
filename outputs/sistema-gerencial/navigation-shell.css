@@ -180,6 +180,55 @@
   scroll-snap-align: start;
 }
 
+/* Compact customer chrome: one title, tighter controls, more room for records. */
+.app-shell .dashboard-workspace:has(> .commercial-panel .crm-customers-module) > .topbar {
+  min-height: 54px !important;
+  margin-bottom: 8px !important;
+  padding: 9px 14px !important;
+  border-radius: 18px !important;
+}
+
+.app-shell .dashboard-workspace:has(> .commercial-panel .crm-customers-module) > .topbar #pageTitle {
+  font-size: clamp(25px, 2vw, 32px) !important;
+}
+
+.app-shell .commercial-panel:has(.crm-customers-module) {
+  padding: 10px 14px 12px !important;
+}
+
+.app-shell .commercial-panel:has(.crm-customers-module) > .panel-head {
+  display: none !important;
+}
+
+.app-shell .dashboard-workspace .crm-customers-module {
+  gap: 8px !important;
+}
+
+.app-shell .dashboard-workspace .crm-customers-module > .crm-customers-compact-head {
+  min-height: 42px !important;
+  padding: 0 0 7px !important;
+}
+
+.app-shell .dashboard-workspace .crm-customers-module .crm-customer-view-tabs {
+  padding: 3px !important;
+  border-radius: 12px !important;
+}
+
+.app-shell .dashboard-workspace .crm-customers-module .crm-customer-view-tabs button {
+  min-height: 36px !important;
+  padding-inline: 11px !important;
+}
+
+.app-shell .dashboard-workspace .crm-customers-module > .crm-customer-toolbar {
+  gap: 9px !important;
+}
+
+.app-shell .dashboard-workspace .crm-customers-module .crm-customer-search,
+.app-shell .dashboard-workspace .crm-customers-module .crm-customer-result,
+.app-shell .dashboard-workspace .crm-customers-module .crm-customer-toolbar > button {
+  min-height: 42px !important;
+}
+
 /* Disponibilidad participates in the workspace scroll; no nested wheel traps. */
 .app-shell .commercial-panel.bank-availability-mode,
 .app-shell .dashboard.opportunity-focus .commercial-panel.bank-availability-mode {
