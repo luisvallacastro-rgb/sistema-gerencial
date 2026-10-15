@@ -4169,16 +4169,38 @@ function controlSalesLinkedFinancialOrderIds(currentOrderId = "") {
 }
 
 const QUOTATIONS_STORAGE_KEY = "sistemaGerencial.cotizaciones.v1";
+let temporarySignedOrderEditLoadPromise = null;
+
+async function loadTemporarySignedOrderEditAccess({ refreshView = false } = {}) {
+  if (!apiEnabled || !state.currentUser) return state.temporarySignedOrderEditEnabled;
+  if (temporarySignedOrderEditLoadPromise) return temporarySignedOrderEditLoadPromise;
+  temporarySignedOrderEditLoadPromise = apiJson("/api/admin/temporary-order-edit")
+    .then((response) => {
+      const previous = state.temporarySignedOrderEditEnabled;
+      state.temporarySignedOrderEditEnabled = Boolean(response?.enabled);
+      const quotationView = state.activeArea === "comercializacion" && state.activeSubmenu === "cotizaciones";
+      const settingsView = state.activeArea === adminAreaKey && state.activeSubmenu === "apariencia";
+      if (refreshView && previous !== state.temporarySignedOrderEditEnabled && (quotationView || settingsView)) {
+        renderDashboard();
+      }
+      return state.temporarySignedOrderEditEnabled;
+    })
+    .catch((error) => {
+      console.warn("No fue posible consultar el acceso temporal para OP firmadas", error);
+      return state.temporarySignedOrderEditEnabled;
+    })
+    .finally(() => { temporarySignedOrderEditLoadPromise = null; });
+  return temporarySignedOrderEditLoadPromise;
+}
 
 async function loadQuotations() {
   if (apiEnabled) {
     try {
-      const [items, temporaryAccess] = await Promise.all([
+      const [items] = await Promise.all([
         apiJson("/api/quotations"),
-        apiJson("/api/admin/temporary-order-edit").catch(() => ({ enabled: false }))
+        loadTemporarySignedOrderEditAccess()
       ]);
       state.quotations = Array.isArray(items) ? items : [];
-      state.temporarySignedOrderEditEnabled = Boolean(temporaryAccess?.enabled);
       if (state.activeArea === "comercializacion" && ["meta", "custodia-muestras"].includes(state.activeSubmenu)) renderDashboard();
       return state.quotations;
     } catch (error) { console.warn("No fue posible cargar las cotizaciones", error); }
@@ -5177,7 +5199,7 @@ function ensureQuotationDialog() {
     <section class="quotation-terms-panel quotation-collapsible quotation-clean-section"><button type="button" class="quotation-collapsible-trigger" data-quotation-panel-toggle aria-expanded="false" aria-controls="quotationTermsFields"><span><b>3 · Condiciones de la oferta</b><small>Define pago y entrega; ajusta las observaciones solo cuando corresponda.</small></span><i aria-hidden="true">⌄</i></button><section id="quotationTermsFields" class="quotation-terms quotation-collapsible-content quotation-editable-fields" hidden><label class="quotation-field-editable">Forma de pago<select id="quotationPaymentTerms" required>${commercialPaymentTermOptions()}</select></label><label class="quotation-field-editable">Fecha o condición de entrega<input id="quotationDeliveryTerms" type="text" maxlength="180" required placeholder="Escribe la fecha o condición que se imprimirá en la OP"></label><label class="span-2 quotation-field-editable"><span>Observación impresa <em>Se heredará en la orden de pedido</em></span><textarea id="quotationPrintObservation" rows="2" placeholder="Escribe la observación que aparecerá en la cotización y en la orden"></textarea></label><label class="quotation-field-secondary">Garantía<textarea id="quotationWarrantyNote" rows="2"></textarea></label><label class="quotation-field-secondary">Condiciones comerciales<textarea id="quotationCommercialNotes" rows="2" readonly></textarea></label><label class="span-2 quotation-field-secondary">Tallas especiales<input id="quotationSpecialSizesNote"></label></section></section>
     <p id="quotationSaveStatus" class="quotation-save-status hidden" role="status"></p>
     </div>
-    <footer><button type="button" class="quotation-crud-action quotation-delete-action hidden" data-quotation-delete>Eliminar</button><button type="button" class="quotation-crud-action quotation-print-action" data-quotation-preview aria-label="Vista previa e imprimir" title="Vista previa e imprimir">🖨️</button><button type="button" class="quotation-crud-action quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="quotation-crud-action primary-btn">Guardar cotización</button><button type="button" class="quotation-crud-action quotation-new-action" data-quotation-new>Nuevo</button></footer>
+    <footer><button type="button" class="quotation-crud-action quotation-delete-action hidden" data-quotation-delete>Eliminar</button><button type="button" class="quotation-crud-action quotation-print-action" data-quotation-preview aria-label="Vista previa e imprimir" title="Vista previa e imprimir">🖨️ Cotización</button><button type="button" class="quotation-crud-action quotation-print-action hidden" data-quotation-print-order>📋 Reimprimir OP</button><button type="button" class="quotation-crud-action quotation-edit-btn" data-quotation-edit>Editar</button><button type="submit" class="quotation-crud-action primary-btn">Guardar cotización</button><button type="button" class="quotation-crud-action quotation-new-action" data-quotation-new>Nuevo</button></footer>
   </form></dialog>`);
   const dialog = document.querySelector("#quotationDialog");
 
@@ -5282,6 +5304,12 @@ function ensureQuotationDialog() {
       const firstField = document.querySelector("[data-quotation-description]");
       firstField?.focus();
       firstField?.select();
+    }
+    if (event.target.matches("[data-quotation-print-order]")) {
+      const quotation = state.quotations.find((item) => String(item.id) === String(document.querySelector("#quotationId")?.value || ""));
+      const linkedOrder = quotationLinkedOrder(quotation);
+      if (linkedOrder) printControlSalesProforma(linkedOrder);
+      else alert("Esta cotización todavía no tiene una OP vinculada.");
     }
     if (event.target.closest("[data-quotation-link-customer]")) openQuotationCustomerLinkDialog();
   });
@@ -5461,6 +5489,7 @@ function populateQuotationForm(quote, opportunity = null, customerOverride = nul
   const saveButton = document.querySelector('#quotationForm button[type="submit"]');
   if (saveButton) saveButton.textContent = quote && quotationLinkedOrder(quote) ? "Guardar modificación y actualizar OP" : "Guardar";
   document.querySelector("[data-quotation-delete]")?.classList.toggle("hidden", !canDeleteStandaloneQuotation(quote));
+  document.querySelector("[data-quotation-print-order]")?.classList.toggle("hidden", !quotationLinkedOrder(quote));
   setQuotationPanelExpanded(document.querySelector(".quotation-customer"), false);
   setQuotationPanelExpanded(document.querySelector(".quotation-terms-panel"), true);
   updateQuotationTotals();
@@ -15625,6 +15654,7 @@ function renderCommercialSubmenu(area) {
   }
 
   if (state.activeArea === "comercializacion" && submenu.key === "cotizaciones") {
+    loadTemporarySignedOrderEditAccess({ refreshView: true });
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");
@@ -18973,6 +19003,7 @@ function openApp(userOrRole, options = {}) {
   appShell.classList.remove("hidden");
   startPresence();
   renderDashboard();
+  loadTemporarySignedOrderEditAccess({ refreshView: true });
   renderAdminValidationBanner();
   if (userPermissions(user).has(permissionKey("financiera", "disponibilidad"))) {
     loadBankAvailability();
