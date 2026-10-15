@@ -56,16 +56,20 @@
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior: contain;
+  scroll-behavior: auto !important;
   scrollbar-gutter: stable;
 }
 
 .app-shell .dashboard-workspace > .topbar {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 115 !important;
+  position: relative !important;
+  top: auto !important;
+  z-index: 1 !important;
   margin-bottom: 12px !important;
-  box-shadow: 0 14px 34px rgba(3, 10, 22, .24) !important;
-  backdrop-filter: blur(24px) saturate(1.18) !important;
+  animation: none !important;
+}
+
+.app-shell .dashboard-workspace > .commercial-panel {
+  animation: none !important;
 }
 
 /* Disponibilidad participates in the workspace scroll; no nested wheel traps. */

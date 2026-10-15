@@ -1034,6 +1034,8 @@ const macroNav = document.querySelector("#macroNav");
 const submenuDock = document.querySelector("#submenuDock");
 const globalUserName = document.querySelector("#globalUserName");
 const dashboard = document.querySelector(".dashboard");
+const dashboardWorkspace = document.querySelector(".dashboard-workspace");
+let lastRenderedNavigationView = "";
 const explicitIPadLayout = /iPad/i.test(navigator.userAgent)
   || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 appShell.classList.toggle("ipad-layout", explicitIPadLayout);
@@ -18208,6 +18210,12 @@ function renderPageTitle(area, activeSubmenu) {
 function renderDashboard() {
   const availableAreas = allowedAreas();
   if (!availableAreas.includes(state.activeArea)) state.activeArea = availableAreas[0] || "comercializacion";
+  const navigationView = `${state.activeArea}:${state.activeSubmenu}`;
+  if (navigationView !== lastRenderedNavigationView) {
+    dashboardWorkspace.scrollTop = 0;
+    dashboardWorkspace.scrollLeft = 0;
+    lastRenderedNavigationView = navigationView;
+  }
   const area = areas[state.activeArea];
   const visibleItems = visibleSubmenus(state.activeArea);
   const hasSubmenus = visibleItems.length > 0;
