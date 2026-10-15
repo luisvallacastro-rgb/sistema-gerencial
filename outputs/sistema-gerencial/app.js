@@ -18144,6 +18144,7 @@ function renderAdminPanel() {
   const activeAdminSubmenu = ["apariencia", "vendedores", "actas", "cambiar-contrasena"].includes(state.activeSubmenu)
     ? state.activeSubmenu
     : "permisos";
+  adminPanel.classList.toggle("admin-permissions-mode", activeAdminSubmenu === "permisos");
   adminPanel.classList.toggle("minutes-panel-active", activeAdminSubmenu === "actas");
   adminPanel.innerHTML = activeAdminSubmenu === "apariencia"
     ? renderAdminAppearancePanel()
