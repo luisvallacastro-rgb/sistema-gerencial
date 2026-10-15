@@ -15481,6 +15481,7 @@ function renderCommercialSubmenu(area) {
   commercialPanel.classList.remove("commercial-metrics-mode");
   commercialPanel.classList.remove("commercial-goals-mode");
   commercialPanel.classList.remove("commercial-agenda-mode");
+  commercialPanel.classList.remove("customer-advances-mode");
   commercialPanel.classList.remove("sample-archive-mode");
   opportunityCycleToolbarHost.replaceChildren();
   opportunityCycleToolbarHost.classList.add("hidden");
@@ -15566,6 +15567,7 @@ function renderCommercialSubmenu(area) {
   }
 
   if (state.activeArea === "comercializacion" && submenu.key === "anticipos") {
+    commercialPanel.classList.add("customer-advances-mode");
     newOpportunityBtn.classList.add("hidden");
     newRiskBtn.classList.add("hidden");
     newManagementRequestBtn.classList.add("hidden");

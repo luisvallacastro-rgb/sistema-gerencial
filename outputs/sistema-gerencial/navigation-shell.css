@@ -149,6 +149,92 @@
   }
 }
 
+/* Anticipos: keep the page title once and give scrolling exclusively to the
+   receipt table, so the summary and operational filters remain stable. */
+.app-shell .dashboard-workspace:has(> .commercial-panel.customer-advances-mode) {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  align-content: stretch !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace > .commercial-panel.customer-advances-mode {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 10px 14px 12px !important;
+  overflow: hidden !important;
+  border-radius: 20px !important;
+}
+
+.app-shell .commercial-panel.customer-advances-mode > .panel-head {
+  display: none !important;
+}
+
+.app-shell .commercial-panel.customer-advances-mode > .opportunity-table {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .customer-advances-shell {
+  display: grid !important;
+  grid-template-rows: auto auto minmax(0, 1fr) !important;
+  gap: 10px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .customer-advances-summary {
+  gap: 9px !important;
+}
+
+.app-shell .customer-advances-summary article {
+  min-height: 82px !important;
+  padding: 11px 14px !important;
+  border-radius: 13px !important;
+}
+
+.app-shell .customer-advances-summary strong {
+  font-size: 22px !important;
+}
+
+.app-shell .customer-advances-toolbar {
+  min-height: 48px !important;
+  padding: 7px 10px !important;
+  border-radius: 13px !important;
+}
+
+.app-shell .customer-advances-toolbar input,
+.app-shell .customer-advances-toolbar select,
+.app-shell .customer-advances-toolbar button {
+  min-height: 38px !important;
+}
+
+.app-shell .customer-advances-table-wrap {
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  overscroll-behavior: contain !important;
+  overflow-anchor: none;
+  scroll-behavior: auto !important;
+  scroll-snap-type: none !important;
+  scrollbar-gutter: stable both-edges;
+  scroll-padding-bottom: 18px;
+}
+
+.app-shell .customer-advances-table thead {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2 !important;
+}
+
 /* Preserve the authentication boundary after every navigation override. */
 .app-shell.hidden,
 .app-shell.hidden.sidebar-collapsed,
