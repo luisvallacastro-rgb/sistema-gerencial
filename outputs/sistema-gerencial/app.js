@@ -18158,6 +18158,7 @@ function renderAdminPanel() {
     ? state.activeSubmenu
     : "permisos";
   adminPanel.classList.toggle("admin-permissions-mode", activeAdminSubmenu === "permisos");
+  adminPanel.classList.toggle("admin-users-mode", activeAdminSubmenu === "vendedores");
   adminPanel.classList.toggle("minutes-panel-active", activeAdminSubmenu === "actas");
   adminPanel.innerHTML = activeAdminSubmenu === "apariencia"
     ? renderAdminAppearancePanel()

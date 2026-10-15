@@ -338,6 +338,88 @@
 }
 
 /* Permisos: una sola cabecera útil y la matriz como único lienzo desplazable. */
+.app-shell .dashboard-workspace:has(> .admin-panel.admin-users-mode) {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  align-content: stretch !important;
+  padding-top: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .dashboard-workspace:has(> .admin-panel.admin-users-mode) > .topbar {
+  display: none !important;
+}
+
+.app-shell .dashboard-workspace > .admin-panel.admin-users-mode {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 10px 12px 12px !important;
+  overflow: hidden !important;
+}
+
+.app-shell .admin-panel.admin-users-mode > .seller-admin-shell {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 10px !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .admin-panel.admin-users-mode .seller-admin-hero {
+  min-height: 92px !important;
+  padding: 14px 18px !important;
+  border-radius: 18px !important;
+}
+
+.app-shell .admin-panel.admin-users-mode .seller-admin-hero h2 {
+  margin: 2px 0 !important;
+  font-size: 24px !important;
+}
+
+.app-shell .admin-panel.admin-users-mode .seller-admin-layout {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell .admin-panel.admin-users-mode .seller-admin-directory {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  min-height: 0 !important;
+  padding: 12px !important;
+  overflow: hidden !important;
+}
+
+.app-shell .admin-panel.admin-users-mode .seller-admin-tools {
+  margin-bottom: 8px !important;
+}
+
+.app-shell .admin-panel.admin-users-mode .seller-admin-list {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding-right: 4px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  overflow-anchor: none !important;
+  scroll-behavior: auto !important;
+  scrollbar-gutter: stable !important;
+}
+
+.app-shell .admin-panel.admin-users-mode .seller-admin-form.user-directory-detail {
+  min-height: 0 !important;
+  padding: 14px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  scrollbar-gutter: stable !important;
+}
+
 .app-shell .dashboard-workspace > .topbar:has(> .admin-validation-banner) {
   padding-right: min(500px, 48vw) !important;
 }
@@ -470,6 +552,28 @@
 
   .app-shell .admin-panel.admin-permissions-mode .admin-permissions-heading {
     display: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell .dashboard-workspace:has(> .admin-panel.admin-users-mode) {
+    display: block !important;
+    overflow-y: auto !important;
+  }
+
+  .app-shell .dashboard-workspace > .admin-panel.admin-users-mode,
+  .app-shell .admin-panel.admin-users-mode > .seller-admin-shell,
+  .app-shell .admin-panel.admin-users-mode .seller-admin-layout {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .app-shell .admin-panel.admin-users-mode .seller-admin-directory {
+    height: min(440px, 55vh) !important;
+  }
+
+  .app-shell .admin-panel.admin-users-mode .seller-admin-form.user-directory-detail {
+    overflow: visible !important;
   }
 }
 
