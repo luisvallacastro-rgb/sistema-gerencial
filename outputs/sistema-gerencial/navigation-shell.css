@@ -385,6 +385,28 @@
   border-radius: 12px !important;
 }
 
+.app-shell .commercial-approval__toolbar {
+  display: grid !important;
+  grid-template-columns: auto minmax(260px, 1fr) !important;
+  align-items: center !important;
+  gap: 16px !important;
+  min-width: 0 !important;
+}
+
+.app-shell .commercial-approval__toolbar h2 {
+  margin: 0 !important;
+  color: #f4f8ff !important;
+  font-size: clamp(18px, 1.55vw, 24px) !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+.app-shell .commercial-approval__toolbar .commercial-approval__search {
+  width: 100% !important;
+  max-width: 1120px !important;
+  justify-self: end !important;
+}
+
 .app-shell .commercial-approval__notice {
   min-height: 34px !important;
   padding: 6px 12px !important;
@@ -511,6 +533,13 @@
   }
   .app-shell .commercial-approval__hero p {
     grid-column: 1 / -1 !important;
+  }
+  .app-shell .commercial-approval__toolbar {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .app-shell .commercial-approval__toolbar .commercial-approval__search {
+    max-width: none !important;
   }
 }
 

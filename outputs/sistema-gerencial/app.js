@@ -4915,7 +4915,10 @@ function renderCommercialOrderAuthorization() {
           <article><small>Autorizados</small><strong>${authorized.length}</strong></article>
         </div>
       </header>
-      <label class="commercial-approval__search"><span>⌕</span><input type="search" data-commercial-approval-search value="${escapeHtml(state.commercialApprovalQuery)}" placeholder="Buscar cliente, vendedor o estado..."></label>
+      <div class="commercial-approval__toolbar">
+        <h2>Autorización de pedidos</h2>
+        <label class="commercial-approval__search"><span>⌕</span><input type="search" data-commercial-approval-search value="${escapeHtml(state.commercialApprovalQuery)}" placeholder="Buscar cliente, vendedor o estado..."></label>
+      </div>
       <div class="commercial-approval__notice"><strong>Primer visto bueno</strong><span>Al autorizar, la orden se notificará a Financiera / Pedidos para su segundo visto bueno.</span></div>
       <div class="commercial-approval__list">
         ${visibleRows.map((order) => {
