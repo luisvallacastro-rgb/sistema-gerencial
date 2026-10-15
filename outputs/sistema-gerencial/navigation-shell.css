@@ -120,6 +120,39 @@
   position: static !important;
 }
 
+/* Operational opportunity actions always stay in one visible horizontal lane. */
+.app-shell .commercial-panel.opportunity-mode .opportunity-header,
+.app-shell .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row,
+.app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-header,
+.app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row {
+  grid-template-columns: 118px minmax(220px, 1.35fr) minmax(165px, .95fr) minmax(145px, .82fr) minmax(150px, .9fr) minmax(120px, .7fr) 238px !important;
+  column-gap: 10px !important;
+}
+
+.app-shell .commercial-panel.opportunity-mode .opportunity-row .row-actions,
+.app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-row .row-actions {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 5px !important;
+  width: 238px !important;
+  min-width: 238px !important;
+  max-width: 238px !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
+
+.app-shell .commercial-panel.opportunity-mode .opportunity-row .action-icon-btn,
+.app-shell:not(.sidebar-collapsed) .commercial-panel.opportunity-mode .opportunity-row .action-icon-btn {
+  flex: 0 0 34px !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+}
+
 .app-shell .global-navigation {
   position: relative !important;
   inset: auto !important;
@@ -543,6 +576,15 @@
   }
   .app-shell .system-footer-rail {
     grid-template-columns: 58px minmax(0, 760px) 58px !important;
+  }
+
+  .app-shell .commercial-panel.opportunity-mode .opportunity-table {
+    overflow-x: auto !important;
+  }
+
+  .app-shell .commercial-panel.opportunity-mode .opportunity-header,
+  .app-shell .commercial-panel.opportunity-mode .opportunity-table-body .opportunity-row {
+    min-width: 1180px !important;
   }
 }
 
