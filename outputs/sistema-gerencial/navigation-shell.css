@@ -172,12 +172,67 @@
   overflow-x: auto !important;
   overflow-y: auto !important;
   scroll-behavior: auto !important;
-  scroll-snap-type: y proximity;
+  scroll-snap-type: none !important;
+  scroll-padding-top: 54px;
+  overflow-anchor: none;
 }
 
 .app-shell .dashboard-workspace .crm-customer-table > .crm-customer-row:not(.crm-customer-head),
 .app-shell .dashboard-workspace .crm-customer-document-list > .crm-customer-document-row {
-  scroll-snap-align: start;
+  scroll-snap-align: none !important;
+  scroll-margin-top: 54px;
+}
+
+/* A sticky customer heading must remain its own opaque layer, never cover a
+   partially snapped record or alter the user's wheel position. */
+.app-shell .dashboard-workspace .crm-customer-table .crm-customer-head {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 8 !important;
+  isolation: isolate;
+  background: #0a2443 !important;
+  box-shadow: 0 1px 0 rgba(91, 205, 190, .26), 0 7px 12px rgba(4, 17, 34, .36) !important;
+}
+
+/* Metrics use deliberate internal scrolling only; section snapping made the
+   view jump between the overview and detail while reading. */
+.app-shell .commercial-panel.commercial-metrics-mode > .opportunity-table {
+  scroll-snap-type: none !important;
+  overflow-anchor: none;
+}
+
+.app-shell .commercial-metrics-overview,
+.app-shell .commercial-metrics-master {
+  scroll-snap-align: none !important;
+}
+
+.app-shell .commercial-metrics-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.app-shell .commercial-metrics-back {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(101, 234, 208, .42);
+  border-radius: 11px;
+  background: rgba(8, 32, 55, .76);
+  color: #8ff0dc;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.app-shell .commercial-metrics-back:hover,
+.app-shell .commercial-metrics-back:focus-visible {
+  border-color: #65ead0;
+  background: rgba(35, 86, 98, .82);
+  color: #fff;
+  outline: none;
 }
 
 /* Compact customer chrome: one title, tighter controls, more room for records. */

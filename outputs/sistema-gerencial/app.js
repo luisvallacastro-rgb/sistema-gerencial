@@ -7495,8 +7495,11 @@ function renderCommercialMetrics() {
       <section class="commercial-metrics-overview" aria-label="Filtros de métricas">
         <header class="commercial-metrics-hero">
         <div><span>Inteligencia comercial</span><h2>Pedidos consolidados</h2><p>Selecciona un mes para consultar los pedidos que componen su resultado.</p></div>
-        <div class="commercial-metrics-filters">
+        <div class="commercial-metrics-actions">
+          <button type="button" class="commercial-metrics-back" data-commercial-metrics-back aria-label="Volver a Oportunidades y Vendedores">← Volver a Comercialización</button>
+          <div class="commercial-metrics-filters">
           <label><span>Año</span><select data-commercial-metrics-year>${years.map((year) => `<option value="${escapeHtml(year)}" ${state.commercialMetricsYear === year ? "selected" : ""}>${escapeHtml(year)}</option>`).join("") || `<option value="all">Sin datos</option>`}</select></label>
+          </div>
         </div>
         </header>
         <div class="commercial-metrics-totals">
@@ -7545,6 +7548,11 @@ function renderCommercialMetrics() {
 }
 
 function wireCommercialMetrics() {
+  opportunityTable.querySelector("[data-commercial-metrics-back]")?.addEventListener("click", () => {
+    state.activeSubmenu = "crm";
+    persistNavigationState();
+    renderDashboard();
+  });
   opportunityTable.querySelector("[data-commercial-metrics-year]")?.addEventListener("change", (event) => {
     state.commercialMetricsYear = event.target.value;
     state.commercialMetricsMonth = "all";
