@@ -323,8 +323,13 @@
 }
 
 .app-shell .commercial-approval {
-  grid-template-rows: auto auto auto minmax(0, 1fr) !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
   gap: 8px !important;
+}
+
+.app-shell .commercial-approval__hero,
+.app-shell .commercial-approval__notice {
+  display: none !important;
 }
 
 .app-shell .commercial-approval__hero {
