@@ -488,7 +488,10 @@ TEMPORARY_SIGNED_ORDER_EDIT_KEY = "feature.temporary-signed-order-edit"
 def temporary_signed_order_edit_enabled(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = ?", (TEMPORARY_SIGNED_ORDER_EDIT_KEY,)).fetchone()
     if not row:
-        return False
+        # Acceso temporal habilitado por defecto hasta que Administración lo
+        # desactive explícitamente. Así las instalaciones existentes obtienen
+        # el lápiz sin requerir una migración de la base de datos.
+        return True
     try:
         value = json.loads(row["value"] or "false")
     except (TypeError, json.JSONDecodeError):

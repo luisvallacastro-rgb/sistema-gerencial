@@ -456,7 +456,7 @@ const state = {
   crmWonDateTo: "",
   crmOpportunityPage: 1,
   crmOpportunitiesView: "list",
-  temporarySignedOrderEditEnabled: false,
+  temporarySignedOrderEditEnabled: true,
   period: currentElSalvadorPeriod()
 };
 
