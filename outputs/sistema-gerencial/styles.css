@@ -22663,3 +22663,26 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .temporary-access-card{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:18px;padding:20px 22px;border:1px solid #355672;border-radius:18px;background:linear-gradient(120deg,#183453,#102b3f)}
 .temporary-access-card h4{margin:4px 0 6px;color:#f4f8ff;font-size:20px}.temporary-access-card p{max-width:760px;margin:0;color:#afbed0;line-height:1.45}.temporary-access-card>button{display:flex;align-items:center;gap:10px;min-width:154px;justify-content:center;border:1px solid #4d718c;border-radius:999px;padding:11px 16px;background:#1b3754;color:#c0ccda;font-weight:900;cursor:pointer}.temporary-access-card>button i{width:12px;height:12px;border-radius:50%;background:#77899b;box-shadow:0 0 0 5px #77899b22}.temporary-access-card[data-enabled="true"]{border-color:#43cfb0;background:linear-gradient(120deg,#1a4053,#124b49)}.temporary-access-card[data-enabled="true"]>button{border-color:#55e2c4;background:#18856f;color:#fff}.temporary-access-card[data-enabled="true"]>button i{background:#72f0d3;box-shadow:0 0 12px #72f0d3}
 @media(max-width:760px){.temporary-access-card{align-items:flex-start;flex-direction:column}.temporary-access-card>button{width:100%}}
+
+/* El pie de cotizaciones admite etiquetas largas sin invadir otras acciones. */
+#quotationDialog.quotation-dialog > #quotationForm > footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+#quotationDialog.quotation-dialog > #quotationForm > footer button {
+  position: relative;
+  flex: 0 0 auto;
+  max-width: 100%;
+  white-space: nowrap;
+}
+#quotationDialog .quotation-print-action {
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+}
+@media(max-width:720px){
+  #quotationDialog.quotation-dialog > #quotationForm > footer { justify-content: flex-start; }
+}
