@@ -5521,8 +5521,9 @@ function setQuotationDialogReadOnly(dialog, readOnly) {
   document.querySelector("#quotationDialogTitle").textContent = readOnly ? "Ver detalle de cotización" : (document.querySelector("#quotationId")?.value ? "Editar cotización" : "Nueva cotización");
 }
 
-async function openQuotationDialog(opportunityId, quoteId = "", opportunityOverride = null, customerOverride = null, directOrderFlow = false, readOnly = false) {
-  ensureQuotationDialog(); await loadQuotations();
+async function openQuotationDialog(opportunityId, quoteId = "", opportunityOverride = null, customerOverride = null, directOrderFlow = false, readOnly = false, quotationsReady = false) {
+  ensureQuotationDialog();
+  if (!quotationsReady) await loadQuotations();
   let opportunity = opportunityOverride || crmOpportunityForQuotation(opportunityId);
   if (!opportunity) {
     const managementItem = getOpportunitySubmenu().items.find((item) => (
@@ -10563,10 +10564,10 @@ function customerDirectDocumentSource(customer, type = "quotation") {
   };
 }
 
-function openCustomerDirectQuotation(customer) {
+function openCustomerDirectQuotation(customer, quotationsReady = false) {
   if (!customer || customer.active === false || !canUseCustomerDocumentFlow()) return;
   const source = customerDirectDocumentSource(customer, "quotation");
-  openQuotationDialog(source.id, "", source, customer);
+  return openQuotationDialog(source.id, "", source, customer, true, false, quotationsReady);
 }
 
 function openCustomerDirectOrder(customer) {
@@ -11315,13 +11316,27 @@ function ensureDirectOrderCustomerDialog() {
     customerDialog.dataset.returnToDirectDocumentMode = dialog.dataset.documentMode || "legacy-order";
     openCrmCustomerDialog();
   });
-  dialog.querySelector("[data-direct-order-customer-list]").addEventListener("click", (event) => {
+  dialog.querySelector("[data-direct-order-customer-list]").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-direct-order-customer]");
     if (!button) return;
     const customer = crmMasterCustomers(true).find((item) => String(item.id) === String(button.dataset.directOrderCustomer));
     if (!customer) return;
-    dialog.close();
-    openCustomerDirectQuotation(customer);
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    const action = button.querySelector("b");
+    const originalAction = action?.textContent || "Continuar →";
+    if (action) action.textContent = "Preparando…";
+    try {
+      await loadQuotations();
+      dialog.close();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await openCustomerDirectQuotation(customer, true);
+    } catch (error) {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+      if (action) action.textContent = originalAction;
+      alert(error.message || "No fue posible abrir la cotización para este cliente.");
+    }
   });
   return dialog;
 }
