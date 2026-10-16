@@ -484,6 +484,7 @@ areas[adminAreaKey] = {
   status: "Usuarios",
   submenus: [
     { key: "permisos", label: "Permisos" },
+    { key: "accesos-temporales", label: "Accesos temporales" },
     { key: "vendedores", label: "Usuarios" },
     { key: "actas", label: "Actas" },
     { key: "riesgos", label: "Riesgos", status: "Consolidado de todas las gerencias" },
@@ -1463,7 +1464,7 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
   if (areaKey === adminAreaKey) {
     return area.submenus.filter((item) => {
       if (item.key === "cambiar-contrasena") return Boolean(user);
-      if (item.key === "apariencia") return isAdminUser(user);
+      if (["apariencia", "accesos-temporales"].includes(item.key)) return isAdminUser(user);
       if (item.key === "permisos") return canOpenAdminModule("permisos", user);
       if (item.key === "vendedores") return canOpenAdminModule("vendedores", user);
       if (item.key === "actas") return canOpenAdminMinutes(user);
@@ -2821,7 +2822,7 @@ const submenuNavigationIcons = {
   disponibilidad: "bank", ingresos: "income", inventario: "inventory", contabilidad: "accounting",
   "reserva-laboral": "target", "facturacion-electronica": "document", "estados-financieros": "report",
   "resultados-cuentas-por-cobrar": "receivable", "resultados-ordenes-de-pedido": "orders",
-  crm: "sales", cotizaciones: "document", "crm-clientes": "customer", "autorizacion-pedidos": "approval",
+  crm: "sales", cotizaciones: "document", "crm-clientes": "customer", "autorizacion-pedidos": "approval", "accesos-temporales": "approval",
   "resultados-pedidos": "orders", "crm-seguimiento": "followup", "agenda-comercial": "calendar",
   anticipos: "income", "custodia-muestras": "samples", "resultados-oportunidades": "sales",
   metricas: "metrics", meta: "target", riesgos: "risk", solicitudes: "request",
@@ -4189,7 +4190,7 @@ async function loadTemporarySignedOrderEditAccess({ refreshView = false } = {}) 
       const previous = state.temporarySignedOrderEditEnabled;
       state.temporarySignedOrderEditEnabled = Boolean(response?.enabled);
       const quotationView = state.activeArea === "comercializacion" && state.activeSubmenu === "cotizaciones";
-      const settingsView = state.activeArea === adminAreaKey && state.activeSubmenu === "apariencia";
+      const settingsView = state.activeArea === adminAreaKey && ["apariencia", "accesos-temporales"].includes(state.activeSubmenu);
       if (refreshView && previous !== state.temporarySignedOrderEditEnabled && (quotationView || settingsView)) {
         renderDashboard();
       }
@@ -18181,6 +18182,23 @@ function wireAccountPasswordPanel() {
   adminPanel?.querySelector("[data-account-password-open]")?.addEventListener("click", openAccountPasswordDialog);
 }
 
+function temporarySignedOrderEditCard() {
+  return `<section class="temporary-access-card" data-enabled="${state.temporarySignedOrderEditEnabled}">
+    <div><span class="eyebrow">Acceso temporal</span><h4>Editar OP completamente firmadas</h4><p>Al habilitarlo aparecerá el lápiz en Cotizaciones / OP. Los cambios conservarán ambas firmas y quedarán registrados en el historial de la orden. Deshabilítalo cuando termine la corrección excepcional.</p></div>
+    <button type="button" class="temporary-access-switch" data-temporary-order-edit-toggle role="switch" aria-checked="${state.temporarySignedOrderEditEnabled}" aria-label="Permitir editar OP completamente firmadas"><span>${state.temporarySignedOrderEditEnabled ? "Habilitado" : "Deshabilitado"}</span><em aria-hidden="true"><i></i></em></button>
+  </section>`;
+}
+
+function renderAdminTemporaryAccessPanel() {
+  return `<section class="appearance-shell temporary-access-shell">
+    <header class="appearance-head">
+      <div><span class="eyebrow">Administración · Seguridad operativa</span><h3>Accesos temporales</h3><p>Habilita excepciones controladas únicamente durante el tiempo necesario. Solo el administrador puede modificar este estado.</p></div>
+      <span class="appearance-current">OP firmadas · ${state.temporarySignedOrderEditEnabled ? "Edición habilitada" : "Edición bloqueada"}</span>
+    </header>
+    ${temporarySignedOrderEditCard()}
+  </section>`;
+}
+
 function renderAdminAppearancePanel() {
   const selectedTheme = currentSystemTheme();
   return `
@@ -18201,10 +18219,7 @@ function renderAdminAppearancePanel() {
           <i class="appearance-check" aria-hidden="true">✓</i>
         </button>
       </div>
-      <section class="temporary-access-card" data-enabled="${state.temporarySignedOrderEditEnabled}">
-        <div><span class="eyebrow">Acceso temporal</span><h4>Editar OP ya firmadas</h4><p>Al habilitarlo aparecerá el lápiz en Cotizaciones / OP. Los cambios conservarán ambas firmas y quedarán registrados en el historial de la orden.</p></div>
-        <button type="button" data-temporary-order-edit-toggle aria-pressed="${state.temporarySignedOrderEditEnabled}"><i aria-hidden="true"></i><span>${state.temporarySignedOrderEditEnabled ? "Habilitado" : "Deshabilitado"}</span></button>
-      </section>
+      ${temporarySignedOrderEditCard()}
       <aside class="appearance-note"><strong>Colores funcionales preservados</strong><span>Los estados Tibio, Caliente, Frío, riesgos, alertas y resultados mantienen sus colores en ambos temas.</span></aside>
     </section>`;
 }
@@ -18243,13 +18258,15 @@ function renderAdminPanel() {
   const matrixScroll = currentMatrix
     ? { top: currentMatrix.scrollTop, left: currentMatrix.scrollLeft }
     : null;
-  const activeAdminSubmenu = ["apariencia", "vendedores", "actas", "cambiar-contrasena"].includes(state.activeSubmenu)
+  const activeAdminSubmenu = ["apariencia", "accesos-temporales", "vendedores", "actas", "cambiar-contrasena"].includes(state.activeSubmenu)
     ? state.activeSubmenu
     : "permisos";
   adminPanel.classList.toggle("admin-permissions-mode", activeAdminSubmenu === "permisos");
   adminPanel.classList.toggle("admin-users-mode", activeAdminSubmenu === "vendedores");
   adminPanel.classList.toggle("minutes-panel-active", activeAdminSubmenu === "actas");
-  adminPanel.innerHTML = activeAdminSubmenu === "apariencia"
+  adminPanel.innerHTML = activeAdminSubmenu === "accesos-temporales"
+    ? renderAdminTemporaryAccessPanel()
+    : activeAdminSubmenu === "apariencia"
     ? renderAdminAppearancePanel()
     : activeAdminSubmenu === "vendedores"
       ? renderAdminSellersPanel()
@@ -18258,7 +18275,7 @@ function renderAdminPanel() {
     : activeAdminSubmenu === "cambiar-contrasena"
       ? renderAccountPasswordPanel()
       : renderAdminPermissionsPanel();
-  if (activeAdminSubmenu === "apariencia") wireAdminAppearancePanel();
+  if (["apariencia", "accesos-temporales"].includes(activeAdminSubmenu)) wireAdminAppearancePanel();
   else if (activeAdminSubmenu === "vendedores") wireAdminSellersPanel();
   else if (activeAdminSubmenu === "actas") wireAdminMinutesPanel();
   else if (activeAdminSubmenu === "cambiar-contrasena") wireAccountPasswordPanel();
@@ -18371,6 +18388,8 @@ function renderDashboard() {
       ? (state.adminMinuteView === "history" ? "Historial de actas" : "Nueva acta")
       : state.activeSubmenu === "apariencia"
         ? "Tema visual"
+      : state.activeSubmenu === "accesos-temporales"
+        ? "Excepciones controladas"
       : state.activeSubmenu === "cambiar-contrasena"
         ? "Seguridad de la cuenta"
       : ["riesgos", "solicitudes"].includes(state.activeSubmenu)
@@ -18381,6 +18400,8 @@ function renderDashboard() {
       ? `${state.minutes.length} actas`
       : state.activeSubmenu === "apariencia"
         ? (currentSystemTheme() === "light" ? "Claro" : "Oscuro")
+      : state.activeSubmenu === "accesos-temporales"
+        ? (state.temporarySignedOrderEditEnabled ? "Habilitado" : "Bloqueado")
       : state.activeSubmenu === "cambiar-contrasena"
         ? "Cuenta personal"
       : state.activeSubmenu === "riesgos"

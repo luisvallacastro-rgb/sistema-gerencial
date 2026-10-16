@@ -22686,3 +22686,46 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 @media(max-width:720px){
   #quotationDialog.quotation-dialog > #quotationForm > footer { justify-content: flex-start; }
 }
+
+/* Administración · interruptor de accesos excepcionales. */
+.temporary-access-shell { align-content: start; }
+.temporary-access-switch {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between !important;
+  gap: 12px;
+  min-width: 190px !important;
+}
+.temporary-access-switch > em {
+  position: relative;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 26px;
+  border: 1px solid #61768a;
+  border-radius: 999px;
+  background: #253c52;
+  transition: background .18s ease, border-color .18s ease;
+}
+.temporary-access-switch > em > i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #aab8c6;
+  box-shadow: 0 2px 7px #06121f88;
+  transition: transform .18s ease, background .18s ease;
+}
+.temporary-access-card[data-enabled="true"] .temporary-access-switch > em {
+  border-color: #69efd2;
+  background: #126b5c;
+}
+.temporary-access-card[data-enabled="true"] .temporary-access-switch > em > i {
+  background: #8affdf;
+  transform: translateX(22px);
+}
+.temporary-access-switch:focus-visible {
+  outline: 3px solid #79e8d2;
+  outline-offset: 3px;
+}
