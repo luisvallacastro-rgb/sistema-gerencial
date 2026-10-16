@@ -2,6 +2,7 @@ const macOSRenderSafe = /Macintosh|MacIntel|Mac OS X/i.test(`${navigator.platfor
 document.documentElement.classList.toggle("macos-render-safe", macOSRenderSafe);
 
 const systemThemeStorageKey = "kmi-system-theme-v1";
+const temporarySignedOrderEditStorageKey = "sistemaGerencial.accesoTemporal.editarOpFirmadas.v1";
 
 function currentSystemTheme() {
   return localStorage.getItem(systemThemeStorageKey) === "light" ? "light" : "dark";
@@ -457,7 +458,7 @@ const state = {
   crmWonDateTo: "",
   crmOpportunityPage: 1,
   crmOpportunitiesView: "list",
-  temporarySignedOrderEditEnabled: true,
+  temporarySignedOrderEditEnabled: localStorage.getItem(temporarySignedOrderEditStorageKey) === "true",
   period: currentElSalvadorPeriod()
 };
 
@@ -4190,6 +4191,7 @@ async function loadTemporarySignedOrderEditAccess({ refreshView = false } = {}) 
     .then((response) => {
       const previous = state.temporarySignedOrderEditEnabled;
       state.temporarySignedOrderEditEnabled = Boolean(response?.enabled);
+      localStorage.setItem(temporarySignedOrderEditStorageKey, String(state.temporarySignedOrderEditEnabled));
       const quotationView = state.activeArea === "comercializacion" && state.activeSubmenu === "cotizaciones";
       const settingsView = (state.activeArea === adminAreaKey && state.activeSubmenu === "apariencia")
         || (state.activeArea === "operaciones" && state.activeSubmenu === "accesos-temporales");
@@ -18252,6 +18254,7 @@ function wireTemporaryAccessToggle(root) {
         body: JSON.stringify({ enabled })
       });
       state.temporarySignedOrderEditEnabled = Boolean(response.enabled);
+      localStorage.setItem(temporarySignedOrderEditStorageKey, String(state.temporarySignedOrderEditEnabled));
       renderDashboard();
     } catch (error) {
       button.disabled = false;
