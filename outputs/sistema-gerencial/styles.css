@@ -22688,12 +22688,12 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 }
 
 /* Operaciones · tabla de accesos temporales. */
-.temporary-access-table-wrap { overflow-x: auto; border: 1px solid #36556f; border-radius: 18px; }
-.temporary-access-table { width: 100%; border-collapse: collapse; background: #142b43; }
+.temporary-access-table-wrap { overflow-x: auto; border: 1px solid #315d73; border-radius: 18px; background: #10283d; box-shadow: inset 0 1px #6ce6cd12; }
+.temporary-access-table { width: 100%; border-collapse: collapse; background: transparent; }
 .temporary-access-table th {
   padding: 17px 22px;
-  background: #193b59;
-  color: #b8c6d6;
+  background: #123451;
+  color: #a9bdcf;
   font-size: 12px;
   font-weight: 900;
   letter-spacing: .08em;
@@ -22702,23 +22702,40 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 }
 .temporary-access-table th:last-child,
 .temporary-access-table td:last-child { width: 230px; text-align: center; }
-.temporary-access-table td { padding: 20px 22px; border-top: 1px solid #36556f; color: #f4f8ff; font-size: 17px; font-weight: 800; }
-.temporary-access-table tbody tr[data-enabled="true"] { background: #17403f; }
-.temporary-access-switch {
+.temporary-access-table td { padding: 22px; border-top: 1px solid #315d73; color: #f4f8ff; font-size: 17px; font-weight: 850; }
+.temporary-access-table tbody tr { background: linear-gradient(90deg,#173a55,#132f47); }
+.temporary-access-table tbody td:first-child { border-left: 5px solid #3ba994; }
+.temporary-access-table tbody tr[data-enabled="true"] { background: linear-gradient(90deg,#194d53,#123c42); }
+.temporary-access-table tbody tr[data-enabled="true"] td:first-child { border-left-color: #63ebcf; }
+.temporary-access-table .temporary-access-switch {
   display: flex !important;
   align-items: center;
   justify-content: space-between !important;
   gap: 12px;
   min-width: 190px !important;
+  min-height: 46px;
+  margin: 0 auto;
+  padding: 7px 9px 7px 15px !important;
+  border: 1px solid #397088 !important;
+  border-radius: 999px !important;
+  background: #102b43 !important;
+  color: #8eb6c7 !important;
+  box-shadow: inset 0 1px #ffffff0d, 0 7px 18px #05142145;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
 }
+.temporary-access-table .temporary-access-switch:hover { border-color: #5fcdb8 !important; color: #c8f6ec !important; transform: translateY(-1px); }
 .temporary-access-switch > em {
   position: relative;
   flex: 0 0 48px;
   width: 48px;
   height: 26px;
-  border: 1px solid #61768a;
+  border: 1px solid #447a91;
   border-radius: 999px;
-  background: #253c52;
+  background: #193b56;
   transition: background .18s ease, border-color .18s ease;
 }
 .temporary-access-switch > em > i {
@@ -22728,14 +22745,20 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #aab8c6;
-  box-shadow: 0 2px 7px #06121f88;
+  background: #66a9bc;
+  box-shadow: 0 2px 7px #06121f88, 0 0 0 3px #66a9bc18;
   transition: transform .18s ease, background .18s ease;
 }
 .temporary-access-card[data-enabled="true"] .temporary-access-switch > em,
 .temporary-access-table tr[data-enabled="true"] .temporary-access-switch > em {
   border-color: #69efd2;
   background: #126b5c;
+}
+.temporary-access-table tr[data-enabled="true"] .temporary-access-switch {
+  border-color: #4ee0c1 !important;
+  background: #167e6d !important;
+  color: #f2fffb !important;
+  box-shadow: 0 8px 22px #071d1a55, inset 0 1px #baffef33;
 }
 .temporary-access-card[data-enabled="true"] .temporary-access-switch > em > i,
 .temporary-access-table tr[data-enabled="true"] .temporary-access-switch > em > i {
