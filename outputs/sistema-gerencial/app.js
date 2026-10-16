@@ -459,6 +459,7 @@ const state = {
   crmOpportunityPage: 1,
   crmOpportunitiesView: "list",
   temporarySignedOrderEditEnabled: localStorage.getItem(temporarySignedOrderEditStorageKey) === "true",
+  temporarySignedOrderEditOrderNumber: "",
   period: currentElSalvadorPeriod()
 };
 
@@ -4190,6 +4191,7 @@ async function loadTemporarySignedOrderEditAccess({ refreshView = false } = {}) 
     .then((response) => {
       const previous = state.temporarySignedOrderEditEnabled;
       state.temporarySignedOrderEditEnabled = Boolean(response?.enabled);
+      state.temporarySignedOrderEditOrderNumber = String(response?.orderNumber || "");
       localStorage.setItem(temporarySignedOrderEditStorageKey, String(state.temporarySignedOrderEditEnabled));
       const quotationView = state.activeArea === "comercializacion" && state.activeSubmenu === "cotizaciones";
       const settingsView = (state.activeArea === adminAreaKey && state.activeSubmenu === "apariencia")
@@ -4654,7 +4656,9 @@ function canReviseConvertedDirectQuotation(quotation = {}) {
   if (!linkedOrder) return true;
   const financeSigned = linkedOrder.financeApprovalStatus === "Aprobada" || Boolean(linkedOrder.financeApprovedAt);
   const commercialSigned = linkedOrder.commercialApprovalStatus === "Autorizada" || Boolean(linkedOrder.commercialApprovedAt);
-  if (state.temporarySignedOrderEditEnabled && (commercialSigned || financeSigned)) return true;
+  const selectedOrder = normalizeKey(state.temporarySignedOrderEditOrderNumber).replace(/[^a-z0-9]/g, "").replace(/^op/, "");
+  const linkedOrderNumber = normalizeKey(linkedOrder.number).replace(/[^a-z0-9]/g, "").replace(/^op/, "");
+  if (state.temporarySignedOrderEditEnabled && selectedOrder && selectedOrder === linkedOrderNumber && (commercialSigned || financeSigned)) return true;
   if (!isDirect) {
     return !commercialSigned && !financeSigned;
   }
@@ -18206,7 +18210,7 @@ function renderOperationsTemporaryAccessList() {
     <table class="temporary-access-table" aria-label="Accesos temporales">
       <thead><tr><th>Nombre de la regla</th><th>Estado</th></tr></thead>
       <tbody><tr data-enabled="${state.temporarySignedOrderEditEnabled}">
-        <td>Acceso Temporal a Editar OP Firmadas</td>
+        <td>Acceso Temporal a Editar OP Firmadas${state.temporarySignedOrderEditEnabled ? `<small class="temporary-access-order">OP habilitada · ${escapeHtml(state.temporarySignedOrderEditOrderNumber)}</small>` : ""}</td>
         <td><button type="button" class="temporary-access-switch" data-temporary-order-edit-toggle role="switch" aria-checked="${state.temporarySignedOrderEditEnabled}" aria-label="Acceso Temporal a Editar OP Firmadas"><span>${state.temporarySignedOrderEditEnabled ? "Habilitado" : "Deshabilitado"}</span><em aria-hidden="true"><i></i></em></button></td>
       </tr></tbody>
     </table>
@@ -18215,6 +18219,25 @@ function renderOperationsTemporaryAccessList() {
 
 function wireOperationsTemporaryAccessList() {
   wireTemporaryAccessToggle(opportunityTable);
+}
+
+function requestTemporaryOrderNumber() {
+  return new Promise((resolve) => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "temporary-access-dialog";
+    dialog.innerHTML = `<form method="dialog"><header><div><span>Acceso temporal</span><h2>Habilitar una OP firmada</h2><p>Escribe el número exacto de la única orden que podrá editarse.</p></div><button type="button" data-close aria-label="Cerrar">×</button></header><label><span>Número de OP</span><input name="orderNumber" required autocomplete="off" placeholder="Ej. OP-2026100061"></label><footer><button type="button" data-cancel>Cancelar</button><button type="submit">Guardar y habilitar</button></footer></form>`;
+    document.body.appendChild(dialog);
+    const finish = (value) => { dialog.close(); dialog.remove(); resolve(value); };
+    dialog.querySelector("[data-close]").addEventListener("click", () => finish(""));
+    dialog.querySelector("[data-cancel]").addEventListener("click", () => finish(""));
+    dialog.addEventListener("cancel", (event) => { event.preventDefault(); finish(""); });
+    dialog.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      finish(String(new FormData(event.currentTarget).get("orderNumber") || "").trim());
+    });
+    dialog.showModal();
+    dialog.querySelector("input").focus();
+  });
 }
 
 function renderAdminAppearancePanel() {
@@ -18245,14 +18268,17 @@ function wireTemporaryAccessToggle(root) {
   root?.querySelector("[data-temporary-order-edit-toggle]")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
     const enabled = !state.temporarySignedOrderEditEnabled;
-    if (!confirm(`${enabled ? "Habilitar" : "Deshabilitar"} temporalmente la edición de OP firmadas?`)) return;
+    const orderNumber = enabled ? await requestTemporaryOrderNumber() : "";
+    if (enabled && !orderNumber) return;
+    if (!enabled && !confirm("¿Deshabilitar la edición temporal y retirar el permiso de la OP asignada?")) return;
     button.disabled = true;
     try {
       const response = await apiJson("/api/admin/temporary-order-edit", {
         method: "PATCH",
-        body: JSON.stringify({ enabled })
+        body: JSON.stringify({ enabled, orderNumber })
       });
       state.temporarySignedOrderEditEnabled = Boolean(response.enabled);
+      state.temporarySignedOrderEditOrderNumber = String(response.orderNumber || "");
       localStorage.setItem(temporarySignedOrderEditStorageKey, String(state.temporarySignedOrderEditEnabled));
       renderDashboard();
     } catch (error) {

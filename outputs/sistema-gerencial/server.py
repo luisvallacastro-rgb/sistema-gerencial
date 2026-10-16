@@ -486,16 +486,34 @@ TEMPORARY_SIGNED_ORDER_EDIT_KEY = "feature.temporary-signed-order-edit"
 TEMPORARY_ACCESS_PERMISSION_KEY = "operaciones:accesos-temporales"
 
 
-def temporary_signed_order_edit_enabled(conn):
+def temporary_signed_order_edit_config(conn):
     row = conn.execute("SELECT value FROM app_state WHERE key = ?", (TEMPORARY_SIGNED_ORDER_EDIT_KEY,)).fetchone()
     if not row:
-        # Una excepción temporal nunca debe activarse por ausencia de estado.
-        return False
+        return {"enabled": False, "orderNumber": ""}
     try:
         value = json.loads(row["value"] or "false")
     except (TypeError, json.JSONDecodeError):
-        value = False
-    return value is True or (isinstance(value, dict) and value.get("enabled") is True)
+        value = {}
+    if not isinstance(value, dict):
+        return {"enabled": False, "orderNumber": ""}
+    return {
+        "enabled": value.get("enabled") is True and bool(text(value.get("orderNumber"))),
+        "orderNumber": text(value.get("orderNumber")),
+    }
+
+
+def normalized_temporary_order_number(value):
+    normalized = "".join(character for character in text(value).upper() if character.isalnum())
+    return normalized[2:] if normalized.startswith("OP") else normalized
+
+
+def temporary_signed_order_edit_enabled(conn, order_number=""):
+    config = temporary_signed_order_edit_config(conn)
+    return bool(
+        config["enabled"]
+        and normalized_temporary_order_number(config["orderNumber"])
+        == normalized_temporary_order_number(order_number)
+    )
 
 
 def can_manage_temporary_access(user):
@@ -4465,7 +4483,7 @@ def save_control_sales_order(conn, data, existing_row=None):
     preserve_signatures = bool(
         existing_row
         and data.get("preserveSignatures") is True
-        and temporary_signed_order_edit_enabled(conn)
+        and temporary_signed_order_edit_enabled(conn, item["number"])
         and (
             text(existing.get("commercialApprovalStatus")) == "Autorizada"
             or bool(text(existing.get("commercialApprovedAt")))
@@ -5116,7 +5134,7 @@ def save_quotation(conn, data, existing_row=None):
                 "proformaData": linked_proforma,
                 "details": linked_details,
                 "updatedBy": actor,
-                "preserveSignatures": temporary_signed_order_edit_enabled(conn),
+                "preserveSignatures": temporary_signed_order_edit_enabled(conn, linked_order.get("number")),
             }, linked_order_row)
     if existing and (text(existing.get("client")) != item["client"] or previous_customer_id != selected_customer_id):
         sync_opportunity_name_from_quotation(conn, item["opportunityId"], item["client"], item["customerData"])
@@ -10489,8 +10507,8 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 if not actor:
                     self.send_json({"error": "Debes iniciar sesión"}, status=401)
                     return
-                enabled = temporary_signed_order_edit_enabled(conn)
-            self.send_json({"enabled": enabled})
+                config = temporary_signed_order_edit_config(conn)
+            self.send_json(config)
             return
 
         path = urlparse(self.path).path
@@ -12473,7 +12491,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         return
                     current = quotation_payload(row)
                     linked_order = conn.execute(
-                        """SELECT id, proforma_data, commercial_approval_status, commercial_approved_at,
+                        """SELECT id, order_number, proforma_data, commercial_approval_status, commercial_approved_at,
                                   finance_approval_status, finance_approved_at
                            FROM control_sales_orders
                            WHERE archived = 0 AND (id = ? OR source_quotation_id = ?)
@@ -12493,7 +12511,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                             text(linked_order["finance_approval_status"]) == "Aprobada"
                             or bool(text(linked_order["finance_approved_at"]))
                         )
-                        temporary_edit = temporary_signed_order_edit_enabled(conn)
+                        temporary_edit = temporary_signed_order_edit_enabled(conn, linked_order["order_number"])
                         if finance_signed and not temporary_edit:
                             self.send_json({"error": "La cotizacion no puede modificarse porque Edgar Menjivar ya firmó la OP"}, status=409)
                             return
@@ -12514,7 +12532,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                             text(linked_order["commercial_approval_status"]) == "Autorizada"
                             or bool(text(linked_order["commercial_approved_at"]))
                         )
-                        temporary_edit = temporary_signed_order_edit_enabled(conn)
+                        temporary_edit = temporary_signed_order_edit_enabled(conn, linked_order["order_number"])
                         if finance_signed and not temporary_edit:
                             self.send_json({"error": "La cotizacion no puede modificarse porque Edgar Menjivar ya firmó la OP"}, status=409)
                             return
@@ -12824,6 +12842,10 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             if not isinstance(changes.get("enabled"), bool):
                 self.send_json({"error": "El estado habilitado es requerido"}, status=400)
                 return
+            order_number = text(changes.get("orderNumber")) if changes["enabled"] else ""
+            if changes["enabled"] and not order_number:
+                self.send_json({"error": "Indica el número de OP que se habilitará"}, status=400)
+                return
             actor_id = text(self.headers.get("X-System-User-Id"))
             with connect() as conn:
                 actor = conn.execute(
@@ -12833,8 +12855,25 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 if not can_manage_temporary_access(actor):
                     self.send_json({"error": "No tienes permiso para administrar accesos temporales"}, status=403)
                     return
+                if changes["enabled"]:
+                    matching_order = next((row for row in conn.execute("""
+                        SELECT order_number, commercial_approval_status, commercial_approved_at,
+                               finance_approval_status, finance_approved_at
+                        FROM control_sales_orders WHERE archived = 0
+                    """).fetchall() if normalized_temporary_order_number(row["order_number"])
+                        == normalized_temporary_order_number(order_number)), None)
+                    if not matching_order:
+                        self.send_json({"error": "No se encontró la OP indicada"}, status=404)
+                        return
+                    commercial_signed = text(matching_order["commercial_approval_status"]) == "Autorizada" or bool(text(matching_order["commercial_approved_at"]))
+                    finance_signed = text(matching_order["finance_approval_status"]) == "Aprobada" or bool(text(matching_order["finance_approved_at"]))
+                    if not (commercial_signed and finance_signed):
+                        self.send_json({"error": "La OP debe estar completamente firmada para asignar esta excepción"}, status=409)
+                        return
+                    order_number = text(matching_order["order_number"])
                 value = {
                     "enabled": changes["enabled"],
+                    "orderNumber": order_number,
                     "updatedBy": text(actor["name"], "Administrador"),
                     "updatedAt": datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds"),
                 }
@@ -12842,7 +12881,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP
                 """, (TEMPORARY_SIGNED_ORDER_EDIT_KEY, json.dumps(value, ensure_ascii=False)))
-            self.send_json({"ok": True, "enabled": changes["enabled"]})
+            self.send_json({"ok": True, "enabled": changes["enabled"], "orderNumber": order_number})
             return
         if self.path == "/api/commercial-agenda/validation":
             actor_id = text(self.headers.get("X-System-User-Id"))

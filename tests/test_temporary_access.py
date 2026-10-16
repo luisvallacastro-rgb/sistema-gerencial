@@ -26,7 +26,7 @@ class TemporaryAccessTests(unittest.TestCase):
     def save(self, enabled):
         self.conn.execute(
             "INSERT OR REPLACE INTO app_state(key, value) VALUES (?, ?)",
-            (SERVER.TEMPORARY_SIGNED_ORDER_EDIT_KEY, json.dumps({"enabled": enabled})),
+            (SERVER.TEMPORARY_SIGNED_ORDER_EDIT_KEY, json.dumps({"enabled": enabled, "orderNumber": "OP-2026100061"})),
         )
 
     def test_access_is_disabled_when_no_state_has_been_saved(self):
@@ -38,7 +38,11 @@ class TemporaryAccessTests(unittest.TestCase):
 
     def test_enabled_state_is_read_explicitly(self):
         self.save(True)
-        self.assertTrue(SERVER.temporary_signed_order_edit_enabled(self.conn))
+        self.assertTrue(SERVER.temporary_signed_order_edit_enabled(self.conn, "2026100061"))
+
+    def test_enabled_state_only_applies_to_selected_order(self):
+        self.save(True)
+        self.assertFalse(SERVER.temporary_signed_order_edit_enabled(self.conn, "OP-2026100060"))
 
     def test_assigned_permission_can_manage_temporary_access(self):
         user = {
