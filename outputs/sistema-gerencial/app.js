@@ -4603,7 +4603,8 @@ function renderQuotationsModule() {
     </section>`;
 }
 
-function quotationLinkedOrder(quotation = {}) {
+function quotationLinkedOrder(quotation) {
+  if (!quotation) return null;
   return state.controlSales.find((order) => (
     !order.archived && (
       String(order.id || "") === String(quotation.convertedOrderId || "")
