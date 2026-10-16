@@ -18471,6 +18471,7 @@ function renderDashboard() {
       "inventario",
       "facturacion-electronica",
       "estados-financieros",
+      "accesos-temporales",
       "produccion-semanal",
       "archivo-muestras"
     ].includes(state.activeSubmenu)
