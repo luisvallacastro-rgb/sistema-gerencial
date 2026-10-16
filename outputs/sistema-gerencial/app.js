@@ -204,7 +204,7 @@ const areas = {
     status: "Estable",
     submenus: [
       { key: "resultados-control-ventas", label: "Control de Ventas", status: "Órdenes, productos y auditoría", items: [] },
-      { key: "accesos-temporales", label: "Accesos Temporales", status: "Excepciones operativas controladas", items: [], adminOnly: true },
+      { key: "accesos-temporales", label: "Accesos Temporales", status: "Excepciones operativas controladas", items: [] },
       { key: "produccion-semanal", label: "Producción y Pedidos de la Semana", status: "Agenda semanal de producción", items: [] },
       { key: "archivo-muestras", label: "Archivo de Muestras", group: "Ingeniería", status: "Muestras asignadas por cliente", items: [] },
       { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
@@ -1477,7 +1477,6 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
   }
   const permissions = userPermissions(user);
   return area.submenus.filter((item) => {
-    if (item.adminOnly) return isAdminUser(user);
     if (areaKey === "financiera" && item.key === "reserva-laboral") {
       return isFiscalOwnerUser(user) || permissions.has(permissionKey(areaKey, item.key));
     }

@@ -40,6 +40,18 @@ class TemporaryAccessTests(unittest.TestCase):
         self.save(True)
         self.assertTrue(SERVER.temporary_signed_order_edit_enabled(self.conn))
 
+    def test_assigned_permission_can_manage_temporary_access(self):
+        user = {
+            "admin": 0,
+            "role": "gerencias",
+            "permissions": json.dumps([SERVER.TEMPORARY_ACCESS_PERMISSION_KEY]),
+        }
+        self.assertTrue(SERVER.can_manage_temporary_access(user))
+
+    def test_user_without_permission_cannot_manage_temporary_access(self):
+        user = {"admin": 0, "role": "operativos", "permissions": "[]"}
+        self.assertFalse(SERVER.can_manage_temporary_access(user))
+
 
 if __name__ == "__main__":
     unittest.main()

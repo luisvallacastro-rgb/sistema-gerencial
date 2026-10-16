@@ -483,6 +483,7 @@ def is_direct_quotation_revision_authorized(user):
 
 
 TEMPORARY_SIGNED_ORDER_EDIT_KEY = "feature.temporary-signed-order-edit"
+TEMPORARY_ACCESS_PERMISSION_KEY = "operaciones:accesos-temporales"
 
 
 def temporary_signed_order_edit_enabled(conn):
@@ -495,6 +496,13 @@ def temporary_signed_order_edit_enabled(conn):
     except (TypeError, json.JSONDecodeError):
         value = False
     return value is True or (isinstance(value, dict) and value.get("enabled") is True)
+
+
+def can_manage_temporary_access(user):
+    return bool(user) and (
+        bool(user["admin"])
+        or TEMPORARY_ACCESS_PERMISSION_KEY in stored_user_permissions(user)
+    )
 
 
 def is_odaliz_valencia_user(user):
@@ -12819,11 +12827,11 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             actor_id = text(self.headers.get("X-System-User-Id"))
             with connect() as conn:
                 actor = conn.execute(
-                    "SELECT id, name, admin FROM users WHERE id = ? LIMIT 1",
+                    "SELECT id, name, role, permissions, admin FROM users WHERE id = ? LIMIT 1",
                     (actor_id,),
                 ).fetchone() if actor_id else None
-                if not actor or not bool(actor["admin"]):
-                    self.send_json({"error": "Solo el administrador puede cambiar este acceso temporal"}, status=403)
+                if not can_manage_temporary_access(actor):
+                    self.send_json({"error": "No tienes permiso para administrar accesos temporales"}, status=403)
                     return
                 value = {
                     "enabled": changes["enabled"],
