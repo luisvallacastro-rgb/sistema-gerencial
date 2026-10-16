@@ -18201,20 +18201,15 @@ function wireAccountPasswordPanel() {
 }
 
 function renderOperationsTemporaryAccessList() {
-  return `<section class="temporary-access-list-shell">
-    <header>
-      <div><span class="eyebrow">Operaciones · Excepciones controladas</span><h2>Accesos Temporales</h2><p>Todos los permisos excepcionales del sistema se administran desde esta lista. Solo el administrador puede cambiar su estado.</p></div>
-      <strong>${state.temporarySignedOrderEditEnabled ? "1 acceso habilitado" : "Sin accesos habilitados"}</strong>
-    </header>
-    <div class="temporary-access-list" role="list" aria-label="Permisos temporales del sistema">
-      <article class="temporary-access-list-row" data-enabled="${state.temporarySignedOrderEditEnabled}" role="listitem">
-        <div class="temporary-access-list-index">01</div>
-        <div class="temporary-access-list-copy"><span>Comercialización · Cotizaciones / OP</span><h3>Acceso Temporal a Editar OP Firmadas</h3><p>Permite modificar y reimprimir una OP completamente firmada, conservando sus firmas y registrando la edición en el historial.</p></div>
-        <div class="temporary-access-list-status"><small>Estado actual</small><strong>${state.temporarySignedOrderEditEnabled ? "Habilitado" : "Deshabilitado"}</strong></div>
-        <button type="button" class="temporary-access-switch" data-temporary-order-edit-toggle role="switch" aria-checked="${state.temporarySignedOrderEditEnabled}" aria-label="Acceso Temporal a Editar OP Firmadas"><span>${state.temporarySignedOrderEditEnabled ? "Habilitado" : "Deshabilitado"}</span><em aria-hidden="true"><i></i></em></button>
-      </article>
-    </div>
-  </section>`;
+  return `<div class="temporary-access-table-wrap">
+    <table class="temporary-access-table" aria-label="Accesos temporales">
+      <thead><tr><th>Nombre de la regla</th><th>Estado</th></tr></thead>
+      <tbody><tr data-enabled="${state.temporarySignedOrderEditEnabled}">
+        <td>Acceso Temporal a Editar OP Firmadas</td>
+        <td><button type="button" class="temporary-access-switch" data-temporary-order-edit-toggle role="switch" aria-checked="${state.temporarySignedOrderEditEnabled}" aria-label="Acceso Temporal a Editar OP Firmadas"><span>${state.temporarySignedOrderEditEnabled ? "Habilitado" : "Deshabilitado"}</span><em aria-hidden="true"><i></i></em></button></td>
+      </tr></tbody>
+    </table>
+  </div>`;
 }
 
 function wireOperationsTemporaryAccessList() {
