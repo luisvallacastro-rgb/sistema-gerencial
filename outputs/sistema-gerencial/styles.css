@@ -22791,3 +22791,30 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
   .temporary-access-table td { padding: 15px; }
   .temporary-access-switch { min-width: 160px !important; }
 }
+
+/* Actas · superficie de redacción integrada al tema oscuro. */
+.app-shell .minutes-editor-mode .minutes-editor,
+.minute-fullscreen-overlay .minutes-editor {
+  border-color: #3d6b83;
+  background: linear-gradient(155deg, #173751 0%, #102b43 58%, #102f3b 100%);
+  color: #e8f2f7;
+  caret-color: #70ead2;
+  box-shadow: inset 0 1px 0 rgba(143, 225, 211, .08), 0 14px 34px rgba(1, 8, 18, .26);
+}
+.app-shell .minutes-editor:focus,
+.minute-fullscreen-overlay .minutes-editor:focus {
+  border-color: #55bba9;
+  box-shadow: 0 0 0 3px rgba(94, 224, 198, .12), inset 0 1px 0 rgba(143, 225, 211, .1);
+}
+.app-shell .minutes-editor:empty::before,
+.minute-fullscreen-overlay .minutes-editor:empty::before {
+  color: rgba(176, 199, 211, .52);
+}
+.app-shell .minutes-editor p,
+.app-shell .minutes-editor div,
+.app-shell .minutes-editor li,
+.minute-fullscreen-overlay .minutes-editor p,
+.minute-fullscreen-overlay .minutes-editor div,
+.minute-fullscreen-overlay .minutes-editor li {
+  color: #e8f2f7;
+}
