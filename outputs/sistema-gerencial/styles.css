@@ -22837,3 +22837,90 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .minute-writing-dialog .minute-writing-canvas li {
   color: #e8f2f7;
 }
+
+/* Administración · acciones coherentes con el tema oscuro. */
+.app-shell .admin-permissions-actions .admin-permission-audit {
+  border-color: #496e87;
+  background: #1b3853;
+  color: #dceaf3;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+.app-shell .admin-permissions-actions .admin-permission-audit:hover {
+  border-color: #61cdb9;
+  background: #20465d;
+  color: #82ead5;
+}
+
+/* Actas · formulario de acuerdos simétrico y legible. */
+.minute-agreement-row {
+  grid-template-columns: 48px minmax(260px,1.2fr) minmax(240px,.9fr) minmax(260px,1fr) 40px;
+  gap: 14px;
+  padding: 16px;
+  border-color: #39627c;
+  background: linear-gradient(135deg,#193956,#102b45);
+}
+.minute-agreement-text,
+.minute-responsibles,
+.minute-agreement-closure { min-height: 132px; }
+.minute-agreement-text textarea,
+.minute-agreement-closure textarea,
+.minute-responsible-row input {
+  border-color: #456e88;
+  background: #142f4b;
+  color: #edf6fb;
+}
+.minute-agreement-text textarea:focus,
+.minute-agreement-closure textarea:focus,
+.minute-responsible-row input:focus {
+  border-color: #5bd5bd;
+  box-shadow: 0 0 0 3px rgba(91,213,189,.11);
+}
+.minute-agreement-text textarea::placeholder,
+.minute-agreement-closure textarea::placeholder,
+.minute-responsible-row input::placeholder { color: #8198ab; }
+.minute-agreement-closure {
+  align-content: start;
+  padding: 12px;
+  border-color: #365f79;
+  background: #102a43;
+}
+.minute-agreement-closure > label {
+  min-height: 38px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #355b73;
+}
+.minute-agreement-closure input[type="checkbox"] {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  border: 1px solid #527c94;
+  border-radius: 7px;
+  background: #173852;
+  cursor: pointer;
+}
+.minute-agreement-closure input[type="checkbox"]::after {
+  content: "✓";
+  color: #082b27;
+  font-size: 16px;
+  font-weight: 950;
+  opacity: 0;
+  transform: scale(.65);
+  transition: opacity .15s ease, transform .15s ease;
+}
+.minute-agreement-closure input[type="checkbox"]:checked {
+  border-color: #68ebcf;
+  background: #62e4c8;
+  box-shadow: 0 0 14px rgba(98,228,200,.34);
+}
+.minute-agreement-closure input[type="checkbox"]:checked::after { opacity: 1; transform: scale(1); }
+.minute-agreement-closure input[type="checkbox"]:disabled { cursor: not-allowed; opacity: .48; }
+.minute-agreement-delete { align-self: start; }
+@media(max-width:1100px){
+  .minute-agreement-row { grid-template-columns: 42px 1fr 1fr; }
+  .minute-agreement-closure { grid-column:2/-1; }
+  .minute-agreement-delete { grid-column:1;grid-row:2; }
+}
