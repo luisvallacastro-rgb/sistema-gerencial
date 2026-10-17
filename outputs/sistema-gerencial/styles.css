@@ -22818,3 +22818,22 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .minute-fullscreen-overlay .minutes-editor li {
   color: #e8f2f7;
 }
+.minute-writing-dialog .minute-writing-canvas {
+  border-color: #3d6b83;
+  background: linear-gradient(155deg, #173751 0%, #102b43 58%, #102f3b 100%);
+  color: #e8f2f7;
+  caret-color: #70ead2;
+  box-shadow: inset 0 1px 0 rgba(143, 225, 211, .08), 0 14px 34px rgba(1, 8, 18, .26);
+}
+.minute-writing-dialog .minute-writing-canvas:focus {
+  border-color: #55bba9;
+  box-shadow: 0 0 0 3px rgba(94, 224, 198, .12), inset 0 1px 0 rgba(143, 225, 211, .1);
+}
+.minute-writing-dialog .minute-writing-canvas:empty::before {
+  color: rgba(176, 199, 211, .52);
+}
+.minute-writing-dialog .minute-writing-canvas p,
+.minute-writing-dialog .minute-writing-canvas div,
+.minute-writing-dialog .minute-writing-canvas li {
+  color: #e8f2f7;
+}
