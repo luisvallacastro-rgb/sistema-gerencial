@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import calendar
 import hashlib
 import hmac
 import mimetypes
@@ -10317,20 +10318,57 @@ def seed_labor_benefits_if_empty(conn):
         ))
 
 
-def labor_benefit_payload(row):
+def labor_benefit_projection(row, year):
+    """Annual planning projection. It is calculated, never an approved final settlement."""
+    salary_cents = row["monthly_salary_cents"]
+    if int(row["employment_status"] or 2) != 1 or salary_cents is None:
+        return {"days": None, "bonusCents": None, "vacationCents": None, "severanceCents": None, "netTotalCents": None}
+    try:
+        hire_date = datetime.strptime(text(row["hire_date"]), "%Y-%m-%d").date()
+        reference_date = datetime(year, 12, 12).date()
+    except (TypeError, ValueError):
+        return {"days": None, "bonusCents": None, "vacationCents": None, "severanceCents": None, "netTotalCents": None}
+    if hire_date >= reference_date:
+        return {"days": 0, "bonusCents": 0, "vacationCents": 0, "severanceCents": 0, "netTotalCents": 0}
+    service_days = max(0, (reference_date - hire_date).days)
+    annual_days = min(service_days, 366 if calendar.isleap(year) else 365)
+    anniversary_years = reference_date.year - hire_date.year - ((reference_date.month, reference_date.day) < (hire_date.month, hire_date.day))
+    salary = Decimal(int(salary_cents)) / Decimal(100)
+    daily_salary = salary / Decimal(30)
+    denominator = Decimal(366 if calendar.isleap(year) else 365)
+    factor = min(Decimal(1), Decimal(annual_days) / denominator)
+    bonus_days = Decimal(21 if anniversary_years >= 10 else 19 if anniversary_years >= 3 else 15)
+    if anniversary_years < 1:
+        bonus_days *= factor
+    bonus = daily_salary * bonus_days
+    vacation = daily_salary * Decimal(15) * Decimal("1.30") * factor
+    severance = salary * factor
+    to_cents = lambda value: int((value * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    bonus_cents, vacation_cents, severance_cents = map(to_cents, (bonus, vacation, severance))
+    return {
+        "days": annual_days, "bonusCents": bonus_cents, "vacationCents": vacation_cents,
+        "severanceCents": severance_cents,
+        "netTotalCents": max(0, bonus_cents + vacation_cents + severance_cents - int(row["prior_payments_cents"] or 0) - int(row["deductions_cents"] or 0)),
+    }
+
+
+def labor_benefit_payload(row, year=None):
     item = dict(row)
+    calculation_year = int(year or datetime.now().year)
+    projection = labor_benefit_projection(row, calculation_year)
     return {
         "id": item["id"], "employeeId": item.get("employee_id") or "",
         "correlative": item["correlative"], "employeeNumber": item["employee_number"],
         "fullName": item["full_name"], "employmentStatus": item["employment_status"],
         "position": item["position_name"], "hireDate": item["hire_date"],
         "reportedTenure": item["reported_tenure"], "monthlySalaryCents": item["monthly_salary_cents"],
-        "reportedDaysYear": item["reported_days_year"], "reportedDays": item["reported_days"],
-        "bonusCents": item["bonus_cents"], "vacationCents": item["vacation_cents"],
-        "severanceCents": item["severance_cents"], "priorPaymentsCents": item["prior_payments_cents"],
-        "deductionsCents": item["deductions_cents"], "netTotalCents": item["net_total_cents"],
+        "reportedDaysYear": calculation_year, "reportedDays": projection["days"],
+        "bonusCents": projection["bonusCents"], "vacationCents": projection["vacationCents"],
+        "severanceCents": projection["severanceCents"], "priorPaymentsCents": item["prior_payments_cents"],
+        "deductionsCents": item["deductions_cents"], "netTotalCents": projection["netTotalCents"],
         "receiptStatus": item["receipt_status"], "receiptDate": item["receipt_date"],
-        "calculationStatus": item["calculation_status"], "notes": item["notes"],
+        "calculationStatus": "Calculado" if projection["netTotalCents"] is not None else "Pendiente", "notes": item["notes"],
+        "calculationMode": "Proyección anual", "referenceDate": f"{calculation_year}-12-12",
         "revision": item["revision"], "updatedAt": item["updated_at"],
     }
 
@@ -10744,6 +10782,9 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             if not self.require_permission(LABOR_BENEFITS_PERMISSION_KEY): return
             query = parse_qs(urlparse(self.path).query)
             search = text((query.get("q") or [""])[0]).strip()
+            try: calculation_year = int((query.get("year") or [datetime.now().year])[0])
+            except (TypeError, ValueError): calculation_year = datetime.now().year
+            calculation_year = min(2100, max(2000, calculation_year))
             params = []
             where = ""
             if search:
@@ -10752,7 +10793,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 params = [term, term, term]
             with connect() as conn:
                 rows = conn.execute(f"SELECT * FROM labor_benefit_records {where} ORDER BY correlative", params).fetchall()
-            self.send_json({"items": [labor_benefit_payload(row) for row in rows], "count": len(rows)})
+            self.send_json({"items": [labor_benefit_payload(row, calculation_year) for row in rows], "count": len(rows), "year": calculation_year})
             return
 
         if path == "/api/hr/employees":

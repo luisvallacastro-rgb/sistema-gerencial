@@ -75,6 +75,28 @@ class LaborBenefitsPreloadTests(unittest.TestCase):
             SERVER.default_permissions_for_role("gerencias"),
         )
 
+    def test_projection_matches_reference_matrix(self):
+        row = {
+            "employment_status": 1, "monthly_salary_cents": 105000,
+            "hire_date": "2023-09-01", "prior_payments_cents": 0, "deductions_cents": 0,
+        }
+        projection = SERVER.labor_benefit_projection(row, 2026)
+        self.assertEqual(projection["days"], 365)
+        self.assertEqual(projection["bonusCents"], 66500)
+        self.assertEqual(projection["vacationCents"], 68250)
+        self.assertEqual(projection["severanceCents"], 105000)
+        self.assertEqual(projection["netTotalCents"], 239750)
+
+    def test_first_year_projection_is_prorated_to_reference_date(self):
+        row = {
+            "employment_status": 1, "monthly_salary_cents": 60000,
+            "hire_date": "2026-06-01", "prior_payments_cents": 0, "deductions_cents": 0,
+        }
+        projection = SERVER.labor_benefit_projection(row, 2026)
+        self.assertEqual(projection["days"], 194)
+        self.assertGreater(projection["bonusCents"], 0)
+        self.assertLess(projection["severanceCents"], 60000)
+
 
 if __name__ == "__main__":
     unittest.main()

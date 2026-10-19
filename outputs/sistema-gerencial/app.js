@@ -334,6 +334,7 @@ const state = {
   laborBenefitsLoaded: false,
   laborBenefitsLoading: false,
   laborBenefitsQuery: "",
+  laborBenefitsYear: 2026,
   financialIncome: [],
   financialIncomeLoaded: false,
   financialIncomeLoading: false,
@@ -15559,8 +15560,9 @@ function renderHrPlaceholder(submenu) {
 function loadLaborBenefits(force = false) {
   if (state.laborBenefitsLoading || (state.laborBenefitsLoaded && !force)) return Promise.resolve();
   state.laborBenefitsLoading = true;
-  const query = state.laborBenefitsQuery ? `?q=${encodeURIComponent(state.laborBenefitsQuery)}` : "";
-  return apiJson(`/api/labor-benefits${query}`)
+  const query = new URLSearchParams({ year: String(state.laborBenefitsYear) });
+  if (state.laborBenefitsQuery) query.set("q", state.laborBenefitsQuery);
+  return apiJson(`/api/labor-benefits?${query}`)
     .then((payload) => { state.laborBenefits = payload.items || []; state.laborBenefitsLoaded = true; })
     .catch((error) => alert(error.message || "No se pudo cargar Prestaciones laborales."))
     .finally(() => {
@@ -15576,7 +15578,7 @@ function laborBenefitMoney(value) {
 function laborBenefitService(item) {
   if (!item.hireDate) return "Pendiente";
   const start = new Date(`${item.hireDate}T12:00:00`);
-  const end = new Date();
+  const end = new Date(`${item.referenceDate || `${state.laborBenefitsYear}-12-12`}T12:00:00`);
   if (Number.isNaN(start.getTime()) || start > end) return "Pendiente";
   const days = Math.floor((end - start) / 86400000) + 1;
   return `${(days / 365.2425).toFixed(2)} / ${days}`;
@@ -15595,8 +15597,8 @@ function renderLaborBenefitsModule() {
     <td>${escapeHtml(item.receiptStatus)}</td><td><button type="button" data-labor-benefit-edit="${escapeHtml(item.id)}" aria-label="Editar ${escapeHtml(item.fullName)}">✎</button></td>
   </tr>`).join("");
   return `<section class="labor-benefits-module"><header><div><span>FINANCIERA · CONTROL LABORAL</span><h2>Prestaciones laborales</h2><p>Matriz de aguinaldo, vacaciones e indemnizaciones. Los importes pendientes no constituyen una obligación aprobada.</p></div><strong>${state.laborBenefits.length} empleados</strong></header>
-    <div class="labor-benefits-toolbar"><label><span>⌕</span><input data-labor-benefits-search value="${escapeHtml(state.laborBenefitsQuery)}" placeholder="Buscar código, empleado o cargo"></label><select aria-label="Ejercicio"><option>2026</option><option>2025</option></select></div>
-    <div class="labor-benefits-matrix"><table><thead><tr><th>Corr</th><th>Código</th><th>Nombre del Empleado</th><th>Activo=1<br>Inactivo=2</th><th>Cargo</th><th>Fecha Ingreso</th><th>Años / Días Laborados</th><th>Salario Base</th><th>Días Laborados 2025</th><th>Aguinaldo</th><th>Vacación</th><th>Indemnización</th><th>Total a Pagar</th><th>Recibí Conforme</th><th>Editar</th></tr></thead><tbody>${rows || `<tr><td colspan="15">${state.laborBenefitsLoading ? "Cargando…" : "Sin registros"}</td></tr>`}</tbody></table></div>
+    <div class="labor-benefits-toolbar"><label><span>⌕</span><input data-labor-benefits-search value="${escapeHtml(state.laborBenefitsQuery)}" placeholder="Buscar código, empleado o cargo"></label><select data-labor-benefits-year aria-label="Ejercicio"><option ${state.laborBenefitsYear === 2026 ? "selected" : ""}>2026</option><option ${state.laborBenefitsYear === 2025 ? "selected" : ""}>2025</option></select></div>
+    <div class="labor-benefits-matrix"><table><thead><tr><th>Corr</th><th>Código</th><th>Nombre del Empleado</th><th>Activo=1<br>Inactivo=2</th><th>Cargo</th><th>Fecha Ingreso</th><th>Años / Días Laborados</th><th>Salario Base</th><th>Días Laborados ${state.laborBenefitsYear}</th><th>Aguinaldo</th><th>Vacación</th><th>Indemnización</th><th>Total a Pagar</th><th>Recibí Conforme</th><th>Editar</th></tr></thead><tbody>${rows || `<tr><td colspan="15">${state.laborBenefitsLoading ? "Cargando…" : "Sin registros"}</td></tr>`}</tbody></table></div>
   </section>`;
 }
 
@@ -15636,6 +15638,7 @@ function openLaborBenefitEditor(item) {
 function wireLaborBenefitsModule() {
   const input = opportunityTable.querySelector("[data-labor-benefits-search]");
   input?.addEventListener("change", () => { state.laborBenefitsQuery = input.value.trim(); state.laborBenefitsLoaded = false; loadLaborBenefits(true); });
+  opportunityTable.querySelector("[data-labor-benefits-year]")?.addEventListener("change", (event) => { state.laborBenefitsYear = Number(event.currentTarget.value); state.laborBenefitsLoaded = false; loadLaborBenefits(true); });
   opportunityTable.querySelectorAll("[data-labor-benefit-edit]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation(); const item = state.laborBenefits.find((row) => row.id === button.dataset.laborBenefitEdit); if (item) openLaborBenefitEditor(item);
   }));
