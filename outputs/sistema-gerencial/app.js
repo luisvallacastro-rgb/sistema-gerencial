@@ -10257,9 +10257,14 @@ function renderCrmTracking() {
   const closedCrmOpportunityIds = new Set(allResultClosures
     .map((item) => String(item.crmOpportunityId || ""))
     .filter(Boolean));
-  const closedOpportunityKeys = new Set(allResultClosures.map((item) => (
-    `${normalizeBusinessMatch(item.company)}::${crmIdentityKey(item.seller)}`
-  )));
+  // Only legacy closures without an origin id need the company/seller
+  // fallback. Applying it to linked closures hides later opportunities for
+  // the same customer and seller (for example, a new sale after an older win).
+  const closedOpportunityKeys = new Set(allResultClosures
+    .filter((item) => !String(item.crmOpportunityId || "").trim())
+    .map((item) => (
+      `${normalizeBusinessMatch(item.company)}::${crmIdentityKey(item.seller)}`
+    )));
   const isVisibleTrackingOpportunity = (opportunity) => {
     const isClosed = closedCrmOpportunityIds.has(String(opportunity.id || ""))
       || closedOpportunityKeys.has(`${normalizeBusinessMatch(opportunity.company)}::${crmIdentityKey(crmOwnerName(opportunity.ownerId))}`);
