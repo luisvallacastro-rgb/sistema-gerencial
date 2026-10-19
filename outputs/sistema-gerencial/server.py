@@ -821,6 +821,18 @@ def sync_crm_result_closures(conn, data):
             opportunity["wonAt"] = text(won_closure.get("date"))
             opportunity["wonManagementId"] = text(won_closure.get("id"))
             changed = True
+        elif (
+            opportunity.get("migratedToResults")
+            and text(opportunity.get("status")).lower() == "ganada"
+            and text(opportunity.get("id")) not in won_crm_ids
+        ):
+            # A converted OP can return to the approval queue. When its
+            # automatic win is withdrawn, the migrated opportunity must be
+            # available for follow-up again instead of remaining closed.
+            opportunity["status"] = "Migrada"
+            opportunity.pop("wonAt", None)
+            opportunity.pop("wonManagementId", None)
+            changed = True
         if opportunity.get("id") not in lost_crm_ids:
             continue
         if text(opportunity.get("status")).lower() != "perdida" or not opportunity.get("archived"):
@@ -2229,13 +2241,28 @@ def repair_missing_result_migrations(conn):
     return repaired
 
 
-def repair_converted_result_opportunities(conn):
-    """Keep converted quotations visible as won opportunities in Gerencia.
+def control_sales_order_is_finally_approved(order):
+    """Return whether an OP completed every signature required by its flow."""
+    if not order or bool(order["recovered_order_archived"]):
+        return False
+    try:
+        proforma = json.loads(order["recovered_order_proforma_data"] or "{}")
+    except (json.JSONDecodeError, TypeError):
+        proforma = {}
+    finance_approved = text(order["recovered_finance_status"]) == "Aprobada"
+    direct_flow = text(proforma.get("workflow")) == "direct-final-only"
+    if direct_flow:
+        return finance_approved
+    return finance_approved and text(order["recovered_commercial_status"]) == "Autorizada"
 
-    A quotation can only be converted after its opportunity was closed as won.
-    Therefore the converted quotation and order are authoritative recovery
-    sources when the JSON opportunity row, or its closing management, was lost
-    during an earlier client-side save.
+
+def repair_converted_result_opportunities(conn):
+    """Reconcile converted quotations with the OP's final approval state.
+
+    Conversion keeps the opportunity migrated and traceable. It becomes won
+    only after every signature required by the OP flow is present. A returned
+    order removes the recovered automatic win without deleting its documents
+    or history.
     """
     crm_row = conn.execute("SELECT value FROM app_state WHERE key = 'crm_data'").fetchone()
     try:
@@ -2249,7 +2276,12 @@ def repair_converted_result_opportunities(conn):
     quotation_rows = conn.execute("""
         SELECT q.*,
                COALESCE(NULLIF(q.converted_order_id, ''), cso.id, '') AS recovered_order_id,
-               COALESCE(NULLIF(q.converted_at, ''), cso.created_at, cso.order_date, '') AS recovered_converted_at
+               COALESCE(NULLIF(q.converted_at, ''), cso.created_at, cso.order_date, '') AS recovered_converted_at,
+               COALESCE(cso.archived, 1) AS recovered_order_archived,
+               COALESCE(cso.proforma_data, '{}') AS recovered_order_proforma_data,
+               COALESCE(cso.commercial_approval_status, '') AS recovered_commercial_status,
+               COALESCE(cso.finance_approval_status, '') AS recovered_finance_status,
+               COALESCE(cso.finance_approved_at, '') AS recovered_finance_approved_at
         FROM quotations q
         LEFT JOIN control_sales_orders cso
           ON cso.source_quotation_id = q.id
@@ -2340,20 +2372,43 @@ def repair_converted_result_opportunities(conn):
                 changed = True
 
         managements = result.get("managements") if isinstance(result.get("managements"), list) else []
+        finally_approved = control_sales_order_is_finally_approved(row)
+        recovered_closure_ids = {
+            text(management.get("id")) for management in managements
+            if management.get("recovered")
+            and text(management.get("id")).startswith("recovered-win-")
+        }
+        if not finally_approved:
+            filtered_managements = [
+                management for management in managements
+                if text(management.get("id")) not in recovered_closure_ids
+            ]
+            if len(filtered_managements) != len(managements):
+                result["managements"] = filtered_managements
+                managements = filtered_managements
+                changed = True
+            tracking_win = result.get("trackingWin") if isinstance(result.get("trackingWin"), dict) else {}
+            if text(tracking_win.get("managementId")) in recovered_closure_ids:
+                result.pop("trackingWin", None)
+                changed = True
+
         closure = next((
             management for management in reversed(managements)
             if not management.get("canceled")
             and text(management.get("stage")).lower() in {"cierre", "cierre de ventas"}
             and text(management.get("result")).lower() == "ganado"
         ), None)
+        approved_at = text(
+            row["recovered_finance_approved_at"], row["recovered_converted_at"],
+        )
         converted_at = text(
-            row["recovered_converted_at"],
+            approved_at,
             quotation.get("convertedAt") or quotation.get("date") or time.strftime("%Y-%m-%dT%H:%M:%S"),
         )
         normalized_converted_at = converted_at.replace(" ", "T")
         closed_date = normalized_converted_at.split("T", 1)[0]
         closed_time = normalized_converted_at.split("T", 1)[1][:5] if "T" in normalized_converted_at else ""
-        if not closure:
+        if finally_approved and not closure:
             closure = {
                 "id": f"recovered-win-{quotation_id}",
                 "date": closed_date,
@@ -2369,13 +2424,6 @@ def repair_converted_result_opportunities(conn):
             changed = True
 
         recovery_values = {
-            "stage": "Cierre de ventas",
-            "trackingWin": {
-                "managementId": text(closure.get("id")),
-                "closedDate": text(closure.get("date"), closed_date),
-                "closedTime": text(closure.get("time"), closed_time),
-                "createdAt": normalized_converted_at,
-            },
             "orderHandoff": {
                 "status": "converted",
                 "orderId": text(row["recovered_order_id"], quotation.get("convertedOrderId")),
@@ -2383,6 +2431,16 @@ def repair_converted_result_opportunities(conn):
                 "convertedAt": normalized_converted_at,
             },
         }
+        if finally_approved and closure:
+            recovery_values.update({
+                "stage": "Cierre de ventas",
+                "trackingWin": {
+                    "managementId": text(closure.get("id")),
+                    "closedDate": text(closure.get("date"), closed_date),
+                    "closedTime": text(closure.get("time"), closed_time),
+                    "createdAt": normalized_converted_at,
+                },
+            })
         for key, value in recovery_values.items():
             if result.get(key) != value:
                 result[key] = value
@@ -2390,6 +2448,9 @@ def repair_converted_result_opportunities(conn):
 
     if changed:
         write_result_opportunities(conn, result_items)
+    crm_data, crm_changed = sync_crm_result_closures(conn, crm_data)
+    if crm_changed:
+        write_crm_data(conn, crm_data)
     return repaired
 
 
@@ -13167,6 +13228,10 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     "INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",
                     (item_id, action, actor, now, audit_summary),
                 )
+                # Keep Seguimiento and Histórico aligned immediately with the
+                # approval transition, including signature withdrawals and
+                # returned orders.
+                repair_converted_result_opportunities(conn)
                 updated = conn.execute("SELECT * FROM control_sales_orders WHERE id = ?", (item_id,)).fetchone()
                 item = control_sales_order_payload(conn, updated, include_audit=True)
             self.send_json({"ok": True, "item": item})
