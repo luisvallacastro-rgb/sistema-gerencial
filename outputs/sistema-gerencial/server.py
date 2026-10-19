@@ -2256,6 +2256,13 @@ def control_sales_order_is_finally_approved(order):
     return finance_approved and text(order["recovered_commercial_status"]) == "Autorizada"
 
 
+def approval_signature_identity(status, signed_status, actor, signed_at):
+    """Keep signer metadata only while the corresponding approval is active."""
+    if text(status) != signed_status:
+        return "", ""
+    return text(actor), text(signed_at)
+
+
 def repair_converted_result_opportunities(conn):
     """Reconcile converted quotations with the OP's final approval state.
 
@@ -12568,10 +12575,7 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         or linked_workflow == "direct-final-only"
                     )
                     if is_converted_direct:
-                        finance_signed = (
-                            text(linked_order["finance_approval_status"]) == "Aprobada"
-                            or bool(text(linked_order["finance_approved_at"]))
-                        )
+                        finance_signed = text(linked_order["finance_approval_status"]) == "Aprobada"
                         temporary_edit = temporary_signed_order_edit_enabled(conn, linked_order["order_number"])
                         if finance_signed and not temporary_edit:
                             self.send_json({"error": "La cotizacion no puede modificarse porque Edgar Menjivar ya firmó la OP"}, status=409)
@@ -12585,14 +12589,11 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                             self.send_json({"error": "Solo Judith Esmeralda o Luis Valladares pueden modificar una cotizacion directa convertida"}, status=403)
                             return
                     elif linked_order:
-                        finance_signed = (
-                            text(linked_order["finance_approval_status"]) == "Aprobada"
-                            or bool(text(linked_order["finance_approved_at"]))
-                        )
-                        commercial_signed = (
-                            text(linked_order["commercial_approval_status"]) == "Autorizada"
-                            or bool(text(linked_order["commercial_approved_at"]))
-                        )
+                        # The status is authoritative. Older returned orders may
+                        # still carry a stale timestamp from before the return;
+                        # that timestamp must not keep the seller locked out.
+                        finance_signed = text(linked_order["finance_approval_status"]) == "Aprobada"
+                        commercial_signed = text(linked_order["commercial_approval_status"]) == "Autorizada"
                         temporary_edit = temporary_signed_order_edit_enabled(conn, linked_order["order_number"])
                         if finance_signed and not temporary_edit:
                             self.send_json({"error": "La cotizacion no puede modificarse porque Edgar Menjivar ya firmó la OP"}, status=409)
@@ -12926,8 +12927,8 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     if not matching_order:
                         self.send_json({"error": "No se encontró la OP indicada"}, status=404)
                         return
-                    commercial_signed = text(matching_order["commercial_approval_status"]) == "Autorizada" or bool(text(matching_order["commercial_approved_at"]))
-                    finance_signed = text(matching_order["finance_approval_status"]) == "Aprobada" or bool(text(matching_order["finance_approved_at"]))
+                    commercial_signed = text(matching_order["commercial_approval_status"]) == "Autorizada"
+                    finance_signed = text(matching_order["finance_approval_status"]) == "Aprobada"
                     if not (commercial_signed and finance_signed):
                         self.send_json({"error": "La OP debe estar completamente firmada para asignar esta excepción"}, status=409)
                         return
@@ -13141,14 +13142,8 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     self.send_json({"error": "Las órdenes directas de Clientes no requieren firma de Odaliz"}, status=409)
                     return
                 if is_commercial_recovery:
-                    commercial_signed = (
-                        text(row["commercial_approval_status"]) == "Autorizada"
-                        or bool(text(row["commercial_approved_at"]))
-                    )
-                    finance_signed = (
-                        text(row["finance_approval_status"]) == "Aprobada"
-                        or bool(text(row["finance_approved_at"]))
-                    )
+                    commercial_signed = text(row["commercial_approval_status"]) == "Autorizada"
+                    finance_signed = text(row["finance_approval_status"]) == "Aprobada"
                     if not commercial_signed:
                         self.send_json({"error": "La orden no tiene una firma comercial que retirar"}, status=409)
                         return
@@ -13210,19 +13205,35 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                         """, (note, actor, now, item_id))
                         action = "retiro_autorizacion_comercial"
                     else:
+                        approved_by, approved_at = approval_signature_identity(
+                            status, "Autorizada", actor, now
+                        )
                         conn.execute("""
                             UPDATE control_sales_orders
                             SET commercial_approval_status=?, commercial_approved_by=?, commercial_approved_at=?,
                                 commercial_approval_note=?, updated_by=?, updated_at=?
                             WHERE id=?
-                        """, (status, actor, now, note, actor, now, item_id))
+                        """, (
+                            status,
+                            approved_by,
+                            approved_at,
+                            note, actor, now, item_id,
+                        ))
                         action = "autorizacion_comercial" if status == "Autorizada" else "devolucion_comercial"
                 else:
+                    approved_by, approved_at = approval_signature_identity(
+                        status, "Aprobada", actor, now
+                    )
                     conn.execute("""
                         UPDATE control_sales_orders
                         SET finance_approval_status=?, finance_approved_by=?, finance_approved_at=?,
                             finance_approval_note=?, updated_by=?, updated_at=? WHERE id=?
-                    """, (status, actor, now, note, actor, now, item_id))
+                    """, (
+                        status,
+                        approved_by,
+                        approved_at,
+                        note, actor, now, item_id,
+                    ))
                     action = "aprobacion_financiera" if status == "Aprobada" else "observacion_financiera"
                 conn.execute(
                     "INSERT INTO control_sales_audit (order_id, action, user_name, created_at, summary) VALUES (?, ?, ?, ?, ?)",

@@ -3636,7 +3636,7 @@ function financeApprovalLocalDate(value) {
 }
 
 function controlSalesEffectiveDate(order) {
-  const financeSigned = order?.financeApprovalStatus === "Aprobada" || Boolean(order?.financeApprovedAt);
+  const financeSigned = order?.financeApprovalStatus === "Aprobada";
   if (financeSigned && order?.financeApprovedAt) return financeApprovalLocalDate(order.financeApprovedAt);
   return String(linkedFinancialOrderForControlSale(order)?.date || order?.date || "").slice(0, 10);
 }
@@ -4654,8 +4654,10 @@ function canReviseConvertedDirectQuotation(quotation = {}) {
   const isDirect = String(quotation.opportunityId || "").startsWith("direct-quotation:")
     || String(linkedOrder?.proformaData?.workflow || "") === "direct-final-only";
   if (!linkedOrder) return true;
-  const financeSigned = linkedOrder.financeApprovalStatus === "Aprobada" || Boolean(linkedOrder.financeApprovedAt);
-  const commercialSigned = linkedOrder.commercialApprovalStatus === "Autorizada" || Boolean(linkedOrder.commercialApprovedAt);
+  // Approval status is authoritative. A returned order may contain a stale
+  // historical timestamp, but it must immediately become editable again.
+  const financeSigned = linkedOrder.financeApprovalStatus === "Aprobada";
+  const commercialSigned = linkedOrder.commercialApprovalStatus === "Autorizada";
   const selectedOrder = normalizeKey(state.temporarySignedOrderEditOrderNumber).replace(/[^a-z0-9]/g, "").replace(/^op/, "");
   const linkedOrderNumber = normalizeKey(linkedOrder.number).replace(/[^a-z0-9]/g, "").replace(/^op/, "");
   if (state.temporarySignedOrderEditEnabled && selectedOrder && selectedOrder === linkedOrderNumber && (commercialSigned || financeSigned)) return true;
@@ -4672,8 +4674,8 @@ function canReviseConvertedDirectQuotation(quotation = {}) {
 function canRecoverCommercialOrderSignature(order = {}, user = state.currentUser) {
   const identity = normalizeKey(`${user?.id || ""} ${user?.name || ""} ${user?.username || ""} ${user?.email || ""}`);
   const isLuis = identity.includes("luisvallacastro") || ["luis", "valladares"].every((token) => identity.includes(token));
-  const commercialSigned = order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt);
-  const financeSigned = order.financeApprovalStatus === "Aprobada" || Boolean(order.financeApprovedAt);
+  const commercialSigned = order.commercialApprovalStatus === "Autorizada";
+  const financeSigned = order.financeApprovalStatus === "Aprobada";
   return !isDirectOrderFlow(order) && commercialSigned && !financeSigned && (isOdalizValenciaUser(user) || isLuis);
 }
 
@@ -4919,7 +4921,7 @@ function commercialApprovalFolio(order) {
 
 function commercialApprovalSignatureMarkup(order, compact = false) {
   if (isDirectOrderFlow(order)) return "";
-  if (order?.commercialApprovalStatus !== "Autorizada" && !order?.commercialApprovedAt) return "";
+  if (order?.commercialApprovalStatus !== "Autorizada") return "";
   return `<section class="commercial-electronic-signature${compact ? " is-compact" : ""}" aria-label="Firma electrónica de Gerencia de Comercialización">
     <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
     <div class="commercial-electronic-signature__copy">
@@ -4938,7 +4940,7 @@ function financeApprovalFolio(order) {
 }
 
 function financeApprovalSignatureMarkup(order, compact = false) {
-  if (order?.financeApprovalStatus !== "Aprobada" && !order?.financeApprovedAt) return "";
+  if (order?.financeApprovalStatus !== "Aprobada") return "";
   return `<section class="commercial-electronic-signature finance-electronic-signature${compact ? " is-compact" : ""}" aria-label="Firma electrónica de Gerencia Financiera">
     <span class="commercial-electronic-signature__seal" aria-hidden="true">✓</span>
     <div class="commercial-electronic-signature__copy">
@@ -6437,7 +6439,7 @@ async function openControlSalesDetail(orderId, formatOnly = false) {
   const subtotalCents = Number(order.subtotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.lineTotalCents || 0) - Number(detail.vatCents || 0), 0));
   const vatCents = Number(order.vatTotalCents ?? order.details.reduce((sum, detail) => sum + Number(detail.vatCents || 0), 0));
   const retentionCents = Number(order.perceptionCents ?? Math.max(0, Number(order.totalCents || 0) - subtotalCents - vatCents));
-  const approvalLabel = controlSalesOrderHasAuthorizedSignatures(order) ? "Aprobado · 2 firmas" : (order.commercialApprovalStatus === "Autorizada" || order.commercialApprovedAt) ? "Autorización comercial" : "Pendiente de autorización";
+  const approvalLabel = controlSalesOrderHasAuthorizedSignatures(order) ? "Aprobado · 2 firmas" : order.commercialApprovalStatus === "Autorizada" ? "Autorización comercial" : "Pendiente de autorización";
   document.querySelector("#controlSalesDetailContent").innerHTML = `<header class="control-sales-review-header"><div><p class="eyebrow">Orden ${escapeHtml(formatOrderCorrelative(order.number))}</p><h3>${escapeHtml(order.client)}</h3><span>${escapeHtml(controlSalesResponsibleSeller(order))}</span></div><div class="control-sales-review-header__aside"><em>${escapeHtml(approvalLabel)}</em><button type="button" data-control-sales-detail-close aria-label="Cerrar">×</button></div></header>
     <section class="control-sales-review-hero">
       <div class="control-sales-review-total"><small>Total del pedido</small><strong>${formatControlSalesMoney(order.totalCents || 0)}</strong><span>${order.details.length === 1 ? "1 producto" : `${order.details.length} productos`}</span></div>
@@ -6493,8 +6495,8 @@ function linkedQuotationForControlSalesOrder(order) {
 }
 
 function controlSalesOrderHasAuthorizedSignatures(order) {
-  const commercialSigned = order?.commercialApprovalStatus === "Autorizada" || Boolean(order?.commercialApprovedAt);
-  const financeSigned = order?.financeApprovalStatus === "Aprobada" || Boolean(order?.financeApprovedAt);
+  const commercialSigned = order?.commercialApprovalStatus === "Autorizada";
+  const financeSigned = order?.financeApprovalStatus === "Aprobada";
   return commercialSigned && financeSigned;
 }
 
@@ -7451,8 +7453,8 @@ function renderFinancialOrderNotifications() {
           const missingFields = missingFinancialOrderFields(order);
           const financialComplete = missingFields.length === 0;
           const signerStage = currentOrderSignatureStage();
-          const commercialSigned = order.commercialApprovalStatus === "Autorizada" || Boolean(order.commercialApprovedAt);
-          const financeSigned = order.financeApprovalStatus === "Aprobada" || Boolean(order.financeApprovedAt);
+          const commercialSigned = order.commercialApprovalStatus === "Autorizada";
+          const financeSigned = order.financeApprovalStatus === "Aprobada";
           const customerDirectFlow = isDirectOrderFlow(order);
           const canRecoverCommercialSignature = canRecoverCommercialOrderSignature(order);
           const quotation = linkedQuotationForControlSalesOrder(order);

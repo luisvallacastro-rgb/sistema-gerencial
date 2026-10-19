@@ -24,6 +24,22 @@ def approval_row(commercial="Pendiente", finance="Pendiente", workflow="", archi
 
 
 class OpportunityApprovalLifecycleTests(unittest.TestCase):
+    def test_return_clears_stale_signature_identity(self):
+        self.assertEqual(
+            SERVER.approval_signature_identity(
+                "Devuelta", "Autorizada", "Odaliz Valencia", "2026-10-19T13:00:00-06:00"
+            ),
+            ("", ""),
+        )
+
+    def test_active_approval_keeps_signature_identity(self):
+        self.assertEqual(
+            SERVER.approval_signature_identity(
+                "Autorizada", "Autorizada", "Odaliz Valencia", "2026-10-19T13:00:00-06:00"
+            ),
+            ("Odaliz Valencia", "2026-10-19T13:00:00-06:00"),
+        )
+
     def test_standard_order_is_won_only_after_both_approvals(self):
         self.assertFalse(SERVER.control_sales_order_is_finally_approved(
             approval_row(commercial="Autorizada")
