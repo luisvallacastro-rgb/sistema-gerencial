@@ -37,6 +37,7 @@ PURCHASE_ORDERS_SEED_PATH = ROOT / "purchase-orders-seed.json"
 CONTROL_SALES_SEED_PATH = ROOT / "control-sales-seed.json"
 BANK_AVAILABILITY_SEED_PATH = ROOT / "bank-availability-seed.json"
 FINANCIAL_STATEMENTS_SEED_PATH = ROOT / "financial-statements-seed.json"
+LABOR_BENEFITS_PRELOAD_PATH = ROOT / "labor-benefits-preload.json"
 INVENTORY_SEED_PATH = ROOT / "inventory-seed.json"
 CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01"
 HOST = os.environ.get("HOST", "0.0.0.0")
@@ -72,7 +73,7 @@ CRM_SELLER_ACCOUNT_LINKS = {
 AREA_KEYS = ["comercializacion", "financiera", "operaciones", "rrhh"]
 AREA_SECTION_KEYS = {
     "comercializacion": ["crm", "agenda-comercial", "crm-seguimiento", "anticipos", "resultados-oportunidades", "autorizacion-pedidos", "cotizaciones", "resultados-pedidos", "historial-compra", "resultados-dashboard", "kpi", "meta"],
-    "financiera": ["disponibilidad", "reserva-laboral", "ingresos", "inventario", "facturacion-electronica", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
+    "financiera": ["disponibilidad", "reserva-laboral", "prestaciones-laborales", "ingresos", "inventario", "facturacion-electronica", "estados-financieros", "resultados-cuentas-por-cobrar", "resultados-ordenes-de-pedido"],
     "operaciones": ["resultados-control-ventas", "produccion-semanal", "archivo-muestras"],
     "rrhh": ["panel", "expedientes", "expedientes-editar", "salarios", "auditoria", "ausencias", "ausencias-editar", "acciones-personal", "acciones-personal-editar", "activos", "documentos"],
 }
@@ -584,6 +585,7 @@ FISCAL_PERMISSION_KEYS = [
 ]
 FISCAL_MODULE_PERMISSION_KEY = "financiera:facturacion-electronica"
 FISCAL_ACCESS_PERMISSION_KEYS = [FISCAL_MODULE_PERMISSION_KEY, *FISCAL_PERMISSION_KEYS]
+LABOR_BENEFITS_PERMISSION_KEY = "financiera:prestaciones-laborales"
 ALL_PERMISSIONS = [
     *ALL_OPERATIONAL_PERMISSIONS,
     *FISCAL_PERMISSION_KEYS,
@@ -605,6 +607,11 @@ def is_fiscal_owner_user(user):
         or username in {"luisvallacastro", ADMIN_EMAIL}
         or ("luis" in identity and "valladares" in identity)
     )
+
+
+def is_labor_benefits_owner_user(user):
+    """Prestaciones laborales starts private to Luis and remains grantable."""
+    return is_fiscal_owner_user(user)
 
 DEFAULT_USERS = [
     {
@@ -2615,7 +2622,10 @@ def default_permissions_for_role(role):
         if role == "gerencias"
         else [*ALL_OPERATIONAL_PERMISSIONS, *ADMIN_CONSOLIDATED_PERMISSION_KEYS]
     )
-    return [permission for permission in permissions if permission not in FISCAL_ACCESS_PERMISSION_KEYS]
+    return [
+        permission for permission in permissions
+        if permission not in [*FISCAL_ACCESS_PERMISSION_KEYS, LABOR_BENEFITS_PERMISSION_KEY]
+    ]
 
 
 def normalize_permissions(value, role):
@@ -2659,8 +2669,8 @@ def normalize_user(data, index=0):
     permissions = (
         list(ALL_PERMISSIONS)
         if admin and is_fiscal_owner_user(item)
-        else [permission for permission in ALL_PERMISSIONS if permission not in FISCAL_ACCESS_PERMISSION_KEYS]
-        if admin and FISCAL_MODULE_PERMISSION_KEY not in explicit_permissions
+        else [permission for permission in ALL_PERMISSIONS if permission not in [*FISCAL_ACCESS_PERMISSION_KEYS, LABOR_BENEFITS_PERMISSION_KEY]]
+        if admin and FISCAL_MODULE_PERMISSION_KEY not in explicit_permissions and LABOR_BENEFITS_PERMISSION_KEY not in explicit_permissions
         else list(ALL_PERMISSIONS)
         if admin
         else normalize_permissions(item.get("permissions"), role)
@@ -2698,8 +2708,14 @@ def user_payload(row):
         stored_permissions = normalize_permissions(row["permissions"], data["role"])
         data["permissions"] = (
             list(ALL_PERMISSIONS)
-            if is_fiscal_owner_user(data) or FISCAL_MODULE_PERMISSION_KEY in stored_permissions
-            else [permission for permission in ALL_PERMISSIONS if permission not in FISCAL_ACCESS_PERMISSION_KEYS]
+            if is_fiscal_owner_user(data)
+            else [permission for permission in ALL_PERMISSIONS if permission not in [*FISCAL_ACCESS_PERMISSION_KEYS, LABOR_BENEFITS_PERMISSION_KEY]]
+            if FISCAL_MODULE_PERMISSION_KEY not in stored_permissions and LABOR_BENEFITS_PERMISSION_KEY not in stored_permissions
+            else [
+                permission for permission in ALL_PERMISSIONS
+                if (permission not in FISCAL_ACCESS_PERMISSION_KEYS or FISCAL_MODULE_PERMISSION_KEY in stored_permissions)
+                and (permission != LABOR_BENEFITS_PERMISSION_KEY or LABOR_BENEFITS_PERMISSION_KEY in stored_permissions)
+            ]
         )
     # Passwords are authentication secrets and must never cross the API boundary.
     data.pop("password", None)
@@ -9041,6 +9057,7 @@ def init_db():
                 conn.execute("UPDATE users SET permissions = ? WHERE id = ?", (json.dumps(user_permissions), user_row["id"]))
         reset_order_flow_for_first_elizabeth_order_once(conn)
         apply_versioned_migrations(conn)
+        seed_labor_benefits_if_empty(conn)
         enforce_initial_fiscal_owner_access_once(conn)
 
 
@@ -10261,6 +10278,92 @@ def apply_hr_personnel_action(conn, row, actor):
         (actor["id"], actor["name"], actor["id"], actor["name"], row["id"]))
 
 
+def seed_labor_benefits_if_empty(conn):
+    """Load the user-supplied roster idempotently without treating reported days as legal inputs."""
+    if not LABOR_BENEFITS_PRELOAD_PATH.exists():
+        return
+    payload = json.loads(LABOR_BENEFITS_PRELOAD_PATH.read_text(encoding="utf-8"))
+    for source in payload.get("records", []):
+        employee_number = text(source.get("employeeNumber")).strip()
+        if not employee_number:
+            continue
+        employee_id = f"hr-preload-{employee_number.lower()}"
+        position_name = text(source.get("position")).strip()
+        position_id = f"hr-position-preload-{hashlib.sha256(position_name.lower().encode('utf-8')).hexdigest()[:16]}"
+        if position_name and position_name.upper() != "INACTIVO":
+            conn.execute("INSERT OR IGNORE INTO hr_positions(id, name) VALUES (?, ?)", (position_id, position_name))
+        else:
+            position_id = None
+        salary = source.get("monthlySalaryCents")
+        conn.execute("""INSERT OR IGNORE INTO hr_employees
+            (id, employee_number, full_name, position_id, status, hire_date, salary_cents,
+             notes, created_by_id, created_by_name, updated_by_id, updated_by_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'preload', 'Precarga prestaciones', 'preload', 'Precarga prestaciones')""", (
+            employee_id, employee_number, text(source.get("fullName")), position_id,
+            text(source.get("status"), "Activo"), text(source.get("hireDate")), int(salary or 0),
+            "Salario pendiente de validación" if salary is None else "Precarga de prestaciones laborales",
+        ))
+        employee = conn.execute("SELECT id FROM hr_employees WHERE employee_number = ?", (employee_number,)).fetchone()
+        conn.execute("""INSERT OR IGNORE INTO labor_benefit_records
+            (id, employee_id, employee_number, correlative, full_name, employment_status,
+             position_name, hire_date, reported_tenure, monthly_salary_cents,
+             reported_days_year, reported_days, notes, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2025, ?, ?, 'Precarga prestaciones')""", (
+            f"labor-benefit-{employee_number.lower()}", employee["id"] if employee else None,
+            employee_number, int(source.get("correlative") or 0), text(source.get("fullName")),
+            1 if source.get("status") == "Activo" else 2, position_name, text(source.get("hireDate")),
+            source.get("reportedTenure"), salary, source.get("reportedDays"),
+            "Los días y la antigüedad reportados son informativos y requieren validación.",
+        ))
+
+
+def labor_benefit_payload(row):
+    item = dict(row)
+    return {
+        "id": item["id"], "employeeId": item.get("employee_id") or "",
+        "correlative": item["correlative"], "employeeNumber": item["employee_number"],
+        "fullName": item["full_name"], "employmentStatus": item["employment_status"],
+        "position": item["position_name"], "hireDate": item["hire_date"],
+        "reportedTenure": item["reported_tenure"], "monthlySalaryCents": item["monthly_salary_cents"],
+        "reportedDaysYear": item["reported_days_year"], "reportedDays": item["reported_days"],
+        "bonusCents": item["bonus_cents"], "vacationCents": item["vacation_cents"],
+        "severanceCents": item["severance_cents"], "priorPaymentsCents": item["prior_payments_cents"],
+        "deductionsCents": item["deductions_cents"], "netTotalCents": item["net_total_cents"],
+        "receiptStatus": item["receipt_status"], "receiptDate": item["receipt_date"],
+        "calculationStatus": item["calculation_status"], "notes": item["notes"],
+        "revision": item["revision"], "updatedAt": item["updated_at"],
+    }
+
+
+def normalize_labor_benefit_changes(data, existing):
+    item = dict(data or {})
+    normalized = {
+        "full_name": text(item.get("fullName"), existing["full_name"]).strip(),
+        "employment_status": int(item.get("employmentStatus", existing["employment_status"])),
+        "position_name": text(item.get("position"), existing["position_name"]).strip(),
+        "hire_date": text(item.get("hireDate"), existing["hire_date"]).strip(),
+        "monthly_salary_cents": item.get("monthlySalaryCents", existing["monthly_salary_cents"]),
+        "reported_days_year": item.get("reportedDaysYear", existing["reported_days_year"]),
+        "reported_days": item.get("reportedDays", existing["reported_days"]),
+        "notes": text(item.get("notes"), existing["notes"]).strip(),
+    }
+    errors = []
+    if not normalized["full_name"]: errors.append("El nombre es obligatorio")
+    if normalized["employment_status"] not in {1, 2}: errors.append("El estado laboral no es válido")
+    try: datetime.strptime(normalized["hire_date"], "%Y-%m-%d")
+    except ValueError: errors.append("La fecha de ingreso no es válida")
+    for key, label in (("monthly_salary_cents", "salario"), ("reported_days_year", "año"), ("reported_days", "días")):
+        value = normalized[key]
+        if value in (None, ""):
+            normalized[key] = None
+            continue
+        try: normalized[key] = int(value)
+        except (TypeError, ValueError): errors.append(f"El valor de {label} no es válido")
+    if normalized["monthly_salary_cents"] is not None and normalized["monthly_salary_cents"] <= 0:
+        errors.append("El salario debe ser mayor que cero o quedar pendiente")
+    return normalized, errors
+
+
 class AppHandler(BaseHTTPRequestHandler):
     def training_access_token(self, issued_at):
         signature = hmac.new(
@@ -10423,6 +10526,12 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.send_json({"error": "Debes iniciar sesión para consultar este módulo"}, status=401)
             return False
         actor = user_payload(row)
+        if permission == LABOR_BENEFITS_PERMISSION_KEY:
+            stored_permissions = stored_user_permissions(row)
+            if is_labor_benefits_owner_user(actor) or permission in stored_permissions:
+                return True
+            self.send_json({"error": "Tu usuario no tiene permiso para consultar Prestaciones laborales"}, status=403)
+            return False
         if actor.get("admin") or permission in actor.get("permissions", []):
             return True
         self.send_json({"error": "Tu usuario no tiene permiso para consultar Disponibilidad"}, status=403)
@@ -10631,6 +10740,21 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             self.handle_crm_api()
             return
 
+        if path == "/api/labor-benefits":
+            if not self.require_permission(LABOR_BENEFITS_PERMISSION_KEY): return
+            query = parse_qs(urlparse(self.path).query)
+            search = text((query.get("q") or [""])[0]).strip()
+            params = []
+            where = ""
+            if search:
+                where = "WHERE employee_number LIKE ? OR full_name LIKE ? OR position_name LIKE ?"
+                term = f"%{search}%"
+                params = [term, term, term]
+            with connect() as conn:
+                rows = conn.execute(f"SELECT * FROM labor_benefit_records {where} ORDER BY correlative", params).fetchall()
+            self.send_json({"items": [labor_benefit_payload(row) for row in rows], "count": len(rows)})
+            return
+
         if path == "/api/hr/employees":
             if not self.require_permission("rrhh:expedientes"): return
             query = parse_qs(urlparse(self.path).query)
@@ -10647,6 +10771,15 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 rows = conn.execute(f"SELECT * FROM hr_employees {where} ORDER BY status, full_name", params).fetchall()
                 items = [hr_employee_payload(conn, row, can_view_salary) for row in rows]
             self.send_json({"items": items, "count": len(items), "salaryVisible": can_view_salary})
+            return
+
+        if path.startswith("/api/labor-benefits/"):
+            if not self.require_permission(LABOR_BENEFITS_PERMISSION_KEY): return
+            item_id = unquote(path.rsplit("/", 1)[-1])
+            with connect() as conn:
+                row = conn.execute("SELECT * FROM labor_benefit_records WHERE id = ?", (item_id,)).fetchone()
+            if not row: self.send_json({"error": "Registro de prestaciones no encontrado"}, status=404); return
+            self.send_json(labor_benefit_payload(row))
             return
 
         if path.startswith("/api/hr/employees/"):
@@ -12898,6 +13031,37 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
     def handle_api_patch(self):
         if self.path.startswith("/api/crm/"):
             self.handle_crm_api()
+            return
+        path = urlparse(self.path).path
+        if path.startswith("/api/labor-benefits/"):
+            if not self.require_permission(LABOR_BENEFITS_PERMISSION_KEY): return
+            item_id = unquote(path.rsplit("/", 1)[-1])
+            changes = self.read_json()
+            with connect() as conn:
+                actor = hr_actor(conn, self)
+                row = conn.execute("SELECT * FROM labor_benefit_records WHERE id = ?", (item_id,)).fetchone()
+                if not row: self.send_json({"error": "Registro de prestaciones no encontrado"}, status=404); return
+                normalized, errors = normalize_labor_benefit_changes(changes, row)
+                if errors: self.send_json({"error": errors[0], "details": errors}, status=400); return
+                before = labor_benefit_payload(row)
+                conn.execute("""UPDATE labor_benefit_records SET
+                    full_name=?, employment_status=?, position_name=?, hire_date=?, monthly_salary_cents=?,
+                    reported_days_year=?, reported_days=?, notes=?, calculation_status='Borrador',
+                    bonus_cents=NULL, vacation_cents=NULL, severance_cents=NULL, net_total_cents=NULL,
+                    revision=revision+1, updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""", (
+                    normalized["full_name"], normalized["employment_status"], normalized["position_name"],
+                    normalized["hire_date"], normalized["monthly_salary_cents"], normalized["reported_days_year"],
+                    normalized["reported_days"], normalized["notes"], actor["name"], item_id,
+                ))
+                updated = conn.execute("SELECT * FROM labor_benefit_records WHERE id = ?", (item_id,)).fetchone()
+                after = labor_benefit_payload(updated)
+                conn.execute("""INSERT INTO labor_benefit_audit
+                    (record_id, action, actor_user_id, actor_user_name, before_json, after_json)
+                    VALUES (?, 'editado', ?, ?, ?, ?)""", (
+                    item_id, actor["id"], actor["name"], json.dumps(before, ensure_ascii=False),
+                    json.dumps(after, ensure_ascii=False),
+                ))
+            self.send_json({"item": after})
             return
         if self.path == "/api/admin/temporary-order-edit":
             changes = self.read_json()

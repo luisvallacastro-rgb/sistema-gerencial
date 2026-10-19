@@ -55,7 +55,8 @@ class DteModuleTests(unittest.TestCase):
 
     def test_migration_is_idempotent_and_integrity_is_ok(self):
         SERVER.apply_versioned_migrations(self.conn)
-        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 12)
+        expected_migrations = len(list((ROOT / "outputs/sistema-gerencial/migrations").glob("*.sql")))
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], expected_migrations)
         self.assertEqual(self.conn.execute("PRAGMA integrity_check").fetchone()[0], "ok")
         profile = self.conn.execute("""SELECT schema_version, official_schema_embedded
           FROM billing_validation_profiles WHERE document_type='03'""").fetchone()

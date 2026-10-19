@@ -14455,6 +14455,38 @@ html.macos-render-safe .app-shell .permission-matrix-section-head {
   transform: none !important;
 }
 
+/* Financiera · Prestaciones laborales */
+.labor-benefits-module { display:grid; gap:16px; min-width:1500px; }
+.labor-benefits-module > header { display:flex; justify-content:space-between; align-items:center; gap:24px; padding:20px 22px; border:1px solid rgba(92,224,198,.28); border-radius:18px; background:linear-gradient(135deg,rgba(35,73,112,.72),rgba(15,65,67,.6)); }
+.labor-benefits-module > header span { color:#72f5d1; font-size:11px; font-weight:900; letter-spacing:.14em; }
+.labor-benefits-module > header h2 { margin:4px 0; color:#f5f9ff; font-size:26px; }
+.labor-benefits-module > header p { margin:0; color:#afc2d4; }
+.labor-benefits-module > header > strong { padding:9px 14px; border:1px solid rgba(114,245,209,.32); border-radius:999px; color:#72f5d1; white-space:nowrap; }
+.labor-benefits-toolbar { display:flex; gap:12px; }
+.labor-benefits-toolbar label { flex:1; display:flex; align-items:center; gap:10px; min-height:44px; padding:0 14px; border:1px solid #3d6682; border-radius:13px; background:#183756; }
+.labor-benefits-toolbar input,.labor-benefits-toolbar select { width:100%; border:0; outline:0; background:transparent; color:#eef7ff; font:inherit; }
+.labor-benefits-toolbar select { flex:0 0 120px; padding:0 12px; border:1px solid #3d6682; border-radius:13px; background:#183756; }
+.labor-benefits-matrix { overflow:auto; max-height:calc(100vh - 340px); border:1px solid #315a76; border-radius:16px; background:#0d2945; }
+.labor-benefits-matrix table { width:100%; min-width:1900px; border-collapse:separate; border-spacing:0; }
+.labor-benefits-matrix th { position:sticky; top:0; z-index:2; padding:12px 10px; border-right:1px solid #31506b; border-bottom:1px solid #436b86; background:#123655; color:#b9ccdd; font-size:10px; letter-spacing:.05em; text-align:left; }
+.labor-benefits-matrix td { padding:12px 10px; border-right:1px solid rgba(83,121,150,.25); border-bottom:1px solid rgba(83,121,150,.32); color:#e7f0f8; font-size:12px; white-space:nowrap; }
+.labor-benefits-matrix tbody tr { background:linear-gradient(90deg,rgba(37,70,105,.62),rgba(24,58,80,.54)); cursor:pointer; }
+.labor-benefits-matrix tbody tr:hover { background:linear-gradient(90deg,rgba(40,104,113,.72),rgba(32,78,101,.66)); }
+.labor-benefits-matrix td small { display:block; margin-top:3px; color:#83a5ba; font-size:9px; }
+.labor-benefits-matrix td button { width:34px; height:34px; border:1px solid #3b9b88; border-radius:10px; background:#174d58; color:#72f5d1; cursor:pointer; }
+.labor-status { display:grid; place-items:center; width:28px; height:28px; border-radius:8px; font-weight:900; }
+.labor-status.status-1 { background:#1f8e73; color:#e8fff9; }.labor-status.status-2 { background:#71384a; color:#ffd9e2; }
+.labor-pending { color:#efc777; font-size:10px; font-weight:800; }
+.labor-benefit-dialog { width:min(880px,94vw); padding:0; border:1px solid #367a82; border-radius:22px; background:#102d4b; color:#f5f9ff; box-shadow:0 30px 90px #010914cc; }
+.labor-benefit-dialog::backdrop { background:#020b17cc; backdrop-filter:blur(8px); }
+.labor-benefit-dialog form > header { display:flex; justify-content:space-between; padding:22px 24px; border-bottom:1px solid #315a76; background:linear-gradient(120deg,#294b70,#164f54); }
+.labor-benefit-dialog header span { color:#72f5d1; font-size:10px; font-weight:900; letter-spacing:.13em; }.labor-benefit-dialog h2 { margin:5px 0; }.labor-benefit-dialog header p { margin:0; color:#b3c7d7; }
+.labor-benefit-dialog header button { width:42px; height:42px; border:1px solid #527795; border-radius:12px; background:#203f62; color:#fff; font-size:23px; }
+.labor-benefit-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:24px; }
+.labor-benefit-form-grid label { display:grid; gap:7px; color:#b9cede; font-size:12px; font-weight:800; }.labor-benefit-form-grid .span-2 { grid-column:1/-1; }
+.labor-benefit-form-grid input,.labor-benefit-form-grid select,.labor-benefit-form-grid textarea { min-height:46px; padding:10px 12px; border:1px solid #52718e; border-radius:11px; background:#294766; color:#fff; font:inherit; }.labor-benefit-form-grid textarea { min-height:90px; resize:vertical; }
+.labor-benefit-dialog footer { display:flex; justify-content:flex-end; gap:12px; padding:18px 24px; border-top:1px solid #315a76; }.labor-benefit-dialog footer button { min-height:44px; padding:0 18px; border:1px solid #527795; border-radius:11px; background:#244564; color:#fff; font-weight:900; }.labor-benefit-dialog footer .primary { border-color:#42caae; background:#168e75; }
+
 @media (prefers-reduced-motion: no-preference) {
   html.macos-render-safe .app-shell .permission-matrix *,
   html.macos-render-safe .app-shell .sidebar * {

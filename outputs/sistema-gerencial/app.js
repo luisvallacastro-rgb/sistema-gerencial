@@ -70,6 +70,7 @@ const areas = {
     submenus: [
       { key: "disponibilidad", label: "Disponibilidad", status: "Saldos bancarios consolidados", items: [] },
       { key: "reserva-laboral", label: "Reserva Laboral", status: "Cobertura de compromisos laborales", items: [], accessOnly: true },
+      { key: "prestaciones-laborales", label: "Prestaciones laborales", status: "Aguinaldo, vacaciones e indemnizaciones", items: [], accessOnly: true },
       { key: "ingresos", label: "Ingresos", status: "Remesas provisionadas", items: [] },
       { key: "inventario", label: "Inventario", status: "Kardex a costo promedio", items: [] },
       { key: "facturacion-electronica", label: "Facturación electrónica", status: "Preparación y control de DTE", items: [] },
@@ -329,6 +330,10 @@ const state = {
   laborReserve: null,
   laborReserveLoaded: false,
   laborReserveLoading: false,
+  laborBenefits: [],
+  laborBenefitsLoaded: false,
+  laborBenefitsLoading: false,
+  laborBenefitsQuery: "",
   financialIncome: [],
   financialIncomeLoaded: false,
   financialIncomeLoading: false,
@@ -1322,7 +1327,7 @@ function defaultPermissionsForRole(role) {
     ];
   }
   return role === "gerencias"
-    ? allPermissionKeys().filter((permission) => !permission.startsWith("rrhh:") && !fiscalAccessPermissionKeys().includes(permission))
+    ? allPermissionKeys().filter((permission) => !permission.startsWith("rrhh:") && !fiscalAccessPermissionKeys().includes(permission) && permission !== permissionKey("financiera", "prestaciones-laborales"))
     : [...operationalPermissionKeys(), ...adminConsolidatedPermissionSections.map((section) => permissionKey(adminAreaKey, section.key))];
 }
 
@@ -1478,7 +1483,7 @@ function visibleSubmenus(areaKey, user = state.currentUser) {
   }
   const permissions = userPermissions(user);
   return area.submenus.filter((item) => {
-    if (areaKey === "financiera" && item.key === "reserva-laboral") {
+    if (areaKey === "financiera" && ["reserva-laboral", "prestaciones-laborales"].includes(item.key)) {
       return isFiscalOwnerUser(user) || permissions.has(permissionKey(areaKey, item.key));
     }
     return !item.accessOnly && permissions.has(permissionKey(areaKey, item.key));
@@ -15551,6 +15556,94 @@ function renderHrPlaceholder(submenu) {
   return `<section class="hr-module"><header><div><span>RR. HH. · DESARROLLO LOCAL</span><h2>${escapeHtml(submenu.label)}</h2><p>La navegación y el permiso ya están separados. Esta función se incorporará después de depurar expedientes y auditoría.</p></div><b>Siguiente etapa</b></header></section>`;
 }
 
+function loadLaborBenefits(force = false) {
+  if (state.laborBenefitsLoading || (state.laborBenefitsLoaded && !force)) return Promise.resolve();
+  state.laborBenefitsLoading = true;
+  const query = state.laborBenefitsQuery ? `?q=${encodeURIComponent(state.laborBenefitsQuery)}` : "";
+  return apiJson(`/api/labor-benefits${query}`)
+    .then((payload) => { state.laborBenefits = payload.items || []; state.laborBenefitsLoaded = true; })
+    .catch((error) => alert(error.message || "No se pudo cargar Prestaciones laborales."))
+    .finally(() => {
+      state.laborBenefitsLoading = false;
+      if (state.activeArea === "financiera" && state.activeSubmenu === "prestaciones-laborales") renderCommercialSubmenu(areas.financiera);
+    });
+}
+
+function laborBenefitMoney(value) {
+  return value == null ? `<span class="labor-pending">Pendiente</span>` : formatMoney(Number(value) / 100);
+}
+
+function laborBenefitService(item) {
+  if (!item.hireDate) return "Pendiente";
+  const start = new Date(`${item.hireDate}T12:00:00`);
+  const end = new Date();
+  if (Number.isNaN(start.getTime()) || start > end) return "Pendiente";
+  const days = Math.floor((end - start) / 86400000) + 1;
+  return `${(days / 365.2425).toFixed(2)} / ${days}`;
+}
+
+function renderLaborBenefitsModule() {
+  const rows = state.laborBenefits.map((item) => `<tr data-labor-benefit-id="${escapeHtml(item.id)}" tabindex="0">
+    <td>${item.correlative}</td><td><strong>${escapeHtml(item.employeeNumber)}</strong></td>
+    <td><strong>${escapeHtml(item.fullName)}</strong><small>${escapeHtml(item.calculationStatus)}</small></td>
+    <td><span class="labor-status status-${item.employmentStatus}">${item.employmentStatus}</span></td>
+    <td>${escapeHtml(item.position || "Pendiente")}</td><td>${escapeHtml(item.hireDate)}</td>
+    <td>${escapeHtml(laborBenefitService(item))}</td><td>${laborBenefitMoney(item.monthlySalaryCents)}</td>
+    <td>${item.reportedDays == null ? `<span class="labor-pending">Pendiente</span>` : item.reportedDays}</td>
+    <td>${laborBenefitMoney(item.bonusCents)}</td><td>${laborBenefitMoney(item.vacationCents)}</td>
+    <td>${laborBenefitMoney(item.severanceCents)}</td><td>${laborBenefitMoney(item.netTotalCents)}</td>
+    <td>${escapeHtml(item.receiptStatus)}</td><td><button type="button" data-labor-benefit-edit="${escapeHtml(item.id)}" aria-label="Editar ${escapeHtml(item.fullName)}">✎</button></td>
+  </tr>`).join("");
+  return `<section class="labor-benefits-module"><header><div><span>FINANCIERA · CONTROL LABORAL</span><h2>Prestaciones laborales</h2><p>Matriz de aguinaldo, vacaciones e indemnizaciones. Los importes pendientes no constituyen una obligación aprobada.</p></div><strong>${state.laborBenefits.length} empleados</strong></header>
+    <div class="labor-benefits-toolbar"><label><span>⌕</span><input data-labor-benefits-search value="${escapeHtml(state.laborBenefitsQuery)}" placeholder="Buscar código, empleado o cargo"></label><select aria-label="Ejercicio"><option>2026</option><option>2025</option></select></div>
+    <div class="labor-benefits-matrix"><table><thead><tr><th>Corr</th><th>Código</th><th>Nombre del Empleado</th><th>Activo=1<br>Inactivo=2</th><th>Cargo</th><th>Fecha Ingreso</th><th>Años / Días Laborados</th><th>Salario Base</th><th>Días Laborados 2025</th><th>Aguinaldo</th><th>Vacación</th><th>Indemnización</th><th>Total a Pagar</th><th>Recibí Conforme</th><th>Editar</th></tr></thead><tbody>${rows || `<tr><td colspan="15">${state.laborBenefitsLoading ? "Cargando…" : "Sin registros"}</td></tr>`}</tbody></table></div>
+  </section>`;
+}
+
+function openLaborBenefitEditor(item) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "labor-benefit-dialog";
+  dialog.innerHTML = `<form method="dialog"><header><div><span>EXPEDIENTE DE PRESTACIONES</span><h2>${escapeHtml(item.employeeNumber)} · ${escapeHtml(item.fullName)}</h2><p>Al editar datos base, los cálculos vuelven a borrador y requieren nueva revisión.</p></div><button type="button" data-close>×</button></header><div class="labor-benefit-form-grid">
+    <label>Nombre del empleado<input name="fullName" value="${escapeHtml(item.fullName)}" required></label>
+    <label>Estado<select name="employmentStatus"><option value="1" ${item.employmentStatus === 1 ? "selected" : ""}>1 · Activo</option><option value="2" ${item.employmentStatus === 2 ? "selected" : ""}>2 · Inactivo</option></select></label>
+    <label>Cargo<input name="position" value="${escapeHtml(item.position || "")}" required></label>
+    <label>Fecha de ingreso<input type="date" name="hireDate" value="${escapeHtml(item.hireDate)}" required></label>
+    <label>Salario base mensual<input type="number" name="salary" min="0.01" step="0.01" value="${item.monthlySalaryCents == null ? "" : (item.monthlySalaryCents / 100).toFixed(2)}" placeholder="Pendiente"></label>
+    <label>Año informado<input type="number" name="reportedDaysYear" min="2000" max="2100" value="${item.reportedDaysYear || ""}"></label>
+    <label>Días informados<input type="number" name="reportedDays" min="0" max="366" value="${item.reportedDays ?? ""}"></label>
+    <label class="span-2">Observaciones<textarea name="notes">${escapeHtml(item.notes || "")}</textarea></label></div>
+    <footer><button type="button" data-close>Cancelar</button><button class="primary" type="submit">Guardar cambios</button></footer></form>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", close));
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.querySelector("form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const salary = String(data.get("salary") || "").trim();
+    try {
+      await apiJson(`/api/labor-benefits/${encodeURIComponent(item.id)}`, { method: "PATCH", body: JSON.stringify({
+        fullName: data.get("fullName"), employmentStatus: Number(data.get("employmentStatus")), position: data.get("position"), hireDate: data.get("hireDate"),
+        monthlySalaryCents: salary ? Math.round(Number(salary) * 100) : null,
+        reportedDaysYear: data.get("reportedDaysYear") || null, reportedDays: data.get("reportedDays") || null, notes: data.get("notes")
+      }) });
+      close(); state.laborBenefitsLoaded = false; await loadLaborBenefits(true);
+    } catch (error) { alert(error.message || "No se pudo guardar el expediente."); }
+  });
+  dialog.showModal();
+}
+
+function wireLaborBenefitsModule() {
+  const input = opportunityTable.querySelector("[data-labor-benefits-search]");
+  input?.addEventListener("change", () => { state.laborBenefitsQuery = input.value.trim(); state.laborBenefitsLoaded = false; loadLaborBenefits(true); });
+  opportunityTable.querySelectorAll("[data-labor-benefit-edit]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation(); const item = state.laborBenefits.find((row) => row.id === button.dataset.laborBenefitEdit); if (item) openLaborBenefitEditor(item);
+  }));
+  opportunityTable.querySelectorAll("[data-labor-benefit-id]").forEach((row) => row.addEventListener("dblclick", () => {
+    const item = state.laborBenefits.find((entry) => entry.id === row.dataset.laborBenefitId); if (item) openLaborBenefitEditor(item);
+  }));
+}
+
 function renderCommercialSubmenu(area) {
   if (!Array.isArray(area.submenus)) {
     commercialPanel.classList.add("hidden");
@@ -15719,6 +15812,15 @@ function renderCommercialSubmenu(area) {
     commercialSubmenuStatus.textContent = `${customers.length} clientes con OP · ${customers.reduce((sum, group) => sum + group.orders.length, 0)} órdenes`;
     opportunityTable.innerHTML = renderPurchaseHistoryModule();
     wirePurchaseHistoryModule();
+    return;
+  }
+
+  if (state.activeArea === "financiera" && submenu.key === "prestaciones-laborales") {
+    newOpportunityBtn.classList.add("hidden"); newRiskBtn.classList.add("hidden"); newManagementRequestBtn.classList.add("hidden"); goalsMatrixBtn.classList.add("hidden");
+    opportunityTable.classList.remove("hidden"); opportunityDashboard.classList.add("hidden");
+    commercialSubmenuStatus.textContent = `${state.laborBenefits.length} expedientes`;
+    opportunityTable.innerHTML = renderLaborBenefitsModule(); wireLaborBenefitsModule();
+    if (!state.laborBenefitsLoaded) loadLaborBenefits();
     return;
   }
 
@@ -18499,6 +18601,7 @@ function renderDashboard() {
       "historial-compra",
       "disponibilidad",
       "reserva-laboral",
+      "prestaciones-laborales",
       "ingresos",
       "inventario",
       "facturacion-electronica",
