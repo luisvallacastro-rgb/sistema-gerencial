@@ -16,6 +16,11 @@ class AdminRequestConsolidationTests(unittest.TestCase):
         self.assertNotIn("customerRequests", implementation)
         self.assertNotIn('requestSource: "customer"', implementation)
 
+    def test_areas_without_visible_submenus_keep_independent_record_stores(self):
+        self.assertIn("const detachedManagementRecordStores", APP_JS)
+        self.assertIn('getAreaSubmenu(areaKey, "solicitudes") || detachedManagementRecordStores[areaKey]?.solicitudes', APP_JS)
+        self.assertNotIn('getAreaSubmenu(areaKey, "solicitudes") || getAreaSubmenu("comercializacion", "solicitudes")', APP_JS)
+
     def test_management_rows_keep_their_native_crud_identity(self):
         self.assertIn('data-area="${item.areaKey || state.activeArea}" data-id="${item.id}"', APP_JS)
         self.assertNotIn('data-request-source="${item.requestSource', APP_JS)

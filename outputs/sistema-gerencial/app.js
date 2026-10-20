@@ -473,6 +473,10 @@ const state = {
 // módulo agregado a `areas` aparecerá automáticamente en Administración.
 const areaKeys = Object.keys(areas);
 const areaOptions = areaKeys;
+const detachedManagementRecordStores = Object.fromEntries(areaKeys.map((areaKey) => [areaKey, {
+  riesgos: { key: "riesgos", label: "Riesgos", status: "Sin datos cargados", items: [] },
+  solicitudes: { key: "solicitudes", label: "Solicitudes", status: "Sin datos cargados", items: [] }
+}]));
 const adminEmail = "luisvallacastro@gmail.com";
 const adminAreaKey = "administracion";
 const adminMinutePermissionSections = [
@@ -2361,13 +2365,13 @@ function getAreaSubmenu(areaKey, submenuKey) {
 }
 
 function getStrategicRiskSubmenu(areaKey = state.activeArea) {
-  if (areaKey === adminAreaKey) return getAreaSubmenu("comercializacion", "riesgos");
-  return getAreaSubmenu(areaKey, "riesgos") || getAreaSubmenu("comercializacion", "riesgos");
+  if (areaKey === adminAreaKey) return detachedManagementRecordStores.general.riesgos;
+  return getAreaSubmenu(areaKey, "riesgos") || detachedManagementRecordStores[areaKey]?.riesgos;
 }
 
 function getManagementRequestSubmenu(areaKey = state.activeArea) {
-  if (areaKey === adminAreaKey) return getAreaSubmenu("comercializacion", "solicitudes");
-  return getAreaSubmenu(areaKey, "solicitudes") || getAreaSubmenu("comercializacion", "solicitudes");
+  if (areaKey === adminAreaKey) return detachedManagementRecordStores.general.solicitudes;
+  return getAreaSubmenu(areaKey, "solicitudes") || detachedManagementRecordStores[areaKey]?.solicitudes;
 }
 
 function submenuItemsByArea(submenuKey) {

@@ -5664,6 +5664,8 @@ def restore_verified_management_records_once(conn):
     not a reason to leave a store empty after a later accidental overwrite.
     """
     migration_key = "recovery.management-records.2026-09-21.v1"
+    merge_key = "recovery.management-records.2026-09-21.v2"
+    merge_missing = not conn.execute("SELECT 1 FROM app_state WHERE key = ?", (merge_key,)).fetchone()
     recovered = {
         "management_requests": {
             "general": [], "financiera": [], "operaciones": [],
@@ -5697,15 +5699,40 @@ def restore_verified_management_records_once(conn):
         except (TypeError, json.JSONDecodeError):
             current = {}
         current_count = sum(len(items) for items in current.values() if isinstance(items, list)) if isinstance(current, dict) else 0
-        if current_count:
+        if current_count and not merge_missing:
             summary["restored"][key] = 0
             continue
+        if current_count:
+            verified_areas = {
+                text(item.get("id")): area_name
+                for area_name, items in verified_payload.items()
+                for item in items if isinstance(item, dict) and text(item.get("id"))
+            }
+            corrected_current = {
+                area_name: [
+                    item for item in items
+                    if not isinstance(item, dict)
+                    or not verified_areas.get(text(item.get("id")))
+                    or verified_areas[text(item.get("id"))] == area_name
+                ]
+                for area_name, items in current.items() if isinstance(items, list)
+            }
+            stored_payload = merge_management_request_stores(verified_payload, corrected_current)
+            stored_count = sum(len(items) for items in stored_payload.values() if isinstance(items, list))
+            summary["restored"][key] = max(0, stored_count - current_count)
+        else:
+            stored_payload = verified_payload
+            summary["restored"][key] = sum(len(items) for items in verified_payload.values())
         conn.execute(
             """INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""",
-            (key, json.dumps(verified_payload, ensure_ascii=False)),
+            (key, json.dumps(stored_payload, ensure_ascii=False)),
         )
-        summary["restored"][key] = sum(len(items) for items in verified_payload.values())
+    conn.execute(
+        """INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""",
+        (merge_key, json.dumps(summary, ensure_ascii=False)),
+    )
     conn.execute(
         """INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""",
