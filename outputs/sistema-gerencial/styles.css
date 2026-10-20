@@ -22816,6 +22816,51 @@ html.training-mode body::after{content:"CAPACITACIÓN · DATOS DE PRUEBA";positi
 .temporary-access-dialog footer { display: flex; justify-content: flex-end; gap: 10px; padding: 18px 26px 24px; }
 .temporary-access-dialog footer button { min-height: 44px; padding: 0 17px; border: 1px solid #52788d; border-radius: 11px; background: #173650; color: #d9e5ee; font-weight: 900; cursor: pointer; }
 .temporary-access-dialog footer button[type="submit"] { border-color: #55e0c4; background: #168773; color: #fff; }
+
+/* Solicitudes · guardia final de visibilidad.
+   La bandeja comparte el contenedor de oportunidades y algunas reglas globales
+   reducían sus botones a la altura del borde. Las filas deben conservar siempre
+   su contenido y área completa de lectura. */
+.app-shell .management-request-body.management-request-inbox .management-request-mail {
+  display: block !important;
+  min-height: 72px !important;
+}
+.app-shell .management-request-body.management-request-inbox .request-mail-open {
+  display: grid !important;
+  grid-template-columns: 44px minmax(150px,.65fr) minmax(260px,1.6fr) 118px 100px 64px !important;
+  align-items: center !important;
+  gap: 14px !important;
+  width: 100% !important;
+  min-height: 72px !important;
+  padding: 12px 18px !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.app-shell .management-request-body.management-request-inbox .request-mail-open > * {
+  display: grid;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+@media (max-width: 1180px) {
+  .app-shell .management-request-body.management-request-inbox .request-mail-open {
+    grid-template-columns: 40px minmax(110px,.7fr) minmax(160px,1.5fr) 100px 58px !important;
+  }
+  .app-shell .management-request-body.management-request-inbox .request-mail-open time { display: none !important; }
+}
+@media (max-width: 760px) {
+  .app-shell .management-request-body.management-request-inbox .request-mail-open {
+    grid-template-columns: 40px minmax(0,1fr) 84px !important;
+  }
+  .app-shell .management-request-body.management-request-inbox .request-mail-copy {
+    grid-column: 2 / -1 !important;
+    grid-row: 2 !important;
+  }
+  .app-shell .management-request-body.management-request-inbox .request-status-pill {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+  }
+  .app-shell .management-request-body.management-request-inbox .request-mail-read { display: none !important; }
+}
 @media(max-width:720px){
   .temporary-access-table th:last-child,
   .temporary-access-table td:last-child { width: 180px; }
