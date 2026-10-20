@@ -8,17 +8,18 @@ STYLES_CSS = (ROOT / "outputs" / "sistema-gerencial" / "styles.css").read_text(e
 
 
 class AdminRequestConsolidationTests(unittest.TestCase):
-    def test_admin_requests_include_submitted_customer_requests(self):
-        self.assertIn('state.crmData?.customerRequests || []', APP_JS)
-        self.assertIn('normalizeKey(item.status || "") !== "borrador"', APP_JS)
-        self.assertIn('requestSource: "customer"', APP_JS)
-        self.assertIn('subject: `Solicitud de cliente · ${customerName}`', APP_JS)
-        self.assertIn('new Set(["atendida", "aprobada", "rechazada"])', APP_JS)
+    def test_admin_inbox_reads_only_management_requests(self):
+        function_start = APP_JS.index("function visibleManagementRequestItems()")
+        function_end = APP_JS.index("\n}\n", function_start) + 2
+        implementation = APP_JS[function_start:function_end]
+        self.assertIn('allSubmenuItems("solicitudes")', implementation)
+        self.assertNotIn("customerRequests", implementation)
+        self.assertNotIn('requestSource: "customer"', implementation)
 
-    def test_customer_request_inbox_row_opens_the_existing_crm_request_dialog(self):
-        self.assertIn('data-request-source="${item.requestSource || "management"}"', APP_JS)
-        self.assertIn('requestButton.dataset.requestSource === "customer"', APP_JS)
-        self.assertIn('openCustomerRequestDialog(request, true, false, false)', APP_JS)
+    def test_management_rows_keep_their_native_crud_identity(self):
+        self.assertIn('data-area="${item.areaKey || state.activeArea}" data-id="${item.id}"', APP_JS)
+        self.assertNotIn('data-request-source="${item.requestSource', APP_JS)
+        self.assertIn('normalizeKey(item.status) === "atendida"', APP_JS)
 
     def test_request_rows_cannot_collapse_under_shared_panel_styles(self):
         self.assertIn('.management-request-body.management-request-inbox .request-mail-open', STYLES_CSS)

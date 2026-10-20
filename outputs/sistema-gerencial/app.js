@@ -2391,34 +2391,7 @@ function visibleStrategicRiskItems() {
 }
 
 function visibleManagementRequestItems() {
-  const managementRequests = allSubmenuItems("solicitudes").map((item) => ({
-    ...item,
-    requestSource: "management"
-  }));
-  const customerRequests = (state.crmData?.customerRequests || [])
-    .filter((item) => normalizeKey(item.status || "") !== "borrador")
-    .map((item) => {
-      const createdAt = item.requestedAt || item.createdAt || item.updatedAt || "";
-      const customerName = item.commercialName || item.legalName || "Cliente sin nombre";
-      const details = [
-        item.requestNumber ? `Solicitud ${item.requestNumber}` : "Solicitud comercial",
-        item.taxId ? `Identificación ${item.taxId}` : "",
-        item.contactName ? `Contacto ${item.contactName}` : ""
-      ].filter(Boolean).join(" · ");
-      return {
-        id: `customer-request:${item.id}`,
-        sourceId: item.id,
-        requestSource: "customer",
-        areaKey: "comercializacion",
-        date: String(createdAt).slice(0, 10) || todayISO(),
-        owner: item.requestedByName || item.sellerName || "Comercialización",
-        target: "Administración · Clientes",
-        subject: `Solicitud de cliente · ${customerName}`,
-        message: details,
-        status: item.status || "Pendiente"
-      };
-    });
-  return [...managementRequests, ...customerRequests]
+  return allSubmenuItems("solicitudes")
     .sort((left, right) => String(right.date || "").localeCompare(String(left.date || "")));
 }
 
@@ -8785,8 +8758,7 @@ function openRiskDetailDialog(item, submenu) {
 }
 
 function renderManagementRequests(items) {
-  const attendedStatuses = new Set(["atendida", "aprobada", "rechazada"]);
-  const attendedCount = items.filter((item) => attendedStatuses.has(normalizeKey(item.status))).length;
+  const attendedCount = items.filter((item) => normalizeKey(item.status) === "atendida").length;
   const reviewCount = items.filter((item) => normalizeKey(item.status).includes("revision")).length;
   const pendingCount = Math.max(0, items.length - attendedCount - reviewCount);
   return `
@@ -8799,10 +8771,10 @@ function renderManagementRequests(items) {
       <div class="management-request-body management-request-inbox">
         ${items.length ? items.map((item) => {
           const statusKey = normalizeKey(item.status);
-          const statusTone = attendedStatuses.has(statusKey) ? "resolved" : statusKey.includes("revision") ? "review" : "pending";
+          const statusTone = statusKey === "atendida" ? "resolved" : statusKey.includes("revision") ? "review" : "pending";
           const initials = String(item.owner || "GG").split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase();
           return `<article class="management-request-mail request-${statusTone}">
-            <button class="request-mail-open" type="button" data-request-action="read" data-request-source="${item.requestSource || "management"}" data-area="${item.areaKey || state.activeArea}" data-id="${item.sourceId || item.id}" aria-label="Leer solicitud: ${escapeHtml(item.subject)}">
+            <button class="request-mail-open" type="button" data-request-action="read" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Leer solicitud: ${escapeHtml(item.subject)}">
               <span class="request-mail-avatar">${escapeHtml(initials)}</span>
               <span class="request-mail-sender"><strong>${escapeHtml(item.owner)}</strong><small>Para ${escapeHtml(item.target)}</small></span>
               <span class="request-mail-copy"><strong>${escapeHtml(item.subject)}</strong><small>${escapeHtml(item.message)}</small>${item.response ? `<em>Respondida</em>` : ""}</span>
@@ -8813,7 +8785,7 @@ function renderManagementRequests(items) {
           </article>`;
         }).join("") : `
           <div class="empty-state">
-            No hay solicitudes registradas en la correspondencia gerencial ni en solicitudes comerciales.
+            No hay solicitudes gerenciales registradas. Usa Nueva solicitud para enviar un requerimiento a Gerencia General.
           </div>
         `}
       </div>
@@ -19626,13 +19598,6 @@ opportunityTable.addEventListener("click", (event) => {
   const requestButton = event.target.closest("button[data-request-action]");
   if (requestButton) {
     if (requestButton.dataset.requestAction === "read") {
-      if (requestButton.dataset.requestSource === "customer") {
-        const request = (state.crmData?.customerRequests || [])
-          .find((item) => String(item.id) === String(requestButton.dataset.id));
-        if (!request) return;
-        openCustomerRequestDialog(request, true, false, false);
-        return;
-      }
       const submenu = findManagementRequestSubmenu(requestButton.dataset.area || state.activeArea);
       const item = submenu?.items.find((record) => record.id === requestButton.dataset.id);
       if (!item) return;
