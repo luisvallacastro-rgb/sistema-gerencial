@@ -46,6 +46,29 @@ class ManagementRecordsRecoveryTests(unittest.TestCase):
         SERVER.restore_verified_management_records_once(self.conn)
         self.assertEqual(self.records("management_requests"), current["general"])
 
+    def test_empty_store_is_recovered_even_when_a_previous_marker_exists(self):
+        self.conn.execute("INSERT INTO app_state(key,value) VALUES('management_requests','{}')")
+        self.conn.execute("INSERT INTO app_state(key,value) VALUES('strategic_risks','{}')")
+        self.conn.execute(
+            "INSERT INTO app_state(key,value) VALUES('recovery.management-records.2026-09-21.v1','{}')"
+        )
+        SERVER.restore_verified_management_records_once(self.conn)
+        self.assertEqual(len(self.records("management_requests")), 7)
+        self.assertEqual(len(self.records("strategic_risks")), 2)
+
+    def test_stale_browser_snapshot_cannot_remove_existing_requests(self):
+        current = {"rrhh": [{"id": "one", "status": "Enviada"}]}
+        incoming = {"rrhh": []}
+        merged = SERVER.merge_management_request_stores(current, incoming)
+        self.assertEqual(merged, current)
+
+    def test_incoming_request_updates_matching_record_without_dropping_others(self):
+        current = {"rrhh": [{"id": "one", "status": "Enviada"}, {"id": "two", "status": "Enviada"}]}
+        incoming = {"rrhh": [{"id": "one", "status": "Resuelta", "response": "Listo"}]}
+        merged = SERVER.merge_management_request_stores(current, incoming)
+        self.assertEqual(len(merged["rrhh"]), 2)
+        self.assertEqual(merged["rrhh"][0]["status"], "Resuelta")
+
 
 if __name__ == "__main__":
     unittest.main()

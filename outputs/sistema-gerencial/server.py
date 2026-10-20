@@ -5658,10 +5658,12 @@ def migrate_consolidated_permissions(conn):
 
 
 def restore_verified_management_records_once(conn):
-    """Recover the last verified management inbox without overwriting newer records."""
+    """Recover empty management stores without overwriting newer records.
+
+    This check intentionally runs at every startup. The marker is an audit record,
+    not a reason to leave a store empty after a later accidental overwrite.
+    """
     migration_key = "recovery.management-records.2026-09-21.v1"
-    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
-        return
     recovered = {
         "management_requests": {
             "general": [], "financiera": [], "operaciones": [],
@@ -5705,9 +5707,32 @@ def restore_verified_management_records_once(conn):
         )
         summary["restored"][key] = sum(len(items) for items in verified_payload.values())
     conn.execute(
-        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        """INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""",
         (migration_key, json.dumps(summary, ensure_ascii=False)),
     )
+
+
+def merge_management_request_stores(current, incoming):
+    """Merge browser snapshots by record id so a stale client cannot erase the inbox."""
+    current = current if isinstance(current, dict) else {}
+    incoming = incoming if isinstance(incoming, dict) else {}
+    area_names = list(dict.fromkeys([*current.keys(), *incoming.keys()]))
+    merged = {}
+    for area_name in area_names:
+        records = {}
+        order = []
+        for item in [*(current.get(area_name) or []), *(incoming.get(area_name) or [])]:
+            if not isinstance(item, dict):
+                continue
+            item_id = text(item.get("id"))
+            if not item_id:
+                continue
+            if item_id not in records:
+                order.append(item_id)
+            records[item_id] = item
+        merged[area_name] = [records[item_id] for item_id in order]
+    return merged
 
 
 def grant_johanna_minutes_permissions(conn):
@@ -13101,16 +13126,18 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 incoming_count = sum(len(items) for items in data.values() if isinstance(items, list))
                 current_count = sum(len(items) for items in current.values() if isinstance(items, list)) if isinstance(current, dict) else 0
                 allow_empty = text(self.headers.get("X-Allow-Empty-Management-Requests")).lower() == "true"
+                replace_store = text(self.headers.get("X-Replace-Management-Requests")).lower() == "true"
                 if current_count and not incoming_count and not allow_empty:
                     self.send_json({"error": "Se bloqueó un vaciado accidental de solicitudes gerenciales"}, status=409)
                     return
+                stored_data = data if replace_store else merge_management_request_stores(current, data)
                 conn.execute("""
                     INSERT INTO app_state (key, value, updated_at)
                     VALUES ('management_requests', ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(key) DO UPDATE SET
                         value = excluded.value,
                         updated_at = CURRENT_TIMESTAMP
-                """, (json.dumps(data, ensure_ascii=True),))
+                """, (json.dumps(stored_data, ensure_ascii=True),))
             self.send_json({"ok": True})
             return
 

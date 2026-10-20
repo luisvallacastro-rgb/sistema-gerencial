@@ -31,7 +31,8 @@ class AdminRequestConsolidationTests(unittest.TestCase):
 
     def test_only_an_explicit_delete_may_empty_the_management_inbox(self):
         self.assertIn('X-Allow-Empty-Management-Requests', APP_JS)
-        self.assertIn('saveManagementRequests({ allowEmpty: true })', APP_JS)
+        self.assertIn('X-Replace-Management-Requests', APP_JS)
+        self.assertIn('saveManagementRequests({ allowEmpty: true, replace: true })', APP_JS)
 
     def test_request_rows_cannot_collapse_under_shared_panel_styles(self):
         self.assertIn('.management-request-body.management-request-inbox .request-mail-open', STYLES_CSS)
