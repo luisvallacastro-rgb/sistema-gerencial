@@ -19,7 +19,15 @@ class AdminRequestConsolidationTests(unittest.TestCase):
     def test_management_rows_keep_their_native_crud_identity(self):
         self.assertIn('data-area="${item.areaKey || state.activeArea}" data-id="${item.id}"', APP_JS)
         self.assertNotIn('data-request-source="${item.requestSource', APP_JS)
-        self.assertIn('normalizeKey(item.status) === "atendida"', APP_JS)
+        self.assertIn('["atendida", "resuelta", "resuelto"].includes(normalizeKey(item.status))', APP_JS)
+
+    def test_general_management_can_reply_and_resolve(self):
+        self.assertIn("function canResolveManagementRequests", APP_JS)
+        self.assertIn('identity.includes("amadeo") && identity.includes("alfaro")', APP_JS)
+        self.assertIn('data-request-resolution', APP_JS)
+        self.assertIn('Responder y marcar resuelta', APP_JS)
+        self.assertIn('item.status = "Resuelta"', APP_JS)
+        self.assertIn('item.responseBy = state.currentUser?.name', APP_JS)
 
     def test_only_an_explicit_delete_may_empty_the_management_inbox(self):
         self.assertIn('X-Allow-Empty-Management-Requests', APP_JS)

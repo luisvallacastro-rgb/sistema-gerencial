@@ -18079,6 +18079,22 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
 .management-request-reply span { color: #83d9c3; font-size: 9px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
 .management-request-letter p,
 .management-request-reply p { margin: 12px 0 0; color: #d7e2ef; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+.management-request-reply small { display: block; margin-top: 12px; color: #8fb9aa; font-size: 10px; }
+.management-request-resolution {
+  display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: end;
+  margin: 18px 22px; padding: 18px; border: 1px solid rgba(91,218,184,.3); border-radius: 17px;
+  background: rgba(18,92,75,.12);
+}
+.management-request-resolution label { display: grid; gap: 8px; color: #83d9c3; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.management-request-resolution textarea {
+  width: 100%; min-height: 96px; resize: vertical; padding: 13px 14px; border: 1px solid rgba(143,184,214,.3);
+  border-radius: 12px; background: rgba(8,20,37,.55); color: #edf5ff; font: inherit; line-height: 1.5;
+}
+.management-request-resolution textarea:focus { border-color: #5bdab8; outline: 2px solid rgba(91,218,184,.16); }
+.management-request-resolution .request-action-primary {
+  min-height: 44px; padding: 0 16px; border: 1px solid rgba(91,218,184,.5); border-radius: 11px;
+  background: #168d6c; color: #fff; font-size: 10px; font-weight: 900;
+}
 .management-request-reader-card > footer {
   display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px;
   padding: 16px 22px 22px; border-top: 1px solid rgba(145,175,208,.14);
@@ -18102,6 +18118,7 @@ dialog.management-request-reader::backdrop { background: rgba(5,13,25,.72); back
   .app-shell .request-mail-read { display: none; }
   .management-request-reader-card > header { grid-template-columns: 40px minmax(0,1fr) 40px; }
   .management-request-reader-card > header .request-status-pill { grid-column: 2; width: max-content; }
+  .management-request-resolution { grid-template-columns: 1fr; }
 }
 
 /* Cotizaciones: consolidado económico en dos niveles. */

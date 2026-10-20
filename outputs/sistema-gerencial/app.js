@@ -1538,6 +1538,16 @@ function isCommercialManagementUser(user = state.currentUser) {
     || (name.includes("gerencia") && name.includes("comercial"));
 }
 
+function canResolveManagementRequests(user = state.currentUser) {
+  if (!user) return false;
+  if (isAdminUser(user)) return true;
+  const identity = normalizeKey([user.id, user.name, user.username, user.email].filter(Boolean).join(" "));
+  return user.id === "user-general"
+    || normalizeKey(user.username) === "general"
+    || identity.includes("gerencia general")
+    || (identity.includes("amadeo") && identity.includes("alfaro"));
+}
+
 function canManageMigratedOpportunityLifecycle() {
   return isAdminUser() || state.role === "gerencias" || isCommercialManagementUser();
 }
@@ -2469,6 +2479,8 @@ function normalizeManagementRequests(items, areaKey = state.activeArea) {
     message: item.message || "",
     status: item.status || "Enviada",
     response: item.response || "",
+    responseBy: item.responseBy || "",
+    resolvedAt: item.resolvedAt || "",
     sourceRiskId: item.sourceRiskId || ""
   }));
 }
@@ -8762,7 +8774,8 @@ function openRiskDetailDialog(item, submenu) {
 }
 
 function renderManagementRequests(items) {
-  const attendedCount = items.filter((item) => normalizeKey(item.status) === "atendida").length;
+  const isResolved = (item) => ["atendida", "resuelta", "resuelto"].includes(normalizeKey(item.status));
+  const attendedCount = items.filter(isResolved).length;
   const reviewCount = items.filter((item) => normalizeKey(item.status).includes("revision")).length;
   const pendingCount = Math.max(0, items.length - attendedCount - reviewCount);
   return `
@@ -8775,7 +8788,7 @@ function renderManagementRequests(items) {
       <div class="management-request-body management-request-inbox">
         ${items.length ? items.map((item) => {
           const statusKey = normalizeKey(item.status);
-          const statusTone = statusKey === "atendida" ? "resolved" : statusKey.includes("revision") ? "review" : "pending";
+          const statusTone = ["atendida", "resuelta", "resuelto"].includes(statusKey) ? "resolved" : statusKey.includes("revision") ? "review" : "pending";
           const initials = String(item.owner || "GG").split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase();
           return `<article class="management-request-mail request-${statusTone}">
             <button class="request-mail-open" type="button" data-request-action="read" data-area="${item.areaKey || state.activeArea}" data-id="${item.id}" aria-label="Leer solicitud: ${escapeHtml(item.subject)}">
@@ -8852,6 +8865,7 @@ function handleManagementRequestAction(actionButton) {
 function openManagementRequestReader(item) {
   closeManagementRequestReader();
   const areaKey = item.areaKey || state.activeArea;
+  const canResolve = canResolveManagementRequests();
   const initials = String(item.owner || "GG").split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join("").toUpperCase();
   const dialog = document.createElement("dialog");
   dialog.id = "managementRequestReaderDialog";
@@ -8868,14 +8882,15 @@ function openManagementRequestReader(item) {
         <span>Solicitud</span>
         <p>${escapeHtml(item.message)}</p>
       </section>
-      ${item.response ? `<section class="management-request-reply"><span>Respuesta de Gerencia</span><p>${escapeHtml(item.response)}</p></section>` : ""}
+      ${item.response ? `<section class="management-request-reply"><span>Respuesta de Gerencia General</span><p>${escapeHtml(item.response)}</p>${item.responseBy ? `<small>Resuelta por ${escapeHtml(item.responseBy)}${item.resolvedAt ? ` · ${escapeHtml(formatDate(item.resolvedAt))}` : ""}</small>` : ""}</section>` : ""}
+      ${canResolve ? `<form class="management-request-resolution" data-request-resolution>
+        <label><span>${item.response ? "Actualizar respuesta" : "Responder solicitud"}</span><textarea required maxlength="600" placeholder="Escribe el mensaje de resolución para la gerencia solicitante...">${escapeHtml(item.response || "")}</textarea></label>
+        <button class="request-action-primary" type="submit">Responder y marcar resuelta</button>
+      </form>` : ""}
       <footer>
         <button type="button" data-request-reader-close>Cerrar</button>
-        <button type="button" data-request-action="status" data-status="En revision" data-area="${areaKey}" data-id="${item.id}">En revisión</button>
-        <button type="button" data-request-action="status" data-status="Atendida" data-area="${areaKey}" data-id="${item.id}">Marcar atendida</button>
-        <button type="button" data-request-action="edit" data-area="${areaKey}" data-id="${item.id}">Editar</button>
-        <button class="request-action-primary" type="button" data-request-action="response" data-area="${areaKey}" data-id="${item.id}">Responder</button>
-        <button class="danger" type="button" data-request-action="delete" data-area="${areaKey}" data-id="${item.id}">Eliminar</button>
+        ${canResolve ? `<button type="button" data-request-action="status" data-status="En revision" data-area="${areaKey}" data-id="${item.id}">Pasar a revisión</button>` : ""}
+        ${isAdminUser() ? `<button type="button" data-request-action="edit" data-area="${areaKey}" data-id="${item.id}">Editar</button><button class="danger" type="button" data-request-action="delete" data-area="${areaKey}" data-id="${item.id}">Eliminar</button>` : ""}
       </footer>
     </article>`;
   document.body.appendChild(dialog);
@@ -8885,6 +8900,18 @@ function openManagementRequestReader(item) {
       closeManagementRequestReader();
       handleManagementRequestAction(button);
     });
+  });
+  dialog.querySelector("[data-request-resolution]")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const response = event.currentTarget.querySelector("textarea").value.trim();
+    if (!response) return;
+    item.response = response;
+    item.status = "Resuelta";
+    item.responseBy = state.currentUser?.name || "Gerencia General";
+    item.resolvedAt = todayISO();
+    saveManagementRequests();
+    closeManagementRequestReader();
+    renderCommercialSubmenu(areas[state.activeArea]);
   });
   dialog.addEventListener("click", (event) => { if (event.target === dialog) closeManagementRequestReader(); });
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); closeManagementRequestReader(); });
