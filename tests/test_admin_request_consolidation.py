@@ -21,6 +21,10 @@ class AdminRequestConsolidationTests(unittest.TestCase):
         self.assertNotIn('data-request-source="${item.requestSource', APP_JS)
         self.assertIn('normalizeKey(item.status) === "atendida"', APP_JS)
 
+    def test_only_an_explicit_delete_may_empty_the_management_inbox(self):
+        self.assertIn('X-Allow-Empty-Management-Requests', APP_JS)
+        self.assertIn('saveManagementRequests({ allowEmpty: true })', APP_JS)
+
     def test_request_rows_cannot_collapse_under_shared_panel_styles(self):
         self.assertIn('.management-request-body.management-request-inbox .request-mail-open', STYLES_CSS)
         self.assertIn('min-height: 72px !important;', STYLES_CSS)

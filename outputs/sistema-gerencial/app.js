@@ -2505,7 +2505,11 @@ function saveManagementRequests(options = {}) {
   const payload = submenuItemsByArea("solicitudes");
   localStorage.setItem(managementRequestsStorageKey, JSON.stringify(payload));
   if (apiEnabled && options.sync !== false) {
-    apiJson("/api/management-requests", { method: "PUT", body: JSON.stringify(payload) }).catch(() => {});
+    apiJson("/api/management-requests", {
+      method: "PUT",
+      headers: options.allowEmpty ? { "X-Allow-Empty-Management-Requests": "true" } : {},
+      body: JSON.stringify(payload)
+    }).catch((error) => console.error("No se pudieron sincronizar las solicitudes gerenciales", error));
   }
 }
 
@@ -8808,7 +8812,7 @@ function handleManagementRequestAction(actionButton) {
 
   if (action === "delete") {
     submenu.items = submenu.items.filter((record) => record.id !== item.id);
-    saveManagementRequests();
+    saveManagementRequests({ allowEmpty: true });
     renderCommercialSubmenu(areas[state.activeArea]);
     return true;
   }

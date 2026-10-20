@@ -5657,6 +5657,59 @@ def migrate_consolidated_permissions(conn):
     )
 
 
+def restore_verified_management_records_once(conn):
+    """Recover the last verified management inbox without overwriting newer records."""
+    migration_key = "recovery.management-records.2026-09-21.v1"
+    if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
+        return
+    recovered = {
+        "management_requests": {
+            "general": [], "financiera": [], "operaciones": [],
+            "comercializacion": [
+                {"id":"4560f37c-be46-4ba6-b282-f64ee170b070","date":"2026-09-02","owner":"Administracion","target":"Gerencia general","subject":"$25 para Ministerio de Trabajo","message":"Solicito los $25 que pide el ministerio de trabajo para la actualización de datos de representante patronal y balance","status":"Enviada","response":"","sourceRiskId":""},
+                {"id":"3e8607c1-a20e-497a-8e55-ce21d3422a96","date":"2026-08-14","owner":"Administracion","target":"Gerencia general","subject":"Solicitud de archiveros","message":"3 archiveros\nFolders amarillos\nFasteners\nFolder colgantes para separar archivos","status":"En revision","response":"","sourceRiskId":""},
+                {"id":"f061e608-a650-4786-b5b4-a9c954ba07a7-comercializacion","date":"2026-07-10","owner":"Recursos humanos","target":"Comercializacion","subject":"Riesgo notificado: Retraso en proceso de contratación de nuevos ejecutivos de ventas","message":"Comercializacion registro un riesgo que involucra a Comercializacion. Revisar seguimiento gerencial.","status":"Atendida","response":"","sourceRiskId":"f061e608-a650-4786-b5b4-a9c954ba07a7"},
+                {"id":"d6103791-fabf-4733-ab69-5c83070e116c","date":"2026-07-10","owner":"Comercializacion","target":"Gerencia general","subject":"Solicitud de sellos","message":"Se solicitan 3 sellos (de preferencia automáticos) para el departamento comercial.","status":"Atendida","response":"","sourceRiskId":""},
+                {"id":"e3f9735f-99fb-4db0-879c-bfafb070d583","date":"2026-09-01","owner":"Administracion","target":"Gerencia general","subject":"Solicitud de mejora internet","message":"Se solicita la mejora de velocidad de internet en la oficina del equipo comercial.","status":"Enviada","response":"","sourceRiskId":""}
+            ],
+            "rrhh": [
+                {"id":"cd7cdd82-02b0-4e80-a8d1-0dfe92c1f7b5","date":"2026-07-10","owner":"Recursos humanos","target":"Gerencia general","subject":"Revisión de Aire Acondicionado oficina CREDIC","message":"Revisión de Aire Acondicionado oficina CREDIC, no hela, probablemente falta limpieza y carga","status":"Enviada","response":"","sourceRiskId":""},
+                {"id":"73fd49b6-673d-444a-9130-4b1f3b94db84","date":"2026-07-10","owner":"Recursos humanos","target":"Gerencia general","subject":"Solicitud de sellos","message":"Se solicitan sellos para el área de Recursos Humanos, de preferencia automáticos","status":"Enviada","response":"","sourceRiskId":""}
+            ]
+        },
+        "strategic_risks": {
+            "general": [], "financiera": [], "operaciones": [],
+            "comercializacion": [
+                {"id":"c6df1548-c043-4f3e-8de2-7842997494d2","date":"2026-07-10","owner":"Comercializacion","risk":"Demora en el proceso de la entrega de muestras a los ejecutivos para las visitas a clientes.","affectsOthers":True,"involved":["Financiera","Operaciones"],"status":"Notificado","responses":[]}
+            ],
+            "rrhh": [
+                {"id":"f061e608-a650-4786-b5b4-a9c954ba07a7","date":"2026-07-10","owner":"Recursos humanos","risk":"Retraso en proceso de contratación de nuevos ejecutivos de ventas","affectsOthers":True,"involved":["Comercializacion"],"status":"Notificado","responses":[]}
+            ]
+        }
+    }
+    summary = {"source": "sistema-gerencial_2026-09-21_08-22-00.zip", "restored": {}}
+    for key, verified_payload in recovered.items():
+        row = conn.execute("SELECT value FROM app_state WHERE key = ?", (key,)).fetchone()
+        try:
+            current = json.loads(row["value"] or "{}") if row else {}
+        except (TypeError, json.JSONDecodeError):
+            current = {}
+        current_count = sum(len(items) for items in current.values() if isinstance(items, list)) if isinstance(current, dict) else 0
+        if current_count:
+            summary["restored"][key] = 0
+            continue
+        conn.execute(
+            """INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP""",
+            (key, json.dumps(verified_payload, ensure_ascii=False)),
+        )
+        summary["restored"][key] = sum(len(items) for items in verified_payload.values())
+    conn.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (migration_key, json.dumps(summary, ensure_ascii=False)),
+    )
+
+
 def grant_johanna_minutes_permissions(conn):
     migration_key = "migration_johanna_actas_tabs_v1"
     if conn.execute("SELECT 1 FROM app_state WHERE key = ?", (migration_key,)).fetchone():
@@ -9035,6 +9088,7 @@ def init_db():
         repair_reconverted_orders_missing_details(conn)
         correct_fiaes_op_2026090029_financial_reference_once(conn)
         purge_commercial_training_data_20260923_once(conn)
+        restore_verified_management_records_once(conn)
         removed_duplicate_quotations = deduplicate_identical_quotations(conn)
         if removed_duplicate_quotations:
             print(f"Cotizaciones duplicadas eliminadas: {len(removed_duplicate_quotations)}")
@@ -13037,6 +13091,19 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 self.send_json({"error": "Se esperaba un objeto por gerencia"}, status=400)
                 return
             with connect() as conn:
+                current_row = conn.execute(
+                    "SELECT value FROM app_state WHERE key = 'management_requests'"
+                ).fetchone()
+                try:
+                    current = json.loads(current_row["value"] or "{}") if current_row else {}
+                except (TypeError, json.JSONDecodeError):
+                    current = {}
+                incoming_count = sum(len(items) for items in data.values() if isinstance(items, list))
+                current_count = sum(len(items) for items in current.values() if isinstance(items, list)) if isinstance(current, dict) else 0
+                allow_empty = text(self.headers.get("X-Allow-Empty-Management-Requests")).lower() == "true"
+                if current_count and not incoming_count and not allow_empty:
+                    self.send_json({"error": "Se bloqueó un vaciado accidental de solicitudes gerenciales"}, status=409)
+                    return
                 conn.execute("""
                     INSERT INTO app_state (key, value, updated_at)
                     VALUES ('management_requests', ?, CURRENT_TIMESTAMP)
