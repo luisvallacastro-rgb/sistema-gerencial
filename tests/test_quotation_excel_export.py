@@ -52,6 +52,14 @@ class QuotationExcelExportTests(unittest.TestCase):
         normalized_order = '<pageSetup orientation="portrait" fitToWidth="1" fitToHeight="1" paperSize="1"/><drawing r:id="rId1"/>'
         self.assertIn(normalized_order, export_block)
 
+    def test_brand_images_keep_fixed_proportional_dimensions(self):
+        export_block = self.source.split("async function exportQuotationToExcel(quote)", 1)[1].split("async function exportQuotationToLegacyExcel(quote)", 1)[0]
+        self.assertIn('["Arte y Color Uniformes", 2, 0, 150, 85, "rId1"]', export_block)
+        self.assertIn('["KONFI", 1, footerRow - 1, 195, 67, "rId2"]', export_block)
+        self.assertIn('["Página web", 3, footerRow - 1, 72, 72, "rId3"]', export_block)
+        self.assertIn('<xdr:oneCellAnchor>', export_block)
+        self.assertIn('noChangeAspect="1"', export_block)
+
 
 if __name__ == "__main__":
     unittest.main()
