@@ -31,23 +31,21 @@ class QuotationExcelExportTests(unittest.TestCase):
             self.assertIn(label, self.source)
 
     def test_export_is_an_excel_download_and_does_not_write_to_api(self):
-        export_block = self.source.split("function exportQuotationToExcel(quote)", 1)[1].split("function printQuotation(quote)", 1)[0]
-        self.assertIn('application/vnd.ms-excel;charset=utf-8', export_block)
-        self.assertIn('.xls`', export_block)
+        export_block = self.source.split("async function exportQuotationToExcel(quote)", 1)[1].split("async function exportQuotationToLegacyExcel(quote)", 1)[0]
+        self.assertIn('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', self.source)
+        self.assertIn('.xlsx`', export_block)
         self.assertIn("URL.createObjectURL", export_block)
         self.assertNotIn("apiJson(", export_block)
 
     def test_export_embeds_all_brand_images(self):
-        export_block = self.source.split("async function exportQuotationToExcel(quote)", 1)[1].split("function printQuotation(quote)", 1)[0]
+        export_block = self.source.split("async function exportQuotationToExcel(quote)", 1)[1].split("async function exportQuotationToLegacyExcel(quote)", 1)[0]
         self.assertIn('assets/arte-color-uniformes-logo.png', export_block)
         self.assertIn('assets/konfi-quote-logo.png', export_block)
         self.assertIn('assets/arte-color-uniformes-qr.jpg', export_block)
-        self.assertIn('Content-ID: <ayc-logo>', export_block)
-        self.assertIn('Content-ID: <konfi-logo>', export_block)
-        self.assertIn('Content-ID: <ayc-qr>', export_block)
-        self.assertIn('src="ayc-logo.png"', export_block)
-        self.assertIn('src="konfi-logo.png"', export_block)
-        self.assertIn('src="ayc-qr.jpg"', export_block)
+        self.assertIn('["xl/media/image1.png", images[0]]', export_block)
+        self.assertIn('["xl/media/image2.png", images[1]]', export_block)
+        self.assertIn('["xl/media/image3.jpg", images[2]]', export_block)
+        self.assertIn('drawing1.xml', export_block)
 
 
 if __name__ == "__main__":

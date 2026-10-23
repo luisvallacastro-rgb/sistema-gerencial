@@ -5704,7 +5704,178 @@ async function quotationExcelAssetBase64(assetPath) {
   return btoa(binary).replace(/.{1,76}/g, "$&\r\n").trim();
 }
 
+function quotationXlsxCrc32(bytes) {
+  if (!quotationXlsxCrc32.table) {
+    quotationXlsxCrc32.table = Array.from({ length:256 }, (_, index) => {
+      let value = index;
+      for (let bit = 0; bit < 8; bit += 1) value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
+      return value >>> 0;
+    });
+  }
+  let crc = 0xffffffff;
+  bytes.forEach((byte) => { crc = quotationXlsxCrc32.table[(crc ^ byte) & 0xff] ^ (crc >>> 8); });
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function quotationXlsxZip(entries) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  const little = (value, size) => {
+    const bytes = new Uint8Array(size);
+    const view = new DataView(bytes.buffer);
+    if (size === 2) view.setUint16(0, value, true); else view.setUint32(0, value >>> 0, true);
+    return bytes;
+  };
+  const append = (...parts) => {
+    parts.forEach((part) => { chunks.push(part); offset += part.length; });
+  };
+  entries.forEach(([name, content]) => {
+    const nameBytes = encoder.encode(name);
+    const data = content instanceof Uint8Array ? content : encoder.encode(content);
+    const crc = quotationXlsxCrc32(data);
+    const localOffset = offset;
+    append(little(0x04034b50, 4), little(20, 2), little(0, 2), little(0, 2), little(0, 2), little(0, 2), little(crc, 4), little(data.length, 4), little(data.length, 4), little(nameBytes.length, 2), little(0, 2), nameBytes, data);
+    central.push(little(0x02014b50, 4), little(20, 2), little(20, 2), little(0, 2), little(0, 2), little(0, 2), little(0, 2), little(crc, 4), little(data.length, 4), little(data.length, 4), little(nameBytes.length, 2), little(0, 2), little(0, 2), little(0, 2), little(0, 2), little(0, 4), little(localOffset, 4), nameBytes);
+  });
+  const centralOffset = offset;
+  central.forEach((part) => append(part));
+  const centralSize = offset - centralOffset;
+  append(little(0x06054b50, 4), little(0, 2), little(0, 2), little(entries.length, 2), little(entries.length, 2), little(centralSize, 4), little(centralOffset, 4), little(0, 2));
+  return new Blob(chunks, { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
+async function quotationXlsxAsset(assetPath) {
+  const response = await fetch(new URL(assetPath, window.location.href));
+  if (!response.ok) throw new Error(`No se pudo incorporar ${assetPath} al Excel.`);
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 async function exportQuotationToExcel(quote) {
+  const printableLines = quotationLinesInPrintOrder(quote.lines || []).filter((line) => line.type === "title"
+    ? String(line.title || line.description || "").trim()
+    : String(line.description || "").trim() && Number(line.quantity || 0) > 0);
+  const customerData = quote.customerData || {};
+  const responsibleSeller = quotationResponsibleSeller(quote) || quote.seller || "";
+  const sellerContact = quotationSellerContact(responsibleSeller);
+  const rawDocumentType = quote.documentType || customerData.documentType;
+  const documentType = ["CF", "CCF", "CE"].includes(rawDocumentType) ? rawDocumentType : "CF";
+  const subtotalCents = Number(quote.subtotalCents ?? printableLines.reduce((sum, line) => sum + Number(line.lineTotalCents || 0), 0));
+  const vatCents = documentType === "CCF" ? Math.round(subtotalCents * 0.13) : 0;
+  const totalCents = subtotalCents + vatCents;
+  const commercialLegend = documentType === "CCF" ? "Precios unitarios no incluyen IVA" : "Los precios unitarios ya incluyen IVA";
+  const longDate = quote.date
+    ? new Intl.DateTimeFormat("es-SV", { day:"numeric", month:"long", year:"numeric", timeZone:"UTC" }).format(new Date(`${quote.date}T12:00:00Z`))
+    : "Fecha pendiente";
+  const xml = (value) => quotationExcelXmlEscape(value);
+  const cell = (reference, value, style = 0, numeric = false) => numeric
+    ? `<c r="${reference}" s="${style}"><v>${Number(value || 0)}</v></c>`
+    : `<c r="${reference}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xml(value)}</t></is></c>`;
+  const rows = [];
+  const merges = [];
+  let rowIndex = 1;
+  const addMerged = (value, style = 0, height = 18) => {
+    rows.push(`<row r="${rowIndex}" ht="${height}" customHeight="1">${cell(`A${rowIndex}`, value, style)}</row>`);
+    merges.push(`A${rowIndex}:D${rowIndex}`);
+    rowIndex += 1;
+  };
+  rows.push(`<row r="1" ht="62" customHeight="1"></row>`); rowIndex = 2;
+  addMerged(`San Salvador, ${longDate}`, 9, 22);
+  addMerged("", 0, 14);
+  addMerged(String(quote.client || customerData.commercialName || customerData.legalName || "Cliente").toUpperCase(), 1, 20);
+  addMerged(customerData.contactName ? `Atención: ${customerData.contactName}` : "Presente", 0, 19);
+  addMerged("En atención a su solicitud y de la manera más atenta le presentamos la siguiente cotización:", 0, 24);
+  const headerRow = rowIndex;
+  rows.push(`<row r="${rowIndex}" ht="28" customHeight="1">${cell(`A${rowIndex}`, "CANT.", 2)}${cell(`B${rowIndex}`, "DESCRIPCIÓN", 2)}${cell(`C${rowIndex}`, "PRECIO UNITARIO", 2)}${cell(`D${rowIndex}`, "TOTAL", 2)}</row>`); rowIndex += 1;
+  printableLines.forEach((line) => {
+    if (line.type === "title") {
+      rows.push(`<row r="${rowIndex}" ht="22" customHeight="1">${cell(`A${rowIndex}`, line.title || line.description || "", 6)}</row>`);
+      merges.push(`A${rowIndex}:D${rowIndex}`);
+      rowIndex += 1;
+      return;
+    }
+    const description = [String(line.notes || "").trim(), String(line.description || "").trim(), line.size ? `Talla: ${line.size}` : ""].filter(Boolean).join(" · ");
+    rows.push(`<row r="${rowIndex}" ht="34" customHeight="1">${cell(`A${rowIndex}`, Number(line.quantity || 0), 4, true)}${cell(`B${rowIndex}`, description, 3)}${cell(`C${rowIndex}`, Number(line.unitPriceCents || 0) / 100, 5, true)}${cell(`D${rowIndex}`, Number(line.lineTotalCents || 0) / 100, 5, true)}</row>`);
+    rowIndex += 1;
+  });
+  const addTotal = (label, cents) => {
+    rows.push(`<row r="${rowIndex}" ht="21" customHeight="1">${cell(`C${rowIndex}`, label, 7)}${cell(`D${rowIndex}`, cents / 100, 8, true)}</row>`);
+    rowIndex += 1;
+  };
+  if (documentType === "CCF") { addTotal("SUBTOTAL", subtotalCents); addTotal("IVA 13%", vatCents); }
+  addTotal("TOTAL", totalCents);
+  addMerged(`*${quote.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad."}`, 10, 30);
+  addMerged("", 0, 12);
+  addMerged(commercialLegend, 1, 19);
+  const addTerm = (label, value) => {
+    rows.push(`<row r="${rowIndex}" ht="22" customHeight="1">${cell(`A${rowIndex}`, label, 11)}${cell(`B${rowIndex}`, value, 0)}</row>`);
+    merges.push(`B${rowIndex}:D${rowIndex}`);
+    rowIndex += 1;
+  };
+  addTerm("Vigencia de oferta:", `${quote.validDays || 30} días`);
+  addTerm("Tiempo de entrega:", quote.deliveryTerms || "");
+  addTerm("Forma de Pago:", quote.paymentTerms || "");
+  const observation = quote.printObservation || customerData.printObservation || "";
+  if (observation) addTerm("Observaciones:", observation);
+  if (quote.specialSizesNote) addMerged(quote.specialSizesNote, 1, 20);
+  addMerged("", 0, 26);
+  addMerged("Atentamente,", 0, 18);
+  addMerged("", 0, 24);
+  addMerged(responsibleSeller, 1, 18);
+  addMerged("Asesor Comercial", 0, 18);
+  if (sellerContact.phone) addMerged(sellerContact.phone, 0, 18);
+  if (sellerContact.email) addMerged(sellerContact.email, 12, 18);
+  const footerRow = rowIndex + 1;
+  rows.push(`<row r="${rowIndex}" ht="12" customHeight="1"></row>`); rowIndex += 1;
+  rows.push(`<row r="${rowIndex}" ht="78" customHeight="1">${cell(`A${rowIndex}`, "Arte y Color Uniformes\n+503 2277-2032\narteycolor.bordados@gmail.com\n+503 7202-8137", 13)}</row>`); rowIndex += 1;
+  addMerged("INNOVACIÓN, CALIDAD Y RESPONSABILIDAD GARANTIZADA", 14, 20);
+  let images;
+  try {
+    images = await Promise.all([
+      quotationXlsxAsset("assets/arte-color-uniformes-logo.png"),
+      quotationXlsxAsset("assets/konfi-quote-logo.png"),
+      quotationXlsxAsset("assets/arte-color-uniformes-qr.jpg")
+    ]);
+  } catch (error) {
+    alert(error.message || "No se pudieron incorporar los logos al Excel.");
+    return;
+  }
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="6"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/><color rgb="FF111111"/></font><font><b/><sz val="10"/><name val="Arial"/><color rgb="FF111111"/></font><font><sz val="10"/><name val="Arial"/><color rgb="FF0645D6"/><u/></font><font><sz val="9"/><name val="Arial"/><color rgb="FF626B77"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFBDBDBD"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9DDE3"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="15"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/><xf numFmtId="164" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="right"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="bottom" wrapText="1"/></xf><xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs><numFmts count="1"><numFmt numFmtId="164" formatCode="$#,##0.00"/></numFmts><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="1" width="14" customWidth="1"/><col min="2" max="2" width="58" customWidth="1"/><col min="3" max="3" width="19" customWidth="1"/><col min="4" max="4" width="16" customWidth="1"/></cols><sheetData>${rows.join("")}</sheetData><mergeCells count="${merges.length}">${merges.map((range) => `<mergeCell ref="${range}"/>`).join("")}</mergeCells><drawing r:id="rId1"/><pageMargins left="0.45" right="0.45" top="0.4" bottom="0.4" header="0" footer="0"/><pageSetup orientation="portrait" fitToWidth="1" fitToHeight="1" paperSize="1"/></worksheet>`;
+  const drawing = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${[
+    ["Arte y Color Uniformes", 1, 0, 4, 2, "rId1"],
+    ["KONFI", 1, footerRow - 1, 3, footerRow + 3, "rId2"],
+    ["Página web", 3, footerRow - 1, 4, footerRow + 3, "rId3"]
+  ].map(([name, fromCol, fromRow, toCol, toRow, rel], index) => `<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>${fromCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${fromRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>${toCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${toRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${index + 1}" name="${name}"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="${rel}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`).join("")}</xdr:wsDr>`;
+  const entries = [
+    ["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`],
+    ["_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ["xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Cotización" sheetId="1" r:id="rId1"/></sheets><calcPr calcId="0"/></workbook>`],
+    ["xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ["xl/styles.xml", styles
+      .replace('<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts', '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="$#,##0.00"/></numFmts><fonts')
+      .replace('<numFmts count="1"><numFmt numFmtId="164" formatCode="$#,##0.00"/></numFmts><cellStyles', '<cellStyles')],
+    ["xl/worksheets/sheet1.xml", sheet],
+    ["xl/worksheets/_rels/sheet1.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`],
+    ["xl/drawings/drawing1.xml", drawing],
+    ["xl/drawings/_rels/drawing1.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image2.png"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image3.jpg"/></Relationships>`],
+    ["xl/media/image1.png", images[0]],
+    ["xl/media/image2.png", images[1]],
+    ["xl/media/image3.jpg", images[2]]
+  ];
+  const safeNumber = String(quote.number || quote.id || "cotizacion").replace(/[^a-z0-9_-]+/gi, "-");
+  const downloadUrl = URL.createObjectURL(quotationXlsxZip(entries));
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = `Cotizacion-${safeNumber}.xlsx`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+}
+
+async function exportQuotationToLegacyExcel(quote) {
   const printableLines = quotationLinesInPrintOrder(quote.lines || []).filter((line) => line.type === "title"
     ? String(line.title || line.description || "").trim()
     : String(line.description || "").trim() && Number(line.quantity || 0) > 0);
