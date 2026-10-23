@@ -47,6 +47,11 @@ class QuotationExcelExportTests(unittest.TestCase):
         self.assertIn('["xl/media/image3.jpg", images[2]]', export_block)
         self.assertIn('drawing1.xml', export_block)
 
+    def test_sheet_places_drawing_after_page_setup_for_excel_mac(self):
+        export_block = self.source.split("async function exportQuotationToExcel(quote)", 1)[1].split("async function exportQuotationToLegacyExcel(quote)", 1)[0]
+        normalized_order = '<pageSetup orientation="portrait" fitToWidth="1" fitToHeight="1" paperSize="1"/><drawing r:id="rId1"/>'
+        self.assertIn(normalized_order, export_block)
+
 
 if __name__ == "__main__":
     unittest.main()

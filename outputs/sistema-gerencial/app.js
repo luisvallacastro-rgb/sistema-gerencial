@@ -5856,7 +5856,10 @@ async function exportQuotationToExcel(quote) {
     ["xl/styles.xml", styles
       .replace('<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts', '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="$#,##0.00"/></numFmts><fonts')
       .replace('<numFmts count="1"><numFmt numFmtId="164" formatCode="$#,##0.00"/></numFmts><cellStyles', '<cellStyles')],
-    ["xl/worksheets/sheet1.xml", sheet],
+    ["xl/worksheets/sheet1.xml", sheet.replace(
+      '<drawing r:id="rId1"/><pageMargins left="0.45" right="0.45" top="0.4" bottom="0.4" header="0" footer="0"/><pageSetup orientation="portrait" fitToWidth="1" fitToHeight="1" paperSize="1"/>',
+      '<pageMargins left="0.45" right="0.45" top="0.4" bottom="0.4" header="0" footer="0"/><pageSetup orientation="portrait" fitToWidth="1" fitToHeight="1" paperSize="1"/><drawing r:id="rId1"/>'
+    )],
     ["xl/worksheets/_rels/sheet1.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`],
     ["xl/drawings/drawing1.xml", drawing],
     ["xl/drawings/_rels/drawing1.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image2.png"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image3.jpg"/></Relationships>`],
