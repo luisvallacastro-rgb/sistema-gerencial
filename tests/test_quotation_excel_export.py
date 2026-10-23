@@ -45,6 +45,9 @@ class QuotationExcelExportTests(unittest.TestCase):
         self.assertIn('Content-ID: <ayc-logo>', export_block)
         self.assertIn('Content-ID: <konfi-logo>', export_block)
         self.assertIn('Content-ID: <ayc-qr>', export_block)
+        self.assertIn('src="ayc-logo.png"', export_block)
+        self.assertIn('src="konfi-logo.png"', export_block)
+        self.assertIn('src="ayc-qr.jpg"', export_block)
 
 
 if __name__ == "__main__":
