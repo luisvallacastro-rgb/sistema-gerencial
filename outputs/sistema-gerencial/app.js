@@ -5684,6 +5684,97 @@ async function deleteQuotationFromForm() {
   catch (error) { alert(error.message || "No se pudo eliminar la cotización."); }
 }
 
+function quotationExcelXmlEscape(value = "") {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function exportQuotationToExcel(quote) {
+  const printableLines = quotationLinesInPrintOrder(quote.lines || []).filter((line) => line.type === "title"
+    ? String(line.title || line.description || "").trim()
+    : String(line.description || "").trim() && Number(line.quantity || 0) > 0);
+  const customerData = quote.customerData || {};
+  const responsibleSeller = quotationResponsibleSeller(quote) || quote.seller || "";
+  const rawDocumentType = quote.documentType || customerData.documentType;
+  const documentType = ["CF", "CCF", "CE"].includes(rawDocumentType) ? rawDocumentType : "CF";
+  const subtotalCents = Number(quote.subtotalCents ?? printableLines.reduce((sum, line) => sum + Number(line.lineTotalCents || 0), 0));
+  const vatCents = documentType === "CCF" ? Math.round(subtotalCents * 0.13) : 0;
+  const totalCents = subtotalCents + vatCents;
+  const cell = (value, type = "String", style = "Text", mergeAcross = 0) => `<Cell ss:StyleID="${style}"${mergeAcross ? ` ss:MergeAcross="${mergeAcross}"` : ""}><Data ss:Type="${type}">${quotationExcelXmlEscape(value)}</Data></Cell>`;
+  const row = (cells, height = "") => `<Row${height ? ` ss:Height="${height}"` : ""}>${cells.join("")}</Row>`;
+  const rows = [
+    row([cell("ARTE Y COLOR UNIFORMES", "String", "Title", 3)], "28"),
+    row([cell(`Cotización ${quote.number || ""}`, "String", "Subtitle", 3)], "22"),
+    row([cell("")]),
+    row([cell("Fecha", "String", "Label"), cell(quote.date || "Pendiente", "String", "Text"), cell("Tipo de documento", "String", "Label"), cell(documentType, "String", "Text")]),
+    row([cell("Cliente", "String", "Label"), cell(quote.client || customerData.commercialName || customerData.legalName || "", "String", "Text", 2)]),
+    row([cell("Atención", "String", "Label"), cell(customerData.contactName || "", "String", "Text", 2)]),
+    row([cell("Vendedor", "String", "Label"), cell(responsibleSeller, "String", "Text", 2)]),
+    row([cell("")]),
+    row([cell("CANT.", "String", "Header"), cell("DESCRIPCIÓN", "String", "Header"), cell("PRECIO UNITARIO", "String", "Header"), cell("TOTAL", "String", "Header")])
+  ];
+  printableLines.forEach((line) => {
+    if (line.type === "title") {
+      rows.push(row([cell(line.title || line.description || "", "String", "Section", 3)]));
+      return;
+    }
+    const description = [
+      String(line.notes || "").trim(),
+      String(line.description || "").trim(),
+      line.size ? `Talla: ${line.size}` : ""
+    ].filter(Boolean).join(" · ");
+    rows.push(row([
+      cell(Number(line.quantity || 0), "Number", "Integer"),
+      cell(description, "String", "Wrapped"),
+      cell(Number(line.unitPriceCents || 0) / 100, "Number", "Currency"),
+      cell(Number(line.lineTotalCents || 0) / 100, "Number", "Currency")
+    ]));
+  });
+  rows.push(row([cell(""), cell("SUBTOTAL", "String", "TotalLabel"), cell(""), cell(subtotalCents / 100, "Number", "CurrencyTotal")]));
+  if (documentType === "CCF") rows.push(row([cell(""), cell("IVA 13%", "String", "TotalLabel"), cell(""), cell(vatCents / 100, "Number", "CurrencyTotal")]));
+  rows.push(row([cell(""), cell("TOTAL", "String", "GrandTotalLabel"), cell(""), cell(totalCents / 100, "Number", "GrandTotal")]));
+  rows.push(row([cell("")]));
+  rows.push(row([cell("Condiciones comerciales", "String", "Section", 3)]));
+  rows.push(row([cell("Vigencia de oferta", "String", "Label"), cell(`${quote.validDays || 30} días`, "String", "Text", 2)]));
+  rows.push(row([cell("Tiempo de entrega", "String", "Label"), cell(quote.deliveryTerms || "", "String", "Wrapped", 2)]));
+  rows.push(row([cell("Forma de pago", "String", "Label"), cell(quote.paymentTerms || "", "String", "Wrapped", 2)]));
+  rows.push(row([cell("Observaciones", "String", "Label"), cell(quote.printObservation || customerData.printObservation || "", "String", "Wrapped", 2)]));
+  rows.push(row([cell("Garantía", "String", "Label"), cell(quote.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.", "String", "Wrapped", 2)]));
+  rows.push(row([cell("Tallas especiales", "String", "Label"), cell(quote.specialSizesNote || "", "String", "Wrapped", 2)]));
+  const workbook = `<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Styles>
+<Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="10"/></Style>
+<Style ss:ID="Text"><Alignment ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D7DEE8"/></Borders></Style>
+<Style ss:ID="Wrapped"><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D7DEE8"/></Borders></Style>
+<Style ss:ID="Title"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="18" ss:Bold="1" ss:Color="#188B78"/></Style>
+<Style ss:ID="Subtitle"><Alignment ss:Horizontal="Center"/><Font ss:FontName="Arial" ss:Size="12" ss:Bold="1"/></Style>
+<Style ss:ID="Label"><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/></Style>
+<Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#173B62" ss:Pattern="Solid"/></Style>
+<Style ss:ID="Section"><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/><Interior ss:Color="#DDEFEA" ss:Pattern="Solid"/></Style>
+<Style ss:ID="Integer"><Alignment ss:Horizontal="Center"/><NumberFormat ss:Format="0"/></Style>
+<Style ss:ID="Currency"><Alignment ss:Horizontal="Right"/><NumberFormat ss:Format="$#,##0.00"/></Style>
+<Style ss:ID="CurrencyTotal"><Alignment ss:Horizontal="Right"/><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/><NumberFormat ss:Format="$#,##0.00"/></Style>
+<Style ss:ID="TotalLabel"><Alignment ss:Horizontal="Right"/><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1"/></Style>
+<Style ss:ID="GrandTotalLabel"><Alignment ss:Horizontal="Right"/><Font ss:FontName="Arial" ss:Size="11" ss:Bold="1"/><Interior ss:Color="#DDEFEA" ss:Pattern="Solid"/></Style>
+<Style ss:ID="GrandTotal"><Alignment ss:Horizontal="Right"/><Font ss:FontName="Arial" ss:Size="11" ss:Bold="1"/><Interior ss:Color="#DDEFEA" ss:Pattern="Solid"/><NumberFormat ss:Format="$#,##0.00"/></Style>
+</Styles>
+<Worksheet ss:Name="Cotización"><Table><Column ss:Width="60"/><Column ss:Width="390"/><Column ss:Width="105"/><Column ss:Width="105"/>${rows.join("")}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><Selected/><FreezePanes/><FrozenNoSplit/><SplitHorizontal>9</SplitHorizontal><TopRowBottomPane>9</TopRowBottomPane></WorksheetOptions></Worksheet></Workbook>`;
+  const safeNumber = String(quote.number || quote.id || "cotizacion").replace(/[^a-z0-9_-]+/gi, "-");
+  const downloadUrl = URL.createObjectURL(new Blob([workbook], { type:"application/vnd.ms-excel;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = `Cotizacion-${safeNumber}.xls`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+}
+
 function printQuotation(quote) {
   const printableLines = quotationLinesInPrintOrder(quote.lines || []).filter((line) => line.type === "title"
     ? String(line.title || line.description || "").trim()
@@ -5728,7 +5819,8 @@ function printQuotation(quote) {
     .footer-contact{grid-template-columns:max-content max-content;column-gap:8mm;justify-content:start}
     .signature{min-height:24mm;align-content:start}
     .footer-brand{position:static;margin-top:8mm;padding-top:5mm;border-top:1px solid #d5dae1;row-gap:4mm}
-  </style></head><body><main class="sheet"><header class="letterhead"><img class="brand-logo" src="${value(logoUrl)}" alt="Arte y Color Uniformes"></header><p class="city-date">San Salvador, ${value(longDate)}</p><section class="recipient"><strong>${value(String(quote.client || "Cliente").toUpperCase())}</strong><span>${data.contactName ? `Atención: ${value(data.contactName)}` : "Presente"}</span></section><p class="intro">En atención a su solicitud y de la manera más atenta le presentamos la siguiente cotización:</p><table class="quote-table"><thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${rows}</tbody></table><section class="quote-conclusion"><table class="quote-totals"><tbody><tr><td class="total-label">TOTAL</td><td class="money">${formatControlSalesMoney(quotationTotalCents)}</td></tr></tbody></table><p class="guarantee">*${value(quote.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.")}</p><section class="terms"><p><strong>${value(quote.commercialNotes || "Condiciones según oferta comercial")}</strong></p><p><b>Vigencia de oferta:</b> ${value(quote.validDays || 30)} días</p><p><b>Tiempo de entrega:</b> ${value(quote.deliveryTerms)}</p><p><b>Forma de Pago:</b> ${value(quote.paymentTerms)}</p><p><strong>${value(quote.specialSizesNote)}</strong></p></section><section class="signature"><p class="closing-word">Atentamente,</p><strong>${value(responsibleSeller)}</strong><span>${value(data.sellerRole || "Ejecutivo/a de ventas")}</span>${data.sellerPhone ? `<span>${value(data.sellerPhone)}</span>` : ""}${data.sellerEmail ? `<a href="mailto:${value(data.sellerEmail)}">${value(data.sellerEmail)}</a>` : ""}</section></section><footer class="footer-brand"><div class="footer-contact"><span>Arte y Color Uniformes</span><span>+503 2277-2032</span><span>arteycolor.bordados@gmail.com</span><span>+503 7202-8137</span></div><div class="footer-qr"><span>Catálogo digital</span><img src="${value(qrUrl)}" alt="Código QR de Arte y Color Uniformes"></div><div class="motto">Innovación, calidad y responsabilidad garantizada</div></footer></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><a href="${value(emailHref)}">Preparar correo</a><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  </style></head><body><main class="sheet"><header class="letterhead"><img class="brand-logo" src="${value(logoUrl)}" alt="Arte y Color Uniformes"></header><p class="city-date">San Salvador, ${value(longDate)}</p><section class="recipient"><strong>${value(String(quote.client || "Cliente").toUpperCase())}</strong><span>${data.contactName ? `Atención: ${value(data.contactName)}` : "Presente"}</span></section><p class="intro">En atención a su solicitud y de la manera más atenta le presentamos la siguiente cotización:</p><table class="quote-table"><thead><tr><th>CANT.</th><th>DESCRIPCIÓN</th><th>PRECIO<br>UNITARIO</th><th>TOTAL</th></tr></thead><tbody>${rows}</tbody></table><section class="quote-conclusion"><table class="quote-totals"><tbody><tr><td class="total-label">TOTAL</td><td class="money">${formatControlSalesMoney(quotationTotalCents)}</td></tr></tbody></table><p class="guarantee">*${value(quote.warrantyNote || "Todos nuestros productos están garantizados y elaborados con altos estándares de calidad.")}</p><section class="terms"><p><strong>${value(quote.commercialNotes || "Condiciones según oferta comercial")}</strong></p><p><b>Vigencia de oferta:</b> ${value(quote.validDays || 30)} días</p><p><b>Tiempo de entrega:</b> ${value(quote.deliveryTerms)}</p><p><b>Forma de Pago:</b> ${value(quote.paymentTerms)}</p><p><strong>${value(quote.specialSizesNote)}</strong></p></section><section class="signature"><p class="closing-word">Atentamente,</p><strong>${value(responsibleSeller)}</strong><span>${value(data.sellerRole || "Ejecutivo/a de ventas")}</span>${data.sellerPhone ? `<span>${value(data.sellerPhone)}</span>` : ""}${data.sellerEmail ? `<a href="mailto:${value(data.sellerEmail)}">${value(data.sellerEmail)}</a>` : ""}</section></section><footer class="footer-brand"><div class="footer-contact"><span>Arte y Color Uniformes</span><span>+503 2277-2032</span><span>arteycolor.bordados@gmail.com</span><span>+503 7202-8137</span></div><div class="footer-qr"><span>Página web</span><img src="${value(qrUrl)}" alt="Código QR de Arte y Color Uniformes"></div><div class="motto">Innovación, calidad y responsabilidad garantizada</div></footer></main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button type="button" data-export-quotation-excel>Exportar a Excel</button><a href="${value(emailHref)}">Preparar correo</a><button onclick="window.close()">Cerrar</button></nav></body></html>`);
+  popup.document.querySelector("[data-export-quotation-excel]")?.addEventListener("click", () => exportQuotationToExcel(quote));
   const quotationSellerRole = popup.document.querySelector(".signature > span");
   if (quotationSellerRole) quotationSellerRole.textContent = "Asesor Comercial";
   const quotationTotalsBody = popup.document.querySelector(".quote-totals tbody");
@@ -5745,8 +5837,6 @@ function printQuotation(quote) {
     quotationTerms.insertBefore(observationLine, quotationTerms.children[1] || null);
   }
   popup.document.close();
-  const quotationQrLabel = popup.document.querySelector(".footer-qr span");
-  if (quotationQrLabel) quotationQrLabel.textContent = "Página web";
 }
 
 const CONTROL_SALES_FINANCIAL_ORDER_CUTOFF = "2026-07-01";
