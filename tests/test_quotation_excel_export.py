@@ -54,9 +54,9 @@ class QuotationExcelExportTests(unittest.TestCase):
 
     def test_brand_images_keep_fixed_proportional_dimensions(self):
         export_block = self.source.split("async function exportQuotationToExcel(quote)", 1)[1].split("async function exportQuotationToLegacyExcel(quote)", 1)[0]
-        self.assertIn('["Arte y Color Uniformes", 2, 0, 150, 85, "rId1"]', export_block)
-        self.assertIn('["KONFI", 1, footerRow - 1, 195, 67, "rId2"]', export_block)
-        self.assertIn('["Página web", 3, footerRow - 1, 72, 72, "rId3"]', export_block)
+        self.assertIn('["Arte y Color Uniformes", 2, 0, 120, 68, "rId1"]', export_block)
+        self.assertIn('["KONFI", 1, footerRow - 1, 150, 51, "rId2"]', export_block)
+        self.assertIn('["Página web", 3, footerRow - 1, 54, 54, "rId3"]', export_block)
         self.assertIn('<xdr:oneCellAnchor>', export_block)
         self.assertIn('noChangeAspect="1"', export_block)
 
