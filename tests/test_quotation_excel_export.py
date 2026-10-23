@@ -37,6 +37,15 @@ class QuotationExcelExportTests(unittest.TestCase):
         self.assertIn("URL.createObjectURL", export_block)
         self.assertNotIn("apiJson(", export_block)
 
+    def test_export_embeds_all_brand_images(self):
+        export_block = self.source.split("async function exportQuotationToExcel(quote)", 1)[1].split("function printQuotation(quote)", 1)[0]
+        self.assertIn('assets/arte-color-uniformes-logo.png', export_block)
+        self.assertIn('assets/konfi-quote-logo.png', export_block)
+        self.assertIn('assets/arte-color-uniformes-qr.jpg', export_block)
+        self.assertIn('Content-ID: <ayc-logo>', export_block)
+        self.assertIn('Content-ID: <konfi-logo>', export_block)
+        self.assertIn('Content-ID: <ayc-qr>', export_block)
+
 
 if __name__ == "__main__":
     unittest.main()
