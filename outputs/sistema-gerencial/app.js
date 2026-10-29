@@ -12720,6 +12720,7 @@ function toDateInputValue(value) {
 function pendingExpenseDetailMarkup(group) {
   if (!group) return `<div class="empty-state">No hay gastos pendientes registrados.</div>`;
   const reserveCenter = ["reserva fiscal", "reserva laboral"].includes(normalizeKey(group.name));
+  const commissionCenter = normalizeKey(group.name) === "comisiones";
   const rows = group.details.map(([date, detail, amount]) => `<tr><td>${escapeHtml(date)}</td><td>${escapeHtml(detail)}</td><td class="money">${formatMoney(amount)}</td></tr>`).join("");
   const calculatedCenter = ["comisiones", "reserva fiscal", "reserva laboral"].includes(normalizeKey(group.name));
   const remittances = new Map();
@@ -12727,13 +12728,20 @@ function pendingExpenseDetailMarkup(group) {
   const calculationBase = [...remittances.values()].reduce((sum, value) => sum + value, 0);
   const rateLabel = normalizeKey(group.name) === "reserva fiscal" ? "13%" : normalizeKey(group.name) === "reserva laboral" ? "7%" : "según vendedor / asignación";
   const calculationTag = calculatedCenter ? `<small class="pending-expense-calculation-base"><b>${remittances.size} ${remittances.size === 1 ? "remesa" : "remesas"}</b><span>Base neta para el cálculo: <strong>${formatMoney(calculationBase)}</strong></span><em>${escapeHtml(rateLabel)}</em></small>` : "";
-  const reserveAction = reserveCenter ? `<div class="pending-reserve-report-action"><span>Selecciona las partidas que deseas incluir en el informe.</span><button type="button" data-open-reserve-report>Seleccionar y generar reporte</button></div>` : "";
-  return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong>${calculationTag}</header>${reserveAction}<div class="pending-expense-detail-table"><table><thead><tr><th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
+  const liquidationAction = reserveCenter
+    ? `<div class="pending-reserve-report-action"><span>Selecciona las partidas que deseas incluir en el informe.</span><button type="button" data-open-reserve-report>Seleccionar y generar reporte</button></div>`
+    : commissionCenter
+      ? `<div class="pending-reserve-report-action"><span>Filtra por vendedor y selecciona las comisiones que deseas liquidar.</span><button type="button" data-open-commission-settlement>Liquidar comisiones</button></div>`
+      : "";
+  return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong>${calculationTag}</header>${liquidationAction}<div class="pending-expense-detail-table"><table><thead><tr><th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
 }
 
 function bindPendingReserveReportAction(detail) {
   detail?.querySelector("[data-open-reserve-report]")?.addEventListener("click", () => {
     openReserveSettlementCrud().catch((error) => alert(error.message || "No se pudo abrir el reporte de liquidación de reservas."));
+  });
+  detail?.querySelector("[data-open-commission-settlement]")?.addEventListener("click", () => {
+    openCommissionSettlementCrud().catch((error) => alert(error.message || "No se pudo abrir la liquidación de comisiones."));
   });
 }
 
