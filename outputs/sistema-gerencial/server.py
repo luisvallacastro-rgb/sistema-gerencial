@@ -6978,14 +6978,18 @@ def bank_record_comment(values):
     return "Sin comentario"
 
 
-def bank_seller_income_report_payload(conn):
+def bank_seller_income_report_payload(conn, cutoff_date=""):
+    cutoff_date = text(cutoff_date)
+    if cutoff_date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", cutoff_date):
+        raise ValueError("La fecha de corte no es válida")
     paid_commission_keys = {row["component_key"] for row in conn.execute("""
         SELECT items.component_key
         FROM commission_settlement_items AS items
         JOIN commission_settlements AS settlements ON settlements.id = items.settlement_id
         WHERE settlements.status = 'Pagada'
     """).fetchall()}
-    rows = conn.execute("""
+    cutoff_clause = "WHERE records.record_date <= ?" if cutoff_date else ""
+    rows = conn.execute(f"""
         SELECT provisions.id, provisions.record_id, provisions.account_id,
                accounts.bank, accounts.account, records.record_date,
                provisions.customer_name, provisions.payment_type, provisions.seller,
@@ -6996,8 +7000,9 @@ def bank_seller_income_report_payload(conn):
         FROM bank_deposit_provisions AS provisions
         JOIN bank_balance_records AS records ON records.id = provisions.record_id
         JOIN bank_accounts AS accounts ON accounts.id = provisions.account_id
+        {cutoff_clause}
         ORDER BY records.record_date DESC, datetime(provisions.created_at) DESC, provisions.rowid DESC
-    """).fetchall()
+    """, (cutoff_date,) if cutoff_date else ()).fetchall()
     items = []
     sellers = {}
     bank_ids = set()
@@ -7155,6 +7160,7 @@ def bank_seller_income_report_payload(conn):
             "deposits": len(items), "banks": len(bank_ids),
         },
         "period": {"from": min(dates) if dates else None, "to": max(dates) if dates else None},
+        "cutoffDate": cutoff_date,
     }
 
 
@@ -11206,23 +11212,33 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                 self.send_json(bank_availability_report_payload(conn))
             return
 
-        if self.path == "/api/bank-availability/provisions-report":
+        parsed_request = urlparse(self.path)
+        if parsed_request.path == "/api/bank-availability/provisions-report":
             if not self.require_permission("financiera:disponibilidad"):
                 return
-            with connect() as conn:
-                report = bank_seller_income_report_payload(conn)
-                liability = commission_liability_payload(conn, report)
-                report["pendingCommissionComponents"] = liability["pending"]
-                report["pendingCommissionSummary"] = liability["summary"]
-                report["pendingCommissionTotal"] = liability["pendingTotal"]
-                self.send_json(report)
+            cutoff_date = text((parse_qs(parsed_request.query).get("cutoff") or [""])[0])
+            try:
+                with connect() as conn:
+                    report = bank_seller_income_report_payload(conn, cutoff_date)
+                    liability = commission_liability_payload(conn, report)
+                    report["pendingCommissionComponents"] = liability["pending"]
+                    report["pendingCommissionSummary"] = liability["summary"]
+                    report["pendingCommissionTotal"] = liability["pendingTotal"]
+                    self.send_json(report)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
             return
 
-        if self.path == "/api/commission-settlements":
+        if parsed_request.path == "/api/commission-settlements":
             if not self.require_permission("financiera:disponibilidad"):
                 return
-            with connect() as conn:
-                self.send_json(commission_liability_payload(conn))
+            cutoff_date = text((parse_qs(parsed_request.query).get("cutoff") or [""])[0])
+            try:
+                with connect() as conn:
+                    report = bank_seller_income_report_payload(conn, cutoff_date)
+                    self.send_json(commission_liability_payload(conn, report))
+            except ValueError as error:
+                self.send_json({"error": str(error)}, status=400)
             return
 
         if self.path == "/api/reserve-settlements":
@@ -12254,15 +12270,18 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
             data = self.read_json()
             component_keys = list(dict.fromkeys(text(value) for value in (data.get("componentKeys") or []) if text(value)))
             reviewed_by = text(data.get("reviewedBy"))
+            cutoff_date = text(data.get("cutoffDate"))
             record_date = text(data.get("date")) or datetime.now(ZoneInfo("America/El_Salvador")).date().isoformat()
-            if not component_keys or not reviewed_by or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", record_date):
+            if (not component_keys or not reviewed_by or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", record_date)
+                    or (cutoff_date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", cutoff_date))):
                 self.send_json({"error": "Debes revisar y firmar el informe antes de liquidar"}, status=400); return
             try:
                 with connect() as conn:
                     reviewer_row = conn.execute("SELECT name FROM users WHERE id = ?", (text(self.headers.get("X-System-User-Id")),)).fetchone()
                     if reviewer_row:
                         reviewed_by = text(reviewer_row["name"], reviewed_by)
-                    liability = commission_liability_payload(conn)
+                    cutoff_report = bank_seller_income_report_payload(conn, cutoff_date)
+                    liability = commission_liability_payload(conn, cutoff_report)
                     pending_by_key = {item["key"]: item for item in liability["pending"]}
                     selected = [pending_by_key[key] for key in component_keys if key in pending_by_key]
                     if len(selected) != len(component_keys):
@@ -12281,7 +12300,8 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                     reference = text(data.get("reference"), number)
                     created_by = text(data.get("createdBy"), "Sistema Gerencial")
                     reviewed_at = datetime.now(ZoneInfo("America/El_Salvador")).isoformat(timespec="seconds")
-                    settlement_snapshot = {"number": number, "date": record_date, "items": selected,
+                    settlement_snapshot = {"number": number, "date": record_date, "cutoffDate": cutoff_date,
+                                           "items": selected,
                                            "reviewedBy": reviewed_by, "reviewedAt": reviewed_at}
                     conn.execute("""INSERT INTO commission_settlements
                         (id, number, settlement_date, account_id, bank_record_id, total_amount,
@@ -12297,7 +12317,9 @@ footer{{margin-top:20px;color:#a9bed0;font-size:12px}}
                             (str(uuid.uuid4()), settlement_id, item["key"], item["provisionId"], item["seller"],
                              item["amount"], item["kind"], item["detail"], json.dumps(item, ensure_ascii=False)))
                     clear_bank_availability_signatures(conn)
-                    updated_liability = commission_liability_payload(conn)
+                    updated_liability = commission_liability_payload(
+                        conn, bank_seller_income_report_payload(conn, cutoff_date)
+                    )
                     state_row = conn.execute("SELECT value FROM app_state WHERE key = 'pending_expenses'").fetchone()
                     try: manual_items = json.loads(state_row["value"] or "[]") if state_row else []
                     except json.JSONDecodeError: manual_items = []

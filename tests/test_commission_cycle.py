@@ -38,6 +38,7 @@ class CommissionCycleTests(unittest.TestCase):
             INSERT INTO bank_accounts VALUES ('account-1', 'BAC', 'Cuenta bancaria');
             INSERT INTO bank_balance_records VALUES ('record-old', '2026-09-01');
             INSERT INTO bank_balance_records VALUES ('record-current', '2026-10-01');
+            INSERT INTO bank_balance_records VALUES ('record-next-cut', '2026-10-29');
         """)
 
     def tearDown(self):
@@ -81,6 +82,21 @@ class CommissionCycleTests(unittest.TestCase):
 
         self.assertEqual(len(direct), 2)
         self.assertEqual({item["rate"] for item in direct}, {0.03})
+
+    def test_cutoff_excludes_later_rows_from_rate_tier(self):
+        seller = "Marjorie Morales"
+        self.add_provision("current-cut", "record-current", seller, 15000)
+        self.add_provision("next-cut", "record-next-cut", seller, 3000)
+
+        full_liability = SERVER.commission_liability_payload(self.conn)
+        full_direct = [item for item in full_liability["pending"] if item["kind"] == "seller-direct"]
+        cutoff_report = SERVER.bank_seller_income_report_payload(self.conn, "2026-10-28")
+        cutoff_liability = SERVER.commission_liability_payload(self.conn, cutoff_report)
+        cutoff_direct = [item for item in cutoff_liability["pending"] if item["kind"] == "seller-direct"]
+
+        self.assertEqual({item["rate"] for item in full_direct}, {0.04})
+        self.assertEqual([item["provisionId"] for item in cutoff_direct], ["current-cut"])
+        self.assertEqual({item["rate"] for item in cutoff_direct}, {0.03})
 
     def test_percentage_assigned_back_to_marco_is_taxed_as_his_commission(self):
         self.add_provision(
