@@ -19052,12 +19052,14 @@ function navigationStorageId(user = state.currentUser) {
 function persistNavigationState() {
   if (!state.currentUser) return;
   try {
-    sessionStorage.setItem(navigationStorageId(), JSON.stringify({
+    const navigation = JSON.stringify({
       activeArea: state.activeArea,
       activeSubmenu: state.activeSubmenu,
       openMenus: [...state.openMenus],
       sidebarCollapsed: appShell.classList.contains("sidebar-collapsed")
-    }));
+    });
+    sessionStorage.setItem(navigationStorageId(), navigation);
+    localStorage.setItem(navigationStorageId(), navigation);
   } catch {
     // Navigation persistence is progressive enhancement.
   }
@@ -19065,7 +19067,8 @@ function persistNavigationState() {
 
 function restoreNavigationState(user = state.currentUser) {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(navigationStorageId(user)) || "null");
+    const storageId = navigationStorageId(user);
+    const saved = JSON.parse(sessionStorage.getItem(storageId) || localStorage.getItem(storageId) || "null");
     if (!saved) return false;
     const available = allowedAreas(user);
     if (available.includes(saved.activeArea)) state.activeArea = saved.activeArea;
