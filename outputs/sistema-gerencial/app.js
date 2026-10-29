@@ -12719,6 +12719,7 @@ function toDateInputValue(value) {
 
 function pendingExpenseDetailMarkup(group) {
   if (!group) return `<div class="empty-state">No hay gastos pendientes registrados.</div>`;
+  const reserveCenter = ["reserva fiscal", "reserva laboral"].includes(normalizeKey(group.name));
   const rows = group.details.map(([date, detail, amount]) => `<tr><td>${escapeHtml(date)}</td><td>${escapeHtml(detail)}</td><td class="money">${formatMoney(amount)}</td></tr>`).join("");
   const calculatedCenter = ["comisiones", "reserva fiscal", "reserva laboral"].includes(normalizeKey(group.name));
   const remittances = new Map();
@@ -12726,7 +12727,14 @@ function pendingExpenseDetailMarkup(group) {
   const calculationBase = [...remittances.values()].reduce((sum, value) => sum + value, 0);
   const rateLabel = normalizeKey(group.name) === "reserva fiscal" ? "13%" : normalizeKey(group.name) === "reserva laboral" ? "7%" : "según vendedor / asignación";
   const calculationTag = calculatedCenter ? `<small class="pending-expense-calculation-base"><b>${remittances.size} ${remittances.size === 1 ? "remesa" : "remesas"}</b><span>Base neta para el cálculo: <strong>${formatMoney(calculationBase)}</strong></span><em>${escapeHtml(rateLabel)}</em></small>` : "";
-  return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong>${calculationTag}</header><div class="pending-expense-detail-table"><table><thead><tr><th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
+  const reserveAction = reserveCenter ? `<div class="pending-reserve-report-action"><span>Selecciona las partidas que deseas incluir en el informe.</span><button type="button" data-open-reserve-report>Seleccionar y generar reporte</button></div>` : "";
+  return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong>${calculationTag}</header>${reserveAction}<div class="pending-expense-detail-table"><table><thead><tr><th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
+}
+
+function bindPendingReserveReportAction(detail) {
+  detail?.querySelector("[data-open-reserve-report]")?.addEventListener("click", () => {
+    openReserveSettlementCrud().catch((error) => alert(error.message || "No se pudo abrir el reporte de liquidación de reservas."));
+  });
 }
 
 function bankFieldType(field) {
@@ -13429,7 +13437,7 @@ function openReserveLiquidationReview(items) {
 }
 
 async function openReserveSettlementCrud(parentDialog) {
-  let payload=await apiJson("/api/reserve-settlements"); let reserveFilter=""; const selectedKeys=new Set((payload.pending||[]).map((item)=>item.key));
+  let payload=await apiJson("/api/reserve-settlements"); let reserveFilter=""; const selectedKeys=new Set();
   const dialog=document.createElement("dialog");dialog.className="commission-settlement-dialog";
   const render=()=>{const pending=payload.pending||[];[...selectedKeys].forEach((key)=>{if(!pending.some((item)=>item.key===key))selectedKeys.delete(key);});const visible=pending.filter((item)=>!reserveFilter||item.reserve===reserveFilter);const selected=visible.filter((item)=>selectedKeys.has(item.key));const total=selected.reduce((sum,item)=>sum+Number(item.amount||0),0);const rows=visible.map((item)=>`<tr class="${selectedKeys.has(item.key)?"is-selected":""}"><td><label class="expense-switch"><input type="checkbox" data-reserve-key="${escapeHtml(item.key)}" ${selectedKeys.has(item.key)?"checked":""}><i></i></label></td><td>${escapeHtml(formatDate(item.date))}</td><td><strong>${escapeHtml(item.reserve)}</strong><small>${escapeHtml(item.seller)} · ${escapeHtml(item.bank)}</small></td><td>${escapeHtml(item.detail)}</td><td class="money">${formatMoney(item.amount)}</td></tr>`).join("");const history=(payload.settlements||[]).map((settlement)=>`<details><summary><span><strong>${escapeHtml(settlement.number)}</strong><small>Pagado · ${escapeHtml(formatDate(settlement.date))}</small></span><span class="commission-history-actions"><b>${formatMoney(settlement.amount)}</b><button type="button" data-print-reserve="${escapeHtml(settlement.id)}">Imprimir</button></span></summary><div>${(settlement.items||[]).map((item)=>`<p><span>${escapeHtml(item.reserve)} · ${escapeHtml(item.detail)}</span><strong>${formatMoney(item.amount)}</strong></p>`).join("")}</div></details>`).join("")||`<p class="empty-state">Aún no hay liquidaciones de reservas.</p>`;
     dialog.innerHTML=`<form class="commission-settlement is-simple"><header><div><span>Reservas provisionadas</span><h2>Liquidar reservas</h2><p>Reserva Fiscal y Laboral generadas automáticamente por las remesas.</p></div><button type="button" data-reserve-close>×</button></header><nav class="commission-view-tabs"><button type="button" class="active" data-reserve-view="pending">Por liquidar <b>${pending.length}</b></button><button type="button" data-reserve-view="history">Historial de pagos <b>${(payload.settlements||[]).length}</b></button></nav><section class="commission-history-screen" data-reserve-history hidden><header><div><span>Liquidaciones registradas</span><h3>Historial de reservas</h3><p>Cada liquidación conserva su reporte consolidado.</p></div></header><div>${history}</div></section><div class="commission-filter-bar" data-reserve-pending><label><span>Tipo de reserva</span><select data-reserve-filter><option value="">Todas las reservas</option>${(payload.summary||[]).map((item)=>`<option value="${escapeHtml(item.reserve)}" ${reserveFilter===item.reserve?"selected":""}>${escapeHtml(item.reserve)} · ${formatMoney(item.amount)}</option>`).join("")}</select></label><article><span>Pendiente general</span><strong>${formatMoney(payload.pendingTotal||0)}</strong></article><article><span>Pendiente filtrado</span><strong>${formatMoney(visible.reduce((sum,item)=>sum+Number(item.amount||0),0))}</strong></article><article class="selected"><span>Seleccionado</span><strong data-reserve-total>${formatMoney(total)}</strong><small>${selected.length} partidas</small></article></div><div class="commission-settlement-body" data-reserve-pending><section><div class="commission-settlement-table-head"><label class="commission-select-all"><span class="expense-switch"><input type="checkbox" data-reserve-all ${visible.length&&selected.length===visible.length?"checked":""}><i></i></span><span>Seleccionar todo lo filtrado</span></label><strong>${visible.length} movimientos · fecha más reciente primero</strong></div><div class="commission-settlement-table"><table><thead><tr><th></th><th>Fecha banco</th><th>Reserva / origen</th><th>Detalle provisionado</th><th>Monto</th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty-state">No hay reservas pendientes.</td></tr>`}</tbody></table></div><div class="commission-liquidation-note"><span>Al liquidar</span><p>Las partidas saldrán del pendiente y permanecerán como <b>Pagadas</b> en el historial.</p></div></section></div><footer data-reserve-pending><span>Total a liquidar: <b>${formatMoney(total)}</b>.</span><div><button type="button" data-reserve-close>Cerrar</button><button type="submit" ${selected.length?"":"disabled"}>Revisar y liquidar</button></div></footer></form>`;
@@ -13588,12 +13596,14 @@ function wireBankAvailability() {
   });
   document.querySelector("[data-pending-expenses-manage]")?.addEventListener("click", openPendingExpensesCrud);
   document.querySelector("[data-pending-checks-manage]")?.addEventListener("click", openPendingChecksCrud);
+  bindPendingReserveReportAction(document.querySelector("[data-pending-expense-detail]"));
   const selectExpense = (row) => {
     const group = pendingExpenseGroups().find((item) => item.name === row.dataset.pendingExpense);
     const detail = document.querySelector("[data-pending-expense-detail]");
     if (!group || !detail) return;
     document.querySelectorAll("[data-pending-expense]").forEach((item) => item.classList.toggle("is-active", item === row));
     detail.innerHTML = pendingExpenseDetailMarkup(group);
+    bindPendingReserveReportAction(detail);
   };
   document.querySelectorAll("[data-pending-expense]").forEach((row) => {
     row.addEventListener("click", () => selectExpense(row));
