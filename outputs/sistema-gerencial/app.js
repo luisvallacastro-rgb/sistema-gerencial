@@ -12699,6 +12699,8 @@ const pendingExpenseCostCenters = [
   "Descuentos FSV", "Bodega Arte y Color", "Honorarios"
 ];
 
+const pendingReserveDetailSelection = new Set();
+
 function savePendingExpenses() {
   if (state.pendingExpensesLoadState !== "ready") return Promise.reject(new Error("No se verificaron los gastos pendientes; recarga antes de guardar"));
   if (!apiEnabled) return Promise.resolve(state.pendingExpenses);
@@ -12719,14 +12721,81 @@ function toDateInputValue(value) {
 
 function pendingExpenseDetailMarkup(group) {
   if (!group) return `<div class="empty-state">No hay gastos pendientes registrados.</div>`;
-  const rows = group.details.map(([date, detail, amount]) => `<tr><td>${escapeHtml(date)}</td><td>${escapeHtml(detail)}</td><td class="money">${formatMoney(amount)}</td></tr>`).join("");
+  const reserveCenter = ["reserva fiscal", "reserva laboral"].includes(normalizeKey(group.name));
+  const rows = group.details.map(([date, detail, amount, item]) => `<tr class="${item?.reserveKey && pendingReserveDetailSelection.has(item.reserveKey) ? "is-selected" : ""}">${reserveCenter ? `<td class="reserve-select"><label class="expense-switch" title="Seleccionar para liquidar"><input type="checkbox" data-reserve-detail-key="${escapeHtml(item?.reserveKey || "")}" ${item?.reserveKey && pendingReserveDetailSelection.has(item.reserveKey) ? "checked" : ""}><i></i></label></td>` : ""}<td>${escapeHtml(date)}</td><td>${escapeHtml(detail)}</td><td class="money">${formatMoney(amount)}</td></tr>`).join("");
   const calculatedCenter = ["comisiones", "reserva fiscal", "reserva laboral"].includes(normalizeKey(group.name));
   const remittances = new Map();
   if (calculatedCenter) group.details.forEach(([, , , item]) => { if (item?.provisionId && !remittances.has(item.provisionId)) remittances.set(item.provisionId, Number(item.baseNet || 0)); });
   const calculationBase = [...remittances.values()].reduce((sum, value) => sum + value, 0);
   const rateLabel = normalizeKey(group.name) === "reserva fiscal" ? "13%" : normalizeKey(group.name) === "reserva laboral" ? "7%" : "según vendedor / asignación";
   const calculationTag = calculatedCenter ? `<small class="pending-expense-calculation-base"><b>${remittances.size} ${remittances.size === 1 ? "remesa" : "remesas"}</b><span>Base neta para el cálculo: <strong>${formatMoney(calculationBase)}</strong></span><em>${escapeHtml(rateLabel)}</em></small>` : "";
-  return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong>${calculationTag}</header><div class="pending-expense-detail-table"><table><thead><tr><th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="2">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
+  const selectedReserveItems = state.pendingExpenses.filter((item) => item.reserveKey && pendingReserveDetailSelection.has(item.reserveKey));
+  const selectedReserveTotal = selectedReserveItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const reserveActions = reserveCenter ? `<div class="pending-reserve-actions"><label class="pending-reserve-select-all"><span class="expense-switch"><input type="checkbox" data-reserve-detail-all ${group.details.length && group.details.every(([, , , item]) => item?.reserveKey && pendingReserveDetailSelection.has(item.reserveKey)) ? "checked" : ""}><i></i></span><span>Seleccionar todo este detalle</span></label><div><small><b data-reserve-detail-count>${selectedReserveItems.length}</b> seleccionadas · <strong data-reserve-detail-total>${formatMoney(selectedReserveTotal)}</strong></small><button type="button" data-reserve-detail-report ${selectedReserveItems.length ? "" : "disabled"}>Generar reporte</button></div></div>` : "";
+  return `<header><span>Detalle del centro de costo</span><h3>${escapeHtml(group.name)}</h3><strong>${formatMoney(group.total)}</strong>${calculationTag}</header>${reserveActions}<div class="pending-expense-detail-table"><table><thead><tr>${reserveCenter ? "<th class=\"reserve-select\">Liquidar</th>" : ""}<th>Fecha a pagar</th><th>Detalle</th><th>Monto</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><th colspan="${reserveCenter ? 3 : 2}">Total</th><th class="money">${formatMoney(group.total)}</th></tr></tfoot></table></div>`;
+}
+
+function bindPendingReserveDetailActions(group, detail) {
+  if (!group || !detail || !["reserva fiscal", "reserva laboral"].includes(normalizeKey(group.name))) return;
+  const pendingKeys = new Set(state.pendingExpenses.map((item) => item.reserveKey).filter(Boolean));
+  [...pendingReserveDetailSelection].forEach((key) => { if (!pendingKeys.has(key)) pendingReserveDetailSelection.delete(key); });
+  const groupItems = group.details.map(([, , , item]) => item).filter((item) => item?.reserveKey);
+  const update = () => {
+    const selected = state.pendingExpenses.filter((item) => item.reserveKey && pendingReserveDetailSelection.has(item.reserveKey));
+    const selectedTotal = selected.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const count = detail.querySelector("[data-reserve-detail-count]");
+    const total = detail.querySelector("[data-reserve-detail-total]");
+    const report = detail.querySelector("[data-reserve-detail-report]");
+    const all = detail.querySelector("[data-reserve-detail-all]");
+    if (count) count.textContent = selected.length;
+    if (total) total.textContent = formatMoney(selectedTotal);
+    if (report) report.disabled = !selected.length;
+    if (all) all.checked = groupItems.length > 0 && groupItems.every((item) => pendingReserveDetailSelection.has(item.reserveKey));
+  };
+  detail.querySelectorAll("[data-reserve-detail-key]").forEach((input) => input.addEventListener("change", () => {
+    input.checked ? pendingReserveDetailSelection.add(input.dataset.reserveDetailKey) : pendingReserveDetailSelection.delete(input.dataset.reserveDetailKey);
+    input.closest("tr")?.classList.toggle("is-selected", input.checked);
+    update();
+  }));
+  detail.querySelector("[data-reserve-detail-all]")?.addEventListener("change", (event) => {
+    groupItems.forEach((item) => pendingReserveDetailSelection.delete(item.reserveKey));
+    if (event.target.checked) groupItems.forEach((item) => pendingReserveDetailSelection.add(item.reserveKey));
+    detail.querySelectorAll("[data-reserve-detail-key]").forEach((input) => {
+      input.checked = event.target.checked;
+      input.closest("tr")?.classList.toggle("is-selected", input.checked);
+    });
+    update();
+  });
+  detail.querySelector("[data-reserve-detail-report]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const selected = state.pendingExpenses.filter((item) => item.reserveKey && pendingReserveDetailSelection.has(item.reserveKey)).map((item) => ({
+      ...item, key:item.reserveKey, reserve:item.costCenter, net:Number(item.baseNet || 0),
+      bank:item.bank || "", account:item.account || "", customerName:item.customerName || "", paymentType:item.paymentType || ""
+    }));
+    if (!selected.length) return;
+    const review = await openReserveLiquidationReview(selected);
+    if (!review) return;
+    button.disabled = true;
+    button.textContent = "Liquidando…";
+    try {
+      const response = await apiJson("/api/reserve-settlements", { method:"POST", body:JSON.stringify({
+        componentKeys:selected.map((item) => item.key), createdBy:state.currentUser?.name || "Sistema Gerencial"
+      }) });
+      state.pendingExpenses = response.items || [];
+      state.bankAvailabilitySignatures = {};
+      selected.forEach((item) => pendingReserveDetailSelection.delete(item.key));
+      const settlement = (response.reserves?.settlements || []).find((item) => item.number === response.number);
+      if (settlement) printReserveSettlementReport(settlement, review.reportWindow);
+      else review.reportWindow?.close();
+      renderCommercialSubmenu(areas.financiera);
+    } catch (error) {
+      review.reportWindow?.close();
+      alert(error.message || "No se pudieron liquidar las reservas seleccionadas.");
+      button.disabled = false;
+      button.textContent = "Generar reporte";
+    }
+  });
+  update();
 }
 
 function bankFieldType(field) {
@@ -13588,12 +13657,14 @@ function wireBankAvailability() {
   });
   document.querySelector("[data-pending-expenses-manage]")?.addEventListener("click", openPendingExpensesCrud);
   document.querySelector("[data-pending-checks-manage]")?.addEventListener("click", openPendingChecksCrud);
+  bindPendingReserveDetailActions(groups[0], document.querySelector("[data-pending-expense-detail]"));
   const selectExpense = (row) => {
     const group = pendingExpenseGroups().find((item) => item.name === row.dataset.pendingExpense);
     const detail = document.querySelector("[data-pending-expense-detail]");
     if (!group || !detail) return;
     document.querySelectorAll("[data-pending-expense]").forEach((item) => item.classList.toggle("is-active", item === row));
     detail.innerHTML = pendingExpenseDetailMarkup(group);
+    bindPendingReserveDetailActions(group, detail);
   };
   document.querySelectorAll("[data-pending-expense]").forEach((row) => {
     row.addEventListener("click", () => selectExpense(row));
