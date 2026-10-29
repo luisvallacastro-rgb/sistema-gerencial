@@ -12904,7 +12904,7 @@ function selectBankSellerReportScope(report) {
     }).sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
     const dialog = document.createElement("dialog");
     dialog.className = "bank-seller-report-dialog";
-    dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones pendientes</h2><p>El corte excluye las remesas posteriores y recalcula el porcentaje únicamente con el acumulado incluido.</p><label class="bank-seller-cutoff"><span>Fecha de corte</span><input type="date" name="cutoffDate" required value="${escapeHtml(report.cutoffDate || new Date().toISOString().slice(0,10))}"><button type="submit" value="apply-cutoff">Aplicar corte</button></label></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section><label class="bank-seller-report-all"><input type="radio" name="reportSeller" value="__consolidated__"><i></i><span><strong>Reporte consolidado</strong><small>${reportOptions.length} beneficiarios · ${(report.pendingCommissionComponents || []).length} partidas pendientes</small></span><b>${formatMoney(report.pendingCommissionTotal || 0)}</b><em>Total pendiente</em></label>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}"><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} partidas · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Corte aplicado: <b>${escapeHtml(formatDate(report.cutoffDate || new Date().toISOString().slice(0,10)))}</b></span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
+    dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones pendientes</h2><p>El corte excluye las remesas posteriores y recalcula el porcentaje únicamente con el acumulado incluido.</p><label class="bank-seller-cutoff"><span>Fecha de corte</span><input type="date" name="cutoffDate" required value="${escapeHtml(report.cutoffDate || new Date().toISOString().slice(0,10))}"><button type="submit" value="apply-cutoff">Aplicar corte</button></label></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section><label class="bank-seller-report-all"><input type="radio" name="reportSeller" value="__consolidated__"><i></i><span><strong>Reporte consolidado</strong><small>${reportOptions.length} beneficiarios · ${(report.pendingCommissionComponents || []).length} partidas pendientes</small></span><b>${formatMoney(report.pendingCommissionTotal || 0)}</b><em>Total pendiente al corte</em></label>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}"><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} partidas · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión al corte ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Corte aplicado: <b>${escapeHtml(formatDate(report.cutoffDate || new Date().toISOString().slice(0,10)))}</b> · Total: <b>${formatMoney(report.pendingCommissionTotal || 0)}</b></span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="liquidate-cutoff">Liquidar este corte</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
     document.body.append(dialog);
     dialog.querySelectorAll("[data-seller-report-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close("cancel")));
     dialog.querySelector("form").addEventListener("submit", (event) => {
@@ -12917,9 +12917,10 @@ function selectBankSellerReportScope(report) {
     dialog.addEventListener("close", () => {
       const selected = dialog.returnValue === "generate" ? dialog.dataset.selected : null;
       const applyCutoff = dialog.returnValue === "apply-cutoff";
+      const liquidateCutoff = dialog.returnValue === "liquidate-cutoff";
       const cutoffDate = dialog.dataset.cutoff || report.cutoffDate || "";
       dialog.remove();
-      resolve(applyCutoff ? { applyCutoff:true, cutoffDate } : selected ? { selected, cutoffDate } : null);
+      resolve(applyCutoff ? { applyCutoff:true, cutoffDate } : (selected || liquidateCutoff) ? { selected:dialog.dataset.selected, cutoffDate, liquidateCutoff } : null);
     }, { once:true });
     dialog.showModal();
   });
@@ -12977,6 +12978,9 @@ async function printBankSellerIncomeReport() {
     cutoffDate = choice.cutoffDate;
   } while (choice.applyCutoff);
   const selectedScope = choice.selected;
+  if (choice.liquidateCutoff) {
+    return openCommissionSettlementCrud(null, cutoffDate, selectedScope === "__consolidated__" ? "" : selectedScope);
+  }
   if (selectedScope === "__consolidated__") return printConsolidatedPendingCommissionReport(report);
   const odalizMode = normalizeKey(selectedScope) === normalizeKey("Odaliz Valencia");
   const marcoMode = normalizeKey(selectedScope) === normalizeKey("Marco Velado");
@@ -13375,11 +13379,11 @@ function openCommissionLiquidationReview(items) {
   });
 }
 
-async function openCommissionSettlementCrud(parentDialog) {
-  let cutoffDate = new Date().toISOString().slice(0,10);
+async function openCommissionSettlementCrud(parentDialog, initialCutoffDate="", initialSeller="") {
+  let cutoffDate = initialCutoffDate || new Date().toISOString().slice(0,10);
   let payload = await apiJson(`/api/commission-settlements?cutoff=${encodeURIComponent(cutoffDate)}`);
   const selectedKeys = new Set();
-  let sellerFilter = "";
+  let sellerFilter = (payload.summary || []).some((item) => item.seller === initialSeller) ? initialSeller : "";
   const dialog = document.createElement("dialog"); dialog.className = "commission-settlement-dialog";
   const render = () => {
     const pending = payload.pending || [];
