@@ -12890,7 +12890,7 @@ function bankSellerReportEntries(report, scope) {
     }));
 }
 
-function selectBankSellerReportScope(report) {
+function selectBankSellerReportScope(report, initialScope="") {
   return new Promise((resolve) => {
     const reportOptions = (report.pendingCommissionSummary || []).map((summary) => {
       const entries = bankSellerReportEntries(report, summary.seller);
@@ -12904,7 +12904,7 @@ function selectBankSellerReportScope(report) {
     }).sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
     const dialog = document.createElement("dialog");
     dialog.className = "bank-seller-report-dialog";
-    dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones pendientes</h2><p>El corte excluye las remesas posteriores y recalcula el porcentaje únicamente con el acumulado incluido.</p><label class="bank-seller-cutoff"><span>Fecha de corte</span><input type="date" name="cutoffDate" required value="${escapeHtml(report.cutoffDate || new Date().toISOString().slice(0,10))}"><button type="submit" value="apply-cutoff">Aplicar corte</button></label></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section><label class="bank-seller-report-all"><input type="radio" name="reportSeller" value="__consolidated__"><i></i><span><strong>Reporte consolidado</strong><small>${reportOptions.length} beneficiarios · ${(report.pendingCommissionComponents || []).length} partidas pendientes</small></span><b>${formatMoney(report.pendingCommissionTotal || 0)}</b><em>Total pendiente al corte</em></label>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}"><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} partidas · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión al corte ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Corte aplicado: <b>${escapeHtml(formatDate(report.cutoffDate || new Date().toISOString().slice(0,10)))}</b> · Total: <b>${formatMoney(report.pendingCommissionTotal || 0)}</b></span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="liquidate-cutoff">Liquidar este corte</button><button type="submit" value="generate">Generar reporte</button></div></footer></form>`;
+    dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones pendientes</h2><p>El corte excluye las remesas posteriores y recalcula el porcentaje únicamente con el acumulado incluido.</p><label class="bank-seller-cutoff"><span>Fecha de corte</span><input type="date" name="cutoffDate" required value="${escapeHtml(report.cutoffDate || new Date().toISOString().slice(0,10))}"><button type="submit" value="apply-cutoff">Aplicar corte</button></label></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section><label class="bank-seller-report-all"><input type="radio" name="reportSeller" value="__consolidated__" ${initialScope === "__consolidated__" ? "checked" : ""}><i></i><span><strong>Reporte consolidado</strong><small>${reportOptions.length} beneficiarios · ${(report.pendingCommissionComponents || []).length} partidas pendientes</small></span><b>${formatMoney(report.pendingCommissionTotal || 0)}</b><em>Total pendiente al corte</em></label>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}" ${initialScope === item.value ? "checked" : ""}><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} partidas · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión al corte ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Corte aplicado: <b>${escapeHtml(formatDate(report.cutoffDate || new Date().toISOString().slice(0,10)))}</b> · Total: <b>${formatMoney(report.pendingCommissionTotal || 0)}</b></span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="liquidate-cutoff">Liquidar este corte</button><button type="submit" value="generate">Validar reporte</button></div></footer></form>`;
     document.body.append(dialog);
     dialog.querySelectorAll("[data-seller-report-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close("cancel")));
     dialog.querySelector("form").addEventListener("submit", (event) => {
@@ -12966,14 +12966,14 @@ function printConsolidatedPendingCommissionReport(report) {
   popup.document.close();
 }
 
-async function printBankSellerIncomeReport() {
-  let cutoffDate = new Date().toISOString().slice(0,10);
+async function printBankSellerIncomeReport(initialCutoffDate="", initialScope="") {
+  let cutoffDate = initialCutoffDate || new Date().toISOString().slice(0,10);
   let report;
   let choice;
   do {
     report = await apiJson(`/api/bank-availability/provisions-report?cutoff=${encodeURIComponent(cutoffDate)}`);
     if (!(report.pendingCommissionComponents || []).length) return alert("No hay comisiones pendientes hasta la fecha de corte seleccionada.");
-    choice = await selectBankSellerReportScope(report);
+    choice = await selectBankSellerReportScope(report, initialScope);
     if (!choice) return;
     cutoffDate = choice.cutoffDate;
   } while (choice.applyCutoff);
@@ -12981,7 +12981,10 @@ async function printBankSellerIncomeReport() {
   if (choice.liquidateCutoff) {
     return openCommissionSettlementCrud(null, cutoffDate, selectedScope === "__consolidated__" ? "" : selectedScope);
   }
-  if (selectedScope === "__consolidated__") return printConsolidatedPendingCommissionReport(report);
+  if (selectedScope === "__consolidated__") {
+    printConsolidatedPendingCommissionReport(report);
+    return printBankSellerIncomeReport(cutoffDate, selectedScope);
+  }
   const odalizMode = normalizeKey(selectedScope) === normalizeKey("Odaliz Valencia");
   const marcoMode = normalizeKey(selectedScope) === normalizeKey("Marco Velado");
   const items = bankSellerReportEntries(report, selectedScope);
@@ -13054,6 +13057,7 @@ async function printBankSellerIncomeReport() {
     @page{size:letter portrait;margin:8mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{margin:0;color:#17233a;font:9px Arial,sans-serif;background:#eef2f7}.sheet{width:100%;max-width:800px;margin:10px auto;padding:12px;background:#fff}.report-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 7px}.report-totals.is-marco{grid-template-columns:repeat(4,1fr)}.report-totals article{padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;background:#f7fafc}.report-totals span,.report-totals strong{display:block}.report-totals span{color:#64748b;font-size:7px;font-weight:800;text-transform:uppercase}.report-totals strong{margin-top:2px;font-size:14px}.report-totals article:nth-child(3) strong{color:#12836d}.report-totals .summary-alert{border-color:#e1a3aa;background:#fff1f2}.report-totals .summary-alert span,.report-totals .summary-alert strong{color:#c6283d!important}table{width:100%;border-collapse:collapse;table-layout:fixed}caption{padding:0 0 5px;text-align:left;color:#52657c;font-size:8px}caption strong{color:#17233a;font-size:10px}caption span{float:right}th,td{border:1px solid #cbd5e1;padding:5px 6px;text-align:right;vertical-align:top;overflow-wrap:anywhere}thead th{background:#172f51;color:#fff}th:nth-child(-n+3),td:nth-child(-n+3){text-align:left}th:nth-child(1){width:60px}th:nth-child(2){width:126px}th:nth-child(4),th:nth-child(5),th:nth-child(6){width:70px}.detail.marco th:nth-child(2){width:115px}.detail.marco th:nth-child(3){width:230px}.detail.marco th:nth-child(n+4){width:67px}.detail tfoot td{background:#e8f5f1;font-weight:800}.detail small,.distribution small{display:block;margin-top:2px;color:#64748b;font-size:7px;font-weight:400}.commission{color:#12836d;font-weight:800}.detail.marco .commission{background:#e8f5f1}.detail.marco .commission strong{font-size:10px}.detail.marco .rent{background:#fff7df;color:#9a6110;font-weight:800}.distribution{margin-top:8px;border:1px solid #cbd5e1}.distribution header{display:flex;justify-content:space-between;padding:6px 7px;background:#eef6f4}.distribution header span{color:#52657c}.distribution td:first-child{text-align:left}.distribution .marco-net td{background:#dcf4ed;color:#0e6959}.distribution .rent-row td{background:#fff7df;color:#8a580d}.distribution tfoot td{background:#172f51;color:#fff;font-weight:800}.actions{position:fixed;right:14px;bottom:14px;display:flex;gap:7px}.actions button{padding:9px 12px;border:0;border-radius:7px;background:#173b62;color:#fff;font-weight:700;cursor:pointer}.actions button:first-child{background:#16866d}@media print{body{background:#fff}.sheet{max-width:none;margin:0;padding:0}.actions{display:none}.detail thead{display:table-header-group}.detail tr{break-inside:avoid}}
   </style></head><body><main class="sheet"><section class="report-totals${marcoMode ? " is-marco" : ""}"><article><span>Monto recaudado</span><strong>${formatMoney(totals.gross)}</strong></article><article><span>Neto</span><strong>${formatMoney(totals.net)}</strong></article><article><span>${marcoMode ? "Comisión neta Marco después de renta" : "Comisión"}</span><strong>${formatMoney(reportCommissionTotal)}</strong></article>${marcoMode ? `<article class="summary-alert"><span>Marco + renta + Credy Crece</span><strong>${formatMoney(marcoHeaderSummary)}</strong></article>` : ""}</section><table class="detail${marcoMode ? " marco" : ""}"><caption><strong>${escapeHtml(scopeLabel)}${marcoMode ? " · neto provisionado después de renta" : ""}</strong><span>${escapeHtml(periodLabel)} · ${Number(totals.deposits)} transacciones</span></caption><thead><tr><th>Fecha</th><th>Vendedor / Banco</th><th>Cliente / Concepto</th><th>Depositado</th><th>Neto</th>${marcoMode ? "<th>Comisión Marco</th><th>Renta 10%</th><th>Neto Marco</th>" : "<th>Comisión</th>"}</tr></thead><tbody>${transactionRows}</tbody><tfoot><tr><td colspan="3">TOTAL ${escapeHtml(scopeLabel).toUpperCase()}</td><td>${formatMoney(totals.gross)}</td><td>${formatMoney(totals.net)}</td>${marcoMode ? `<td>${formatMoney(marcoCommissionBeforeTax)}</td><td class="rent"><strong>${formatMoney(marcoIncomeTax)}</strong><small>${formatMoney(marcoOwnIncomeTax)} Marco + ${formatMoney(marcoCredyIncomeTax)} Credy</small></td><td class="commission">${formatMoney(reportCommissionTotal)}</td>` : `<td class="commission">${formatMoney(reportCommissionTotal)}</td>`}</tr></tfoot></table>${marcoDistribution}</main><nav class="actions"><button onclick="window.print()">Imprimir / Guardar PDF</button><button onclick="window.close()">Cerrar</button></nav></body></html>`);
   popup.document.close();
+  return printBankSellerIncomeReport(cutoffDate, selectedScope);
 }
 
 function renderFinancialIncome() {
