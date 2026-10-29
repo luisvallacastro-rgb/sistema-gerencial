@@ -12908,11 +12908,17 @@ function selectBankSellerReportScope(report, initialScope="") {
     document.body.append(dialog);
     dialog.querySelectorAll("[data-seller-report-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close("cancel")));
     dialog.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const action = event.submitter?.value || "";
       dialog.dataset.cutoff = event.currentTarget.elements.cutoffDate.value;
-      if (event.submitter?.value === "apply-cutoff") return;
+      if (action === "apply-cutoff") {
+        dialog.close("apply-cutoff");
+        return;
+      }
       const selected = dialog.querySelector('input[name="reportSeller"]:checked')?.value;
-      if (!selected) { event.preventDefault(); return; }
+      if (!selected) return;
       dialog.dataset.selected = selected;
+      dialog.close(action);
     });
     dialog.addEventListener("close", () => {
       const selected = dialog.returnValue === "generate" ? dialog.dataset.selected : null;
