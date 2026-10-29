@@ -12902,20 +12902,23 @@ function selectBankSellerReportScope(report, initialScope="") {
         commission:Number(summary.amount || 0),
       };
     }).sort((a, b) => String(a.seller).localeCompare(String(b.seller), "es"));
+    const availableScopes = new Set(reportOptions.map((item) => item.value));
+    const activeScope = initialScope === "__consolidated__" || availableScopes.has(initialScope) ? initialScope : "__consolidated__";
     const dialog = document.createElement("dialog");
     dialog.className = "bank-seller-report-dialog";
-    dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones pendientes</h2><p>El corte excluye las remesas posteriores y recalcula el porcentaje únicamente con el acumulado incluido.</p><label class="bank-seller-cutoff"><span>Fecha de corte</span><input type="date" name="cutoffDate" required value="${escapeHtml(report.cutoffDate || new Date().toISOString().slice(0,10))}"><button type="submit" value="apply-cutoff">Aplicar corte</button></label></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section><label class="bank-seller-report-all"><input type="radio" name="reportSeller" value="__consolidated__" ${initialScope === "__consolidated__" ? "checked" : ""}><i></i><span><strong>Reporte consolidado</strong><small>${reportOptions.length} beneficiarios · ${(report.pendingCommissionComponents || []).length} partidas pendientes</small></span><b>${formatMoney(report.pendingCommissionTotal || 0)}</b><em>Total pendiente al corte</em></label>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}" ${initialScope === item.value ? "checked" : ""}><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} partidas · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión al corte ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Corte aplicado: <b>${escapeHtml(formatDate(report.cutoffDate || new Date().toISOString().slice(0,10)))}</b> · Total: <b>${formatMoney(report.pendingCommissionTotal || 0)}</b></span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="liquidate-cutoff">Liquidar este corte</button><button type="submit" value="generate">Validar reporte</button></div></footer></form>`;
+    dialog.innerHTML = `<form method="dialog"><header><div><span>Financiera</span><h2>Comisiones pendientes</h2><p>El corte excluye las remesas posteriores y recalcula el porcentaje únicamente con el acumulado incluido.</p><label class="bank-seller-cutoff"><span>Fecha de corte</span><input type="date" name="cutoffDate" required value="${escapeHtml(report.cutoffDate || new Date().toISOString().slice(0,10))}"><button type="submit" value="apply-cutoff">Aplicar corte</button></label></div><button type="button" data-seller-report-cancel aria-label="Cerrar">×</button></header><section><label class="bank-seller-report-all"><input type="radio" name="reportSeller" value="__consolidated__" ${activeScope === "__consolidated__" ? "checked" : ""}><i></i><span><strong>Reporte consolidado</strong><small>${reportOptions.length} beneficiarios · ${(report.pendingCommissionComponents || []).length} partidas pendientes</small></span><b>${formatMoney(report.pendingCommissionTotal || 0)}</b><em>Total pendiente al corte</em></label>${reportOptions.map((item) => `<label><input type="radio" name="reportSeller" value="${escapeHtml(item.value)}" ${activeScope === item.value ? "checked" : ""}><i></i><span><strong>${escapeHtml(item.seller)}</strong><small>${Number(item.deposits || 0)} partidas · ${Number(item.bankCount || 0)} bancos</small></span><b>${formatMoney(item.gross)}</b><em>Comisión al corte ${formatMoney(item.commission)}</em></label>`).join("")}</section><footer><span>Corte aplicado: <b>${escapeHtml(formatDate(report.cutoffDate || new Date().toISOString().slice(0,10)))}</b> · Total: <b>${formatMoney(report.pendingCommissionTotal || 0)}</b></span><div><button type="button" data-seller-report-cancel>Cancelar</button><button type="submit" value="liquidate-cutoff">Liquidar este corte</button><button type="submit" value="generate">Validar reporte</button></div></footer></form>`;
     document.body.append(dialog);
     dialog.querySelectorAll("[data-seller-report-cancel]").forEach((button) => button.addEventListener("click", () => dialog.close("cancel")));
     dialog.querySelector("form").addEventListener("submit", (event) => {
       event.preventDefault();
       const action = event.submitter?.value || "";
       dialog.dataset.cutoff = event.currentTarget.elements.cutoffDate.value;
+      dialog.dataset.selected = dialog.querySelector('input[name="reportSeller"]:checked')?.value || "__consolidated__";
       if (action === "apply-cutoff") {
         dialog.close("apply-cutoff");
         return;
       }
-      const selected = dialog.querySelector('input[name="reportSeller"]:checked')?.value;
+      const selected = dialog.dataset.selected;
       if (!selected) return;
       dialog.dataset.selected = selected;
       dialog.close(action);
@@ -12926,7 +12929,7 @@ function selectBankSellerReportScope(report, initialScope="") {
       const liquidateCutoff = dialog.returnValue === "liquidate-cutoff";
       const cutoffDate = dialog.dataset.cutoff || report.cutoffDate || "";
       dialog.remove();
-      resolve(applyCutoff ? { applyCutoff:true, cutoffDate } : (selected || liquidateCutoff) ? { selected:dialog.dataset.selected, cutoffDate, liquidateCutoff } : null);
+      resolve(applyCutoff ? { applyCutoff:true, cutoffDate, selected:dialog.dataset.selected } : (selected || liquidateCutoff) ? { selected:dialog.dataset.selected, cutoffDate, liquidateCutoff } : null);
     }, { once:true });
     dialog.showModal();
   });
@@ -12982,6 +12985,7 @@ async function printBankSellerIncomeReport(initialCutoffDate="", initialScope=""
     choice = await selectBankSellerReportScope(report, initialScope);
     if (!choice) return;
     cutoffDate = choice.cutoffDate;
+    initialScope = choice.selected || initialScope;
   } while (choice.applyCutoff);
   const selectedScope = choice.selected;
   if (choice.liquidateCutoff) {
