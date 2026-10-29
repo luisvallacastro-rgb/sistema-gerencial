@@ -6964,25 +6964,41 @@ function wirePurchaseOrders() {
   });
 }
 
-function loadBankAvailability() {
+async function loadBankAvailability() {
   if (!apiEnabled) return Promise.resolve(state.bankAvailability);
   state.pendingExpensesLoadState = "loading";
-  return Promise.all([apiJson("/api/bank-availability"), apiJson("/api/pending-expenses").then((items) => ({ ok: Array.isArray(items), items }), () => ({ ok: false })), apiJson("/api/pending-checks").catch(() => []), apiJson("/api/bank-availability-adjustments").catch(() => ({ pendingDeposits: 0 })), apiJson("/api/bank-availability/signatures").catch(() => ({})), apiJson("/api/bank-availability/archive-history").catch(() => [])]).then(([payload, expenses, checks, adjustments, signatures, history]) => {
+  const renderAvailability = () => {
+    if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
+  };
+  const fallbackAfter = (promise, fallback, milliseconds = 15000) => Promise.race([
+    promise,
+    new Promise((resolve) => window.setTimeout(() => resolve(fallback), milliseconds))
+  ]);
+  try {
+    const payload = await apiJson("/api/bank-availability");
     state.bankAvailability = payload && Array.isArray(payload.accounts) ? payload : { accounts: [], total: 0 };
+    renderAvailability();
+    const [expenses, checks, adjustments, signatures, history] = await Promise.all([
+      fallbackAfter(apiJson("/api/pending-expenses").then((items) => ({ ok:Array.isArray(items), items })).catch(() => ({ ok:false })), { ok:false }),
+      fallbackAfter(apiJson("/api/pending-checks").catch(() => []), []),
+      fallbackAfter(apiJson("/api/bank-availability-adjustments").catch(() => ({ pendingDeposits:0 })), { pendingDeposits:0 }),
+      fallbackAfter(apiJson("/api/bank-availability/signatures").catch(() => ({})), {}),
+      fallbackAfter(apiJson("/api/bank-availability/archive-history").catch(() => []), [])
+    ]);
     state.pendingExpenses = expenses.ok ? expenses.items : [];
     state.pendingExpensesLoadState = expenses.ok ? "ready" : "error";
     state.pendingChecks = Array.isArray(checks) ? checks : [];
     state.bankPendingDeposits = Number(adjustments?.pendingDeposits || 0);
     state.bankAvailabilitySignatures = signatures || {};
     state.bankAvailabilityHistory = Array.isArray(history) ? history : [];
-    if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
+    renderAvailability();
     return state.bankAvailability;
-  }).catch(() => {
+  } catch {
     state.pendingExpenses = [];
     state.pendingExpensesLoadState = "error";
-    if (state.activeArea === "financiera" && state.activeSubmenu === "disponibilidad") renderDashboard();
+    renderAvailability();
     return state.bankAvailability;
-  });
+  }
 }
 
 function loadAccountsReceivable() {
