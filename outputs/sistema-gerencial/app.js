@@ -7851,7 +7851,7 @@ function commercialMetricsPeriodRows() {
   return { years, rows };
 }
 
-function renderCommercialMetrics() {
+function commercialMetricsSelection() {
   const { years, rows } = commercialMetricsPeriodRows();
   const totalSales = rows.reduce((sum, order) => sum + Number(order.sale || 0), 0);
   const months = Array.from({ length: 12 }, (_, index) => monthLabel(index + 1));
@@ -7897,12 +7897,18 @@ function renderCommercialMetrics() {
   const period = selectedMonth === "all"
     ? (state.commercialMetricsYear === "all" ? "Todos los períodos" : `Año ${state.commercialMetricsYear}`)
     : `${selectedMonth} ${state.commercialMetricsYear === "all" ? "" : state.commercialMetricsYear}`.trim();
+  return { years, rows, totalSales, monthlyRows, selectedMonth, monthRows, sellerRows, selectedSeller, sellerFilteredRows, orderKey, orderRows, selectedOrder, detailRows, detailSales, sellerFilteredSales, sellerCount, period };
+}
+
+function renderCommercialMetrics() {
+  const { years, rows, totalSales, monthlyRows, selectedMonth, monthRows, sellerRows, selectedSeller, sellerFilteredRows, orderKey, orderRows, selectedOrder, detailRows, detailSales, sellerFilteredSales, sellerCount, period } = commercialMetricsSelection();
   return `
     <section class="commercial-metrics commercial-metrics-three-level" aria-label="Métricas de pedidos">
       <section class="commercial-metrics-overview" aria-label="Filtros de métricas">
         <header class="commercial-metrics-hero">
         <div><span>Inteligencia comercial</span><h2>Pedidos consolidados</h2><p>Selecciona un mes para consultar los pedidos que componen su resultado.</p></div>
         <div class="commercial-metrics-actions">
+          <button type="button" class="commercial-metrics-back" data-commercial-metrics-report>Ver reporte</button>
           <button type="button" class="commercial-metrics-back" data-commercial-metrics-back aria-label="Volver a Oportunidades y Vendedores">← Volver a Comercialización</button>
           <div class="commercial-metrics-filters">
           <label><span>Año</span><select data-commercial-metrics-year>${years.map((year) => `<option value="${escapeHtml(year)}" ${state.commercialMetricsYear === year ? "selected" : ""}>${escapeHtml(year)}</option>`).join("") || `<option value="all">Sin datos</option>`}</select></label>
@@ -7954,7 +7960,36 @@ function renderCommercialMetrics() {
     </section>`;
 }
 
+function openCommercialMetricsReport() {
+  const { detailRows, detailSales, period, selectedSeller, sellerRows, selectedOrder } = commercialMetricsSelection();
+  const popup = window.open("", "_blank", "width=1200,height=900");
+  if (!popup) {
+    window.alert("Permite las ventanas emergentes para abrir el reporte de comercialización.");
+    return;
+  }
+  const groups = new Map();
+  detailRows.forEach((order) => {
+    const seller = String(controlSalesResponsibleSeller(order) || "Sin vendedor asignado").trim();
+    const key = normalizeKey(seller);
+    const group = groups.get(key) || { seller, orders: 0, sales: 0 };
+    group.orders += 1;
+    group.sales += Number(order.sale || 0);
+    groups.set(key, group);
+  });
+  const summary = [...groups.values()].sort((a, b) => b.sales - a.sales || a.seller.localeCompare(b.seller, "es"));
+  const sellerLabel = selectedSeller === "all" ? "Todos" : sellerRows.find((row) => row.key === selectedSeller)?.seller || "Sin vendedor asignado";
+  const orderLabel = selectedOrder === "all" ? "Todas las OP y clientes" : detailRows.map((order) => `${financialOrderRealNumber(order)} · ${order.client || "Sin cliente"}`).join(", ");
+  const summaryBody = summary.map((row) => `<tr><td>${escapeHtml(row.seller)}</td><td class="number">${row.orders}</td><td class="money">${formatMoney(row.sales)}</td><td class="number">${detailSales ? (row.sales / detailSales * 100).toFixed(1) : "0.0"}%</td></tr>`).join("");
+  const detailBody = detailRows.map((order) => `<tr><td>${escapeHtml(formatDate(order.date))}</td><td>${escapeHtml(financialOrderRealNumber(order))}</td><td>${escapeHtml(order.client || "Sin cliente")}</td><td>${escapeHtml(controlSalesResponsibleSeller(order) || "Sin vendedor asignado")}</td><td class="money">${formatMoney(order.sale)}</td></tr>`).join("");
+  const logoUrl = new URL("assets/konfi-logo.png", window.location.href).href;
+  popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte de comercialización · ${escapeHtml(period)}</title><style>
+    @page{size:A4 landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;background:#e9eef4;color:#172b43;font:12px Arial,sans-serif}.report{max-width:1120px;margin:24px auto;padding:30px;background:#fff}.head{display:flex;justify-content:space-between;gap:24px;border-bottom:3px solid #188b78;padding-bottom:16px}.head img{width:135px;object-fit:contain}.head h1{font-size:25px;margin:5px 0}.head small,.footer{color:#536477}.filters{padding:12px 16px;background:#edf6f3;margin:18px 0;line-height:1.8;overflow-wrap:anywhere}.cards{display:flex;gap:16px;margin:18px 0}.cards article{flex:1;border:1px solid #cbd7e2;padding:14px;border-radius:8px}.cards span{display:block;color:#536477}.cards strong{display:block;font-size:24px;margin-top:6px;color:#087763}h2{font-size:17px;margin-top:24px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:9px;border-bottom:1px solid #d4dee8;text-align:left;overflow-wrap:anywhere}th{background:#173b62;color:#fff}.number,.money{text-align:right}.money{white-space:nowrap}tfoot{background:#edf6f3;font-weight:bold}.empty{text-align:center;padding:24px;color:#536477}.footer{font-size:11px;margin-top:22px}.actions{position:sticky;bottom:0;display:flex;justify-content:center;gap:10px;padding:14px;background:#173b62}.actions button{border:0;border-radius:8px;padding:12px 18px;font-weight:bold;cursor:pointer}.actions button:first-child{background:#8ce5cd;color:#12352e}@media print{body{background:#fff}.report{max-width:none;margin:0;padding:0}.actions{display:none}thead{display:table-header-group}tr,.cards,.head{break-inside:avoid}h2{break-after:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body><main class="report"><header class="head"><div><small>COMERCIALIZACIÓN · MÉTRICAS</small><h1>Reporte de pedidos consolidados</h1><small>Generado: ${escapeHtml(new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" }))} · Hora de El Salvador</small></div><img src="${escapeHtml(logoUrl)}" alt="KONFI"></header><section class="filters"><div><b>Período:</b> ${escapeHtml(period)}</div><div><b>Vendedor:</b> ${escapeHtml(sellerLabel)}</div><div><b>OP y cliente:</b> ${escapeHtml(orderLabel)}</div></section><section class="cards"><article><span>Pedidos filtrados</span><strong>${detailRows.length}</strong></article><article><span>Venta filtrada</span><strong>${formatMoney(detailSales)}</strong></article><article><span>Vendedores en el resultado</span><strong>${summary.length}</strong></article></section><h2>Resumen por vendedor</h2><table><thead><tr><th>Vendedor</th><th class="number">Pedidos</th><th class="money">Venta</th><th class="number">Participación</th></tr></thead><tbody>${summaryBody || '<tr><td colspan="4" class="empty">No hay pedidos para los filtros seleccionados.</td></tr>'}</tbody><tfoot><tr><td>Total</td><td class="number">${detailRows.length}</td><td class="money">${formatMoney(detailSales)}</td><td class="number">${detailSales ? "100.0" : "0.0"}%</td></tr></tfoot></table><h2>Detalle de pedidos seleccionados</h2><table><colgroup><col style="width:12%"><col style="width:18%"><col style="width:32%"><col style="width:23%"><col style="width:15%"></colgroup><thead><tr><th>Fecha</th><th>Número de OP</th><th>Cliente</th><th>Vendedor</th><th class="money">Venta</th></tr></thead><tbody>${detailBody || '<tr><td colspan="5" class="empty">No hay pedidos para los filtros seleccionados.</td></tr>'}</tbody><tfoot><tr><td colspan="4">Total de venta filtrada</td><td class="money">${formatMoney(detailSales)}</td></tr></tfoot></table><p class="footer">Este reporte utiliza los mismos pedidos autorizados y filtros de la pantalla de Métricas. Los importes corresponden a la venta registrada por pedido.</p></main><nav class="actions"><button type="button" onclick="window.print()">Imprimir / Guardar PDF</button><button type="button" onclick="window.close()">Cerrar</button></nav></body></html>`);
+  popup.document.close();
+}
+
 function wireCommercialMetrics() {
+  opportunityTable.querySelector("[data-commercial-metrics-report]")?.addEventListener("click", openCommercialMetricsReport);
   opportunityTable.querySelector("[data-commercial-metrics-back]")?.addEventListener("click", () => {
     state.activeSubmenu = "crm";
     persistNavigationState();
